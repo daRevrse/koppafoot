@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // Helper functions
+    // ============================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function getUserType() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type;
+    }
+
+    function isRole(role) {
+      return isAuthenticated() && getUserType() == role;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserType() == 'superadmin';
+    }
+
+    // Prevent modifying protected fields
+    function noProtectedFields() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['user_type', 'is_active', 'created_at', 'auth_providers']);
+    }
+
+    // ============================================
+    // Users collection
+    // ============================================
+    match /users/{uid} {
+      // Anyone authenticated can read any user profile (public profiles)
+      allow read: if isAuthenticated();
+
+      // Users can create their own profile at signup
+      allow create: if isOwner(uid);
+
+      // Users can update their own profile (except protected fields)
+      allow update: if isOwner(uid) && noProtectedFields();
+
+      // Only superadmin can delete users
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Venues collection
+    // ============================================
+    match /venues/{venueId} {
+      // Anyone authenticated can read venues
+      allow read: if isAuthenticated();
+
+      // Only venue_owner can create
+      allow create: if isAuthenticated()
+        && request.resource.data.owner_id == request.auth.uid;
+
+      // Only the venue owner can update their venue
+      allow update: if isAuthenticated()
+        && resource.data.owner_id == request.auth.uid;
+
+      // Only venue owner or superadmin can delete
+      allow delete: if isAuthenticated()
+        && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
+
+      // Venue bookings subcollection
+      match /bookings/{bookingId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated()
+          && (resource.data.booked_by == request.auth.uid
+              || get(/databases/$(database)/documents/venues/$(venueId)).data.owner_id == request.auth.uid);
+      }
+    }
+
+    // ============================================
+    // Teams collection (placeholder — expanded later)
+    // ============================================
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && resource.data.manager_id == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && (resource.data.manager_id == request.auth.uid || isSuperAdmin());
+    }
+
+    // ============================================
+    // Matches collection (placeholder — expanded later)
+    // ============================================
+    match /matches/{matchId} {
+      allow read: if true; // Public match info
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+      }
+
+      // Participations subcollection
+      match /participations/{participationId} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAuthenticated();
+      }
+    }
+
+    // ============================================
+    // Feed / Posts collection
+    // ============================================
+    match /posts/{postId} {
+      allow read: if true; // Public feed
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && resource.data.author_id == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && (resource.data.author_id == request.auth.uid || isSuperAdmin());
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated()
+          && (resource.data.author_id == request.auth.uid || isSuperAdmin());
+      }
+    }
+
+    // ============================================
+    // Notifications collection
+    // ============================================
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+    }
+  }
+}
