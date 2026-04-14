@@ -1,143 +1,108 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  Trophy, Calendar, MapPin, Clock, Users, CheckCircle,
-  XCircle, Timer, ChevronRight, Shield,
+  Trophy, Calendar, MapPin, Clock, CheckCircle,
+  XCircle, Timer, Shield, Inbox, History, Loader2,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  onParticipationsForPlayer,
+  respondToParticipation,
+} from "@/lib/firestore";
+import type { Participation } from "@/types";
 
 // ============================================
-// Mock data
+// Config
 // ============================================
 
-type MatchStatus = "upcoming" | "played" | "cancelled";
-type MatchResult = "win" | "loss" | "draw" | null;
-
-interface Participation {
-  id: string;
-  homeTeam: string;
-  awayTeam: string;
-  myTeam: string;
-  date: string;
-  time: string;
-  venue: string;
-  venueCity: string;
-  status: MatchStatus;
-  result: MatchResult;
-  scoreHome: number | null;
-  scoreAway: number | null;
-  playerStats?: { goals: number; assists: number };
-}
-
-const PARTICIPATIONS: Participation[] = [
-  {
-    id: "m1",
-    homeTeam: "FC Koppa",
-    awayTeam: "AS Tonnerre",
-    myTeam: "FC Koppa",
-    date: "Dim. 20 Avr.",
-    time: "15:00",
-    venue: "Stade Municipal",
-    venueCity: "Paris",
-    status: "upcoming",
-    result: null,
-    scoreHome: null,
-    scoreAway: null,
-  },
-  {
-    id: "m2",
-    homeTeam: "Inter Club",
-    awayTeam: "FC Koppa",
-    myTeam: "FC Koppa",
-    date: "Mer. 23 Avr.",
-    time: "19:30",
-    venue: "Terrain Synthétique Nord",
-    venueCity: "Paris",
-    status: "upcoming",
-    result: null,
-    scoreHome: null,
-    scoreAway: null,
-  },
-  {
-    id: "m3",
-    homeTeam: "FC Koppa",
-    awayTeam: "Olympique Réunis",
-    myTeam: "FC Koppa",
-    date: "Sam. 12 Avr.",
-    time: "14:00",
-    venue: "Complexe Sportif Est",
-    venueCity: "Paris",
-    status: "played",
-    result: "win",
-    scoreHome: 3,
-    scoreAway: 1,
-    playerStats: { goals: 1, assists: 1 },
-  },
-  {
-    id: "m4",
-    homeTeam: "Red Wolves FC",
-    awayTeam: "FC Koppa",
-    myTeam: "FC Koppa",
-    date: "Sam. 5 Avr.",
-    time: "16:00",
-    venue: "Terrain Municipal Sud",
-    venueCity: "Toulouse",
-    status: "played",
-    result: "loss",
-    scoreHome: 2,
-    scoreAway: 1,
-    playerStats: { goals: 1, assists: 0 },
-  },
-  {
-    id: "m5",
-    homeTeam: "FC Koppa",
-    awayTeam: "FC Étoile",
-    myTeam: "FC Koppa",
-    date: "Dim. 30 Mar.",
-    time: "15:00",
-    venue: "Stade Municipal",
-    venueCity: "Paris",
-    status: "played",
-    result: "draw",
-    scoreHome: 2,
-    scoreAway: 2,
-    playerStats: { goals: 0, assists: 2 },
-  },
-  {
-    id: "m6",
-    homeTeam: "Les Invincibles",
-    awayTeam: "Inter Quartier",
-    myTeam: "Les Invincibles",
-    date: "Mar. 25 Mar.",
-    time: "20:00",
-    venue: "Terrain Indoor Central",
-    venueCity: "Paris",
-    status: "cancelled",
-    result: null,
-    scoreHome: null,
-    scoreAway: null,
-  },
-];
-
-const RESULT_CONFIG = {
-  win: { label: "Victoire", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle },
-  loss: { label: "Défaite", color: "text-red-500", bg: "bg-red-50", icon: XCircle },
-  draw: { label: "Nul", color: "text-amber-600", bg: "bg-amber-50", icon: Timer },
+const STATUS_CONFIG = {
+  confirmed: { label: "Confirmé", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
+  declined: { label: "Décliné", color: "bg-gray-100 text-gray-500", icon: XCircle },
+  pending: { label: "En attente", color: "bg-amber-100 text-amber-700", icon: Timer },
 };
+
+// ============================================
+// Loading skeleton
+// ============================================
+
+function ParticipationSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-40 rounded bg-gray-200" />
+          </div>
+          <div className="flex gap-3">
+            <div className="h-3 w-24 rounded bg-gray-100" />
+            <div className="h-3 w-20 rounded bg-gray-100" />
+            <div className="h-3 w-28 rounded bg-gray-100" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-9 w-24 rounded-lg bg-gray-100" />
+            <div className="h-9 w-24 rounded-lg bg-gray-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ============================================
 // Component
 // ============================================
 
-type Tab = "upcoming" | "past";
+type Tab = "requests" | "history";
 
 export default function ParticipationsPage() {
-  const [tab, setTab] = useState<Tab>("upcoming");
+  const { user } = useAuth();
+  const [participations, setParticipations] = useState<Participation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>("requests");
+  const [respondingIds, setRespondingIds] = useState<Set<string>>(new Set());
 
-  const upcoming = PARTICIPATIONS.filter((p) => p.status === "upcoming");
-  const past = PARTICIPATIONS.filter((p) => p.status !== "upcoming");
-  const displayed = tab === "upcoming" ? upcoming : past;
+  // Real-time listener for participations
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    const unsubscribe = onParticipationsForPlayer(user.uid, (data) => {
+      setParticipations(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // Filter by tab
+  const pending = participations.filter((p) => p.status === "pending");
+  const history = participations.filter((p) => p.status === "confirmed" || p.status === "declined");
+
+  const displayed = tab === "requests" ? pending : history;
+
+  // Respond handler
+  const handleRespond = async (participation: Participation, accepted: boolean) => {
+    const participationId = participation.id;
+    setRespondingIds((prev) => new Set(prev).add(participationId));
+    try {
+      await respondToParticipation(
+        participationId,
+        accepted,
+        participation.matchId,
+        participation.teamId,
+        participation.matchFormat,
+        participation.isHome,
+      );
+    } catch (err) {
+      console.error("Erreur lors de la réponse:", err);
+    } finally {
+      setRespondingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(participationId);
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -148,7 +113,7 @@ export default function ParticipationsPage() {
         transition={{ duration: 0.3 }}
       >
         <h1 className="text-2xl font-bold text-gray-900 font-display">Participations</h1>
-        <p className="mt-1 text-sm text-gray-500">Tes matchs à venir et passés</p>
+        <p className="mt-1 text-sm text-gray-500">Gère tes demandes de participation aux matchs</p>
       </motion.div>
 
       {/* Tabs */}
@@ -159,167 +124,166 @@ export default function ParticipationsPage() {
         className="flex border-b border-gray-200"
       >
         <button
-          onClick={() => setTab("upcoming")}
+          onClick={() => setTab("requests")}
           className={`flex items-center gap-2 border-b-2 pb-3 pr-6 text-sm font-medium transition-colors ${
-            tab === "upcoming"
+            tab === "requests"
               ? "border-primary-600 text-primary-600"
               : "border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
-          <Calendar size={16} /> À venir
-          {upcoming.length > 0 && (
+          <Inbox size={16} /> Demandes
+          {pending.length > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-100 px-1.5 text-xs font-bold text-primary-700">
-              {upcoming.length}
+              {pending.length}
             </span>
           )}
         </button>
         <button
-          onClick={() => setTab("past")}
+          onClick={() => setTab("history")}
           className={`flex items-center gap-2 border-b-2 pb-3 pr-6 text-sm font-medium transition-colors ${
-            tab === "past"
+            tab === "history"
               ? "border-primary-600 text-primary-600"
               : "border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
-          <Trophy size={16} /> Historique
-          <span className="text-xs text-gray-400">({past.length})</span>
+          <History size={16} /> Historique
+          <span className="text-xs text-gray-400">({history.length})</span>
         </button>
       </motion.div>
 
-      {/* Match cards */}
-      <div className="space-y-3">
-        {displayed.map((match, i) => {
-          const isHome = match.homeTeam === match.myTeam;
-          const resultConf = match.result ? RESULT_CONFIG[match.result] : null;
-          const ResultIcon = resultConf?.icon;
+      {/* Loading state */}
+      {loading && <ParticipationSkeleton />}
 
-          return (
+      {/* Cards */}
+      {!loading && (
+        <div className="space-y-3">
+          <AnimatePresence mode="popLayout">
+            {displayed.map((participation, i) => {
+              const isResponding = respondingIds.has(participation.id);
+              const statusConf = STATUS_CONFIG[participation.status];
+              const StatusIcon = statusConf.icon;
+
+              return (
+                <motion.div
+                  key={participation.id}
+                  layout
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.06 }}
+                  className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+                >
+                  <div className="p-4 sm:p-5">
+                    {/* Match label */}
+                    <div className="flex items-center gap-2">
+                      <Shield size={16} className="text-primary-500" />
+                      <span className="text-sm font-bold text-gray-900">
+                        {participation.matchLabel}
+                      </span>
+                    </div>
+
+                    {/* Meta row */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} /> {participation.matchDate}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} /> {participation.matchTime}
+                      </span>
+                      {participation.venueName && (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} /> {participation.venueName}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Status badge (history tab) */}
+                    {participation.status !== "pending" && (
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusConf.color}`}>
+                          <StatusIcon size={12} /> {statusConf.label}
+                        </span>
+
+                        {/* Goals/assists for confirmed participations */}
+                        {participation.status === "confirmed" && (participation.goals > 0 || participation.assists > 0) && (
+                          <div className="flex items-center gap-3 text-xs">
+                            {participation.goals > 0 && (
+                              <span className="flex items-center gap-1 font-semibold text-accent-600">
+                                <Trophy size={12} /> {participation.goals} but{participation.goals > 1 ? "s" : ""}
+                              </span>
+                            )}
+                            {participation.assists > 0 && (
+                              <span className="flex items-center gap-1 text-gray-500">
+                                {participation.assists} passe{participation.assists > 1 ? "s" : ""} D
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action buttons (pending only) */}
+                    {participation.status === "pending" && (
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          onClick={() => handleRespond(participation, true)}
+                          disabled={isResponding}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isResponding ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <CheckCircle size={14} />
+                          )}
+                          Accepter
+                        </button>
+                        <button
+                          onClick={() => handleRespond(participation, false)}
+                          disabled={isResponding}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isResponding ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <XCircle size={14} />
+                          )}
+                          Décliner
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          {/* Empty state */}
+          {displayed.length === 0 && (
             <motion.div
-              key={match.id}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.06 }}
-              whileHover={{ x: 3 }}
-              className={`group overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md ${
-                match.status === "cancelled" ? "border-gray-200 opacity-60" : "border-gray-200"
-              }`}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
             >
-              <div className="flex flex-col sm:flex-row">
-                {/* Result strip */}
-                {resultConf && (
-                  <div className={`flex items-center justify-center sm:w-24 py-2 sm:py-0 ${resultConf.bg}`}>
-                    <div className="flex sm:flex-col items-center gap-1.5 sm:gap-0.5">
-                      {ResultIcon && <ResultIcon size={18} className={resultConf.color} />}
-                      <span className={`text-xs font-bold ${resultConf.color}`}>{resultConf.label}</span>
-                    </div>
-                  </div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+                {tab === "requests" ? (
+                  <Inbox size={32} className="text-gray-300" />
+                ) : (
+                  <History size={32} className="text-gray-300" />
                 )}
-
-                {match.status === "cancelled" && (
-                  <div className="flex items-center justify-center bg-gray-100 sm:w-24 py-2 sm:py-0">
-                    <span className="text-xs font-bold text-gray-400">Annulé</span>
-                  </div>
-                )}
-
-                {match.status === "upcoming" && (
-                  <div className="flex items-center justify-center bg-primary-50 sm:w-24 py-2 sm:py-0">
-                    <div className="flex sm:flex-col items-center gap-1.5 sm:gap-0">
-                      <span className="text-lg font-bold text-primary-600 font-display">{match.time}</span>
-                      <span className="text-xs text-primary-500">{match.date.split(" ")[0]}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Main content */}
-                <div className="flex-1 p-4 sm:p-5">
-                  {/* Teams */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Shield size={16} className={isHome ? "text-primary-500" : "text-gray-400"} />
-                      <span className={`text-sm truncate ${isHome ? "font-bold text-gray-900" : "text-gray-600"}`}>
-                        {match.homeTeam}
-                      </span>
-                    </div>
-
-                    {match.scoreHome !== null && match.scoreAway !== null ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-lg font-bold text-gray-900 font-display">{match.scoreHome}</span>
-                        <span className="text-xs text-gray-400">-</span>
-                        <span className="text-lg font-bold text-gray-900 font-display">{match.scoreAway}</span>
-                      </div>
-                    ) : (
-                      <span className="shrink-0 text-xs font-medium text-gray-400">VS</span>
-                    )}
-
-                    <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                      <span className={`text-sm truncate ${!isHome ? "font-bold text-gray-900" : "text-gray-600"}`}>
-                        {match.awayTeam}
-                      </span>
-                      <Shield size={16} className={!isHome ? "text-primary-500" : "text-gray-400"} />
-                    </div>
-                  </div>
-
-                  {/* Meta + Stats */}
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} /> {match.date}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin size={12} /> {match.venue}
-                      </span>
-                    </div>
-
-                    {match.playerStats && (
-                      <div className="flex items-center gap-3 text-xs">
-                        {match.playerStats.goals > 0 && (
-                          <span className="flex items-center gap-1 font-semibold text-accent-600">
-                            {match.playerStats.goals} but{match.playerStats.goals > 1 ? "s" : ""}
-                          </span>
-                        )}
-                        {match.playerStats.assists > 0 && (
-                          <span className="flex items-center gap-1 text-gray-500">
-                            {match.playerStats.assists} passe{match.playerStats.assists > 1 ? "s" : ""} D
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Arrow */}
-                <div className="hidden sm:flex items-center pr-4">
-                  <ChevronRight size={16} className="text-gray-300 group-hover:text-primary-500 transition-colors" />
-                </div>
               </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">
+                {tab === "requests" ? "Aucune demande en attente" : "Aucun historique"}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {tab === "requests"
+                  ? "Les demandes de participation apparaîtront ici quand un manager programmera un match"
+                  : "Tes participations confirmées et déclinées apparaîtront ici"}
+              </p>
             </motion.div>
-          );
-        })}
-
-        {displayed.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-              {tab === "upcoming" ? (
-                <Calendar size={32} className="text-gray-300" />
-              ) : (
-                <Trophy size={32} className="text-gray-300" />
-              )}
-            </div>
-            <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">
-              {tab === "upcoming" ? "Aucun match à venir" : "Aucun match joué"}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {tab === "upcoming"
-                ? "Rejoins une équipe pour participer à des matchs"
-                : "Tes matchs terminés apparaîtront ici"}
-            </p>
-          </motion.div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
