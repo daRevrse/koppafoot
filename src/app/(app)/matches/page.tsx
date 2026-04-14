@@ -17,7 +17,7 @@ import {
   searchTeams,
   getTeamById,
   getUsersByIds,
-  getMatchChallengesForManager,
+  onMatchChallengesForManager,
   respondToMatchChallenge,
 } from "@/lib/firestore";
 import type { Match, Team, Venue } from "@/types";
@@ -115,16 +115,14 @@ export default function MatchesPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [matchesData, teamsData, venuesData, challengesData] = await Promise.all([
+      const [matchesData, teamsData, venuesData] = await Promise.all([
         getMatchesByManager(user.uid),
         getTeamsByManager(user.uid),
         getVenues(),
-        getMatchChallengesForManager(user.uid),
       ]);
       setMatches(matchesData);
       setTeams(teamsData);
       setVenues(venuesData);
-      setChallenges(challengesData);
     } catch (err) {
       console.error("Erreur de chargement:", err);
     } finally {
@@ -135,6 +133,15 @@ export default function MatchesPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Real-time challenges listener
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onMatchChallengesForManager(user.uid, (data) => {
+      setChallenges(data);
+    });
+    return unsub;
+  }, [user?.uid]);
 
   // Close away dropdown on outside click
   useEffect(() => {

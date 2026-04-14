@@ -6,7 +6,7 @@ import {
   Search, MapPin, Users, Star, Shield, Filter,
   UserPlus, ChevronDown, X, Loader2, Send,
 } from "lucide-react";
-import { searchTeams, createJoinRequest } from "@/lib/firestore";
+import { searchTeams, createJoinRequest, getJoinRequestsByPlayer } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Team } from "@/types";
 
@@ -177,6 +177,15 @@ export default function TeamSearchPage() {
       clearTimeout(timer);
     };
   }, [query, cityFilter, levelFilter]);
+
+  // Pre-load existing pending candidatures on mount
+  useEffect(() => {
+    if (!user) return;
+    getJoinRequestsByPlayer(user.uid).then((reqs) => {
+      const pending = reqs.filter((r) => r.status === "pending").map((r) => r.teamId);
+      setSentRequests(new Set(pending));
+    });
+  }, [user]);
 
   // Auto-dismiss success toast
   useEffect(() => {

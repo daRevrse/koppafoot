@@ -235,8 +235,8 @@ export default function MercatoPage() {
     if (!user) return;
     setAddingToShortlist((prev) => new Set([...prev, player.uid]));
     try {
-      const pos = (player as unknown as { position?: string }).position ?? "";
-      const lvl = (player as unknown as { skillLevel?: string }).skillLevel ?? "";
+      const pos = player.position ?? "";
+      const lvl = player.skillLevel ?? "";
       const id = await addToShortlist({
         managerId: user.uid,
         playerId: player.uid,
@@ -410,8 +410,8 @@ export default function MercatoPage() {
           ) : players.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {players.map((player, i) => {
-                const pos = (player as unknown as { position?: string }).position ?? "";
-                const lvl = (player as unknown as { skillLevel?: string }).skillLevel ?? "";
+                const pos = player.position ?? "";
+                const lvl = player.skillLevel ?? "";
                 const initials = `${player.firstName[0] ?? ""}${player.lastName[0] ?? ""}`;
                 const isShortlisted = shortlistedIds.has(player.uid);
                 const isAdding = addingToShortlist.has(player.uid);

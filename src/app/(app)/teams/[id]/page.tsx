@@ -32,7 +32,7 @@ const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string; ring
 };
 
 const LEVEL_LABELS: Record<string, string> = {
-  beginner: "Debutant", amateur: "Amateur", intermediate: "Intermediaire", advanced: "Avance",
+  beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Avancé",
 };
 
 const TEAM_COLORS = [
@@ -231,6 +231,7 @@ export default function TeamDetailPage() {
   // Join requests (real-time)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Modals
   const [showEditModal, setShowEditModal] = useState(false);
@@ -330,6 +331,7 @@ export default function TeamDetailPage() {
   const handleAccept = async (request: JoinRequest) => {
     if (!team || !user) return;
     setRespondingId(request.id);
+    setActionError(null);
     try {
       await respondToJoinRequest(request.id, true);
       await sendInvitation({
@@ -345,7 +347,7 @@ export default function TeamDetailPage() {
         message: `Votre candidature pour ${team.name} a été acceptée. Rejoignez-nous !`,
       });
     } catch {
-      // Silent
+      setActionError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setRespondingId(null);
     }
@@ -353,10 +355,11 @@ export default function TeamDetailPage() {
 
   const handleRefuse = async (requestId: string) => {
     setRespondingId(requestId);
+    setActionError(null);
     try {
       await respondToJoinRequest(requestId, false);
     } catch {
-      // Silent
+      setActionError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setRespondingId(null);
     }
@@ -553,7 +556,7 @@ export default function TeamDetailPage() {
             <AnimatePresence mode="popLayout">
               {members.map((member, i) => {
                 const isManagerMember = member.uid === team.managerId;
-                const pos = (member as unknown as { position?: string }).position ?? "";
+                const pos = member.position ?? "";
                 const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`;
 
                 return (
@@ -809,6 +812,13 @@ export default function TeamDetailPage() {
             <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
               <ClipboardList size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucune candidature pour le moment</p>
+            </div>
+          )}
+
+          {/* Error feedback */}
+          {actionError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {actionError}
             </div>
           )}
         </motion.div>

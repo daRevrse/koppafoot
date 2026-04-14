@@ -341,7 +341,6 @@ export function onJoinRequestsByManager(managerId: string, callback: (data: Join
 export function onJoinRequestsByTeam(teamId: string, callback: (data: JoinRequest[]) => void): Unsubscribe {
   const q = query(collection(db, "join_requests"),
     where("team_id", "==", teamId),
-    where("status", "==", "pending"),
     orderBy("created_at", "desc"));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => toJoinRequest(d.id, d.data() as FirestoreJoinRequest)));

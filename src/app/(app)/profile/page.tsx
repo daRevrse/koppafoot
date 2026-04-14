@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -212,14 +213,22 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
-          {!editing && (
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/profile/${user.uid}`}
+              className="text-sm text-emerald-600 hover:underline"
             >
-              <Edit3 size={14} /> Modifier
-            </button>
-          )}
+              Voir mon profil public →
+            </Link>
+            {!editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Edit3 size={14} /> Modifier
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
