@@ -69,8 +69,7 @@ const MANAGER_GROUPED: NavEntry[] = [
     icon: "Shield",
     items: [
       { path: "/teams", icon: "Users", label: "Mes équipes" },
-      { path: "/invitations", icon: "MessageSquare", label: "Invitations", badge: true },
-      { path: "/recruitment", icon: "UserPlus", label: "Recrutement" },
+      { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
     ],
   },
   {
@@ -78,7 +77,7 @@ const MANAGER_GROUPED: NavEntry[] = [
     label: "Compétition",
     icon: "Trophy",
     items: [
-      { path: "/matches", icon: "Trophy", label: "Matchs" },
+      { path: "/matches", icon: "Trophy", label: "Matchs", badge: true },
       { path: "/referees", icon: "Award", label: "Arbitres" },
       { path: "/calendar", icon: "Calendar", label: "Calendrier" },
     ],
@@ -211,8 +210,7 @@ const MANAGER_NAV: NavItem[] = [
   { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
   { path: "/teams", icon: "Users", label: "Mes équipes" },
   { path: "/matches", icon: "Trophy", label: "Matchs" },
-  { path: "/invitations", icon: "MessageSquare", label: "Invitations", badge: true },
-  { path: "/recruitment", icon: "UserPlus", label: "Recrutement" },
+  { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
   { path: "/venues", icon: "MapPin", label: "Terrains" },
   { path: "/referees", icon: "Award", label: "Arbitres" },
   { path: "/calendar", icon: "Calendar", label: "Calendrier" },

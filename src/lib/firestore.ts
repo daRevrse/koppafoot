@@ -426,6 +426,16 @@ export async function getMatchChallengesForManager(managerId: string): Promise<M
   return snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch));
 }
 
+export function onMatchChallengesForManager(managerId: string, callback: (data: Match[]) => void): Unsubscribe {
+  const q = query(collection(db, "matches"),
+    where("away_manager_id", "==", managerId),
+    where("status", "==", "challenge"),
+    orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch)));
+  });
+}
+
 export async function respondToMatchChallenge(
   matchId: string,
   accepted: boolean,

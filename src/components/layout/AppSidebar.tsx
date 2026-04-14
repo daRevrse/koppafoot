@@ -1,22 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Home, Users, Search, UserPlus, CheckCircle, MapPin, Calendar, Hash,
   Trophy, MessageSquare, Award, ShieldCheck, FileText, LogOut, Menu, X, User,
-  Shirt, Globe, Shield, MessageCircle,
+  Shirt, Globe, Shield, MessageCircle, UserSearch,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_GROUPED_NAV, isNavGroup, type NavItem, type NavEntry } from "@/config/navigation";
 import SidebarNavGroup from "./SidebarNavGroup";
+import {
+  onJoinRequestsByManager, onInvitationsByManager,
+  onMatchChallengesForManager,
+  onInvitationsForPlayer, onParticipationsForPlayer,
+} from "@/lib/firestore";
 
 // Map icon string names to lucide components
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Home, Users, Search, UserPlus, CheckCircle, MapPin, Calendar, Hash,
-  Trophy, MessageSquare, Award, ShieldCheck, FileText, User, Shirt, Globe, Shield, MessageCircle,
+  Trophy, MessageSquare, Award, ShieldCheck, FileText, User, Shirt, Globe, Shield, MessageCircle, UserSearch,
 };
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -26,9 +31,51 @@ function isActive(pathname: string, item: NavItem): boolean {
 
 export default function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Real-time badge counts
+  useEffect(() => {
+    if (!user) return;
+    const unsubs: (() => void)[] = [];
+
+    if (user.userType === "manager") {
+      // Mercato badge = pending candidatures + pending invitations
+      let pendingApps = 0;
+      let pendingInvs = 0;
+      const updateMercato = () =>
+        setBadgeCounts((prev) => ({ ...prev, "/mercato": pendingApps + pendingInvs }));
+
+      unsubs.push(onJoinRequestsByManager(user.uid, (reqs) => {
+        pendingApps = reqs.filter((r) => r.status === "pending").length;
+        updateMercato();
+      }));
+      unsubs.push(onInvitationsByManager(user.uid, (invs) => {
+        pendingInvs = invs.filter((i) => i.status === "pending").length;
+        updateMercato();
+      }));
+
+      // Matches badge = pending challenges
+      unsubs.push(onMatchChallengesForManager(user.uid, (challenges) => {
+        setBadgeCounts((prev) => ({ ...prev, "/matches": challenges.length }));
+      }));
+    }
+
+    if (user.userType === "player") {
+      // Invitations badge
+      unsubs.push(onInvitationsForPlayer(user.uid, (invs) => {
+        setBadgeCounts((prev) => ({ ...prev, "/player-invitations": invs.filter((i) => i.status === "pending").length }));
+      }));
+      // Participations badge
+      unsubs.push(onParticipationsForPlayer(user.uid, (parts) => {
+        setBadgeCounts((prev) => ({ ...prev, "/participations": parts.filter((p) => p.status === "pending").length }));
+      }));
+    }
+
+    return () => unsubs.forEach((u) => u());
+  }, [user]);
 
   if (!user) return null;
 
@@ -68,6 +115,7 @@ export default function AppSidebar() {
                   onNavigate={() => setMobileOpen(false)}
                   variant="sporty"
                   iconMap={ICONS}
+                  badgeCounts={badgeCounts}
                 />
               );
             }
@@ -75,6 +123,7 @@ export default function AppSidebar() {
             const item = entry as NavItem;
             const Icon = ICONS[item.icon] ?? Home;
             const active = isActive(pathname, item);
+            const count = badgeCounts[item.path] ?? 0;
             return (
               <Link
                 key={item.path}
@@ -86,7 +135,12 @@ export default function AppSidebar() {
                   }`}
               >
                 <Icon size={20} className={active ? "text-accent-400" : "text-emerald-500"} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.badge && count > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                    {count}
+                  </span>
+                )}
               </Link>
             );
           })}
