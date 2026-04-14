@@ -133,6 +133,13 @@ function toUserProfile(uid: string, d: FirestoreUser): UserProfile {
     isActive: d.is_active, emailVerified: false,
     authProviders: d.auth_providers ?? [],
     createdAt: d.created_at, updatedAt: d.updated_at,
+    // Role-specific optional fields
+    ...(d.position !== undefined && { position: d.position }),
+    ...(d.skill_level !== undefined && { skillLevel: d.skill_level }),
+    ...(d.team_name !== undefined && { teamName: d.team_name }),
+    ...(d.license_number !== undefined && { licenseNumber: d.license_number }),
+    ...(d.license_level !== undefined && { licenseLevel: d.license_level }),
+    ...(d.experience_years !== undefined && { experienceYears: d.experience_years }),
   };
 }
 

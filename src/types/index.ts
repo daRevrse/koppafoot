@@ -23,6 +23,19 @@ export interface UserProfile {
   authProviders: AuthProvider[];
   createdAt: string;
   updatedAt: string;
+  // Player-specific (may be absent)
+  position?: string;
+  skillLevel?: string;
+  // Manager-specific
+  teamName?: string;
+  // Referee-specific
+  licenseNumber?: string;
+  licenseLevel?: string;
+  experienceYears?: number;
+  // Player stats (may be absent)
+  matchesPlayed?: number;
+  goals?: number;
+  assists?: number;
 }
 
 // Signup form data before Firestore write

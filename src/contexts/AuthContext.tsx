@@ -91,6 +91,13 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     authProviders: data.auth_providers ?? [],
     createdAt: data.created_at,
     updatedAt: data.updated_at,
+    // Role-specific optional fields
+    ...(data.position !== undefined && { position: data.position }),
+    ...(data.skill_level !== undefined && { skillLevel: data.skill_level }),
+    ...(data.team_name !== undefined && { teamName: data.team_name }),
+    ...(data.license_number !== undefined && { licenseNumber: data.license_number }),
+    ...(data.license_level !== undefined && { licenseLevel: data.license_level }),
+    ...(data.experience_years !== undefined && { experienceYears: data.experience_years }),
   };
 }
 
