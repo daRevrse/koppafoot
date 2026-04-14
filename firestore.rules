@@ -84,8 +84,12 @@ service cloud.firestore {
     match /teams/{teamId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+
+      // Manager can update anything; members can update member_ids (leave/join)
       allow update: if isAuthenticated()
-        && resource.data.manager_id == request.auth.uid;
+        && (resource.data.manager_id == request.auth.uid
+            || request.auth.uid in resource.data.member_ids);
+
       allow delete: if isAuthenticated()
         && (resource.data.manager_id == request.auth.uid || isSuperAdmin());
     }
@@ -96,7 +100,9 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true; // Public match info
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && (resource.data.manager_id == request.auth.uid
+            || resource.data.away_manager_id == request.auth.uid);
       allow delete: if isAuthenticated();
 
       // Messages subcollection
@@ -110,6 +116,34 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update: if isAuthenticated();
       }
+    }
+
+    // ============================================
+    // Invitations collection
+    // ============================================
+    match /invitations/{invitationId} {
+      allow read: if isAuthenticated()
+        && (resource.data.sender_id == request.auth.uid
+            || resource.data.receiver_id == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.sender_id == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.receiver_id == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.sender_id == request.auth.uid;
+    }
+
+    // ============================================
+    // Participations collection
+    // ============================================
+    match /participations/{participationId} {
+      allow read: if isAuthenticated()
+        && (resource.data.player_id == request.auth.uid
+            || isRole('manager') || isSuperAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && resource.data.player_id == request.auth.uid;
+      allow delete: if isAuthenticated();
     }
 
     // ============================================
@@ -140,6 +174,29 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
         && resource.data.user_id == request.auth.uid;
+    }
+
+    // ============================================
+    // Shortlists collection (manager mercato)
+    // ============================================
+    match /shortlists/{shortlistId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.manager_id == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.manager_id == request.auth.uid;
+    }
+
+    // ============================================
+    // Join Requests collection (player → team)
+    // ============================================
+    match /join_requests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.player_id == request.auth.uid;
+      allow read: if isAuthenticated()
+        && (resource.data.player_id == request.auth.uid
+            || resource.data.manager_id == request.auth.uid);
+      allow update: if isAuthenticated()
+        && resource.data.manager_id == request.auth.uid;
     }
   }
 }
