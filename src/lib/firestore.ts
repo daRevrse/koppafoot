@@ -1,0 +1,482 @@
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit as firestoreLimit,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  onSnapshot,
+  arrayUnion,
+  arrayRemove,
+  increment,
+  type Unsubscribe,
+  type QueryConstraint,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type {
+  Team, FirestoreTeam,
+  Match, FirestoreMatch,
+  Participation, FirestoreParticipation,
+  Invitation, FirestoreInvitation,
+  Venue, FirestoreVenue,
+  Post, FirestorePost,
+  Comment, FirestoreComment,
+  UserProfile, FirestoreUser,
+} from "@/types";
+
+// ============================================
+// Converters
+// ============================================
+
+function toTeam(id: string, d: FirestoreTeam): Team {
+  return {
+    id, name: d.name, managerId: d.manager_id, city: d.city,
+    description: d.description, level: d.level, lookingFor: d.looking_for ?? [],
+    memberIds: d.member_ids ?? [], maxMembers: d.max_members, color: d.color,
+    wins: d.wins ?? 0, losses: d.losses ?? 0, draws: d.draws ?? 0,
+    matchesPlayed: d.matches_played ?? 0, isRecruiting: d.is_recruiting ?? false,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+function toMatch(id: string, d: FirestoreMatch): Match {
+  return {
+    id, homeTeamId: d.home_team_id, awayTeamId: d.away_team_id,
+    homeTeamName: d.home_team_name, awayTeamName: d.away_team_name,
+    managerId: d.manager_id, date: d.date, time: d.time,
+    venueName: d.venue_name, venueCity: d.venue_city, status: d.status,
+    result: d.result, scoreHome: d.score_home, scoreAway: d.score_away,
+    refereeId: d.referee_id, refereeName: d.referee_name,
+    refereeStatus: d.referee_status ?? "none", format: d.format,
+    isHome: d.is_home, playersConfirmed: d.players_confirmed ?? 0,
+    playersTotal: d.players_total ?? 0,
+    awayManagerId: d.away_manager_id ?? "",
+    confirmedHome: d.confirmed_home ?? 0,
+    confirmedAway: d.confirmed_away ?? 0,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+function toParticipation(id: string, d: FirestoreParticipation): Participation {
+  return {
+    id, playerId: d.player_id, playerName: d.player_name,
+    teamId: d.team_id, matchId: d.match_id, matchLabel: d.match_label,
+    matchDate: d.match_date, matchTime: d.match_time, venueName: d.venue_name,
+    status: d.status, goals: d.goals ?? 0, assists: d.assists ?? 0,
+    matchFormat: d.match_format ?? "", isHome: d.is_home ?? false,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+function toInvitation(id: string, d: FirestoreInvitation): Invitation {
+  return {
+    id, senderId: d.sender_id, senderName: d.sender_name,
+    receiverId: d.receiver_id, receiverName: d.receiver_name,
+    receiverCity: d.receiver_city, receiverPosition: d.receiver_position,
+    receiverLevel: d.receiver_level, teamId: d.team_id, teamName: d.team_name,
+    message: d.message, status: d.status,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+function toVenue(id: string, d: FirestoreVenue): Venue {
+  return {
+    id, name: d.name, address: d.address, city: d.city, ownerId: d.owner_id,
+    fieldType: d.field_type, fieldSurface: d.field_surface, fieldSize: d.field_size,
+    rating: d.rating ?? 0, reviewCount: d.review_count ?? 0,
+    pricePerHour: d.price_per_hour ?? 0, amenities: d.amenities ?? [],
+    available: d.available ?? true, photoUrl: d.photo_url ?? null,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+function toPost(id: string, d: FirestorePost, currentUserId?: string): Post {
+  const likes = d.likes ?? [];
+  const meta = d.metadata;
+  return {
+    id, authorId: d.author_id, authorName: d.author_name,
+    authorRole: d.author_role, authorAvatar: d.author_avatar,
+    type: d.type, content: d.content,
+    metadata: meta ? {
+      homeTeam: meta.home_team, awayTeam: meta.away_team,
+      scoreHome: meta.score_home, scoreAway: meta.score_away,
+      teamName: meta.team_name,
+    } : null,
+    likes, commentCount: d.comment_count ?? 0,
+    isLiked: currentUserId ? likes.includes(currentUserId) : false,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+function toComment(id: string, d: FirestoreComment): Comment {
+  return {
+    id, authorId: d.author_id, authorName: d.author_name,
+    content: d.content, createdAt: d.created_at,
+  };
+}
+
+function toUserProfile(uid: string, d: FirestoreUser): UserProfile {
+  return {
+    uid, email: d.email, phone: d.phone,
+    firstName: d.first_name, lastName: d.last_name,
+    userType: d.user_type, locationCity: d.location_city,
+    bio: d.bio ?? null, profilePictureUrl: d.profile_picture_url,
+    coverPhotoUrl: d.cover_photo_url, companyName: d.company_name ?? null,
+    isActive: d.is_active, emailVerified: false,
+    authProviders: d.auth_providers ?? [],
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
+// ============================================
+// Teams
+// ============================================
+
+export async function getTeamsByManager(managerId: string): Promise<Team[]> {
+  const q = query(collection(db, "teams"), where("manager_id", "==", managerId), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam));
+}
+
+export async function getTeamsByPlayer(playerId: string): Promise<Team[]> {
+  const q = query(collection(db, "teams"), where("member_ids", "array-contains", playerId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam));
+}
+
+export async function getTeamById(teamId: string): Promise<Team | null> {
+  const snap = await getDoc(doc(db, "teams", teamId));
+  if (!snap.exists()) return null;
+  return toTeam(snap.id, snap.data() as FirestoreTeam);
+}
+
+export async function createTeam(data: {
+  name: string; managerId: string; city: string; description: string;
+  level: string; maxMembers: number; color: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "teams"), {
+    name: data.name, manager_id: data.managerId, city: data.city,
+    description: data.description, level: data.level,
+    looking_for: [], member_ids: [data.managerId],
+    max_members: data.maxMembers, color: data.color,
+    wins: 0, losses: 0, draws: 0, matches_played: 0,
+    is_recruiting: true,
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), { ...data, updated_at: serverTimestamp() });
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+  await deleteDoc(doc(db, "teams", teamId));
+}
+
+export async function removeTeamMember(teamId: string, playerId: string): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    member_ids: arrayRemove(playerId),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function addTeamMember(teamId: string, playerId: string): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    member_ids: arrayUnion(playerId),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function getUsersByIds(uids: string[]): Promise<UserProfile[]> {
+  if (uids.length === 0) return [];
+  // Firestore 'in' supports up to 30 values per query
+  const results: UserProfile[] = [];
+  for (let i = 0; i < uids.length; i += 30) {
+    const batch = uids.slice(i, i + 30);
+    const q = query(collection(db, "users"), where("__name__", "in", batch));
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      results.push(toUserProfile(d.id, d.data() as FirestoreUser));
+    }
+  }
+  return results;
+}
+
+export async function getParticipationsForMatch(matchId: string): Promise<Participation[]> {
+  const q = query(collection(db, "participations"), where("match_id", "==", matchId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toParticipation(d.id, d.data() as FirestoreParticipation));
+}
+
+export async function searchTeams(filters: { city?: string; level?: string; query?: string }): Promise<Team[]> {
+  const constraints: QueryConstraint[] = [where("is_recruiting", "==", true)];
+  if (filters.city) constraints.push(where("city", "==", filters.city));
+  if (filters.level) constraints.push(where("level", "==", filters.level));
+  const q = query(collection(db, "teams"), ...constraints);
+  const snap = await getDocs(q);
+  let results = snap.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam));
+  if (filters.query) {
+    const search = filters.query.toLowerCase();
+    results = results.filter((t) => t.name.toLowerCase().includes(search));
+  }
+  return results;
+}
+
+// ============================================
+// Matches
+// ============================================
+
+export async function getMatchesByManager(managerId: string): Promise<Match[]> {
+  const q = query(collection(db, "matches"), where("manager_id", "==", managerId), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch));
+}
+
+export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
+  if (teamIds.length === 0) return [];
+  // Firestore 'in' supports up to 30 values
+  const qHome = query(collection(db, "matches"), where("home_team_id", "in", teamIds.slice(0, 30)));
+  const qAway = query(collection(db, "matches"), where("away_team_id", "in", teamIds.slice(0, 30)));
+  const [snapH, snapA] = await Promise.all([getDocs(qHome), getDocs(qAway)]);
+  const map = new Map<string, Match>();
+  for (const d of [...snapH.docs, ...snapA.docs]) {
+    if (!map.has(d.id)) map.set(d.id, toMatch(d.id, d.data() as FirestoreMatch));
+  }
+  return Array.from(map.values()).sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+}
+
+export async function createMatch(data: {
+  homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
+  managerId: string; date: string; time: string; venueName: string; venueCity: string;
+  format: string; isHome: boolean; status: string; playersTotal: number;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "matches"), {
+    home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
+    home_team_name: data.homeTeamName, away_team_name: data.awayTeamName,
+    manager_id: data.managerId, date: data.date, time: data.time,
+    venue_name: data.venueName, venue_city: data.venueCity,
+    status: data.status, result: null, score_home: null, score_away: null,
+    referee_id: null, referee_name: null, referee_status: "none",
+    format: data.format, is_home: data.isHome,
+    players_confirmed: 0, players_total: data.playersTotal,
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateMatch(matchId: string, data: Partial<FirestoreMatch>): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), { ...data, updated_at: serverTimestamp() });
+}
+
+export async function deleteMatch(matchId: string): Promise<void> {
+  await deleteDoc(doc(db, "matches", matchId));
+}
+
+// ============================================
+// Participations (top-level collection)
+// ============================================
+
+export async function createParticipationsForTeam(
+  matchId: string, matchLabel: string, matchDate: string, matchTime: string,
+  venueName: string, teamId: string, memberIds: string[], memberNames: Map<string, string>,
+): Promise<void> {
+  const batch: Promise<unknown>[] = [];
+  for (const playerId of memberIds) {
+    batch.push(addDoc(collection(db, "participations"), {
+      player_id: playerId,
+      player_name: memberNames.get(playerId) ?? "",
+      team_id: teamId,
+      match_id: matchId,
+      match_label: matchLabel,
+      match_date: matchDate,
+      match_time: matchTime,
+      venue_name: venueName,
+      status: "pending",
+      goals: 0, assists: 0,
+      created_at: serverTimestamp(), updated_at: serverTimestamp(),
+    }));
+  }
+  await Promise.all(batch);
+}
+
+export async function getParticipationsForPlayer(playerId: string): Promise<Participation[]> {
+  const q = query(collection(db, "participations"), where("player_id", "==", playerId), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toParticipation(d.id, d.data() as FirestoreParticipation));
+}
+
+export async function respondToParticipation(participationId: string, accepted: boolean): Promise<void> {
+  await updateDoc(doc(db, "participations", participationId), {
+    status: accepted ? "confirmed" : "declined",
+    updated_at: serverTimestamp(),
+  });
+}
+
+export function onParticipationsForPlayer(playerId: string, callback: (data: Participation[]) => void): Unsubscribe {
+  const q = query(collection(db, "participations"), where("player_id", "==", playerId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toParticipation(d.id, d.data() as FirestoreParticipation)));
+  });
+}
+
+// ============================================
+// Invitations
+// ============================================
+
+export async function sendInvitation(data: {
+  senderId: string; senderName: string; receiverId: string; receiverName: string;
+  receiverCity: string; receiverPosition: string; receiverLevel: string;
+  teamId: string; teamName: string; message: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "invitations"), {
+    sender_id: data.senderId, sender_name: data.senderName,
+    receiver_id: data.receiverId, receiver_name: data.receiverName,
+    receiver_city: data.receiverCity, receiver_position: data.receiverPosition,
+    receiver_level: data.receiverLevel, team_id: data.teamId,
+    team_name: data.teamName, message: data.message,
+    status: "pending",
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export function onInvitationsForPlayer(playerId: string, callback: (data: Invitation[]) => void): Unsubscribe {
+  const q = query(collection(db, "invitations"), where("receiver_id", "==", playerId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toInvitation(d.id, d.data() as FirestoreInvitation)));
+  });
+}
+
+export function onInvitationsByManager(managerId: string, callback: (data: Invitation[]) => void): Unsubscribe {
+  const q = query(collection(db, "invitations"), where("sender_id", "==", managerId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toInvitation(d.id, d.data() as FirestoreInvitation)));
+  });
+}
+
+export async function respondToInvitation(invitationId: string, accepted: boolean, teamId?: string, playerId?: string): Promise<void> {
+  await updateDoc(doc(db, "invitations", invitationId), {
+    status: accepted ? "accepted" : "declined",
+    updated_at: serverTimestamp(),
+  });
+  // If accepted, add player to team
+  if (accepted && teamId && playerId) {
+    await updateDoc(doc(db, "teams", teamId), {
+      member_ids: arrayUnion(playerId),
+      updated_at: serverTimestamp(),
+    });
+  }
+}
+
+export async function cancelInvitation(invitationId: string): Promise<void> {
+  await deleteDoc(doc(db, "invitations", invitationId));
+}
+
+// ============================================
+// Players (for recruitment search)
+// ============================================
+
+export async function searchPlayers(filters: { city?: string; position?: string; skillLevel?: string; query?: string }): Promise<UserProfile[]> {
+  const constraints: QueryConstraint[] = [where("user_type", "==", "player"), where("is_active", "==", true)];
+  if (filters.city) constraints.push(where("location_city", "==", filters.city));
+  if (filters.position) constraints.push(where("position", "==", filters.position));
+  if (filters.skillLevel) constraints.push(where("skill_level", "==", filters.skillLevel));
+  const q = query(collection(db, "users"), ...constraints);
+  const snap = await getDocs(q);
+  let results = snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
+  if (filters.query) {
+    const search = filters.query.toLowerCase();
+    results = results.filter((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(search));
+  }
+  return results;
+}
+
+// ============================================
+// Referees (for referee search)
+// ============================================
+
+export async function searchReferees(filters: { city?: string; licenseLevel?: string; query?: string }): Promise<UserProfile[]> {
+  const constraints: QueryConstraint[] = [where("user_type", "==", "referee"), where("is_active", "==", true)];
+  if (filters.city) constraints.push(where("location_city", "==", filters.city));
+  if (filters.licenseLevel) constraints.push(where("license_level", "==", filters.licenseLevel));
+  const q = query(collection(db, "users"), ...constraints);
+  const snap = await getDocs(q);
+  let results = snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
+  if (filters.query) {
+    const search = filters.query.toLowerCase();
+    results = results.filter((r) => `${r.firstName} ${r.lastName}`.toLowerCase().includes(search));
+  }
+  return results;
+}
+
+// ============================================
+// Venues
+// ============================================
+
+export async function getVenues(filters?: { city?: string; fieldSize?: string; query?: string }): Promise<Venue[]> {
+  const constraints: QueryConstraint[] = [];
+  if (filters?.city) constraints.push(where("city", "==", filters.city));
+  if (filters?.fieldSize) constraints.push(where("field_size", "==", filters.fieldSize));
+  const q = query(collection(db, "venues"), ...constraints);
+  const snap = await getDocs(q);
+  let results = snap.docs.map((d) => toVenue(d.id, d.data() as FirestoreVenue));
+  if (filters?.query) {
+    const search = filters.query.toLowerCase();
+    results = results.filter((v) => v.name.toLowerCase().includes(search));
+  }
+  return results;
+}
+
+// ============================================
+// Feed / Posts
+// ============================================
+
+export function onPosts(maxResults: number, currentUserId: string, callback: (data: Post[]) => void): Unsubscribe {
+  const q = query(collection(db, "posts"), orderBy("created_at", "desc"), firestoreLimit(maxResults));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId)));
+  });
+}
+
+export async function createPost(data: {
+  authorId: string; authorName: string; authorRole: string; authorAvatar: string;
+  type: string; content: string;
+  metadata?: { home_team?: string; away_team?: string; score_home?: number; score_away?: number; team_name?: string } | null;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "posts"), {
+    author_id: data.authorId, author_name: data.authorName,
+    author_role: data.authorRole, author_avatar: data.authorAvatar,
+    type: data.type, content: data.content,
+    metadata: data.metadata ?? null, likes: [], comment_count: 0,
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function toggleLike(postId: string, userId: string, isLiked: boolean): Promise<void> {
+  await updateDoc(doc(db, "posts", postId), {
+    likes: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+  });
+}
+
+export async function addComment(postId: string, data: { authorId: string; authorName: string; content: string }): Promise<string> {
+  const ref = await addDoc(collection(db, "posts", postId, "comments"), {
+    author_id: data.authorId, author_name: data.authorName,
+    content: data.content, created_at: serverTimestamp(),
+  });
+  await updateDoc(doc(db, "posts", postId), { comment_count: increment(1) });
+  return ref.id;
+}
+
+export async function getComments(postId: string): Promise<Comment[]> {
+  const q = query(collection(db, "posts", postId, "comments"), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toComment(d.id, d.data() as FirestoreComment));
+}
