@@ -3,18 +3,40 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import Link from "next/link";
-import { LogOut, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { ROLE_REDIRECTS } from "@/types";
+import AppSidebar from "@/components/layout/AppSidebar";
+import AppHeader from "@/components/layout/AppHeader";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    // Not authenticated → login
+    if (!firebaseUser) {
       router.replace("/login");
+      return;
     }
-  }, [user, loading, router]);
+
+    // Authenticated but no Firestore profile → complete onboarding
+    if (!user) {
+      router.replace("/get-started");
+      return;
+    }
+
+    // Venue owners and superadmins have their own layouts
+    if (user.userType === "venue_owner") {
+      router.replace(ROLE_REDIRECTS.venue_owner);
+      return;
+    }
+    if (user.userType === "superadmin") {
+      router.replace(ROLE_REDIRECTS.superadmin);
+      return;
+    }
+  }, [user, firebaseUser, loading, router]);
 
   if (loading) {
     return (
@@ -24,47 +46,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
-
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
+  // Don't render until user is valid for this layout
+  if (!user || user.userType === "venue_owner" || user.userType === "superadmin") return null;
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar — minimal for now, will be expanded with modules */}
-      <aside className="flex w-64 flex-col border-r border-gray-200 bg-white">
-        <div className="flex h-16 items-center border-b border-gray-200 px-6">
-          <Link href="/dashboard" className="text-xl font-bold text-primary-600">
-            KOPPAFOOT
-          </Link>
-        </div>
-        <nav className="flex-1 px-4 py-6">
-          <p className="mb-2 text-xs font-medium uppercase text-gray-400">Navigation</p>
-          <Link
-            href="/dashboard"
-            className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-          >
-            Tableau de bord
-          </Link>
-        </nav>
-        <div className="border-t border-gray-200 p-4">
-          <div className="mb-3 text-sm">
-            <p className="font-medium text-gray-900">{user.firstName} {user.lastName}</p>
-            <p className="text-xs text-gray-500">{user.email ?? user.phone}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-          >
-            <LogOut size={16} /> Déconnexion
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 bg-[var(--color-bg-secondary)] p-8">{children}</main>
+      <AppSidebar />
+      <div className="flex flex-1 flex-col">
+        <AppHeader />
+        <main className="flex-1 bg-[var(--color-bg-secondary)] p-6 lg:p-8">{children}</main>
+      </div>
     </div>
   );
 }

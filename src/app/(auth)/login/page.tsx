@@ -7,7 +7,8 @@ import * as yup from "yup";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Mail, Phone, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Phone, Loader2, Lock } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -141,18 +142,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="rounded-xl bg-white p-8 shadow-md">
-      <h2 className="mb-6 text-center text-2xl font-semibold text-gray-900">Connexion</h2>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+    >
+      <h2 className="mb-2 text-2xl font-bold text-gray-900 font-display">Connexion</h2>
+      <p className="mb-8 text-sm text-gray-500">Connecte-toi pour accéder à ton espace</p>
 
       {/* Tabs */}
-      <div className="mb-6 flex rounded-lg bg-gray-100 p-1">
+      <div className="mb-6 flex border-b border-gray-200">
         <button
           type="button"
           onClick={() => { setTab("email"); setPhoneStep("number"); }}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors ${
             tab === "email"
-              ? "bg-white text-primary-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-primary-600 text-primary-600"
+              : "border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
           <Mail size={16} /> Email
@@ -160,150 +166,173 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => setTab("phone")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors ${
             tab === "phone"
-              ? "bg-white text-primary-600 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-primary-600 text-primary-600"
+              : "border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
           <Phone size={16} /> Téléphone
         </button>
       </div>
 
-      {/* Email Tab */}
-      {tab === "email" && (
-        <form onSubmit={emailForm.handleSubmit(handleEmailLogin)} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              {...emailForm.register("email")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-              placeholder="votre@email.com"
-            />
-            {emailForm.formState.errors.email && (
-              <p className="mt-1 text-xs text-red-600">{emailForm.formState.errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
-              Mot de passe
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                {...emailForm.register("password")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-10 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                placeholder="Mot de passe"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+      <AnimatePresence mode="wait">
+        {/* Email Tab */}
+        {tab === "email" && (
+          <motion.form
+            key="email"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2 }}
+            onSubmit={emailForm.handleSubmit(handleEmailLogin)}
+            className="space-y-4"
+          >
+            <div>
+              <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  {...emailForm.register("email")}
+                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                  placeholder="votre@email.com"
+                />
+              </div>
+              {emailForm.formState.errors.email && (
+                <p className="mt-1 text-xs text-red-600">{emailForm.formState.errors.email.message}</p>
+              )}
             </div>
-            {emailForm.formState.errors.password && (
-              <p className="mt-1 text-xs text-red-600">{emailForm.formState.errors.password.message}</p>
-            )}
-          </div>
 
-          <div className="text-right">
-            <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
-              Mot de passe oublié ?
-            </Link>
-          </div>
+            <div>
+              <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">Mot de passe</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  {...emailForm.register("password")}
+                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                  placeholder="Mot de passe"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {emailForm.formState.errors.password && (
+                <p className="mt-1 text-xs text-red-600">{emailForm.formState.errors.password.message}</p>
+              )}
+            </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+            <div className="text-right">
+              <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
+                Mot de passe oublié ?
+              </Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+            >
+              {submitting && <Loader2 size={16} className="animate-spin" />}
+              Se connecter
+            </button>
+          </motion.form>
+        )}
+
+        {/* Phone Tab */}
+        {tab === "phone" && phoneStep === "number" && (
+          <motion.form
+            key="phone"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+            onSubmit={phoneForm.handleSubmit(handleSendCode)}
+            className="space-y-4"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
-            Se connecter
-          </button>
-        </form>
-      )}
+            <div>
+              <label htmlFor="phone" className="mb-1 block text-sm font-medium text-gray-700">Numéro de téléphone</label>
+              <div className="relative">
+                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="phone"
+                  type="tel"
+                  {...phoneForm.register("phone")}
+                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                  placeholder="+33612345678"
+                />
+              </div>
+              {phoneForm.formState.errors.phone && (
+                <p className="mt-1 text-xs text-red-600">{phoneForm.formState.errors.phone.message}</p>
+              )}
+            </div>
 
-      {/* Phone Tab */}
-      {tab === "phone" && phoneStep === "number" && (
-        <form onSubmit={phoneForm.handleSubmit(handleSendCode)} className="space-y-4">
-          <div>
-            <label htmlFor="phone" className="mb-1 block text-sm font-medium text-gray-700">
-              Numéro de téléphone
-            </label>
-            <input
-              id="phone"
-              type="tel"
-              {...phoneForm.register("phone")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-              placeholder="+33612345678"
-            />
-            {phoneForm.formState.errors.phone && (
-              <p className="mt-1 text-xs text-red-600">{phoneForm.formState.errors.phone.message}</p>
-            )}
-          </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+            >
+              {submitting && <Loader2 size={16} className="animate-spin" />}
+              Envoyer le code
+            </button>
+          </motion.form>
+        )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+        {tab === "phone" && phoneStep === "code" && (
+          <motion.form
+            key="code"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+            onSubmit={codeForm.handleSubmit(handleConfirmCode)}
+            className="space-y-4"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
-            Envoyer le code
-          </button>
-        </form>
-      )}
+            <p className="text-sm text-gray-600">Un code à 6 chiffres a été envoyé à votre numéro.</p>
+            <div>
+              <label htmlFor="code" className="mb-1 block text-sm font-medium text-gray-700">Code de vérification</label>
+              <input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                {...codeForm.register("code")}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center text-lg tracking-widest focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                placeholder="000000"
+              />
+              {codeForm.formState.errors.code && (
+                <p className="mt-1 text-xs text-red-600">{codeForm.formState.errors.code.message}</p>
+              )}
+            </div>
 
-      {tab === "phone" && phoneStep === "code" && (
-        <form onSubmit={codeForm.handleSubmit(handleConfirmCode)} className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Un code à 6 chiffres a été envoyé à votre numéro.
-          </p>
-          <div>
-            <label htmlFor="code" className="mb-1 block text-sm font-medium text-gray-700">
-              Code de vérification
-            </label>
-            <input
-              id="code"
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              {...codeForm.register("code")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center text-lg tracking-widest focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-              placeholder="000000"
-            />
-            {codeForm.formState.errors.code && (
-              <p className="mt-1 text-xs text-red-600">{codeForm.formState.errors.code.message}</p>
-            )}
-          </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all"
+            >
+              {submitting && <Loader2 size={16} className="animate-spin" />}
+              Vérifier
+            </button>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-          >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
-            Vérifier
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setPhoneStep("number"); setConfirmation(null); }}
-            className="w-full text-sm text-gray-500 hover:text-gray-700"
-          >
-            Changer de numéro
-          </button>
-        </form>
-      )}
+            <button
+              type="button"
+              onClick={() => { setPhoneStep("number"); setConfirmation(null); }}
+              className="w-full text-sm text-gray-500 hover:text-gray-700"
+            >
+              Changer de numéro
+            </button>
+          </motion.form>
+        )}
+      </AnimatePresence>
 
       {/* Divider */}
       <div className="my-6 flex items-center gap-3">
@@ -317,7 +346,7 @@ export default function LoginPage() {
         type="button"
         onClick={handleGoogle}
         disabled={submitting}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:shadow-sm disabled:opacity-50 transition-all"
       >
         <svg viewBox="0 0 24 24" width="18" height="18">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -329,7 +358,7 @@ export default function LoginPage() {
       </button>
 
       {/* Links */}
-      <div className="mt-6 space-y-2 text-center text-sm">
+      <div className="mt-8 space-y-2 text-center text-sm">
         <p className="text-gray-600">
           Pas encore de compte ?{" "}
           <Link href="/signup" className="font-medium text-primary-600 hover:text-primary-700">
@@ -346,6 +375,6 @@ export default function LoginPage() {
 
       {/* reCAPTCHA container */}
       <div ref={recaptchaRef} />
-    </div>
+    </motion.div>
   );
 }

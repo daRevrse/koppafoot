@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ROLE_REDIRECTS } from "@/types";
+import BrandingPanel from "@/components/auth/BrandingPanel";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,11 +29,26 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   if (user) return null;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg-secondary)] px-4 py-12">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-primary-600">KOPPAFOOT</h1>
+    <div className="flex min-h-screen">
+      {/* Left branding panel — hidden on mobile */}
+      <div className="hidden md:flex md:w-1/2 lg:w-[45%]">
+        <BrandingPanel />
       </div>
-      <div className="w-full max-w-md">{children}</div>
+
+      {/* Right form panel */}
+      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-12">
+        {/* Mobile-only logo */}
+        <div className="mb-8 md:hidden">
+          <Image
+            src="/branding/logo_full_name.png"
+            alt="KOPPAFOOT"
+            width={160}
+            height={42}
+            priority
+          />
+        </div>
+        <div className="w-full max-w-md">{children}</div>
+      </div>
     </div>
   );
 }

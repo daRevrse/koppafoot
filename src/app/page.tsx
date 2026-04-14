@@ -1,10 +1,21 @@
+import LandingNav from "@/components/landing/LandingNav";
+import HeroSection from "@/components/landing/HeroSection";
+import RolesSection from "@/components/landing/RolesSection";
+import FeaturesSection from "@/components/landing/FeaturesSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import CTASection from "@/components/landing/CTASection";
+import LandingFooter from "@/components/landing/LandingFooter";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold text-primary-600">KOPPAFOOT</h1>
-      <p className="mt-4 text-lg text-[var(--color-text-secondary)]">
-        La plateforme qui connecte les passionnés de football
-      </p>
-    </main>
+    <>
+      <LandingNav />
+      <HeroSection />
+      <RolesSection />
+      <FeaturesSection />
+      <TestimonialsSection />
+      <CTASection />
+      <LandingFooter />
+    </>
   );
 }

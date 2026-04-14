@@ -14,8 +14,10 @@ export interface UserProfile {
   lastName: string;
   userType: UserRole;
   locationCity: string;
+  bio: string | null;
   profilePictureUrl: string | null;
   coverPhotoUrl: string | null;
+  companyName: string | null;
   isActive: boolean;
   emailVerified: boolean;
   authProviders: AuthProvider[];
@@ -32,6 +34,7 @@ export interface SignupData {
   lastName: string;
   userType: UserRole;
   locationCity: string;
+  bio?: string;
   // Player-specific
   position?: "goalkeeper" | "defender" | "midfielder" | "forward" | "any";
   skillLevel?: "beginner" | "amateur" | "intermediate" | "advanced";
@@ -66,8 +69,10 @@ export interface FirestoreUser {
   last_name: string;
   user_type: UserRole;
   location_city: string;
+  bio?: string;
   profile_picture_url: string | null;
   cover_photo_url: string | null;
+  company_name?: string;
   is_active: boolean;
   auth_providers: AuthProvider[];
   // Player fields

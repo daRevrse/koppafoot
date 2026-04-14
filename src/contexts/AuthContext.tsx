@@ -58,6 +58,8 @@ interface AuthContextType {
   // Account linking
   linkEmail: (email: string, password: string) => Promise<void>;
   linkPhone: (confirmation: ConfirmationResult, code: string) => Promise<void>;
+  // Onboarding (Google/Phone users without profile)
+  completeProfile: (data: SignupData) => Promise<void>;
   // Common
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -80,8 +82,10 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     lastName: data.last_name,
     userType: data.user_type,
     locationCity: data.location_city,
+    bio: data.bio ?? null,
     profilePictureUrl: data.profile_picture_url,
     coverPhotoUrl: data.cover_photo_url,
+    companyName: data.company_name ?? null,
     isActive: data.is_active,
     emailVerified: false, // overwritten by Firebase auth state
     authProviders: data.auth_providers ?? [],
@@ -94,30 +98,36 @@ function buildFirestoreUser(
   data: SignupData,
   providers: AuthProvider[],
 ): Omit<FirestoreUser, "created_at" | "updated_at"> {
-  return {
+  // Build base object — never pass undefined to Firestore
+  const base: Omit<FirestoreUser, "created_at" | "updated_at"> = {
     email: data.email ?? null,
     phone: data.phone ?? null,
     first_name: data.firstName,
     last_name: data.lastName,
     user_type: data.userType,
-    location_city: data.locationCity,
+    location_city: data.locationCity ?? "",
     profile_picture_url: null,
     cover_photo_url: null,
     is_active: true,
     auth_providers: providers,
-    ...(data.userType === "player" && {
-      position: data.position,
-      skill_level: data.skillLevel,
-    }),
-    ...(data.userType === "manager" && {
-      team_name: data.teamName,
-    }),
-    ...(data.userType === "referee" && {
-      license_number: data.licenseNumber,
-      license_level: data.licenseLevel,
-      experience_years: data.experienceYears,
-    }),
   };
+
+  if (data.bio) base.bio = data.bio;
+
+  if (data.userType === "player") {
+    if (data.position) base.position = data.position;
+    if (data.skillLevel) base.skill_level = data.skillLevel;
+  }
+  if (data.userType === "manager") {
+    if (data.teamName) base.team_name = data.teamName;
+  }
+  if (data.userType === "referee") {
+    if (data.licenseNumber) base.license_number = data.licenseNumber;
+    if (data.licenseLevel) base.license_level = data.licenseLevel;
+    if (data.experienceYears != null) base.experience_years = data.experienceYears;
+  }
+
+  return base;
 }
 
 async function createUserProfile(uid: string, data: SignupData, providers: AuthProvider[]) {
@@ -257,6 +267,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // --- Onboarding (Google/Phone new users) ---
+
+  const completeProfile = useCallback(async (data: SignupData) => {
+    if (!auth.currentUser) throw new Error("Non connecté");
+    // Derive providers from Firebase auth providerData
+    const providerMap: Record<string, AuthProvider> = {
+      "google.com": "google",
+      "phone": "phone",
+      "password": "email",
+    };
+    const providers: AuthProvider[] = auth.currentUser.providerData
+      .map((p) => providerMap[p.providerId])
+      .filter((p): p is AuthProvider => !!p);
+    if (providers.length === 0) providers.push("email");
+
+    await createUserProfile(auth.currentUser.uid, {
+      ...data,
+      email: data.email ?? auth.currentUser.email ?? undefined,
+      phone: data.phone ?? auth.currentUser.phoneNumber ?? undefined,
+    }, providers);
+
+    // Refresh local state
+    const profile = await fetchUserProfile(auth.currentUser.uid);
+    if (profile) {
+      profile.emailVerified = auth.currentUser.emailVerified;
+    }
+    setUser(profile);
+  }, []);
+
   // --- Common ---
 
   const logout = useCallback(async () => {
@@ -277,8 +316,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfileFn = useCallback(
     async (data: Partial<FirestoreUser>) => {
       if (!auth.currentUser) throw new Error("Non connecté");
+      // Strip undefined values — Firestore rejects them
+      const cleaned = Object.fromEntries(
+        Object.entries(data).filter(([, v]) => v !== undefined)
+      );
       const ref = doc(db, "users", auth.currentUser.uid);
-      await setDoc(ref, { ...data, updated_at: serverTimestamp() }, { merge: true });
+      await setDoc(ref, { ...cleaned, updated_at: serverTimestamp() }, { merge: true });
       // Refresh local state
       const profile = await fetchUserProfile(auth.currentUser.uid);
       if (profile && firebaseUser) {
@@ -300,6 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendPhoneCode,
         confirmPhoneCode,
         loginWithGoogle,
+        completeProfile,
         linkEmail,
         linkPhone,
         logout,
