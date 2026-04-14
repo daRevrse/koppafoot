@@ -28,6 +28,8 @@ import type {
   Post, FirestorePost,
   Comment, FirestoreComment,
   UserProfile, FirestoreUser,
+  ShortlistEntry, FirestoreShortlistEntry,
+  JoinRequest, FirestoreJoinRequest,
 } from "@/types";
 
 // ============================================
@@ -134,6 +136,25 @@ function toUserProfile(uid: string, d: FirestoreUser): UserProfile {
   };
 }
 
+function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntry {
+  return {
+    id, managerId: d.manager_id, playerId: d.player_id,
+    playerName: d.player_name, playerCity: d.player_city,
+    playerPosition: d.player_position, playerLevel: d.player_level,
+    playerBio: d.player_bio ?? "", createdAt: d.created_at,
+  };
+}
+
+function toJoinRequest(id: string, d: FirestoreJoinRequest): JoinRequest {
+  return {
+    id, playerId: d.player_id, playerName: d.player_name,
+    playerCity: d.player_city, playerPosition: d.player_position,
+    playerLevel: d.player_level, teamId: d.team_id, teamName: d.team_name,
+    managerId: d.manager_id, message: d.message, status: d.status,
+    createdAt: d.created_at, updatedAt: d.updated_at,
+  };
+}
+
 // ============================================
 // Teams
 // ============================================
@@ -163,7 +184,7 @@ export async function createTeam(data: {
   const ref = await addDoc(collection(db, "teams"), {
     name: data.name, manager_id: data.managerId, city: data.city,
     description: data.description, level: data.level,
-    looking_for: [], member_ids: [data.managerId],
+    looking_for: [], member_ids: [],
     max_members: data.maxMembers, color: data.color,
     wins: 0, losses: 0, draws: 0, matches_played: 0,
     is_recruiting: true,
@@ -209,6 +230,12 @@ export async function getUsersByIds(uids: string[]): Promise<UserProfile[]> {
   return results;
 }
 
+export async function getUserById(uid: string): Promise<UserProfile | null> {
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return null;
+  return toUserProfile(snap.id, snap.data() as FirestoreUser);
+}
+
 export async function getParticipationsForMatch(matchId: string): Promise<Participation[]> {
   const q = query(collection(db, "participations"), where("match_id", "==", matchId));
   const snap = await getDocs(q);
@@ -227,6 +254,104 @@ export async function searchTeams(filters: { city?: string; level?: string; quer
     results = results.filter((t) => t.name.toLowerCase().includes(search));
   }
   return results;
+}
+
+// ============================================
+// Shortlist
+// ============================================
+
+export async function getShortlistByManager(managerId: string): Promise<ShortlistEntry[]> {
+  const q = query(collection(db, "shortlists"), where("manager_id", "==", managerId), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toShortlistEntry(d.id, d.data() as FirestoreShortlistEntry));
+}
+
+export async function addToShortlist(data: {
+  managerId: string; playerId: string; playerName: string;
+  playerCity: string; playerPosition: string; playerLevel: string; playerBio: string;
+}): Promise<string> {
+  const q = query(collection(db, "shortlists"),
+    where("manager_id", "==", data.managerId),
+    where("player_id", "==", data.playerId));
+  const existing = await getDocs(q);
+  if (!existing.empty) return existing.docs[0].id;
+
+  const ref = await addDoc(collection(db, "shortlists"), {
+    manager_id: data.managerId, player_id: data.playerId,
+    player_name: data.playerName, player_city: data.playerCity,
+    player_position: data.playerPosition, player_level: data.playerLevel,
+    player_bio: data.playerBio, created_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function removeFromShortlist(shortlistId: string): Promise<void> {
+  await deleteDoc(doc(db, "shortlists", shortlistId));
+}
+
+export async function isInShortlist(managerId: string, playerId: string): Promise<string | null> {
+  const q = query(collection(db, "shortlists"),
+    where("manager_id", "==", managerId),
+    where("player_id", "==", playerId));
+  const snap = await getDocs(q);
+  return snap.empty ? null : snap.docs[0].id;
+}
+
+// ============================================
+// Join Requests (player → team)
+// ============================================
+
+export async function createJoinRequest(data: {
+  playerId: string; playerName: string; playerCity: string;
+  playerPosition: string; playerLevel: string;
+  teamId: string; teamName: string; managerId: string; message: string;
+}): Promise<string> {
+  const q = query(collection(db, "join_requests"),
+    where("player_id", "==", data.playerId),
+    where("team_id", "==", data.teamId),
+    where("status", "==", "pending"));
+  const existing = await getDocs(q);
+  if (!existing.empty) return existing.docs[0].id;
+
+  const ref = await addDoc(collection(db, "join_requests"), {
+    player_id: data.playerId, player_name: data.playerName,
+    player_city: data.playerCity, player_position: data.playerPosition,
+    player_level: data.playerLevel, team_id: data.teamId,
+    team_name: data.teamName, manager_id: data.managerId,
+    message: data.message, status: "pending",
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export function onJoinRequestsByManager(managerId: string, callback: (data: JoinRequest[]) => void): Unsubscribe {
+  const q = query(collection(db, "join_requests"), where("manager_id", "==", managerId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toJoinRequest(d.id, d.data() as FirestoreJoinRequest)));
+  });
+}
+
+export function onJoinRequestsByTeam(teamId: string, callback: (data: JoinRequest[]) => void): Unsubscribe {
+  const q = query(collection(db, "join_requests"),
+    where("team_id", "==", teamId),
+    where("status", "==", "pending"),
+    orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toJoinRequest(d.id, d.data() as FirestoreJoinRequest)));
+  });
+}
+
+export async function getJoinRequestsByPlayer(playerId: string): Promise<JoinRequest[]> {
+  const q = query(collection(db, "join_requests"), where("player_id", "==", playerId), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toJoinRequest(d.id, d.data() as FirestoreJoinRequest));
+}
+
+export async function respondToJoinRequest(requestId: string, accepted: boolean): Promise<void> {
+  await updateDoc(doc(db, "join_requests", requestId), {
+    status: accepted ? "accepted" : "rejected",
+    updated_at: serverTimestamp(),
+  });
 }
 
 // ============================================
@@ -254,18 +379,20 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
 
 export async function createMatch(data: {
   homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
-  managerId: string; date: string; time: string; venueName: string; venueCity: string;
-  format: string; isHome: boolean; status: string; playersTotal: number;
+  managerId: string; awayManagerId: string; date: string; time: string; venueName: string; venueCity: string;
+  format: string; isHome: boolean; playersTotal: number;
 }): Promise<string> {
   const ref = await addDoc(collection(db, "matches"), {
     home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
     home_team_name: data.homeTeamName, away_team_name: data.awayTeamName,
-    manager_id: data.managerId, date: data.date, time: data.time,
+    manager_id: data.managerId, away_manager_id: data.awayManagerId,
+    date: data.date, time: data.time,
     venue_name: data.venueName, venue_city: data.venueCity,
-    status: data.status, result: null, score_home: null, score_away: null,
+    status: "challenge", result: null, score_home: null, score_away: null,
     referee_id: null, referee_name: null, referee_status: "none",
     format: data.format, is_home: data.isHome,
     players_confirmed: 0, players_total: data.playersTotal,
+    confirmed_home: 0, confirmed_away: 0,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   return ref.id;
@@ -280,12 +407,54 @@ export async function deleteMatch(matchId: string): Promise<void> {
 }
 
 // ============================================
+// Match Challenges
+// ============================================
+
+export async function getMatchChallengesForManager(managerId: string): Promise<Match[]> {
+  const q = query(collection(db, "matches"),
+    where("away_manager_id", "==", managerId),
+    where("status", "==", "challenge"),
+    orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch));
+}
+
+export async function respondToMatchChallenge(
+  matchId: string,
+  accepted: boolean,
+  homeTeamMemberIds: string[],
+  homeTeamMemberNames: Map<string, string>,
+  awayTeamMemberIds: string[],
+  awayTeamMemberNames: Map<string, string>,
+  matchLabel: string,
+  matchDate: string,
+  matchTime: string,
+  venueName: string,
+  homeTeamId: string,
+  awayTeamId: string,
+  format: string,
+): Promise<void> {
+  if (!accepted) {
+    await updateDoc(doc(db, "matches", matchId), {
+      status: "cancelled", updated_at: serverTimestamp(),
+    });
+    return;
+  }
+  await updateDoc(doc(db, "matches", matchId), {
+    status: "pending", updated_at: serverTimestamp(),
+  });
+  await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, homeTeamId, homeTeamMemberIds, homeTeamMemberNames, format, true);
+  await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, awayTeamId, awayTeamMemberIds, awayTeamMemberNames, format, false);
+}
+
+// ============================================
 // Participations (top-level collection)
 // ============================================
 
 export async function createParticipationsForTeam(
   matchId: string, matchLabel: string, matchDate: string, matchTime: string,
-  venueName: string, teamId: string, memberIds: string[], memberNames: Map<string, string>,
+  venueName: string, teamId: string, memberIds: string[],
+  memberNames: Map<string, string>, format: string, isHome: boolean,
 ): Promise<void> {
   const batch: Promise<unknown>[] = [];
   for (const playerId of memberIds) {
@@ -300,6 +469,8 @@ export async function createParticipationsForTeam(
       venue_name: venueName,
       status: "pending",
       goals: 0, assists: 0,
+      match_format: format,
+      is_home: isHome,
       created_at: serverTimestamp(), updated_at: serverTimestamp(),
     }));
   }
@@ -312,11 +483,66 @@ export async function getParticipationsForPlayer(playerId: string): Promise<Part
   return snap.docs.map((d) => toParticipation(d.id, d.data() as FirestoreParticipation));
 }
 
-export async function respondToParticipation(participationId: string, accepted: boolean): Promise<void> {
+const MATCH_QUOTAS: Record<string, number> = {
+  "5v5": 3,
+  "7v7": 5,
+  "11v11": 8,
+};
+
+export async function respondToParticipation(
+  participationId: string,
+  accepted: boolean,
+  matchId?: string,
+  teamId?: string,
+  format?: string,
+  isHome?: boolean,
+): Promise<void> {
   await updateDoc(doc(db, "participations", participationId), {
     status: accepted ? "confirmed" : "declined",
     updated_at: serverTimestamp(),
   });
+
+  if (!accepted || !matchId || !teamId || !format) return;
+
+  // Count confirmed for this team in this match
+  const q = query(collection(db, "participations"),
+    where("match_id", "==", matchId),
+    where("team_id", "==", teamId),
+    where("status", "==", "confirmed"));
+  const snap = await getDocs(q);
+  const confirmed = snap.size;
+
+  // Update match confirmed count
+  const matchRef = doc(db, "matches", matchId);
+  await updateDoc(matchRef, {
+    [isHome ? "confirmed_home" : "confirmed_away"]: confirmed,
+    updated_at: serverTimestamp(),
+  });
+
+  // Check if both teams meet quota
+  const matchSnap = await getDoc(matchRef);
+  if (!matchSnap.exists()) return;
+  const matchData = matchSnap.data() as FirestoreMatch;
+  const minQuota = MATCH_QUOTAS[format] ?? 3;
+
+  if (
+    matchData.status === "pending" &&
+    (matchData.confirmed_home ?? 0) >= minQuota &&
+    (matchData.confirmed_away ?? 0) >= minQuota
+  ) {
+    await updateDoc(matchRef, { status: "upcoming", updated_at: serverTimestamp() });
+    await addDoc(collection(db, "posts"), {
+      author_id: "system",
+      author_name: "Koppafoot",
+      author_role: "system",
+      author_avatar: "",
+      type: "match_announcement",
+      content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${matchData.date} à ${matchData.time} — ${matchData.venue_name}`,
+      metadata: { home_team: matchData.home_team_name, away_team: matchData.away_team_name },
+      likes: [], comment_count: 0,
+      created_at: serverTimestamp(), updated_at: serverTimestamp(),
+    });
+  }
 }
 
 export function onParticipationsForPlayer(playerId: string, callback: (data: Participation[]) => void): Unsubscribe {
