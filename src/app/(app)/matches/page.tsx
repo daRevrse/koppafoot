@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy, Calendar, MapPin, Clock, Users, Shield,
   Plus, CheckCircle, XCircle, Timer, ChevronRight,
-  Edit3, Trash2, Award, X, AlertCircle, Loader2,
+  Edit3, Trash2, Award, X, AlertCircle, Loader2, Search,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +14,11 @@ import {
   getVenues,
   createMatch,
   deleteMatch,
+  searchTeams,
+  getTeamById,
+  getUsersByIds,
+  getMatchChallengesForManager,
+  respondToMatchChallenge,
 } from "@/lib/firestore";
 import type { Match, Team, Venue } from "@/types";
 
@@ -73,40 +78,53 @@ function MatchSkeleton() {
 // Component
 // ============================================
 
-type Tab = "upcoming" | "completed" | "draft";
+type Tab = "upcoming" | "completed" | "draft" | "challenges";
 
 export default function MatchesPage() {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
+  const [challenges, setChallenges] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("upcoming");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [accepting, setAccepting] = useState<string | null>(null);
 
   // Form state
   const [selectedTeamId, setSelectedTeamId] = useState("");
-  const [opponentName, setOpponentName] = useState("");
   const [matchDate, setMatchDate] = useState("");
   const [matchTime, setMatchTime] = useState("");
   const [selectedVenueId, setSelectedVenueId] = useState("");
   const [format, setFormat] = useState("11v11");
   const [isHome, setIsHome] = useState(true);
 
+  // Away team search state
+  const [awaySearchQuery, setAwaySearchQuery] = useState("");
+  const [awaySearchResults, setAwaySearchResults] = useState<Team[]>([]);
+  const [awayTeamId, setAwayTeamId] = useState("");
+  const [awayTeamName, setAwayTeamName] = useState("");
+  const [awayManagerId, setAwayManagerId] = useState("");
+  const [showAwayDropdown, setShowAwayDropdown] = useState(false);
+  const awaySearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const awayDropdownRef = useRef<HTMLDivElement>(null);
+
   // Fetch data on mount
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [matchesData, teamsData, venuesData] = await Promise.all([
+      const [matchesData, teamsData, venuesData, challengesData] = await Promise.all([
         getMatchesByManager(user.uid),
         getTeamsByManager(user.uid),
         getVenues(),
+        getMatchChallengesForManager(user.uid),
       ]);
       setMatches(matchesData);
       setTeams(teamsData);
       setVenues(venuesData);
+      setChallenges(challengesData);
     } catch (err) {
       console.error("Erreur de chargement:", err);
     } finally {
@@ -118,34 +136,78 @@ export default function MatchesPage() {
     fetchData();
   }, [fetchData]);
 
+  // Close away dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (awayDropdownRef.current && !awayDropdownRef.current.contains(e.target as Node)) {
+        setShowAwayDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced away team search
+  const handleAwaySearchChange = (value: string) => {
+    setAwaySearchQuery(value);
+    setAwayTeamId("");
+    setAwayTeamName("");
+    setAwayManagerId("");
+
+    if (awaySearchTimeout.current) clearTimeout(awaySearchTimeout.current);
+    if (!value.trim()) {
+      setAwaySearchResults([]);
+      setShowAwayDropdown(false);
+      return;
+    }
+    awaySearchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await searchTeams({ query: value });
+        setAwaySearchResults(results);
+        setShowAwayDropdown(true);
+      } catch (err) {
+        console.error("Erreur recherche équipe:", err);
+      }
+    }, 300);
+  };
+
+  const selectAwayTeam = (team: Team) => {
+    setAwayTeamId(team.id);
+    setAwayTeamName(team.name);
+    setAwayManagerId(team.managerId);
+    setAwaySearchQuery(team.name);
+    setShowAwayDropdown(false);
+    setAwaySearchResults([]);
+  };
+
   // Filter matches by tab
   const upcoming = matches.filter((m) => m.status === "upcoming");
   const completed = matches.filter((m) => m.status === "completed");
   const drafts = matches.filter(
     (m) => m.status === "draft" || m.status === "challenge" || m.status === "pending",
   );
-  const displayed = tab === "upcoming" ? upcoming : tab === "completed" ? completed : drafts;
+  const displayed = tab === "upcoming" ? upcoming : tab === "completed" ? completed : tab === "draft" ? drafts : [];
 
   // Create match handler
   const handleCreate = async () => {
-    if (!user || !selectedTeamId || !opponentName || !matchDate || !matchTime) return;
+    if (!user || !selectedTeamId || !awayTeamName || !matchDate || !matchTime) return;
     const team = teams.find((t) => t.id === selectedTeamId);
     if (!team) return;
 
     const venue = venues.find((v) => v.id === selectedVenueId);
-    const homeTeamName = isHome ? team.name : opponentName;
-    const awayTeamName = isHome ? opponentName : team.name;
+    const homeTeamName = isHome ? team.name : awayTeamName;
+    const awayTeamNameFinal = isHome ? awayTeamName : team.name;
     const playersTotal = FORMAT_PLAYERS[format] ?? 11;
 
     setCreating(true);
     try {
       await createMatch({
-        homeTeamId: isHome ? team.id : "",
-        awayTeamId: isHome ? "" : team.id,
+        homeTeamId: isHome ? team.id : awayTeamId,
+        awayTeamId: isHome ? awayTeamId : team.id,
         homeTeamName,
-        awayTeamName,
+        awayTeamName: awayTeamNameFinal,
         managerId: user.uid,
-        awayManagerId: "",
+        awayManagerId: awayManagerId,
         date: matchDate,
         time: matchTime,
         venueName: venue?.name ?? "",
@@ -157,7 +219,12 @@ export default function MatchesPage() {
 
       // Reset form and refresh
       setSelectedTeamId("");
-      setOpponentName("");
+      setAwaySearchQuery("");
+      setAwayTeamId("");
+      setAwayTeamName("");
+      setAwayManagerId("");
+      setAwaySearchResults([]);
+      setShowAwayDropdown(false);
       setMatchDate("");
       setMatchTime("");
       setSelectedVenueId("");
@@ -182,10 +249,79 @@ export default function MatchesPage() {
     }
   };
 
+  // Accept challenge handler
+  const handleAcceptChallenge = async (match: Match) => {
+    setAccepting(match.id);
+    try {
+      const [homeTeam, awayTeam] = await Promise.all([
+        getTeamById(match.homeTeamId),
+        getTeamById(match.awayTeamId),
+      ]);
+      if (!homeTeam || !awayTeam) return;
+
+      const [homeMembers, awayMembers] = await Promise.all([
+        getUsersByIds(homeTeam.memberIds),
+        getUsersByIds(awayTeam.memberIds),
+      ]);
+
+      const homeMemberNames = new Map(homeMembers.map((m) => [m.uid, `${m.firstName} ${m.lastName}`]));
+      const awayMemberNames = new Map(awayMembers.map((m) => [m.uid, `${m.firstName} ${m.lastName}`]));
+      const matchLabel = `${match.homeTeamName} vs ${match.awayTeamName}`;
+
+      await respondToMatchChallenge(
+        match.id,
+        true,
+        homeTeam.memberIds,
+        homeMemberNames,
+        awayTeam.memberIds,
+        awayMemberNames,
+        matchLabel,
+        match.date,
+        match.time,
+        match.venueName,
+        match.homeTeamId,
+        match.awayTeamId,
+        match.format,
+      );
+
+      setChallenges((prev) => prev.filter((c) => c.id !== match.id));
+      await fetchData();
+    } catch (err) {
+      console.error("Erreur lors de l'acceptation du défi:", err);
+    } finally {
+      setAccepting(null);
+    }
+  };
+
+  // Reject challenge handler
+  const handleRejectChallenge = async (match: Match) => {
+    try {
+      await respondToMatchChallenge(
+        match.id,
+        false,
+        [],
+        new Map(),
+        [],
+        new Map(),
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        match.format,
+      );
+      setChallenges((prev) => prev.filter((c) => c.id !== match.id));
+    } catch (err) {
+      console.error("Erreur lors du refus du défi:", err);
+    }
+  };
+
   const tabs: { key: Tab; label: string; count: number; icon: typeof Calendar }[] = [
     { key: "upcoming", label: "À venir", count: upcoming.length, icon: Calendar },
     { key: "completed", label: "Terminés", count: completed.length, icon: Trophy },
     { key: "draft", label: "Brouillons", count: drafts.length, icon: Edit3 },
+    { key: "challenges", label: "Défis reçus", count: challenges.length, icon: Shield },
   ];
 
   return (
@@ -249,16 +385,39 @@ export default function MatchesPage() {
                     ))}
                   </select>
                 </div>
-                {/* Opponent */}
-                <div>
+                {/* Away team search */}
+                <div className="relative" ref={awayDropdownRef}>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Adversaire</label>
-                  <input
-                    type="text"
-                    value={opponentName}
-                    onChange={(e) => setOpponentName(e.target.value)}
-                    placeholder="Nom de l'équipe adverse"
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                  />
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={awaySearchQuery}
+                      onChange={(e) => handleAwaySearchChange(e.target.value)}
+                      placeholder="Rechercher l'équipe adverse..."
+                      className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    />
+                  </div>
+                  {showAwayDropdown && awaySearchResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
+                      {awaySearchResults.map((team) => (
+                        <button
+                          key={team.id}
+                          type="button"
+                          onClick={() => selectAwayTeam(team)}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-primary-50 transition-colors flex flex-col"
+                        >
+                          <span className="font-medium text-gray-900">{team.name}</span>
+                          <span className="text-xs text-gray-500">{team.city}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {showAwayDropdown && awaySearchResults.length === 0 && awaySearchQuery.trim() && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg px-4 py-3">
+                      <p className="text-sm text-gray-500">Aucune équipe trouvée</p>
+                    </div>
+                  )}
                 </div>
                 {/* Date */}
                 <div>
@@ -352,7 +511,7 @@ export default function MatchesPage() {
               <div className="mt-5 flex gap-3">
                 <button
                   onClick={handleCreate}
-                  disabled={creating || !selectedTeamId || !opponentName || !matchDate || !matchTime}
+                  disabled={creating || !selectedTeamId || !awayTeamName || !matchDate || !matchTime}
                   className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creating ? (
@@ -394,7 +553,11 @@ export default function MatchesPage() {
             >
               <Icon size={16} /> {t.label}
               <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                tab === t.key ? "bg-primary-100 text-primary-700" : "bg-gray-100 text-gray-500"
+                t.key === "challenges" && t.count > 0
+                  ? "bg-red-500 text-white"
+                  : tab === t.key
+                  ? "bg-primary-100 text-primary-700"
+                  : "bg-gray-100 text-gray-500"
               }`}>
                 {t.count}
               </span>
@@ -406,8 +569,110 @@ export default function MatchesPage() {
       {/* Loading state */}
       {loading && <MatchSkeleton />}
 
-      {/* Match cards */}
-      {!loading && (
+      {/* Challenges tab content */}
+      {!loading && tab === "challenges" && (
+        <div className="space-y-3">
+          <AnimatePresence mode="popLayout">
+            {challenges.map((match, i) => (
+              <motion.div
+                key={match.id}
+                layout
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.06 }}
+                className="overflow-hidden rounded-xl border border-dashed border-amber-300 bg-white transition-shadow hover:shadow-md"
+              >
+                <div className="flex flex-col sm:flex-row">
+                  {/* Status strip */}
+                  <div className="flex items-center justify-center bg-amber-50 sm:w-24 py-2 sm:py-0">
+                    <span className="text-xs font-bold text-amber-600">Défi reçu</span>
+                  </div>
+
+                  {/* Main content */}
+                  <div className="flex-1 p-4 sm:p-5">
+                    {/* Teams */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Shield size={16} className="text-primary-500" />
+                        <span className="text-sm font-bold text-gray-900 truncate">{match.homeTeamName}</span>
+                      </div>
+                      <span className="shrink-0 text-xs font-medium text-gray-400">VS</span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                        <span className="text-sm font-bold text-gray-900 truncate">{match.awayTeamName}</span>
+                        <Shield size={16} className="text-gray-400" />
+                      </div>
+                    </div>
+
+                    {/* Meta row */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} /> {match.date}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} /> {match.time}
+                      </span>
+                      {match.venueName ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} /> {match.venueName}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-amber-500">
+                          <MapPin size={12} /> Terrain à définir
+                        </span>
+                      )}
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium">
+                        {match.format}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => handleAcceptChallenge(match)}
+                        disabled={accepting === match.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {accepting === match.id ? (
+                          <><Loader2 size={14} className="animate-spin" /> Acceptation...</>
+                        ) : (
+                          <><CheckCircle size={14} /> Accepter</>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleRejectChallenge(match)}
+                        disabled={accepting === match.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <XCircle size={14} /> Refuser
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {/* Empty state for challenges */}
+          {challenges.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+            >
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+                <Trophy size={32} className="text-gray-300" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucun défi reçu</h3>
+              <p className="mt-1 text-sm text-gray-500">Les autres managers pourront vous défier ici</p>
+            </motion.div>
+          )}
+        </div>
+      )}
+
+      {/* Match cards (upcoming / completed / draft tabs) */}
+      {!loading && tab !== "challenges" && (
         <div className="space-y-3">
           <AnimatePresence mode="popLayout">
             {displayed.map((match, i) => {
