@@ -80,6 +80,8 @@ function InviteModal({ entry, teams, senderName, onClose, onSent }: {
         teamName: team?.name ?? "",
         message,
       });
+      // Automatically remove from shortlist after invitation is sent
+      await removeFromShortlist(entry.id);
       onSent();
       onClose();
     } catch {
@@ -270,7 +272,7 @@ export default function MercatoPage() {
     if (!user) return;
     setRespondingApp(req.id);
     try {
-      await respondToJoinRequest(req.id, true);
+      await respondToJoinRequest(req.id, true, req.teamId, req.playerId);
       await sendInvitation({
         senderId: user.uid,
         senderName: `${user.firstName} ${user.lastName}`,
@@ -283,6 +285,18 @@ export default function MercatoPage() {
         teamName: req.teamName,
         message: "Suite à votre candidature, nous vous invitons à rejoindre l'équipe.",
       });
+
+      // Cleanup shortlist if the player was in it
+      const slId = shortlistedIds.get(req.playerId);
+      if (slId) {
+        await removeFromShortlist(slId);
+        setShortlistedIds((prev) => {
+          const n = new Map(prev);
+          n.delete(req.playerId);
+          return n;
+        });
+        setShortlist((prev) => prev.filter((e) => e.id !== slId));
+      }
     } finally {
       setRespondingApp(null);
     }

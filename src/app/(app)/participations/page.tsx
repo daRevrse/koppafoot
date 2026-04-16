@@ -19,8 +19,9 @@ import type { Participation } from "@/types";
 
 const STATUS_CONFIG = {
   confirmed: { label: "Confirmé", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
-  declined: { label: "Décliné", color: "bg-gray-100 text-gray-500", icon: XCircle },
+  declined: { label: "Décliné", color: "bg-rose-100 text-rose-700", icon: XCircle },
   pending: { label: "En attente", color: "bg-amber-100 text-amber-700", icon: Timer },
+  cancelled: { label: "Match Annulé", color: "bg-gray-100 text-gray-500", icon: XCircle },
 };
 
 // ============================================
@@ -76,7 +77,7 @@ export default function ParticipationsPage() {
 
   // Filter by tab
   const pending = participations.filter((p) => p.status === "pending");
-  const history = participations.filter((p) => p.status === "confirmed" || p.status === "declined");
+  const history = participations.filter((p) => p.status !== "pending");
 
   const displayed = tab === "requests" ? pending : history;
 

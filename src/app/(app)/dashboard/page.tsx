@@ -1,44 +1,60 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   Trophy, Users, Target, UserPlus, Calendar, Shield, Award,
   FileText, Star, Clock, MapPin, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  getTeamsByManager,
+  getTeamsByPlayer,
+  getMatchesByTeamIds,
+  getParticipationsForPlayer,
+  onInvitationsForPlayer,
+  onInvitationsByManager,
+} from "@/lib/firestore";
+import type { Team, Match, Participation, Invitation } from "@/types";
 import StatCard from "@/components/ui/StatCard";
 import XPProgressBar from "@/components/ui/XPProgressBar";
 import LevelBadge from "@/components/ui/LevelBadge";
 
 // ============================================
-// Role-specific stats config
+// Helpers
 // ============================================
 
-const ROLE_STATS = {
-  player: [
-    { icon: Trophy, value: 12, label: "Matchs joués", trend: "up" as const, trendValue: "+3", color: "bg-primary-50" },
-    { icon: Target, value: 5, label: "Buts marqués", trend: "up" as const, trendValue: "+2", color: "bg-accent-50" },
-    { icon: Calendar, value: 2, label: "Prochains matchs", color: "bg-blue-50" },
-    { icon: UserPlus, value: 3, label: "Invitations", trend: "neutral" as const, color: "bg-purple-50" },
-  ],
-  manager: [
-    { icon: Users, value: 15, label: "Joueurs", trend: "up" as const, trendValue: "+2", color: "bg-primary-50" },
-    { icon: Calendar, value: 4, label: "Matchs programmés", color: "bg-blue-50" },
-    { icon: Trophy, value: 8, label: "Victoires", trend: "up" as const, trendValue: "+1", color: "bg-accent-50" },
-    { icon: UserPlus, value: 5, label: "Invitations envoyées", color: "bg-purple-50" },
-  ],
-  referee: [
-    { icon: Shield, value: 18, label: "Matchs arbitrés", trend: "up" as const, trendValue: "+4", color: "bg-primary-50" },
-    { icon: FileText, value: 18, label: "Rapports soumis", color: "bg-blue-50" },
-    { icon: Star, value: "4.7", label: "Note moyenne", trend: "up" as const, trendValue: "+0.2", color: "bg-accent-50" },
-    { icon: Calendar, value: 1, label: "Prochain match", color: "bg-purple-50" },
-  ],
-};
+function getUpcomingMatches(matches: Match[]): Match[] {
+  return matches
+    .filter((m) => m.status === "upcoming")
+    .sort((a, b) => {
+      const dateA = `${a.date}T${a.time || "00:00"}`;
+      const dateB = `${b.date}T${b.time || "00:00"}`;
+      return dateA.localeCompare(dateB);
+    })
+    .slice(0, 3);
+}
 
-const UPCOMING_MATCHES = [
-  { id: 1, teams: "FC Koppa vs AS Roma", date: "Dim. 20 Avr. — 15:00", venue: "Stade Municipal" },
-  { id: 2, teams: "Inter Club vs FC Koppa", date: "Mer. 23 Avr. — 19:30", venue: "Terrain Synthétique Nord" },
-  { id: 3, teams: "FC Koppa vs Olympique", date: "Sam. 26 Avr. — 14:00", venue: "Complexe Sportif Est" },
+function formatMatchDate(date: string, time: string): string {
+  try {
+    const d = new Date(date);
+    const days = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
+    const months = ["Jan.", "Fév.", "Mar.", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sep.", "Oct.", "Nov.", "Déc."];
+    return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]} — ${time || "Heure N/A"}`;
+  } catch {
+    return `${date} — ${time}`;
+  }
+}
+
+// ============================================
+// Static data (kept as-is for now)
+// ============================================
+
+const REFEREE_STATS = [
+  { icon: Shield, value: 0, label: "Matchs arbitrés", color: "bg-primary-50" },
+  { icon: FileText, value: 0, label: "Rapports soumis", color: "bg-blue-50" },
+  { icon: Star, value: "N/A", label: "Note moyenne", color: "bg-accent-50" },
+  { icon: Calendar, value: 0, label: "Prochain match", color: "bg-purple-50" },
 ];
 
 const RECENT_ACTIVITY = [
@@ -49,15 +65,150 @@ const RECENT_ACTIVITY = [
 ];
 
 // ============================================
+// Skeleton
+// ============================================
+
+function StatCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <div className="flex items-start justify-between">
+        <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
+      </div>
+      <div className="mt-3 h-7 w-16 rounded bg-gray-200 animate-pulse" />
+      <div className="mt-1.5 h-4 w-24 rounded bg-gray-200 animate-pulse" />
+    </div>
+  );
+}
+
+function MatchListSkeleton() {
+  return (
+    <div className="divide-y divide-gray-50">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-3.5">
+          <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+            <div className="h-3 w-56 rounded bg-gray-200 animate-pulse" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================
 // Component
 // ============================================
 
 export default function DashboardPage() {
   const { user } = useAuth();
 
+  const [loading, setLoading] = useState(true);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [participations, setParticipations] = useState<Participation[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    let unsubInvitations: (() => void) | null = null;
+
+    async function loadData() {
+      try {
+        if (user!.userType === "player") {
+          const [playerTeams, playerParticipations] = await Promise.all([
+            getTeamsByPlayer(user!.uid),
+            getParticipationsForPlayer(user!.uid),
+          ]);
+          if (cancelled) return;
+          setTeams(playerTeams);
+          setParticipations(playerParticipations);
+
+          const teamIds = playerTeams.map((t) => t.id);
+          if (teamIds.length > 0) {
+            const playerMatches = await getMatchesByTeamIds(teamIds);
+            if (!cancelled) setMatches(playerMatches);
+          }
+
+          // Real-time listener for pending invitations
+          unsubInvitations = onInvitationsForPlayer(user!.uid, (invitations: Invitation[]) => {
+            if (!cancelled) {
+              setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
+            }
+          });
+        } else if (user!.userType === "manager") {
+          const managerTeams = await getTeamsByManager(user!.uid);
+          if (cancelled) return;
+          setTeams(managerTeams);
+
+          const teamIds = managerTeams.map((t) => t.id);
+          if (teamIds.length > 0) {
+            const managerMatches = await getMatchesByTeamIds(teamIds);
+            if (!cancelled) setMatches(managerMatches);
+          }
+
+          // Real-time listener for sent invitations
+          unsubInvitations = onInvitationsByManager(user!.uid, (invitations: Invitation[]) => {
+            if (!cancelled) {
+              setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
+            }
+          });
+        }
+        // Referee: no special data fetching yet
+      } catch (err) {
+        console.error("Erreur lors du chargement du tableau de bord:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+      if (unsubInvitations) unsubInvitations();
+    };
+  }, [user]);
+
   if (!user) return null;
 
-  const stats = ROLE_STATS[user.userType as keyof typeof ROLE_STATS] ?? ROLE_STATS.player;
+  // ---- Compute stats based on role ----
+
+  const upcomingMatches = getUpcomingMatches(matches);
+
+  const stats = (() => {
+    if (user.userType === "player") {
+      const confirmedParticipations = participations.filter((p) => p.status === "confirmed");
+      const matchesPlayed = confirmedParticipations.length;
+      const totalGoals = confirmedParticipations.reduce((sum, p) => sum + p.goals, 0);
+      const upcomingCount = upcomingMatches.length;
+
+      return [
+        { icon: Trophy, value: matchesPlayed, label: "Matchs joués", color: "bg-primary-50" },
+        { icon: Target, value: totalGoals, label: "Buts marqués", color: "bg-accent-50" },
+        { icon: Calendar, value: upcomingCount, label: "Prochains matchs", color: "bg-blue-50" },
+        { icon: UserPlus, value: pendingInvitations, label: "Invitations", color: "bg-purple-50" },
+      ];
+    }
+
+    if (user.userType === "manager") {
+      const totalPlayers = teams.reduce((sum, t) => sum + t.memberIds.length, 0);
+      const upcomingCount = matches.filter((m) => m.status === "upcoming").length;
+      const totalWins = teams.reduce((sum, t) => sum + t.wins, 0);
+
+      return [
+        { icon: Users, value: totalPlayers, label: "Joueurs", color: "bg-primary-50" },
+        { icon: Calendar, value: upcomingCount, label: "Matchs programmés", color: "bg-blue-50" },
+        { icon: Trophy, value: totalWins, label: "Victoires", color: "bg-accent-50" },
+        { icon: UserPlus, value: pendingInvitations, label: "Invitations envoyées", color: "bg-purple-50" },
+      ];
+    }
+
+    // Referee — hardcoded for now
+    return REFEREE_STATS;
+  })();
 
   return (
     <div className="space-y-6">
@@ -76,20 +227,26 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, i) => (
-          <StatCard
-            key={stat.label}
-            icon={stat.icon}
-            value={stat.value}
-            label={stat.label}
-            trend={stat.trend}
-            trendValue={stat.trendValue}
-            color={stat.color}
-            delay={i * 0.08}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <StatCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, i) => (
+            <StatCard
+              key={stat.label}
+              icon={stat.icon}
+              value={stat.value}
+              label={stat.label}
+              color={stat.color}
+              delay={i * 0.08}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Two columns */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -106,26 +263,39 @@ export default function DashboardPage() {
               Tout voir <ChevronRight size={14} />
             </button>
           </div>
-          <div className="divide-y divide-gray-50">
-            {UPCOMING_MATCHES.map((match) => (
-              <div key={match.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
-                  <Trophy size={18} className="text-primary-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900">{match.teams}</p>
-                  <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} /> {match.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin size={12} /> {match.venue}
-                    </span>
+          {loading ? (
+            <MatchListSkeleton />
+          ) : upcomingMatches.length > 0 ? (
+            <div className="divide-y divide-gray-50">
+              {upcomingMatches.map((match) => (
+                <div key={match.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
+                    <Trophy size={18} className="text-primary-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {match.homeTeamName} vs {match.awayTeamName}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} /> {formatMatchDate(match.date, match.time)}
+                      </span>
+                      {match.venueName && (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} /> {match.venueName}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-10 text-center">
+              <Calendar size={24} className="text-gray-300" />
+              <p className="mt-2 text-sm text-gray-500">Aucun match à venir</p>
+            </div>
+          )}
         </motion.div>
 
         {/* Recent activity */}

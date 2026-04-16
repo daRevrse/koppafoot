@@ -169,6 +169,15 @@ export interface Team {
 export type MatchStatus = "challenge" | "pending" | "draft" | "upcoming" | "completed" | "cancelled";
 export type MatchResult = "win" | "loss" | "draw" | null;
 
+export interface MatchModificationRequest {
+  date: string;
+  time: string;
+  venueName: string;
+  venueCity: string;
+  reason: string;
+  requestedBy: string;
+}
+
 export interface FirestoreMatch {
   home_team_id: string;
   away_team_id: string;
@@ -185,7 +194,7 @@ export interface FirestoreMatch {
   score_away: number | null;
   referee_id: string | null;
   referee_name: string | null;
-  referee_status: "confirmed" | "pending" | "none";
+  referee_status: "confirmed" | "pending" | "invited" | "none";
   format: "5v5" | "7v7" | "11v11";
   is_home: boolean;
   players_confirmed: number;
@@ -193,6 +202,14 @@ export interface FirestoreMatch {
   away_manager_id: string;
   confirmed_home: number;
   confirmed_away: number;
+  modification_request?: {
+    date: string;
+    time: string;
+    venue_name: string;
+    venue_city: string;
+    reason: string;
+    requested_by: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -214,7 +231,7 @@ export interface Match {
   scoreAway: number | null;
   refereeId: string | null;
   refereeName: string | null;
-  refereeStatus: "confirmed" | "pending" | "none";
+  refereeStatus: "confirmed" | "pending" | "invited" | "none";
   format: "5v5" | "7v7" | "11v11";
   isHome: boolean;
   playersConfirmed: number;
@@ -222,6 +239,7 @@ export interface Match {
   awayManagerId: string;
   confirmedHome: number;
   confirmedAway: number;
+  modificationRequest?: MatchModificationRequest | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -230,7 +248,7 @@ export interface Match {
 // Participations (match subcollection)
 // ============================================
 
-export type ParticipationStatus = "pending" | "confirmed" | "declined";
+export type ParticipationStatus = "pending" | "confirmed" | "declined" | "cancelled";
 
 export interface FirestoreParticipation {
   player_id: string;

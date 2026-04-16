@@ -100,6 +100,7 @@ const REFEREE_GROUPED: NavEntry[] = [
     label: "Arbitrage",
     icon: "ShieldCheck",
     items: [
+      { path: "/referee/find-matches", icon: "Search", label: "Trouver match" },
       { path: "/referee/matches", icon: "ShieldCheck", label: "Mes matchs" },
       { path: "/referee/reports", icon: "FileText", label: "Rapports" },
     ],

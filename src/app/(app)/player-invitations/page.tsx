@@ -1,96 +1,126 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  UserPlus, Shield, MapPin, Clock, Check, X,
-  Users, Inbox, ChevronRight,
+  Shield, MapPin, Clock, Check, X,
+  Users, Inbox, ChevronRight, Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { onInvitationsForPlayer, respondToInvitation } from "@/lib/firestore";
+import type { Invitation } from "@/types";
 
 // ============================================
-// Mock data
+// Helpers
 // ============================================
-
-interface Invitation {
-  id: string;
-  teamName: string;
-  teamCity: string;
-  teamMembers: number;
-  invitedBy: string;
-  invitedByRole: string;
-  sentAt: string;
-  message: string;
-  color: string;
-}
-
-const MOCK_INVITATIONS: Invitation[] = [
-  {
-    id: "inv1",
-    teamName: "AS Tonnerre",
-    teamCity: "Lyon",
-    teamMembers: 10,
-    invitedBy: "Karim M.",
-    invitedByRole: "Manager",
-    sentAt: "Il y a 2 heures",
-    message: "Salut ! On cherche un milieu de terrain dynamique, je pense que tu serais parfait pour notre équipe.",
-    color: "amber",
-  },
-  {
-    id: "inv2",
-    teamName: "FC Étoile",
-    teamCity: "Paris",
-    teamMembers: 8,
-    invitedBy: "Sarah L.",
-    invitedByRole: "Manager",
-    sentAt: "Hier",
-    message: "On recrute pour la saison, viens jouer avec nous le week-end !",
-    color: "blue",
-  },
-  {
-    id: "inv3",
-    teamName: "Red Wolves FC",
-    teamCity: "Toulouse",
-    teamMembers: 7,
-    invitedBy: "Mehdi B.",
-    invitedByRole: "Capitaine",
-    sentAt: "Il y a 3 jours",
-    message: "Notre équipe monte en puissance. On a besoin de renforts !",
-    color: "red",
-  },
-];
 
 const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string }> = {
   amber: { bg: "bg-amber-100", icon: "text-amber-600", stripe: "bg-amber-500" },
   blue: { bg: "bg-blue-100", icon: "text-blue-600", stripe: "bg-blue-500" },
   red: { bg: "bg-red-100", icon: "text-red-600", stripe: "bg-red-500" },
   emerald: { bg: "bg-emerald-100", icon: "text-emerald-600", stripe: "bg-emerald-500" },
+  purple: { bg: "bg-purple-100", icon: "text-purple-600", stripe: "bg-purple-500" },
+  orange: { bg: "bg-orange-100", icon: "text-orange-600", stripe: "bg-orange-500" },
 };
+
+function timeAgo(dateStr: string | undefined): string {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `Il y a ${days}j`;
+}
 
 // ============================================
 // Component
 // ============================================
 
 export default function PlayerInvitationsPage() {
-  const [invitations, setInvitations] = useState<Invitation[]>(MOCK_INVITATIONS);
-  const [decided, setDecided] = useState<Record<string, "accepted" | "declined">>({});
+  const { user } = useAuth();
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [responding, setResponding] = useState<Record<string, "accepted" | "declined">>({});
 
-  const handleAccept = (id: string) => {
-    setDecided((prev) => ({ ...prev, [id]: "accepted" }));
-    // Remove after animation
-    setTimeout(() => {
-      setInvitations((prev) => prev.filter((inv) => inv.id !== id));
-    }, 600);
+  // Real-time listener for invitations
+  useEffect(() => {
+    if (!user) return;
+
+    const unsub = onInvitationsForPlayer(user.uid, (data) => {
+      setInvitations(data);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  const pendingInvitations = invitations.filter((inv) => inv.status === "pending");
+
+  const handleAccept = async (inv: Invitation) => {
+    if (!user) return;
+    setResponding((prev) => ({ ...prev, [inv.id]: "accepted" }));
+    try {
+      await respondToInvitation(inv.id, true, inv.teamId, user.uid);
+    } catch (error) {
+      console.error("Erreur lors de l'acceptation de l'invitation:", error);
+      // Revert on error
+      setResponding((prev) => {
+        const next = { ...prev };
+        delete next[inv.id];
+        return next;
+      });
+    }
   };
 
-  const handleDecline = (id: string) => {
-    setDecided((prev) => ({ ...prev, [id]: "declined" }));
-    setTimeout(() => {
-      setInvitations((prev) => prev.filter((inv) => inv.id !== id));
-    }, 600);
+  const handleDecline = async (inv: Invitation) => {
+    setResponding((prev) => ({ ...prev, [inv.id]: "declined" }));
+    try {
+      await respondToInvitation(inv.id, false);
+    } catch {
+      setResponding((prev) => {
+        const next = { ...prev };
+        delete next[inv.id];
+        return next;
+      });
+    }
   };
 
-  const pendingCount = invitations.filter((inv) => !decided[inv.id]).length;
+  if (!user) return null;
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="h-8 w-40 animate-pulse rounded-lg bg-gray-200" />
+          <div className="mt-2 h-4 w-64 animate-pulse rounded bg-gray-100" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-start gap-3">
+                <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-200" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 w-32 animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 w-48 animate-pulse rounded bg-gray-100" />
+                </div>
+              </div>
+              <div className="mt-3 h-20 animate-pulse rounded-lg bg-gray-100" />
+              <div className="mt-4 flex gap-2">
+                <div className="h-10 flex-1 animate-pulse rounded-lg bg-gray-200" />
+                <div className="h-10 flex-1 animate-pulse rounded-lg bg-gray-100" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const pendingCount = pendingInvitations.filter((inv) => !responding[inv.id]).length;
 
   return (
     <div className="space-y-6">
@@ -116,9 +146,9 @@ export default function PlayerInvitationsPage() {
       {/* Invitations list */}
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
-          {invitations.map((inv, i) => {
-            const colors = COLOR_MAP[inv.color] ?? COLOR_MAP.emerald;
-            const status = decided[inv.id];
+          {pendingInvitations.map((inv, i) => {
+            const colors = COLOR_MAP[inv.teamName?.charAt(0).toLowerCase() === "a" ? "amber" : inv.teamName?.charAt(0).toLowerCase() === "r" ? "red" : inv.teamName?.charAt(0).toLowerCase() === "f" ? "blue" : "emerald"] ?? COLOR_MAP.emerald;
+            const status = responding[inv.id];
 
             return (
               <motion.div
@@ -147,13 +177,12 @@ export default function PlayerInvitationsPage() {
                       <div>
                         <h3 className="font-bold text-gray-900 font-display">{inv.teamName}</h3>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span className="flex items-center gap-1"><MapPin size={12} /> {inv.teamCity}</span>
-                          <span className="flex items-center gap-1"><Users size={12} /> {inv.teamMembers} joueurs</span>
+                          <span className="flex items-center gap-1"><MapPin size={12} /> {inv.receiverCity}</span>
                         </div>
                       </div>
                     </div>
                     <span className="shrink-0 flex items-center gap-1 text-xs text-gray-400">
-                      <Clock size={12} /> {inv.sentAt}
+                      <Clock size={12} /> {timeAgo(inv.createdAt)}
                     </span>
                   </div>
 
@@ -161,7 +190,7 @@ export default function PlayerInvitationsPage() {
                   <div className="mt-3 rounded-lg bg-gray-50 p-3">
                     <p className="text-sm text-gray-600 leading-relaxed">&ldquo;{inv.message}&rdquo;</p>
                     <p className="mt-2 text-xs text-gray-400">
-                      Invité par <span className="font-medium text-gray-600">{inv.invitedBy}</span> — {inv.invitedByRole}
+                      Invité par <span className="font-medium text-gray-600">{inv.senderName}</span> — Manager
                     </p>
                   </div>
 
@@ -169,13 +198,13 @@ export default function PlayerInvitationsPage() {
                   {!status ? (
                     <div className="mt-4 flex gap-2">
                       <button
-                        onClick={() => handleAccept(inv.id)}
+                        onClick={() => handleAccept(inv)}
                         className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
                       >
                         <Check size={16} /> Accepter
                       </button>
                       <button
-                        onClick={() => handleDecline(inv.id)}
+                        onClick={() => handleDecline(inv)}
                         className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <X size={16} /> Décliner
@@ -201,7 +230,7 @@ export default function PlayerInvitationsPage() {
         </AnimatePresence>
 
         {/* Empty state */}
-        {invitations.length === 0 && (
+        {pendingInvitations.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

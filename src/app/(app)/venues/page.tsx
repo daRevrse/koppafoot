@@ -1,124 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import {
   MapPin, Search, Filter, X, ChevronDown, Eye,
   Star, Ruler, Layers, Sun, Building2, Users,
 } from "lucide-react";
+import { getVenues } from "@/lib/firestore";
+import type { Venue } from "@/types";
 
 // ============================================
-// Mock data
+// Constants
 // ============================================
-
-interface Venue {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  fieldType: "outdoor" | "indoor" | "hybrid";
-  fieldSurface: "natural_grass" | "synthetic" | "hybrid" | "indoor";
-  fieldSize: "5v5" | "7v7" | "11v11" | "futsal";
-  rating: number;
-  reviewCount: number;
-  pricePerHour: number;
-  amenities: string[];
-  available: boolean;
-  photoColor: string;
-}
-
-const VENUES: Venue[] = [
-  {
-    id: "v1",
-    name: "Stade Municipal Jean Bouin",
-    address: "26 Av. du Général Sarrail",
-    city: "Paris",
-    fieldType: "outdoor",
-    fieldSurface: "natural_grass",
-    fieldSize: "11v11",
-    rating: 4.5,
-    reviewCount: 48,
-    pricePerHour: 120,
-    amenities: ["Vestiaires", "Parking", "Tribunes", "Éclairage"],
-    available: true,
-    photoColor: "emerald",
-  },
-  {
-    id: "v2",
-    name: "Urban Soccer Nanterre",
-    address: "15 Rue des Sports",
-    city: "Paris",
-    fieldType: "indoor",
-    fieldSurface: "synthetic",
-    fieldSize: "5v5",
-    rating: 4.2,
-    reviewCount: 112,
-    pricePerHour: 80,
-    amenities: ["Vestiaires", "Bar", "Parking"],
-    available: true,
-    photoColor: "blue",
-  },
-  {
-    id: "v3",
-    name: "Complexe Sportif de Gerland",
-    address: "353 Av. Jean Jaurès",
-    city: "Lyon",
-    fieldType: "outdoor",
-    fieldSurface: "synthetic",
-    fieldSize: "7v7",
-    rating: 4.7,
-    reviewCount: 65,
-    pricePerHour: 95,
-    amenities: ["Vestiaires", "Parking", "Éclairage", "Buvette"],
-    available: true,
-    photoColor: "amber",
-  },
-  {
-    id: "v4",
-    name: "Terrain Synthétique Nord",
-    address: "8 Allée des Peupliers",
-    city: "Paris",
-    fieldType: "outdoor",
-    fieldSurface: "synthetic",
-    fieldSize: "5v5",
-    rating: 3.9,
-    reviewCount: 34,
-    pricePerHour: 60,
-    amenities: ["Vestiaires", "Éclairage"],
-    available: false,
-    photoColor: "gray",
-  },
-  {
-    id: "v5",
-    name: "Le Five Marseille",
-    address: "Zone Artisanale, Av. de la Pinède",
-    city: "Marseille",
-    fieldType: "indoor",
-    fieldSurface: "indoor",
-    fieldSize: "5v5",
-    rating: 4.4,
-    reviewCount: 89,
-    pricePerHour: 85,
-    amenities: ["Vestiaires", "Bar", "Parking", "Boutique"],
-    available: true,
-    photoColor: "orange",
-  },
-  {
-    id: "v6",
-    name: "Stade de la Roseraie",
-    address: "Chemin de la Roseraie",
-    city: "Toulouse",
-    fieldType: "outdoor",
-    fieldSurface: "natural_grass",
-    fieldSize: "11v11",
-    rating: 4.1,
-    reviewCount: 22,
-    pricePerHour: 100,
-    amenities: ["Vestiaires", "Parking", "Tribunes"],
-    available: true,
-    photoColor: "purple",
-  },
-];
 
 const FIELD_TYPE_LABELS: Record<string, { label: string; icon: typeof Sun }> = {
   outdoor: { label: "Extérieur", icon: Sun },
@@ -133,17 +26,37 @@ const SURFACE_LABELS: Record<string, string> = {
   indoor: "Indoor",
 };
 
-const PHOTO_COLORS: Record<string, string> = {
-  emerald: "bg-emerald-200",
-  blue: "bg-blue-200",
-  amber: "bg-amber-200",
-  gray: "bg-gray-200",
-  orange: "bg-orange-200",
-  purple: "bg-purple-200",
-};
-
 const CITIES = ["Toutes", "Paris", "Lyon", "Marseille", "Toulouse"];
 const SIZES = ["Tous", "5v5", "7v7", "11v11", "futsal"];
+
+// ============================================
+// Loading skeleton
+// ============================================
+
+function VenueCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="h-32 animate-pulse bg-gray-200" />
+      <div className="p-4 space-y-3">
+        <div className="h-5 w-3/4 animate-pulse rounded bg-gray-200" />
+        <div className="h-3 w-1/2 animate-pulse rounded bg-gray-200" />
+        <div className="flex gap-2 mt-3">
+          <div className="h-4 w-12 animate-pulse rounded bg-gray-200" />
+          <div className="h-4 w-16 animate-pulse rounded bg-gray-200" />
+        </div>
+        <div className="flex gap-1 mt-3">
+          <div className="h-5 w-16 animate-pulse rounded bg-gray-100" />
+          <div className="h-5 w-16 animate-pulse rounded bg-gray-100" />
+          <div className="h-5 w-16 animate-pulse rounded bg-gray-100" />
+        </div>
+        <div className="flex items-center justify-between mt-4">
+          <div className="h-6 w-14 animate-pulse rounded bg-gray-200" />
+          <div className="h-9 w-28 animate-pulse rounded-lg bg-gray-200" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ============================================
 // Component
@@ -156,12 +69,28 @@ export default function VenuesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
 
-  const filtered = VENUES.filter((v) => {
-    if (query && !v.name.toLowerCase().includes(query.toLowerCase())) return false;
-    if (cityFilter !== "Toutes" && v.city !== cityFilter) return false;
-    if (sizeFilter !== "Tous" && v.fieldSize !== sizeFilter) return false;
-    return true;
-  });
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchVenues = useCallback(async () => {
+    setLoading(true);
+    try {
+      const filters: { city?: string; fieldSize?: string; query?: string } = {};
+      if (cityFilter !== "Toutes") filters.city = cityFilter;
+      if (sizeFilter !== "Tous") filters.fieldSize = sizeFilter;
+      if (query.trim()) filters.query = query.trim();
+      const results = await getVenues(Object.keys(filters).length > 0 ? filters : undefined);
+      setVenues(results);
+    } catch (err) {
+      console.error("Error fetching venues:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [cityFilter, sizeFilter, query]);
+
+  useEffect(() => {
+    fetchVenues();
+  }, [fetchVenues]);
 
   return (
     <div className="space-y-6">
@@ -245,14 +174,22 @@ export default function VenuesPage() {
       </motion.div>
 
       {/* Results count */}
-      <p className="text-sm text-gray-500">
-        <span className="font-semibold text-gray-900">{filtered.length}</span> terrain{filtered.length > 1 ? "s" : ""}
-      </p>
+      {!loading && (
+        <p className="text-sm text-gray-500">
+          <span className="font-semibold text-gray-900">{venues.length}</span> terrain{venues.length > 1 ? "s" : ""}
+        </p>
+      )}
 
-      {/* Venues grid */}
-      {filtered.length > 0 ? (
+      {/* Loading skeleton */}
+      {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((venue, i) => {
+          {Array.from({ length: 6 }).map((_, i) => (
+            <VenueCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : venues.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {venues.map((venue, i) => {
             const typeConf = FIELD_TYPE_LABELS[venue.fieldType];
             const TypeIcon = typeConf?.icon ?? Sun;
             const isExpanded = selectedVenue === venue.id;
@@ -266,11 +203,19 @@ export default function VenuesPage() {
                 whileHover={{ y: -3 }}
                 className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
               >
-                {/* Photo placeholder */}
-                <div className={`relative h-32 ${PHOTO_COLORS[venue.photoColor] ?? "bg-gray-200"}`}>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <MapPin size={32} className="text-white/60" />
-                  </div>
+                {/* Photo */}
+                <div className="relative h-32 bg-gray-200">
+                  {venue.photoUrl ? (
+                    <img
+                      src={venue.photoUrl}
+                      alt={venue.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <MapPin size={32} className="text-white/60" />
+                    </div>
+                  )}
                   {/* Badges */}
                   <div className="absolute bottom-2 left-2 flex gap-1.5">
                     <span className="rounded-md bg-white/90 backdrop-blur-sm px-2 py-0.5 text-xs font-semibold text-gray-700">

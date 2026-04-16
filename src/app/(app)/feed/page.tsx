@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   MessageCircle, Heart, Share2, Send, Image as ImageIcon,
@@ -8,90 +8,12 @@ import {
   ThumbsUp, Clock, Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { onPosts, createPost, toggleLike } from "@/lib/firestore";
+import type { Post, PostType } from "@/types";
 
 // ============================================
-// Mock data
+// Constants
 // ============================================
-
-type PostType = "text" | "match_result" | "team_announcement" | "highlight";
-
-interface FeedPost {
-  id: string;
-  author: {
-    name: string;
-    role: string;
-    avatar: string; // initials placeholder
-    color: string;
-  };
-  type: PostType;
-  content: string;
-  metadata?: {
-    homeTeam?: string;
-    awayTeam?: string;
-    scoreHome?: number;
-    scoreAway?: number;
-    teamName?: string;
-  };
-  likes: number;
-  comments: number;
-  isLiked: boolean;
-  timeAgo: string;
-}
-
-const FEED: FeedPost[] = [
-  {
-    id: "p1",
-    author: { name: "Karim M.", role: "Manager", avatar: "KM", color: "bg-blue-500" },
-    type: "match_result",
-    content: "Belle victoire ce weekend ! L'équipe a montré du caractère en deuxième mi-temps. Bravo à tous les joueurs !",
-    metadata: { homeTeam: "FC Koppa", awayTeam: "AS Tonnerre", scoreHome: 3, scoreAway: 1 },
-    likes: 24,
-    comments: 8,
-    isLiked: false,
-    timeAgo: "Il y a 2h",
-  },
-  {
-    id: "p2",
-    author: { name: "Sarah L.", role: "Joueur", avatar: "SL", color: "bg-emerald-500" },
-    type: "text",
-    content: "Quelqu'un connaît un bon terrain 5v5 dispo le samedi après-midi dans le 15e ? On cherche un créneau régulier pour notre équipe.",
-    likes: 5,
-    comments: 12,
-    isLiked: true,
-    timeAgo: "Il y a 4h",
-  },
-  {
-    id: "p3",
-    author: { name: "Mehdi B.", role: "Capitaine", avatar: "MB", color: "bg-purple-500" },
-    type: "team_announcement",
-    content: "Les Red Wolves recrutent ! On cherche un gardien et un défenseur central pour compléter l'effectif. Matchs le week-end, ambiance au top.",
-    metadata: { teamName: "Red Wolves FC" },
-    likes: 18,
-    comments: 6,
-    isLiked: false,
-    timeAgo: "Il y a 6h",
-  },
-  {
-    id: "p4",
-    author: { name: "Youssef A.", role: "Joueur", avatar: "YA", color: "bg-accent-500" },
-    type: "highlight",
-    content: "Mon premier hat-trick en compétition ! 3 buts en 20 minutes. Merci à l'équipe pour les passes décisives. On continue comme ça !",
-    likes: 45,
-    comments: 15,
-    isLiked: false,
-    timeAgo: "Hier",
-  },
-  {
-    id: "p5",
-    author: { name: "Lucas D.", role: "Arbitre", avatar: "LD", color: "bg-gray-500" },
-    type: "text",
-    content: "Rappel : le fair-play c'est aussi respecter l'arbitre. Bonne semaine de foot à tous !",
-    likes: 32,
-    comments: 4,
-    isLiked: true,
-    timeAgo: "Hier",
-  },
-];
 
 const TYPE_BADGES: Record<PostType, { label: string; icon: typeof Trophy; color: string } | null> = {
   text: null,
@@ -100,51 +22,121 @@ const TYPE_BADGES: Record<PostType, { label: string; icon: typeof Trophy; color:
   highlight: { label: "Performance", icon: ThumbsUp, color: "bg-accent-100 text-accent-700" },
 };
 
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-emerald-500", "bg-purple-500",
+  "bg-accent-500", "bg-orange-500", "bg-pink-500",
+];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "À l'instant";
+  if (mins < 60) return `Il y a ${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Hier";
+  return `Il y a ${days}j`;
+}
+
+// ============================================
+// Loading skeleton
+// ============================================
+
+function PostSkeleton() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white">
+      <div className="flex items-start gap-3 p-4 pb-0">
+        <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
+          <div className="h-3 w-20 animate-pulse rounded bg-gray-200" />
+        </div>
+      </div>
+      <div className="space-y-2 px-4 pt-3 pb-4">
+        <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+        <div className="h-3 w-4/5 animate-pulse rounded bg-gray-200" />
+        <div className="h-3 w-2/3 animate-pulse rounded bg-gray-200" />
+      </div>
+      <div className="flex border-t border-gray-100 px-2 py-2">
+        <div className="h-8 flex-1 animate-pulse rounded bg-gray-50" />
+        <div className="h-8 flex-1 animate-pulse rounded bg-gray-50" />
+        <div className="h-8 flex-1 animate-pulse rounded bg-gray-50" />
+      </div>
+    </div>
+  );
+}
+
 // ============================================
 // Component
 // ============================================
 
 export default function FeedPage() {
   const { user } = useAuth();
-  const [posts, setPosts] = useState(FEED);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
 
-  const handleLike = (postId: string) => {
+  // Real-time feed listener
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    const unsubscribe = onPosts(30, user.uid, (data) => {
+      setPosts(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleLike = async (post: Post) => {
+    if (!user) return;
+    // Optimistic update
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === postId
-          ? { ...p, isLiked: !p.isLiked, likes: p.isLiked ? p.likes - 1 : p.likes + 1 }
+        p.id === post.id
+          ? {
+              ...p,
+              isLiked: !p.isLiked,
+              likes: p.isLiked
+                ? p.likes.filter((uid) => uid !== user.uid)
+                : [...p.likes, user.uid],
+            }
           : p
       )
     );
+    try {
+      await toggleLike(post.id, user.uid, post.isLiked);
+    } catch (err) {
+      console.error("Error toggling like:", err);
+    }
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!newPost.trim() || !user) return;
     setPosting(true);
-
-    const post: FeedPost = {
-      id: `new-${Date.now()}`,
-      author: {
-        name: `${user.firstName} ${user.lastName.charAt(0)}.`,
-        role: "Joueur",
-        avatar: `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`,
-        color: "bg-primary-500",
-      },
-      type: "text",
-      content: newPost,
-      likes: 0,
-      comments: 0,
-      isLiked: false,
-      timeAgo: "À l'instant",
-    };
-
-    setTimeout(() => {
-      setPosts((prev) => [post, ...prev]);
+    try {
+      await createPost({
+        authorId: user.uid,
+        authorName: `${user.firstName} ${user.lastName.charAt(0)}.`,
+        authorRole: user.userType === "manager" ? "Manager" : user.userType === "referee" ? "Arbitre" : "Joueur",
+        authorAvatar: `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`,
+        type: "text",
+        content: newPost,
+      });
       setNewPost("");
+    } catch (err) {
+      console.error("Error creating post:", err);
+    } finally {
       setPosting(false);
-    }, 300);
+    }
   };
 
   if (!user) return null;
@@ -197,116 +189,136 @@ export default function FeedPage() {
           </div>
         </motion.div>
 
-        {/* Feed posts */}
-        <AnimatePresence mode="popLayout">
-          {posts.map((post, i) => {
-            const badge = TYPE_BADGES[post.type];
-            const BadgeIcon = badge?.icon;
+        {/* Loading skeleton */}
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <PostSkeleton key={i} />
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+          >
+            <MessageCircle size={32} className="text-gray-300" />
+            <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucune publication</h3>
+            <p className="mt-1 text-sm text-gray-500">Sois le premier à publier quelque chose !</p>
+          </motion.div>
+        ) : (
+          /* Feed posts */
+          <AnimatePresence mode="popLayout">
+            {posts.map((post, i) => {
+              const badge = TYPE_BADGES[post.type];
+              const BadgeIcon = badge?.icon;
+              const initials = post.authorAvatar || post.authorName.slice(0, 2).toUpperCase();
 
-            return (
-              <motion.div
-                key={post.id}
-                layout
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3, delay: post.id.startsWith("new-") ? 0 : i * 0.05 }}
-                className="rounded-xl border border-gray-200 bg-white"
-              >
-                {/* Post header */}
-                <div className="flex items-start justify-between p-4 pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white ${post.author.color}`}>
-                      {post.author.avatar}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-900">{post.author.name}</span>
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{post.author.role}</span>
+              return (
+                <motion.div
+                  key={post.id}
+                  layout
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, delay: i * 0.05 }}
+                  className="rounded-xl border border-gray-200 bg-white"
+                >
+                  {/* Post header */}
+                  <div className="flex items-start justify-between p-4 pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(post.authorName)}`}>
+                        {initials}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <Clock size={12} /> {post.timeAgo}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900">{post.authorName}</span>
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{post.authorRole}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <Clock size={12} /> {timeAgo(post.createdAt)}
+                        </div>
                       </div>
                     </div>
+                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+                      <MoreHorizontal size={16} />
+                    </button>
                   </div>
-                  <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
-                    <MoreHorizontal size={16} />
-                  </button>
-                </div>
 
-                {/* Badge */}
-                {badge && BadgeIcon && (
-                  <div className="px-4 pt-3">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.color}`}>
-                      <BadgeIcon size={12} /> {badge.label}
-                    </span>
+                  {/* Badge */}
+                  {badge && BadgeIcon && (
+                    <div className="px-4 pt-3">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.color}`}>
+                        <BadgeIcon size={12} /> {badge.label}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Content */}
+                  <div className="px-4 pt-3 pb-2">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
                   </div>
-                )}
 
-                {/* Content */}
-                <div className="px-4 pt-3 pb-2">
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
-                </div>
-
-                {/* Match result card */}
-                {post.type === "match_result" && post.metadata && (
-                  <div className="mx-4 mb-2 rounded-lg bg-gray-50 p-3">
-                    <div className="flex items-center justify-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Shield size={16} className="text-primary-500" />
-                        <span className="text-sm font-bold text-gray-900">{post.metadata.homeTeam}</span>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1 shadow-sm">
-                        <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreHome}</span>
-                        <span className="text-xs text-gray-400">-</span>
-                        <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreAway}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-gray-900">{post.metadata.awayTeam}</span>
-                        <Shield size={16} className="text-gray-400" />
+                  {/* Match result card */}
+                  {post.type === "match_result" && post.metadata && (
+                    <div className="mx-4 mb-2 rounded-lg bg-gray-50 p-3">
+                      <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <Shield size={16} className="text-primary-500" />
+                          <span className="text-sm font-bold text-gray-900">{post.metadata.homeTeam}</span>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1 shadow-sm">
+                          <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreHome}</span>
+                          <span className="text-xs text-gray-400">-</span>
+                          <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreAway}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-gray-900">{post.metadata.awayTeam}</span>
+                          <Shield size={16} className="text-gray-400" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Team announcement card */}
-                {post.type === "team_announcement" && post.metadata?.teamName && (
-                  <div className="mx-4 mb-2 flex items-center gap-3 rounded-lg bg-blue-50 p-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                      <Shield size={20} className="text-blue-600" />
+                  {/* Team announcement card */}
+                  {post.type === "team_announcement" && post.metadata?.teamName && (
+                    <div className="mx-4 mb-2 flex items-center gap-3 rounded-lg bg-blue-50 p-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                        <Shield size={20} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{post.metadata.teamName}</p>
+                        <p className="text-xs text-blue-600">Recherche de joueurs</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">{post.metadata.teamName}</p>
-                      <p className="text-xs text-blue-600">Recherche de joueurs</p>
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Actions */}
-                <div className="flex items-center border-t border-gray-100 px-2 py-1">
-                  <button
-                    onClick={() => handleLike(post.id)}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                      post.isLiked
-                        ? "text-red-500"
-                        : "text-gray-500 hover:text-red-500 hover:bg-red-50"
-                    }`}
-                  >
-                    <Heart size={16} className={post.isLiked ? "fill-red-500" : ""} />
-                    {post.likes > 0 && post.likes}
-                  </button>
-                  <button className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors">
-                    <MessageCircle size={16} />
-                    {post.comments > 0 && post.comments}
-                  </button>
-                  <button className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                    <Share2 size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                  {/* Actions */}
+                  <div className="flex items-center border-t border-gray-100 px-2 py-1">
+                    <button
+                      onClick={() => handleLike(post)}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+                        post.isLiked
+                          ? "text-red-500"
+                          : "text-gray-500 hover:text-red-500 hover:bg-red-50"
+                      }`}
+                    >
+                      <Heart size={16} className={post.isLiked ? "fill-red-500" : ""} />
+                      {post.likes.length > 0 && post.likes.length}
+                    </button>
+                    <button className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors">
+                      <MessageCircle size={16} />
+                      {post.commentCount > 0 && post.commentCount}
+                    </button>
+                    <button className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      <Share2 size={16} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );

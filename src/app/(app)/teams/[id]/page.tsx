@@ -270,8 +270,8 @@ export default function TeamDetailPage() {
 
   // Real-time join requests listener (manager only)
   useEffect(() => {
-    if (!teamId || !isTeamManager) return;
-    const unsub = onJoinRequestsByTeam(teamId, (requests) => {
+    if (!teamId || !isTeamManager || !team?.managerId) return;
+    const unsub = onJoinRequestsByTeam(teamId, team.managerId, (requests) => {
       // Sort: pending first, then rest
       const sorted = [...requests].sort((a, b) => {
         if (a.status === "pending" && b.status !== "pending") return -1;
@@ -281,7 +281,7 @@ export default function TeamDetailPage() {
       setJoinRequests(sorted);
     });
     return unsub;
-  }, [teamId, isTeamManager]);
+  }, [teamId, isTeamManager, team?.managerId]);
 
   const handleDeleteTeam = async () => {
     if (!team) return;
@@ -333,7 +333,7 @@ export default function TeamDetailPage() {
     setRespondingId(request.id);
     setActionError(null);
     try {
-      await respondToJoinRequest(request.id, true);
+      await respondToJoinRequest(request.id, true, team.id, request.playerId);
       await sendInvitation({
         senderId: user.uid,
         senderName: `${user.firstName} ${user.lastName}`,
