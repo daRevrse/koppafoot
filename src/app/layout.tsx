@@ -18,6 +18,9 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "KOPPAFOOT",
   description: "La plateforme qui connecte les passionnés de football",
+  icons: {
+    icon: "/branding/logo_symbol.png",
+  },
 };
 
 export default function RootLayout({
