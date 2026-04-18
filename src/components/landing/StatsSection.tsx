@@ -182,9 +182,8 @@ function PreviewCard({
       {/* Actions bar */}
       <div className="flex items-center gap-1 pt-3 border-t border-white/[0.06]">
         <div
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium ${
-            post.isLiked ? "text-red-400" : "text-white/30"
-          }`}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium ${post.isLiked ? "text-red-400" : "text-white/30"
+            }`}
         >
           <Heart
             size={13}
@@ -209,7 +208,7 @@ function PreviewCard({
    ────────────────────────────────────── */
 export default function StatsSection() {
   return (
-    <section className="bg-[#1A1715] py-28 lg:py-36 overflow-hidden">
+    <section id="community" className="bg-[#1A1715] py-28 lg:py-36 overflow-hidden">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         {/* ── Header ── */}
         <motion.div
