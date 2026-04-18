@@ -1,71 +1,105 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Quote } from "lucide-react";
+import { Star } from "lucide-react";
 
 const TESTIMONIALS = [
   {
-    quote: "Grâce à KOPPAFOOT, j'ai trouvé une équipe en moins d'une semaine. Les matchs s'enchaînent, c'est génial !",
+    quote:
+      "Grâce à KOPPAFOOT, j'ai trouvé une équipe en moins d'une semaine. Les matchs s'enchaînent, c'est génial !",
     name: "Karim B.",
     role: "Joueur",
-    badge: "bg-emerald-100 text-emerald-700",
+    stars: 5,
+    gradient: "from-emerald-400 to-teal-500",
   },
   {
-    quote: "En tant que manager, je peux gérer mes joueurs, planifier les matchs et recruter facilement. Un vrai gain de temps.",
+    quote:
+      "En tant que manager, je peux gérer mes joueurs, planifier les matchs et recruter facilement. Un vrai gain de temps.",
     name: "Sophie M.",
     role: "Manager",
-    badge: "bg-blue-100 text-blue-700",
+    stars: 5,
+    gradient: "from-blue-400 to-indigo-500",
   },
   {
-    quote: "La plateforme m'a permis de tripler mes réservations en quelques mois. L'interface pro est vraiment bien pensée.",
+    quote:
+      "La plateforme m'a permis de tripler mes réservations en quelques mois. L'interface pro est vraiment bien pensée.",
     name: "David L.",
     role: "Propriétaire de terrain",
-    badge: "bg-orange-100 text-orange-700",
+    stars: 5,
+    gradient: "from-amber-400 to-orange-500",
   },
 ];
 
 export default function TestimonialsSection() {
   return (
-    <section className="bg-primary-50/50 py-24">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="testimonials" className="bg-[#F5F5F0] py-32 lg:py-40">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        {/* Section header */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="text-center"
         >
-          <h2 className="text-3xl font-bold text-gray-900 font-display sm:text-4xl">
-            Ils utilisent KOPPAFOOT
+          <span className="inline-block rounded-full bg-[#1A1715] px-5 py-1.5 text-xs font-bold text-white uppercase tracking-widest mb-6">
+            Témoignages
+          </span>
+          <h2 className="text-4xl font-black text-[#1A1715] font-display sm:text-5xl lg:text-6xl tracking-tight">
+            Ils utilisent
+            <br />
+            KOPPAFOOT
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-gray-500">
+          <p className="mx-auto mt-6 max-w-xl text-lg text-[#1A1715]/50 leading-relaxed">
             Découvre ce que nos utilisateurs en pensent.
           </p>
         </motion.div>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-3">
+        {/* Testimonials grid  */}
+        <div className="mt-20 grid gap-6 sm:grid-cols-3">
           {TESTIMONIALS.map((testimonial, i) => (
             <motion.div
               key={testimonial.name}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="rounded-xl bg-white p-6 shadow-sm"
+              transition={{
+                duration: 0.5,
+                delay: i * 0.1,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="group rounded-[28px] bg-white p-8 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1"
             >
-              <Quote size={24} className="text-primary-200" />
-              <p className="mt-4 text-sm leading-relaxed text-gray-600">
+              {/* Stars */}
+              <div className="flex gap-1">
+                {Array.from({ length: testimonial.stars }).map((_, j) => (
+                  <Star
+                    key={j}
+                    size={16}
+                    className="fill-amber-400 text-amber-400"
+                  />
+                ))}
+              </div>
+
+              {/* Quote */}
+              <p className="mt-6 text-base leading-relaxed text-[#1A1715]/70">
                 &ldquo;{testimonial.quote}&rdquo;
               </p>
-              <div className="mt-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600">
+
+              {/* Author */}
+              <div className="mt-8 flex items-center gap-4">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${testimonial.gradient} text-sm font-bold text-white`}
+                >
                   {testimonial.name[0]}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{testimonial.name}</p>
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${testimonial.badge}`}>
+                  <p className="text-sm font-bold text-[#1A1715]">
+                    {testimonial.name}
+                  </p>
+                  <p className="text-xs text-[#1A1715]/40 font-medium">
                     {testimonial.role}
-                  </span>
+                  </p>
                 </div>
               </div>
             </motion.div>
