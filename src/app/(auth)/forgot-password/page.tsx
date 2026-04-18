@@ -55,37 +55,37 @@ export default function ForgotPasswordPage() {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.2 }}
           >
-            <h2 className="mb-2 text-2xl font-bold text-gray-900 font-display">
+            <h2 className="mb-1 text-2xl font-black text-white font-display">
               Mot de passe oublié
             </h2>
-            <p className="mb-8 text-sm text-gray-500">
+            <p className="mb-8 text-sm text-white/40">
               Entrez votre email pour recevoir un lien de réinitialisation.
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
-                <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-white/50">
                   Email
                 </label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input
                     id="email"
                     type="email"
                     {...register("email")}
-                    className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                    className="w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
                     placeholder="votre@email.com"
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+                  <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
                 )}
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
               >
                 {submitting ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -108,12 +108,12 @@ export default function ForgotPasswordPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-100"
+              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20"
             >
-              <Mail size={28} className="text-primary-600" />
+              <Mail size={28} className="text-emerald-400" />
             </motion.div>
-            <h2 className="mb-2 text-xl font-bold text-gray-900 font-display">Email envoyé</h2>
-            <p className="mb-6 text-sm text-gray-500">
+            <h2 className="mb-2 text-xl font-black text-white font-display">Email envoyé</h2>
+            <p className="mb-6 text-sm text-white/40">
               Si un compte existe avec cette adresse, vous recevrez un email avec un lien de
               réinitialisation. Pensez à vérifier vos spams.
             </p>
@@ -124,7 +124,7 @@ export default function ForgotPasswordPage() {
       <div className="mt-8 text-center">
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-400/70 hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft size={14} /> Retour à la connexion
         </Link>

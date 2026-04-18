@@ -15,7 +15,7 @@ export default function CTASection() {
         className="relative overflow-hidden rounded-[40px] mx-auto max-w-6xl"
       >
         {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 via-emerald-400 to-sky-400" />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 to-black" />
 
         {/* Decorative radials */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.12),transparent_60%)]" />

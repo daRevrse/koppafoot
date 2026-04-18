@@ -18,36 +18,36 @@ import type { UserRole, SignupData } from "@/types";
 
 type SignupRole = "player" | "manager" | "referee";
 
-const ROLES: { value: SignupRole; label: string; icon: typeof Users; description: string; color: string; bgSelected: string; borderSelected: string; iconSelected: string }[] = [
+const ROLES: { value: SignupRole; label: string; icon: typeof Users; description: string; gradient: string; bgSelected: string; borderSelected: string; iconSelected: string }[] = [
   {
     value: "player",
     label: "Joueur",
     icon: Users,
     description: "Rejoindre des matchs et des équipes",
-    color: "emerald",
-    bgSelected: "bg-emerald-50",
-    borderSelected: "border-emerald-500",
-    iconSelected: "text-emerald-600",
+    gradient: "from-emerald-400 to-emerald-600",
+    bgSelected: "bg-emerald-500/15",
+    borderSelected: "border-emerald-500/50",
+    iconSelected: "text-emerald-400",
   },
   {
     value: "manager",
     label: "Manager",
     icon: Shield,
     description: "Créer et gérer une équipe",
-    color: "blue",
-    bgSelected: "bg-blue-50",
-    borderSelected: "border-blue-500",
-    iconSelected: "text-blue-600",
+    gradient: "from-blue-400 to-blue-600",
+    bgSelected: "bg-blue-500/15",
+    borderSelected: "border-blue-500/50",
+    iconSelected: "text-blue-400",
   },
   {
     value: "referee",
     label: "Arbitre",
     icon: Award,
     description: "Arbitrer des matchs",
-    color: "purple",
-    bgSelected: "bg-purple-50",
-    borderSelected: "border-purple-500",
-    iconSelected: "text-purple-600",
+    gradient: "from-purple-400 to-purple-600",
+    bgSelected: "bg-purple-500/15",
+    borderSelected: "border-purple-500/50",
+    iconSelected: "text-purple-400",
   },
 ];
 
@@ -111,9 +111,12 @@ type FormData = yup.InferType<typeof schema>;
 // Input styling
 // ============================================
 
-const inputClass = "w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]";
-const inputClassNoIcon = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]";
-const selectClass = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600";
+const inputClass =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
+const inputClassNoIcon =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
+const selectClass =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-sm text-white focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all [&>option]:bg-[#1A1715] [&>option]:text-white";
 
 // ============================================
 // Component
@@ -170,13 +173,13 @@ export default function SignupPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
     >
-      <h2 className="mb-2 text-2xl font-bold text-gray-900 font-display">Créer un compte</h2>
-      <p className="mb-8 text-sm text-gray-500">Rejoins la communauté KOPPAFOOT</p>
+      <h2 className="mb-1 text-2xl font-black text-white font-display">Créer un compte</h2>
+      <p className="mb-8 text-sm text-white/40">Rejoins la communauté KOPPAFOOT</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Role selection */}
         <div>
-          <label className="mb-3 block text-sm font-medium text-gray-700">Je suis...</label>
+          <label className="mb-3 block text-xs font-medium text-white/50">Je suis...</label>
           <div className="grid grid-cols-3 gap-3">
             {ROLES.map((role) => {
               const Icon = role.icon;
@@ -191,38 +194,38 @@ export default function SignupPage() {
                   className={`relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${
                     isSelected
                       ? `${role.borderSelected} ${role.bgSelected}`
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05]"
                   }`}
                 >
                   {isSelected && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600"
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500"
                     >
                       <Check size={12} className="text-white" />
                     </motion.div>
                   )}
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isSelected ? role.bgSelected : "bg-gray-100"}`}>
-                    <Icon size={20} className={isSelected ? role.iconSelected : "text-gray-400"} />
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isSelected ? role.bgSelected : "bg-white/[0.06]"}`}>
+                    <Icon size={18} className={isSelected ? role.iconSelected : "text-white/30"} />
                   </div>
-                  <span className="text-sm font-semibold">{role.label}</span>
-                  <span className="text-xs text-gray-500 leading-tight">{role.description}</span>
+                  <span className={`text-sm font-semibold ${isSelected ? "text-white" : "text-white/50"}`}>{role.label}</span>
+                  <span className="text-[10px] text-white/30 leading-tight">{role.description}</span>
                 </motion.button>
               );
             })}
           </div>
           {errors.userType && (
-            <p className="mt-1 text-xs text-red-600">{errors.userType.message}</p>
+            <p className="mt-1 text-xs text-red-400">{errors.userType.message}</p>
           )}
         </div>
 
         {/* Common fields */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="firstName" className="mb-1 block text-sm font-medium text-gray-700">Prénom</label>
+            <label htmlFor="firstName" className="mb-1.5 block text-xs font-medium text-white/50">Prénom</label>
             <div className="relative">
-              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
               <input
                 id="firstName"
                 {...register("firstName")}
@@ -231,13 +234,13 @@ export default function SignupPage() {
               />
             </div>
             {errors.firstName && (
-              <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>
+              <p className="mt-1 text-xs text-red-400">{errors.firstName.message}</p>
             )}
           </div>
           <div>
-            <label htmlFor="lastName" className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
+            <label htmlFor="lastName" className="mb-1.5 block text-xs font-medium text-white/50">Nom</label>
             <div className="relative">
-              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
               <input
                 id="lastName"
                 {...register("lastName")}
@@ -246,15 +249,15 @@ export default function SignupPage() {
               />
             </div>
             {errors.lastName && (
-              <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>
+              <p className="mt-1 text-xs text-red-400">{errors.lastName.message}</p>
             )}
           </div>
         </div>
 
         <div>
-          <label htmlFor="signupEmail" className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+          <label htmlFor="signupEmail" className="mb-1.5 block text-xs font-medium text-white/50">Email</label>
           <div className="relative">
-            <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
             <input
               id="signupEmail"
               type="email"
@@ -265,16 +268,16 @@ export default function SignupPage() {
             />
           </div>
           {errors.email && (
-            <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+            <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="signupPhone" className="mb-1 block text-sm font-medium text-gray-700">
-            Téléphone <span className="text-gray-400">(optionnel)</span>
+          <label htmlFor="signupPhone" className="mb-1.5 block text-xs font-medium text-white/50">
+            Téléphone <span className="text-white/20">(optionnel)</span>
           </label>
           <div className="relative">
-            <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
             <input
               id="signupPhone"
               type="tel"
@@ -286,9 +289,9 @@ export default function SignupPage() {
         </div>
 
         <div>
-          <label htmlFor="locationCity" className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
+          <label htmlFor="locationCity" className="mb-1.5 block text-xs font-medium text-white/50">Ville</label>
           <div className="relative">
-            <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <MapPin size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
             <input
               id="locationCity"
               {...register("locationCity")}
@@ -297,40 +300,40 @@ export default function SignupPage() {
             />
           </div>
           {errors.locationCity && (
-            <p className="mt-1 text-xs text-red-600">{errors.locationCity.message}</p>
+            <p className="mt-1 text-xs text-red-400">{errors.locationCity.message}</p>
           )}
         </div>
 
         {/* Password */}
         <div>
-          <label htmlFor="signupPassword" className="mb-1 block text-sm font-medium text-gray-700">Mot de passe</label>
+          <label htmlFor="signupPassword" className="mb-1.5 block text-xs font-medium text-white/50">Mot de passe</label>
           <div className="relative">
-            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
             <input
               id="signupPassword"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               {...register("password")}
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+              className="w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
               placeholder="Min. 6 caractères"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
             >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
           {errors.password && (
-            <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
+            <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+          <label htmlFor="confirmPassword" className="mb-1.5 block text-xs font-medium text-white/50">Confirmer le mot de passe</label>
           <div className="relative">
-            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
             <input
               id="confirmPassword"
               type={showPassword ? "text" : "password"}
@@ -341,7 +344,7 @@ export default function SignupPage() {
             />
           </div>
           {errors.confirmPassword && (
-            <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>
+            <p className="mt-1 text-xs text-red-400">{errors.confirmPassword.message}</p>
           )}
         </div>
 
@@ -356,11 +359,11 @@ export default function SignupPage() {
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
-              <div className="space-y-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-sm font-semibold text-emerald-800 font-display">Informations joueur</p>
+              <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
+                <p className="text-sm font-semibold text-emerald-400 font-display">Informations joueur</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="position" className="mb-1 block text-sm text-gray-700">Poste</label>
+                    <label htmlFor="position" className="mb-1.5 block text-xs text-white/40">Poste</label>
                     <select id="position" {...register("position")} className={selectClass}>
                       <option value="">Non spécifié</option>
                       <option value="goalkeeper">Gardien</option>
@@ -371,7 +374,7 @@ export default function SignupPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="skillLevel" className="mb-1 block text-sm text-gray-700">Niveau</label>
+                    <label htmlFor="skillLevel" className="mb-1.5 block text-xs text-white/40">Niveau</label>
                     <select id="skillLevel" {...register("skillLevel")} className={selectClass}>
                       <option value="">Non spécifié</option>
                       <option value="beginner">Débutant</option>
@@ -394,10 +397,10 @@ export default function SignupPage() {
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
-              <div className="space-y-3 rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm font-semibold text-blue-800 font-display">Informations manager</p>
+              <div className="space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.06] p-4">
+                <p className="text-sm font-semibold text-blue-400 font-display">Informations manager</p>
                 <div>
-                  <label htmlFor="teamName" className="mb-1 block text-sm text-gray-700">Nom de votre équipe</label>
+                  <label htmlFor="teamName" className="mb-1.5 block text-xs text-white/40">Nom de votre équipe</label>
                   <input
                     id="teamName"
                     {...register("teamName")}
@@ -405,7 +408,7 @@ export default function SignupPage() {
                     placeholder="FC Mon Équipe"
                   />
                   {errors.teamName && (
-                    <p className="mt-1 text-xs text-red-600">{errors.teamName.message}</p>
+                    <p className="mt-1 text-xs text-red-400">{errors.teamName.message}</p>
                   )}
                 </div>
               </div>
@@ -421,11 +424,11 @@ export default function SignupPage() {
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
-              <div className="space-y-3 rounded-xl border-2 border-purple-200 bg-purple-50 p-4">
-                <p className="text-sm font-semibold text-purple-800 font-display">Informations arbitre</p>
+              <div className="space-y-3 rounded-xl border border-purple-500/20 bg-purple-500/[0.06] p-4">
+                <p className="text-sm font-semibold text-purple-400 font-display">Informations arbitre</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="licenseNumber" className="mb-1 block text-sm text-gray-700">N° licence</label>
+                    <label htmlFor="licenseNumber" className="mb-1.5 block text-xs text-white/40">N° licence</label>
                     <input
                       id="licenseNumber"
                       {...register("licenseNumber")}
@@ -434,7 +437,7 @@ export default function SignupPage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="licenseLevel" className="mb-1 block text-sm text-gray-700">Niveau</label>
+                    <label htmlFor="licenseLevel" className="mb-1.5 block text-xs text-white/40">Niveau</label>
                     <select id="licenseLevel" {...register("licenseLevel")} className={selectClass}>
                       <option value="">Non spécifié</option>
                       <option value="trainee">Stagiaire</option>
@@ -445,7 +448,7 @@ export default function SignupPage() {
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="experienceYears" className="mb-1 block text-sm text-gray-700">Années d&apos;expérience</label>
+                  <label htmlFor="experienceYears" className="mb-1.5 block text-xs text-white/40">Années d&apos;expérience</label>
                   <input
                     id="experienceYears"
                     type="number"
@@ -463,7 +466,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
         >
           {submitting && <Loader2 size={16} className="animate-spin" />}
           Créer mon compte
@@ -471,15 +474,15 @@ export default function SignupPage() {
       </form>
 
       <div className="mt-8 space-y-2 text-center text-sm">
-        <p className="text-gray-600">
+        <p className="text-white/30">
           Déjà un compte ?{" "}
-          <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700">
+          <Link href="/login" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
             Se connecter
           </Link>
         </p>
-        <p className="text-gray-600">
+        <p className="text-white/30">
           Vous gérez un terrain ?{" "}
-          <Link href="/signup/venue-owner" className="font-medium text-primary-600 hover:text-primary-700">
+          <Link href="/signup/venue-owner" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
             Inscription propriétaire
           </Link>
         </p>

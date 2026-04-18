@@ -42,6 +42,15 @@ type PhoneForm = yup.InferType<typeof phoneSchema>;
 type CodeForm = yup.InferType<typeof codeSchema>;
 
 // ============================================
+// Shared styles
+// ============================================
+
+const inputClass =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
+const inputClassPassword =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
+
+// ============================================
 // Tabs
 // ============================================
 
@@ -147,32 +156,32 @@ export default function LoginPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
     >
-      <h2 className="mb-2 text-2xl font-bold text-gray-900 font-display">Connexion</h2>
-      <p className="mb-8 text-sm text-gray-500">Connecte-toi pour accéder à ton espace</p>
+      <h2 className="mb-1 text-2xl font-black text-white font-display">Connexion</h2>
+      <p className="mb-8 text-sm text-white/40">Connecte-toi pour accéder à ton espace</p>
 
       {/* Tabs */}
-      <div className="mb-6 flex border-b border-gray-200">
+      <div className="mb-6 flex rounded-xl bg-white/[0.04] p-1">
         <button
           type="button"
           onClick={() => { setTab("email"); setPhoneStep("number"); }}
-          className={`flex flex-1 items-center justify-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
             tab === "email"
-              ? "border-primary-600 text-primary-600"
-              : "border-transparent text-gray-400 hover:text-gray-600"
+              ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
+              : "text-white/30 hover:text-white/50"
           }`}
         >
-          <Mail size={16} /> Email
+          <Mail size={14} /> Email
         </button>
         <button
           type="button"
           onClick={() => setTab("phone")}
-          className={`flex flex-1 items-center justify-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
             tab === "phone"
-              ? "border-primary-600 text-primary-600"
-              : "border-transparent text-gray-400 hover:text-gray-600"
+              ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
+              : "text-white/30 hover:text-white/50"
           }`}
         >
-          <Phone size={16} /> Téléphone
+          <Phone size={14} /> Téléphone
         </button>
       </div>
 
@@ -189,50 +198,50 @@ export default function LoginPage() {
             className="space-y-4"
           >
             <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+              <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-white/50">Email</label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                 <input
                   id="email"
                   type="email"
                   autoComplete="email"
                   {...emailForm.register("email")}
-                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                  className={inputClass}
                   placeholder="votre@email.com"
                 />
               </div>
               {emailForm.formState.errors.email && (
-                <p className="mt-1 text-xs text-red-600">{emailForm.formState.errors.email.message}</p>
+                <p className="mt-1 text-xs text-red-400">{emailForm.formState.errors.email.message}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">Mot de passe</label>
+              <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-white/50">Mot de passe</label>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   {...emailForm.register("password")}
-                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                  className={inputClassPassword}
                   placeholder="Mot de passe"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
               {emailForm.formState.errors.password && (
-                <p className="mt-1 text-xs text-red-600">{emailForm.formState.errors.password.message}</p>
+                <p className="mt-1 text-xs text-red-400">{emailForm.formState.errors.password.message}</p>
               )}
             </div>
 
             <div className="text-right">
-              <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
+              <Link href="/forgot-password" className="text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors">
                 Mot de passe oublié ?
               </Link>
             </div>
@@ -240,7 +249,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Se connecter
@@ -260,26 +269,26 @@ export default function LoginPage() {
             className="space-y-4"
           >
             <div>
-              <label htmlFor="phone" className="mb-1 block text-sm font-medium text-gray-700">Numéro de téléphone</label>
+              <label htmlFor="phone" className="mb-1.5 block text-xs font-medium text-white/50">Numéro de téléphone</label>
               <div className="relative">
-                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                 <input
                   id="phone"
                   type="tel"
                   {...phoneForm.register("phone")}
-                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                  className={inputClass}
                   placeholder="+33612345678"
                 />
               </div>
               {phoneForm.formState.errors.phone && (
-                <p className="mt-1 text-xs text-red-600">{phoneForm.formState.errors.phone.message}</p>
+                <p className="mt-1 text-xs text-red-400">{phoneForm.formState.errors.phone.message}</p>
               )}
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Envoyer le code
@@ -297,27 +306,27 @@ export default function LoginPage() {
             onSubmit={codeForm.handleSubmit(handleConfirmCode)}
             className="space-y-4"
           >
-            <p className="text-sm text-gray-600">Un code à 6 chiffres a été envoyé à votre numéro.</p>
+            <p className="text-sm text-white/40">Un code à 6 chiffres a été envoyé à votre numéro.</p>
             <div>
-              <label htmlFor="code" className="mb-1 block text-sm font-medium text-gray-700">Code de vérification</label>
+              <label htmlFor="code" className="mb-1.5 block text-xs font-medium text-white/50">Code de vérification</label>
               <input
                 id="code"
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
                 {...codeForm.register("code")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center text-lg tracking-widest focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                className="w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-center text-lg tracking-[0.3em] text-white focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-white/20"
                 placeholder="000000"
               />
               {codeForm.formState.errors.code && (
-                <p className="mt-1 text-xs text-red-600">{codeForm.formState.errors.code.message}</p>
+                <p className="mt-1 text-xs text-red-400">{codeForm.formState.errors.code.message}</p>
               )}
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Vérifier
@@ -326,7 +335,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setPhoneStep("number"); setConfirmation(null); }}
-              className="w-full text-sm text-gray-500 hover:text-gray-700"
+              className="w-full text-xs text-white/30 hover:text-white/50 transition-colors"
             >
               Changer de numéro
             </button>
@@ -336,9 +345,9 @@ export default function LoginPage() {
 
       {/* Divider */}
       <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-gray-200" />
-        <span className="text-xs text-gray-400">ou</span>
-        <div className="h-px flex-1 bg-gray-200" />
+        <div className="h-px flex-1 bg-white/[0.08]" />
+        <span className="text-[10px] text-white/20 uppercase tracking-wider">ou</span>
+        <div className="h-px flex-1 bg-white/[0.08]" />
       </div>
 
       {/* Google */}
@@ -346,9 +355,9 @@ export default function LoginPage() {
         type="button"
         onClick={handleGoogle}
         disabled={submitting}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:shadow-sm disabled:opacity-50 transition-all"
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/[0.08] hover:text-white disabled:opacity-50 transition-all backdrop-blur-sm"
       >
-        <svg viewBox="0 0 24 24" width="18" height="18">
+        <svg viewBox="0 0 24 24" width="16" height="16">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -359,15 +368,15 @@ export default function LoginPage() {
 
       {/* Links */}
       <div className="mt-8 space-y-2 text-center text-sm">
-        <p className="text-gray-600">
+        <p className="text-white/30">
           Pas encore de compte ?{" "}
-          <Link href="/signup" className="font-medium text-primary-600 hover:text-primary-700">
+          <Link href="/signup" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
             Créer un compte
           </Link>
         </p>
-        <p className="text-gray-600">
+        <p className="text-white/30">
           Vous gérez un terrain ?{" "}
-          <Link href="/signup/venue-owner" className="font-medium text-primary-600 hover:text-primary-700">
+          <Link href="/signup/venue-owner" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
             Inscription propriétaire
           </Link>
         </p>

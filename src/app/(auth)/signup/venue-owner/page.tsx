@@ -58,9 +58,12 @@ const STEP_FIELDS: (keyof FormData)[][] = [
   ["acceptTerms"],
 ];
 
-const inputClass = "w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]";
-const inputClassNoIcon = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]";
-const selectClass = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600";
+const inputClass =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
+const inputClassNoIcon =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
+const selectClass =
+  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-sm text-white focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all [&>option]:bg-[#1A1715] [&>option]:text-white";
 
 export default function VenueOwnerSignupPage() {
   const [step, setStep] = useState(0);
@@ -137,8 +140,8 @@ export default function VenueOwnerSignupPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
     >
-      <h2 className="mb-2 text-2xl font-bold text-gray-900 font-display">Inscription Propriétaire</h2>
-      <p className="mb-6 text-sm text-gray-500">Proposez votre terrain sur KOPPAFOOT</p>
+      <h2 className="mb-1 text-2xl font-black text-white font-display">Inscription Propriétaire</h2>
+      <p className="mb-6 text-sm text-white/40">Proposez votre terrain sur KOPPAFOOT</p>
 
       {/* Stepper */}
       <div className="mb-8 flex items-center justify-between">
@@ -148,15 +151,15 @@ export default function VenueOwnerSignupPage() {
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                   i < step
-                    ? "bg-primary-600 text-white"
+                    ? "bg-emerald-500 text-white"
                     : i === step
-                      ? "bg-primary-600 text-white ring-4 ring-primary-100"
-                      : "bg-gray-100 text-gray-400"
+                      ? "bg-emerald-500 text-white ring-4 ring-emerald-500/20"
+                      : "bg-white/[0.06] text-white/25"
                 }`}
               >
                 {i < step ? <Check size={14} /> : i + 1}
               </div>
-              <span className={`text-xs font-medium ${i <= step ? "text-primary-700" : "text-gray-400"}`}>
+              <span className={`text-xs font-medium ${i <= step ? "text-emerald-400" : "text-white/25"}`}>
                 {s.shortLabel}
               </span>
             </div>
@@ -164,7 +167,7 @@ export default function VenueOwnerSignupPage() {
               <div className="mx-2 mt-[-18px] h-0.5 flex-1">
                 <div
                   className={`h-full rounded-full transition-colors ${
-                    i < step ? "bg-primary-600" : "bg-gray-200"
+                    i < step ? "bg-emerald-500" : "bg-white/[0.08]"
                   }`}
                 />
               </div>
@@ -187,58 +190,58 @@ export default function VenueOwnerSignupPage() {
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Prénom</label>
+                  <label className="mb-1.5 block text-xs font-medium text-white/50">Prénom</label>
                   <div className="relative">
-                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                     <input {...register("firstName")} className={inputClass} placeholder="Prénom" />
                   </div>
-                  {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
+                  {errors.firstName && <p className="mt-1 text-xs text-red-400">{errors.firstName.message}</p>}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
+                  <label className="mb-1.5 block text-xs font-medium text-white/50">Nom</label>
                   <div className="relative">
-                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                     <input {...register("lastName")} className={inputClass} placeholder="Nom" />
                   </div>
-                  {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>}
+                  {errors.lastName && <p className="mt-1 text-xs text-red-400">{errors.lastName.message}</p>}
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Email</label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input type="email" {...register("email")} className={inputClass} placeholder="votre@email.com" />
                 </div>
-                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
+                {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Téléphone</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Téléphone</label>
                 <div className="relative">
-                  <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input type="tel" {...register("phone")} placeholder="+33612345678" className={inputClass} />
                 </div>
-                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
+                {errors.phone && <p className="mt-1 text-xs text-red-400">{errors.phone.message}</p>}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Mot de passe</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Mot de passe</label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input
                     type={showPassword ? "text" : "password"}
                     {...register("password")}
-                    className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 transition-shadow focus:shadow-[0_0_0_3px_rgba(5,150,105,0.1)]"
+                    className="w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
                     placeholder="Min. 6 caractères"
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors">
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
-                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
+                {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Confirmer</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Confirmer</label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input
                     type={showPassword ? "text" : "password"}
                     {...register("confirmPassword")}
@@ -246,7 +249,7 @@ export default function VenueOwnerSignupPage() {
                     placeholder="Confirmer le mot de passe"
                   />
                 </div>
-                {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>}
+                {errors.confirmPassword && <p className="mt-1 text-xs text-red-400">{errors.confirmPassword.message}</p>}
               </div>
             </motion.div>
           )}
@@ -262,32 +265,32 @@ export default function VenueOwnerSignupPage() {
               className="space-y-4"
             >
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Nom du terrain</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Nom du terrain</label>
                 <div className="relative">
-                  <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Building2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input {...register("venueName")} className={inputClass} placeholder="Stade Municipal..." />
                 </div>
-                {errors.venueName && <p className="mt-1 text-xs text-red-600">{errors.venueName.message}</p>}
+                {errors.venueName && <p className="mt-1 text-xs text-red-400">{errors.venueName.message}</p>}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Adresse</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Adresse</label>
                 <div className="relative">
-                  <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <MapPin size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input {...register("venueAddress")} className={inputClass} placeholder="123 rue du Sport" />
                 </div>
-                {errors.venueAddress && <p className="mt-1 text-xs text-red-600">{errors.venueAddress.message}</p>}
+                {errors.venueAddress && <p className="mt-1 text-xs text-red-400">{errors.venueAddress.message}</p>}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
+                <label className="mb-1.5 block text-xs font-medium text-white/50">Ville</label>
                 <div className="relative">
-                  <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <MapPin size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
                   <input {...register("venueCity")} className={inputClass} placeholder="Paris" />
                 </div>
-                {errors.venueCity && <p className="mt-1 text-xs text-red-600">{errors.venueCity.message}</p>}
+                {errors.venueCity && <p className="mt-1 text-xs text-red-400">{errors.venueCity.message}</p>}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                  <label className="mb-1.5 block text-xs font-medium text-white/50">Type</label>
                   <select {...register("fieldType")} className={selectClass}>
                     <option value="outdoor">Extérieur</option>
                     <option value="indoor">Intérieur</option>
@@ -295,7 +298,7 @@ export default function VenueOwnerSignupPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Surface</label>
+                  <label className="mb-1.5 block text-xs font-medium text-white/50">Surface</label>
                   <select {...register("fieldSurface")} className={selectClass}>
                     <option value="natural_grass">Naturel</option>
                     <option value="synthetic">Synthétique</option>
@@ -304,7 +307,7 @@ export default function VenueOwnerSignupPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Format</label>
+                  <label className="mb-1.5 block text-xs font-medium text-white/50">Format</label>
                   <select {...register("fieldSize")} className={selectClass}>
                     <option value="5v5">5v5</option>
                     <option value="7v7">7v7</option>
@@ -326,42 +329,42 @@ export default function VenueOwnerSignupPage() {
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              <div className="rounded-xl border-2 border-primary-200 bg-primary-50/50 p-5">
-                <p className="mb-3 text-sm font-bold text-gray-900 font-display">Récapitulatif</p>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-5">
+                <p className="mb-3 text-sm font-bold text-emerald-400 font-display">Récapitulatif</p>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between border-b border-primary-100 pb-2">
-                    <span className="text-gray-500">Nom</span>
-                    <span className="font-medium text-gray-900">{values.firstName} {values.lastName}</span>
+                  <div className="flex justify-between border-b border-white/[0.06] pb-2">
+                    <span className="text-white/40">Nom</span>
+                    <span className="font-medium text-white/70">{values.firstName} {values.lastName}</span>
                   </div>
-                  <div className="flex justify-between border-b border-primary-100 pb-2">
-                    <span className="text-gray-500">Email</span>
-                    <span className="font-medium text-gray-900">{values.email}</span>
+                  <div className="flex justify-between border-b border-white/[0.06] pb-2">
+                    <span className="text-white/40">Email</span>
+                    <span className="font-medium text-white/70">{values.email}</span>
                   </div>
-                  <div className="flex justify-between border-b border-primary-100 pb-2">
-                    <span className="text-gray-500">Terrain</span>
-                    <span className="font-medium text-gray-900">{values.venueName}</span>
+                  <div className="flex justify-between border-b border-white/[0.06] pb-2">
+                    <span className="text-white/40">Terrain</span>
+                    <span className="font-medium text-white/70">{values.venueName}</span>
                   </div>
-                  <div className="flex justify-between border-b border-primary-100 pb-2">
-                    <span className="text-gray-500">Ville</span>
-                    <span className="font-medium text-gray-900">{values.venueCity}</span>
+                  <div className="flex justify-between border-b border-white/[0.06] pb-2">
+                    <span className="text-white/40">Ville</span>
+                    <span className="font-medium text-white/70">{values.venueCity}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Format</span>
-                    <span className="font-medium text-gray-900">{values.fieldSize}</span>
+                    <span className="text-white/40">Format</span>
+                    <span className="font-medium text-white/70">{values.fieldSize}</span>
                   </div>
                 </div>
               </div>
-              <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-50 transition-colors">
+              <label className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 cursor-pointer hover:bg-white/[0.06] transition-colors">
                 <input
                   type="checkbox"
                   {...register("acceptTerms")}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
+                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/[0.06] text-emerald-500 focus:ring-emerald-500/30"
                 />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-white/40">
                   J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialité.
                 </span>
               </label>
-              {errors.acceptTerms && <p className="text-xs text-red-600">{errors.acceptTerms.message}</p>}
+              {errors.acceptTerms && <p className="text-xs text-red-400">{errors.acceptTerms.message}</p>}
             </motion.div>
           )}
         </AnimatePresence>
@@ -372,7 +375,7 @@ export default function VenueOwnerSignupPage() {
             <button
               type="button"
               onClick={() => setStep(step - 1)}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-white/[0.1] px-4 py-3 text-sm font-medium text-white/50 hover:bg-white/[0.06] hover:text-white/70 transition-all"
             >
               <ChevronLeft size={16} /> Retour
             </button>
@@ -381,7 +384,7 @@ export default function VenueOwnerSignupPage() {
             <button
               type="button"
               onClick={nextStep}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+              className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
             >
               Suivant <ChevronRight size={16} />
             </button>
@@ -389,7 +392,7 @@ export default function VenueOwnerSignupPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Créer mon compte
@@ -398,9 +401,9 @@ export default function VenueOwnerSignupPage() {
         </div>
       </form>
 
-      <p className="mt-8 text-center text-sm text-gray-600">
+      <p className="mt-8 text-center text-sm text-white/30">
         Déjà un compte ?{" "}
-        <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700">
+        <Link href="/login" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
           Se connecter
         </Link>
       </p>
