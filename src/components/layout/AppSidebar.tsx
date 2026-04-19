@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Home, Users, Search, UserPlus, CheckCircle, MapPin, Calendar, Hash,
-  Trophy, MessageSquare, Award, ShieldCheck, FileText, LogOut, Menu, X, User,
+  Trophy, MessageSquare, Award, ShieldCheck, FileText, Menu, X, User,
   Shirt, Globe, Shield, MessageCircle, UserSearch,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,9 +32,8 @@ function isActive(pathname: string, item: NavItem): boolean {
 export default function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
 
   // Real-time badge counts
   useEffect(() => {
@@ -81,25 +80,35 @@ export default function AppSidebar() {
 
   const navEntries: NavEntry[] = ROLE_GROUPED_NAV[user.userType] ?? [];
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
+
 
   const sidebar = (
     <div className="flex h-full flex-col bg-emerald-950">
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b border-emerald-800 px-5">
-        <Link href="/dashboard" className="flex items-center gap-2">
+      {/* Header: Symbol + text + role badge */}
+      <div className="flex h-16 items-center gap-2.5 border-b border-emerald-800 px-4">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
           <Image
-            src="/branding/logo_full_name.png"
-            alt="KOPPAFOOT"
-            width={140}
-            height={36}
-            className=""
+            src="/branding/logo_symbol.png"
+            alt="K"
+            width={28}
+            height={28}
             priority
           />
+          <span className="text-base font-bold tracking-wide text-white font-display">KOPPAFOOT</span>
         </Link>
+        <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+          user.userType === "player" ? "bg-emerald-700 text-emerald-100" :
+          user.userType === "manager" ? "bg-blue-700 text-blue-100" :
+          user.userType === "referee" ? "bg-purple-700 text-purple-100" :
+          user.userType === "venue_owner" ? "bg-orange-700 text-orange-100" :
+          "bg-red-700 text-red-100"
+        }`}>
+          {user.userType === "player" ? "Joueur" :
+           user.userType === "manager" ? "Manager" :
+           user.userType === "referee" ? "Arbitre" :
+           user.userType === "venue_owner" ? "Propriétaire" :
+           "Admin"}
+        </span>
       </div>
 
       {/* Navigation */}
@@ -147,26 +156,16 @@ export default function AppSidebar() {
         </div>
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-emerald-800 p-3">
-        <Link
-          href="/profile"
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${pathname === "/profile"
-            ? "bg-emerald-800/50 text-white"
-            : "text-emerald-300 hover:bg-emerald-800/50 hover:text-white"
-            }`}
-        >
-          <User size={20} className={pathname === "/profile" ? "text-accent-400" : "text-emerald-500"} />
-          Mon profil
-        </Link>
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-emerald-300 hover:bg-emerald-800/50 hover:text-white transition-colors"
-        >
-          <LogOut size={20} className="text-emerald-500" />
-          Déconnexion
-        </button>
+      {/* Footer: Branding logo */}
+      <div className="border-t border-emerald-800 px-4 py-4 flex items-center justify-center">
+        <Image
+          src="/branding/logo_full_name.png"
+          alt="KOPPAFOOT"
+          width={120}
+          height={32}
+          style={{ height: "auto" }}
+          className="opacity-40"
+        />
       </div>
     </div>
   );
@@ -198,7 +197,7 @@ export default function AppSidebar() {
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden w-72 flex-shrink-0 lg:block">
+      <aside className="sticky top-0 hidden h-screen w-72 flex-shrink-0 lg:block">
         {sidebar}
       </aside>
     </>

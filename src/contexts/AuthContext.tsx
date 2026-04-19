@@ -98,6 +98,18 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.license_number !== undefined && { licenseNumber: data.license_number }),
     ...(data.license_level !== undefined && { licenseLevel: data.license_level }),
     ...(data.experience_years !== undefined && { experienceYears: data.experience_years }),
+    // Physical info
+    ...(data.strong_foot !== undefined && { strongFoot: data.strong_foot }),
+    ...(data.height !== undefined && { height: data.height }),
+    ...(data.weight !== undefined && { weight: data.weight }),
+    ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
+    // Social
+    followersCount: data.followers_count ?? 0,
+    followingCount: data.following_count ?? 0,
+    // Gallery
+    galleryPhotos: data.gallery_photos ?? [],
+    // Trophies
+    trophies: data.trophies ?? [],
   };
 }
 

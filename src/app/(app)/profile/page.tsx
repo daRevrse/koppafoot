@@ -1,16 +1,23 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import toast from "react-hot-toast";
-import { Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone } from "lucide-react";
+import {
+  Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone,
+  Trophy, ImageIcon, FileText, CreditCard, Plus, Trash2,
+  Ruler, Weight, Footprints, Cake, Users,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadProfilePhoto } from "@/lib/storage";
+import { uploadProfilePhoto, uploadGalleryPhoto } from "@/lib/storage";
+import { getPostsByUser } from "@/lib/firestore";
 import { ROLE_LABELS } from "@/types";
 import { ROLE_BADGE_COLORS } from "@/config/navigation";
+import KoppaFootCard from "@/components/ui/KoppaFootCard";
+import type { Post } from "@/types";
 
 // ============================================
 // Schema
@@ -25,6 +32,11 @@ const schema = yup.object({
   // Player
   position: yup.string().optional(),
   skillLevel: yup.string().optional(),
+  // Physical
+  strongFoot: yup.string().optional(),
+  height: yup.number().min(100).max(250).optional().nullable().transform((v) => (isNaN(v) ? null : v)),
+  weight: yup.number().min(30).max(200).optional().nullable().transform((v) => (isNaN(v) ? null : v)),
+  dateOfBirth: yup.string().optional(),
   // Manager
   teamName: yup.string().optional(),
   // Referee
@@ -34,6 +46,7 @@ const schema = yup.object({
 });
 
 type FormData = yup.InferType<typeof schema>;
+type TabType = "info" | "palmares" | "posts" | "galerie" | "carte";
 
 // ============================================
 // Info Row Component
@@ -52,18 +65,69 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ siz
 }
 
 // ============================================
+// Physical Info Labels
+// ============================================
+
+const FOOT_LABELS: Record<string, string> = {
+  left: "Gauche",
+  right: "Droit",
+  both: "Les deux",
+};
+
+function calculateAge(dateOfBirth: string): number | null {
+  if (!dateOfBirth) return null;
+  const birth = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+// ============================================
+// Time ago helper
+// ============================================
+
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "À l'instant";
+  if (mins < 60) return `Il y a ${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Hier";
+  return `Il y a ${days}j`;
+}
+
+// ============================================
 // Profile Page
 // ============================================
 
 export default function ProfilePage() {
   const { user, firebaseUser, updateProfile } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [tab, setTab] = useState<"info" | "stats">("info");
+  const [tab, setTab] = useState<TabType>("info");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const avatarRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
+
+  // Gallery state
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const galleryRef = useRef<HTMLInputElement>(null);
+
+  // Palmares state
+  const [trophyTitle, setTrophyTitle] = useState("");
+  const [trophyYear, setTrophyYear] = useState(new Date().getFullYear());
+  const [trophyDesc, setTrophyDesc] = useState("");
+  const [addingTrophy, setAddingTrophy] = useState(false);
+
+  // Posts state
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
 
   const {
     register,
@@ -80,9 +144,24 @@ export default function ProfilePage() {
           phone: user.phone ?? "",
           locationCity: user.locationCity ?? "",
           bio: user.bio ?? "",
+          strongFoot: user.strongFoot ?? "",
+          height: user.height ?? null,
+          weight: user.weight ?? null,
+          dateOfBirth: user.dateOfBirth ?? "",
         }
       : undefined,
   });
+
+  // Load posts when tab changes
+  useEffect(() => {
+    if (tab === "posts" && user) {
+      setLoadingPosts(true);
+      getPostsByUser(user.uid, user.uid).then((data) => {
+        setPosts(data);
+        setLoadingPosts(false);
+      });
+    }
+  }, [tab, user]);
 
   if (!user) return null;
 
@@ -123,6 +202,63 @@ export default function ProfilePage() {
     }
   };
 
+  // Gallery upload
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingGallery(true);
+    try {
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const url = await uploadGalleryPhoto(user.uid, file);
+        newUrls.push(url);
+      }
+      const currentGallery = user.galleryPhotos ?? [];
+      await updateProfile({ gallery_photos: [...currentGallery, ...newUrls] });
+      toast.success(`${newUrls.length} photo(s) ajoutée(s)`);
+    } catch {
+      toast.error("Erreur lors de l'upload");
+    } finally {
+      setUploadingGallery(false);
+      if (galleryRef.current) galleryRef.current.value = "";
+    }
+  };
+
+  const handleRemoveGalleryPhoto = async (urlToRemove: string) => {
+    const updated = (user.galleryPhotos ?? []).filter((u) => u !== urlToRemove);
+    await updateProfile({ gallery_photos: updated });
+    toast.success("Photo supprimée");
+  };
+
+  // Trophy management
+  const handleAddTrophy = async () => {
+    if (!trophyTitle.trim()) return;
+    setAddingTrophy(true);
+    try {
+      const currentTrophies = user.trophies ?? [];
+      const newTrophy = {
+        title: trophyTitle.trim(),
+        year: trophyYear,
+        ...(trophyDesc.trim() && { description: trophyDesc.trim() }),
+      };
+      await updateProfile({ trophies: [...currentTrophies, newTrophy] } as any);
+      setTrophyTitle("");
+      setTrophyDesc("");
+      toast.success("Trophée ajouté");
+    } catch {
+      toast.error("Erreur");
+    } finally {
+      setAddingTrophy(false);
+    }
+  };
+
+  const handleRemoveTrophy = async (index: number) => {
+    const current = [...(user.trophies ?? [])];
+    current.splice(index, 1);
+    await updateProfile({ trophies: current } as any);
+    toast.success("Trophée supprimé");
+  };
+
   // Save profile
   const onSubmit = async (data: FormData) => {
     setSaving(true);
@@ -133,6 +269,11 @@ export default function ProfilePage() {
         phone: data.phone || null,
         location_city: data.locationCity || "",
         bio: data.bio || undefined,
+        // Physical
+        strong_foot: (data.strongFoot as "left" | "right" | "both") || undefined,
+        height: data.height ?? undefined,
+        weight: data.weight ?? undefined,
+        date_of_birth: data.dateOfBirth || undefined,
         ...(user.userType === "player" && {
           position: data.position || undefined,
           skill_level: data.skillLevel || undefined,
@@ -156,6 +297,19 @@ export default function ProfilePage() {
     reset();
     setEditing(false);
   };
+
+  const age = user.dateOfBirth ? calculateAge(user.dateOfBirth) : null;
+
+  // Tab definitions
+  const tabs: { key: TabType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+    { key: "info", label: "Informations", icon: FileText },
+    { key: "palmares", label: "Palmarès", icon: Trophy },
+    { key: "posts", label: "Posts", icon: FileText },
+    { key: "galerie", label: "Galerie", icon: ImageIcon },
+    ...(user.userType === "player"
+      ? [{ key: "carte" as TabType, label: "Carte FUT", icon: CreditCard }]
+      : []),
+  ];
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -211,6 +365,9 @@ export default function ProfilePage() {
                   <Calendar size={12} /> Membre depuis {memberSince}
                 </span>
               )}
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <Users size={12} /> {user.followersCount ?? 0} abonné{(user.followersCount ?? 0) > 1 ? "s" : ""}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -233,27 +390,24 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex gap-1 rounded-lg bg-gray-100 p-1">
-        <button
-          onClick={() => setTab("info")}
-          className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-            tab === "info" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Informations
-        </button>
-        <button
-          onClick={() => setTab("stats")}
-          className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-            tab === "stats" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Statistiques
-        </button>
+      <div className="mt-6 flex gap-1 rounded-lg bg-gray-100 p-1 overflow-x-auto">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex items-center justify-center gap-1.5 flex-1 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
+              tab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <t.icon size={14} />
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Content */}
       <div className="mt-6">
+        {/* ═══════════════ TAB: INFO (read) ═══════════════ */}
         {tab === "info" && !editing && (
           <div className="grid gap-6 md:grid-cols-3">
             {/* Bio */}
@@ -261,7 +415,7 @@ export default function ProfilePage() {
               <h3 className="mb-3 text-sm font-semibold text-gray-900">Bio</h3>
               <p className="text-sm text-gray-600">{user.bio || "Aucune bio renseignée."}</p>
             </div>
-            {/* Info */}
+            {/* Coordonnées */}
             <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-2">
               <h3 className="mb-2 text-sm font-semibold text-gray-900">Coordonnées</h3>
               <div className="divide-y divide-gray-100">
@@ -270,9 +424,47 @@ export default function ProfilePage() {
                 <InfoRow icon={MapPin} label="Ville" value={user.locationCity} />
               </div>
             </div>
+            {/* Physical Info Card */}
+            <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-3">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Ruler size={16} className="text-emerald-600" />
+                Informations physiques
+              </h3>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
+                  <p className="text-xs text-gray-500">Pied fort</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {user.strongFoot ? FOOT_LABELS[user.strongFoot] : "—"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <Ruler size={20} className="mx-auto text-emerald-500 mb-1" />
+                  <p className="text-xs text-gray-500">Taille</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {user.height ? `${user.height} cm` : "—"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <Weight size={20} className="mx-auto text-emerald-500 mb-1" />
+                  <p className="text-xs text-gray-500">Poids</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {user.weight ? `${user.weight} kg` : "—"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <Cake size={20} className="mx-auto text-emerald-500 mb-1" />
+                  <p className="text-xs text-gray-500">Âge</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {age !== null ? `${age} ans` : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* ═══════════════ TAB: INFO (edit) ═══════════════ */}
         {tab === "info" && editing && (
           <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-gray-200 bg-white p-6">
             <div className="grid gap-4 md:grid-cols-2">
@@ -298,6 +490,34 @@ export default function ProfilePage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Bio</label>
                 <textarea {...register("bio")} rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 {errors.bio && <p className="mt-1 text-xs text-red-600">{errors.bio.message}</p>}
+              </div>
+
+              {/* Physical info */}
+              <div className="md:col-span-2">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <Ruler size={16} className="text-emerald-600" /> Informations physiques
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Pied fort</label>
+                <select {...register("strongFoot")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                  <option value="">Non spécifié</option>
+                  <option value="right">Droit</option>
+                  <option value="left">Gauche</option>
+                  <option value="both">Les deux</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Taille (cm)</label>
+                <input type="number" min="100" max="250" {...register("height")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Poids (kg)</label>
+                <input type="number" min="30" max="200" {...register("weight")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Date de naissance</label>
+                <input type="date" {...register("dateOfBirth")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
               </div>
 
               {/* Player-specific */}
@@ -364,9 +584,165 @@ export default function ProfilePage() {
           </form>
         )}
 
-        {tab === "stats" && (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm text-gray-500">Les statistiques seront disponibles prochainement.</p>
+        {/* ═══════════════ TAB: PALMARÈS ═══════════════ */}
+        {tab === "palmares" && (
+          <div className="space-y-6">
+            {/* Add trophy form */}
+            <div className="rounded-lg border border-gray-200 bg-white p-5">
+              <h3 className="mb-4 text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Trophy size={16} className="text-amber-500" /> Ajouter un trophée
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <input
+                  value={trophyTitle}
+                  onChange={(e) => setTrophyTitle(e.target.value)}
+                  placeholder="Titre (ex: Champion régional)"
+                  className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                />
+                <input
+                  type="number"
+                  value={trophyYear}
+                  onChange={(e) => setTrophyYear(parseInt(e.target.value))}
+                  min={1990}
+                  max={new Date().getFullYear()}
+                  className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
+                />
+                <input
+                  value={trophyDesc}
+                  onChange={(e) => setTrophyDesc(e.target.value)}
+                  placeholder="Description (optionnel)"
+                  className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={handleAddTrophy}
+                disabled={!trophyTitle.trim() || addingTrophy}
+                className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+              >
+                {addingTrophy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                Ajouter
+              </button>
+            </div>
+
+            {/* Trophies list */}
+            {(user.trophies ?? []).length === 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                <Trophy size={32} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-sm font-medium text-gray-500">Aucun trophée pour le moment</p>
+                <p className="mt-1 text-xs text-gray-400">Ajoutez vos accomplissements sportifs ci-dessus</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(user.trophies ?? []).map((trophy, i) => (
+                  <div key={i} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                      <Trophy size={20} className="text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm">{trophy.title}</p>
+                      <p className="text-xs text-gray-500">{trophy.year}</p>
+                      {trophy.description && (
+                        <p className="mt-1 text-xs text-gray-400">{trophy.description}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRemoveTrophy(i)}
+                      className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ TAB: POSTS ═══════════════ */}
+        {tab === "posts" && (
+          <div className="space-y-4">
+            {loadingPosts ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 size={24} className="animate-spin text-emerald-500" />
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                <FileText size={32} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-sm font-medium text-gray-500">Aucun post publié</p>
+                <Link href="/feed" className="mt-2 inline-block text-sm text-emerald-600 hover:underline">
+                  Aller sur La Tribune →
+                </Link>
+              </div>
+            ) : (
+              posts.map((post) => (
+                <div key={post.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
+                  <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+                    <span>{timeAgo(post.createdAt)}</span>
+                    <span>❤️ {post.likes.length}</span>
+                    <span>💬 {post.commentCount}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ TAB: GALERIE ═══════════════ */}
+        {tab === "galerie" && (
+          <div className="space-y-6">
+            {/* Upload button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => galleryRef.current?.click()}
+                disabled={uploadingGallery}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                {uploadingGallery ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                Ajouter des photos
+              </button>
+              <input
+                ref={galleryRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleGalleryUpload}
+              />
+              <span className="text-xs text-gray-400">{(user.galleryPhotos ?? []).length} photo(s)</span>
+            </div>
+
+            {/* Gallery grid */}
+            {(user.galleryPhotos ?? []).length === 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                <ImageIcon size={32} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-sm font-medium text-gray-500">Aucune photo dans la galerie</p>
+                <p className="mt-1 text-xs text-gray-400">Ajoutez des photos pour enrichir votre profil public</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {(user.galleryPhotos ?? []).map((url, i) => (
+                  <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                    <button
+                      onClick={() => handleRemoveGalleryPhoto(url)}
+                      className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ TAB: CARTE FUT ═══════════════ */}
+        {tab === "carte" && user.userType === "player" && (
+          <div className="flex flex-col items-center rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-emerald-50 p-8">
+            <h3 className="mb-2 text-lg font-bold text-gray-900 font-display">Ma Carte KoppaFoot</h3>
+            <p className="mb-6 text-sm text-gray-500">Télécharge ta carte style FUT avec tes infos</p>
+            <KoppaFootCard profile={user} width={320} />
           </div>
         )}
       </div>

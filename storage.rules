@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/{allPaths=**} {
+      // Users can only write to their own folder
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024 // Limit 5MB
+                   && request.resource.contentType.matches('image/.*');
+      
+      // Everyone can read user profile assets
+      allow read: if true;
+    }
+    
+    // Default rule: deny everything else
+    match /{allPaths=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}

@@ -17,3 +17,19 @@ export async function uploadProfilePhoto(
   await uploadBytes(storageRef, file);
   return getDownloadURL(storageRef);
 }
+
+/**
+ * Upload a gallery photo to Firebase Storage.
+ * Returns the public download URL.
+ */
+export async function uploadGalleryPhoto(
+  uid: string,
+  file: File
+): Promise<string> {
+  const timestamp = Date.now();
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `users/${uid}/gallery/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  return getDownloadURL(storageRef);
+}

@@ -36,6 +36,18 @@ export interface UserProfile {
   matchesPlayed?: number;
   goals?: number;
   assists?: number;
+  // Physical info
+  strongFoot?: "left" | "right" | "both";
+  height?: number; // cm
+  weight?: number; // kg
+  dateOfBirth?: string; // ISO date
+  // Social
+  followersCount?: number;
+  followingCount?: number;
+  // Gallery
+  galleryPhotos?: string[];
+  // Palmarès / Trophies
+  trophies?: { title: string; year: number; description?: string }[];
 }
 
 // Signup form data before Firestore write
@@ -97,6 +109,18 @@ export interface FirestoreUser {
   license_number?: string;
   license_level?: string;
   experience_years?: number;
+  // Physical info
+  strong_foot?: "left" | "right" | "both";
+  height?: number;
+  weight?: number;
+  date_of_birth?: string;
+  // Social
+  followers_count?: number;
+  following_count?: number;
+  // Gallery
+  gallery_photos?: string[];
+  // Palmarès
+  trophies?: { title: string; year: number; description?: string }[];
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -492,4 +516,21 @@ export interface JoinRequest {
   status: JoinRequestStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============================================
+// Follows
+// ============================================
+
+export interface FirestoreFollow {
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+}
+
+export interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
 }

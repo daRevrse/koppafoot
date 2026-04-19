@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Bell, ChevronDown, LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_HEADER_TITLES, ROLE_BADGE_COLORS } from "@/config/navigation";
+import { ROLE_BADGE_COLORS } from "@/config/navigation";
 import { ROLE_LABELS } from "@/types";
 import StreakBadge from "@/components/ui/StreakBadge";
 
@@ -27,7 +27,6 @@ export default function AppHeader() {
 
   if (!user) return null;
 
-  const title = ROLE_HEADER_TITLES[user.userType] ?? "KOPPAFOOT";
   const badgeColor = ROLE_BADGE_COLORS[user.userType];
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
 
@@ -38,8 +37,8 @@ export default function AppHeader() {
 
   return (
     <header className="relative flex h-16 items-center justify-between border-b-2 border-primary-600 bg-white px-6">
-      {/* Title */}
-      <h2 className="text-lg font-bold text-gray-900 font-display">{title}</h2>
+      {/* Spacer (title removed) */}
+      <div />
 
       {/* Right side */}
       <div className="flex items-center gap-3">

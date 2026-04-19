@@ -154,6 +154,18 @@ function toUserProfile(uid: string, d: FirestoreUser): UserProfile {
     ...(d.license_number !== undefined && { licenseNumber: d.license_number }),
     ...(d.license_level !== undefined && { licenseLevel: d.license_level }),
     ...(d.experience_years !== undefined && { experienceYears: d.experience_years }),
+    // Physical info
+    ...(d.strong_foot !== undefined && { strongFoot: d.strong_foot }),
+    ...(d.height !== undefined && { height: d.height }),
+    ...(d.weight !== undefined && { weight: d.weight }),
+    ...(d.date_of_birth !== undefined && { dateOfBirth: d.date_of_birth }),
+    // Social
+    followersCount: d.followers_count ?? 0,
+    followingCount: d.following_count ?? 0,
+    // Gallery
+    galleryPhotos: d.gallery_photos ?? [],
+    // Trophies
+    trophies: d.trophies ?? [],
   };
 }
 
@@ -1097,4 +1109,93 @@ export async function submitMatchReport(matchId: string, scoreHome: number, scor
       },
     });
   }
+}
+
+// ============================================
+// Follow System
+// ============================================
+
+export async function followUser(followerId: string, followingId: string): Promise<void> {
+  // Check if already following
+  const existing = await isFollowing(followerId, followingId);
+  if (existing) return;
+
+  const batch = writeBatch(db);
+
+  // Create follow document
+  const followRef = doc(collection(db, "follows"));
+  batch.set(followRef, {
+    follower_id: followerId,
+    following_id: followingId,
+    created_at: serverTimestamp(),
+  });
+
+  // Increment counters
+  batch.update(doc(db, "users", followerId), {
+    following_count: increment(1),
+    updated_at: serverTimestamp(),
+  });
+  batch.update(doc(db, "users", followingId), {
+    followers_count: increment(1),
+    updated_at: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function unfollowUser(followerId: string, followingId: string): Promise<void> {
+  const q = query(
+    collection(db, "follows"),
+    where("follower_id", "==", followerId),
+    where("following_id", "==", followingId)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+
+  const batch = writeBatch(db);
+
+  snap.docs.forEach((d) => batch.delete(d.ref));
+
+  // Decrement counters
+  batch.update(doc(db, "users", followerId), {
+    following_count: increment(-1),
+    updated_at: serverTimestamp(),
+  });
+  batch.update(doc(db, "users", followingId), {
+    followers_count: increment(-1),
+    updated_at: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
+  const q = query(
+    collection(db, "follows"),
+    where("follower_id", "==", followerId),
+    where("following_id", "==", followingId)
+  );
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
+
+export async function getFollowersCount(uid: string): Promise<number> {
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return 0;
+  return (snap.data() as FirestoreUser).followers_count ?? 0;
+}
+
+// ============================================
+// Posts by User
+// ============================================
+
+export async function getPostsByUser(userId: string, currentUserId?: string, maxResults = 20): Promise<Post[]> {
+  const q = query(
+    collection(db, "posts"),
+    where("author_id", "==", userId),
+    orderBy("created_at", "desc"),
+    firestoreLimit(maxResults)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
 }
