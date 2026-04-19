@@ -1,50 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  MessageCircle, Heart, Share2, Send, Image as ImageIcon,
-  MoreHorizontal, Trophy, Users, UserPlus, MapPin,
-  ThumbsUp, Clock, Shield,
-} from "lucide-react";
+import { MessageCircle, Send, Image as ImageIcon, X } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { onPosts, createPost, toggleLike } from "@/lib/firestore";
-import type { Post, PostType } from "@/types";
-
-// ============================================
-// Constants
-// ============================================
-
-const TYPE_BADGES: Record<PostType, { label: string; icon: typeof Trophy; color: string } | null> = {
-  text: null,
-  match_result: { label: "Résultat", icon: Trophy, color: "bg-primary-100 text-primary-700" },
-  team_announcement: { label: "Recrutement", icon: UserPlus, color: "bg-blue-100 text-blue-700" },
-  highlight: { label: "Performance", icon: ThumbsUp, color: "bg-accent-100 text-accent-700" },
-};
-
-const AVATAR_COLORS = [
-  "bg-blue-500", "bg-emerald-500", "bg-purple-500",
-  "bg-accent-500", "bg-orange-500", "bg-pink-500",
-];
-
-function avatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "À l'instant";
-  if (mins < 60) return `Il y a ${mins}min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `Il y a ${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Hier";
-  return `Il y a ${days}j`;
-}
+import { uploadPostMedia } from "@/lib/storage";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { PostCard, avatarColor } from "@/components/feed/PostCard";
+import { UserProfileWidget } from "@/components/feed/UserProfileWidget";
+import { CityMatchesWidget } from "@/components/feed/CityMatchesWidget";
+import type { Post } from "@/types";
 
 // ============================================
 // Loading skeleton
@@ -75,7 +43,7 @@ function PostSkeleton() {
 }
 
 // ============================================
-// Component
+// Page
 // ============================================
 
 export default function FeedPage() {
@@ -84,6 +52,9 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Real-time feed listener
   useEffect(() => {
@@ -96,16 +67,15 @@ export default function FeedPage() {
     return () => unsubscribe();
   }, [user]);
 
-  const handleLike = async (post: Post) => {
+  const handleLike = async (postId: string, isLiked: boolean) => {
     if (!user) return;
-    // Optimistic update
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === post.id
+        p.id === postId
           ? {
               ...p,
-              isLiked: !p.isLiked,
-              likes: p.isLiked
+              isLiked: !isLiked,
+              likes: isLiked
                 ? p.likes.filter((uid) => uid !== user.uid)
                 : [...p.likes, user.uid],
             }
@@ -113,31 +83,97 @@ export default function FeedPage() {
       )
     );
     try {
-      await toggleLike(post.id, user.uid, post.isLiked);
-    } catch (err) {
-      console.error("Error toggling like:", err);
+      await toggleLike(postId, user.uid, isLiked);
+    } catch {
+      // revert optimistic update on error
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                isLiked,
+                likes: isLiked
+                  ? [...p.likes, user.uid]
+                  : p.likes.filter((uid) => uid !== user.uid),
+              }
+            : p
+        )
+      );
     }
+  };
+
+  const handleDelete = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Seules les images sont acceptées");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image trop lourde (max 5 Mo)");
+      return;
+    }
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
+  };
+
+  const clearMedia = () => {
+    setMediaFile(null);
+    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+    setMediaPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handlePost = async () => {
     if (!newPost.trim() || !user) return;
     setPosting(true);
     try {
-      await createPost({
+      const authorRole =
+        user.userType === "manager" ? "Manager"
+        : user.userType === "referee" ? "Arbitre"
+        : "Joueur";
+
+      const authorAvatar = user.profilePictureUrl || `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
+      
+      const postId = await createPost({
         authorId: user.uid,
         authorName: `${user.firstName} ${user.lastName.charAt(0)}.`,
-        authorRole: user.userType === "manager" ? "Manager" : user.userType === "referee" ? "Arbitre" : "Joueur",
-        authorAvatar: `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`,
+        authorRole,
+        authorAvatar,
         type: "text",
         content: newPost,
       });
+
+      if (mediaFile) {
+        try {
+          const url = await uploadPostMedia(postId, mediaFile);
+          await updateDoc(doc(db, "posts", postId), { 
+            media_urls: [url],
+            updated_at: serverTimestamp() 
+          });
+          toast.success("Publication réussie avec photo");
+        } catch (uploadErr) {
+          console.error("Media upload error:", uploadErr);
+          toast.error("Texte publié, mais erreur lors de l'upload de la photo");
+        }
+      } else {
+        toast.success("Publication réussie");
+      }
+
       setNewPost("");
+      clearMedia();
     } catch (err) {
-      console.error("Error creating post:", err);
+      console.error("Post creation error:", err);
+      toast.error("Erreur lors de la publication");
     } finally {
       setPosting(false);
     }
   };
+
 
   if (!user) return null;
 
@@ -153,172 +189,127 @@ export default function FeedPage() {
         <p className="mt-1 text-sm text-gray-500">Actualités et discussions de la communauté</p>
       </motion.div>
 
-      <div className="mx-auto max-w-2xl space-y-4">
-        {/* New post form */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.08 }}
-          className="rounded-xl border border-gray-200 bg-white p-4"
-        >
-          <div className="flex gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white">
-              {user.firstName.charAt(0)}{user.lastName.charAt(0)}
-            </div>
-            <div className="flex-1">
-              <textarea
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-                placeholder="Quoi de neuf sur le terrain ?"
-                rows={2}
-                className="w-full resize-none rounded-lg border-0 bg-gray-50 px-3 py-2.5 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none transition-colors placeholder:text-gray-400"
-              />
-              <div className="mt-2 flex items-center justify-between">
-                <button className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
-                  <ImageIcon size={14} /> Photo
-                </button>
-                <button
-                  onClick={handlePost}
-                  disabled={!newPost.trim() || posting}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40 transition-all"
-                >
-                  <Send size={12} /> Publier
-                </button>
+      {/* 3-column layout */}
+      <div className="flex gap-5 items-start">
+        {/* Left sidebar — desktop only */}
+        <div className="hidden lg:block w-60 shrink-0 sticky top-6">
+          <UserProfileWidget user={user} />
+        </div>
+
+        {/* Feed center */}
+        <div className="flex-1 min-w-0 space-y-4">
+          {/* New post form */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.08 }}
+            className="rounded-xl border border-gray-200 bg-white p-4"
+          >
+            <div className="flex gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ${avatarColor(`${user.firstName} ${user.lastName}`)}`}>
+                {user.profilePictureUrl ? (
+                  <img
+                    src={user.profilePictureUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{user.firstName.charAt(0)}{user.lastName.charAt(0)}</span>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <textarea
+                  value={newPost}
+                  onChange={(e) => setNewPost(e.target.value)}
+                  placeholder="Quoi de neuf sur le terrain ?"
+                  rows={2}
+                  className="w-full resize-none rounded-lg border-0 bg-gray-50 px-3 py-2.5 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none transition-colors placeholder:text-gray-400"
+                />
+
+                {/* Media preview */}
+                {mediaPreview && (
+                  <div className="relative mt-2 inline-block">
+                    <img src={mediaPreview} alt="preview" className="max-h-40 rounded-lg object-cover" />
+                    <button
+                      onClick={clearMedia}
+                      className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-800 text-white hover:bg-gray-700"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-2 flex items-center justify-between">
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                    >
+                      <ImageIcon size={14} /> Photo
+                    </button>
+                  </div>
+                  <button
+                    onClick={handlePost}
+                    disabled={!newPost.trim() || posting}
+                    className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40 transition-all"
+                  >
+                    <Send size={12} /> Publier
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-
-        {/* Loading skeleton */}
-        {loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <PostSkeleton key={i} />
-            ))}
-          </div>
-        ) : posts.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
-          >
-            <MessageCircle size={32} className="text-gray-300" />
-            <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucune publication</h3>
-            <p className="mt-1 text-sm text-gray-500">Sois le premier à publier quelque chose !</p>
           </motion.div>
-        ) : (
-          /* Feed posts */
-          <AnimatePresence mode="popLayout">
-            {posts.map((post, i) => {
-              const badge = TYPE_BADGES[post.type];
-              const BadgeIcon = badge?.icon;
-              const initials = post.authorAvatar || post.authorName.slice(0, 2).toUpperCase();
 
-              return (
+          {/* Posts */}
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)}
+            </div>
+          ) : posts.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+            >
+              <MessageCircle size={32} className="text-gray-300" />
+              <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucune publication</h3>
+              <p className="mt-1 text-sm text-gray-500">Sois le premier à publier quelque chose !</p>
+            </motion.div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {posts.map((post, i) => (
                 <motion.div
                   key={post.id}
                   layout
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className="rounded-xl border border-gray-200 bg-white"
+                  transition={{ duration: 0.3, delay: i * 0.04 }}
                 >
-                  {/* Post header */}
-                  <div className="flex items-start justify-between p-4 pb-0">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(post.authorName)}`}>
-                        {initials}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-900">{post.authorName}</span>
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{post.authorRole}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <Clock size={12} /> {timeAgo(post.createdAt)}
-                        </div>
-                      </div>
-                    </div>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal size={16} />
-                    </button>
-                  </div>
-
-                  {/* Badge */}
-                  {badge && BadgeIcon && (
-                    <div className="px-4 pt-3">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.color}`}>
-                        <BadgeIcon size={12} /> {badge.label}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Content */}
-                  <div className="px-4 pt-3 pb-2">
-                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
-                  </div>
-
-                  {/* Match result card */}
-                  {post.type === "match_result" && post.metadata && (
-                    <div className="mx-4 mb-2 rounded-lg bg-gray-50 p-3">
-                      <div className="flex items-center justify-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <Shield size={16} className="text-primary-500" />
-                          <span className="text-sm font-bold text-gray-900">{post.metadata.homeTeam}</span>
-                        </div>
-                        <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1 shadow-sm">
-                          <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreHome}</span>
-                          <span className="text-xs text-gray-400">-</span>
-                          <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreAway}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-gray-900">{post.metadata.awayTeam}</span>
-                          <Shield size={16} className="text-gray-400" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Team announcement card */}
-                  {post.type === "team_announcement" && post.metadata?.teamName && (
-                    <div className="mx-4 mb-2 flex items-center gap-3 rounded-lg bg-blue-50 p-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                        <Shield size={20} className="text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">{post.metadata.teamName}</p>
-                        <p className="text-xs text-blue-600">Recherche de joueurs</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex items-center border-t border-gray-100 px-2 py-1">
-                    <button
-                      onClick={() => handleLike(post)}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                        post.isLiked
-                          ? "text-red-500"
-                          : "text-gray-500 hover:text-red-500 hover:bg-red-50"
-                      }`}
-                    >
-                      <Heart size={16} className={post.isLiked ? "fill-red-500" : ""} />
-                      {post.likes.length > 0 && post.likes.length}
-                    </button>
-                    <button className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors">
-                      <MessageCircle size={16} />
-                      {post.commentCount > 0 && post.commentCount}
-                    </button>
-                    <button className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                      <Share2 size={16} />
-                    </button>
-                  </div>
+                  <PostCard
+                    post={post}
+                    currentUser={user}
+                    onLikeAction={handleLike}
+                    onDeleteAction={handleDelete}
+                  />
                 </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        )}
+              ))}
+            </AnimatePresence>
+          )}
+        </div>
+
+        {/* Right sidebar — desktop only */}
+        <div className="hidden lg:block w-60 shrink-0 sticky top-6">
+          <CityMatchesWidget city={user.locationCity} />
+        </div>
       </div>
     </div>
   );

@@ -410,9 +410,11 @@ export interface FirestorePost {
     score_home?: number;
     score_away?: number;
     team_name?: string;
+    repost_of?: { post_id: string; author_name: string; content: string };
   } | null;
   likes: string[];
   comment_count: number;
+  media_urls?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -431,10 +433,12 @@ export interface Post {
     scoreHome?: number;
     scoreAway?: number;
     teamName?: string;
+    repostOf?: { postId: string; authorName: string; content: string };
   } | null;
   likes: string[];
   commentCount: number;
   isLiked: boolean;
+  mediaUrls?: string[];
   createdAt: string;
   updatedAt: string;
 }

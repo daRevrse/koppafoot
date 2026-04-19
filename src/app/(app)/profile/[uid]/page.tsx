@@ -39,10 +39,12 @@ import {
   unfollowUser,
   isFollowing,
   getPostsByUser,
+  toggleLike,
 } from "@/lib/firestore";
 import { ROLE_BADGE_COLORS } from "@/config/navigation";
 import { ROLE_LABELS } from "@/types";
 import type { UserProfile, Team, Post } from "@/types";
+import { PostCard, timeAgo } from "@/components/feed/PostCard";
 
 // ============================================
 // Constants
@@ -86,18 +88,6 @@ function calculateAge(dateOfBirth: string): number | null {
   return age;
 }
 
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "À l'instant";
-  if (mins < 60) return `Il y a ${mins}min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `Il y a ${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Hier";
-  return `Il y a ${days}j`;
-}
 
 type PublicTab = "overview" | "posts" | "galerie" | "palmares";
 
@@ -429,7 +419,12 @@ export default function PublicProfilePage() {
   // Check follow status
   useEffect(() => {
     if (!currentUser || !profile || isOwnProfile) return;
-    isFollowing(currentUser.uid, profile.uid).then(setFollowing);
+    isFollowing(currentUser.uid, profile.uid)
+      .then(setFollowing)
+      .catch((err) => {
+        console.error("Error checking follow status:", err);
+        setFollowing(false);
+      });
   }, [currentUser, profile, isOwnProfile]);
 
   // Check shortlist
@@ -450,6 +445,45 @@ export default function PublicProfilePage() {
       });
     }
   }, [activeTab, profile, currentUser]);
+
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    if (!currentUser) return;
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              isLiked: !isLiked,
+              likes: isLiked
+                ? p.likes.filter((uid) => uid !== currentUser.uid)
+                : [...p.likes, currentUser.uid],
+            }
+          : p
+      )
+    );
+    try {
+      await toggleLike(postId, currentUser.uid, isLiked);
+    } catch {
+      // revert optimistic update
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                isLiked,
+                likes: isLiked
+                  ? [...p.likes, currentUser.uid]
+                  : p.likes.filter((uid) => uid !== currentUser.uid),
+              }
+            : p
+        )
+      );
+    }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
 
   const handleFollow = async () => {
     if (!currentUser || !profile) return;
@@ -728,14 +762,13 @@ export default function PublicProfilePage() {
                 </div>
               ) : (
                 posts.map((post) => (
-                  <div key={post.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
-                    <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
-                      <span>{timeAgo(post.createdAt)}</span>
-                      <span className="flex items-center gap-1"><Heart size={12} /> {post.likes.length}</span>
-                      <span className="flex items-center gap-1"><MessageCircle size={12} /> {post.commentCount}</span>
-                    </div>
-                  </div>
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    currentUser={currentUser || ({} as UserProfile)}
+                    onLikeAction={handleLike}
+                    onDeleteAction={handleDeletePost}
+                  />
                 ))
               )}
             </div>

@@ -37,18 +37,23 @@ service cloud.firestore {
     // Users collection
     // ============================================
     match /users/{uid} {
-      // Anyone authenticated can read any user profile (public profiles)
-      allow read: if isAuthenticated();
+      // Profiles are public but write is restricted
+      allow read: if true;
 
       // Users can create their own profile at signup
       allow create: if isOwner(uid);
 
       // Users can update their own profile (except protected fields)
-      allow update: if isOwner(uid) && noProtectedFields();
+      // OR ANY authenticated user can update another user's followers_count 
+      // when following/unfollowing (limited to just that field)
+      allow update: if (isOwner(uid) && noProtectedFields())
+                   || (isAuthenticated() && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers_count', 'updated_at']));
 
       // Only superadmin can delete users
       allow delete: if isSuperAdmin();
     }
+
 
     // ============================================
     // Venues collection
@@ -227,6 +232,18 @@ service cloud.firestore {
           && (resource.data.author_id == request.auth.uid || isSuperAdmin());
       }
     }
+
+    // ============================================
+    // Follows collection
+    // ============================================
+    match /follows/{followId} {
+      allow read, list: if true;
+      allow create: if isAuthenticated()
+        && request.resource.data.follower_id == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.follower_id == request.auth.uid;
+    }
+
 
     // ============================================
     // Notifications collection

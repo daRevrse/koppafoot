@@ -41,6 +41,22 @@ import type {
 // Converters
 // ============================================
 
+/**
+ * Helper to convert Firestore dates (string or Timestamp) to ISO string
+ */
+function formatDate(date: any): string {
+  if (!date) return new Date().toISOString();
+  // Handle Firestore serverTimestamp placeholder (sometimes has no toDate or seconds on first snapshot)
+  if (typeof date === "object" && !date.seconds && !date.toDate) {
+    return new Date().toISOString();
+  }
+  if (typeof date === "string") return date;
+  if (typeof date.toDate === "function") return date.toDate().toISOString();
+  if (date.seconds) return new Date(date.seconds * 1000).toISOString();
+  return new Date().toISOString();
+}
+
+
 function toTeam(id: string, d: FirestoreTeam): Team {
   return {
     id, name: d.name, managerId: d.manager_id, city: d.city,
@@ -48,7 +64,7 @@ function toTeam(id: string, d: FirestoreTeam): Team {
     memberIds: d.member_ids ?? [], maxMembers: d.max_members, color: d.color,
     wins: d.wins ?? 0, losses: d.losses ?? 0, draws: d.draws ?? 0,
     matchesPlayed: d.matches_played ?? 0, isRecruiting: d.is_recruiting ?? false,
-    createdAt: d.created_at, updatedAt: d.updated_at,
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
@@ -74,7 +90,7 @@ function toMatch(id: string, d: FirestoreMatch): Match {
       reason: d.modification_request.reason,
       requestedBy: d.modification_request.requested_by,
     } : null,
-    createdAt: d.created_at, updatedAt: d.updated_at,
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
@@ -86,7 +102,7 @@ function toParticipation(id: string, d: FirestoreParticipation): Participation {
     matchDate: d.match_date, matchTime: d.match_time, venueName: d.venue_name,
     status: d.status, goals: d.goals ?? 0, assists: d.assists ?? 0,
     matchFormat: d.match_format ?? "", isHome: d.is_home ?? false,
-    createdAt: d.created_at, updatedAt: d.updated_at,
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
@@ -97,7 +113,7 @@ function toInvitation(id: string, d: FirestoreInvitation): Invitation {
     receiverCity: d.receiver_city, receiverPosition: d.receiver_position,
     receiverLevel: d.receiver_level, teamId: d.team_id, teamName: d.team_name,
     message: d.message, status: d.status,
-    createdAt: d.created_at, updatedAt: d.updated_at,
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
@@ -123,17 +139,23 @@ function toPost(id: string, d: FirestorePost, currentUserId?: string): Post {
       homeTeam: meta.home_team, awayTeam: meta.away_team,
       scoreHome: meta.score_home, scoreAway: meta.score_away,
       teamName: meta.team_name,
+      repostOf: meta.repost_of ? {
+        postId: meta.repost_of.post_id,
+        authorName: meta.repost_of.author_name,
+        content: meta.repost_of.content,
+      } : undefined,
     } : null,
     likes, commentCount: d.comment_count ?? 0,
     isLiked: currentUserId ? likes.includes(currentUserId) : false,
-    createdAt: d.created_at, updatedAt: d.updated_at,
+    mediaUrls: d.media_urls ?? [],
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
 function toComment(id: string, d: FirestoreComment): Comment {
   return {
     id, authorId: d.author_id, authorName: d.author_name,
-    content: d.content, createdAt: d.created_at,
+    content: d.content, createdAt: formatDate(d.created_at),
   };
 }
 
@@ -146,7 +168,7 @@ function toUserProfile(uid: string, d: FirestoreUser): UserProfile {
     coverPhotoUrl: d.cover_photo_url, companyName: d.company_name ?? null,
     isActive: d.is_active, emailVerified: false,
     authProviders: d.auth_providers ?? [],
-    createdAt: d.created_at, updatedAt: d.updated_at,
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
     // Role-specific optional fields
     ...(d.position !== undefined && { position: d.position }),
     ...(d.skill_level !== undefined && { skillLevel: d.skill_level }),
@@ -922,13 +944,19 @@ export function onPosts(maxResults: number, currentUserId: string, callback: (da
 export async function createPost(data: {
   authorId: string; authorName: string; authorRole: string; authorAvatar: string;
   type: string; content: string;
-  metadata?: { home_team?: string; away_team?: string; score_home?: number; score_away?: number; team_name?: string } | null;
+  metadata?: {
+    home_team?: string; away_team?: string; score_home?: number; score_away?: number;
+    team_name?: string;
+    repost_of?: { post_id: string; author_name: string; content: string };
+  } | null;
+  mediaUrls?: string[];
 }): Promise<string> {
   const ref = await addDoc(collection(db, "posts"), {
     author_id: data.authorId, author_name: data.authorName,
     author_role: data.authorRole, author_avatar: data.authorAvatar,
     type: data.type, content: data.content,
     metadata: data.metadata ?? null, likes: [], comment_count: 0,
+    media_urls: data.mediaUrls ?? [],
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   return ref.id;
@@ -953,6 +981,26 @@ export async function getComments(postId: string): Promise<Comment[]> {
   const q = query(collection(db, "posts", postId, "comments"), orderBy("created_at", "desc"));
   const snap = await getDocs(q);
   return snap.docs.map((d) => toComment(d.id, d.data() as FirestoreComment));
+}
+
+export async function deletePost(postId: string): Promise<void> {
+  await deleteDoc(doc(db, "posts", postId));
+}
+
+export async function updatePostContent(postId: string, content: string): Promise<void> {
+  await updateDoc(doc(db, "posts", postId), { content, updated_at: serverTimestamp() });
+}
+
+export async function getMatchesByCity(city: string, limitCount = 15): Promise<Match[]> {
+  const q = query(
+    collection(db, "matches"),
+    where("venue_city", "==", city),
+    where("status", "in", ["upcoming", "completed"]),
+    orderBy("date", "desc"),
+    firestoreLimit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch));
 }
 
 // ============================================
@@ -1116,14 +1164,11 @@ export async function submitMatchReport(matchId: string, scoreHome: number, scor
 // ============================================
 
 export async function followUser(followerId: string, followingId: string): Promise<void> {
-  // Check if already following
-  const existing = await isFollowing(followerId, followingId);
-  if (existing) return;
-
+  const followId = `${followerId}_${followingId}`;
   const batch = writeBatch(db);
 
-  // Create follow document
-  const followRef = doc(collection(db, "follows"));
+  // Create follow document with deterministic ID
+  const followRef = doc(db, "follows", followId);
   batch.set(followRef, {
     follower_id: followerId,
     following_id: followingId,
@@ -1144,17 +1189,11 @@ export async function followUser(followerId: string, followingId: string): Promi
 }
 
 export async function unfollowUser(followerId: string, followingId: string): Promise<void> {
-  const q = query(
-    collection(db, "follows"),
-    where("follower_id", "==", followerId),
-    where("following_id", "==", followingId)
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return;
-
+  const followId = `${followerId}_${followingId}`;
   const batch = writeBatch(db);
 
-  snap.docs.forEach((d) => batch.delete(d.ref));
+  // Delete follow document
+  batch.delete(doc(db, "follows", followId));
 
   // Decrement counters
   batch.update(doc(db, "users", followerId), {
@@ -1169,15 +1208,21 @@ export async function unfollowUser(followerId: string, followingId: string): Pro
   await batch.commit();
 }
 
+
 export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
-  const q = query(
-    collection(db, "follows"),
-    where("follower_id", "==", followerId),
-    where("following_id", "==", followingId)
-  );
-  const snap = await getDocs(q);
-  return !snap.empty;
+  if (!followerId || !followingId) return false;
+  try {
+    const followId = `${followerId}_${followingId}`;
+    const snap = await getDoc(doc(db, "follows", followId));
+    return snap.exists();
+  } catch (error: any) {
+    console.error("Error in isFollowing:", error);
+    return false;
+  }
 }
+
+
+
 
 export async function getFollowersCount(uid: string): Promise<number> {
   const snap = await getDoc(doc(db, "users", uid));
@@ -1190,12 +1235,34 @@ export async function getFollowersCount(uid: string): Promise<number> {
 // ============================================
 
 export async function getPostsByUser(userId: string, currentUserId?: string, maxResults = 20): Promise<Post[]> {
-  const q = query(
-    collection(db, "posts"),
-    where("author_id", "==", userId),
-    orderBy("created_at", "desc"),
-    firestoreLimit(maxResults)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
+  try {
+    const q = query(
+      collection(db, "posts"),
+      where("author_id", "==", userId),
+      orderBy("created_at", "desc"),
+      firestoreLimit(maxResults)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
+  } catch (error: any) {
+    console.error("Error in getPostsByUser:", error);
+    // Fallback if index is missing (common with Missing or insufficient permissions error)
+    if (error.code === "permission-denied" || error.code === "failed-precondition" || error.message?.includes("index")) {
+      try {
+        const qSimple = query(
+          collection(db, "posts"),
+          where("author_id", "==", userId),
+          firestoreLimit(maxResults)
+        );
+        const snap = await getDocs(qSimple);
+        return snap.docs
+          .map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      } catch (innerError) {
+        console.error("Fallback query also failed:", innerError);
+        return [];
+      }
+    }
+    return [];
+  }
 }

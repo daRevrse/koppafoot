@@ -165,6 +165,7 @@ export default function AppSidebar() {
           height={32}
           style={{ height: "auto" }}
           className="opacity-40"
+          priority
         />
       </div>
     </div>

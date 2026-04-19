@@ -36,9 +36,11 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; bg: string }> 
   cancelled: { label: "Annulé", dot: "bg-red-400", bg: "bg-red-50 text-red-700" },
 };
 
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return "";
-  const date = dateStr?.toDate ? (dateStr as any).toDate() : new Date(dateStr);
+function timeAgo(dateInput: any): string {
+  if (!dateInput) return "";
+  const date = dateInput && typeof dateInput.toDate === "function" 
+    ? dateInput.toDate() 
+    : new Date(dateInput);
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
   if (diff < 60) return "à l'instant";

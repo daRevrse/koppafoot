@@ -33,3 +33,16 @@ export async function uploadGalleryPhoto(
   await uploadBytes(storageRef, file);
   return getDownloadURL(storageRef);
 }
+
+/**
+ * Upload a media file attached to a post.
+ * Returns the public download URL.
+ */
+export async function uploadPostMedia(postId: string, file: File): Promise<string> {
+  const timestamp = Date.now();
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `posts/${postId}/media/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  return getDownloadURL(storageRef);
+}

@@ -19,9 +19,11 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; do
   superadmin: { label: "Admin", color: "text-red-700", bg: "bg-red-50", dot: "bg-red-400" },
 };
 
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return "";
-  const date = (dateStr as any)?.toDate ? (dateStr as any).toDate() : new Date(dateStr);
+function timeAgo(dateInput: any): string {
+  if (!dateInput) return "";
+  const date = dateInput && typeof dateInput.toDate === "function" 
+    ? dateInput.toDate() 
+    : new Date(dateInput);
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
   if (diff < 60) return "à l'instant";
