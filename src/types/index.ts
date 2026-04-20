@@ -147,6 +147,14 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // Teams
 // ============================================
 
+export interface Achievement {
+  id: string;
+  title: string;
+  date: string;
+  description?: string;
+  icon: "trophy" | "medal" | "star" | "shield";
+}
+
 export interface FirestoreTeam {
   name: string;
   manager_id: string;
@@ -162,6 +170,13 @@ export interface FirestoreTeam {
   draws: number;
   matches_played: number;
   is_recruiting: boolean;
+  logo_url?: string;
+  banner_url?: string;
+  slogan?: string;
+  lineup_ids?: string[];
+  gallery_urls?: string[];
+  achievements?: Achievement[];
+  followers_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -182,6 +197,13 @@ export interface Team {
   draws: number;
   matchesPlayed: number;
   isRecruiting: boolean;
+  logoUrl?: string;
+  bannerUrl?: string;
+  slogan?: string;
+  lineupIds?: string[];
+  galleryUrls?: string[];
+  achievements?: Achievement[];
+  followersCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -219,6 +241,7 @@ export interface FirestoreMatch {
   referee_id: string | null;
   referee_name: string | null;
   referee_status: "confirmed" | "pending" | "invited" | "none";
+  local_referee_name?: string | null;
   format: "5v5" | "7v7" | "11v11";
   is_home: boolean;
   players_confirmed: number;
@@ -256,6 +279,7 @@ export interface Match {
   refereeId: string | null;
   refereeName: string | null;
   refereeStatus: "confirmed" | "pending" | "invited" | "none";
+  localRefereeName?: string | null;
   format: "5v5" | "7v7" | "11v11";
   isHome: boolean;
   playersConfirmed: number;
@@ -536,5 +560,64 @@ export interface Follow {
   id: string;
   followerId: string;
   followingId: string;
+  createdAt: string;
+}
+
+// ============================================
+// Trainings
+// ============================================
+
+export interface TrainingAttendee {
+  player_id: string;
+  status: "pending" | "confirmed" | "declined";
+}
+
+export interface FirestoreTraining {
+  team_id: string;
+  manager_id: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  description?: string;
+  attendees: TrainingAttendee[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Training {
+  id: string;
+  teamId: string;
+  managerId: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  description?: string;
+  attendees: TrainingAttendee[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
+// Player Ratings
+// ============================================
+
+export interface FirestorePlayerRating {
+  match_id: string;
+  player_id: string;
+  team_id: string;
+  rated_by: string;
+  score: number;
+  created_at: string;
+}
+
+export interface PlayerRating {
+  id: string;
+  matchId: string;
+  playerId: string;
+  teamId: string;
+  ratedBy: string;
+  score: number;
   createdAt: string;
 }

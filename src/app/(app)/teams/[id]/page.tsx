@@ -7,16 +7,24 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Shield, MapPin, Users, Star, ChevronLeft, Settings,
   Trash2, UserMinus, UserPlus, Edit3, X, Check,
-  Loader2, Trophy, Calendar,
+  Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
+  Heart, Plus, Camera, UserCheck,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getTeamById, updateTeam, deleteTeam, removeTeamMember,
   getUsersByIds, getMatchesByTeamIds,
   onJoinRequestsByTeam, respondToJoinRequest, sendInvitation,
+  updateTeamMedia, addAchievement, removeAchievement,
+  addGalleryUrl, removeGalleryUrl, updateTeamLineup,
+  followTeam, unfollowTeam, isFollowingTeam,
+  onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
 } from "@/lib/firestore";
-import type { Team, UserProfile, Match, JoinRequest } from "@/types";
+import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
+import { avatarColor } from "@/components/feed/PostCard";
+import type { Team, UserProfile, Match, JoinRequest, Achievement, Training } from "@/types";
 
 // ============================================
 // Constants
@@ -53,7 +61,7 @@ const POSITION_COLORS: Record<string, string> = {
   midfielder: "bg-emerald-100 text-emerald-700", forward: "bg-amber-100 text-amber-700",
 };
 
-type ActiveTab = "roster" | "matches" | "settings" | "candidatures";
+type ActiveTab = "roster" | "matches" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
 
 // ============================================
 // Edit Team Modal
@@ -71,8 +79,29 @@ function EditTeamModal({ team, onClose, onSaved }: {
     level: team.level,
     maxMembers: team.maxMembers,
     color: team.color,
+    slogan: team.slogan ?? "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(team.logoUrl ?? null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(team.bannerUrl ?? null);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error("Logo trop lourd (max 2 Mo)"); return; }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Bannière trop lourde (max 5 Mo)"); return; }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +115,12 @@ function EditTeamModal({ team, onClose, onSaved }: {
         level: form.level as Team["level"],
         max_members: form.maxMembers,
         color: form.color,
+        slogan: form.slogan.trim(),
       });
+      const mediaUpdate: { logoUrl?: string; bannerUrl?: string } = {};
+      if (logoFile) mediaUpdate.logoUrl = await uploadTeamLogo(team.id, logoFile);
+      if (bannerFile) mediaUpdate.bannerUrl = await uploadTeamBanner(team.id, bannerFile);
+      if (Object.keys(mediaUpdate).length > 0) await updateTeamMedia(team.id, mediaUpdate);
       onSaved();
       onClose();
     } catch {
@@ -110,10 +144,39 @@ function EditTeamModal({ team, onClose, onSaved }: {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          {/* Media uploads */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">Bannière</label>
+            <div className="relative h-24 w-full cursor-pointer overflow-hidden rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100"
+              onClick={() => document.getElementById("banner-input")?.click()}>
+              {bannerPreview
+                ? <img src={bannerPreview} className="h-full w-full object-cover" alt="" />
+                : <div className="flex h-full items-center justify-center gap-2 text-xs text-gray-400"><Camera size={16} /> Choisir une bannière</div>}
+              <input id="banner-input" type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+            </div>
+            <label className="block text-sm font-medium text-gray-700">Logo</label>
+            <div className="flex items-center gap-3">
+              <div className="relative h-16 w-16 cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 flex-shrink-0"
+                onClick={() => document.getElementById("logo-input")?.click()}>
+                {logoPreview
+                  ? <img src={logoPreview} className="h-full w-full object-cover" alt="" />
+                  : <div className="flex h-full items-center justify-center"><Camera size={16} className="text-gray-400" /></div>}
+                <input id="logo-input" type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+              </div>
+              <p className="text-xs text-gray-400">Carré, max 2 Mo</p>
+            </div>
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
             <input type="text" required value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Slogan</label>
+            <input type="text" maxLength={80} value={form.slogan}
+              onChange={(e) => setForm({ ...form, slogan: e.target.value })}
+              placeholder="Ex: Toujours debout !"
               className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
           </div>
           <div>
@@ -213,6 +276,146 @@ function DeleteConfirmModal({ teamName, onClose, onConfirm, deleting }: {
 }
 
 // ============================================
+// Add Achievement Modal
+// ============================================
+
+const ACHIEVEMENT_ICONS = [
+  { value: "trophy" as const, label: "Trophée", Icon: Trophy },
+  { value: "medal" as const, label: "Médaille", Icon: Medal },
+  { value: "star" as const, label: "Étoile", Icon: Star },
+  { value: "shield" as const, label: "Bouclier", Icon: Shield },
+];
+
+function AddAchievementModal({ teamId, onClose, onSaved }: {
+  teamId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [form, setForm] = useState({ title: "", date: "", description: "", icon: "trophy" as Achievement["icon"] });
+  const [saving, setSaving] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.date) return;
+    setSaving(true);
+    try {
+      await addAchievement(teamId, { title: form.title.trim(), date: form.date, description: form.description.trim() || undefined, icon: form.icon });
+      onSaved();
+      onClose();
+    } catch { setSaving(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+          <h2 className="text-lg font-bold text-gray-900 font-display">Ajouter un trophée</h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Titre</label>
+            <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Ex: Champion régional 2024"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+            <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Description (optionnel)</label>
+            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Icône</label>
+            <div className="flex gap-2">
+              {ACHIEVEMENT_ICONS.map(({ value, label, Icon }) => (
+                <button key={value} type="button" onClick={() => setForm({ ...form, icon: value })}
+                  title={label}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all ${form.icon === value ? "border-primary-600 bg-primary-50 text-primary-600" : "border-gray-200 text-gray-400 hover:border-gray-300"}`}>
+                  <Icon size={18} />
+                </button>
+              ))}
+            </div>
+          </div>
+          <button type="submit" disabled={saving || !form.title.trim() || !form.date}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Enregistrer
+          </button>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// ============================================
+// Create Training Modal
+// ============================================
+
+function CreateTrainingModal({ teamId, managerId, memberIds, onClose, onSaved }: {
+  teamId: string; managerId: string; memberIds: string[]; onClose: () => void; onSaved: () => void;
+}) {
+  const [form, setForm] = useState({ title: "", date: "", time: "", location: "", description: "" });
+  const [saving, setSaving] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.date || !form.time || !form.location.trim()) return;
+    setSaving(true);
+    try {
+      await createTraining({ teamId, managerId, memberIds, title: form.title.trim(), date: form.date, time: form.time, location: form.location.trim(), description: form.description.trim() || undefined });
+      onSaved();
+      onClose();
+    } catch { setSaving(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+          <h2 className="text-lg font-bold text-gray-900 font-display">Créer un entraînement</h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Titre</label>
+            <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Ex: Entraînement tactique"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+              <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Heure</label>
+              <input type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Lieu</label>
+            <input required value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
+              placeholder="Ex: Stade municipal"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Description (optionnel)</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
+              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+          </div>
+          <button type="submit" disabled={saving || !form.title.trim() || !form.date || !form.time || !form.location.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Créer
+          </button>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// ============================================
 // Main Component
 // ============================================
 
@@ -225,20 +428,35 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("roster");
+
+  // Lineup
+  const [lineup, setLineup] = useState<string[]>([]);
+  const [lineupChanged, setLineupChanged] = useState(false);
+  const [savingLineup, setSavingLineup] = useState(false);
+
+  // Gallery upload
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+
+  // Follow
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  // Modals
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAchievementModal, setShowAchievementModal] = useState(false);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [leavingTeam, setLeavingTeam] = useState(false);
 
   // Join requests (real-time)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  // Modals
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [removingMember, setRemovingMember] = useState<string | null>(null);
-  const [leavingTeam, setLeavingTeam] = useState(false);
 
   const isTeamManager = team?.managerId === user?.uid;
   const isTeamMember = team?.memberIds.includes(user?.uid ?? "") ?? false;
@@ -268,6 +486,24 @@ export default function TeamDetailPage() {
     fetchTeam();
   }, [fetchTeam]);
 
+  // Sync lineup from team data
+  useEffect(() => {
+    if (team) { setLineup(team.lineupIds ?? []); setLineupChanged(false); }
+  }, [team]);
+
+  // Real-time trainings listener
+  useEffect(() => {
+    if (!teamId) return;
+    const unsub = onTrainingsByTeam(teamId, setTrainings);
+    return unsub;
+  }, [teamId]);
+
+  // Check follow status
+  useEffect(() => {
+    if (!user || !teamId || isTeamManager) return;
+    isFollowingTeam(user.uid, teamId).then(setIsFollowing);
+  }, [user, teamId, isTeamManager]);
+
   // Real-time join requests listener (manager only)
   useEffect(() => {
     if (!teamId || !isTeamManager || !team?.managerId) return;
@@ -282,6 +518,63 @@ export default function TeamDetailPage() {
     });
     return unsub;
   }, [teamId, isTeamManager, team?.managerId]);
+
+  const handleFollowToggle = async () => {
+    if (!user || !team) return;
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await unfollowTeam(user.uid, team.id);
+        setIsFollowing(false);
+        setTeam((t) => t ? { ...t, followersCount: Math.max(0, (t.followersCount ?? 0) - 1) } : t);
+      } else {
+        await followTeam(user.uid, team.id);
+        setIsFollowing(true);
+        setTeam((t) => t ? { ...t, followersCount: (t.followersCount ?? 0) + 1 } : t);
+      }
+    } finally { setFollowLoading(false); }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !team) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image trop lourde (max 5 Mo)"); return; }
+    setUploadingGallery(true);
+    try {
+      const url = await uploadTeamGalleryImage(team.id, file);
+      await addGalleryUrl(team.id, url);
+      await fetchTeam();
+      toast.success("Photo ajoutée");
+    } catch { toast.error("Erreur lors de l'upload"); }
+    finally { setUploadingGallery(false); e.target.value = ""; }
+  };
+
+  const handleRemoveGalleryImage = async (url: string) => {
+    if (!team) return;
+    try {
+      await removeGalleryUrl(team.id, url);
+      await fetchTeam();
+    } catch { toast.error("Erreur lors de la suppression"); }
+  };
+
+  const handleLineupToggle = (uid: string) => {
+    setLineup((prev) => {
+      const next = prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid];
+      setLineupChanged(true);
+      return next;
+    });
+  };
+
+  const handleSaveLineup = async () => {
+    if (!team) return;
+    setSavingLineup(true);
+    try {
+      await updateTeamLineup(team.id, lineup);
+      setLineupChanged(false);
+      toast.success("Composition enregistrée");
+    } catch { toast.error("Erreur lors de la sauvegarde"); }
+    finally { setSavingLineup(false); }
+  };
 
   const handleDeleteTeam = async () => {
     if (!team) return;
@@ -438,74 +731,106 @@ export default function TeamDetailPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+        className="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
       >
-        <div className={`h-2 ${colors.stripe}`} />
-        <div className="p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${colors.bg}`}>
-                <Shield size={32} className={colors.icon} />
+        {/* Banner with gradient overlay */}
+        <div className="relative h-40 w-full overflow-hidden sm:h-56">
+          {team.bannerUrl ? (
+            <img src={team.bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          ) : (
+            <div className={`h-full w-full ${colors.bg} opacity-50`} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          
+          {/* Top Actions overlay */}
+          <div className="absolute right-4 top-4 flex gap-2">
+             {!isTeamManager && (
+                <button onClick={handleFollowToggle} disabled={followLoading}
+                  className={`flex items-center gap-1.5 rounded-full backdrop-blur-md px-4 py-2 text-xs font-bold transition-all shadow-lg ${
+                    isFollowing 
+                      ? "bg-primary-500/90 text-white" 
+                      : "bg-white/90 text-gray-900 hover:bg-white"
+                  }`}>
+                  <Heart size={14} className={isFollowing ? "fill-current" : ""} />
+                  {isFollowing ? "Suivi" : "Suivre"}
+                </button>
+              )}
+              {isTeamManager && (
+                <button onClick={() => setShowEditModal(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow-lg backdrop-blur-md transition-all hover:bg-white">
+                  <Edit3 size={16} />
+                </button>
+              )}
+          </div>
+
+          {/* Bottom Header Info (Glassmorphism Effect) */}
+          <div className="absolute bottom-0 left-0 right-0 p-6">
+            <div className="flex items-end gap-5">
+              <div className="relative shrink-0">
+                <div className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
+                  {team.logoUrl
+                    ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+                    : <Shield size={40} className={colors.icon} />}
+                </div>
+                {team.isRecruiting && (
+                  <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-white">
+                    <UserPlus size={12} />
+                  </div>
+                )}
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 font-display">{team.name}</h1>
-                <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                  <span className="flex items-center gap-1"><MapPin size={14} /> {team.city}</span>
-                  <span className="flex items-center gap-1"><Star size={14} /> {LEVEL_LABELS[team.level] ?? team.level}</span>
-                  {team.isRecruiting && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Recrute</span>
-                  )}
+              <div className="mb-1 flex-1 text-white">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
+                    team.level === "advanced" ? "bg-red-500/80" :
+                    team.level === "intermediate" ? "bg-amber-500/80" :
+                    "bg-blue-500/80"
+                  }`}>
+                    {LEVEL_LABELS[team.level] ?? team.level}
+                  </span>
+                </div>
+                {team.slogan && <p className="mt-1 text-sm font-medium opacity-90 italic">«&nbsp;{team.slogan}&nbsp;»</p>}
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold opacity-80">
+                  <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary-400" /> {team.city}</span>
+                  <span className="flex items-center gap-1.5"><Users size={14} className="text-blue-400" /> {team.memberIds.length}/{team.maxMembers} joueurs</span>
+                  <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
                 </div>
               </div>
             </div>
-
-            {/* Manager actions */}
-            {isTeamManager && (
-              <div className="flex items-center gap-2">
-                <button onClick={() => setShowEditModal(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                  <Edit3 size={14} /> Modifier
-                </button>
-                <button onClick={() => setShowDeleteModal(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            )}
-
-            {/* Player leave */}
-            {!isTeamManager && isTeamMember && (
-              <button onClick={handleLeaveTeam} disabled={leavingTeam}
-                className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
-                {leavingTeam ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} />}
-                Quitter
-              </button>
-            )}
           </div>
+        </div>
 
+        <div className="p-6">
           {/* Description */}
           {team.description && (
-            <p className="mt-4 text-sm text-gray-600 leading-relaxed">{team.description}</p>
+            <div className="mb-8">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">À propos</h3>
+              <p className="text-sm leading-relaxed text-gray-600 italic">&ldquo;{team.description}&rdquo;</p>
+            </div>
           )}
 
           {/* Stats grid */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-lg bg-gray-50 p-3 text-center">
-              <p className="text-2xl font-bold text-gray-900 font-display">{team.memberIds.length}</p>
-              <p className="text-xs text-gray-500">Joueurs</p>
-            </div>
-            <div className="rounded-lg bg-emerald-50 p-3 text-center">
-              <p className="text-2xl font-bold text-emerald-600 font-display">{team.wins}</p>
-              <p className="text-xs text-gray-500">Victoires</p>
-            </div>
-            <div className="rounded-lg bg-red-50 p-3 text-center">
-              <p className="text-2xl font-bold text-red-500 font-display">{team.losses}</p>
-              <p className="text-xs text-gray-500">Defaites</p>
-            </div>
-            <div className="rounded-lg bg-blue-50 p-3 text-center">
-              <p className="text-2xl font-bold text-blue-600 font-display">{winRate}%</p>
-              <p className="text-xs text-gray-500">Taux victoire</p>
-            </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+             <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-gray-50/50 p-4 transition-all hover:shadow-md">
+                <div className="absolute -right-2 -top-2 opacity-10"><Users size={64}/></div>
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Effectif</p>
+                <p className="mt-1 text-2xl font-black text-gray-900 font-display">{team.memberIds.length}</p>
+             </div>
+             <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 transition-all hover:shadow-md">
+                <div className="absolute -right-2 -top-2 opacity-10 text-emerald-600"><Trophy size={64}/></div>
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-600/60">Victoires</p>
+                <p className="mt-1 text-2xl font-black text-emerald-600 font-display">{team.wins}</p>
+             </div>
+             <div className="relative overflow-hidden rounded-2xl border border-red-100 bg-red-50/50 p-4 transition-all hover:shadow-md">
+                <div className="absolute -right-2 -top-2 opacity-10 text-red-600"><X size={64}/></div>
+                <p className="text-xs font-bold uppercase tracking-wider text-red-600/60">Défaites</p>
+                <p className="mt-1 text-2xl font-black text-red-600 font-display">{team.losses}</p>
+             </div>
+             <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/50 p-4 transition-all hover:shadow-md">
+                <div className="absolute -right-2 -top-2 opacity-10 text-blue-600"><Star size={64}/></div>
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-600/60">Win Rate</p>
+                <p className="mt-1 text-2xl font-black text-blue-600 font-display">{winRate}%</p>
+             </div>
           </div>
         </div>
       </motion.div>
@@ -517,28 +842,34 @@ export default function TeamDetailPage() {
         transition={{ duration: 0.3, delay: 0.1 }}
         className="flex border-b border-gray-200"
       >
-        {([
-          { key: "roster" as const, label: "Effectif", icon: Users, count: members.length },
-          { key: "matches" as const, label: "Matchs", icon: Calendar, count: matches.length },
-          ...(isTeamManager ? [
-            { key: "candidatures" as const, label: "Candidatures", icon: ClipboardList, count: pendingCount, badge: true },
-            { key: "settings" as const, label: "Parametres", icon: Settings, count: undefined as number | undefined, badge: false },
-          ] : []),
-        ]).map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as ActiveTab)}
+        {[
+          { id: "roster", label: "Effectif", icon: Users, count: members.length },
+          { id: "matches", label: "Matchs", icon: Calendar, count: matches.length },
+          { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
+          { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
+          { id: "gallery", label: "Galerie", icon: Image, count: (team.galleryUrls ?? []).length },
+          ...(isTeamManager ? [{ id: "candidatures", label: "Candidatures", icon: ClipboardList, count: pendingCount, isBadge: true }] : []),
+          ...(isTeamManager ? [{ id: "settings", label: "Paramètres", icon: Settings, count: 0 }] : []),
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as ActiveTab)}
             className={`relative flex items-center gap-2 border-b-2 pb-3 pr-6 text-sm font-medium transition-colors ${
-              activeTab === tab.key ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400 hover:text-gray-600"
-            }`}>
+              activeTab === tab.id ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
             <tab.icon size={16} />
             {tab.label}
-            {tab.count !== undefined && tab.count > 0 && (
+            {tab.count > 0 && (
               <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                "badge" in tab && tab.badge
+                "isBadge" in tab && tab.isBadge
                   ? "bg-red-100 text-red-600"
-                  : activeTab === tab.key
+                  : activeTab === tab.id
                     ? "bg-primary-100 text-primary-700"
                     : "bg-gray-100 text-gray-500"
-              }`}>{tab.count}</span>
+              }`}>
+                {tab.count}
+              </span>
             )}
           </button>
         ))}
@@ -546,62 +877,78 @@ export default function TeamDetailPage() {
 
       {/* ===================== TAB: ROSTER ===================== */}
       {activeTab === "roster" && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-3"
-        >
-          {members.length > 0 ? (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
+          {/* Manager block */}
+          {(() => {
+            const manager = members.find((m) => m.uid === team.managerId);
+            if (!manager) return null;
+            const initials = `${manager.firstName[0] ?? ""}${manager.lastName[0] ?? ""}`;
+            return (
+              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${manager.firstName} ${manager.lastName}`)}`}>
+                  {manager.profilePictureUrl ? <img src={manager.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-900">{manager.firstName} {manager.lastName}</span>
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Manager</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500"><MapPin size={11} /> {manager.locationCity}</div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Player list (excluding manager) */}
+          {isTeamManager && lineupChanged && (
+            <div className="flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5">
+              <span className="text-sm text-primary-700">Composition modifiée</span>
+              <button onClick={handleSaveLineup} disabled={savingLineup}
+                className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+                {savingLineup ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Enregistrer
+              </button>
+            </div>
+          )}
+
+          {members.filter((m) => m.uid !== team.managerId).length > 0 ? (
             <AnimatePresence mode="popLayout">
-              {members.map((member, i) => {
-                const isManagerMember = member.uid === team.managerId;
+              {members.filter((m) => m.uid !== team.managerId).map((member, i) => {
                 const pos = member.position ?? "";
                 const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`;
-
+                const isStarter = lineup.includes(member.uid);
                 return (
                   <motion.div key={member.uid} layout
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -60, height: 0 }}
-                    transition={{ duration: 0.3, delay: i * 0.05 }}
+                    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -60, height: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}
                     className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                        <span className="text-sm font-bold text-emerald-600">{initials}</span>
+                      {/* Lineup checkbox (manager only) */}
+                      {isTeamManager && (
+                        <button onClick={() => handleLineupToggle(member.uid)}
+                          title={isStarter ? "Retirer des titulaires" : "Ajouter aux titulaires"}
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-primary-600 bg-primary-600 text-white" : "border-gray-300 text-transparent hover:border-primary-400"}`}>
+                          <UserCheck size={12} />
+                        </button>
+                      )}
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${member.firstName} ${member.lastName}`)}`}>
+                        {member.profilePictureUrl ? <img src={member.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold text-gray-900">{member.firstName} {member.lastName}</h4>
-                          {isManagerMember && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Manager</span>
-                          )}
+                          {isStarter && <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700">Titulaire</span>}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <MapPin size={11} /> {member.locationCity}
-                          {pos && (
-                            <span className={`ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>
-                              {POSITION_LABELS[pos] ?? pos}
-                            </span>
-                          )}
+                          {pos && <span className={`ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
                         </div>
                       </div>
                     </div>
-
-                    {/* Remove button (manager only, can't remove self) */}
-                    {isTeamManager && !isManagerMember && (
-                      <button
-                        onClick={() => handleRemoveMember(member.uid)}
-                        disabled={removingMember === member.uid}
-                        className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                      >
-                        {removingMember === member.uid ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <UserMinus size={12} />
-                        )}
-                        Retirer
+                    {isTeamManager && (
+                      <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
+                        className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                        {removingMember === member.uid ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />} Retirer
                       </button>
                     )}
                   </motion.div>
@@ -611,14 +958,11 @@ export default function TeamDetailPage() {
           ) : (
             <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
               <Users size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucun membre dans l&apos;equipe</p>
+              <p className="mt-3 text-sm text-gray-500">Aucun joueur dans l&apos;équipe</p>
             </div>
           )}
-
-          {/* Invite CTA for manager */}
           {isTeamManager && (
-            <Link href="/recruitment"
-              className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+            <Link href="/recruitment" className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
               <UserPlus size={16} /> Recruter des joueurs
             </Link>
           )}
@@ -721,6 +1065,142 @@ export default function TeamDetailPage() {
               className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
               <Calendar size={16} /> Programmer un match
             </Link>
+          )}
+        </motion.div>
+      )}
+
+      {/* ===================== TAB: PALMARES ===================== */}
+      {activeTab === "palmares" && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
+          {(team.achievements ?? []).length > 0 ? (
+            (team.achievements ?? []).map((ach, i) => {
+              const AchIcon = ACHIEVEMENT_ICONS.find((a) => a.value === ach.icon)?.Icon ?? Trophy;
+              return (
+                <motion.div key={ach.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${colors.bg}`}>
+                    <AchIcon size={24} className={colors.icon} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900">{ach.title}</p>
+                    <p className="text-xs text-gray-400">{new Date(ach.date).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</p>
+                    {ach.description && <p className="mt-0.5 text-sm text-gray-500">{ach.description}</p>}
+                  </div>
+                  {isTeamManager && (
+                    <button onClick={async () => { await removeAchievement(team.id, ach.id); await fetchTeam(); }}
+                      className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </motion.div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+              <Trophy size={32} className="text-gray-300" />
+              <p className="mt-3 text-sm text-gray-500">Aucun trophée pour le moment</p>
+            </div>
+          )}
+          {isTeamManager && (
+            <button onClick={() => setShowAchievementModal(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+              <Plus size={16} /> Ajouter un trophée
+            </button>
+          )}
+        </motion.div>
+      )}
+
+      {/* ===================== TAB: GALLERY ===================== */}
+      {activeTab === "gallery" && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-4">
+          {(team.galleryUrls ?? []).length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {(team.galleryUrls ?? []).map((url, i) => (
+                <div key={i} className="group relative aspect-square overflow-hidden rounded-xl">
+                  <img src={url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                  {isTeamManager && (
+                    <button onClick={() => handleRemoveGalleryImage(url)}
+                      className="absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-600">
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+              <Image size={32} className="text-gray-300" />
+              <p className="mt-3 text-sm text-gray-500">Aucune photo pour le moment</p>
+            </div>
+          )}
+          {isTeamManager && (
+            <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+              {uploadingGallery ? <Loader2 size={16} className="animate-spin" /> : <><Plus size={16} /> Ajouter une photo</>}
+              <input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} disabled={uploadingGallery} />
+            </label>
+          )}
+        </motion.div>
+      )}
+
+      {/* ===================== TAB: TRAININGS ===================== */}
+      {activeTab === "trainings" && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
+          {trainings.length > 0 ? trainings.map((training, i) => {
+            const myAttendee = training.attendees.find((a) => a.player_id === user?.uid);
+            const confirmedCount = training.attendees.filter((a) => a.status === "confirmed").length;
+            return (
+              <motion.div key={training.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{training.title}</h4>
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1"><Calendar size={11} /> {new Date(training.date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} à {training.time}</span>
+                      <span className="flex items-center gap-1"><MapPin size={11} /> {training.location}</span>
+                      <span className="flex items-center gap-1"><Users size={11} /> {confirmedCount}/{training.attendees.length} confirmés</span>
+                    </div>
+                    {training.description && <p className="mt-2 text-sm text-gray-500">{training.description}</p>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {/* Player response */}
+                    {myAttendee && myAttendee.status === "pending" && (
+                      <>
+                        <button onClick={() => respondToTraining(training.id, user!.uid, "confirmed").then(() => toast.success("Présence confirmée"))}
+                          className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                          <Check size={12} /> Présent
+                        </button>
+                        <button onClick={() => respondToTraining(training.id, user!.uid, "declined").then(() => toast.success("Absence signalée"))}
+                          className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+                          <X size={12} /> Absent
+                        </button>
+                      </>
+                    )}
+                    {myAttendee && myAttendee.status !== "pending" && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${myAttendee.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                        {myAttendee.status === "confirmed" ? "Présent" : "Absent"}
+                      </span>
+                    )}
+                    {isTeamManager && (
+                      <button onClick={() => deleteTraining(training.id).then(() => toast.success("Entraînement supprimé"))}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          }) : (
+            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+              <Dumbbell size={32} className="text-gray-300" />
+              <p className="mt-3 text-sm text-gray-500">Aucun entraînement programmé</p>
+            </div>
+          )}
+          {isTeamManager && (
+            <button onClick={() => setShowTrainingModal(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+              <Plus size={16} /> Créer un entraînement
+            </button>
           )}
         </motion.div>
       )}
@@ -892,19 +1372,16 @@ export default function TeamDetailPage() {
 
       {/* Modals */}
       <AnimatePresence>
-        {showEditModal && (
-          <EditTeamModal team={team} onClose={() => setShowEditModal(false)} onSaved={fetchTeam} />
-        )}
+        {showEditModal && <EditTeamModal team={team} onClose={() => setShowEditModal(false)} onSaved={fetchTeam} />}
       </AnimatePresence>
       <AnimatePresence>
-        {showDeleteModal && (
-          <DeleteConfirmModal
-            teamName={team.name}
-            onClose={() => setShowDeleteModal(false)}
-            onConfirm={handleDeleteTeam}
-            deleting={deleting}
-          />
-        )}
+        {showDeleteModal && <DeleteConfirmModal teamName={team.name} onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteTeam} deleting={deleting} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showAchievementModal && <AddAchievementModal teamId={team.id} onClose={() => setShowAchievementModal(false)} onSaved={fetchTeam} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showTrainingModal && <CreateTrainingModal teamId={team.id} managerId={team.managerId} memberIds={team.memberIds} onClose={() => setShowTrainingModal(false)} onSaved={() => {}} />}
       </AnimatePresence>
     </div>
   );

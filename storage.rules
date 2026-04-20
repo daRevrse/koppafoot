@@ -1,25 +1,45 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // User profile assets
     match /users/{userId}/{allPaths=**} {
-      // Users can only write to their own folder
-      allow write: if request.auth != null && request.auth.uid == userId
-                   && request.resource.size < 5 * 1024 * 1024 // Limit 5MB
-                   && request.resource.contentType.matches('image/.*');
-      
-      // Everyone can read user profile assets
       allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
     
-    // Post media: any authenticated user can upload images to posts/
+    // Post media
     match /posts/{postId}/media/{fileName} {
+      allow read: if true;
       allow write: if request.auth != null
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
-      allow read: if true;
     }
 
-    // Default rule: deny everything else
+    // Team assets: logo, banner, gallery
+    match /teams/{teamId}/logo/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    match /teams/{teamId}/banner/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    match /teams/{teamId}/gallery/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Catch-all deny
     match /{allPaths=**} {
       allow read: if false;
       allow write: if false;

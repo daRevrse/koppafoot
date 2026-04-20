@@ -14,7 +14,7 @@ export async function uploadProfilePhoto(
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `users/${uid}/${type}_${timestamp}.${ext}`;
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
+  await uploadBytes(storageRef, file, { contentType: file.type });
   return getDownloadURL(storageRef);
 }
 
@@ -30,7 +30,7 @@ export async function uploadGalleryPhoto(
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `users/${uid}/gallery/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
+  await uploadBytes(storageRef, file, { contentType: file.type });
   return getDownloadURL(storageRef);
 }
 
@@ -43,6 +43,40 @@ export async function uploadPostMedia(postId: string, file: File): Promise<strin
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `posts/${postId}/media/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
+ * Upload a team logo. Max 2MB, images only.
+ */
+export async function uploadTeamLogo(teamId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `teams/${teamId}/logo/logo.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
+ * Upload a team banner. Max 5MB, images only.
+ */
+export async function uploadTeamBanner(teamId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `teams/${teamId}/banner/banner.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
+ * Upload an image to the team gallery.
+ */
+export async function uploadTeamGalleryImage(teamId: string, file: File): Promise<string> {
+  const timestamp = Date.now();
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `teams/${teamId}/gallery/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
   return getDownloadURL(storageRef);
 }

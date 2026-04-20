@@ -278,5 +278,43 @@ service cloud.firestore {
       allow update: if isAuthenticated()
         && resource.data.manager_id == request.auth.uid;
     }
+
+    // ============================================
+    // Trainings collection
+    // ============================================
+    match /trainings/{trainingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.manager_id == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.manager_id == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['attendees', 'updated_at'])
+      );
+      allow delete: if isAuthenticated()
+        && resource.data.manager_id == request.auth.uid;
+    }
+
+    // ============================================
+    // Player Ratings collection
+    // ============================================
+    match /player_ratings/{ratingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.rated_by == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+        && resource.data.rated_by == request.auth.uid;
+    }
+
+    // ============================================
+    // Team Follows collection
+    // ============================================
+    match /team_follows/{followId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.follower_id == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.follower_id == request.auth.uid;
+    }
   }
 }

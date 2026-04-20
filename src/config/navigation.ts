@@ -37,8 +37,7 @@ const PLAYER_GROUPED: NavEntry[] = [
     icon: "Shirt",
     items: [
       { path: "/teams", icon: "Users", label: "Mes équipes" },
-      { path: "/teams/search", icon: "Search", label: "Trouver équipe" },
-      { path: "/player-invitations", icon: "UserPlus", label: "Invitations", badge: true },
+      { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
     ],
   },
   {
@@ -78,7 +77,6 @@ const MANAGER_GROUPED: NavEntry[] = [
     icon: "Trophy",
     items: [
       { path: "/matches", icon: "Trophy", label: "Matchs", badge: true },
-      { path: "/referees", icon: "Award", label: "Arbitres" },
       { path: "/calendar", icon: "Calendar", label: "Calendrier" },
     ],
   },
@@ -199,8 +197,7 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
 const PLAYER_NAV: NavItem[] = [
   { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
   { path: "/teams", icon: "Users", label: "Mes équipes" },
-  { path: "/teams/search", icon: "Search", label: "Trouver équipe" },
-  { path: "/player-invitations", icon: "UserPlus", label: "Invitations", badge: true },
+  { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
   { path: "/participations", icon: "CheckCircle", label: "Participations", badge: true },
   { path: "/venues", icon: "MapPin", label: "Terrains" },
   { path: "/calendar", icon: "Calendar", label: "Calendrier" },
@@ -213,7 +210,6 @@ const MANAGER_NAV: NavItem[] = [
   { path: "/matches", icon: "Trophy", label: "Matchs" },
   { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
   { path: "/venues", icon: "MapPin", label: "Terrains" },
-  { path: "/referees", icon: "Award", label: "Arbitres" },
   { path: "/calendar", icon: "Calendar", label: "Calendrier" },
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];

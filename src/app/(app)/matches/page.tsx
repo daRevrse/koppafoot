@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy, Calendar, MapPin, Clock, Users, Shield,
   Plus, CheckCircle, XCircle, Timer, ChevronRight,
-  Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send,
+  Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send, Star,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   updateMatchStatus,
@@ -20,13 +21,16 @@ import {
   searchTeams,
   getTeamById,
   getUsersByIds,
+  getParticipationsForMatch,
   onMatchChallengesForManager,
   respondToMatchChallenge,
   requestMatchModification,
   respondToMatchModification,
   respondToRefereeApplication,
+  getRatingsForMatch,
+  ratePlayer,
 } from "@/lib/firestore";
-import type { Match, Team, Venue } from "@/types";
+import type { Match, Team, Venue, UserProfile, PlayerRating } from "@/types";
 
 // ============================================
 // Config
@@ -130,6 +134,17 @@ export default function MatchesPage() {
   const awaySearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const awayDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Local referee state
+  const [refereeMode, setRefereeMode] = useState<"none" | "local">("none");
+  const [localRefereeName, setLocalRefereeName] = useState("");
+
+  // Player rating modal state
+  const [ratingMatch, setRatingMatch] = useState<Match | null>(null);
+  const [ratingPlayers, setRatingPlayers] = useState<UserProfile[]>([]);
+  const [existingRatings, setExistingRatings] = useState<PlayerRating[]>([]);
+  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [savingRatings, setSavingRatings] = useState(false);
+
   // Fetch data on mount
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -155,12 +170,21 @@ export default function MatchesPage() {
     fetchData();
   }, [fetchData]);
 
-  // Real-time matches listener
+  // Real-time matches listener + auto-complete stale matches
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = onMatchesByManager(user.uid, (data: Match[]) => {
+    const unsub = onMatchesByManager(user.uid, async (data: Match[]) => {
       setMatches(data);
       setLoading(false);
+      // Auto-complete stale upcoming matches
+      const nowDate = new Date().toISOString().split("T")[0];
+      const nowTime = new Date().toTimeString().slice(0, 5);
+      const stale = data.filter(
+        (m) => m.status === "upcoming" && (m.date < nowDate || (m.date === nowDate && m.time < nowTime))
+      );
+      for (const m of stale) {
+        try { await updateMatchStatus(m.id, "completed"); } catch { /* Silent */ }
+      }
     });
     return unsub;
   }, [user?.uid]);
@@ -247,6 +271,7 @@ export default function MatchesPage() {
         managerId: user.uid,
         awayManagerId: awayManagerId,
         date: matchDate,
+        localRefereeName: refereeMode === "local" && localRefereeName.trim() ? localRefereeName.trim() : undefined,
         time: matchTime,
         venueName: venue?.name ?? "",
         venueCity: venue?.city ?? "",
@@ -421,6 +446,46 @@ export default function MatchesPage() {
     } finally {
       setRespondingToRef(null);
     }
+  };
+
+  const openRatingModal = async (match: Match) => {
+    if (!user) return;
+    setRatingMatch(match);
+    setRatings({});
+    try {
+      const myTeam = teams.find((t) => t.managerId === user.uid && (t.id === match.homeTeamId || t.id === match.awayTeamId));
+      if (!myTeam) return;
+      const [participations, existing] = await Promise.all([
+        getParticipationsForMatch(match.id),
+        getRatingsForMatch(match.id),
+      ]);
+      const confirmedPlayerIds = participations
+        .filter((p) => p.status === "confirmed" && p.teamId === myTeam.id)
+        .map((p) => p.playerId);
+      const players = await getUsersByIds(confirmedPlayerIds);
+      setRatingPlayers(players);
+      setExistingRatings(existing);
+      const initialRatings: Record<string, number> = {};
+      for (const r of existing) { initialRatings[r.playerId] = r.score; }
+      setRatings(initialRatings);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleSaveRatings = async () => {
+    if (!ratingMatch || !user) return;
+    setSavingRatings(true);
+    const myTeam = teams.find((t) => t.managerId === user.uid && (t.id === ratingMatch.homeTeamId || t.id === ratingMatch.awayTeamId));
+    if (!myTeam) { setSavingRatings(false); return; }
+    try {
+      await Promise.all(
+        Object.entries(ratings).map(([playerId, score]) =>
+          ratePlayer({ matchId: ratingMatch.id, playerId, teamId: myTeam.id, ratedBy: user.uid, score })
+        )
+      );
+      toast.success("Notes enregistrées");
+      setRatingMatch(null);
+    } catch { toast.error("Erreur lors de la sauvegarde"); }
+    finally { setSavingRatings(false); }
   };
 
   const openModifyModal = (match: Match) => {
@@ -623,6 +688,22 @@ export default function MatchesPage() {
                     ))}
                   </div>
                 </div>
+              </div>
+              {/* Referee section */}
+              <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+                <p className="mb-3 text-sm font-medium text-gray-700">Arbitre</p>
+                <div className="flex gap-2 mb-3">
+                  {[{ v: "none" as const, label: "Aucun pour l'instant" }, { v: "local" as const, label: "Arbitre local" }].map(({ v, label }) => (
+                    <label key={v} className={`flex flex-1 cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${refereeMode === v ? "border-primary-600 bg-primary-50 text-primary-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                      <input type="radio" className="sr-only" checked={refereeMode === v} onChange={() => setRefereeMode(v)} /> {label}
+                    </label>
+                  ))}
+                </div>
+                {refereeMode === "local" && (
+                  <input value={localRefereeName} onChange={(e) => setLocalRefereeName(e.target.value)}
+                    placeholder="Nom de l'arbitre local"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                )}
               </div>
               <div className="mt-5 flex gap-3">
                 <button
@@ -959,11 +1040,31 @@ export default function MatchesPage() {
                         </div>
                       )}
 
+                      {/* Arbitre local */}
+                      {match.localRefereeName && match.refereeStatus === "none" && (
+                        <div className="mt-2 flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 w-fit">
+                          <Award size={11} /> Arbitre local : {match.localRefereeName}
+                        </div>
+                      )}
+
                       {/* Referee name (completed) */}
                       {match.status === "completed" && match.refereeName && (
                         <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                           <Award size={12} /> Arbitre : {match.refereeName}
                         </div>
+                      )}
+                      {match.status === "completed" && !match.refereeName && match.localRefereeName && (
+                        <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                          <Award size={12} /> Arbitre local : {match.localRefereeName}
+                        </div>
+                      )}
+
+                      {/* Player rating button (completed) */}
+                      {match.status === "completed" && match.managerId === user?.uid && (
+                        <button onClick={() => openRatingModal(match)}
+                          className="mt-3 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                          <Star size={12} /> Noter les joueurs
+                        </button>
                       )}
 
                       {/* Actions */}
@@ -1106,6 +1207,53 @@ export default function MatchesPage() {
           )}
         </div>
       )}
+
+      {/* Player Rating Modal */}
+      <AnimatePresence>
+        {ratingMatch && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm" onClick={() => setRatingMatch(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <h3 className="text-lg font-bold text-gray-900 font-display">Noter les joueurs</h3>
+                <button onClick={() => setRatingMatch(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {ratingPlayers.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">Aucun joueur confirmé pour ce match</p>
+                ) : ratingPlayers.map((player) => {
+                  const score = ratings[player.uid] ?? 0;
+                  return (
+                    <div key={player.uid} className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{player.firstName} {player.lastName}</p>
+                        <p className="text-xs text-gray-400">{player.position ?? "Joueur"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="range" min={1} max={10} step={1} value={score || 5}
+                          onChange={(e) => setRatings((r) => ({ ...r, [player.uid]: Number(e.target.value) }))}
+                          className="w-24 accent-primary-600" />
+                        <span className={`w-8 text-center text-sm font-bold ${score >= 8 ? "text-emerald-600" : score >= 5 ? "text-amber-600" : score > 0 ? "text-red-500" : "text-gray-300"}`}>
+                          {score || "–"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="border-t border-gray-100 px-6 py-4 flex justify-end gap-3">
+                <button onClick={() => setRatingMatch(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Annuler</button>
+                <button onClick={handleSaveRatings} disabled={savingRatings || ratingPlayers.length === 0}
+                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center">
+                  {savingRatings ? <Loader2 size={16} className="animate-spin" /> : <><Star size={14} /> Enregistrer</>}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Modification Modal */}
       <AnimatePresence>

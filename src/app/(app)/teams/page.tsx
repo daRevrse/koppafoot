@@ -308,7 +308,7 @@ export default function TeamsPage() {
             </button>
           ) : (
             <Link
-              href="/teams/search"
+              href="/mercato"
               className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
             >
               <Search size={16} /> Trouver une équipe
@@ -430,7 +430,7 @@ export default function TeamsPage() {
             </button>
           ) : (
             <Link
-              href="/teams/search"
+              href="/mercato"
               className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all"
             >
               <Plus size={16} /> Trouver une équipe

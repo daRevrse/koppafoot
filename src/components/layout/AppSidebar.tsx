@@ -63,9 +63,9 @@ export default function AppSidebar() {
     }
 
     if (user.userType === "player") {
-      // Invitations badge
+      // Mercato badge = pending invitations
       unsubs.push(onInvitationsForPlayer(user.uid, (invs) => {
-        setBadgeCounts((prev) => ({ ...prev, "/player-invitations": invs.filter((i) => i.status === "pending").length }));
+        setBadgeCounts((prev) => ({ ...prev, "/mercato": invs.filter((i) => i.status === "pending").length }));
       }));
       // Participations badge
       unsubs.push(onParticipationsForPlayer(user.uid, (parts) => {

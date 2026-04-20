@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type {
-  Team, FirestoreTeam,
+  Team, FirestoreTeam, Achievement,
   Match, FirestoreMatch,
   Participation, FirestoreParticipation,
   Invitation, FirestoreInvitation,
@@ -35,6 +35,8 @@ import type {
   UserProfile, FirestoreUser,
   ShortlistEntry, FirestoreShortlistEntry,
   JoinRequest, FirestoreJoinRequest,
+  Training, FirestoreTraining, TrainingAttendee,
+  PlayerRating, FirestorePlayerRating,
 } from "@/types";
 
 // ============================================
@@ -64,6 +66,9 @@ function toTeam(id: string, d: FirestoreTeam): Team {
     memberIds: d.member_ids ?? [], maxMembers: d.max_members, color: d.color,
     wins: d.wins ?? 0, losses: d.losses ?? 0, draws: d.draws ?? 0,
     matchesPlayed: d.matches_played ?? 0, isRecruiting: d.is_recruiting ?? false,
+    logoUrl: d.logo_url, bannerUrl: d.banner_url, slogan: d.slogan,
+    lineupIds: d.lineup_ids ?? [], galleryUrls: d.gallery_urls ?? [],
+    achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -90,6 +95,7 @@ function toMatch(id: string, d: FirestoreMatch): Match {
       reason: d.modification_request.reason,
       requestedBy: d.modification_request.requested_by,
     } : null,
+    localRefereeName: d.local_referee_name ?? null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -502,7 +508,7 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
 export async function createMatch(data: {
   homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
   managerId: string; awayManagerId: string; date: string; time: string; venueName: string; venueCity: string;
-  format: string; isHome: boolean; playersTotal: number;
+  format: string; isHome: boolean; playersTotal: number; localRefereeName?: string;
 }): Promise<string> {
   const ref = await addDoc(collection(db, "matches"), {
     home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
@@ -512,6 +518,7 @@ export async function createMatch(data: {
     venue_name: data.venueName, venue_city: data.venueCity,
     status: "challenge", result: null, score_home: null, score_away: null,
     referee_id: null, referee_name: null, referee_status: "none",
+    local_referee_name: data.localRefereeName ?? null,
     format: data.format, is_home: data.isHome,
     players_confirmed: 0, players_total: data.playersTotal,
     confirmed_home: 0, confirmed_away: 0,
@@ -1228,6 +1235,211 @@ export async function getFollowersCount(uid: string): Promise<number> {
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return 0;
   return (snap.data() as FirestoreUser).followers_count ?? 0;
+}
+
+// ============================================
+// Posts by User
+// ============================================
+
+// ============================================
+// Team Customisation
+// ============================================
+
+export async function updateTeamMedia(
+  teamId: string,
+  data: { logoUrl?: string; bannerUrl?: string; slogan?: string }
+): Promise<void> {
+  const update: Record<string, unknown> = { updated_at: serverTimestamp() };
+  if (data.logoUrl !== undefined) update.logo_url = data.logoUrl;
+  if (data.bannerUrl !== undefined) update.banner_url = data.bannerUrl;
+  if (data.slogan !== undefined) update.slogan = data.slogan;
+  await updateDoc(doc(db, "teams", teamId), update);
+}
+
+export async function addAchievement(
+  teamId: string,
+  achievement: Omit<Achievement, "id">
+): Promise<void> {
+  const newAchievement: Achievement = { ...achievement, id: crypto.randomUUID() };
+  await updateDoc(doc(db, "teams", teamId), {
+    achievements: arrayUnion(newAchievement),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function removeAchievement(teamId: string, achievementId: string): Promise<void> {
+  const team = await getTeamById(teamId);
+  if (!team) return;
+  const updated = (team.achievements ?? []).filter((a) => a.id !== achievementId);
+  await updateDoc(doc(db, "teams", teamId), {
+    achievements: updated,
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function addGalleryUrl(teamId: string, url: string): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    gallery_urls: arrayUnion(url),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function removeGalleryUrl(teamId: string, url: string): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    gallery_urls: arrayRemove(url),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function updateTeamLineup(teamId: string, lineupIds: string[]): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    lineup_ids: lineupIds,
+    updated_at: serverTimestamp(),
+  });
+}
+
+// ============================================
+// Team Follows
+// ============================================
+
+export async function followTeam(followerId: string, teamId: string): Promise<void> {
+  const followId = `${followerId}_team_${teamId}`;
+  await setDoc(doc(db, "team_follows", followId), {
+    follower_id: followerId,
+    team_id: teamId,
+    created_at: serverTimestamp(),
+  });
+  await updateDoc(doc(db, "teams", teamId), {
+    followers_count: increment(1),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function unfollowTeam(followerId: string, teamId: string): Promise<void> {
+  const followId = `${followerId}_team_${teamId}`;
+  await deleteDoc(doc(db, "team_follows", followId));
+  await updateDoc(doc(db, "teams", teamId), {
+    followers_count: increment(-1),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function isFollowingTeam(followerId: string, teamId: string): Promise<boolean> {
+  const followId = `${followerId}_team_${teamId}`;
+  const snap = await getDoc(doc(db, "team_follows", followId));
+  return snap.exists();
+}
+
+// ============================================
+// Trainings
+// ============================================
+
+function toTraining(id: string, d: FirestoreTraining): Training {
+  return {
+    id, teamId: d.team_id, managerId: d.manager_id,
+    title: d.title, date: d.date, time: d.time, location: d.location,
+    description: d.description,
+    attendees: d.attendees ?? [],
+    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
+  };
+}
+
+export async function createTraining(data: {
+  teamId: string; managerId: string; title: string;
+  date: string; time: string; location: string; description?: string;
+  memberIds: string[];
+}): Promise<string> {
+  const attendees: TrainingAttendee[] = data.memberIds
+    .filter((id) => id !== data.managerId)
+    .map((player_id) => ({ player_id, status: "pending" as const }));
+  const ref = await addDoc(collection(db, "trainings"), {
+    team_id: data.teamId, manager_id: data.managerId,
+    title: data.title, date: data.date, time: data.time,
+    location: data.location,
+    ...(data.description && { description: data.description }),
+    attendees,
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getTrainingsByTeam(teamId: string): Promise<Training[]> {
+  const q = query(collection(db, "trainings"), where("team_id", "==", teamId), orderBy("date", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toTraining(d.id, d.data() as FirestoreTraining));
+}
+
+export function onTrainingsByTeam(teamId: string, callback: (data: Training[]) => void): Unsubscribe {
+  const q = query(collection(db, "trainings"), where("team_id", "==", teamId), orderBy("date", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toTraining(d.id, d.data() as FirestoreTraining)));
+  });
+}
+
+export async function respondToTraining(
+  trainingId: string,
+  playerId: string,
+  status: "confirmed" | "declined"
+): Promise<void> {
+  const snap = await getDoc(doc(db, "trainings", trainingId));
+  if (!snap.exists()) return;
+  const data = snap.data() as FirestoreTraining;
+  const attendees = (data.attendees ?? []).map((a) =>
+    a.player_id === playerId ? { ...a, status } : a
+  );
+  await updateDoc(doc(db, "trainings", trainingId), {
+    attendees, updated_at: serverTimestamp(),
+  });
+}
+
+export async function deleteTraining(trainingId: string): Promise<void> {
+  await deleteDoc(doc(db, "trainings", trainingId));
+}
+
+// ============================================
+// Player Ratings
+// ============================================
+
+function toPlayerRating(id: string, d: FirestorePlayerRating): PlayerRating {
+  return {
+    id, matchId: d.match_id, playerId: d.player_id, teamId: d.team_id,
+    ratedBy: d.rated_by, score: d.score, createdAt: formatDate(d.created_at),
+  };
+}
+
+export async function ratePlayer(data: {
+  matchId: string; playerId: string; teamId: string; ratedBy: string; score: number;
+}): Promise<void> {
+  const q = query(
+    collection(db, "player_ratings"),
+    where("match_id", "==", data.matchId),
+    where("player_id", "==", data.playerId),
+    where("rated_by", "==", data.ratedBy)
+  );
+  const existing = await getDocs(q);
+  if (!existing.empty) {
+    await updateDoc(existing.docs[0].ref, { score: data.score });
+  } else {
+    await addDoc(collection(db, "player_ratings"), {
+      match_id: data.matchId, player_id: data.playerId,
+      team_id: data.teamId, rated_by: data.ratedBy,
+      score: data.score, created_at: serverTimestamp(),
+    });
+  }
+}
+
+export async function getRatingsForMatch(matchId: string): Promise<PlayerRating[]> {
+  const q = query(collection(db, "player_ratings"), where("match_id", "==", matchId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toPlayerRating(d.id, d.data() as FirestorePlayerRating));
+}
+
+export async function getAverageRatingForPlayer(playerId: string): Promise<number | null> {
+  const q = query(collection(db, "player_ratings"), where("player_id", "==", playerId));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const total = snap.docs.reduce((sum, d) => sum + (d.data() as FirestorePlayerRating).score, 0);
+  return Math.round((total / snap.docs.length) * 10) / 10;
 }
 
 // ============================================
