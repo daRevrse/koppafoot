@@ -71,7 +71,7 @@ function ReportForm() {
     setSubmitting(true);
     try {
       await submitMatchReport(matchId, scoreHome, scoreAway);
-      router.push("/referee/matches?success=report-submitted");
+      router.push("/referee-panel/matches?success=report-submitted");
     } catch (err) {
       console.error(err);
       setError("Erreur lors de la soumission du rapport.");
@@ -102,7 +102,7 @@ function ReportForm() {
             {assignedMatches.map(m => (
               <Link
                 key={m.id}
-                href={`/referee/reports?matchId=${m.id}`}
+                href={`/referee-panel/reports?matchId=${m.id}`}
                 className="group flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md"
               >
                 <div className="flex items-center gap-6">
@@ -136,7 +136,7 @@ function ReportForm() {
               Tu n'as aucun match programmé nécessitant un rapport pour le moment.
             </p>
             <Link 
-              href="/referee/find-matches"
+              href="/referee-panel/find-matches"
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition-all"
             >
               Trouver un match
@@ -206,6 +206,42 @@ function ReportForm() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Format</span>
                 <p className="text-sm font-bold text-gray-900">{match?.format}</p>
               </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-xl mt-6">
+            <div className="bg-gray-900 p-4 text-white text-center">
+              <MessageSquare className="mx-auto mb-2 text-emerald-400" size={24} />
+              <h3 className="text-sm font-black uppercase tracking-tighter">Retours Managers</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {!match?.postMatchFeedback || Object.keys(match.postMatchFeedback).length === 0 ? (
+                <p className="text-xs text-gray-500 italic text-center">Aucun retour pour le moment.</p>
+              ) : (
+                Object.entries(match.postMatchFeedback).map(([managerId, feedback]) => (
+                  <div key={managerId} className="space-y-2 border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between">
+                       <span className="text-xs font-bold text-gray-900">
+                         {managerId === match.managerId ? match.homeTeamName : match.awayTeamName}
+                       </span>
+                       <div className="flex items-center gap-1">
+                          {feedback.validation === 'validated' ? <CheckCircle2 size={14} className="text-emerald-500"/> : <AlertCircle size={14} className="text-red-500"/>}
+                          <span className={`text-[10px] uppercase font-black ${feedback.validation === 'validated' ? 'text-emerald-600' : 'text-red-600'}`}>{feedback.validation === 'validated' ? 'Validé' : 'Contesté'}</span>
+                       </div>
+                    </div>
+                    {feedback.refereeRating && (
+                      <div className="flex items-center gap-1">
+                        {Array.from({length: 5}).map((_, i) => (
+                           <Star key={i} size={12} className={i < feedback.refereeRating! ? "text-amber-400 fill-amber-400" : "text-gray-300"} />
+                        ))}
+                      </div>
+                    )}
+                    {feedback.comments && (
+                      <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg p-2 mt-1">« {feedback.comments} »</p>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

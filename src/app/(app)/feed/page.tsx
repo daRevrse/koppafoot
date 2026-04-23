@@ -132,16 +132,23 @@ export default function FeedPage() {
     if (!newPost.trim() || !user) return;
     setPosting(true);
     try {
+      const isVenueOwner = user.userType === "venue_owner";
+      
       const authorRole =
         user.userType === "manager" ? "Manager"
         : user.userType === "referee" ? "Arbitre"
+        : isVenueOwner ? "Partenaire"
         : "Joueur";
+
+      const authorName = isVenueOwner && user.companyName 
+        ? user.companyName 
+        : `${user.firstName} ${user.lastName.charAt(0)}.`;
 
       const authorAvatar = user.profilePictureUrl || `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
       
       const postId = await createPost({
         authorId: user.uid,
-        authorName: `${user.firstName} ${user.lastName.charAt(0)}.`,
+        authorName,
         authorRole,
         authorAvatar,
         type: "text",

@@ -102,10 +102,17 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const initials = post.authorAvatar || post.authorName.slice(0, 2).toUpperCase();
   const isOwn = post.authorId === currentUser.uid;
 
+  const isVenueOwner = currentUser.userType === "venue_owner";
+
   const authorRole =
     currentUser.userType === "manager" ? "Manager"
     : currentUser.userType === "referee" ? "Arbitre"
+    : isVenueOwner ? "Partenaire"
     : "Joueur";
+
+  const authorName = isVenueOwner && currentUser.companyName
+    ? currentUser.companyName
+    : `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`;
 
   const handleSaveEdit = async () => {
     if (!editContent.trim() || editContent === post.content) { setEditing(false); return; }
@@ -146,9 +153,9 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     try {
       await createPost({
         authorId: currentUser.uid,
-        authorName: `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`,
+        authorName,
         authorRole,
-        authorAvatar: `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`,
+        authorAvatar: currentUser.profilePictureUrl || `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`,
         type: "text",
         content: repostText,
         metadata: {

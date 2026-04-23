@@ -37,6 +37,7 @@ import type {
   JoinRequest, FirestoreJoinRequest,
   Training, FirestoreTraining, TrainingAttendee,
   PlayerRating, FirestorePlayerRating,
+  Booking, FirestoreBooking,
 } from "@/types";
 
 // ============================================
@@ -59,7 +60,7 @@ function formatDate(date: any): string {
 }
 
 
-function toTeam(id: string, d: FirestoreTeam): Team {
+export function toTeam(id: string, d: FirestoreTeam): Team {
   return {
     id, name: d.name, managerId: d.manager_id, city: d.city,
     description: d.description, level: d.level, lookingFor: d.looking_for ?? [],
@@ -69,16 +70,33 @@ function toTeam(id: string, d: FirestoreTeam): Team {
     logoUrl: d.logo_url, bannerUrl: d.banner_url, slogan: d.slogan,
     lineupIds: d.lineup_ids ?? [], galleryUrls: d.gallery_urls ?? [],
     achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
+    squadNumbers: d.squad_numbers ?? {},
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
-function toMatch(id: string, d: FirestoreMatch): Match {
+export function toMatch(id: string, d: FirestoreMatch): Match {
+  let effectiveStatus = d.status;
+  
+  // Dynamic status check for upcoming matches
+  if (d.status === "upcoming" && d.date && d.time) {
+    try {
+      const matchDate = new Date(`${d.date}T${d.time}`);
+      const now = new Date();
+      if (now > matchDate) {
+        effectiveStatus = "delayed"; 
+      }
+    } catch (e) {
+      console.warn("Invalid date format in match", d.date, d.time);
+    }
+  }
+
   return {
     id, homeTeamId: d.home_team_id, awayTeamId: d.away_team_id,
     homeTeamName: d.home_team_name, awayTeamName: d.away_team_name,
     managerId: d.manager_id, date: d.date, time: d.time,
     venueName: d.venue_name, venueCity: d.venue_city, status: d.status,
+    effectiveStatus: effectiveStatus as any, // Cast to any until type is fully propagated or updated
     result: d.result, scoreHome: d.score_home, scoreAway: d.score_away,
     refereeId: d.referee_id, refereeName: d.referee_name,
     refereeStatus: d.referee_status ?? "none", format: d.format,
@@ -87,6 +105,8 @@ function toMatch(id: string, d: FirestoreMatch): Match {
     awayManagerId: d.away_manager_id ?? "",
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
+    homeLineupReady: d.home_lineup_ready ?? false,
+    awayLineupReady: d.away_lineup_ready ?? false,
     modificationRequest: d.modification_request ? {
       date: d.modification_request.date,
       time: d.modification_request.time,
@@ -96,23 +116,108 @@ function toMatch(id: string, d: FirestoreMatch): Match {
       requestedBy: d.modification_request.requested_by,
     } : null,
     localRefereeName: d.local_referee_name ?? null,
+    autoAcceptPlayers: d.auto_accept_players ?? false,
+    validationStatus: d.validation_status ?? "pending",
+    completedAt: d.completed_at ?? null,
+    liveState: d.live_state ? {
+      currentPeriod: d.live_state.current_period,
+      timerStartAt: d.live_state.timer_start_at,
+      timerOffset: d.live_state.timer_offset,
+      isTimerRunning: d.live_state.is_timer_running,
+      events: (d.live_state.events || []).map(e => ({
+        id: e.id,
+        type: e.type,
+        period: e.period,
+        minute: e.minute,
+        teamId: e.team_id,
+        playerId: e.player_id,
+        playerName: e.player_name,
+        detail: e.detail,
+        contestedByManagerId: e.contested_by_manager_id,
+        contestationReason: e.contestation_reason,
+        createdAt: e.created_at,
+      })),
+    } : null,
+    postMatchFeedback: d.post_match_feedback ? Object.fromEntries(
+      Object.entries(d.post_match_feedback).map(([k, v]) => [k, {
+        validation: v.validation,
+        comments: v.comments,
+        refereeRating: v.referee_rating,
+        createdAt: v.created_at,
+      }])
+    ) : null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
+export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
+  return {
+    uid,
+    email: data.email,
+    phone: data.phone,
+    firstName: data.first_name,
+    lastName: data.last_name,
+    userType: data.user_type,
+    locationCity: data.location_city,
+    bio: data.bio ?? null,
+    profilePictureUrl: data.profile_picture_url,
+    coverPhotoUrl: data.cover_photo_url,
+    companyName: data.company_name ?? null,
+    isActive: data.is_active,
+    emailVerified: false,
+    authProviders: data.auth_providers ?? [],
+    createdAt: formatDate(data.created_at),
+    updatedAt: formatDate(data.updated_at),
+    ...(data.position !== undefined && { position: data.position }),
+    ...(data.skill_level !== undefined && { skillLevel: data.skill_level }),
+    ...(data.team_name !== undefined && { teamName: data.team_name }),
+    ...(data.license_number !== undefined && { licenseNumber: data.license_number }),
+    ...(data.license_level !== undefined && { licenseLevel: data.license_level }),
+    ...(data.experience_years !== undefined && { experienceYears: data.experience_years }),
+    ...(data.strong_foot !== undefined && { strongFoot: data.strong_foot }),
+    ...(data.height !== undefined && { height: data.height }),
+    ...(data.weight !== undefined && { weight: data.weight }),
+    ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
+    followersCount: data.followers_count ?? 0,
+    followingCount: data.following_count ?? 0,
+    galleryPhotos: data.gallery_photos ?? [],
+    trophies: data.trophies ?? [],
+  };
+}
 
-function toParticipation(id: string, d: FirestoreParticipation): Participation {
+export async function getMatchParticipations(matchId: string): Promise<Participation[]> {
+  const q = query(collection(db, "participations"), where("match_id", "==", matchId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => toParticipation(d.id, d.data() as FirestoreParticipation));
+}
+
+/**
+ * Get all members of a team
+ */
+export async function getTeamMembers(teamId: string): Promise<UserProfile[]> {
+  const q = query(
+    collection(db, "users"),
+    where("team_id", "==", teamId),
+    where("is_active", "==", true)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => toUserProfile(d.id, d.data() as FirestoreUser));
+}
+
+
+export function toParticipation(id: string, d: FirestoreParticipation): Participation {
   return {
     id, playerId: d.player_id, playerName: d.player_name,
     teamId: d.team_id, matchId: d.match_id, matchLabel: d.match_label,
     matchDate: d.match_date, matchTime: d.match_time, venueName: d.venue_name,
     status: d.status, goals: d.goals ?? 0, assists: d.assists ?? 0,
     matchFormat: d.match_format ?? "", isHome: d.is_home ?? false,
+    squadNumber: d.squad_number, matchRole: d.match_role,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
 
-function toInvitation(id: string, d: FirestoreInvitation): Invitation {
+export function toInvitation(id: string, d: FirestoreInvitation): Invitation {
   return {
     id, senderId: d.sender_id, senderName: d.sender_name,
     receiverId: d.receiver_id, receiverName: d.receiver_name,
@@ -165,37 +270,6 @@ function toComment(id: string, d: FirestoreComment): Comment {
   };
 }
 
-function toUserProfile(uid: string, d: FirestoreUser): UserProfile {
-  return {
-    uid, email: d.email, phone: d.phone,
-    firstName: d.first_name, lastName: d.last_name,
-    userType: d.user_type, locationCity: d.location_city,
-    bio: d.bio ?? null, profilePictureUrl: d.profile_picture_url,
-    coverPhotoUrl: d.cover_photo_url, companyName: d.company_name ?? null,
-    isActive: d.is_active, emailVerified: false,
-    authProviders: d.auth_providers ?? [],
-    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
-    // Role-specific optional fields
-    ...(d.position !== undefined && { position: d.position }),
-    ...(d.skill_level !== undefined && { skillLevel: d.skill_level }),
-    ...(d.team_name !== undefined && { teamName: d.team_name }),
-    ...(d.license_number !== undefined && { licenseNumber: d.license_number }),
-    ...(d.license_level !== undefined && { licenseLevel: d.license_level }),
-    ...(d.experience_years !== undefined && { experienceYears: d.experience_years }),
-    // Physical info
-    ...(d.strong_foot !== undefined && { strongFoot: d.strong_foot }),
-    ...(d.height !== undefined && { height: d.height }),
-    ...(d.weight !== undefined && { weight: d.weight }),
-    ...(d.date_of_birth !== undefined && { dateOfBirth: d.date_of_birth }),
-    // Social
-    followersCount: d.followers_count ?? 0,
-    followingCount: d.following_count ?? 0,
-    // Gallery
-    galleryPhotos: d.gallery_photos ?? [],
-    // Trophies
-    trophies: d.trophies ?? [],
-  };
-}
 
 function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntry {
   return {
@@ -256,6 +330,13 @@ export async function createTeam(data: {
 
 export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
   await updateDoc(doc(db, "teams", teamId), { ...data, updated_at: serverTimestamp() });
+}
+
+export async function updateTeamSquadNumbers(teamId: string, squadNumbers: Record<string, string>): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    squad_numbers: squadNumbers,
+    updated_at: serverTimestamp(),
+  });
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
@@ -492,6 +573,19 @@ export function onMatchesByManager(managerId: string, callback: (data: Match[]) 
   };
 }
 
+export function onLiveMatches(callback: (matches: Match[]) => void): Unsubscribe {
+  const qLive = query(
+    collection(db, "matches"),
+    where("status", "==", "live"),
+    orderBy("created_at", "desc")
+  );
+  
+  return onSnapshot(qLive, (snap) => {
+    const matches = snap.docs.map(d => toMatch(d.id, d.data() as FirestoreMatch));
+    callback(matches);
+  });
+}
+
 export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
   if (teamIds.length === 0) return [];
   // Firestore 'in' supports up to 30 values
@@ -509,6 +603,7 @@ export async function createMatch(data: {
   homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
   managerId: string; awayManagerId: string; date: string; time: string; venueName: string; venueCity: string;
   format: string; isHome: boolean; playersTotal: number; localRefereeName?: string;
+  autoAcceptPlayers?: boolean;
 }): Promise<string> {
   const ref = await addDoc(collection(db, "matches"), {
     home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
@@ -522,6 +617,7 @@ export async function createMatch(data: {
     format: data.format, is_home: data.isHome,
     players_confirmed: 0, players_total: data.playersTotal,
     confirmed_home: 0, confirmed_away: 0,
+    auto_accept_players: !!data.autoAcceptPlayers,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   return ref.id;
@@ -531,11 +627,99 @@ export async function updateMatch(matchId: string, data: Partial<FirestoreMatch>
   await updateDoc(doc(db, "matches", matchId), { ...data, updated_at: serverTimestamp() });
 }
 
+export async function updateMatchLineup(
+  matchId: string, 
+  teamId: string, 
+  isHome: boolean,
+  assignments: { playerId: string; squadNumber: string; role: "starter" | "substitute" }[]
+): Promise<void> {
+  const batch = writeBatch(db);
+  
+  const q = query(
+    collection(db, "participations"), 
+    where("match_id", "==", matchId), 
+    where("team_id", "==", teamId)
+  );
+  const snap = await getDocs(q);
+  
+  snap.docs.forEach(d => {
+    batch.update(d.ref, {
+      match_role: null,
+      updated_at: serverTimestamp(),
+    });
+  });
+
+  assignments.forEach(asgn => {
+    const doc = snap.docs.find(d => d.data().player_id === asgn.playerId);
+    if (doc) {
+      batch.update(doc.ref, {
+        squad_number: asgn.squadNumber,
+        match_role: asgn.role,
+        updated_at: serverTimestamp(),
+      });
+    }
+  });
+
+  const matchRef = doc(db, "matches", matchId);
+  batch.update(matchRef, {
+    [isHome ? "home_lineup_ready" : "away_lineup_ready"]: true,
+    updated_at: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function cancelMatch(matchId: string): Promise<void> {
   await cancelMatchParticipations(matchId);
   await updateDoc(doc(db, "matches", matchId), {
     status: "cancelled",
     updated_at: serverTimestamp(),
+  });
+}
+
+export async function submitManagerFeedback(
+  matchId: string,
+  managerId: string,
+  data: {
+    validation: "validated" | "contested";
+    comments?: string;
+    refereeRating?: number;
+  }
+): Promise<void> {
+  const matchRef = doc(db, "matches", matchId);
+  await runTransaction(db, async (transaction) => {
+    const matchSnap = await transaction.get(matchRef);
+    if (!matchSnap.exists()) throw new Error("Match not found");
+    const matchData = matchSnap.data() as FirestoreMatch;
+
+    const feedback = { ...(matchData.post_match_feedback || {}) };
+    const feedbackEntry: any = {
+      validation: data.validation,
+      created_at: new Date().toISOString(),
+    };
+    if (data.comments) feedbackEntry.comments = data.comments;
+    if (data.refereeRating) feedbackEntry.referee_rating = data.refereeRating;
+    
+    feedback[managerId] = feedbackEntry;
+
+    let validation_status: "pending" | "contested" | "validated" = matchData.validation_status ?? "pending";
+    if (data.validation === "contested") {
+      validation_status = "contested";
+    } else if (validation_status !== "contested") {
+      // Check if both managers have provided feedback.
+      const bothValidated = 
+        feedback[matchData.manager_id]?.validation === "validated" &&
+        feedback[matchData.away_manager_id]?.validation === "validated";
+      if (bothValidated) {
+        validation_status = "validated";
+      }
+    }
+
+    transaction.update(matchRef, {
+      post_match_feedback: feedback,
+      validation_status,
+      updated_at: serverTimestamp(),
+    });
   });
 }
 
@@ -581,19 +765,33 @@ export async function respondToMatchChallenge(
   homeTeamId: string,
   awayTeamId: string,
   format: string,
+  autoAccept: boolean = false,
 ): Promise<void> {
-  if (!accepted) {
-    await updateDoc(doc(db, "matches", matchId), {
-      status: "cancelled", updated_at: serverTimestamp(),
-    });
-    await cancelMatchParticipations(matchId);
-    return;
-  }
+  const status = accepted ? (autoAccept ? "upcoming" : "pending") : "cancelled";
   await updateDoc(doc(db, "matches", matchId), {
-    status: "pending", updated_at: serverTimestamp(),
+    status, updated_at: serverTimestamp(),
   });
-  await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, homeTeamId, homeTeamMemberIds, homeTeamMemberNames, format, true);
-  await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, awayTeamId, awayTeamMemberIds, awayTeamMemberNames, format, false);
+  if (accepted) {
+    await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, homeTeamId, homeTeamMemberIds, homeTeamMemberNames, format, true, !!autoAccept);
+    await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, awayTeamId, awayTeamMemberIds, awayTeamMemberNames, format, false, !!autoAccept);
+    
+    if (autoAccept) {
+      // Create announcement immediately if auto-accepting
+      await addDoc(collection(db, "posts"), {
+        author_id: "system",
+        author_name: "Koppafoot",
+        author_role: "system",
+        author_avatar: "",
+        type: "match_announcement",
+        content: `⚽ Match confirmé ! ${matchLabel} le ${matchDate} à ${matchTime} — ${venueName}`,
+        metadata: { home_team: homeTeamId, away_team: awayTeamId },
+        likes: [], comment_count: 0,
+        created_at: serverTimestamp(), updated_at: serverTimestamp(),
+      });
+    }
+  } else {
+    await cancelMatchParticipations(matchId);
+  }
 }
 
 export async function requestMatchModification(
@@ -638,28 +836,62 @@ export async function respondToMatchModification(
 
 // ============================================
 
+export async function invitePlayerToMatch(
+  matchId: string, 
+  matchLabel: string, 
+  matchDate: string, 
+  matchTime: string,
+  venueName: string, 
+  playerId: string, 
+  playerName: string, 
+  teamId: string, 
+  format: string, 
+  isHome: boolean,
+  autoConfirm: boolean = false
+): Promise<void> {
+  const participationData = {
+    player_id: playerId,
+    player_name: playerName,
+    team_id: teamId,
+    match_id: matchId,
+    match_label: matchLabel,
+    match_date: matchDate,
+    match_time: matchTime,
+    venue_name: venueName,
+    status: autoConfirm ? "confirmed" : "pending",
+    goals: 0,
+    assists: 0,
+    match_format: format,
+    is_home: isHome,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  };
+
+  await addDoc(collection(db, "participations"), participationData);
+
+  if (autoConfirm) {
+    const matchRef = doc(db, "matches", matchId);
+    await updateDoc(matchRef, {
+      [isHome ? "confirmed_home" : "confirmed_away"]: increment(1),
+      players_confirmed: increment(1),
+      updated_at: serverTimestamp(),
+    });
+  }
+}
+
 export async function createParticipationsForTeam(
   matchId: string, matchLabel: string, matchDate: string, matchTime: string,
   venueName: string, teamId: string, memberIds: string[],
   memberNames: Map<string, string>, format: string, isHome: boolean,
+  autoConfirm: boolean = false,
 ): Promise<void> {
   const batch: Promise<unknown>[] = [];
   for (const playerId of memberIds) {
-    batch.push(addDoc(collection(db, "participations"), {
-      player_id: playerId,
-      player_name: memberNames.get(playerId) ?? "",
-      team_id: teamId,
-      match_id: matchId,
-      match_label: matchLabel,
-      match_date: matchDate,
-      match_time: matchTime,
-      venue_name: venueName,
-      status: "pending",
-      goals: 0, assists: 0,
-      match_format: format,
-      is_home: isHome,
-      created_at: serverTimestamp(), updated_at: serverTimestamp(),
-    }));
+    batch.push(invitePlayerToMatch(
+      matchId, matchLabel, matchDate, matchTime, venueName,
+      playerId, memberNames.get(playerId) ?? "", teamId,
+      format, isHome, autoConfirm
+    ));
   }
   await Promise.all(batch);
 }
@@ -773,16 +1005,110 @@ export async function respondToParticipation(
 export async function forceCompleteMatch(matchId: string): Promise<void> {
   const matchRef = doc(db, "matches", matchId);
   await updateDoc(matchRef, {
-    status: "upcoming",
+    status: "completed",
     updated_at: serverTimestamp(),
   });
 }
 
 export async function updateMatchStatus(matchId: string, status: Match["status"]): Promise<void> {
-  await updateDoc(doc(db, "matches", matchId), {
+  const matchRef = doc(db, "matches", matchId);
+  const matchSnap = await getDoc(matchRef);
+  if (!matchSnap.exists()) return;
+  const matchData = matchSnap.data() as FirestoreMatch;
+
+  const updates: any = {
     status,
     updated_at: serverTimestamp(),
-  });
+  };
+
+  if (status === "completed") {
+    updates.validation_status = "pending";
+    updates.completed_at = serverTimestamp();
+  }
+
+  // 1. Calculate Result & Final Stats Rollup
+  if (status === "completed") {
+    const sh = matchData.score_home ?? 0;
+    const sa = matchData.score_away ?? 0;
+    let matchResult: "win" | "loss" | "draw";
+    
+    if (sh > sa) matchResult = "win";
+    else if (sh < sa) matchResult = "loss";
+    else matchResult = "draw";
+    
+    updates.result = matchResult;
+
+    // Start a batch for all rollups
+    const batch = writeBatch(db);
+
+    // A. Team Rollups
+    if (matchData.home_team_id && matchData.home_team_id !== "") {
+      const homeTeamRef = doc(db, "teams", matchData.home_team_id);
+      batch.update(homeTeamRef, {
+        matches_played: increment(1),
+        wins: increment(matchResult === "win" ? 1 : 0),
+        losses: increment(matchResult === "loss" ? 1 : 0),
+        draws: increment(matchResult === "draw" ? 1 : 0),
+        updated_at: serverTimestamp(),
+      });
+    }
+    if (matchData.away_team_id && matchData.away_team_id !== "") {
+      const awayTeamRef = doc(db, "teams", matchData.away_team_id);
+      const awayResult = matchResult === "win" ? "loss" : (matchResult === "loss" ? "win" : "draw");
+      batch.update(awayTeamRef, {
+        matches_played: increment(1),
+        wins: increment(awayResult === "win" ? 1 : 0),
+        losses: increment(awayResult === "loss" ? 1 : 0),
+        draws: increment(awayResult === "draw" ? 1 : 0),
+        updated_at: serverTimestamp(),
+      });
+    }
+
+    // B. Player Rollups
+    // Query all participations for this match and filter in-memory to avoid index requirements
+    const partsQuery = query(collection(db, "participations"), where("match_id", "==", matchId));
+    const partsSnap = await getDocs(partsQuery);
+    
+    const goalsPerPlayer: Record<string, number> = {};
+    if (matchData.live_state?.events) {
+      matchData.live_state.events.forEach(ev => {
+        if (ev.type === "goal" && ev.player_id) {
+          goalsPerPlayer[ev.player_id] = (goalsPerPlayer[ev.player_id] || 0) + 1;
+        }
+      });
+    }
+
+    for (const pDoc of partsSnap.docs) {
+      const pData = pDoc.data() as FirestoreParticipation;
+      if (pData.status !== "confirmed") continue;
+      
+      const playerId = pData.player_id;
+      if (!playerId) continue;
+
+      const playerGoals = goalsPerPlayer[playerId] || 0;
+      const playerAssists = pData.assists || 0;
+
+      batch.update(pDoc.ref, {
+        goals: playerGoals,
+        updated_at: serverTimestamp(),
+      });
+
+      const userRef = doc(db, "users", playerId);
+      batch.update(userRef, {
+        matches_played: increment(1),
+        goals: increment(playerGoals),
+        assists: increment(playerAssists),
+        updated_at: serverTimestamp(),
+      });
+    }
+
+    // C. Update Match with result
+    batch.update(matchRef, updates);
+    await batch.commit();
+  } else {
+    // Normal status update (pending -> upcoming, etc.)
+    await updateDoc(matchRef, updates);
+  }
 }
 
 export async function cancelMatchParticipations(matchId: string): Promise<void> {
@@ -1091,6 +1417,81 @@ export async function respondToRefereeInvitation(matchId: string, accepted: bool
       updated_at: serverTimestamp(),
     });
   }
+}
+
+export async function startMatchTimer(matchId: string): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    "live_state.is_timer_running": true,
+    "live_state.timer_start_at": new Date().toISOString(),
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function pauseMatchTimer(matchId: string, currentOffset: number): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    "live_state.is_timer_running": false,
+    "live_state.timer_start_at": null,
+    "live_state.timer_offset": currentOffset,
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function addMatchEvent(matchId: string, event: any): Promise<void> {
+  const matchRef = doc(db, "matches", matchId);
+  const eventId = Math.random().toString(36).substring(2, 11);
+  const newEvent = {
+    ...event,
+    id: eventId,
+    created_at: new Date().toISOString(),
+  };
+
+  const updates: any = {
+    "live_state.events": arrayUnion(newEvent),
+    updated_at: serverTimestamp(),
+  };
+
+  if (event.type === "goal") {
+    const field = event.team_id === "home" || event.isHome ? "score_home" : "score_away";
+    updates[field] = increment(1);
+  }
+
+  await updateDoc(matchRef, updates);
+}
+
+export async function updateMatchPeriod(matchId: string, period: number): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    "live_state.current_period": period,
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function initLiveMatch(matchId: string): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    status: "live",
+    live_state: {
+      current_period: 1,
+      timer_start_at: null,
+      timer_offset: 0,
+      is_timer_running: false,
+      events: [],
+    },
+    score_home: 0,
+    score_away: 0,
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function getGlobalMatches(limitCount = 20): Promise<Match[]> {
+  const matchesRef = collection(db, "matches");
+  // Only upcoming, live or recently completed
+  const q = query(
+    matchesRef,
+    where("status", "in", ["upcoming", "live", "completed"]),
+    orderBy("date", "desc"),
+    firestoreLimit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => toMatch(doc.id, doc.data() as FirestoreMatch));
 }
 
 export async function getMatchesByReferee(refereeId: string, status?: string): Promise<Match[]> {
@@ -1477,4 +1878,151 @@ export async function getPostsByUser(userId: string, currentUserId?: string, max
     }
     return [];
   }
+}
+
+// ============================================
+// Venue Owner Business Logic
+// ============================================
+
+function toBooking(id: string, d: FirestoreBooking): Booking {
+  return {
+    id,
+    venueId: d.venue_id,
+    venueName: d.venue_name,
+    ownerId: d.owner_id,
+    userId: d.user_id,
+    userName: d.user_name,
+    date: d.date,
+    time: d.time,
+    duration: d.duration,
+    totalPrice: d.total_price,
+    status: d.status,
+    createdAt: formatDate(d.created_at),
+    updatedAt: formatDate(d.updated_at),
+  };
+}
+
+export async function getVenuesByOwner(ownerId: string): Promise<Venue[]> {
+  const q = query(collection(db, "venues"), where("owner_id", "==", ownerId), orderBy("created_at", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toVenue(d.id, d.data() as FirestoreVenue));
+}
+
+export function onVenuesByOwner(ownerId: string, callback: (data: Venue[]) => void): Unsubscribe {
+  const q = query(collection(db, "venues"), where("owner_id", "==", ownerId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toVenue(d.id, d.data() as FirestoreVenue)));
+  });
+}
+
+export async function getVenueById(venueId: string): Promise<Venue | null> {
+  const snap = await getDoc(doc(db, "venues", venueId));
+  if (!snap.exists()) return null;
+  return toVenue(snap.id, snap.data() as FirestoreVenue);
+}
+
+export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "updatedAt" | "rating" | "reviewCount">): Promise<string> {
+  const ref = await addDoc(collection(db, "venues"), {
+    name: data.name,
+    address: data.address,
+    city: data.city,
+    owner_id: data.ownerId,
+    field_type: data.fieldType,
+    field_surface: data.fieldSurface,
+    field_size: data.fieldSize,
+    price_per_hour: data.pricePerHour,
+    amenities: data.amenities,
+    available: data.available,
+    photo_url: data.photoUrl,
+    rating: 0,
+    review_count: 0,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id" | "createdAt" | "updatedAt">>): Promise<void> {
+  const updates: any = {};
+  if (data.name) updates.name = data.name;
+  if (data.address) updates.address = data.address;
+  if (data.city) updates.city = data.city;
+  if (data.fieldType) updates.field_type = data.fieldType;
+  if (data.fieldSurface) updates.field_surface = data.fieldSurface;
+  if (data.fieldSize) updates.field_size = data.fieldSize;
+  if (data.pricePerHour !== undefined) updates.price_per_hour = data.pricePerHour;
+  if (data.amenities) updates.amenities = data.amenities;
+  if (data.available !== undefined) updates.available = data.available;
+  if (data.photoUrl !== undefined) updates.photo_url = data.photoUrl;
+  
+  updates.updated_at = serverTimestamp();
+  await updateDoc(doc(db, "venues", venueId), updates);
+}
+
+export async function deleteVenue(venueId: string): Promise<void> {
+  await deleteDoc(doc(db, "venues", venueId));
+}
+
+export function onBookingsByOwner(ownerId: string, callback: (data: Booking[]) => void): Unsubscribe {
+  const q = query(collection(db, "bookings"), where("owner_id", "==", ownerId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toBooking(d.id, d.data() as FirestoreBooking)));
+  });
+}
+
+export async function updateBookingStatus(bookingId: string, status: Booking["status"]): Promise<void> {
+  await updateDoc(doc(db, "bookings", bookingId), {
+    status,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Updates the referee status for a match
+ */
+export async function updateMatchRefereeStatus(
+  matchId: string,
+  status: "confirmed" | "declined" | "pending" | "invited" | "none"
+) {
+  const matchRef = doc(db, "matches", matchId);
+  await updateDoc(matchRef, {
+    referee_status: status,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Contests a specific match event
+ */
+export async function contestMatchEvent(
+  matchId: string,
+  eventId: string,
+  managerId: string,
+  reason: string
+): Promise<void> {
+  const matchRef = doc(db, "matches", matchId);
+  await runTransaction(db, async (transaction) => {
+    const matchSnap = await transaction.get(matchRef);
+    if (!matchSnap.exists()) throw new Error("Match not found");
+    const matchData = matchSnap.data() as FirestoreMatch;
+
+    if (!matchData.live_state || !matchData.live_state.events) {
+      throw new Error("No live state or events found");
+    }
+
+    const eventIndex = matchData.live_state.events.findIndex(e => e.id === eventId);
+    if (eventIndex === -1) throw new Error("Event not found");
+
+    const newEvents = [...matchData.live_state.events];
+    newEvents[eventIndex] = {
+      ...newEvents[eventIndex],
+      contested_by_manager_id: managerId,
+      contestation_reason: reason,
+    };
+
+    transaction.update(matchRef, {
+      "live_state.events": newEvents,
+      updated_at: serverTimestamp(),
+    });
+  });
 }

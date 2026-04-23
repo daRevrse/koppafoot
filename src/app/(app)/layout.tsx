@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { ROLE_REDIRECTS } from "@/types";
@@ -11,32 +11,41 @@ import AppHeader from "@/components/layout/AppHeader";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
 
-    // Not authenticated → login
+    // 1. Not authenticated -> go to login
     if (!firebaseUser) {
-      router.replace("/login");
+      if (pathname !== "/login") {
+        router.replace("/login");
+      }
       return;
     }
 
-    // Authenticated but no Firestore profile → complete onboarding
+    // 2. Authenticated but no Firestore profile -> go to onboarding
     if (!user) {
-      router.replace("/get-started");
+      if (pathname !== "/get-started") {
+        router.replace("/get-started");
+      }
       return;
     }
 
-    // Venue owners and superadmins have their own layouts
-    if (user.userType === "venue_owner") {
+    // 3. Role-based redirect (if in wrong layout group)
+    // AppLayout handles: player, manager, referee
+    const isVenueOwner = user.userType === "venue_owner";
+    const isSuperadmin = user.userType === "superadmin";
+
+    if (isVenueOwner && !pathname.startsWith("/venue-owner")) {
       router.replace(ROLE_REDIRECTS.venue_owner);
       return;
     }
-    if (user.userType === "superadmin") {
+    if (isSuperadmin && !pathname.startsWith("/admin")) {
       router.replace(ROLE_REDIRECTS.superadmin);
       return;
     }
-  }, [user, firebaseUser, loading, router]);
+  }, [user, firebaseUser, loading, router, pathname]);
 
   if (loading) {
     return (

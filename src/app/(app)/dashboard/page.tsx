@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   Trophy, Users, Target, UserPlus, Calendar, Shield, Award,
-  FileText, Star, Clock, MapPin, ChevronRight,
+  FileText, Star, Clock, MapPin, ChevronRight, Play
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +14,7 @@ import {
   getParticipationsForPlayer,
   onInvitationsForPlayer,
   onInvitationsByManager,
+  onRefereeAssignments,
 } from "@/lib/firestore";
 import type { Team, Match, Participation, Invitation } from "@/types";
 import StatCard from "@/components/ui/StatCard";
@@ -24,10 +25,14 @@ import LevelBadge from "@/components/ui/LevelBadge";
 // Helpers
 // ============================================
 
-function getUpcomingMatches(matches: Match[]): Match[] {
+function getRelevantMatches(matches: Match[]): Match[] {
   return matches
-    .filter((m) => m.status === "upcoming")
+    .filter((m) => m.status === "upcoming" || m.status === "live")
     .sort((a, b) => {
+      // Live matches first
+      if (a.status === "live" && b.status !== "live") return -1;
+      if (a.status !== "live" && b.status === "live") return 1;
+      
       const dateA = `${a.date}T${a.time || "00:00"}`;
       const dateB = `${b.date}T${b.time || "00:00"}`;
       return dateA.localeCompare(dateB);
@@ -108,6 +113,7 @@ export default function DashboardPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState(0);
+  const [refereeMatches, setRefereeMatches] = useState<Match[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -155,8 +161,14 @@ export default function DashboardPage() {
               setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
             }
           });
+        } else if (user!.userType === "referee") {
+          unsubInvitations = onRefereeAssignments(user!.uid, (matches: Match[]) => {
+            if (!cancelled) {
+              setRefereeMatches(matches);
+              setMatches(matches); // Also set matches for the common list
+            }
+          });
         }
-        // Referee: no special data fetching yet
       } catch (err) {
         console.error("Erreur lors du chargement du tableau de bord:", err);
       } finally {
@@ -176,14 +188,14 @@ export default function DashboardPage() {
 
   // ---- Compute stats based on role ----
 
-  const upcomingMatches = getUpcomingMatches(matches);
+  const relevantMatches = getRelevantMatches(matches);
 
   const stats = (() => {
     if (user.userType === "player") {
       const confirmedParticipations = participations.filter((p) => p.status === "confirmed");
       const matchesPlayed = confirmedParticipations.length;
       const totalGoals = confirmedParticipations.reduce((sum, p) => sum + p.goals, 0);
-      const upcomingCount = upcomingMatches.length;
+      const upcomingCount = relevantMatches.length;
 
       return [
         { icon: Trophy, value: matchesPlayed, label: "Matchs joués", color: "bg-primary-50" },
@@ -206,7 +218,20 @@ export default function DashboardPage() {
       ];
     }
 
-    // Referee — hardcoded for now
+    if (user.userType === "referee") {
+      const confirmedMatches = refereeMatches.filter(m => m.refereeStatus === "confirmed");
+      const liveCount = refereeMatches.filter(m => m.status === "live").length;
+      const completedCount = refereeMatches.filter(m => m.status === "completed").length;
+      const pendingInvites = refereeMatches.filter(m => m.refereeStatus === "invited").length;
+
+      return [
+        { icon: Play, value: liveCount, label: "Matchs en direct", color: "bg-red-50" },
+        { icon: Shield, value: confirmedMatches.length, label: "Matchs confirmés", color: "bg-primary-50" },
+        { icon: Award, value: completedCount, label: "Matchs arbitrés", color: "bg-emerald-50" },
+        { icon: UserPlus, value: pendingInvites, label: "Invitations", color: "bg-purple-50" },
+      ];
+    }
+
     return REFEREE_STATS;
   })();
 
@@ -265,9 +290,9 @@ export default function DashboardPage() {
           </div>
           {loading ? (
             <MatchListSkeleton />
-          ) : upcomingMatches.length > 0 ? (
+          ) : relevantMatches.length > 0 ? (
             <div className="divide-y divide-gray-50">
-              {upcomingMatches.map((match) => (
+              {relevantMatches.map((match) => (
                 <div key={match.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
                     <Trophy size={18} className="text-primary-600" />
@@ -277,9 +302,16 @@ export default function DashboardPage() {
                       {match.homeTeamName} vs {match.awayTeamName}
                     </p>
                     <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} /> {formatMatchDate(match.date, match.time)}
-                      </span>
+                      {match.status === "live" ? (
+                        <span className="flex items-center gap-1 font-bold text-red-600">
+                          <div className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
+                          EN DIRECT
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} /> {formatMatchDate(match.date, match.time)}
+                        </span>
+                      )}
                       {match.venueName && (
                         <span className="flex items-center gap-1">
                           <MapPin size={12} /> {match.venueName}

@@ -24,7 +24,7 @@ import { db } from "@/lib/firebase";
 import type {
   UserProfile, FirestoreUser,
   Team, FirestoreTeam,
-  Match, FirestoreMatch,
+  Match, FirestoreMatch, MatchStatus,
   Venue, FirestoreVenue,
   Post, FirestorePost,
 } from "@/types";
@@ -72,11 +72,25 @@ function toTeam(id: string, d: FirestoreTeam): Team {
 }
 
 function toMatch(id: string, d: FirestoreMatch): Match {
+  let effectiveStatus: MatchStatus = d.status;
+  if (d.status === "upcoming" && d.date && d.time) {
+    try {
+      const matchDate = new Date(`${d.date}T${d.time}`);
+      const now = new Date();
+      if (now > matchDate) {
+        effectiveStatus = "delayed";
+      }
+    } catch (e) {
+      console.warn("Invalid date format in match", d.date, d.time);
+    }
+  }
+
   return {
     id, homeTeamId: d.home_team_id, awayTeamId: d.away_team_id,
     homeTeamName: d.home_team_name, awayTeamName: d.away_team_name,
     managerId: d.manager_id, date: d.date, time: d.time,
     venueName: d.venue_name, venueCity: d.venue_city, status: d.status,
+    effectiveStatus,
     result: d.result, scoreHome: d.score_home, scoreAway: d.score_away,
     refereeId: d.referee_id, refereeName: d.referee_name,
     refereeStatus: d.referee_status ?? "none", format: d.format,
@@ -85,6 +99,8 @@ function toMatch(id: string, d: FirestoreMatch): Match {
     awayManagerId: d.away_manager_id ?? "",
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
+    homeLineupReady: d.home_lineup_ready ?? false,
+    awayLineupReady: d.away_lineup_ready ?? false,
     modificationRequest: d.modification_request
       ? {
           date: d.modification_request.date,
@@ -95,9 +111,29 @@ function toMatch(id: string, d: FirestoreMatch): Match {
           requestedBy: d.modification_request.requested_by,
         }
       : null,
+    localRefereeName: d.local_referee_name ?? null,
+    autoAcceptPlayers: d.auto_accept_players ?? false,
+    liveState: d.live_state ? {
+      currentPeriod: d.live_state.current_period,
+      timerStartAt: d.live_state.timer_start_at,
+      timerOffset: d.live_state.timer_offset,
+      isTimerRunning: d.live_state.is_timer_running,
+      events: (d.live_state.events || []).map(e => ({
+        id: e.id,
+        type: e.type,
+        period: e.period,
+        minute: e.minute,
+        teamId: e.team_id,
+        playerId: e.player_id,
+        playerName: e.player_name,
+        detail: e.detail,
+        createdAt: e.created_at,
+      })),
+    } : null,
     createdAt: d.created_at, updatedAt: d.updated_at,
   };
 }
+
 
 function toVenue(id: string, d: FirestoreVenue): Venue {
   return {

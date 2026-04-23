@@ -30,7 +30,11 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
           )}
         </div>
         <div>
-          <p className="text-sm font-bold text-gray-900">{user.firstName} {user.lastName}</p>
+          <p className="text-sm font-bold text-gray-900">
+            {user.userType === "venue_owner" && user.companyName 
+              ? user.companyName 
+              : `${user.firstName} ${user.lastName}`}
+          </p>
           <span className="inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 mt-0.5">
             {roleLabel}
           </span>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy, Calendar, MapPin, Clock, Users, Shield,
   Plus, CheckCircle, XCircle, Timer, ChevronRight,
-  Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send, Star,
+  Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send, Star, ClipboardList,
+  Activity, MonitorPlay, CheckCircle2, ArrowRight, History, Settings, Filter, ShieldCheck, Ban, Info
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +33,9 @@ import {
   ratePlayer,
 } from "@/lib/firestore";
 import type { Match, Team, Venue, UserProfile, PlayerRating } from "@/types";
+import Link from "next/link";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 // ============================================
 // Config
@@ -91,10 +96,11 @@ function MatchSkeleton() {
 // Component
 // ============================================
 
-type Tab = "upcoming" | "completed" | "draft" | "challenges";
+type Tab = "live" | "upcoming" | "completed" | "draft" | "challenges";
 
 export default function MatchesPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [matches, setMatches] = useState<Match[]>([]);
   const [challenges, setChallenges] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -137,6 +143,7 @@ export default function MatchesPage() {
   // Local referee state
   const [refereeMode, setRefereeMode] = useState<"none" | "local">("none");
   const [localRefereeName, setLocalRefereeName] = useState("");
+  const [autoAcceptPlayers, setAutoAcceptPlayers] = useState(false);
 
   // Player rating modal state
   const [ratingMatch, setRatingMatch] = useState<Match | null>(null);
@@ -170,21 +177,12 @@ export default function MatchesPage() {
     fetchData();
   }, [fetchData]);
 
-  // Real-time matches listener + auto-complete stale matches
+  // Real-time matches listener
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = onMatchesByManager(user.uid, async (data: Match[]) => {
+    const unsub = onMatchesByManager(user.uid, (data: Match[]) => {
       setMatches(data);
       setLoading(false);
-      // Auto-complete stale upcoming matches
-      const nowDate = new Date().toISOString().split("T")[0];
-      const nowTime = new Date().toTimeString().slice(0, 5);
-      const stale = data.filter(
-        (m) => m.status === "upcoming" && (m.date < nowDate || (m.date === nowDate && m.time < nowTime))
-      );
-      for (const m of stale) {
-        try { await updateMatchStatus(m.id, "completed"); } catch { /* Silent */ }
-      }
     });
     return unsub;
   }, [user?.uid]);
@@ -243,12 +241,18 @@ export default function MatchesPage() {
   };
 
   // Filter matches by tab
-  const upcoming = matches.filter((m) => m.status === "upcoming");
+  const live = matches.filter((m) => m.status === "live");
+  const upcoming = matches.filter((m) => m.status === "upcoming" || m.status === "delayed" || m.status === "live");
   const completed = matches.filter((m) => m.status === "completed");
   const drafts = matches.filter(
     (m) => m.status === "draft" || m.status === "challenge" || m.status === "pending" || m.status === "cancelled"
   );
-  const displayed = tab === "upcoming" ? upcoming : tab === "completed" ? completed : tab === "draft" ? drafts : tab === "challenges" ? challenges : [];
+  const displayed = 
+    tab === "live" ? live :
+    tab === "upcoming" ? upcoming : 
+    tab === "completed" ? completed : 
+    tab === "draft" ? drafts : 
+    tab === "challenges" ? challenges : [];
 
   // Create match handler
   const handleCreate = async () => {
@@ -278,6 +282,7 @@ export default function MatchesPage() {
         format,
         isHome,
         playersTotal,
+        autoAcceptPlayers,
       });
 
       // Reset form and refresh
@@ -346,6 +351,7 @@ export default function MatchesPage() {
         match.homeTeamId,
         match.awayTeamId,
         match.format,
+        match.autoAcceptPlayers,
       );
 
       setChallenges((prev) => prev.filter((c) => c.id !== match.id));
@@ -387,7 +393,7 @@ export default function MatchesPage() {
     try {
       await forceCompleteMatch(matchId);
       // Wait for real-time listener or manually update
-      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: "upcoming" } : m));
+      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: "completed" } : m));
     } catch (err) {
       console.error("Erreur lors de la confirmation forcée:", err);
     } finally {
@@ -498,7 +504,8 @@ export default function MatchesPage() {
   };
 
 
-  const tabs: { key: Tab; label: string; count: number; icon: typeof Calendar }[] = [
+  const tabs: { key: Tab; label: string; count: number; icon: typeof Calendar | typeof Activity }[] = [
+    { key: "live", label: "En cours", count: live.length, icon: Activity },
     { key: "upcoming", label: "À venir", count: upcoming.length, icon: Calendar },
     { key: "completed", label: "Terminés", count: completed.length, icon: Trophy },
     { key: "draft", label: "Brouillons & En attente", count: drafts.length, icon: Edit3 },
@@ -705,6 +712,21 @@ export default function MatchesPage() {
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 )}
               </div>
+
+              {/* Auto-accept toggle */}
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">Auto-acceptation des joueurs</p>
+                  <p className="text-xs text-gray-500">Bypass le quota de joueurs et confirme tout le monde immédiatement</p>
+                </div>
+                <button
+                  onClick={() => setAutoAcceptPlayers(!autoAcceptPlayers)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${autoAcceptPlayers ? "bg-primary-600" : "bg-gray-200"}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoAcceptPlayers ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </div>
+
               <div className="mt-5 flex gap-3">
                 <button
                   onClick={handleCreate}
@@ -778,7 +800,8 @@ export default function MatchesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.06 }}
-                className="overflow-hidden rounded-xl border border-dashed border-amber-300 bg-white transition-shadow hover:shadow-md"
+                onClick={() => router.push(`/matches/${match.id}`)}
+                className="overflow-hidden rounded-xl border border-dashed border-amber-300 bg-white transition-shadow hover:shadow-md cursor-pointer"
               >
                 <div className="flex flex-col sm:flex-row">
                   {/* Status strip */}
@@ -826,7 +849,7 @@ export default function MatchesPage() {
                     {/* Actions */}
                     <div className="mt-4 flex gap-2">
                       <button
-                        onClick={() => handleAcceptChallenge(match)}
+                        onClick={(e) => { e.stopPropagation(); handleAcceptChallenge(match); }}
                         disabled={accepting === match.id}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -837,7 +860,7 @@ export default function MatchesPage() {
                         )}
                       </button>
                       <button
-                        onClick={() => handleRejectChallenge(match)}
+                        onClick={(e) => { e.stopPropagation(); handleRejectChallenge(match); }}
                         disabled={accepting === match.id}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -891,7 +914,8 @@ export default function MatchesPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.06 }}
-                  className={`group overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md ${
+                  onClick={() => router.push(`/matches/${match.id}`)}
+                  className={`group overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md cursor-pointer ${
                     isDraft ? "border-dashed border-gray-300" : "border-gray-200"
                   }`}
                 >
@@ -906,11 +930,13 @@ export default function MatchesPage() {
                       </div>
                     )}
 
-                    {match.status === "upcoming" && (
-                      <div className="flex items-center justify-center bg-primary-50 sm:w-24 py-2 sm:py-0">
+                    {(match.status === "upcoming" || match.status === "live" || match.status === "delayed") && (
+                      <div className={`flex items-center justify-center sm:w-24 py-2 sm:py-0 ${match.status === "live" ? "bg-red-50" : "bg-primary-50"}`}>
                         <div className="flex sm:flex-col items-center gap-1.5 sm:gap-0">
-                          <span className="text-lg font-bold text-primary-600 font-display">{match.time}</span>
-                          <span className="text-xs text-primary-500">{match.date}</span>
+                          <span className={`text-lg font-bold font-display ${match.status === "live" ? "text-red-600" : "text-primary-600"}`}>{match.time}</span>
+                          <span className={`text-xs ${match.status === "live" ? "text-red-500 animate-pulse font-bold" : "text-primary-500"}`}>
+                            {match.status === "live" ? "EN DIRECT" : match.date}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -968,6 +994,21 @@ export default function MatchesPage() {
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <Calendar size={12} /> {match.date}
+                          {(() => {
+                            const isHomeManager = user?.uid === match.managerId;
+                            const isAwayManager = user?.uid === match.awayManagerId;
+                            const isMyReady = isHomeManager ? match.homeLineupReady : isAwayManager ? match.awayLineupReady : true;
+                            
+                            if ((isHomeManager || isAwayManager) && !isMyReady && (match.status === 'upcoming' || match.status === 'live' || match.status === 'delayed')) {
+                              return (
+                                <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600 border border-amber-200 animate-pulse">
+                                  <ClipboardList size={10} />
+                                  Feuille à remplir
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </span>
                         {match.venueName ? (
                           <span className="flex items-center gap-1">
@@ -981,10 +1022,23 @@ export default function MatchesPage() {
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium">
                           {match.format}
                         </span>
+
+                        {match.status === "completed" && (
+                          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
+                            match.validationStatus === 'validated' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                            match.validationStatus === 'contested' ? 'bg-red-50 border-red-100 text-red-600' :
+                            'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
+                          }`}>
+                            {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> : 
+                             match.validationStatus === 'contested' ? <AlertCircle size={10} /> : <Clock size={10} />}
+                            {match.validationStatus === 'validated' ? 'Score Validé' : 
+                             match.validationStatus === 'contested' ? 'Contesté' : 'Validation en attente'}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Referee + Players row (upcoming/draft only) */}
-                      {(match.status === "upcoming" || isDraft) && (
+                      {/* Referee + Players row (upcoming/delayed/draft only) */}
+                      {(match.status === "upcoming" || match.status === "delayed" || isDraft) && (
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                           <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${refConf.color}`}>
                             <RefIcon size={12} /> {refConf.label}
@@ -1061,15 +1115,35 @@ export default function MatchesPage() {
 
                       {/* Player rating button (completed) */}
                       {match.status === "completed" && match.managerId === user?.uid && (
-                        <button onClick={() => openRatingModal(match)}
+                        <button onClick={(e) => { e.stopPropagation(); openRatingModal(match); }}
                           className="mt-3 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                           <Star size={12} /> Noter les joueurs
                         </button>
                       )}
 
                       {/* Actions */}
-                      {match.status === "upcoming" && (
+                      {(match.status === "upcoming" || match.status === "live") && (
                         <div className="mt-4 flex flex-col gap-3">
+                          {match.status === "live" && (
+                             <Link
+                              href={`/matches/${match.id}/live`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-black uppercase tracking-tight text-white shadow-lg shadow-red-100 transition-all hover:bg-red-700 animate-pulse"
+                            >
+                              <Activity size={18} />
+                              Suivre en direct
+                             </Link>
+                          )}
+                          {match.status === "upcoming" && (
+                             <Link
+                              href={`/matches/${match.id}/live`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black uppercase tracking-tight text-white transition-all hover:bg-black"
+                            >
+                              <MonitorPlay size={18} />
+                              Accéder au direct
+                             </Link>
+                          )}
                           {match.modificationRequest ? (
                             <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
                               <p className="text-sm font-medium text-primary-800 mb-1">Demande de modification</p>
@@ -1082,18 +1156,18 @@ export default function MatchesPage() {
                                 <p className="text-xs font-semibold text-primary-600">En attente de validation adverse</p>
                               ) : (
                                 <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleRespondModification(match, true)}
-                                    disabled={respondingToMod === match.id}
-                                    className="flex-1 rounded bg-primary-600 py-1.5 text-xs font-bold text-white hover:bg-primary-700 disabled:opacity-50"
-                                  >
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleRespondModification(match, true); }}
+                                      disabled={respondingToMod === match.id}
+                                      className="flex-1 rounded bg-primary-600 py-1.5 text-xs font-bold text-white hover:bg-primary-700 disabled:opacity-50"
+                                    >
                                     {respondingToMod === match.id ? "Validation..." : "Accepter"}
                                   </button>
-                                  <button
-                                    onClick={() => handleRespondModification(match, false)}
-                                    disabled={respondingToMod === match.id}
-                                    className="flex-1 rounded border border-primary-300 py-1.5 text-xs font-bold text-primary-700 hover:bg-primary-100 disabled:opacity-50"
-                                  >
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleRespondModification(match, false); }}
+                                      disabled={respondingToMod === match.id}
+                                      className="flex-1 rounded border border-primary-300 py-1.5 text-xs font-bold text-primary-700 hover:bg-primary-100 disabled:opacity-50"
+                                    >
                                     Refuser
                                   </button>
                                 </div>
@@ -1102,24 +1176,25 @@ export default function MatchesPage() {
                           ) : (
                             <div className="flex gap-2">
                               <button 
-                                onClick={() => openModifyModal(match)}
+                                onClick={(e) => { e.stopPropagation(); openModifyModal(match); }}
                                 className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                               >
                                 <Edit3 size={14} /> Modifier
                               </button>
                               <button
-                                onClick={() => handleCancelMatch(match.id)}
+                                onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
                                 className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                               >
                                 <XCircle size={14} /> Annuler
                               </button>
                               {match.refereeStatus === "none" && match.managerId === user?.uid && (
-                                <a
+                                <Link
                                   href={`/referees?matchId=${match.id}`}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="flex items-center gap-1 rounded-lg border border-primary-200 px-3 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors"
                                 >
                                   <Award size={14} /> Trouver un arbitre
-                                </a>
+                                </Link>
                               )}
                             </div>
                           )}
@@ -1138,11 +1213,11 @@ export default function MatchesPage() {
 
                           {match.status !== "pending" && (
                             <div className="flex gap-2">
-                              <button
-                                onClick={() => handleForceComplete(match.id)}
-                                disabled={completing === match.id || match.confirmedHome < getMinConfirmed(match.format) || match.confirmedAway < getMinConfirmed(match.format)}
-                                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleForceComplete(match.id); }}
+                                  disabled={completing === match.id || match.confirmedHome < getMinConfirmed(match.format) || match.confirmedAway < getMinConfirmed(match.format)}
+                                  className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
                                 {completing === match.id ? (
                                   <Loader2 size={14} className="animate-spin" />
                                 ) : (
@@ -1153,7 +1228,7 @@ export default function MatchesPage() {
                             </div>
                           )}
                           <button
-                            onClick={() => handleCancelMatch(match.id)}
+                            onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
                             className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <XCircle size={14} /> {match.status === "challenge" || match.status === "pending" ? "Annuler le défi" : "Supprimer"}
@@ -1183,7 +1258,9 @@ export default function MatchesPage() {
               className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-                {tab === "upcoming" ? (
+                {tab === "live" ? (
+                  <Activity size={32} className="text-gray-300" />
+                ) : tab === "upcoming" ? (
                   <Calendar size={32} className="text-gray-300" />
                 ) : tab === "completed" ? (
                   <Trophy size={32} className="text-gray-300" />
@@ -1192,12 +1269,15 @@ export default function MatchesPage() {
                 )}
               </div>
               <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">
+                {tab === "live" && "Aucun match en cours"}
                 {tab === "upcoming" && "Aucun match programmé"}
                 {tab === "completed" && "Aucun match terminé"}
                 {tab === "draft" && "Aucun brouillon"}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                {tab === "upcoming"
+                {tab === "live"
+                  ? "Les matchs en cours apparaîtront ici"
+                  : tab === "upcoming"
                   ? "Programme ton prochain match avec le bouton ci-dessus"
                   : tab === "completed"
                   ? "L'historique de tes matchs apparaîtra ici"

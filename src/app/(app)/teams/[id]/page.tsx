@@ -19,6 +19,7 @@ import {
   onJoinRequestsByTeam, respondToJoinRequest, sendInvitation,
   updateTeamMedia, addAchievement, removeAchievement,
   addGalleryUrl, removeGalleryUrl, updateTeamLineup,
+  updateTeamSquadNumbers,
   followTeam, unfollowTeam, isFollowingTeam,
   onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
 } from "@/lib/firestore";
@@ -437,6 +438,11 @@ export default function TeamDetailPage() {
   const [lineupChanged, setLineupChanged] = useState(false);
   const [savingLineup, setSavingLineup] = useState(false);
 
+  // Squad Numbers
+  const [teamSquadNumbers, setTeamSquadNumbers] = useState<Record<string, string>>({});
+  const [squadNumbersChanged, setSquadNumbersChanged] = useState(false);
+  const [savingSquadNumbers, setSavingSquadNumbers] = useState(false);
+
   // Gallery upload
   const [uploadingGallery, setUploadingGallery] = useState(false);
 
@@ -486,9 +492,14 @@ export default function TeamDetailPage() {
     fetchTeam();
   }, [fetchTeam]);
 
-  // Sync lineup from team data
+  // Sync lineup and squad numbers from team data
   useEffect(() => {
-    if (team) { setLineup(team.lineupIds ?? []); setLineupChanged(false); }
+    if (team) { 
+      setLineup(team.lineupIds ?? []); 
+      setLineupChanged(false); 
+      setTeamSquadNumbers(team.squadNumbers ?? {});
+      setSquadNumbersChanged(false);
+    }
   }, [team]);
 
   // Real-time trainings listener
@@ -574,6 +585,24 @@ export default function TeamDetailPage() {
       toast.success("Composition enregistrée");
     } catch { toast.error("Erreur lors de la sauvegarde"); }
     finally { setSavingLineup(false); }
+  };
+
+  const handleSquadNumberChange = (uid: string, value: string) => {
+    // Only allow numbers and max 3 chars
+    const cleaned = value.replace(/\D/g, "").slice(0, 3);
+    setTeamSquadNumbers(prev => ({ ...prev, [uid]: cleaned }));
+    setSquadNumbersChanged(true);
+  };
+
+  const handleSaveSquadNumbers = async () => {
+    if (!team) return;
+    setSavingSquadNumbers(true);
+    try {
+      await updateTeamSquadNumbers(team.id, teamSquadNumbers);
+      setSquadNumbersChanged(false);
+      toast.success("Numéros de dossard enregistrés");
+    } catch { toast.error("Erreur lors de la sauvegarde"); }
+    finally { setSavingSquadNumbers(false); }
   };
 
   const handleDeleteTeam = async () => {
@@ -895,18 +924,40 @@ export default function TeamDetailPage() {
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500"><MapPin size={11} /> {manager.locationCity}</div>
                 </div>
+                {isTeamManager && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
+                    <input 
+                      type="text"
+                      className="h-9 w-12 rounded-xl border border-gray-100 bg-white text-center text-sm font-black text-gray-900 shadow-sm focus:border-blue-300 focus:ring-0"
+                      value={teamSquadNumbers[manager.uid] || ""}
+                      onChange={(e) => handleSquadNumberChange(manager.uid, e.target.value)}
+                      placeholder="—"
+                    />
+                  </div>
+                )}
               </div>
             );
           })()}
 
           {/* Player list (excluding manager) */}
-          {isTeamManager && lineupChanged && (
+          {isTeamManager && (lineupChanged || squadNumbersChanged) && (
             <div className="flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5">
-              <span className="text-sm text-primary-700">Composition modifiée</span>
-              <button onClick={handleSaveLineup} disabled={savingLineup}
-                className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-                {savingLineup ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Enregistrer
-              </button>
+              <span className="text-sm text-primary-700">Modification(s) en attente</span>
+              <div className="flex gap-2">
+                {lineupChanged && (
+                  <button onClick={handleSaveLineup} disabled={savingLineup}
+                    className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+                    {savingLineup ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Composition
+                  </button>
+                )}
+                {squadNumbersChanged && (
+                  <button onClick={handleSaveSquadNumbers} disabled={savingSquadNumbers}
+                    className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                    {savingSquadNumbers ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Dossards
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -946,10 +997,22 @@ export default function TeamDetailPage() {
                       </div>
                     </div>
                     {isTeamManager && (
-                      <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
-                        className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
-                        {removingMember === member.uid ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />} Retirer
-                      </button>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 border-r border-gray-100 pr-4">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
+                          <input 
+                            type="text"
+                            className="h-9 w-12 rounded-xl border border-gray-100 bg-gray-50/50 text-center text-sm font-black text-gray-900 shadow-sm focus:border-primary-300 focus:bg-white focus:ring-0 transition-all"
+                            value={teamSquadNumbers[member.uid] || ""}
+                            onChange={(e) => handleSquadNumberChange(member.uid, e.target.value)}
+                            placeholder="—"
+                          />
+                        </div>
+                        <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
+                          className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                          {removingMember === member.uid ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />} Retirer
+                        </button>
+                      </div>
                     )}
                   </motion.div>
                 );

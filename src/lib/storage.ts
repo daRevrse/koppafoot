@@ -80,3 +80,15 @@ export async function uploadTeamGalleryImage(teamId: string, file: File): Promis
   await uploadBytes(storageRef, file, { contentType: file.type });
   return getDownloadURL(storageRef);
 }
+
+/**
+ * Upload a venue photo.
+ */
+export async function uploadVenuePhoto(venueId: string, file: File): Promise<string> {
+  const timestamp = Date.now();
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `venues/${venueId}/photos/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}

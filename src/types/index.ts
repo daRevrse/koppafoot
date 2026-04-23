@@ -177,6 +177,7 @@ export interface FirestoreTeam {
   gallery_urls?: string[];
   achievements?: Achievement[];
   followers_count?: number;
+  squad_numbers?: { [playerId: string]: string };
   created_at: string;
   updated_at: string;
 }
@@ -204,6 +205,7 @@ export interface Team {
   galleryUrls?: string[];
   achievements?: Achievement[];
   followersCount?: number;
+  squadNumbers?: { [playerId: string]: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -212,7 +214,7 @@ export interface Team {
 // Matches
 // ============================================
 
-export type MatchStatus = "challenge" | "pending" | "draft" | "upcoming" | "completed" | "cancelled";
+export type MatchStatus = "challenge" | "pending" | "draft" | "upcoming" | "live" | "completed" | "cancelled" | "delayed";
 export type MatchResult = "win" | "loss" | "draw" | null;
 
 export interface MatchModificationRequest {
@@ -249,6 +251,28 @@ export interface FirestoreMatch {
   away_manager_id: string;
   confirmed_home: number;
   confirmed_away: number;
+  auto_accept_players?: boolean;
+  validation_status?: "pending" | "contested" | "validated";
+  completed_at?: string | null;
+  live_state?: {
+    current_period: number; // 0: pre, 1: 1st, 2: halftime, 3: 2nd, 4: finished
+    timer_start_at: string | null;
+    timer_offset: number;
+    is_timer_running: boolean;
+    events: {
+      id: string;
+      type: "goal" | "yellow_card" | "red_card" | "substitution" | "period_start" | "period_end";
+      period: number;
+      minute: number;
+      team_id: string;
+      player_id?: string;
+      player_name?: string;
+      detail?: string;
+      contested_by_manager_id?: string | null;
+      contestation_reason?: string | null;
+      created_at: string;
+    }[];
+  } | null;
   modification_request?: {
     date: string;
     time: string;
@@ -256,6 +280,16 @@ export interface FirestoreMatch {
     venue_city: string;
     reason: string;
     requested_by: string;
+  } | null;
+  home_lineup_ready?: boolean;
+  away_lineup_ready?: boolean;
+  post_match_feedback?: {
+    [manager_id: string]: {
+      validation: "validated" | "contested";
+      comments?: string;
+      referee_rating?: number;
+      created_at: string;
+    };
   } | null;
   created_at: string;
   updated_at: string;
@@ -273,6 +307,7 @@ export interface Match {
   venueName: string;
   venueCity: string;
   status: MatchStatus;
+  effectiveStatus: MatchStatus;
   result: MatchResult;
   scoreHome: number | null;
   scoreAway: number | null;
@@ -287,7 +322,39 @@ export interface Match {
   awayManagerId: string;
   confirmedHome: number;
   confirmedAway: number;
+  autoAcceptPlayers?: boolean;
+  validationStatus?: "pending" | "contested" | "validated";
+  completedAt?: string | null;
+  liveState?: {
+    currentPeriod: number;
+    timerStartAt: string | null;
+    timerOffset: number;
+    isTimerRunning: boolean;
+    events: {
+      id: string;
+      type: "goal" | "yellow_card" | "red_card" | "substitution" | "period_start" | "period_end";
+      period: number;
+      minute: number;
+      teamId: string;
+      playerId?: string;
+      playerName?: string;
+      detail?: string;
+      contestedByManagerId?: string | null;
+      contestationReason?: string | null;
+      createdAt: string;
+    }[];
+  } | null;
   modificationRequest?: MatchModificationRequest | null;
+  homeLineupReady?: boolean;
+  awayLineupReady?: boolean;
+  postMatchFeedback?: {
+    [managerId: string]: {
+      validation: "validated" | "contested";
+      comments?: string;
+      refereeRating?: number;
+      createdAt: string;
+    };
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -312,6 +379,8 @@ export interface FirestoreParticipation {
   assists: number;
   match_format: string;
   is_home: boolean;
+  squad_number?: string;
+  match_role?: "starter" | "substitute" | null;
   created_at: string;
   updated_at: string;
 }
@@ -331,6 +400,8 @@ export interface Participation {
   assists: number;
   matchFormat: string;
   isHome: boolean;
+  squadNumber?: string;
+  matchRole?: "starter" | "substitute" | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -620,4 +691,40 @@ export interface PlayerRating {
   ratedBy: string;
   score: number;
   createdAt: string;
+}
+// ============================================
+// Bookings
+// ============================================
+
+export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+
+export interface FirestoreBooking {
+  venue_id: string;
+  venue_name: string;
+  owner_id: string;
+  user_id: string;
+  user_name: string;
+  date: string;
+  time: string;
+  duration: number; // in hours
+  total_price: number;
+  status: BookingStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Booking {
+  id: string;
+  venueId: string;
+  venueName: string;
+  ownerId: string;
+  userId: string;
+  userName: string;
+  date: string;
+  time: string;
+  duration: number;
+  totalPrice: number;
+  status: BookingStatus;
+  createdAt: string;
+  updatedAt: string;
 }

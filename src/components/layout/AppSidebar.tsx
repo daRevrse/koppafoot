@@ -16,6 +16,8 @@ import {
   onJoinRequestsByManager, onInvitationsByManager,
   onMatchChallengesForManager,
   onInvitationsForPlayer, onParticipationsForPlayer,
+  onRefereeAssignments,
+  onLiveMatches,
 } from "@/lib/firestore";
 
 // Map icon string names to lucide components
@@ -72,6 +74,24 @@ export default function AppSidebar() {
         setBadgeCounts((prev) => ({ ...prev, "/participations": parts.filter((p) => p.status === "pending").length }));
       }));
     }
+
+    if (user.userType === "referee") {
+      // Mes matchs badge = invited matches
+      unsubs.push(onRefereeAssignments(user.uid, (matches) => {
+        setBadgeCounts((prev) => ({ ...prev, "/referee-panel/matches": matches.filter((m) => m.refereeStatus === "invited").length }));
+      }));
+    }
+
+    // Global live match badge for Communauté -> Matchs
+    unsubs.push(
+      onLiveMatches((liveMatches) => {
+        setBadgeCounts((prev) => ({
+          ...prev,
+          "/community/matches": liveMatches.length > 0 ? -1 : 0,
+          "/matches": liveMatches.length > 0 ? -1 : (prev["/matches"] || 0),
+        }));
+      })
+    );
 
     return () => unsubs.forEach((u) => u());
   }, [user]);
@@ -145,6 +165,15 @@ export default function AppSidebar() {
               >
                 <Icon size={20} className={active ? "text-accent-400" : "text-emerald-500"} />
                 <span className="flex-1">{item.label}</span>
+                {item.badge && count === -1 && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 border border-red-500/20">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                    </span>
+                    <span className="text-[9px] font-black tracking-widest text-red-500">LIVE</span>
+                  </span>
+                )}
                 {item.badge && count > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
                     {count}

@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   ShieldCheck, Calendar, Clock, MapPin, ChevronRight,
   Loader2, Award, FileText, CheckCircle2, History,
-  AlertCircle, Trophy, User, ArrowRight
+  AlertCircle, Trophy, User, ArrowRight, Bell, Play
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { onRefereeAssignments } from "@/lib/firestore";
+import { onRefereeAssignments, updateMatchRefereeStatus } from "@/lib/firestore";
 import type { Match } from "@/types";
 import { format, isAfter, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -18,7 +18,7 @@ import Link from "next/link";
 // Types & Constants
 // ============================================
 
-type TabType = "upcoming" | "pending" | "completed";
+type TabType = "live" | "upcoming" | "invitations" | "completed";
 
 // ============================================
 // Component
@@ -35,26 +35,45 @@ export default function RefereeMatchesPage() {
     const unsub = onRefereeAssignments(user.uid, (data) => {
       setMatches(data);
       setLoading(false);
+      // Auto-switch to live if there are any
+      if (data.some(m => m.status === 'live')) {
+        setActiveTab('live');
+      }
     });
     return () => unsub();
   }, [user]);
 
-  const upcomingMatches = matches.filter(m => m.status === "upcoming" && m.refereeStatus === "confirmed");
-  const pendingApplications = matches.filter(m => m.refereeStatus === "pending");
+  const handleInvitationResponse = async (matchId: string, status: "confirmed" | "declined") => {
+    try {
+      await updateMatchRefereeStatus(matchId, status);
+    } catch (error) {
+      console.error("Error updating invitation status:", error);
+    }
+  };
+
+  const liveMatches = matches.filter(m => m.status === "live");
+  const upcomingMatches = matches.filter(m => (m.status === "upcoming") && m.refereeStatus === "confirmed");
+  const invitations = matches.filter(m => m.refereeStatus === "invited");
   const completedMatches = matches.filter(m => m.status === "completed");
 
   const tabContent = {
+    live: {
+      data: liveMatches,
+      title: "Direct",
+      emptyMsg: "Aucun match en direct pour le moment.",
+      icon: <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse mr-2" />
+    },
     upcoming: {
       data: upcomingMatches,
       title: "Matchs programmés",
       emptyMsg: "Aucun match programmé pour le moment.",
       icon: <Calendar size={20} />
     },
-    pending: {
-      data: pendingApplications,
-      title: "Candidatures envoyées",
-      emptyMsg: "Tu n'as aucune candidature en attente.",
-      icon: <Loader2 size={20} />
+    invitations: {
+      data: invitations,
+      title: "Invitations",
+      emptyMsg: "Aucune nouvelle invitation d'arbitrage.",
+      icon: <Bell size={20} />
     },
     completed: {
       data: completedMatches,
@@ -70,25 +89,18 @@ export default function RefereeMatchesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight font-display">Mes Matchs</h1>
-          <p className="mt-1 text-sm text-gray-500 font-medium">Gère tes assignations et ton historique d&apos;arbitrage</p>
+          <p className="mt-1 text-sm text-gray-500 font-medium">Gère tes invitations et ton historique d&apos;arbitrage</p>
         </div>
-        <Link 
-          href="/referee/find-matches"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-gray-200"
-        >
-          Trouver un match
-          <ChevronRight size={16} />
-        </Link>
       </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          { label: "Validés", value: upcomingMatches.length, color: "text-emerald-600", bg: "bg-emerald-50", icon: ShieldCheck },
-          { label: "En attente", value: pendingApplications.length, color: "text-amber-600", bg: "bg-amber-50", icon: Clock },
-          { label: "Terminés", value: completedMatches.length, color: "text-blue-600", bg: "bg-blue-50", icon: Award },
-          { label: "Saison 2024", value: "32", color: "text-purple-600", bg: "bg-purple-50", icon: Trophy },
-        ].map((stat, i) => (
+    {[
+      { label: "En direct", value: liveMatches.length, color: "text-red-600", bg: "bg-red-50", icon: Play },
+      { label: "Validés", value: upcomingMatches.length, color: "text-emerald-600", bg: "bg-emerald-50", icon: ShieldCheck },
+      { label: "Invitations", value: invitations.length, color: "text-amber-600", bg: "bg-amber-50", icon: Bell },
+      { label: "Terminés", value: completedMatches.length, color: "text-blue-600", bg: "bg-blue-50", icon: Award },
+    ].map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 10 }}
@@ -216,13 +228,24 @@ export default function RefereeMatchesPage() {
 
                     {/* Actions */}
                     <div className="pt-2">
-                      {activeTab === "upcoming" && (
+                      {(activeTab === "upcoming" || activeTab === "live") && (
                          <Link
-                          href={`/referee/reports?matchId=${match.id}`}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black uppercase tracking-tight text-white transition-all hover:bg-emerald-700 active:scale-[0.98]"
+                          href={`/referee-panel/matches/${match.id}/manage`}
+                          className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-tight text-white transition-all active:scale-[0.98] ${
+                            match.status === "live" ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-100" : "bg-emerald-600 hover:bg-emerald-700"
+                          }`}
                          >
-                          Saisir le score
-                          <FileText size={14} />
+                          {match.status === "live" ? (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                              Arbitrer le match
+                            </>
+                          ) : (
+                            <>
+                              Gérer le match
+                              <Play size={14} fill="currentColor" />
+                            </>
+                          )}
                          </Link>
                       )}
                       
@@ -232,9 +255,21 @@ export default function RefereeMatchesPage() {
                          </div>
                       )}
 
-                      {activeTab === "pending" && (
-                         <div className="text-center text-[10px] font-black uppercase text-amber-600 bg-amber-50 py-2 rounded-xl border border-amber-100 italic">
-                           Candidature en cours d&apos;examen
+                      {activeTab === "invitations" && (
+                         <div className="flex flex-col gap-2">
+                           <button
+                            onClick={() => handleInvitationResponse(match.id, "confirmed")}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black uppercase tracking-tight text-white transition-all hover:bg-emerald-700"
+                           >
+                            Accepter le match
+                            <CheckCircle2 size={14} />
+                           </button>
+                           <button
+                             onClick={() => handleInvitationResponse(match.id, "declined")}
+                             className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2 text-xs font-black uppercase tracking-tight text-red-600 transition-all hover:bg-red-100"
+                           >
+                             Refuser
+                           </button>
                          </div>
                       )}
                     </div>

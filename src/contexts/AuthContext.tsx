@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
@@ -173,27 +174,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Sync session cookie for proxy (middleware)
+  // Consolidated Firebase auth observer
   useEffect(() => {
-    const unsubscribe = syncSessionCookie();
-    return unsubscribe;
-  }, []);
-
-  // Sync Firebase auth state → user profile
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+    console.log("[AuthContext] Setting up onIdTokenChanged observer");
+    
+    // onIdTokenChanged is more robust as it fires on login, logout, and token refresh
+    const unsubscribe = onIdTokenChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
+      
       if (fbUser) {
-        const profile = await fetchUserProfile(fbUser.uid);
-        if (profile) {
-          profile.emailVerified = fbUser.emailVerified;
+        setLoading(true);
+        
+        try {
+          // 1. Sync session cookie for middleware
+          const token = await fbUser.getIdToken();
+          document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax`;
+
+          // 2. Fetch user profile
+          const profile = await fetchUserProfile(fbUser.uid);
+          if (profile) {
+            profile.emailVerified = fbUser.emailVerified;
+          }
+          setUser(profile);
+        } catch (error) {
+          console.error("[AuthContext] Error in auth session sync:", error);
         }
-        setUser(profile);
       } else {
+        // Clear session cookie and user profile on logout
+        document.cookie = "__session=; path=/; max-age=0";
         setUser(null);
       }
+      
       setLoading(false);
     });
+
     return unsubscribe;
   }, []);
 

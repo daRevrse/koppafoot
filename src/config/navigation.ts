@@ -56,6 +56,7 @@ const PLAYER_GROUPED: NavEntry[] = [
     items: [
       { path: "/venues", icon: "MapPin", label: "Terrains" },
       { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
+      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
     ],
   },
 ];
@@ -76,7 +77,7 @@ const MANAGER_GROUPED: NavEntry[] = [
     label: "Compétition",
     icon: "Trophy",
     items: [
-      { path: "/matches", icon: "Trophy", label: "Matchs", badge: true },
+      { path: "/matches", icon: "Trophy", label: "Centre de match", badge: true },
       { path: "/calendar", icon: "Calendar", label: "Calendrier" },
     ],
   },
@@ -87,6 +88,7 @@ const MANAGER_GROUPED: NavEntry[] = [
     items: [
       { path: "/venues", icon: "MapPin", label: "Terrains" },
       { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
+      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
     ],
   },
 ];
@@ -98,9 +100,8 @@ const REFEREE_GROUPED: NavEntry[] = [
     label: "Arbitrage",
     icon: "ShieldCheck",
     items: [
-      { path: "/referee/find-matches", icon: "Search", label: "Trouver match" },
-      { path: "/referee/matches", icon: "ShieldCheck", label: "Mes matchs" },
-      { path: "/referee/reports", icon: "FileText", label: "Rapports" },
+      { path: "/referee-panel/matches", icon: "ShieldCheck", label: "Mes matchs", badge: true },
+      { path: "/referee-panel/reports", icon: "FileText", label: "Rapports" },
     ],
   },
   {
@@ -117,6 +118,7 @@ const REFEREE_GROUPED: NavEntry[] = [
     icon: "MessageCircle",
     items: [
       { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
+      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
     ],
   },
 ];
@@ -138,8 +140,18 @@ export const VENUE_OWNER_GROUPED_NAV: NavEntry[] = [
     label: "Gestion",
     icon: "Building2",
     items: [
+      { path: "/venue-owner/venues", icon: "MapPin", label: "Mes terrains" },
       { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
       { path: "/venue-owner/stats", icon: "TrendingUp", label: "Statistiques" },
+    ],
+  },
+  {
+    key: "communaute",
+    label: "Communauté",
+    icon: "Globe",
+    items: [
+      { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
+      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
     ],
   },
 ];
@@ -216,8 +228,8 @@ const MANAGER_NAV: NavItem[] = [
 
 const REFEREE_NAV: NavItem[] = [
   { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  { path: "/referee/matches", icon: "ShieldCheck", label: "Mes matchs" },
-  { path: "/referee/reports", icon: "FileText", label: "Rapports" },
+  { path: "/referee-panel/matches", icon: "ShieldCheck", label: "Mes matchs", badge: true },
+  { path: "/referee-panel/reports", icon: "FileText", label: "Rapports" },
   { path: "/calendar", icon: "Calendar", label: "Calendrier" },
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
@@ -230,8 +242,10 @@ export const ROLE_NAV: Partial<Record<UserRole, NavItem[]>> = {
 
 export const VENUE_OWNER_NAV: NavItem[] = [
   { path: "/venue-owner", icon: "LayoutDashboard", label: "Tableau de bord", exact: true },
+  { path: "/venue-owner/venues", icon: "MapPin", label: "Mes terrains" },
   { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
   { path: "/venue-owner/stats", icon: "TrendingUp", label: "Statistiques" },
+  { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

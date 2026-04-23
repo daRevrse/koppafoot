@@ -5,14 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Calendar, TrendingUp, Plus, LogOut, Menu, X, User, Building2,
+  LayoutDashboard, Calendar, TrendingUp, Plus, LogOut, Menu, X, User, Building2, MapPin, Globe, MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { VENUE_OWNER_GROUPED_NAV, isNavGroup, type NavItem, type NavEntry } from "@/config/navigation";
 import SidebarNavGroup from "./SidebarNavGroup";
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  LayoutDashboard, Calendar, TrendingUp, Building2,
+  LayoutDashboard, Calendar, TrendingUp, Building2, MapPin, Globe, MessageCircle,
 };
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -46,17 +46,6 @@ export default function VenueOwnerSidebar() {
           />
           <span className="text-lg font-bold text-primary-600 font-display">KOPPAFOOT</span>
           <span className="rounded bg-primary-100 px-1.5 py-0.5 text-xs font-semibold text-primary-700">PRO</span>
-        </Link>
-      </div>
-
-      {/* Add venue CTA */}
-      <div className="px-4 py-4">
-        <Link
-          href="/venue-owner/venues/new"
-          className="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-        >
-          <Plus size={16} />
-          Ajouter un terrain
         </Link>
       </div>
 
