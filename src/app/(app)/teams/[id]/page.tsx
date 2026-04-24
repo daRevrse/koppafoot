@@ -26,7 +26,7 @@ import {
 } from "@/lib/firestore";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
-import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer } from "@/types";
+import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot } from "@/types";
 
 // ============================================
 // Constants
@@ -629,6 +629,15 @@ export default function TeamDetailPage() {
   const [ghostStatsTarget, setGhostStatsTarget] = useState<GhostPlayer | null>(null);
   const [deletingGhostId, setDeletingGhostId] = useState<string | null>(null);
 
+  // Training schedule
+  const [scheduleForm, setScheduleForm] = useState({
+    day: 1 as TrainingScheduleSlot["day"],
+    time: "19:00",
+    location: "",
+    label: "",
+  });
+  const [addingSlot, setAddingSlot] = useState(false);
+
   // Join requests (real-time)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -861,6 +870,40 @@ export default function TeamDetailPage() {
       setActionError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setRespondingId(null);
+    }
+  };
+
+  const handleAddSlot = async () => {
+    if (!team || !scheduleForm.location.trim()) return;
+    setAddingSlot(true);
+    try {
+      const newSlot: TrainingScheduleSlot = {
+        day: scheduleForm.day,
+        time: scheduleForm.time,
+        location: scheduleForm.location.trim(),
+        ...(scheduleForm.label.trim() ? { label: scheduleForm.label.trim() } : {}),
+      };
+      const updated = [...(team.trainingSchedule ?? []), newSlot];
+      await updateTeam(team.id, { training_schedule: updated });
+      setScheduleForm({ day: 1, time: "19:00", location: "", label: "" });
+      toast.success("Créneau ajouté");
+      await fetchTeam();
+    } catch {
+      toast.error("Erreur lors de l'ajout");
+    } finally {
+      setAddingSlot(false);
+    }
+  };
+
+  const handleRemoveSlot = async (index: number) => {
+    if (!team) return;
+    const updated = (team.trainingSchedule ?? []).filter((_, i) => i !== index);
+    try {
+      await updateTeam(team.id, { training_schedule: updated });
+      toast.success("Créneau supprimé");
+      await fetchTeam();
+    } catch {
+      toast.error("Erreur lors de la suppression");
     }
   };
 
@@ -1644,6 +1687,97 @@ export default function TeamDetailPage() {
                 }`}>
                 {team.isRecruiting ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                 {team.isRecruiting ? "Actif" : "Inactif"}
+              </button>
+            </div>
+          </div>
+
+          {/* Training schedule */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Dumbbell size={16} className="text-violet-500" />
+              <h3 className="font-semibold text-gray-900">Planning d&apos;entraînement</h3>
+            </div>
+
+            {/* Existing slots */}
+            {(team.trainingSchedule ?? []).length === 0 ? (
+              <p className="text-sm text-gray-400 italic">Aucun créneau configuré</p>
+            ) : (
+              <div className="space-y-2">
+                {(team.trainingSchedule ?? []).map((slot, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2">
+                    <div className="text-sm">
+                      <span className="font-semibold text-violet-900">
+                        {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"][slot.day]} {slot.time}
+                      </span>
+                      <span className="ml-2 text-violet-700">{slot.location}</span>
+                      {slot.label && <span className="ml-2 text-violet-500 text-xs">· {slot.label}</span>}
+                    </div>
+                    <button
+                      onClick={() => handleRemoveSlot(i)}
+                      className="ml-3 flex-shrink-0 text-red-400 hover:text-red-600 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add slot form */}
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ajouter un créneau</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Jour</label>
+                  <select
+                    className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                    value={scheduleForm.day}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, day: Number(e.target.value) as TrainingScheduleSlot["day"] })}
+                  >
+                    <option value={1}>Lundi</option>
+                    <option value={2}>Mardi</option>
+                    <option value={3}>Mercredi</option>
+                    <option value={4}>Jeudi</option>
+                    <option value={5}>Vendredi</option>
+                    <option value={6}>Samedi</option>
+                    <option value={0}>Dimanche</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Heure</label>
+                  <input
+                    type="time"
+                    className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                    value={scheduleForm.time}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Lieu</label>
+                <input
+                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                  placeholder="Stade municipal"
+                  value={scheduleForm.location}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Label (optionnel)</label>
+                <input
+                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                  placeholder="Tactique, Physique..."
+                  value={scheduleForm.label}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, label: e.target.value })}
+                />
+              </div>
+              <button
+                onClick={handleAddSlot}
+                disabled={addingSlot || !scheduleForm.location.trim()}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {addingSlot ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                Ajouter
               </button>
             </div>
           </div>
