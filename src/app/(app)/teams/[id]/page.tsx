@@ -9,7 +9,7 @@ import {
   Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
-  Heart, Plus, Camera, UserCheck,
+  Heart, Plus, Camera, UserCheck, BarChart2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,10 +22,11 @@ import {
   updateTeamSquadNumbers,
   followTeam, unfollowTeam, isFollowingTeam,
   onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
+  onGhostPlayersByTeam, createGhostPlayer, updateGhostPlayer, deleteGhostPlayer,
 } from "@/lib/firestore";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
-import type { Team, UserProfile, Match, JoinRequest, Achievement, Training } from "@/types";
+import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer } from "@/types";
 
 // ============================================
 // Constants
@@ -417,6 +418,168 @@ function CreateTrainingModal({ teamId, managerId, memberIds, onClose, onSaved }:
 }
 
 // ============================================
+// Ghost Player Modal (create / edit)
+// ============================================
+
+function GhostPlayerModal({
+  ghost,
+  onClose,
+  onSaved,
+  teamId,
+}: {
+  ghost: GhostPlayer | null;
+  onClose: () => void;
+  onSaved: () => void;
+  teamId: string;
+}) {
+  const [form, setForm] = useState({
+    firstName: ghost?.firstName ?? "",
+    lastName: ghost?.lastName ?? "",
+    position: (ghost?.position ?? "midfielder") as GhostPlayer["position"],
+    squadNumber: ghost?.squadNumber ?? "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.firstName.trim() || !form.lastName.trim()) return;
+    setSubmitting(true);
+    try {
+      if (ghost) {
+        await updateGhostPlayer(teamId, ghost.id, form);
+        toast.success("Joueur modifié");
+      } else {
+        await createGhostPlayer(teamId, form);
+        toast.success("Joueur ajouté");
+      }
+      onSaved();
+      onClose();
+    } catch {
+      toast.error("Erreur");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+      >
+        <h3 className="mb-4 text-lg font-bold text-gray-900">
+          {ghost ? "Modifier le joueur" : "Ajouter un joueur"}
+        </h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-500">Prénom</label>
+              <input
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                placeholder="Jean"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-500">Nom</label>
+              <input
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                placeholder="Dupont"
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-500">Poste</label>
+            <select
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+              value={form.position}
+              onChange={(e) => setForm({ ...form, position: e.target.value as GhostPlayer["position"] })}
+            >
+              <option value="goalkeeper">Gardien</option>
+              <option value="defender">Défenseur</option>
+              <option value="midfielder">Milieu</option>
+              <option value="forward">Attaquant</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-500">Numéro de dossard (optionnel)</label>
+            <input
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+              value={form.squadNumber}
+              onChange={(e) => setForm({ ...form, squadNumber: e.target.value })}
+              placeholder="Ex: 10"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              Annuler
+            </button>
+            <button type="submit" disabled={submitting}
+              className="flex-1 rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
+              {submitting ? "Enregistrement..." : ghost ? "Modifier" : "Ajouter"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// ============================================
+// Ghost Stats Modal
+// ============================================
+
+function GhostStatsModal({
+  ghost,
+  onClose,
+}: {
+  ghost: GhostPlayer;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+      >
+        <h3 className="mb-1 text-lg font-bold text-gray-900">
+          {ghost.firstName} {ghost.lastName}
+        </h3>
+        <p className="mb-5 text-xs text-gray-400">{POSITION_LABELS[ghost.position] ?? ghost.position}</p>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Matchs", value: ghost.matchesPlayed },
+            { label: "Buts", value: ghost.goals },
+            { label: "Assists", value: ghost.assists },
+            { label: "Jaunes", value: ghost.yellowCards },
+            { label: "Rouges", value: ghost.redCards },
+          ].map((s) => (
+            <div key={s.label} className="flex flex-col items-center rounded-xl bg-gray-50 py-3">
+              <span className="text-2xl font-black text-gray-900">{s.value}</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase">{s.label}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose}
+          className="mt-5 w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+          Fermer
+        </button>
+      </motion.div>
+    </div>
+  );
+}
+
+// ============================================
 // Main Component
 // ============================================
 
@@ -458,6 +621,13 @@ export default function TeamDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [leavingTeam, setLeavingTeam] = useState(false);
+
+  // Ghost players
+  const [ghostPlayers, setGhostPlayers] = useState<GhostPlayer[]>([]);
+  const [showGhostModal, setShowGhostModal] = useState(false);
+  const [editingGhost, setEditingGhost] = useState<GhostPlayer | null>(null);
+  const [ghostStatsTarget, setGhostStatsTarget] = useState<GhostPlayer | null>(null);
+  const [deletingGhostId, setDeletingGhostId] = useState<string | null>(null);
 
   // Join requests (real-time)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
@@ -506,6 +676,13 @@ export default function TeamDetailPage() {
   useEffect(() => {
     if (!teamId) return;
     const unsub = onTrainingsByTeam(teamId, setTrainings);
+    return unsub;
+  }, [teamId]);
+
+  // Real-time ghost players listener
+  useEffect(() => {
+    if (!teamId) return;
+    const unsub = onGhostPlayersByTeam(teamId, setGhostPlayers);
     return unsub;
   }, [teamId]);
 
@@ -763,7 +940,7 @@ export default function TeamDetailPage() {
         className="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
       >
         {/* Banner with gradient overlay */}
-        <div className="relative h-40 w-full overflow-hidden sm:h-56">
+        <div className="relative h-32 w-full overflow-hidden sm:h-56">
           {team.bannerUrl ? (
             <img src={team.bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
           ) : (
@@ -793,7 +970,7 @@ export default function TeamDetailPage() {
           </div>
 
           {/* Bottom Header Info (Glassmorphism Effect) */}
-          <div className="absolute bottom-0 left-0 right-0 p-6">
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
             <div className="flex items-end gap-5">
               <div className="relative shrink-0">
                 <div className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
@@ -809,7 +986,7 @@ export default function TeamDetailPage() {
               </div>
               <div className="mb-1 flex-1 text-white">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
+                  <h1 className="text-xl font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
                   <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
                     team.level === "advanced" ? "bg-red-500/80" :
                     team.level === "intermediate" ? "bg-amber-500/80" :
@@ -829,7 +1006,7 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Description */}
           {team.description && (
             <div className="mb-8">
@@ -869,7 +1046,7 @@ export default function TeamDetailPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="flex border-b border-gray-200"
+        className="flex overflow-x-auto border-b border-gray-200 scrollbar-hide"
       >
         {[
           { id: "roster", label: "Effectif", icon: Users, count: members.length },
@@ -883,7 +1060,7 @@ export default function TeamDetailPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as ActiveTab)}
-            className={`relative flex items-center gap-2 border-b-2 pb-3 pr-6 text-sm font-medium transition-colors ${
+            className={`relative flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-3 text-xs sm:text-sm sm:gap-2 sm:pr-6 sm:px-0 font-medium whitespace-nowrap transition-colors ${
               activeTab === tab.id ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}
           >
@@ -961,73 +1138,148 @@ export default function TeamDetailPage() {
             </div>
           )}
 
-          {members.filter((m) => m.uid !== team.managerId).length > 0 ? (
-            <AnimatePresence mode="popLayout">
-              {members.filter((m) => m.uid !== team.managerId).map((member, i) => {
-                const pos = member.position ?? "";
-                const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`;
-                const isStarter = lineup.includes(member.uid);
-                return (
-                  <motion.div key={member.uid} layout
-                    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -60, height: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow"
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Lineup checkbox (manager only) */}
+          {/* Unified list: real members (excl. manager) + ghost players */}
+          {(() => {
+            const realPlayers = members.filter((m) => m.uid !== team.managerId);
+            const totalCount = realPlayers.length + ghostPlayers.length;
+
+            if (totalCount === 0) {
+              return (
+                <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+                  <Users size={32} className="text-gray-300" />
+                  <p className="mt-3 text-sm text-gray-500">Aucun joueur dans l&apos;équipe</p>
+                </div>
+              );
+            }
+
+            return (
+              <AnimatePresence mode="popLayout">
+                {/* Real players */}
+                {realPlayers.map((member, i) => {
+                  const pos = member.position ?? "";
+                  const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`;
+                  const isStarter = lineup.includes(member.uid);
+                  return (
+                    <motion.div key={member.uid} layout
+                      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -60, height: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}
+                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 hover:shadow-sm transition-shadow sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        {isTeamManager && (
+                          <button onClick={() => handleLineupToggle(member.uid)}
+                            title={isStarter ? "Retirer des titulaires" : "Ajouter aux titulaires"}
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-primary-600 bg-primary-600 text-white" : "border-gray-300 text-transparent hover:border-primary-400"}`}>
+                            <UserCheck size={12} />
+                          </button>
+                        )}
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${member.firstName} ${member.lastName}`)}`}>
+                          {member.profilePictureUrl ? <img src={member.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-900">{member.firstName} {member.lastName}</h4>
+                            {isStarter && <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700">Titulaire</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <MapPin size={11} /> {member.locationCity}
+                            {pos && <span className={`ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
+                          </div>
+                        </div>
+                      </div>
                       {isTeamManager && (
-                        <button onClick={() => handleLineupToggle(member.uid)}
-                          title={isStarter ? "Retirer des titulaires" : "Ajouter aux titulaires"}
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-primary-600 bg-primary-600 text-white" : "border-gray-300 text-transparent hover:border-primary-400"}`}>
-                          <UserCheck size={12} />
-                        </button>
+                        <div className="flex items-center gap-3 border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                          <div className="flex items-center gap-2 sm:border-r sm:border-gray-100 sm:pr-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
+                            <input
+                              type="text"
+                              className="h-8 w-11 rounded-xl border border-gray-100 bg-gray-50/50 text-center text-sm font-black text-gray-900 shadow-sm focus:border-primary-300 focus:bg-white focus:ring-0 transition-all sm:h-9 sm:w-12"
+                              value={teamSquadNumbers[member.uid] || ""}
+                              onChange={(e) => handleSquadNumberChange(member.uid, e.target.value)}
+                              placeholder="—"
+                            />
+                          </div>
+                          <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
+                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                            {removingMember === member.uid ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />} Retirer
+                          </button>
+                        </div>
                       )}
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${member.firstName} ${member.lastName}`)}`}>
-                        {member.profilePictureUrl ? <img src={member.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-gray-900">{member.firstName} {member.lastName}</h4>
-                          {isStarter && <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700">Titulaire</span>}
+                    </motion.div>
+                  );
+                })}
+
+                {/* Ghost players */}
+                {ghostPlayers.map((ghost, i) => {
+                  const initials = `${ghost.firstName[0] ?? ""}${ghost.lastName[0] ?? ""}`;
+                  return (
+                    <motion.div key={`ghost-${ghost.id}`} layout
+                      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -60, height: 0 }} transition={{ duration: 0.3, delay: (realPlayers.length + i) * 0.05 }}
+                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 hover:shadow-sm transition-shadow sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${ghost.firstName} ${ghost.lastName}`)}`}>
+                          {initials}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <MapPin size={11} /> {member.locationCity}
-                          {pos && <span className={`ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{ghost.firstName} {ghost.lastName}</h4>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            {ghost.squadNumber && <span className="font-bold text-gray-700">N°{ghost.squadNumber}</span>}
+                            <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[ghost.position] ?? "bg-gray-100 text-gray-600"}`}>
+                              {POSITION_LABELS[ghost.position] ?? ghost.position}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {isTeamManager && (
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 border-r border-gray-100 pr-4">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
-                          <input 
-                            type="text"
-                            className="h-9 w-12 rounded-xl border border-gray-100 bg-gray-50/50 text-center text-sm font-black text-gray-900 shadow-sm focus:border-primary-300 focus:bg-white focus:ring-0 transition-all"
-                            value={teamSquadNumbers[member.uid] || ""}
-                            onChange={(e) => handleSquadNumberChange(member.uid, e.target.value)}
-                            placeholder="—"
-                          />
+                      {isTeamManager && (
+                        <div className="flex items-center gap-2 border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0 w-full sm:w-auto justify-end">
+                          <button
+                            onClick={() => setGhostStatsTarget(ghost)}
+                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            <BarChart2 size={12} /> Stats
+                          </button>
+                          <button
+                            onClick={() => { setEditingGhost(ghost); setShowGhostModal(true); }}
+                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            <Edit3 size={12} /> Modifier
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setDeletingGhostId(ghost.id);
+                              try {
+                                await deleteGhostPlayer(teamId, ghost.id);
+                                toast.success("Joueur supprimé");
+                              } catch {
+                                toast.error("Erreur lors de la suppression");
+                              } finally {
+                                setDeletingGhostId(null);
+                              }
+                            }}
+                            disabled={deletingGhostId === ghost.id}
+                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                            {deletingGhostId === ghost.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Supprimer
+                          </button>
                         </div>
-                        <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
-                          className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
-                          {removingMember === member.uid ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />} Retirer
-                        </button>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          ) : (
-            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
-              <Users size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucun joueur dans l&apos;équipe</p>
-            </div>
-          )}
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            );
+          })()}
           {isTeamManager && (
-            <Link href="/recruitment" className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
-              <UserPlus size={16} /> Recruter des joueurs
-            </Link>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setEditingGhost(null); setShowGhostModal(true); }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                <Plus size={16} /> Ajouter un joueur
+              </button>
+              <Link href="/recruitment"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+                <UserPlus size={16} /> Recruter
+              </Link>
+            </div>
           )}
         </motion.div>
       )}
@@ -1445,6 +1697,22 @@ export default function TeamDetailPage() {
       </AnimatePresence>
       <AnimatePresence>
         {showTrainingModal && <CreateTrainingModal teamId={team.id} managerId={team.managerId} memberIds={team.memberIds} onClose={() => setShowTrainingModal(false)} onSaved={() => {}} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showGhostModal && (
+          <GhostPlayerModal
+            ghost={editingGhost}
+            teamId={teamId}
+            onClose={() => { setShowGhostModal(false); setEditingGhost(null); }}
+            onSaved={() => {}}
+          />
+        )}
+        {ghostStatsTarget && (
+          <GhostStatsModal
+            ghost={ghostStatsTarget}
+            onClose={() => setGhostStatsTarget(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
