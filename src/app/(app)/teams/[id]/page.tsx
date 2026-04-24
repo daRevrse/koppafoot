@@ -1707,6 +1707,8 @@ export default function TeamDetailPage() {
             onSaved={() => {}}
           />
         )}
+      </AnimatePresence>
+      <AnimatePresence>
         {ghostStatsTarget && (
           <GhostStatsModal
             ghost={ghostStatsTarget}
