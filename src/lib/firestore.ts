@@ -38,6 +38,7 @@ import type {
   Training, FirestoreTraining, TrainingAttendee,
   PlayerRating, FirestorePlayerRating,
   Booking, FirestoreBooking,
+  GhostPlayer, FirestoreGhostPlayer,
 } from "@/types";
 
 // ============================================
@@ -59,6 +60,24 @@ function formatDate(date: any): string {
   return new Date().toISOString();
 }
 
+
+export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlayer): GhostPlayer {
+  return {
+    id,
+    teamId,
+    firstName: d.first_name,
+    lastName: d.last_name,
+    position: d.position,
+    squadNumber: d.squad_number ?? undefined,
+    matchesPlayed: d.matches_played ?? 0,
+    goals: d.goals ?? 0,
+    assists: d.assists ?? 0,
+    yellowCards: d.yellow_cards ?? 0,
+    redCards: d.red_cards ?? 0,
+    createdAt: formatDate(d.created_at),
+    updatedAt: formatDate(d.updated_at),
+  };
+}
 
 export function toTeam(id: string, d: FirestoreTeam): Team {
   return {
@@ -2025,4 +2044,108 @@ export async function contestMatchEvent(
       updated_at: serverTimestamp(),
     });
   });
+}
+
+// ============================================
+// Ghost Players
+// ============================================
+
+export async function createGhostPlayer(
+  teamId: string,
+  data: {
+    firstName: string;
+    lastName: string;
+    position: "goalkeeper" | "defender" | "midfielder" | "forward";
+    squadNumber?: string;
+  }
+): Promise<string> {
+  const ref = collection(db, "teams", teamId, "ghost_players");
+  const docRef = await addDoc(ref, {
+    first_name: data.firstName.trim(),
+    last_name: data.lastName.trim(),
+    position: data.position,
+    squad_number: data.squadNumber?.trim() || null,
+    matches_played: 0,
+    goals: 0,
+    assists: 0,
+    yellow_cards: 0,
+    red_cards: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+  return docRef.id;
+}
+
+export async function updateGhostPlayer(
+  teamId: string,
+  ghostId: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    position?: "goalkeeper" | "defender" | "midfielder" | "forward";
+    squadNumber?: string;
+  }
+): Promise<void> {
+  const ref = doc(db, "teams", teamId, "ghost_players", ghostId);
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.firstName !== undefined) update.first_name = data.firstName.trim();
+  if (data.lastName !== undefined) update.last_name = data.lastName.trim();
+  if (data.position !== undefined) update.position = data.position;
+  if (data.squadNumber !== undefined) update.squad_number = data.squadNumber.trim() || null;
+  await updateDoc(ref, update);
+}
+
+export async function deleteGhostPlayer(teamId: string, ghostId: string): Promise<void> {
+  await deleteDoc(doc(db, "teams", teamId, "ghost_players", ghostId));
+}
+
+export async function getGhostPlayersByTeam(teamId: string): Promise<GhostPlayer[]> {
+  const ref = collection(db, "teams", teamId, "ghost_players");
+  const snap = await getDocs(ref);
+  return snap.docs.map((d) => toGhostPlayer(d.id, teamId, d.data() as FirestoreGhostPlayer));
+}
+
+export function onGhostPlayersByTeam(
+  teamId: string,
+  callback: (data: GhostPlayer[]) => void
+): Unsubscribe {
+  const ref = collection(db, "teams", teamId, "ghost_players");
+  return onSnapshot(ref, (snap) => {
+    callback(snap.docs.map((d) => toGhostPlayer(d.id, teamId, d.data() as FirestoreGhostPlayer)));
+  });
+}
+
+export async function rollupGhostPlayerStats(
+  teamId: string,
+  ghostPlayers: GhostPlayer[],
+  matchEvents: NonNullable<Match["liveState"]>["events"]
+): Promise<void> {
+  if (!ghostPlayers.length || !matchEvents?.length) return;
+
+  const ghostIds = new Set(ghostPlayers.map((g) => g.id));
+  const stats: Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number }> = {};
+
+  for (const event of matchEvents) {
+    if (!event.playerId || !ghostIds.has(event.playerId)) continue;
+    if (!stats[event.playerId]) stats[event.playerId] = { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 };
+    if (event.type === "goal") stats[event.playerId].goals += 1;
+    if (event.type === "yellow_card") stats[event.playerId].yellow_cards += 1;
+    if (event.type === "red_card") stats[event.playerId].red_cards += 1;
+  }
+
+  if (!Object.keys(stats).length) return;
+
+  const batch = writeBatch(db);
+  for (const [ghostId, s] of Object.entries(stats)) {
+    const ref = doc(db, "teams", teamId, "ghost_players", ghostId);
+    batch.update(ref, {
+      goals: increment(s.goals),
+      assists: increment(s.assists),
+      yellow_cards: increment(s.yellow_cards),
+      red_cards: increment(s.red_cards),
+      matches_played: increment(1),
+      updated_at: new Date().toISOString(),
+    });
+  }
+  await batch.commit();
 }
