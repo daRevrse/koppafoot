@@ -178,6 +178,7 @@ export interface FirestoreTeam {
   achievements?: Achievement[];
   followers_count?: number;
   squad_numbers?: { [playerId: string]: string };
+  training_schedule?: TrainingScheduleSlot[];
   created_at: string;
   updated_at: string;
 }
@@ -206,6 +207,7 @@ export interface Team {
   achievements?: Achievement[];
   followersCount?: number;
   squadNumbers?: { [playerId: string]: string };
+  trainingSchedule?: TrainingScheduleSlot[];
   createdAt: string;
   updatedAt: string;
 }
@@ -761,4 +763,15 @@ export interface GhostPlayer {
   redCards: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============================================
+// Training Schedule
+// ============================================
+
+export interface TrainingScheduleSlot {
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=dimanche, 1=lundi...6=samedi
+  time: string;      // "19:00"
+  location: string;
+  label?: string;    // "Tactique", "Physique", etc.
 }

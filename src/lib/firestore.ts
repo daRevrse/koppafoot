@@ -90,6 +90,7 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
     lineupIds: d.lineup_ids ?? [], galleryUrls: d.gallery_urls ?? [],
     achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
     squadNumbers: d.squad_numbers ?? {},
+    trainingSchedule: d.training_schedule ?? [],
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
