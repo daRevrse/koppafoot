@@ -703,6 +703,10 @@ export async function submitManagerFeedback(
     validation: "validated" | "contested";
     comments?: string;
     refereeRating?: number;
+  },
+  ghostRollup?: {
+    teamId: string;
+    ghostPlayers: GhostPlayer[];
   }
 ): Promise<void> {
   const matchRef = doc(db, "matches", matchId);
@@ -718,7 +722,7 @@ export async function submitManagerFeedback(
     };
     if (data.comments) feedbackEntry.comments = data.comments;
     if (data.refereeRating) feedbackEntry.referee_rating = data.refereeRating;
-    
+
     feedback[managerId] = feedbackEntry;
 
     let validation_status: "pending" | "contested" | "validated" = matchData.validation_status ?? "pending";
@@ -726,7 +730,7 @@ export async function submitManagerFeedback(
       validation_status = "contested";
     } else if (validation_status !== "contested") {
       // Check if both managers have provided feedback.
-      const bothValidated = 
+      const bothValidated =
         feedback[matchData.manager_id]?.validation === "validated" &&
         feedback[matchData.away_manager_id]?.validation === "validated";
       if (bothValidated) {
@@ -740,6 +744,22 @@ export async function submitManagerFeedback(
       updated_at: serverTimestamp(),
     });
   });
+
+  // Rollup ghost player stats after transaction
+  if (ghostRollup && ghostRollup.ghostPlayers.length > 0) {
+    // Re-read match events after transaction to get liveState
+    const matchSnap = await getDoc(doc(db, "matches", matchId));
+    if (matchSnap.exists()) {
+      const matchData = matchSnap.data() as FirestoreMatch;
+      if (matchData.live_state?.events) {
+        await rollupGhostPlayerStats(
+          ghostRollup.teamId,
+          ghostRollup.ghostPlayers,
+          matchData.live_state.events as unknown as NonNullable<Match["liveState"]>["events"]
+        );
+      }
+    }
+  }
 }
 
 // ============================================

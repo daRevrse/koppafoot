@@ -12,15 +12,16 @@ import {
 import toast from "react-hot-toast";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, getDocs } from "firebase/firestore";
-import { 
-  toMatch, toParticipation, 
+import {
+  toMatch, toParticipation,
   invitePlayerToMatch, respondToParticipation,
   getMatchParticipations, getTeamMembers,
   updateMatchLineup, submitManagerFeedback,
-  contestMatchEvent, getTeamById
+  contestMatchEvent, getTeamById,
+  getGhostPlayersByTeam,
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile } from "@/types";
+import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
 
 // ============================================
 // Helpers
@@ -86,6 +87,7 @@ export default function MatchDetailPage() {
   const [managerComments, setManagerComments] = useState("");
   const [refereeRating, setRefereeRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [ghostPlayers, setGhostPlayers] = useState<GhostPlayer[]>([]);
 
   // 1. Check Roles & IDs
   const isManager = useMemo(() => {
@@ -157,6 +159,12 @@ export default function MatchDetailPage() {
     if (myTeamId) {
       getTeamById(myTeamId).then(setMyTeam).catch(console.error);
     }
+  }, [myTeamId]);
+
+  // Load ghost players for lineup
+  useEffect(() => {
+    if (!myTeamId) return;
+    getGhostPlayersByTeam(myTeamId).then(setGhostPlayers).catch(console.error);
   }, [myTeamId]);
 
   // 3. Timer Logic
@@ -441,7 +449,7 @@ export default function MatchDetailPage() {
                          onClick={async () => {
                            if (!user?.uid) return;
                            try {
-                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" });
+                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined);
                              toast.success("Match validé ! Merci.");
                            } catch (e) {
                              toast.error("Erreur lors de la validation");
@@ -455,7 +463,7 @@ export default function MatchDetailPage() {
                          onClick={() => {
                            const reason = prompt("Raison de la contestation :");
                            if (reason && user?.uid) {
-                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason })
+                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined)
                                .then(() => toast.success("Contestation enregistrée"))
                                .catch(() => toast.error("Erreur"));
                            }
@@ -663,8 +671,47 @@ export default function MatchDetailPage() {
                     </div>
                   </div>
 
+                  {/* Ghost players section in lineup mode */}
+                  {ghostPlayers.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Joueurs sans compte</p>
+                      {ghostPlayers.map((ghost) => (
+                        <div key={ghost.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                          <div>
+                            <p className="text-sm font-black text-white">{ghost.firstName} {ghost.lastName}</p>
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{ghost.position}{ghost.squadNumber ? ` · N°${ghost.squadNumber}` : ""}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="N°"
+                              maxLength={3}
+                              className="w-12 h-9 rounded-xl bg-white/10 border border-white/10 text-center text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                              value={tempAssignments[ghost.id]?.squadNumber || ghost.squadNumber || ""}
+                              onChange={(e) => setTempAssignments(prev => ({
+                                ...prev,
+                                [ghost.id]: { ...prev[ghost.id], squadNumber: e.target.value }
+                              }))}
+                            />
+                            <select
+                              className="h-9 px-2 rounded-xl bg-white/10 border border-white/10 text-[10px] font-black uppercase text-white focus:outline-none"
+                              value={tempAssignments[ghost.id]?.role || "starter"}
+                              onChange={(e) => setTempAssignments(prev => ({
+                                ...prev,
+                                [ghost.id]: { ...prev[ghost.id], role: e.target.value as "starter" | "substitute" }
+                              }))}
+                            >
+                              <option value="starter">Titu</option>
+                              <option value="substitute">Sub</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-3 pt-4">
-                    <button 
+                    <button
                       onClick={() => setLineupMode(false)}
                       className="flex-1 py-4 rounded-2xl bg-white/5 text-white/60 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
                     >
@@ -1071,7 +1118,7 @@ export default function MatchDetailPage() {
                        validation,
                        comments: managerComments,
                        refereeRating
-                     });
+                     }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined);
                      toast.success("Retour envoyé à l'arbitre !");
                    } catch(e) {
                      console.error(e);
