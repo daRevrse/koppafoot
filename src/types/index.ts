@@ -728,3 +728,37 @@ export interface Booking {
   createdAt: string;
   updatedAt: string;
 }
+
+// ============================================
+// Ghost Players
+// ============================================
+
+export interface FirestoreGhostPlayer {
+  first_name: string;
+  last_name: string;
+  position: "goalkeeper" | "defender" | "midfielder" | "forward";
+  squad_number?: string;
+  matches_played: number;
+  goals: number;
+  assists: number;
+  yellow_cards: number;
+  red_cards: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GhostPlayer {
+  id: string;
+  teamId: string;
+  firstName: string;
+  lastName: string;
+  position: "goalkeeper" | "defender" | "midfielder" | "forward";
+  squadNumber?: string;
+  matchesPlayed: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  createdAt: string;
+  updatedAt: string;
+}
