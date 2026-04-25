@@ -7,7 +7,42 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMatchesByTeamIds, getTeamsByManager, getTeamsByPlayer } from "@/lib/firestore";
-import type { Match } from "@/types";
+import type { Match, Team } from "@/types";
+
+// ============================================
+// Training types & helpers
+// ============================================
+
+type TrainingEvent = {
+  date: string;
+  teamName: string;
+  teamId: string;
+  time: string;
+  location: string;
+  label?: string;
+};
+
+function generateTrainingEvents(teams: Team[], year: number, month: number): TrainingEvent[] {
+  const events: TrainingEvent[] = [];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (const team of teams) {
+    for (const slot of team.trainingSchedule ?? []) {
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (new Date(year, month, day).getDay() === slot.day) {
+          events.push({
+            date: `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+            teamName: team.name,
+            teamId: team.id,
+            time: slot.time,
+            location: slot.location,
+            label: slot.label,
+          });
+        }
+      }
+    }
+  }
+  return events;
+}
 
 // ============================================
 // Calendar helpers
@@ -77,6 +112,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   const daysInMonth = useMemo(() => getDaysInMonth(year, month), [year, month]);
   const firstDay = useMemo(() => getFirstDayOfMonth(year, month), [year, month]);
@@ -95,21 +131,28 @@ export default function CalendarPage() {
 
   const selectedMatches = selectedDate ? (matchesByDate[selectedDate] ?? []) : [];
 
+  const trainingEventsByDate = useMemo(() => {
+    const map: Record<string, TrainingEvent[]> = {};
+    for (const ev of generateTrainingEvents(teams, year, month)) {
+      if (!map[ev.date]) map[ev.date] = [];
+      map[ev.date].push(ev);
+    }
+    return map;
+  }, [teams, year, month]);
+
+  const selectedTrainings = selectedDate ? (trainingEventsByDate[selectedDate] ?? []) : [];
+
   // Fetch matches for user's teams
   const fetchMatches = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Get teams where user is manager or player
-      const [managerTeams, playerTeams] = await Promise.all([
-        getTeamsByManager(user.uid),
-        getTeamsByPlayer(user.uid),
-      ]);
-      // Deduplicate team IDs
-      const teamIdSet = new Set<string>();
-      for (const t of [...managerTeams, ...playerTeams]) teamIdSet.add(t.id);
-      const teamIds = Array.from(teamIdSet);
-
+      const isManager = user.userType === "manager";
+      const userTeams = isManager
+        ? await getTeamsByManager(user.uid)
+        : await getTeamsByPlayer(user.uid);
+      const teamIds = [...new Set(userTeams.map((t) => t.id))];
+      setTeams(userTeams);
       if (teamIds.length > 0) {
         const result = await getMatchesByTeamIds(teamIds);
         setMatches(result);
@@ -202,6 +245,7 @@ export default function CalendarPage() {
                 const day = i + 1;
                 const key = dateKey(year, month, day);
                 const hasEvents = !!matchesByDate[key];
+                const hasTraining = !!trainingEventsByDate[key];
                 const isToday = key === today;
                 const isSelected = key === selectedDate;
                 const events = matchesByDate[key] ?? [];
@@ -236,6 +280,11 @@ export default function CalendarPage() {
                         })}
                       </div>
                     )}
+                    {hasTraining && (
+                      <div className="mt-0.5 flex gap-0.5">
+                        <div className={`h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-violet-400"}`} />
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -249,6 +298,10 @@ export default function CalendarPage() {
                   {style.label}
                 </div>
               ))}
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="h-2 w-2 rounded-full bg-violet-400" />
+                Entraînement
+              </div>
             </div>
           </motion.div>
         )}
@@ -274,17 +327,14 @@ export default function CalendarPage() {
                 <Loader2 size={24} className="animate-spin text-gray-300" />
                 <p className="mt-2 text-sm text-gray-400">Chargement...</p>
               </div>
-            ) : selectedMatches.length > 0 ? (
+            ) : selectedMatches.length > 0 || selectedTrainings.length > 0 ? (
               <div className="space-y-3">
+                {/* Matches */}
                 {selectedMatches.map((match) => {
                   const style = STATUS_STYLES[match.status] ?? DEFAULT_STYLE;
                   return (
-                    <motion.div
-                      key={match.id}
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className={`rounded-lg ${style.bg} p-3`}
-                    >
+                    <motion.div key={match.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
+                      className={`rounded-lg ${style.bg} p-3`}>
                       <div className="flex items-center gap-2">
                         <div className={`h-2 w-2 rounded-full ${style.dot}`} />
                         <span className="text-xs font-semibold text-gray-500 uppercase">
@@ -307,9 +357,7 @@ export default function CalendarPage() {
                         )}
                       </div>
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                        {match.time && (
-                          <span className="flex items-center gap-1"><Clock size={12} /> {match.time}</span>
-                        )}
+                        {match.time && <span className="flex items-center gap-1"><Clock size={12} /> {match.time}</span>}
                         {match.venueName && (
                           <span className="flex items-center gap-1">
                             <MapPin size={12} /> {match.venueName}{match.venueCity ? `, ${match.venueCity}` : ""}
@@ -319,6 +367,24 @@ export default function CalendarPage() {
                     </motion.div>
                   );
                 })}
+                {/* Training events */}
+                {selectedTrainings.map((ev, i) => (
+                  <motion.div key={`training-${i}`} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
+                    className="rounded-lg bg-violet-50 p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-violet-400" />
+                      <span className="text-xs font-semibold text-violet-600 uppercase">🏋️ Entraînement</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-sm font-bold text-violet-900">{ev.teamName}</span>
+                      {ev.label && <span className="ml-2 text-xs text-violet-500">· {ev.label}</span>}
+                    </div>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-violet-600">
+                      {ev.time && <span className="flex items-center gap-1"><Clock size={12} /> {ev.time}</span>}
+                      <span className="flex items-center gap-1"><MapPin size={12} /> {ev.location}</span>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">
