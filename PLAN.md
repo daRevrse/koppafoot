@@ -76,9 +76,9 @@ Planning hebdomadaire → apparaît dans le calendrier de chaque joueur.
 ```
 
 ### Fichiers
-- [ ] `types/index.ts` — Ajouter `TrainingScheduleSlot`
-- [ ] `teams/[id]/page.tsx` — Onglet Paramètres : planning hebdomadaire
-- [ ] `calendar/page.tsx` — Générer événements récurrents, style distinct (🏋️)
+- [x] `types/index.ts` — Ajouter `TrainingScheduleSlot`
+- [x] `teams/[id]/page.tsx` — Onglet Paramètres : planning hebdomadaire
+- [x] `calendar/page.tsx` — Générer événements récurrents, style distinct (🏋️)
 
 ---
 
