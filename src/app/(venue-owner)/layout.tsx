@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { ROLE_REDIRECTS } from "@/types";
 import VenueOwnerSidebar from "@/components/layout/VenueOwnerSidebar";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 export default function VenueOwnerLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
@@ -37,8 +38,11 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
           <h2 className="text-lg font-semibold text-gray-900">Espace Pro</h2>
         </header>
-        <main className="flex-1 bg-[var(--color-bg-secondary)] p-6 lg:p-8">{children}</main>
+        <main className="main-content-app flex-1 bg-[var(--color-bg-secondary)] p-4 lg:p-8">
+          {children}
+        </main>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }

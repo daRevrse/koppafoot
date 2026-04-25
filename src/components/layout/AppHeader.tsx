@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Bell, ChevronDown, LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,18 +37,30 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="relative flex h-16 items-center justify-between border-b-2 border-primary-600 bg-white px-6">
-      {/* Spacer (title removed) */}
-      <div />
+    <header className="relative flex h-14 lg:h-16 items-center justify-between border-b-2 border-primary-600 bg-white px-4 lg:px-6">
+      {/* Mobile: Logo compact — Desktop: spacer */}
+      <div className="flex items-center gap-2 lg:hidden">
+        <Image
+          src="/branding/logo_symbol.png"
+          alt="KoppaFoot"
+          width={24}
+          height={24}
+          priority
+        />
+        <span className="text-sm font-bold tracking-wide text-emerald-950 font-display">
+          KOPPAFOOT
+        </span>
+      </div>
+      <div className="hidden lg:block" />
 
       {/* Right side */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 lg:gap-3">
         {/* Streak badge */}
         <StreakBadge count={3} />
 
         {/* Notifications */}
         <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
-          <Bell size={20} />
+          <Bell size={18} className="lg:w-5 lg:h-5" />
         </button>
 
         {/* User dropdown */}
@@ -71,7 +84,7 @@ export default function AppHeader() {
 
           {dropdownOpen && (
             <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
-              {/* User info (moved from sidebar) */}
+              {/* User info */}
               <div className="mb-2 rounded-lg bg-gray-50 px-3 py-3">
                 <p className="text-sm font-semibold text-gray-900">{user.firstName} {user.lastName}</p>
                 <p className="mt-0.5 text-xs text-gray-500">{user.email ?? user.phone}</p>

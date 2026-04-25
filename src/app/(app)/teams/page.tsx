@@ -278,7 +278,7 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <motion.div
@@ -286,7 +286,7 @@ export default function TeamsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-2xl font-bold text-gray-900 font-display">Mes équipes</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 font-display">Mes équipes</h1>
           <p className="mt-1 text-sm text-gray-500">
             {isManager
               ? `${teams.length} équipe${teams.length > 1 ? "s" : ""} gérée${teams.length > 1 ? "s" : ""}`
@@ -335,7 +335,7 @@ export default function TeamsPage() {
                 {/* Color stripe top */}
                 <div className={`h-1 ${colors.stripe}`} />
 
-                <div className="p-5">
+                <div className="p-3.5 sm:p-5">
                   {/* Team header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -357,23 +357,23 @@ export default function TeamsPage() {
                   </div>
 
                   {/* Stats row */}
-                  <div className="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-gray-50 p-3">
+                  <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 rounded-lg bg-gray-50 p-2.5 sm:p-3">
                     <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900 font-display">{team.memberIds.length}</p>
+                      <p className="text-base sm:text-lg font-bold text-gray-900 font-display">{team.memberIds.length}</p>
                       <p className="text-xs text-gray-500">Joueurs</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-emerald-600 font-display">{team.wins}</p>
+                      <p className="text-base sm:text-lg font-bold text-emerald-600 font-display">{team.wins}</p>
                       <p className="text-xs text-gray-500">Victoires</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-red-500 font-display">{team.losses}</p>
+                      <p className="text-base sm:text-lg font-bold text-red-500 font-display">{team.losses}</p>
                       <p className="text-xs text-gray-500">Défaites</p>
                     </div>
                   </div>
 
                   {/* Meta */}
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="mt-3 sm:mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Star size={12} /> {LEVEL_LABELS[team.level] ?? team.level}
@@ -385,17 +385,17 @@ export default function TeamsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-3 sm:mt-4 flex gap-2">
                     <Link
                       href={`/teams/${team.id}`}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Voir l&apos;équipe <ChevronRight size={14} />
                     </Link>
                     {isManager && (
                       <Link
                         href={`/teams/${team.id}`}
-                        className="flex items-center justify-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="flex items-center justify-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-xs sm:text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
                       >
                         <Settings size={14} /> Gérer
                       </Link>

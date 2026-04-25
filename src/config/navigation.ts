@@ -279,3 +279,50 @@ export const ROLE_BADGE_COLORS: Record<UserRole, string> = {
   venue_owner: "bg-orange-100 text-orange-700",
   superadmin: "bg-red-100 text-red-700",
 };
+
+// ============================================
+// Mobile Bottom Navigation
+// ============================================
+
+export interface BottomNavItem {
+  path: string;
+  icon: string;   // lucide-react icon name
+  label: string;
+  badge?: boolean;
+  exact?: boolean;
+}
+
+const PLAYER_BOTTOM: BottomNavItem[] = [
+  { path: "/dashboard", icon: "Home", label: "Accueil", exact: true },
+  { path: "/teams", icon: "Users", label: "Équipes" },
+  { path: "/participations", icon: "Trophy", label: "Matchs", badge: true },
+  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
+];
+
+const MANAGER_BOTTOM: BottomNavItem[] = [
+  { path: "/dashboard", icon: "Home", label: "Accueil", exact: true },
+  { path: "/teams", icon: "Shield", label: "Équipes" },
+  { path: "/matches", icon: "Trophy", label: "Matchs", badge: true },
+  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
+];
+
+const REFEREE_BOTTOM: BottomNavItem[] = [
+  { path: "/dashboard", icon: "Home", label: "Accueil", exact: true },
+  { path: "/referee-panel/matches", icon: "ShieldCheck", label: "Matchs", badge: true },
+  { path: "/calendar", icon: "Calendar", label: "Calendrier" },
+  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
+];
+
+const VENUE_OWNER_BOTTOM: BottomNavItem[] = [
+  { path: "/venue-owner", icon: "Home", label: "Accueil", exact: true },
+  { path: "/venue-owner/venues", icon: "MapPin", label: "Terrains" },
+  { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
+  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
+];
+
+export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {
+  player: PLAYER_BOTTOM,
+  manager: MANAGER_BOTTOM,
+  referee: REFEREE_BOTTOM,
+  venue_owner: VENUE_OWNER_BOTTOM,
+};

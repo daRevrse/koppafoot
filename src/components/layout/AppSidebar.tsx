@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home, Users, Search, UserPlus, CheckCircle, MapPin, Calendar, Hash,
-  Trophy, MessageSquare, Award, ShieldCheck, FileText, Menu, X, User,
+  Trophy, MessageSquare, Award, ShieldCheck, FileText, User,
   Shirt, Globe, Shield, MessageCircle, UserSearch,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +32,6 @@ function isActive(pathname: string, item: NavItem): boolean {
 }
 
 export default function AppSidebar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
   const pathname = usePathname();
@@ -141,7 +140,7 @@ export default function AppSidebar() {
                   key={entry.key}
                   group={entry}
                   pathname={pathname}
-                  onNavigate={() => setMobileOpen(false)}
+                  onNavigate={() => {}}
                   variant="sporty"
                   iconMap={ICONS}
                   badgeCounts={badgeCounts}
@@ -157,7 +156,7 @@ export default function AppSidebar() {
               <Link
                 key={item.path}
                 href={item.path}
-                onClick={() => setMobileOpen(false)}
+                onClick={() => {}}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${active
                   ? "bg-emerald-800/50 text-white border-l-2 border-accent-500"
                   : "text-emerald-200/70 hover:bg-emerald-800/50 hover:text-white"
@@ -202,31 +201,7 @@ export default function AppSidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 rounded-lg bg-emerald-950 p-2 text-white shadow-md lg:hidden"
-      >
-        <Menu size={20} />
-      </button>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="relative h-full w-72 shadow-xl">
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-4 z-10 text-emerald-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
-            {sidebar}
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar only — mobile uses MobileBottomNav */}
       <aside className="sticky top-0 hidden h-screen w-72 flex-shrink-0 lg:block">
         {sidebar}
       </aside>

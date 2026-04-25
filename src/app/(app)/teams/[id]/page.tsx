@@ -967,7 +967,7 @@ export default function TeamDetailPage() {
   const pendingCount = joinRequests.filter((r) => r.status === "pending").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Back button */}
       <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
         <Link href="/teams" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
@@ -983,7 +983,7 @@ export default function TeamDetailPage() {
         className="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
       >
         {/* Banner with gradient overlay */}
-        <div className="relative h-32 w-full overflow-hidden sm:h-56">
+        <div className="relative h-28 w-full overflow-hidden sm:h-56">
           {team.bannerUrl ? (
             <img src={team.bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
           ) : (
@@ -1016,7 +1016,7 @@ export default function TeamDetailPage() {
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
             <div className="flex items-end gap-5">
               <div className="relative shrink-0">
-                <div className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
+                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
                   {team.logoUrl
                     ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
                     : <Shield size={40} className={colors.icon} />}
@@ -1029,7 +1029,7 @@ export default function TeamDetailPage() {
               </div>
               <div className="mb-1 flex-1 text-white">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
+                  <h1 className="text-lg font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
                   <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
                     team.level === "advanced" ? "bg-red-500/80" :
                     team.level === "intermediate" ? "bg-amber-500/80" :
@@ -1039,7 +1039,7 @@ export default function TeamDetailPage() {
                   </span>
                 </div>
                 {team.slogan && <p className="mt-1 text-sm font-medium opacity-90 italic">«&nbsp;{team.slogan}&nbsp;»</p>}
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold opacity-80">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold opacity-80 sm:gap-4">
                   <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary-400" /> {team.city}</span>
                   <span className="flex items-center gap-1.5"><Users size={14} className="text-blue-400" /> {team.memberIds.length}/{team.maxMembers} joueurs</span>
                   <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
@@ -1049,36 +1049,36 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-        <div className="p-4 sm:p-6">
+        <div className="p-3 sm:p-6">
           {/* Description */}
           {team.description && (
-            <div className="mb-8">
+            <div className="mb-5 sm:mb-8">
               <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">À propos</h3>
               <p className="text-sm leading-relaxed text-gray-600 italic">&ldquo;{team.description}&rdquo;</p>
             </div>
           )}
 
           {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-             <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-gray-50/50 p-4 transition-all hover:shadow-md">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-4">
+             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-gray-100 bg-gray-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
                 <div className="absolute -right-2 -top-2 opacity-10"><Users size={64}/></div>
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Effectif</p>
-                <p className="mt-1 text-2xl font-black text-gray-900 font-display">{team.memberIds.length}</p>
+                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-gray-900 font-display">{team.memberIds.length}</p>
              </div>
-             <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 transition-all hover:shadow-md">
+             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
                 <div className="absolute -right-2 -top-2 opacity-10 text-emerald-600"><Trophy size={64}/></div>
                 <p className="text-xs font-bold uppercase tracking-wider text-emerald-600/60">Victoires</p>
-                <p className="mt-1 text-2xl font-black text-emerald-600 font-display">{team.wins}</p>
+                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-emerald-600 font-display">{team.wins}</p>
              </div>
-             <div className="relative overflow-hidden rounded-2xl border border-red-100 bg-red-50/50 p-4 transition-all hover:shadow-md">
+             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-red-100 bg-red-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
                 <div className="absolute -right-2 -top-2 opacity-10 text-red-600"><X size={64}/></div>
                 <p className="text-xs font-bold uppercase tracking-wider text-red-600/60">Défaites</p>
-                <p className="mt-1 text-2xl font-black text-red-600 font-display">{team.losses}</p>
+                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-red-600 font-display">{team.losses}</p>
              </div>
-             <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/50 p-4 transition-all hover:shadow-md">
+             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-blue-100 bg-blue-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
                 <div className="absolute -right-2 -top-2 opacity-10 text-blue-600"><Star size={64}/></div>
                 <p className="text-xs font-bold uppercase tracking-wider text-blue-600/60">Win Rate</p>
-                <p className="mt-1 text-2xl font-black text-blue-600 font-display">{winRate}%</p>
+                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-blue-600 font-display">{winRate}%</p>
              </div>
           </div>
         </div>
@@ -1133,26 +1133,26 @@ export default function TeamDetailPage() {
             if (!manager) return null;
             const initials = `${manager.firstName[0] ?? ""}${manager.lastName[0] ?? ""}`;
             return (
-              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:p-4">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${manager.firstName} ${manager.lastName}`)}`}>
                   {manager.profilePictureUrl ? <img src={manager.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900">{manager.firstName} {manager.lastName}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-semibold text-gray-900 truncate">{manager.firstName} {manager.lastName}</span>
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Manager</span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-500"><MapPin size={11} /> {manager.locationCity}</div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500 truncate"><MapPin size={11} className="shrink-0" /> {manager.locationCity}</div>
                 </div>
                 {isTeamManager && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
-                    <input 
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
+                    <input
                       type="text"
-                      className="h-9 w-12 rounded-xl border border-gray-100 bg-white text-center text-sm font-black text-gray-900 shadow-sm focus:border-blue-300 focus:ring-0"
+                      className="h-9 w-11 sm:w-12 rounded-xl border border-gray-100 bg-white text-center text-sm font-black text-gray-900 shadow-sm focus:border-blue-300 focus:ring-0"
                       value={teamSquadNumbers[manager.uid] || ""}
                       onChange={(e) => handleSquadNumberChange(manager.uid, e.target.value)}
-                      placeholder="—"
+                      placeholder="N°"
                     />
                   </div>
                 )}
@@ -1276,16 +1276,16 @@ export default function TeamDetailPage() {
                         </div>
                       </div>
                       {isTeamManager && (
-                        <div className="flex items-center gap-2 border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0 w-full sm:w-auto justify-end">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0 w-full sm:w-auto justify-end">
                           <button
                             onClick={() => setGhostStatsTarget(ghost)}
-                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-                            <BarChart2 size={12} /> Stats
+                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            <BarChart2 size={12} /> <span>Stats</span>
                           </button>
                           <button
                             onClick={() => { setEditingGhost(ghost); setShowGhostModal(true); }}
-                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-                            <Edit3 size={12} /> Modifier
+                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            <Edit3 size={12} /> <span>Modifier</span>
                           </button>
                           <button
                             onClick={async () => {
@@ -1300,8 +1300,8 @@ export default function TeamDetailPage() {
                               }
                             }}
                             disabled={deletingGhostId === ghost.id}
-                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
-                            {deletingGhostId === ghost.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Supprimer
+                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                            {deletingGhostId === ghost.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} <span>Supprimer</span>
                           </button>
                         </div>
                       )}
@@ -1346,13 +1346,13 @@ export default function TeamDetailPage() {
                   transition={{ duration: 0.3, delay: i * 0.05 }}
                   className="rounded-xl border border-gray-200 bg-white p-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 font-display">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-semibold text-gray-900 font-display text-sm sm:text-base">
                         {match.homeTeamName} vs {match.awayTeamName}
                       </h4>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                        <span className="flex items-center gap-1"><Calendar size={12} /> {match.date} a {match.time}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1"><Calendar size={12} /> {match.date} à {match.time}</span>
                         <span className="flex items-center gap-1"><MapPin size={12} /> {match.venueName}</span>
                       </div>
                     </div>
@@ -1379,12 +1379,12 @@ export default function TeamDetailPage() {
                   transition={{ duration: 0.3, delay: i * 0.05 }}
                   className="rounded-xl border border-gray-200 bg-white p-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 font-display">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-semibold text-gray-900 font-display text-sm sm:text-base">
                         {match.homeTeamName} {match.scoreHome ?? "?"} - {match.scoreAway ?? "?"} {match.awayTeamName}
                       </h4>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                      <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
                         <span>{match.date}</span>
                         <span className="flex items-center gap-1"><MapPin size={12} /> {match.venueName}</span>
                       </div>
@@ -1509,7 +1509,7 @@ export default function TeamDetailPage() {
             return (
               <motion.div key={training.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                 className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <h4 className="font-semibold text-gray-900">{training.title}</h4>
                     <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500">
@@ -1519,7 +1519,7 @@ export default function TeamDetailPage() {
                     </div>
                     {training.description && <p className="mt-2 text-sm text-gray-500">{training.description}</p>}
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap shrink-0 items-center gap-2">
                     {/* Player response */}
                     {myAttendee && myAttendee.status === "pending" && (
                       <>
@@ -1580,7 +1580,7 @@ export default function TeamDetailPage() {
                 transition={{ duration: 0.3, delay: i * 0.05 }}
                 className="rounded-xl border border-gray-200 bg-white p-4"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-gray-900">{request.playerName}</span>
@@ -1608,7 +1608,7 @@ export default function TeamDetailPage() {
 
                   {/* Status badge or action buttons */}
                   {request.status === "pending" ? (
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex flex-wrap shrink-0 items-center gap-2">
                       <button
                         onClick={() => handleAccept(request)}
                         disabled={respondingId === request.id}
@@ -1671,16 +1671,16 @@ export default function TeamDetailPage() {
           className="space-y-4"
         >
           {/* Recruiting toggle */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900">Statut de recrutement</h3>
                 <p className="mt-0.5 text-sm text-gray-500">
                   {team.isRecruiting ? "L'equipe apparait dans les resultats de recherche" : "L'equipe n'est pas visible pour les joueurs"}
                 </p>
               </div>
               <button onClick={handleToggleRecruiting}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                className={`flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   team.isRecruiting
                     ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1692,7 +1692,7 @@ export default function TeamDetailPage() {
           </div>
 
           {/* Training schedule */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Dumbbell size={16} className="text-violet-500" />
               <h3 className="font-semibold text-gray-900">Planning d&apos;entraînement</h3>
@@ -1783,36 +1783,36 @@ export default function TeamDetailPage() {
           </div>
 
           {/* Team info summary */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <h3 className="font-semibold text-gray-900">Informations</h3>
             <dl className="mt-3 space-y-3">
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Capacite</dt>
-                <dd className="font-medium text-gray-900">{team.memberIds.length} / {team.maxMembers} joueurs</dd>
+                <dd className="font-medium text-gray-900 text-right">{team.memberIds.length} / {team.maxMembers} joueurs</dd>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Matchs joues</dt>
-                <dd className="font-medium text-gray-900">{team.matchesPlayed}</dd>
+                <dd className="font-medium text-gray-900 text-right">{team.matchesPlayed}</dd>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Bilan</dt>
-                <dd className="font-medium text-gray-900">{team.wins}V / {team.draws}N / {team.losses}D</dd>
+                <dd className="font-medium text-gray-900 text-right">{team.wins}V / {team.draws}N / {team.losses}D</dd>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Taux de victoire</dt>
-                <dd className="font-medium text-gray-900">{winRate}%</dd>
+                <dd className="font-medium text-gray-900 text-right">{winRate}%</dd>
               </div>
             </dl>
           </div>
 
           {/* Danger zone */}
-          <div className="rounded-xl border border-red-200 bg-red-50/50 p-5">
+          <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 sm:p-5">
             <h3 className="font-semibold text-red-700">Zone dangereuse</h3>
             <p className="mt-1 text-sm text-red-600/80">
               Supprimer l&apos;equipe supprimera toutes les donnees associees de maniere irreversible.
             </p>
             <button onClick={() => setShowDeleteModal(true)}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-all">
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-all sm:w-auto sm:justify-start">
               <Trash2 size={14} /> Supprimer l&apos;equipe
             </button>
           </div>

@@ -34,11 +34,11 @@ export default function StatCard({ icon: Icon, value, label, trend, trendValue, 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
       whileHover={{ y: -2 }}
-      className="rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
+      className="rounded-xl border border-gray-200 bg-white p-3 sm:p-5 transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
-          <Icon size={20} className="text-primary-600" />
+        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg ${color}`}>
+          <Icon size={18} className="text-primary-600" />
         </div>
         {trend && TrendIcon && (
           <div className={`flex items-center gap-1 text-xs font-medium ${TREND_COLORS[trend]}`}>
@@ -47,8 +47,8 @@ export default function StatCard({ icon: Icon, value, label, trend, trendValue, 
           </div>
         )}
       </div>
-      <p className="mt-3 text-2xl font-bold text-gray-900 font-display">{value}</p>
-      <p className="mt-0.5 text-sm text-gray-500">{label}</p>
+      <p className="mt-2 sm:mt-3 text-xl sm:text-2xl font-bold text-gray-900 font-display">{value}</p>
+      <p className="mt-0.5 text-xs sm:text-sm text-gray-500">{label}</p>
     </motion.div>
   );
 }

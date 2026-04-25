@@ -427,7 +427,7 @@ export default function MercatoPage() {
           { key: "invitations",  label: "Invitations",   icon: Send,        count: pendingInvsCount },
         ]).map((tab) => (
           <button key={tab.key} onClick={() => setMainTab(tab.key)}
-            className={`flex shrink-0 items-center gap-2 border-b-2 pb-3 pr-5 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-3 text-xs sm:text-sm sm:gap-2 sm:pr-5 sm:px-0 font-medium whitespace-nowrap transition-colors ${
               mainTab === tab.key ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}>
             <tab.icon size={15} /> {tab.label}

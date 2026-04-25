@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Calendar, TrendingUp, Plus, LogOut, Menu, X, User, Building2, MapPin, Globe, MessageCircle,
+  LayoutDashboard, Calendar, TrendingUp, LogOut, User, Building2, MapPin, Globe, MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { VENUE_OWNER_GROUPED_NAV, isNavGroup, type NavItem, type NavEntry } from "@/config/navigation";
@@ -21,7 +20,6 @@ function isActive(pathname: string, item: NavItem): boolean {
 }
 
 export default function VenueOwnerSidebar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -59,7 +57,7 @@ export default function VenueOwnerSidebar() {
                   key={entry.key}
                   group={entry}
                   pathname={pathname}
-                  onNavigate={() => setMobileOpen(false)}
+                  onNavigate={() => {}}
                   variant="light"
                   iconMap={ICONS}
                 />
@@ -72,7 +70,7 @@ export default function VenueOwnerSidebar() {
               <Link
                 key={item.path}
                 href={item.path}
-                onClick={() => setMobileOpen(false)}
+                onClick={() => {}}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   active
                     ? "bg-primary-50 text-primary-700 border-l-2 border-primary-600"
@@ -91,7 +89,7 @@ export default function VenueOwnerSidebar() {
       <div className="border-t border-gray-200 p-3">
         <Link
           href="/venue-owner/profile"
-          onClick={() => setMobileOpen(false)}
+          onClick={() => {}}
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
         >
           <User size={18} className="text-gray-400" />
@@ -110,18 +108,7 @@ export default function VenueOwnerSidebar() {
 
   return (
     <>
-      <button onClick={() => setMobileOpen(true)} className="fixed left-4 top-4 z-40 rounded-lg bg-white p-2 shadow-md lg:hidden">
-        <Menu size={20} />
-      </button>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="relative h-full w-64 bg-white shadow-xl">
-            <button onClick={() => setMobileOpen(false)} className="absolute right-3 top-4 text-gray-400"><X size={20} /></button>
-            {sidebar}
-          </div>
-        </div>
-      )}
+      {/* Desktop sidebar only — mobile uses MobileBottomNav */}
       <aside className="hidden w-64 flex-shrink-0 border-r border-gray-200 bg-white lg:block">
         {sidebar}
       </aside>

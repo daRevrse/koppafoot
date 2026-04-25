@@ -255,7 +255,7 @@ export default function MatchDetailPage() {
   const isLive = match.status === "live";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-24 px-4 sm:px-6">
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6 pb-24 px-0 sm:px-6">
       {/* Back Button & Share */}
       <div className="flex items-center justify-between">
         <button 
@@ -277,14 +277,14 @@ export default function MatchDetailPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[3.5rem] bg-gradient-to-br from-gray-950 via-gray-900 to-black p-8 sm:p-12 text-white shadow-2xl"
+        className="relative overflow-hidden rounded-[2rem] sm:rounded-[3.5rem] bg-gradient-to-br from-gray-950 via-gray-900 to-black p-5 sm:p-12 text-white shadow-2xl"
       >
         {/* Background Accents */}
         <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-[100px]" />
         <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-blue-500/10 blur-[100px]" />
         
         {/* Match Header */}
-        <div className="relative z-10 flex flex-col items-center mb-10">
+        <div className="relative z-10 flex flex-col items-center mb-6 sm:mb-10">
           <div className="flex flex-wrap justify-center gap-2 mb-4">
             <div className={`flex items-center gap-2 px-4 py-1 rounded-full border border-white/5 backdrop-blur-md ${isLive ? 'bg-red-500/10' : 'bg-white/5'}`}>
               {isLive ? (
@@ -324,12 +324,12 @@ export default function MatchDetailPage() {
                {match.status === "live" && <Activity className="absolute -right-2 -top-2 text-emerald-500 animate-pulse" size={16} />}
             </div>
             <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider mb-2 text-white/90 line-clamp-1">{match.homeTeamName}</h2>
-            <div className="text-5xl sm:text-8xl font-black tracking-tighter text-white tabular-nums">{match.scoreHome || 0}</div>
+            <div className="text-4xl sm:text-8xl font-black tracking-tighter text-white tabular-nums">{match.scoreHome || 0}</div>
           </div>
 
           {/* Center Info */}
           <div className="flex flex-col items-center justify-center">
-            <div className={`mb-6 rounded-3xl ${isLive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'} border px-4 py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest`}>
+            <div className={`mb-4 sm:mb-6 rounded-2xl sm:rounded-3xl ${isLive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'} border px-3 sm:px-4 py-1.5 sm:py-2 text-[9px] sm:text-xs font-black uppercase tracking-widest`}>
                {PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label || "Prép."}
             </div>
             {match.liveState ? (
@@ -340,7 +340,7 @@ export default function MatchDetailPage() {
                <div className="text-2xl sm:text-4xl font-black text-white/10 italic">VS</div>
             )}
             {!isLive && match.status !== "completed" && (
-                <div className="mt-8 flex flex-col items-center">
+                <div className="mt-5 sm:mt-8 flex flex-col items-center">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Coup d'envoi</p>
                     <p className="text-lg font-black text-white/80">{match.time}</p>
                 </div>
@@ -353,7 +353,7 @@ export default function MatchDetailPage() {
                <span className="text-2xl sm:text-4xl font-black">{match.awayTeamName?.[0] || "?"}</span>
             </div>
             <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider mb-2 text-white/90 line-clamp-1">{match.awayTeamName}</h2>
-            <div className="text-5xl sm:text-8xl font-black tracking-tighter text-white tabular-nums">{match.scoreAway || 0}</div>
+            <div className="text-4xl sm:text-8xl font-black tracking-tighter text-white tabular-nums">{match.scoreAway || 0}</div>
           </div>
         </div>
       </motion.div>
@@ -368,7 +368,7 @@ export default function MatchDetailPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`relative flex flex-1 items-center justify-center gap-2 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`relative flex flex-1 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
               activeTab === tab.id ? "text-emerald-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
             }`}
           >
@@ -415,7 +415,7 @@ export default function MatchDetailPage() {
             >
               {/* Manager LINEUP Validation Banner */}
               {isManager && (match.status === "upcoming" || match.status === "delayed") && !isMyTeamReady && (
-                <div className="rounded-[2.5rem] bg-amber-50 border border-amber-200 p-8 shadow-sm flex items-center gap-6">
+                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-amber-50 border border-amber-200 p-4 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                    <div className="h-14 w-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
                       <ClipboardList size={28} />
                    </div>
@@ -434,8 +434,8 @@ export default function MatchDetailPage() {
 
               {/* Post-Match Validation Banner */}
               {isManager && match.status === "completed" && (!match.postMatchFeedback || !match.postMatchFeedback[user?.uid!]) && (
-                <div className="rounded-[2.5rem] bg-primary-50 border border-primary-200 p-8 shadow-sm">
-                   <div className="flex items-center gap-6 mb-6">
+                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-primary-50 border border-primary-200 p-4 sm:p-8 shadow-sm">
+                   <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-4 sm:mb-6">
                       <div className="h-14 w-14 rounded-2xl bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
                          <Star size={28} />
                       </div>
@@ -478,7 +478,7 @@ export default function MatchDetailPage() {
 
               {/* Match Validated State */}
               {match.status === "completed" && match.validationStatus === "validated" && (
-                <div className="rounded-[2.5rem] bg-emerald-50 border border-emerald-100 p-6 flex items-center gap-4">
+                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-emerald-50 border border-emerald-100 p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
                   <div className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center">
                     <CheckCircle2 size={20} />
                   </div>
@@ -487,8 +487,8 @@ export default function MatchDetailPage() {
               )}
 
               {/* Event Timeline */}
-              <div className="rounded-[2.5rem] bg-white border border-gray-100 p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
+              <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 p-4 sm:p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-4 sm:mb-8">
                   <h3 className="text-lg font-black text-gray-900 font-display">Timeline</h3>
                   <History className="text-gray-200" size={24} />
                 </div>
@@ -590,12 +590,12 @@ export default function MatchDetailPage() {
                   if (match.status !== 'upcoming' && match.status !== 'live' && match.status !== 'pending') return null;
                   
                   return (
-                    <div className={`mx-4 mb-8 p-8 rounded-[2.5rem] border transition-all ${
+                    <div className={`mx-0 sm:mx-4 mb-4 sm:mb-8 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border transition-all ${
                       isReady 
                         ? 'bg-emerald-50/50 border-emerald-100/50 text-emerald-900 group' 
                         : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 shadow-xl shadow-amber-200/20'
                     }`}>
-                      <div className="flex items-start gap-6">
+                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                         <div className={`p-4 rounded-[1.5rem] shadow-sm transition-transform ${
                           isReady ? 'bg-emerald-500 text-white group-hover:scale-110' : 'bg-white text-amber-500'
                         }`}>
@@ -605,7 +605,7 @@ export default function MatchDetailPage() {
                           <h4 className={`text-base font-black uppercase tracking-wider mb-1 ${isReady ? 'text-emerald-900' : 'text-amber-950'}`}>
                             {isReady ? "Feuille de match validée" : "Validation de la feuille de match"}
                           </h4>
-                          <p className={`text-xs leading-relaxed mb-6 ${isReady ? 'text-emerald-700/70 italic' : 'text-amber-900/60'}`}>
+                          <p className={`text-xs leading-relaxed mb-4 sm:mb-6 ${isReady ? 'text-emerald-700/70 italic' : 'text-amber-900/60'}`}>
                             {isReady 
                               ? `Votre équipe est prête pour le coup d'envoi. Les numéros et rôles ont été transmis à l'arbitre.` 
                               : `Avant le début du match, vous devez définir vos titulaires (${match?.format ? parseInt(match.format.split('v')[0]) : "?"}) et leurs numéros de maillot.`}
@@ -626,7 +626,7 @@ export default function MatchDetailPage() {
                                 setTempAssignments(initial);
                                 setLineupMode(true);
                               }}
-                              className={`px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl ${
+                              className={`px-5 sm:px-8 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl ${
                                 isReady 
                                   ? 'bg-white text-emerald-600 border border-emerald-100 hover:bg-emerald-50' 
                                   : 'bg-gray-900 text-white hover:bg-black shadow-gray-900/20'
@@ -643,10 +643,10 @@ export default function MatchDetailPage() {
               )}
 
               {isManager && lineupMode && (
-                <div className="mx-4 p-8 rounded-[2.5rem] bg-gray-900 text-white shadow-2xl space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                <div className="mx-0 sm:mx-4 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-gray-900 text-white shadow-2xl space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-black italic tracking-tight">Configuration Tactique</h3>
+                      <h3 className="text-lg sm:text-xl font-black italic tracking-tight">Configuration Tactique</h3>
                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mt-1">Assignez les dossiers et rôles</p>
                     </div>
                     <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
@@ -902,16 +902,17 @@ export default function MatchDetailPage() {
 
               {/* Recruitment CTA if not full */}
               {!myParticipation && myTeamId && (
-                <div className="mt-8 rounded-[2.5rem] bg-emerald-600 p-8 text-white shadow-2xl relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                    <Trophy size={100} />
+                <div className="mt-6 sm:mt-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-emerald-600 p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-10 group-hover:scale-110 transition-transform">
+                    <Trophy size={72} className="sm:hidden" />
+                    <Trophy size={100} className="hidden sm:block" />
                   </div>
                   <div className="relative z-10 max-w-sm">
-                    <h4 className="text-2xl font-black mb-2">Rejoins le combat !</h4>
-                    <p className="text-emerald-100 text-sm font-medium mb-6">Ta team a besoin de renforts. Confirme ta présence pour porter fièrement tes couleurs.</p>
-                    <button 
+                    <h4 className="text-xl sm:text-2xl font-black mb-2">Rejoins le combat !</h4>
+                    <p className="text-emerald-100 text-xs sm:text-sm font-medium mb-4 sm:mb-6">Ta team a besoin de renforts. Confirme ta présence pour porter fièrement tes couleurs.</p>
+                    <button
                       onClick={handleJoin}
-                      className="flex items-center gap-2 rounded-2xl bg-white px-8 py-3.5 text-sm font-black text-emerald-600 transition-all hover:scale-105 active:scale-95 shadow-lg"
+                      className="flex items-center gap-2 rounded-2xl bg-white px-5 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-emerald-600 transition-all hover:scale-105 active:scale-95 shadow-lg"
                     >
                       Confirmer ma présence
                     </button>
@@ -921,8 +922,8 @@ export default function MatchDetailPage() {
 
               {/* Manager Invitation Tools */}
               {isManager && teamMembers.length > 0 && match.status === "upcoming" && (
-                <div className="mt-12 space-y-6">
-                  <div className="flex items-center gap-3 px-4">
+                <div className="mt-8 sm:mt-12 space-y-4 sm:space-y-6">
+                  <div className="flex items-center gap-3 px-2 sm:px-4">
                     <UserPlus size={20} className="text-emerald-500" />
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-900">Inviter tes joueurs</h3>
                   </div>
@@ -930,7 +931,7 @@ export default function MatchDetailPage() {
                     {teamMembers
                       .filter(m => !participations.some(p => p.playerId === m.uid))
                       .map(m => (
-                        <div key={m.uid} className="flex items-center justify-between p-4 rounded-3xl bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-md group">
+                        <div key={m.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-md group">
                            <div className="flex items-center gap-3">
                              <div className="h-10 w-10 rounded-2xl bg-white border border-gray-100 flex items-center justify-center font-black text-sm text-gray-500 shadow-sm">
                                {m.profilePictureUrl ? (
@@ -971,36 +972,36 @@ export default function MatchDetailPage() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-8 rounded-[2.5rem] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-4">
+                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center">
+                  <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
                     <MapPin size={24} />
                   </div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Terrain</h4>
-                  <p className="font-black text-gray-900">{match.venueName}</p>
+                  <p className="font-black text-gray-900 break-words">{match.venueName}</p>
                   <p className="text-xs font-bold text-gray-400">{match.venueCity}</p>
                 </div>
 
-                <div className="p-8 rounded-[2.5rem] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-4">
+                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center">
+                  <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
                     <Shield size={24} />
                   </div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Arbitre</h4>
-                  <p className="font-black text-gray-900">{match.refereeName || "Arbitre Officiel"}</p>
+                  <p className="font-black text-gray-900 break-words">{match.refereeName || "Arbitre Officiel"}</p>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter truncate w-full">{match.refereeStatus === 'confirmed' ? '📋 Officiellement désigné' : '⏳ En attente de désignation'}</p>
                 </div>
               </div>
 
               {/* Match Calendar Entry */}
-              <div className="p-8 rounded-[2.5rem] bg-white border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-6">
-                  <div className="h-20 w-20 rounded-[2rem] bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
+              <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-4 sm:gap-6">
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl sm:rounded-[2rem] bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{match.date.split('-')[1]}</span>
-                    <span className="text-2xl font-black text-emerald-700">{match.date.split('-')[2]}</span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-700">{match.date.split('-')[2]}</span>
                   </div>
-                  <div>
-                    <h4 className="text-xl font-black text-gray-900 mb-1">{match.date}</h4>
-                    <div className="flex items-center gap-4 text-xs font-bold text-gray-400">
-                      <div className="flex items-center gap-1.5 border-r border-gray-100 pr-4">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-lg sm:text-xl font-black text-gray-900 mb-1 truncate">{match.date}</h4>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-bold text-gray-400">
+                      <div className="flex items-center gap-1.5 sm:border-r sm:border-gray-100 sm:pr-4">
                         <Clock size={14} />
                         <span>{match.time}</span>
                       </div>
@@ -1022,21 +1023,21 @@ export default function MatchDetailPage() {
         <motion.div
            initial={{ opacity: 0, y: 20 }}
            animate={{ opacity: 1, y: 0 }}
-           className="relative overflow-hidden rounded-[3.5rem] bg-white border-2 border-emerald-500/20 p-8 sm:p-12 shadow-2xl mb-6 mt-8"
+           className="relative overflow-hidden rounded-[1.5rem] sm:rounded-[3.5rem] bg-white border-2 border-emerald-500/20 p-5 sm:p-12 shadow-2xl mb-6 mt-6 sm:mt-8"
         >
-          <div className="mb-8">
-             <h3 className="text-xl font-black text-gray-900 border-b border-gray-100 pb-4 mb-4">Validation Finale de la Feuille de Match</h3>
-             <p className="text-gray-500 text-sm">Le match est terminé. Veuillez valider le score final, les évènements et noter l'arbitre pour clore officiellement la rencontre.</p>
-             <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-100">
-               <p className="text-[11px] font-bold text-amber-700 flex items-center gap-2">
-                 <AlertCircle size={14} />
+          <div className="mb-6 sm:mb-8">
+             <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-100 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
+             <p className="text-gray-500 text-xs sm:text-sm">Le match est terminé. Veuillez valider le score final, les évènements et noter l'arbitre pour clore officiellement la rencontre.</p>
+             <div className="mt-4 p-3 sm:p-4 rounded-2xl bg-amber-50 border border-amber-100">
+               <p className="text-[11px] font-bold text-amber-700 flex items-start sm:items-center gap-2">
+                 <AlertCircle size={14} className="shrink-0 mt-0.5 sm:mt-0" />
                  Note: Sans action sous 12h, le match sera validé automatiquement.
                </p>
              </div>
           </div>
-          
+
           {user && match.postMatchFeedback?.[user.uid] ? (
-             <div className="p-6 rounded-3xl bg-gray-50 border border-gray-100 space-y-4">
+             <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gray-50 border border-gray-100 space-y-4">
                 <div className="flex items-center gap-2">
                    {match.postMatchFeedback[user.uid].validation === 'validated' ? (
                      <CheckCircle2 size={20} className="text-emerald-500" />
@@ -1061,16 +1062,16 @@ export default function MatchDetailPage() {
              <div className="space-y-6">
                 <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Confirmation de la feuille de match</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                        <button
                           onClick={() => setValidation("validated")}
-                          className={`flex-1 flex gap-2 justify-center items-center py-5 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${validation === "validated" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "bg-white border-gray-200 text-gray-500 hover:border-emerald-200"}`}
+                          className={`flex-1 flex gap-2 justify-center items-center py-4 sm:py-5 rounded-2xl text-[11px] sm:text-xs font-black uppercase tracking-widest border transition-all ${validation === "validated" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "bg-white border-gray-200 text-gray-500 hover:border-emerald-200"}`}
                        >
                          <CheckCircle2 size={16} /> Valider le Score
                        </button>
                        <button
                           onClick={() => setValidation("contested")}
-                          className={`flex-1 flex gap-2 justify-center items-center py-5 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${validation === "contested" ? "bg-red-600 border-red-600 text-white shadow-xl shadow-red-600/20" : "bg-white border-gray-200 text-gray-500 hover:border-red-200"}`}
+                          className={`flex-1 flex gap-2 justify-center items-center py-4 sm:py-5 rounded-2xl text-[11px] sm:text-xs font-black uppercase tracking-widest border transition-all ${validation === "contested" ? "bg-red-600 border-red-600 text-white shadow-xl shadow-red-600/20" : "bg-white border-gray-200 text-gray-500 hover:border-red-200"}`}
                        >
                          <XCircle size={16} /> Contester le Match
                        </button>
@@ -1079,12 +1080,12 @@ export default function MatchDetailPage() {
 
                <div>
                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Noter l'arbitre (sur 5)</label>
-                 <div className="flex gap-2">
+                 <div className="flex flex-wrap gap-2">
                    {Array.from({ length: 5 }).map((_, i) => (
                      <button
                        key={i}
                        onClick={() => setRefereeRating(i + 1)}
-                       className={`h-12 w-12 flex items-center justify-center rounded-xl border transition-all ${
+                       className={`h-11 w-11 sm:h-12 sm:w-12 flex items-center justify-center rounded-xl border transition-all ${
                          i < refereeRating ? "bg-amber-50 border-amber-400 text-amber-500 shadow-sm" : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
                        }`}
                      >
@@ -1140,17 +1141,17 @@ export default function MatchDetailPage() {
 
       {/* Floating Action for Managers */}
       {isManager && match?.status !== "completed" && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-4 flex gap-2">
-            <button 
+        <div className="fixed bottom-20 sm:bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-3 sm:px-4 flex gap-2 z-40">
+            <button
               onClick={() => setActiveTab("squad")}
-              className="flex-1 flex items-center justify-center gap-2 h-16 rounded-[2rem] bg-gray-900 text-white font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95"
+              className="flex-1 flex items-center justify-center gap-2 h-14 sm:h-16 rounded-[1.5rem] sm:rounded-[2rem] bg-gray-900 text-white font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95"
             >
               <UserPlus size={18} />
               Gérer l'effectif
             </button>
-            <button 
-              onClick={() => router.push(`/referee-panel/matches/${id}/manage`)} // Quick access for ref/manager if they are also ref
-              className="flex h-16 w-16 items-center justify-center rounded-[2rem] bg-emerald-500 text-white shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-90"
+            <button
+              onClick={() => router.push(`/referee-panel/matches/${id}/manage`)}
+              className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-[1.5rem] sm:rounded-[2rem] bg-emerald-500 text-white shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-90"
             >
               <Activity size={24} />
             </button>

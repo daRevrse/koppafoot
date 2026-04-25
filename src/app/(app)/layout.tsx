@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { ROLE_REDIRECTS } from "@/types";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppHeader from "@/components/layout/AppHeader";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
@@ -61,10 +62,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <AppSidebar />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="flex-1 bg-[var(--color-bg-secondary)] p-6 lg:p-8">{children}</main>
+        <main className="main-content-app min-w-0 flex-1 overflow-x-hidden bg-[var(--color-bg-secondary)] p-4 lg:p-8">
+          {children}
+        </main>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }

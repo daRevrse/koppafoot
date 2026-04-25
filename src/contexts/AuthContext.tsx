@@ -33,7 +33,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { syncSessionCookie } from "@/lib/session";
 import type { UserProfile, UserRole, SignupData, FirestoreUser, AuthProvider } from "@/types";
 
 // ============================================
@@ -180,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // onIdTokenChanged is more robust as it fires on login, logout, and token refresh
     const unsubscribe = onIdTokenChanged(auth, async (fbUser) => {
+      console.log("[AuthContext] Auth state changed:", fbUser?.uid ?? "logged out");
       setFirebaseUser(fbUser);
       
       if (fbUser) {
@@ -187,8 +187,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         try {
           // 1. Sync session cookie for middleware
-          const token = await fbUser.getIdToken();
-          document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax`;
+          let token: string;
+          try {
+            token = await fbUser.getIdToken();
+          } catch (e: any) {
+            // Handle network-request-failed with a single retry
+            if (e.code === "auth/network-request-failed" || e.message === "auth/network-request-failed") {
+              console.warn("[AuthContext] Network request failed for token, retrying once in 2s...");
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              token = await fbUser.getIdToken();
+            } else {
+              throw e;
+            }
+          }
+
+          document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${
+            window.location.protocol === "https:" ? "; Secure" : ""
+          }`;
 
           // 2. Fetch user profile
           const profile = await fetchUserProfile(fbUser.uid);
@@ -196,8 +211,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             profile.emailVerified = fbUser.emailVerified;
           }
           setUser(profile);
-        } catch (error) {
-          console.error("[AuthContext] Error in auth session sync:", error);
+        } catch (error: any) {
+          if (error.code === "auth/network-request-failed") {
+            console.error("[AuthContext] persistent network error while syncing session. User might be offline.");
+          } else {
+            console.error("[AuthContext] Error in auth session sync:", error);
+          }
         }
       } else {
         // Clear session cookie and user profile on logout

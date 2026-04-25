@@ -236,30 +236,30 @@ export default function DashboardPage() {
   })();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-5">
       {/* Welcome */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-2xl font-bold text-gray-900 font-display">
+        <h1 className="text-lg sm:text-2xl font-bold text-gray-900 font-display">
           Bienvenue, {user.firstName} !
         </h1>
-        <p className="mt-1 text-gray-500">
+        <p className="mt-0.5 text-sm sm:text-base text-gray-500">
           Voici un aperçu de ton activité
         </p>
       </motion.div>
 
       {/* Stats grid */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <StatCardSkeleton key={i} />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {stats.map((stat, i) => (
             <StatCard
               key={stat.label}
@@ -274,7 +274,7 @@ export default function DashboardPage() {
       )}
 
       {/* Two columns */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
         {/* Upcoming matches */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -293,7 +293,7 @@ export default function DashboardPage() {
           ) : relevantMatches.length > 0 ? (
             <div className="divide-y divide-gray-50">
               {relevantMatches.map((match) => (
-                <div key={match.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                <div key={match.id} className="flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-2.5 sm:py-3.5 hover:bg-gray-50 transition-colors">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
                     <Trophy size={18} className="text-primary-600" />
                   </div>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-gray-900">
                       {match.homeTeamName} vs {match.awayTeamName}
                     </p>
-                    <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
                       {match.status === "live" ? (
                         <span className="flex items-center gap-1 font-bold text-red-600">
                           <div className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
@@ -344,7 +344,7 @@ export default function DashboardPage() {
             {RECENT_ACTIVITY.map((activity) => {
               const Icon = activity.icon;
               return (
-                <div key={activity.id} className="flex items-center gap-3 px-5 py-3.5">
+                <div key={activity.id} className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
                     <Icon size={14} className="text-gray-500" />
                   </div>
@@ -364,14 +364,14 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.5 }}
-        className="rounded-xl border border-gray-200 bg-white p-6"
+        className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6"
       >
-        <h3 className="mb-4 text-sm font-semibold text-gray-900 font-display">Niveau & Progression</h3>
-        <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <LevelBadge level={7} progress={65} size={72} />
-          <div className="flex-1">
+        <h3 className="mb-3 sm:mb-4 text-sm font-semibold text-gray-900 font-display">Niveau & Progression</h3>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <LevelBadge level={7} progress={65} size={56} />
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900">Niveau 7 — Milieu confirmé</p>
-            <p className="mb-3 text-xs text-gray-500">650 XP sur 1000 — encore 350 XP pour le niveau 8</p>
+            <p className="mb-2 sm:mb-3 text-xs text-gray-500">650 / 1000 XP — 350 XP restants</p>
             <XPProgressBar currentXP={650} requiredXP={1000} level={7} />
           </div>
         </div>
