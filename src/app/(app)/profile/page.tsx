@@ -425,42 +425,44 @@ export default function ProfilePage() {
               </div>
             </div>
             {/* Physical Info Card */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-3">
-              <h3 className="mb-3 text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <Ruler size={16} className="text-emerald-600" />
-                Informations physiques
-              </h3>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
-                  <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
-                  <p className="text-xs text-gray-500">Pied fort</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {user.strongFoot ? FOOT_LABELS[user.strongFoot] : "—"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
-                  <Ruler size={20} className="mx-auto text-emerald-500 mb-1" />
-                  <p className="text-xs text-gray-500">Taille</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {user.height ? `${user.height} cm` : "—"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
-                  <Weight size={20} className="mx-auto text-emerald-500 mb-1" />
-                  <p className="text-xs text-gray-500">Poids</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {user.weight ? `${user.weight} kg` : "—"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
-                  <Cake size={20} className="mx-auto text-emerald-500 mb-1" />
-                  <p className="text-xs text-gray-500">Âge</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {age !== null ? `${age} ans` : "—"}
-                  </p>
+            {(user.userType === "player" || user.userType === "referee") && (
+              <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-3">
+                <h3 className="mb-3 text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <Ruler size={16} className="text-emerald-600" />
+                  Informations physiques
+                </h3>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                    <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
+                    <p className="text-xs text-gray-500">Pied fort</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                    <Ruler size={20} className="mx-auto text-emerald-500 mb-1" />
+                    <p className="text-xs text-gray-500">Taille</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {user.height ? `${user.height} cm` : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                    <Weight size={20} className="mx-auto text-emerald-500 mb-1" />
+                    <p className="text-xs text-gray-500">Poids</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {user.weight ? `${user.weight} kg` : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                    <Cake size={20} className="mx-auto text-emerald-500 mb-1" />
+                    <p className="text-xs text-gray-500">Âge</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {age !== null ? `${age} ans` : "—"}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -493,32 +495,36 @@ export default function ProfilePage() {
               </div>
 
               {/* Physical info */}
-              <div className="md:col-span-2">
-                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Ruler size={16} className="text-emerald-600" /> Informations physiques
+              {(user.userType === "player" || user.userType === "referee") && (
+                <div className="md:col-span-2">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Ruler size={16} className="text-emerald-600" /> Informations physiques
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Pied fort</label>
+                      <select {...register("strongFoot")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                        <option value="">Non spécifié</option>
+                        <option value="right">Droit</option>
+                        <option value="left">Gauche</option>
+                        <option value="both">Les deux</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Taille (cm)</label>
+                      <input type="number" min="100" max="250" {...register("height")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Poids (kg)</label>
+                      <input type="number" min="30" max="200" {...register("weight")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Date de naissance</label>
+                      <input type="date" {...register("dateOfBirth")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Pied fort</label>
-                <select {...register("strongFoot")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
-                  <option value="">Non spécifié</option>
-                  <option value="right">Droit</option>
-                  <option value="left">Gauche</option>
-                  <option value="both">Les deux</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Taille (cm)</label>
-                <input type="number" min="100" max="250" {...register("height")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Poids (kg)</label>
-                <input type="number" min="30" max="200" {...register("weight")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Date de naissance</label>
-                <input type="date" {...register("dateOfBirth")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
-              </div>
+              )}
 
               {/* Player-specific */}
               {user.userType === "player" && (
