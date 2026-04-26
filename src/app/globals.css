@@ -152,6 +152,10 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 8px);
 }
 
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Glassmorphism bottom bar */
 .bottom-nav-glass {
   background: rgba(2, 44, 34, 0.92);

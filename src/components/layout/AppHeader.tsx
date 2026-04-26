@@ -37,7 +37,7 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="relative flex h-14 lg:h-16 items-center justify-between border-b-2 border-primary-600 bg-white px-4 lg:px-6">
+    <header className="relative flex min-h-14 lg:min-h-16 items-center justify-between border-b-2 border-primary-600 bg-white px-4 lg:px-6 pt-safe">
       {/* Mobile: Logo compact — Desktop: spacer */}
       <div className="flex items-center gap-2 lg:hidden">
         <Image
