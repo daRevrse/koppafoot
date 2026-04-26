@@ -390,12 +390,12 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex gap-1 rounded-lg bg-gray-100 p-1 overflow-x-auto">
+      <div className="mt-6 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 scrollbar-none">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center justify-center gap-1.5 flex-1 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
+            className={`flex shrink-0 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
               tab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
