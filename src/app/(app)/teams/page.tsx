@@ -339,8 +339,10 @@ export default function TeamsPage() {
                   {/* Team header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${colors.bg}`}>
-                        <Shield size={24} className={colors.icon} />
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${colors.bg}`}>
+                        {team.logoUrl
+                          ? <img src={team.logoUrl} alt={team.name} className="h-full w-full object-cover" />
+                          : <Shield size={24} className={colors.icon} />}
                       </div>
                       <div>
                         <h3 className="font-bold text-gray-900 font-display">{team.name}</h3>
