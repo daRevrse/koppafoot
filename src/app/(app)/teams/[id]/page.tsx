@@ -1221,7 +1221,9 @@ export default function TeamDetailPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-gray-900">{member.firstName} {member.lastName}</h4>
+                            <Link href={`/profile/${member.uid}`} className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
+                              {member.firstName} {member.lastName}
+                            </Link>
                             {isStarter && <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700">Titulaire</span>}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
