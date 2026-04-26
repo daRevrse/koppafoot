@@ -13,6 +13,7 @@ import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 
 // ============================================
 // Schemas
@@ -381,6 +382,8 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
+      <PWAInstallPrompt />
 
       {/* reCAPTCHA container */}
       <div ref={recaptchaRef} />
