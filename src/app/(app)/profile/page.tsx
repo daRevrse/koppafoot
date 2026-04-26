@@ -390,7 +390,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 scrollbar-none">
+      <div className="mt-6 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 scrollbar-hide">
         {tabs.map((t) => (
           <button
             key={t.key}
