@@ -319,7 +319,7 @@ export default function TeamsPage() {
 
       {/* Teams grid */}
       {teams.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {teams.map((team, i) => {
             const colors = COLOR_MAP[team.color] ?? COLOR_MAP.emerald;
 
