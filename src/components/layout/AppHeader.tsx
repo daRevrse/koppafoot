@@ -63,8 +63,7 @@ export default function AppHeader() {
           <Bell size={18} className="lg:w-5 lg:h-5" />
         </button>
 
-        {/* User dropdown */}
-        <div ref={dropdownRef} className="relative">
+        <div ref={dropdownRef} className="relative hidden lg:block">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 transition-colors"

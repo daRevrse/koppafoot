@@ -55,20 +55,6 @@ function formatMatchDate(date: string, time: string): string {
 // Static data (kept as-is for now)
 // ============================================
 
-const REFEREE_STATS = [
-  { icon: Shield, value: 0, label: "Matchs arbitrés", color: "bg-primary-50" },
-  { icon: FileText, value: 0, label: "Rapports soumis", color: "bg-blue-50" },
-  { icon: Star, value: "N/A", label: "Note moyenne", color: "bg-accent-50" },
-  { icon: Calendar, value: 0, label: "Prochain match", color: "bg-purple-50" },
-];
-
-const RECENT_ACTIVITY = [
-  { id: 1, text: "Vous avez rejoint l'équipe FC Koppa", time: "Il y a 2h", icon: Users },
-  { id: 2, text: "Match terminé : victoire 3-1", time: "Hier", icon: Trophy },
-  { id: 3, text: "Nouvelle invitation reçue", time: "Il y a 2 jours", icon: UserPlus },
-  { id: 4, text: "Profil mis à jour", time: "Il y a 3 jours", icon: Award },
-];
-
 // ============================================
 // Skeleton
 // ============================================
@@ -114,15 +100,50 @@ export default function DashboardPage() {
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState(0);
   const [refereeMatches, setRefereeMatches] = useState<Match[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
 
     let cancelled = false;
-    let unsubInvitations: (() => void) | null = null;
+    let unsubs: (() => void)[] = [];
 
     async function loadData() {
       try {
+        // Common activity listener
+        const { onPosts } = await import("@/lib/firestore");
+        const unsubPosts = onPosts(5, user!.uid, (posts) => {
+          if (!cancelled) {
+            const mappedActivities = posts.map(post => {
+              let icon = FileText;
+              if (post.type === "match_result") icon = Trophy;
+              if (post.type === "team_announcement") icon = Users;
+              if (post.type === "highlight") icon = Star;
+              
+              const date = new Date(post.createdAt);
+              const now = new Date();
+              const diffMs = now.getTime() - date.getTime();
+              const diffMins = Math.floor(diffMs / 60000);
+              const diffHours = Math.floor(diffMins / 60);
+              const diffDays = Math.floor(diffHours / 24);
+
+              let timeStr = "À l'instant";
+              if (diffDays > 0) timeStr = `Il y a ${diffDays} j.`;
+              else if (diffHours > 0) timeStr = `Il y a ${diffHours} h`;
+              else if (diffMins > 0) timeStr = `Il y a ${diffMins} min`;
+
+              return {
+                id: post.id,
+                text: post.content,
+                time: timeStr,
+                icon
+              };
+            });
+            setActivities(mappedActivities);
+          }
+        });
+        unsubs.push(unsubPosts);
+
         if (user!.userType === "player") {
           const [playerTeams, playerParticipations] = await Promise.all([
             getTeamsByPlayer(user!.uid),
@@ -139,11 +160,12 @@ export default function DashboardPage() {
           }
 
           // Real-time listener for pending invitations
-          unsubInvitations = onInvitationsForPlayer(user!.uid, (invitations: Invitation[]) => {
+          const unsubInvitations = onInvitationsForPlayer(user!.uid, (invitations: Invitation[]) => {
             if (!cancelled) {
               setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
             }
           });
+          unsubs.push(unsubInvitations);
         } else if (user!.userType === "manager") {
           const managerTeams = await getTeamsByManager(user!.uid);
           if (cancelled) return;
@@ -156,18 +178,20 @@ export default function DashboardPage() {
           }
 
           // Real-time listener for sent invitations
-          unsubInvitations = onInvitationsByManager(user!.uid, (invitations: Invitation[]) => {
+          const unsubInvitationsByManager = onInvitationsByManager(user!.uid, (invitations: Invitation[]) => {
             if (!cancelled) {
               setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
             }
           });
+          unsubs.push(unsubInvitationsByManager);
         } else if (user!.userType === "referee") {
-          unsubInvitations = onRefereeAssignments(user!.uid, (matches: Match[]) => {
+          const unsubReferee = onRefereeAssignments(user!.uid, (matches: Match[]) => {
             if (!cancelled) {
               setRefereeMatches(matches);
-              setMatches(matches); // Also set matches for the common list
+              setMatches(matches);
             }
           });
+          unsubs.push(unsubReferee);
         }
       } catch (err) {
         console.error("Erreur lors du chargement du tableau de bord:", err);
@@ -180,7 +204,7 @@ export default function DashboardPage() {
 
     return () => {
       cancelled = true;
-      if (unsubInvitations) unsubInvitations();
+      unsubs.forEach(unsub => unsub());
     };
   }, [user]);
 
@@ -193,8 +217,8 @@ export default function DashboardPage() {
   const stats = (() => {
     if (user.userType === "player") {
       const confirmedParticipations = participations.filter((p) => p.status === "confirmed");
-      const matchesPlayed = confirmedParticipations.length;
-      const totalGoals = confirmedParticipations.reduce((sum, p) => sum + p.goals, 0);
+      const matchesPlayed = user.matchesPlayed || confirmedParticipations.length;
+      const totalGoals = user.goals || confirmedParticipations.reduce((sum, p) => sum + p.goals, 0);
       const upcomingCount = relevantMatches.length;
 
       return [
@@ -232,8 +256,37 @@ export default function DashboardPage() {
       ];
     }
 
-    return REFEREE_STATS;
+    return [];
   })();
+
+  // ---- Progression Logic ----
+  const matchesPlayed = user.matchesPlayed || 0;
+  const level = Math.floor(matchesPlayed / 5) + 1; // Level up every 5 matches
+  const currentXP = (matchesPlayed % 5) * 200; // 200 XP per match
+  const requiredXP = 1000;
+  const progressPercent = (currentXP / requiredXP) * 100;
+
+  const getPositionLabel = (pos?: string) => {
+    if (!pos) return "Passionné";
+    const labels: Record<string, string> = {
+      goalkeeper: "Gardien",
+      defender: "Défenseur",
+      midfielder: "Milieu",
+      forward: "Attaquant",
+      any: "Polyvalent"
+    };
+    return labels[pos] || pos;
+  };
+
+  const getSkillLabel = (level?: string) => {
+    const labels: Record<string, string> = {
+      beginner: "Débutant",
+      amateur: "Amateur",
+      intermediate: "Confirmé",
+      advanced: "Expert"
+    };
+    return labels[level || ""] || "Joueur";
+  };
 
   return (
     <div className="space-y-3 sm:space-y-5">
@@ -340,21 +393,28 @@ export default function DashboardPage() {
           <div className="border-b border-gray-100 px-5 py-4">
             <h3 className="text-sm font-semibold text-gray-900 font-display">Activité récente</h3>
           </div>
-          <div className="divide-y divide-gray-50">
-            {RECENT_ACTIVITY.map((activity) => {
-              const Icon = activity.icon;
-              return (
-                <div key={activity.id} className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-                    <Icon size={14} className="text-gray-500" />
+          <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
+            {activities.length > 0 ? (
+              activities.map((activity) => {
+                const Icon = activity.icon;
+                return (
+                  <div key={activity.id} className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                      <Icon size={14} className="text-gray-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-gray-700 line-clamp-2">{activity.text}</p>
+                      <p className="text-xs text-gray-400">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-gray-700">{activity.text}</p>
-                    <p className="text-xs text-gray-400">{activity.time}</p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center py-10 text-center">
+                <Clock size={24} className="text-gray-300" />
+                <p className="mt-2 text-sm text-gray-500">Aucune activité récente</p>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
@@ -368,11 +428,15 @@ export default function DashboardPage() {
       >
         <h3 className="mb-3 sm:mb-4 text-sm font-semibold text-gray-900 font-display">Niveau & Progression</h3>
         <div className="flex items-center gap-3 sm:gap-4">
-          <LevelBadge level={7} progress={65} size={56} />
+          <LevelBadge level={level} progress={progressPercent} size={56} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900">Niveau 7 — Milieu confirmé</p>
-            <p className="mb-2 sm:mb-3 text-xs text-gray-500">650 / 1000 XP — 350 XP restants</p>
-            <XPProgressBar currentXP={650} requiredXP={1000} level={7} />
+            <p className="text-sm font-medium text-gray-900">
+              Niveau {level} — {getPositionLabel(user.position)} {getSkillLabel(user.skillLevel)}
+            </p>
+            <p className="mb-2 sm:mb-3 text-xs text-gray-500">
+              {currentXP} / {requiredXP} XP — {requiredXP - currentXP} XP restants
+            </p>
+            <XPProgressBar currentXP={currentXP} requiredXP={requiredXP} level={level} />
           </div>
         </div>
       </motion.div>

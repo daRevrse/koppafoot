@@ -330,10 +330,10 @@ export default function ProfilePage() {
       </div>
 
       {/* Avatar + name */}
-      <div className="relative rounded-b-xl border border-t-0 border-gray-200 bg-white px-6 pb-6">
-        <div className="flex items-end gap-4">
-          <div className="relative -mt-12">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-primary-100 text-2xl font-bold text-primary-700 shadow-md">
+      <div className="relative rounded-b-xl border border-t-0 border-gray-200 bg-white px-4 pb-6 lg:px-8">
+        <div className="flex flex-col items-center lg:flex-row lg:items-end lg:gap-6">
+          <div className="relative -mt-12 lg:-mt-16">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-primary-100 text-2xl font-bold text-primary-700 shadow-xl lg:h-32 lg:w-32 lg:text-4xl">
               {user.profilePictureUrl ? (
                 <img src={user.profilePictureUrl} alt="" className="h-full w-full rounded-full object-cover" />
               ) : (
@@ -343,46 +343,51 @@ export default function ProfilePage() {
             <button
               onClick={() => avatarRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary-600 text-white shadow hover:bg-primary-700"
+              className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-4 ring-white hover:bg-primary-700 transition-transform active:scale-90 lg:h-10 lg:w-10"
             >
-              {uploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
+              {uploadingAvatar ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
             </button>
             <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
-          <div className="flex-1 pt-3">
-            <h1 className="text-xl font-bold text-gray-900">{user.firstName} {user.lastName}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeColor}`}>
+
+          <div className="mt-4 flex-1 text-center lg:mt-0 lg:pt-4 lg:text-left">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 lg:text-3xl">
+              {user.firstName} {user.lastName}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2 lg:justify-start lg:gap-3">
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${badgeColor}`}>
                 {ROLE_LABELS[user.userType]}
               </span>
               {user.locationCity && (
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <MapPin size={12} /> {user.locationCity}
+                <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                  <MapPin size={14} className="text-gray-400" /> {user.locationCity}
                 </span>
               )}
               {memberSince && (
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <Calendar size={12} /> Membre depuis {memberSince}
+                <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                  <Calendar size={14} className="text-gray-400" /> {memberSince}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <Users size={12} /> {user.followersCount ?? 0} abonné{(user.followersCount ?? 0) > 1 ? "s" : ""}
+              <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                <Users size={14} className="text-gray-400" /> {user.followersCount ?? 0} {user.followersCount && user.followersCount > 1 ? "abonnés" : "abonné"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="mt-6 flex w-full flex-col items-center gap-4 lg:mt-0 lg:w-auto lg:flex-row lg:gap-5">
             <Link
               href={`/profile/${user.uid}`}
-              className="text-sm text-emerald-600 hover:underline"
+              className="text-sm font-semibold text-emerald-600 transition-colors hover:text-emerald-700 hover:underline lg:order-last"
             >
               Voir mon profil public →
             </Link>
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow-md active:scale-[0.98] lg:w-auto lg:px-5 lg:py-2.5"
               >
-                <Edit3 size={14} /> Modifier
+                <Edit3 size={18} className="text-gray-400" />
+                Modifier mon profil
               </button>
             )}
           </div>
