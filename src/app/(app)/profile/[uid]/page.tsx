@@ -692,12 +692,12 @@ export default function PublicProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="mt-4 flex gap-1 rounded-lg bg-gray-100 p-1">
+        <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 scrollbar-hide">
           {publicTabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center justify-center gap-1.5 flex-1 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
+              className={`flex shrink-0 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
                 activeTab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
               }`}
             >
