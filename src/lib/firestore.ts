@@ -23,7 +23,7 @@ import {
   type Unsubscribe,
   type QueryConstraint,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import type {
   Team, FirestoreTeam, Achievement,
   Match, FirestoreMatch,
@@ -39,6 +39,7 @@ import type {
   PlayerRating, FirestorePlayerRating,
   Booking, FirestoreBooking,
   GhostPlayer, FirestoreGhostPlayer,
+  Notification, FirestoreNotification, NotificationType,
 } from "@/types";
 
 // ============================================
@@ -76,6 +77,19 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     redCards: d.red_cards ?? 0,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
+  };
+}
+
+export function toNotification(id: string, d: FirestoreNotification): Notification {
+  return {
+    id,
+    userId: d.user_id,
+    type: d.type,
+    title: d.title,
+    body: d.body,
+    link: d.link ?? undefined,
+    read: d.read,
+    createdAt: formatDate(d.created_at),
   };
 }
 
@@ -483,6 +497,13 @@ export async function createJoinRequest(data: {
     message: data.message, status: "pending",
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
+  void createNotification({
+    userId: data.managerId,
+    type: "join_request",
+    title: "Demande d'adhésion",
+    body: `${data.playerName} souhaite rejoindre ${data.teamName}`,
+    link: "/teams",
+  });
   return ref.id;
 }
 
@@ -639,6 +660,13 @@ export async function createMatch(data: {
     confirmed_home: 0, confirmed_away: 0,
     auto_accept_players: !!data.autoAcceptPlayers,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  void createNotification({
+    userId: data.awayManagerId,
+    type: "match_challenge",
+    title: "Nouveau défi reçu",
+    body: `${data.homeTeamName} vous défie`,
+    link: "/matches",
   });
   return ref.id;
 }
@@ -908,6 +936,16 @@ export async function invitePlayerToMatch(
   };
 
   await addDoc(collection(db, "participations"), participationData);
+
+  if (!autoConfirm) {
+    void createNotification({
+      userId: playerId,
+      type: "participation_request",
+      title: "Convocation à un match",
+      body: `Vous êtes convoqué pour ${matchLabel} le ${matchDate}`,
+      link: "/participations",
+    });
+  }
 
   if (autoConfirm) {
     const matchRef = doc(db, "matches", matchId);
@@ -1190,6 +1228,13 @@ export async function sendInvitation(data: {
     team_name: data.teamName, message: data.message,
     status: "pending",
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  void createNotification({
+    userId: data.receiverId,
+    type: "invitation",
+    title: "Nouvelle invitation",
+    body: `${data.senderName} vous invite à rejoindre ${data.teamName}`,
+    link: "/mercato",
   });
   return ref.id;
 }
@@ -2168,5 +2213,82 @@ export async function rollupGhostPlayerStats(
       updated_at: new Date().toISOString(),
     });
   }
+  await batch.commit();
+}
+
+// ============================================
+// Notifications
+// ============================================
+
+export async function createNotification(data: {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link?: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "notifications"), {
+    user_id: data.userId,
+    type: data.type,
+    title: data.title,
+    body: data.body,
+    link: data.link ?? null,
+    read: false,
+    created_at: serverTimestamp(),
+  });
+
+  // Best-effort push — fire and forget
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    currentUser.getIdToken().then((token) => {
+      fetch("/api/notifications/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: data.userId,
+          title: data.title,
+          body: data.body,
+          link: data.link,
+          type: data.type,
+        }),
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
+  return ref.id;
+}
+
+export function onNotifications(
+  userId: string,
+  callback: (data: Notification[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, "notifications"),
+    where("user_id", "==", userId),
+    orderBy("created_at", "desc"),
+    firestoreLimit(50)
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toNotification(d.id, d.data() as FirestoreNotification)));
+  });
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await updateDoc(doc(db, "notifications", notificationId), { read: true });
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  const q = query(
+    collection(db, "notifications"),
+    where("user_id", "==", userId),
+    where("read", "==", false)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.update(d.ref, { read: true }));
   await batch.commit();
 }

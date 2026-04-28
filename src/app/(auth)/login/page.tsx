@@ -68,13 +68,30 @@ export default function LoginPage() {
   const router = useRouter();
   const { loginWithEmail, sendPhoneCode, confirmPhoneCode, loginWithGoogle } = useAuth();
 
-  // Setup reCAPTCHA
-  useEffect(() => {
-    if (tab === "phone" && recaptchaRef.current && !recaptchaVerifier.current) {
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, recaptchaRef.current, {
-        size: "invisible",
-      });
+  const initRecaptcha = () => {
+    if (!recaptchaRef.current) return;
+    if (recaptchaVerifier.current) {
+      recaptchaVerifier.current.clear();
+      recaptchaVerifier.current = null;
     }
+    recaptchaVerifier.current = new RecaptchaVerifier(auth, recaptchaRef.current, {
+      size: "invisible",
+    });
+  };
+
+  // Setup reCAPTCHA when switching to phone tab
+  useEffect(() => {
+    if (tab === "phone") {
+      initRecaptcha();
+    } else {
+      recaptchaVerifier.current?.clear();
+      recaptchaVerifier.current = null;
+    }
+    return () => {
+      recaptchaVerifier.current?.clear();
+      recaptchaVerifier.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   // --- Email form ---
@@ -114,6 +131,8 @@ export default function LoginPage() {
       setPhoneStep("code");
       toast.success("Code envoyé !");
     } catch (err) {
+      // Firebase invalide le verifier après chaque tentative — en recréer un
+      initRecaptcha();
       toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);

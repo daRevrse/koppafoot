@@ -121,6 +121,8 @@ export interface FirestoreUser {
   gallery_photos?: string[];
   // Palmarès
   trophies?: { title: string; year: number; description?: string }[];
+  // FCM push tokens
+  fcm_tokens?: string[];
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -774,4 +776,36 @@ export interface TrainingScheduleSlot {
   time: string;      // "19:00"
   location: string;
   label?: string;    // "Tactique", "Physique", etc.
+}
+
+// ============================================
+// Notifications
+// ============================================
+
+export type NotificationType =
+  | "invitation"
+  | "join_request"
+  | "match_challenge"
+  | "participation_request"
+  | "admin_message";
+
+export interface FirestoreNotification {
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link?: string | null;
+  read: boolean;
+  created_at: any;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link?: string;
+  read: boolean;
+  createdAt: string;
 }

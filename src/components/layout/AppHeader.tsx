@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, ChevronDown, LogOut, User } from "lucide-react";
+import { ChevronDown, LogOut, User } from "lucide-react";
+import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_BADGE_COLORS } from "@/config/navigation";
@@ -59,9 +60,7 @@ export default function AppHeader() {
         <StreakBadge count={3} />
 
         {/* Notifications */}
-        <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
-          <Bell size={18} className="lg:w-5 lg:h-5" />
-        </button>
+        <NotificationDropdown />
 
         <div ref={dropdownRef} className="relative hidden lg:block">
           <button

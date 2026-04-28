@@ -8,6 +8,7 @@ import { ROLE_REDIRECTS } from "@/types";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppHeader from "@/components/layout/AppHeader";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import PushNotificationSetup from "@/components/PushNotificationSetup";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
@@ -61,6 +62,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      <PushNotificationSetup />
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
