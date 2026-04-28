@@ -3,7 +3,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { Loader2, Bell, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import { ROLE_REDIRECTS } from "@/types";
 import AdminSidebar from "@/components/layout/AdminSidebar";
 
@@ -19,6 +20,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/logs": "Logs système",
   "/admin/stats": "Statistiques",
   "/admin/settings": "Paramètres",
+  "/admin/messages": "Messages",
+  "/admin/campaigns": "Campagnes",
   "/admin/profile": "Mon profil",
 };
 
@@ -61,9 +64,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <h2 className="text-base font-bold text-gray-900 font-display">{pageTitle}</h2>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
-              <Bell size={17} />
-            </button>
+            <NotificationDropdown />
             <div className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-gray-700 to-gray-900 text-[10px] font-bold text-white uppercase">
                 {user.firstName?.[0]}{user.lastName?.[0]}

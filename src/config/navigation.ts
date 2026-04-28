@@ -197,6 +197,8 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     icon: "Settings",
     items: [
       { path: "/admin/stats", icon: "TrendingUp", label: "Statistiques" },
+      { path: "/admin/messages", icon: "MessageSquare", label: "Messages" },
+      { path: "/admin/campaigns", icon: "Megaphone", label: "Campagnes" },
       { path: "/admin/settings", icon: "Settings", label: "Paramètres" },
     ],
   },
