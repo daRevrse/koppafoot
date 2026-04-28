@@ -89,9 +89,14 @@ async function getTargetIds(type: CampaignType): Promise<string[]> {
     const snap = await adminDb
       .collection("users")
       .where("user_type", "==", "manager")
-      .where("created_at", ">=", cutoff)
       .get();
-    return snap.docs.map((d) => d.id);
+    return snap.docs
+      .filter((d) => {
+        const ca = d.data().created_at;
+        const date = typeof ca === "string" ? ca : ca?.toDate?.()?.toISOString?.() ?? "";
+        return date >= cutoff;
+      })
+      .map((d) => d.id);
   }
 
   return [];
