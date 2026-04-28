@@ -23,17 +23,11 @@ export async function POST(req: NextRequest) {
 
   // Email pour les types haute priorité
   if (type === "invitation" || type === "join_request" || type === "admin_message") {
-    const { sendNotificationEmail, invitationEmailHtml, joinRequestEmailHtml, adminMessageEmailHtml } =
-      await import("@/lib/email");
+    const { sendNotificationEmail, adminMessageEmailHtml } = await import("@/lib/email");
     const userSnap = await adminDb.collection("users").doc(userId).get();
-    const userData = userSnap.data();
-    const email = userData?.email;
+    const email = userSnap.data()?.email;
     if (email) {
-      const firstName: string = userData?.firstName || userData?.displayName?.split(" ")[0] || "";
-      let html = "";
-      if (type === "invitation") html = invitationEmailHtml(title, body, firstName);
-      if (type === "join_request") html = joinRequestEmailHtml(title, body, firstName);
-      if (type === "admin_message") html = adminMessageEmailHtml(title, body);
+      const html = adminMessageEmailHtml(title, body);
       await sendNotificationEmail(email, title, html).catch(() => {});
     }
   }
