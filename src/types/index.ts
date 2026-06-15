@@ -811,3 +811,138 @@ export interface Notification {
   read: boolean;
   createdAt: string;
 }
+
+// ============================================
+// Competitions
+// ============================================
+
+export type CompetitionStatus = "draft" | "registration" | "group_stage" | "knockout" | "completed";
+export type CompMatchStage = "group" | "knockout";
+export type CompMatchRound = "round_of_16" | "quarter" | "semi" | "final" | "third_place";
+export type CompMatchStatus = "scheduled" | "live" | "completed" | "cancelled";
+
+export interface CompetitionFormat {
+  group_count: number;
+  teams_per_group: number;
+  qualifiers_per_group: number;
+  has_third_place: boolean;
+  points: { win: number; draw: number; loss: number };
+}
+
+export interface FirestoreCompetition {
+  name: string;
+  slug: string;
+  description?: string;
+  logo_url: string | null;
+  banner_url: string | null;
+  organizer_ids: string[];
+  created_by: string;
+  status: CompetitionStatus;
+  format: CompetitionFormat;
+  start_date: string | null;
+  end_date: string | null;
+  venue_city: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Competition {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  organizerIds: string[];
+  createdBy: string;
+  status: CompetitionStatus;
+  format: CompetitionFormat;
+  startDate: string | null;
+  endDate: string | null;
+  venueCity: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FirestoreCompTeam {
+  name: string;
+  short_name: string;
+  logo_url: string | null;
+  color: string;
+  group: string | null;
+  claimed_by_manager_id?: string | null;
+  claimed_by_team_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompTeam {
+  id: string;
+  competitionId: string;
+  name: string;
+  shortName: string;
+  logoUrl: string | null;
+  color: string;
+  group: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FirestoreCompMatch {
+  competition_id: string;
+  stage: CompMatchStage;
+  group: string | null;
+  round: CompMatchRound | null;
+  bracket_slot: number | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  home_team_logo: string | null;
+  away_team_logo: string | null;
+  date: string | null;
+  time: string | null;
+  venue_name: string | null;
+  venue_city: string | null;
+  status: CompMatchStatus;
+  score_home: number | null;
+  score_away: number | null;
+  penalty_home: number | null;
+  penalty_away: number | null;
+  winner_team_id: string | null;
+  feeds_into_match_id: string | null;
+  feeds_into_slot: "home" | "away" | null;
+  live_state: FirestoreMatch["live_state"];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompMatch {
+  id: string;
+  competitionId: string;
+  stage: CompMatchStage;
+  group: string | null;
+  round: CompMatchRound | null;
+  bracketSlot: number | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeamName: string;
+  awayTeamName: string;
+  homeTeamLogo: string | null;
+  awayTeamLogo: string | null;
+  date: string | null;
+  time: string | null;
+  venueName: string | null;
+  venueCity: string | null;
+  status: CompMatchStatus;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  penaltyHome: number | null;
+  penaltyAway: number | null;
+  winnerTeamId: string | null;
+  feedsIntoMatchId: string | null;
+  feedsIntoSlot: "home" | "away" | null;
+  liveState: Match["liveState"];
+  createdAt: string;
+  updatedAt: string;
+}
