@@ -13,6 +13,8 @@ import {
   serverTimestamp,
   onSnapshot,
   writeBatch,
+  arrayUnion,
+  increment,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -449,4 +451,205 @@ export async function scheduleCompMatch(
     venue_name: input.venueName,
     venue_city: input.venueCity,
   });
+}
+
+// ============================================
+// Competition Live Match Engine
+//
+// Timer + period + event writers ported from the referee flow in firestore.ts
+// (initLiveMatch / startMatchTimer / pauseMatchTimer / updateMatchPeriod /
+// addMatchEvent), retargeted to the comp_matches subcollection. The stored
+// shapes mirror firestore.ts EXACTLY so the shared live view (which reads
+// `timerStartAt` and does `new Date(timerStartAt).getTime()`) keeps working:
+// `timer_start_at` is an ISO string (new Date().toISOString()), never a
+// serverTimestamp. Event ids use the same scheme. Goals increment the score.
+// ============================================
+
+/** Stored shape of a single live event (one entry of `live_state.events`). */
+type StoredCompEvent = {
+  id: string;
+  type: "goal" | "yellow_card" | "red_card";
+  period: number;
+  minute: number;
+  team_id: string;
+  player_id: string | null;
+  player_name: string | null;
+  detail: string | null;
+  created_at: string;
+};
+
+const compMatchRef = (cid: string, mid: string) =>
+  doc(db, "competitions", cid, "comp_matches", mid);
+
+/**
+ * Initialise live state for a competition match. Mirrors `initLiveMatch`:
+ * status -> "live", fresh `live_state`, scores reset to 0.
+ */
+export async function initLiveCompMatch(cid: string, mid: string): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    status: "live",
+    live_state: {
+      current_period: 1,
+      timer_start_at: null,
+      timer_offset: 0,
+      is_timer_running: false,
+      events: [],
+    },
+    score_home: 0,
+    score_away: 0,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Start (or resume) the match clock. Mirrors `startMatchTimer` exactly:
+ * `timer_start_at` is stored as an ISO string so the live view's
+ * `new Date(timerStartAt).getTime()` resolves correctly.
+ */
+export async function startCompTimer(cid: string, mid: string): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    "live_state.is_timer_running": true,
+    "live_state.timer_start_at": new Date().toISOString(),
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Pause the match clock. Mirrors `pauseMatchTimer`: persist elapsed ms in
+ * `timer_offset`, stop the clock, and clear `timer_start_at`.
+ */
+export async function pauseCompTimer(cid: string, mid: string, elapsedMs: number): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    "live_state.is_timer_running": false,
+    "live_state.timer_start_at": null,
+    "live_state.timer_offset": elapsedMs,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/** Set the current period. Mirrors `updateMatchPeriod` (dotted field update). */
+export async function updateCompPeriod(cid: string, mid: string, period: number): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    "live_state.current_period": period,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Append a goal/card event to `live_state.events` and, for goals, bump the
+ * scoreboard. Mirrors `addMatchEvent`: same id scheme, `arrayUnion`, ISO
+ * `created_at`. There is no roster here, so the scorer is free text
+ * (`player_name`, may be null) and `player_id` is always null. Never writes
+ * `undefined` into the event (all optionals are coerced to null). The score
+ * field is chosen by `side` ("home" -> score_home, "away" -> score_away)
+ * because `team_id` holds a real team id, not a side keyword.
+ */
+export async function addCompEvent(
+  cid: string,
+  mid: string,
+  event: {
+    type: "goal" | "yellow_card" | "red_card";
+    side: "home" | "away";
+    team_id: string;
+    period: number;
+    minute: number;
+    player_name?: string | null;
+    detail?: string | null;
+  },
+): Promise<void> {
+  const newEvent: StoredCompEvent = {
+    id: Math.random().toString(36).substring(2, 11),
+    type: event.type,
+    period: event.period,
+    minute: event.minute,
+    team_id: event.team_id,
+    player_id: null,
+    player_name: event.player_name ?? null,
+    detail: event.detail ?? null,
+    created_at: new Date().toISOString(),
+  };
+
+  const updates: Record<string, unknown> = {
+    "live_state.events": arrayUnion(newEvent),
+    updated_at: serverTimestamp(),
+  };
+
+  if (event.type === "goal") {
+    updates[event.side === "home" ? "score_home" : "score_away"] = increment(1);
+  }
+
+  await updateDoc(compMatchRef(cid, mid), updates);
+}
+
+/**
+ * Finish a competition match: resolve the winner, mark it completed, and
+ * propagate the winner into its bracket successor (idempotently).
+ *
+ * Winner rules:
+ *  - higher regulation score wins;
+ *  - on a tie, a knockout match decided on penalties picks the higher penalty
+ *    taker; any other tie (group draw, or knockout without penalties) yields no
+ *    winner (`null`).
+ *
+ * Propagation only writes when the target slot does not already hold the
+ * winner, so clicking "finish" twice is safe.
+ */
+export async function finishCompMatch(
+  cid: string,
+  mid: string,
+  opts?: { penaltyHome?: number; penaltyAway?: number },
+): Promise<void> {
+  const m = await getCompMatch(cid, mid);
+  if (!m) throw new Error(`Competition match ${mid} not found`);
+
+  const scoreHome = m.scoreHome ?? 0;
+  const scoreAway = m.scoreAway ?? 0;
+
+  let winnerId: string | null = null;
+  if (scoreHome > scoreAway) {
+    winnerId = m.homeTeamId;
+  } else if (scoreHome < scoreAway) {
+    winnerId = m.awayTeamId;
+  } else if (
+    m.stage === "knockout" &&
+    opts?.penaltyHome != null &&
+    opts?.penaltyAway != null
+  ) {
+    if (opts.penaltyHome > opts.penaltyAway) winnerId = m.homeTeamId;
+    else if (opts.penaltyHome < opts.penaltyAway) winnerId = m.awayTeamId;
+  }
+
+  await updateCompMatch(cid, mid, {
+    status: "completed",
+    winner_team_id: winnerId,
+    penalty_home: opts?.penaltyHome ?? null,
+    penalty_away: opts?.penaltyAway ?? null,
+  });
+
+  // Idempotent bracket propagation.
+  if (m.feedsIntoMatchId && winnerId) {
+    const tgt = await getCompMatch(cid, m.feedsIntoMatchId);
+    const slot = m.feedsIntoSlot;
+    if (tgt && slot) {
+      const idField = slot === "home" ? "homeTeamId" : "awayTeamId";
+      if (tgt[idField] !== winnerId) {
+        const winnerTeam = await getCompTeam(cid, winnerId);
+        await updateCompMatch(
+          cid,
+          m.feedsIntoMatchId,
+          slot === "home"
+            ? {
+                home_team_id: winnerId,
+                home_team_name: winnerTeam?.name ?? "",
+                home_team_logo: winnerTeam?.logoUrl ?? null,
+              }
+            : {
+                away_team_id: winnerId,
+                away_team_name: winnerTeam?.name ?? "",
+                away_team_logo: winnerTeam?.logoUrl ?? null,
+              },
+        );
+      }
+    }
+  }
 }
