@@ -8,6 +8,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
   onSnapshot,
@@ -228,4 +229,65 @@ export function onCompetition(id: string, cb: (c: Competition | null) => void): 
 
 export async function updateCompetition(id: string, patch: Partial<FirestoreCompetition>): Promise<void> {
   await updateDoc(doc(db, "competitions", id), { ...patch, updated_at: serverTimestamp() });
+}
+
+// ============================================
+// Competition Teams (subcollection: competitions/{cid}/comp_teams/{tid})
+// ============================================
+
+export async function createCompTeam(
+  cid: string,
+  input: { name: string; shortName: string; color: string; logoUrl?: string | null },
+): Promise<string> {
+  const payload: Record<string, unknown> = {
+    name: input.name,
+    short_name: input.shortName,
+    color: input.color,
+    logo_url: input.logoUrl ?? null,
+    group: null,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  };
+  const ref = await addDoc(collection(db, "competitions", cid, "comp_teams"), payload);
+  return ref.id;
+}
+
+export async function listCompTeams(cid: string): Promise<CompTeam[]> {
+  const q = query(collection(db, "competitions", cid, "comp_teams"), orderBy("name", "asc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toCompTeam(d.id, cid, d.data() as FirestoreCompTeam));
+}
+
+export function onCompTeams(cid: string, cb: (teams: CompTeam[]) => void): Unsubscribe {
+  const q = query(collection(db, "competitions", cid, "comp_teams"), orderBy("name", "asc"));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => toCompTeam(d.id, cid, d.data() as FirestoreCompTeam)));
+    },
+    (error) => {
+      console.error("Error in onCompTeams listener:", error);
+    },
+  );
+}
+
+export async function getCompTeam(cid: string, tid: string): Promise<CompTeam | null> {
+  const snap = await getDoc(doc(db, "competitions", cid, "comp_teams", tid));
+  if (!snap.exists()) return null;
+  return toCompTeam(snap.id, cid, snap.data() as FirestoreCompTeam);
+}
+
+export async function updateCompTeam(
+  cid: string,
+  tid: string,
+  patch: Partial<FirestoreCompTeam>,
+): Promise<void> {
+  await updateDoc(doc(db, "competitions", cid, "comp_teams", tid), {
+    ...patch,
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function deleteCompTeam(cid: string, tid: string): Promise<void> {
+  await deleteDoc(doc(db, "competitions", cid, "comp_teams", tid));
 }
