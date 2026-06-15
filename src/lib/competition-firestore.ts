@@ -12,6 +12,7 @@ import {
   doc,
   serverTimestamp,
   onSnapshot,
+  writeBatch,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -290,4 +291,162 @@ export async function updateCompTeam(
 
 export async function deleteCompTeam(cid: string, tid: string): Promise<void> {
   await deleteDoc(doc(db, "competitions", cid, "comp_teams", tid));
+}
+
+// ============================================
+// Competition Matches (subcollection: competitions/{cid}/comp_matches/{mid})
+// ============================================
+
+/** Single round-robin pairings for one group. Returns [homeId, awayId][]. */
+export function roundRobinPairs(teamIds: string[]): [string, string][] {
+  const ids = [...teamIds];
+  if (ids.length % 2 !== 0) ids.push("__BYE__");
+  const n = ids.length;
+  const rounds: [string, string][] = [];
+  const arr = [...ids];
+  for (let r = 0; r < n - 1; r++) {
+    for (let i = 0; i < n / 2; i++) {
+      const a = arr[i], b = arr[n - 1 - i];
+      if (a !== "__BYE__" && b !== "__BYE__") rounds.push([a, b]);
+    }
+    // rotate keeping first fixed
+    arr.splice(1, 0, arr.pop() as string);
+  }
+  return rounds;
+}
+
+/**
+ * Generate single round-robin group-stage fixtures for a competition.
+ *
+ * Idempotency: if any group-stage match already exists we return early WITHOUT
+ * creating duplicates (the UI is responsible for messaging "already generated").
+ * Re-running is therefore a no-op rather than an error.
+ *
+ * Teams are grouped by their `group` field; teams with `group == null` (unassigned)
+ * are ignored. Within each group, `roundRobinPairs` produces every unordered pair once.
+ * Team name/logo are denormalized onto each match doc (logo → null when absent).
+ */
+export async function generateGroupFixtures(cid: string): Promise<void> {
+  const competition = await getCompetition(cid);
+  if (!competition) throw new Error(`Competition ${cid} not found`);
+
+  // Idempotency guard: bail out if group fixtures already exist.
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+  const existing = await getDocs(query(matchesCol, where("stage", "==", "group")));
+  if (!existing.empty) return;
+
+  const teams = await listCompTeams(cid);
+
+  // Group assigned teams by their group letter.
+  const groups = new Map<string, CompTeam[]>();
+  for (const team of teams) {
+    if (team.group == null) continue;
+    const bucket = groups.get(team.group);
+    if (bucket) bucket.push(team);
+    else groups.set(team.group, [team]);
+  }
+
+  const byId = new Map<string, CompTeam>(teams.map((t) => [t.id, t]));
+
+  const batch = writeBatch(db);
+  let pairCount = 0;
+
+  for (const [groupLetter, groupTeams] of groups) {
+    const pairs = roundRobinPairs(groupTeams.map((t) => t.id));
+    for (const [homeId, awayId] of pairs) {
+      const home = byId.get(homeId);
+      const away = byId.get(awayId);
+      if (!home || !away) continue; // defensive; pairs come from team ids
+      const ref = doc(matchesCol);
+      const data: FirestoreCompMatch = {
+        competition_id: cid,
+        stage: "group",
+        group: groupLetter,
+        round: null,
+        bracket_slot: null,
+        home_team_id: homeId,
+        away_team_id: awayId,
+        home_team_name: home.name,
+        away_team_name: away.name,
+        home_team_logo: home.logoUrl ?? null,
+        away_team_logo: away.logoUrl ?? null,
+        date: null,
+        time: null,
+        venue_name: null,
+        venue_city: null,
+        status: "scheduled",
+        score_home: null,
+        score_away: null,
+        penalty_home: null,
+        penalty_away: null,
+        winner_team_id: null,
+        feeds_into_match_id: null,
+        feeds_into_slot: null,
+        live_state: null,
+        // serverTimestamp() returns a FieldValue, not a string, at write time.
+        created_at: serverTimestamp() as unknown as string,
+        updated_at: serverTimestamp() as unknown as string,
+      };
+      batch.set(ref, data);
+      pairCount += 1;
+    }
+  }
+
+  if (pairCount > 0) await batch.commit();
+}
+
+export function onCompMatches(cid: string, cb: (m: CompMatch[]) => void): Unsubscribe {
+  // Firestore orders nulls first, so undated fixtures sort ahead of scheduled ones.
+  const q = query(collection(db, "competitions", cid, "comp_matches"), orderBy("date", "asc"));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch)));
+    },
+    (error) => {
+      console.error("Error in onCompMatches listener:", error);
+    },
+  );
+}
+
+export function onCompMatch(cid: string, mid: string, cb: (m: CompMatch | null) => void): Unsubscribe {
+  return onSnapshot(
+    doc(db, "competitions", cid, "comp_matches", mid),
+    (snap) => {
+      cb(snap.exists() ? toCompMatch(snap.id, snap.data() as FirestoreCompMatch) : null);
+    },
+    (error) => {
+      console.error("Error in onCompMatch listener:", error);
+    },
+  );
+}
+
+export async function getCompMatch(cid: string, mid: string): Promise<CompMatch | null> {
+  const snap = await getDoc(doc(db, "competitions", cid, "comp_matches", mid));
+  if (!snap.exists()) return null;
+  return toCompMatch(snap.id, snap.data() as FirestoreCompMatch);
+}
+
+export async function updateCompMatch(
+  cid: string,
+  mid: string,
+  patch: Partial<FirestoreCompMatch>,
+): Promise<void> {
+  await updateDoc(doc(db, "competitions", cid, "comp_matches", mid), {
+    ...patch,
+    updated_at: serverTimestamp(),
+  });
+}
+
+export async function scheduleCompMatch(
+  cid: string,
+  mid: string,
+  input: { date: string; time: string; venueName: string; venueCity: string },
+): Promise<void> {
+  await updateCompMatch(cid, mid, {
+    date: input.date,
+    time: input.time,
+    venue_name: input.venueName,
+    venue_city: input.venueCity,
+  });
 }
