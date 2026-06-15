@@ -157,6 +157,14 @@ export const VENUE_OWNER_GROUPED_NAV: NavEntry[] = [
 ];
 
 // ============================================
+// Organizer — Grouped
+// ============================================
+
+export const ORGANIZER_GROUPED_NAV: NavEntry[] = [
+  { path: "/organizer", icon: "Trophy", label: "Mes compétitions", exact: true },
+];
+
+// ============================================
 // Admin — Grouped
 // ============================================
 
@@ -272,6 +280,7 @@ export const ROLE_HEADER_TITLES: Partial<Record<UserRole, string>> = {
   player: "Espace Joueur",
   manager: "Espace Manager",
   referee: "Espace Arbitre",
+  organizer: "Espace Organisateur",
 };
 
 export const ROLE_BADGE_COLORS: Record<UserRole, string> = {
@@ -323,9 +332,15 @@ const VENUE_OWNER_BOTTOM: BottomNavItem[] = [
   { path: "/feed", icon: "MessageCircle", label: "Tribune" },
 ];
 
+const ORGANIZER_BOTTOM: BottomNavItem[] = [
+  { path: "/organizer", icon: "Trophy", label: "Compétitions", exact: true },
+  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
+];
+
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {
   player: PLAYER_BOTTOM,
   manager: MANAGER_BOTTOM,
   referee: REFEREE_BOTTOM,
   venue_owner: VENUE_OWNER_BOTTOM,
+  organizer: ORGANIZER_BOTTOM,
 };
