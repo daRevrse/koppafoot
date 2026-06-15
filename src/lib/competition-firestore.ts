@@ -157,7 +157,8 @@ export async function createCompetition(input: {
   createdBy: string;
 }): Promise<string> {
   // Ensure slug uniqueness: slug, slug-2, slug-3, ...
-  const base = slugify(input.name);
+  // Fallback when the name has no slug-able chars, so we never write an empty slug.
+  const base = slugify(input.name) || "competition";
   let slug = base;
   let suffix = 2;
   while (true) {
