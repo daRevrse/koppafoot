@@ -22,6 +22,7 @@ import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
   CompMatch, FirestoreCompMatch,
+  CompMatchRound,
   CompetitionFormat,
 } from "@/types";
 
@@ -816,4 +817,235 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
   return Array.from(byKey.values()).sort(
     (a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName),
   );
+}
+
+// ============================================
+// Knockout bracket generation
+// ============================================
+
+/** One qualified team carried from the group stage into knockout seeding. */
+interface Qualifier {
+  teamId: string;
+  name: string;
+  logo: string | null;
+  group: string;
+  rank: number; // 1-based finishing position within its group
+}
+
+/**
+ * Largest power of two that is <= n (0 for n < 1). Used to size the bracket:
+ * any qualifiers beyond the nearest power of two are dropped so every round is
+ * a clean halving (no byes).
+ */
+function largestPowerOfTwoAtMost(n: number): number {
+  let p = 1;
+  while (p * 2 <= n) p *= 2;
+  return n >= 1 ? p : 0;
+}
+
+/**
+ * Round name keyed by the number of TEAMS competing in that round.
+ * 16 -> round_of_16, 8 -> quarter, 4 -> semi, 2 -> final.
+ */
+function knockoutRoundName(roundTeams: number): CompMatchRound {
+  switch (roundTeams) {
+    case 16:
+      return "round_of_16";
+    case 8:
+      return "quarter";
+    case 4:
+      return "semi";
+    case 2:
+      return "final";
+    default:
+      // Bracket sizes are always powers of two in [2,16] by construction
+      // (largestPowerOfTwoAtMost + the <2 guard in generateKnockout), so this
+      // is unreachable; we throw rather than emit an invalid round value.
+      throw new Error(`Taille de tour de phase finale non supportée: ${roundTeams}`);
+  }
+}
+
+/**
+ * Generate the knockout bracket for a competition: gather group qualifiers,
+ * seed round 1, then create every subsequent round down to the final, wiring
+ * each match to its successor so `finishCompMatch` can propagate winners.
+ *
+ * Idempotency: if any `stage === "knockout"` match already exists we return
+ * early without creating duplicates (re-running is a safe no-op). The optional
+ * third-place match counts as a knockout match for this guard.
+ *
+ * Seeding:
+ *  - Primary (qualifiers_per_group === 2 AND group_count even): groups are
+ *    paired two-by-two — (G0,G1), (G2,G3), … — and each pair (X,Y) yields the
+ *    matchups `1X vs 2Y` and `1Y vs 2X`. No two teams from the same group can
+ *    meet in round 1, and because matchups are emitted pair-by-pair, the two
+ *    eventual finalists come from opposite halves of the bracket (they can only
+ *    meet in the final).
+ *  - Fallback (any other shape): take the top `bracketSize` qualifiers in seed
+ *    order (all rank-1s across groups first, then rank-2s, …) and pair standard
+ *    1-vs-N: seed[0] vs seed[last], seed[1] vs seed[last-1], …
+ *
+ * Winner propagation: match at local index `i` in round `r` feeds the match at
+ * `floor(i/2)` in round `r+1`, taking the home slot when `i` is even and the
+ * away slot when `i` is odd. The final feeds nothing.
+ *
+ * Third place: when `format.has_third_place`, an extra `round: "third_place"`
+ * match is created with empty team slots and `feeds_into_match_id: null`. The
+ * winner-propagation path only forwards winners (not losers), so the organizer
+ * populates this match manually; it is intentionally NOT wired into the tree.
+ *
+ * This function does NOT change the competition status — the organizer/UI sets
+ * `status: "knockout"` separately.
+ */
+export async function generateKnockout(cid: string): Promise<void> {
+  const competition = await getCompetition(cid);
+  if (!competition) throw new Error(`Competition ${cid} not found`);
+
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+
+  // Idempotency guard: bail out if a knockout bracket already exists.
+  const existingKnockout = await getDocs(query(matchesCol, where("stage", "==", "knockout")));
+  if (!existingKnockout.empty) return;
+
+  const format = competition.format;
+  const teams = await listCompTeams(cid);
+
+  // Standings are computed from completed group matches only.
+  const groupSnap = await getDocs(query(matchesCol, where("stage", "==", "group")));
+  const groupMatches = groupSnap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
+  const standings = computeStandings(groupMatches, teams, format);
+
+  // Gather qualifiers: top `qualifiers_per_group` rows per (already sorted) group.
+  const qualifiersByGroup: Qualifier[][] = standings.map((standing) =>
+    standing.rows.slice(0, format.qualifiers_per_group).map((row, i) => ({
+      teamId: row.team.id,
+      name: row.team.name,
+      logo: row.team.logoUrl ?? null,
+      group: standing.group,
+      rank: i + 1,
+    })),
+  );
+  const qualifiers = qualifiersByGroup.flat();
+
+  const qualifierCount = qualifiers.length;
+  const bracketSize = largestPowerOfTwoAtMost(qualifierCount);
+  if (bracketSize < 2) throw new Error("Pas assez de qualifiés pour une phase finale");
+
+  // Build the bracketSize/2 round-1 matchups.
+  const round1: { home: Qualifier; away: Qualifier }[] = [];
+  if (format.qualifiers_per_group === 2 && format.group_count % 2 === 0) {
+    // Primary: pair groups two-by-two. Each group standing is sorted, so
+    // qualifiersByGroup[g][0] is the winner (rank 1) and [1] the runner-up.
+    for (let g = 0; g + 1 < qualifiersByGroup.length; g += 2) {
+      const x = qualifiersByGroup[g];
+      const y = qualifiersByGroup[g + 1];
+      // Defensive: a group could be short on qualifiers if results are missing.
+      if (x.length < 2 || y.length < 2) continue;
+      round1.push({ home: x[0], away: y[1] }); // 1X vs 2Y
+      round1.push({ home: y[0], away: x[1] }); // 1Y vs 2X
+    }
+  } else {
+    // NOTE: best-effort seed for non-standard shapes (odd group_count, or
+    // qualifiers_per_group !== 2). Standard 1-vs-N pairing on seed order; the
+    // organizer can manually adjust matchups afterwards.
+    const seeded = [...qualifiers].sort((a, b) => a.rank - b.rank); // rank-1s first, then rank-2s, …
+    const top = seeded.slice(0, bracketSize);
+    for (let i = 0; i < bracketSize / 2; i++) {
+      round1.push({ home: top[i], away: top[bracketSize - 1 - i] });
+    }
+  }
+
+  // Pre-mint a doc ref per match so we can set feeds_into_match_id before write.
+  // rounds[r] holds the match refs for that round; rounds[0] is round 1.
+  const rounds: { ref: ReturnType<typeof doc>; teams: number }[][] = [];
+  for (let roundTeams = bracketSize; roundTeams >= 2; roundTeams = Math.floor(roundTeams / 2)) {
+    const count = roundTeams / 2;
+    const refs: { ref: ReturnType<typeof doc>; teams: number }[] = [];
+    for (let i = 0; i < count; i++) refs.push({ ref: doc(matchesCol), teams: roundTeams });
+    rounds.push(refs);
+  }
+
+  const batch = writeBatch(db);
+  let bracketSlot = 0;
+
+  for (let r = 0; r < rounds.length; r++) {
+    const roundRefs = rounds[r];
+    const roundName = knockoutRoundName(roundRefs[0].teams);
+    const nextRound = rounds[r + 1]; // undefined for the final
+    for (let i = 0; i < roundRefs.length; i++) {
+      const isRound1 = r === 0;
+      const seed = isRound1 ? round1[i] : null;
+
+      const successor = nextRound ? nextRound[Math.floor(i / 2)] : null;
+      const data: FirestoreCompMatch = {
+        competition_id: cid,
+        stage: "knockout",
+        group: null,
+        round: roundName,
+        bracket_slot: bracketSlot,
+        home_team_id: seed ? seed.home.teamId : null,
+        away_team_id: seed ? seed.away.teamId : null,
+        home_team_name: seed ? seed.home.name : "",
+        away_team_name: seed ? seed.away.name : "",
+        home_team_logo: seed ? seed.home.logo : null,
+        away_team_logo: seed ? seed.away.logo : null,
+        date: null,
+        time: null,
+        venue_name: null,
+        venue_city: null,
+        status: "scheduled",
+        score_home: null,
+        score_away: null,
+        penalty_home: null,
+        penalty_away: null,
+        winner_team_id: null,
+        feeds_into_match_id: successor ? successor.ref.id : null,
+        feeds_into_slot: successor ? (i % 2 === 0 ? "home" : "away") : null,
+        live_state: null,
+        // serverTimestamp() returns a FieldValue, not a string, at write time.
+        created_at: serverTimestamp() as unknown as string,
+        updated_at: serverTimestamp() as unknown as string,
+      };
+      batch.set(roundRefs[i].ref, data);
+      bracketSlot += 1;
+    }
+  }
+
+  // Third place: standalone match, empty slots, NOT wired into the tree.
+  // Winner-propagation forwards winners only, so the organizer fills this in
+  // manually (typically with the two semi-final losers).
+  if (format.has_third_place) {
+    const ref = doc(matchesCol);
+    const data: FirestoreCompMatch = {
+      competition_id: cid,
+      stage: "knockout",
+      group: null,
+      round: "third_place",
+      bracket_slot: bracketSlot,
+      home_team_id: null,
+      away_team_id: null,
+      home_team_name: "",
+      away_team_name: "",
+      home_team_logo: null,
+      away_team_logo: null,
+      date: null,
+      time: null,
+      venue_name: null,
+      venue_city: null,
+      status: "scheduled",
+      score_home: null,
+      score_away: null,
+      penalty_home: null,
+      penalty_away: null,
+      winner_team_id: null,
+      feeds_into_match_id: null,
+      feeds_into_slot: null,
+      live_state: null,
+      created_at: serverTimestamp() as unknown as string,
+      updated_at: serverTimestamp() as unknown as string,
+    };
+    batch.set(ref, data);
+  }
+
+  await batch.commit();
 }
