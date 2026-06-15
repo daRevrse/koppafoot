@@ -2,7 +2,7 @@
 // KOPPAFOOT — Core Types
 // ============================================
 
-export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "superadmin";
+export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organizer" | "superadmin";
 
 export type AuthProvider = "email" | "phone" | "google";
 
@@ -134,6 +134,7 @@ export const ROLE_REDIRECTS: Record<UserRole, string> = {
   manager: "/dashboard",
   referee: "/dashboard",
   venue_owner: "/venue-owner",
+  organizer: "/organizer",
   superadmin: "/admin",
 };
 
@@ -142,6 +143,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   manager: "Manager",
   referee: "Arbitre",
   venue_owner: "Propriétaire de terrain",
+  organizer: "Organisateur",
   superadmin: "Super Admin",
 };
 

@@ -279,6 +279,7 @@ export const ROLE_BADGE_COLORS: Record<UserRole, string> = {
   manager: "bg-blue-100 text-blue-700",
   referee: "bg-purple-100 text-purple-700",
   venue_owner: "bg-orange-100 text-orange-700",
+  organizer: "bg-amber-100 text-amber-700",
   superadmin: "bg-red-100 text-red-700",
 };
 
