@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import CompetitionPublicNav from "@/components/competition/CompetitionPublicNav";
 
 // Public, login-free shell for shareable competition pages (/c/[slug]/**).
 // Server Component on purpose: no auth, no providers, no client state — just a
@@ -25,6 +26,9 @@ export default function PublicCompetitionLayout({
               Koppafoot
             </span>
           </Link>
+        </div>
+        <div className="mx-auto max-w-4xl">
+          <CompetitionPublicNav />
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
