@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { email, action } = body;
+    const { email, action, role = "superadmin" } = body;
 
     if (!email || !action) {
       return NextResponse.json({ error: "Email et action requis" }, { status: 400 });
@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
 
     if (!["promote", "revoke"].includes(action)) {
       return NextResponse.json({ error: "Action invalide (promote|revoke)" }, { status: 400 });
+    }
+
+    if (!["superadmin", "organizer"].includes(role)) {
+      return NextResponse.json({ error: "Rôle invalide (superadmin|organizer)" }, { status: 400 });
     }
 
     // Find user by email
@@ -59,16 +63,16 @@ export async function POST(req: NextRequest) {
     const currentType = userDoc.data()?.user_type;
 
     if (action === "promote") {
-      if (currentType === "superadmin") {
-        return NextResponse.json({ message: "Déjà superadmin", user_type: "superadmin" });
+      if (currentType === role) {
+        return NextResponse.json({ message: `Déjà ${role}`, user_type: role });
       }
       await adminDb.collection("users").doc(userRecord.uid).update({
-        user_type: "superadmin",
+        user_type: role,
         updated_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({
-        message: `${email} promu superadmin`,
-        user_type: "superadmin",
+        message: `${email} promu ${role}`,
+        user_type: role,
         previous_type: currentType,
       });
     }
@@ -94,8 +98,9 @@ export async function POST(req: NextRequest) {
         previous_type: "superadmin",
       });
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error("Admin promote error:", err);
-    return NextResponse.json({ error: err.message ?? "Erreur serveur" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Erreur serveur";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
