@@ -95,6 +95,8 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     awayLineup: (d.away_lineup ?? []).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
     homeLineupReady: d.home_lineup_ready ?? false,
     awayLineupReady: d.away_lineup_ready ?? false,
+    homeOnPitch: d.home_on_pitch ?? [],
+    awayOnPitch: d.away_on_pitch ?? [],
     liveState: d.live_state ? {
       currentPeriod: d.live_state.current_period,
       timerStartAt: d.live_state.timer_start_at,

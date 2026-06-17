@@ -941,6 +941,8 @@ export interface FirestoreCompMatch {
   away_lineup?: FirestoreLineupEntry[];
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
+  home_on_pitch?: string[];
+  away_on_pitch?: string[];
   live_state: FirestoreMatch["live_state"];
   created_at: string;
   updated_at: string;
@@ -975,6 +977,8 @@ export interface CompMatch {
   awayLineup: LineupEntry[];
   homeLineupReady: boolean;
   awayLineupReady: boolean;
+  homeOnPitch: string[];
+  awayOnPitch: string[];
   liveState: Match["liveState"];
   createdAt: string;
   updatedAt: string;
