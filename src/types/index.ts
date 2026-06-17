@@ -866,12 +866,34 @@ export interface Competition {
   updatedAt: string;
 }
 
+export interface CompPlayer {
+  id: string;
+  name: string;
+  number: string;       // dossard
+  position?: string;
+}
+
+export interface FirestoreLineupEntry {
+  player_id: string;
+  name: string;
+  number: string;
+  role: "starter" | "substitute";
+}
+
+export interface LineupEntry {
+  playerId: string;
+  name: string;
+  number: string;
+  role: "starter" | "substitute";
+}
+
 export interface FirestoreCompTeam {
   name: string;
   short_name: string;
   logo_url: string | null;
   color: string;
   group: string | null;
+  players?: CompPlayer[];
   claimed_by_manager_id?: string | null;
   claimed_by_team_id?: string | null;
   created_at: string;
@@ -886,6 +908,7 @@ export interface CompTeam {
   logoUrl: string | null;
   color: string;
   group: string | null;
+  players: CompPlayer[];
   createdAt: string;
   updatedAt: string;
 }
@@ -914,6 +937,10 @@ export interface FirestoreCompMatch {
   winner_team_id: string | null;
   feeds_into_match_id: string | null;
   feeds_into_slot: "home" | "away" | null;
+  home_lineup?: FirestoreLineupEntry[];
+  away_lineup?: FirestoreLineupEntry[];
+  home_lineup_ready?: boolean;
+  away_lineup_ready?: boolean;
   live_state: FirestoreMatch["live_state"];
   created_at: string;
   updated_at: string;
@@ -944,6 +971,10 @@ export interface CompMatch {
   winnerTeamId: string | null;
   feedsIntoMatchId: string | null;
   feedsIntoSlot: "home" | "away" | null;
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
+  homeLineupReady: boolean;
+  awayLineupReady: boolean;
   liveState: Match["liveState"];
   createdAt: string;
   updatedAt: string;

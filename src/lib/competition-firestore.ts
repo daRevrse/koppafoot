@@ -24,6 +24,7 @@ import type {
   CompMatch, FirestoreCompMatch,
   CompMatchRound,
   CompetitionFormat,
+  CompPlayer, LineupEntry, FirestoreLineupEntry,
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 
@@ -219,6 +220,74 @@ export async function updateCompTeam(
 
 export async function deleteCompTeam(cid: string, tid: string): Promise<void> {
   await deleteDoc(doc(db, "competitions", cid, "comp_teams", tid));
+}
+
+// ============================================
+// Roster (players live on the comp_team doc as a small array — read-modify-write)
+// ============================================
+
+export async function addCompPlayer(
+  cid: string,
+  tid: string,
+  input: { name: string; number: string; position?: string },
+): Promise<void> {
+  const team = await getCompTeam(cid, tid);
+  if (!team) throw new Error(`Comp team ${tid} not found`);
+  const player: CompPlayer = {
+    id: Math.random().toString(36).substring(2, 11),
+    name: input.name,
+    number: input.number,
+    ...(input.position ? { position: input.position } : {}),
+  };
+  await updateCompTeam(cid, tid, { players: [...team.players, player] });
+}
+
+export async function updateCompPlayer(
+  cid: string,
+  tid: string,
+  playerId: string,
+  patch: { name?: string; number?: string; position?: string },
+): Promise<void> {
+  const team = await getCompTeam(cid, tid);
+  if (!team) throw new Error(`Comp team ${tid} not found`);
+  const players: CompPlayer[] = team.players.map((p) => {
+    if (p.id !== playerId) return p;
+    const position = patch.position ?? p.position;
+    return {
+      id: p.id,
+      name: patch.name ?? p.name,
+      number: patch.number ?? p.number,
+      ...(position ? { position } : {}),
+    };
+  });
+  await updateCompTeam(cid, tid, { players });
+}
+
+export async function removeCompPlayer(cid: string, tid: string, playerId: string): Promise<void> {
+  const team = await getCompTeam(cid, tid);
+  if (!team) throw new Error(`Comp team ${tid} not found`);
+  await updateCompTeam(cid, tid, { players: team.players.filter((p) => p.id !== playerId) });
+}
+
+/** Set (or update) one side's match sheet on a comp_match + its ready flag. */
+export async function setCompMatchLineup(
+  cid: string,
+  mid: string,
+  side: "home" | "away",
+  entries: LineupEntry[],
+  ready: boolean,
+): Promise<void> {
+  const firestoreEntries: FirestoreLineupEntry[] = entries.map((e) => ({
+    player_id: e.playerId,
+    name: e.name,
+    number: e.number,
+    role: e.role,
+  }));
+  const patch: Partial<FirestoreCompMatch> =
+    side === "home"
+      ? { home_lineup: firestoreEntries, home_lineup_ready: ready }
+      : { away_lineup: firestoreEntries, away_lineup_ready: ready };
+  await updateCompMatch(cid, mid, patch);
 }
 
 // ============================================

@@ -59,6 +59,7 @@ export function toCompTeam(id: string, competitionId: string, d: FirestoreCompTe
     logoUrl: d.logo_url,
     color: d.color,
     group: d.group,
+    players: d.players ?? [],
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -90,6 +91,10 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     winnerTeamId: d.winner_team_id,
     feedsIntoMatchId: d.feeds_into_match_id,
     feedsIntoSlot: d.feeds_into_slot,
+    homeLineup: (d.home_lineup ?? []).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    awayLineup: (d.away_lineup ?? []).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    homeLineupReady: d.home_lineup_ready ?? false,
+    awayLineupReady: d.away_lineup_ready ?? false,
     liveState: d.live_state ? {
       currentPeriod: d.live_state.current_period,
       timerStartAt: d.live_state.timer_start_at,
