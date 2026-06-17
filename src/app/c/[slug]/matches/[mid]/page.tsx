@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
 import {
-  History, Trophy, Loader2, Activity, MapPin, Calendar, Clock, SearchX,
+  History, Trophy, Loader2, Activity, MapPin, Calendar, Clock, SearchX, Users,
 } from "lucide-react";
+import type { LineupEntry } from "@/types";
 import { getCompetitionBySlug, onCompMatch } from "@/lib/competition-firestore";
 import type { CompMatch } from "@/types";
 
@@ -37,6 +38,40 @@ function TeamCrest({ name, logo }: { name: string; logo: string | null }) {
         <Image src={logo} alt={name} width={80} height={80} className="h-full w-full object-cover" />
       ) : (
         <span className="text-3xl font-black">{name?.[0]?.toUpperCase() || "?"}</span>
+      )}
+    </div>
+  );
+}
+
+// One side's match sheet: starters then substitutes (each group hidden when
+// empty). Numbers are shown when set; rows fall back to a dash for the dossard.
+function LineupColumn({ title, entries }: { title: string; entries: LineupEntry[] }) {
+  const starters = entries.filter((e) => e.role === "starter");
+  const substitutes = entries.filter((e) => e.role === "substitute");
+
+  const renderRow = (entry: LineupEntry) => (
+    <div key={entry.playerId || `${entry.number}-${entry.name}`} className="flex items-center gap-2.5 py-1.5">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-50 text-[10px] font-black tabular-nums text-gray-500">
+        {entry.number || "—"}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">{entry.name}</span>
+    </div>
+  );
+
+  return (
+    <div className="min-w-0">
+      <h4 className="mb-3 truncate text-sm font-black uppercase tracking-tight text-gray-900">{title}</h4>
+      {starters.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-300">Titulaires</p>
+          <div className="divide-y divide-gray-50">{starters.map(renderRow)}</div>
+        </div>
+      )}
+      {substitutes.length > 0 && (
+        <div>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-300">Remplaçants</p>
+          <div className="divide-y divide-gray-50">{substitutes.map(renderRow)}</div>
+        </div>
       )}
     </div>
   );
@@ -210,6 +245,20 @@ export default function PublicCompMatchView() {
           <div className="flex flex-col items-center justify-center p-4">
             <Clock size={16} className="mb-1 text-gray-400" />
             <span className="text-[10px] font-bold text-gray-900">{match.time || "—"}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Feuille de match — hidden when neither side has a lineup. */}
+      {(match.homeLineup.length > 0 || match.awayLineup.length > 0) && (
+        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-sm">
+          <div className="mb-8 flex items-center justify-between">
+            <h3 className="font-display text-lg font-black text-gray-900">Compositions</h3>
+            <Users className="text-gray-200" size={24} />
+          </div>
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+            <LineupColumn title={match.homeTeamName} entries={match.homeLineup} />
+            <LineupColumn title={match.awayTeamName} entries={match.awayLineup} />
           </div>
         </div>
       )}

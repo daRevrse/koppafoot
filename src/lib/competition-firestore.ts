@@ -799,29 +799,36 @@ export interface TopScorer {
 /**
  * Aggregate goal counts per (player, team) across all matches' live events.
  *
- * Only events with `type === "goal"` and a non-empty trimmed `playerName` are
- * counted; anonymous goals (no/blank name) are not ranked. Names are matched
- * case-insensitively (trimmed + lowercased) but the first-seen original casing
- * is kept for display. Results are ordered by goals desc, then name asc.
+ * Dedup key prefers `playerId`: a goal with `playerId` keys on
+ * `${teamId}::id:${playerId}`, falling back to `${teamId}::name:${lowercased
+ * trimmed name}` for legacy events that only carry a free-text `playerName`.
+ * This keeps name-only events working while new player-linked events dedupe
+ * correctly per player (even across name spelling/casing). Goals with neither a
+ * `playerId` nor a non-empty trimmed `playerName` are anonymous and not ranked.
+ * The first-seen original casing of `playerName` is kept for display. Results
+ * are ordered by goals desc, then name asc.
  */
 export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
-  // Key: `${lowercased trimmed name}__${teamId}` so "Léo" and "léo" on the
-  // same team merge, while the same name on two teams stays separate.
   const byKey = new Map<string, TopScorer>();
 
   for (const match of matches) {
     const events = match.liveState?.events ?? [];
     for (const event of events) {
       if (event.type !== "goal") continue;
-      const raw = event.playerName;
-      if (raw == null) continue;
-      const display = raw.trim();
-      if (display === "") continue;
 
-      const key = `${display.toLowerCase()}__${event.teamId}`;
+      const name = (event.playerName ?? "").trim();
+      let key: string;
+      if (event.playerId) {
+        key = `${event.teamId}::id:${event.playerId}`;
+      } else if (name !== "") {
+        key = `${event.teamId}::name:${name.toLowerCase()}`;
+      } else {
+        continue; // anonymous goal
+      }
+
       const existing = byKey.get(key);
       if (existing) existing.goals += 1;
-      else byKey.set(key, { playerName: display, teamId: event.teamId, goals: 1 });
+      else byKey.set(key, { playerName: name, teamId: event.teamId, goals: 1 });
     }
   }
 

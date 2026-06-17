@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Loader2, SearchX, CalendarDays, MapPin, Clock, ChevronRight, History, Shield,
+  Loader2, SearchX, CalendarDays, MapPin, Clock, ChevronRight, History, Shield, Users,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
@@ -183,6 +183,21 @@ export default function PublicTeamPage() {
         return b.match.time.localeCompare(a.match.time);
       });
   }, [teamMatches]);
+
+  // Roster, sorted numeric-aware by dossard (NaN — blank/non-numeric — last).
+  const roster = useMemo(() => {
+    const players = team?.players ?? [];
+    return [...players].sort((a, b) => {
+      const na = parseInt(a.number, 10);
+      const nb = parseInt(b.number, 10);
+      const aNaN = Number.isNaN(na);
+      const bNaN = Number.isNaN(nb);
+      if (aNaN && bNaN) return a.name.localeCompare(b.name);
+      if (aNaN) return 1;
+      if (bNaN) return -1;
+      return na - nb;
+    });
+  }, [team]);
 
   if (loading) {
     return (
@@ -446,6 +461,40 @@ export default function PublicTeamPage() {
                 </Link>
               );
             })}
+          </div>
+        )}
+      </section>
+
+      {/* Effectif */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Users size={15} className="text-emerald-500" />
+          <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
+            Effectif
+          </h2>
+        </div>
+
+        {roster.length === 0 ? (
+          <div className="rounded-[1.75rem] border border-gray-100 bg-white px-5 py-8 text-center shadow-sm">
+            <p className="text-sm font-bold text-gray-400 italic">Effectif non communiqué.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50 overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
+            {roster.map((player) => (
+              <div key={player.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-xs font-black tabular-nums text-gray-500">
+                  {player.number || "—"}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">
+                  {player.name}
+                </span>
+                {player.position && (
+                  <span className="shrink-0 rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                    {player.position}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </section>
