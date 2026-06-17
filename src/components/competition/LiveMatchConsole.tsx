@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Play, Pause, ChevronLeft, ChevronRight, History, Clock,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
-  ArrowRightLeft, AlertTriangle, X,
+  ArrowRightLeft, AlertTriangle, X, LogOut,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   onCompMatch,
+  onCompetition,
   getCompTeam,
   setCompMatchLineup,
   initLiveCompMatch,
@@ -19,8 +20,16 @@ import {
   updateCompPeriod,
   addCompEvent,
   finishCompMatch,
+  updateCompMatch,
 } from "@/lib/competition-firestore";
-import type { CompMatch, CompPlayer, LineupEntry } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import type { CompMatch, CompPlayer, LineupEntry, Competition } from "@/types";
+
+// Football rule constants.
+const STARTERS_MAX = 11;
+const SUBS_MAX = 5;
+const HALF_MS = 2_700_000;
+const FULL_MS = 5_400_000;
 
 // ============================================
 // Helpers
@@ -58,7 +67,10 @@ interface PickerState {
 
 export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string; mid: string; returnHref: string }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  const [competition, setCompetition] = useState<Competition | null>(null);
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
@@ -96,6 +108,15 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     });
     return () => unsub();
   }, [cid, mid]);
+
+  // Subscribe to the competition (for role-based exit/lock logic).
+  useEffect(() => {
+    if (!cid) return;
+    const unsub = onCompetition(cid, setCompetition);
+    return () => unsub();
+  }, [cid]);
+
+  const isOrganizer = !!(user && competition && competition.organizerIds.includes(user.uid));
 
   // Load both rosters once, before kickoff, for the match-sheet builder. Drafts
   // are seeded from any previously-saved lineup so re-validation overwrites cleanly.
@@ -181,18 +202,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       interval = setInterval(() => {
         const now = Date.now();
         const elapsed = now - start + offset;
-
-        // Auto-pause logic
-        const totalSecs = Math.floor(elapsed / 1000);
-
-        if (match.liveState?.currentPeriod === 1 && totalSecs >= 2700) {
-          handlePauseTimer();
-          toast("Mi-temps ! Pause automatique à 45:00.", { icon: "⏰", duration: 5000 });
-        } else if (match.liveState?.currentPeriod === 3 && totalSecs >= 5400) {
-          handlePauseTimer();
-          toast("Fin du temps réglementaire ! Pause automatique à 90:00.", { icon: "⏰", duration: 5000 });
-        }
-
+        // The operator now controls stoppage manually; no auto-pause.
         setDisplayTime(elapsed);
       }, 100);
     } else {
@@ -202,7 +212,6 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     return () => {
       if (interval) clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.liveState, match?.status]);
 
   const handleStartTimer = async () => {
@@ -214,17 +223,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
-  const handleNextPeriod = async () => {
-    if (!match?.liveState) return;
-    const next = match.liveState.currentPeriod + 1;
-    if (next > 4) return;
-
+  // Period 1 → half-time: snap clock to 45:00, stop, move to break (period 2).
+  const handleHalfTime = async () => {
     try {
-      await updateCompPeriod(cid, mid, next);
-      if (match.liveState.isTimerRunning) {
-        await pauseCompTimer(cid, mid, displayTime);
-      }
-      toast.success("Période mise à jour");
+      await pauseCompTimer(cid, mid, HALF_MS);
+      await updateCompPeriod(cid, mid, 2);
+      toast.success("Mi-temps");
+    } catch {
+      toast.error("Erreur technique");
+    }
+  };
+
+  // Period 2 (break) → resume from 45:00, move to second half (period 3).
+  const handleResume = async () => {
+    try {
+      await startCompTimer(cid, mid);
+      await updateCompPeriod(cid, mid, 3);
+      toast.success("Reprise du jeu");
     } catch {
       toast.error("Erreur technique");
     }
@@ -236,8 +251,18 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const setter = side === "home" ? setHomeSheet : setAwaySheet;
     setter((prev) => {
       const current = prev[playerId] ?? "out";
-      const next: SheetRole =
+      let next: SheetRole =
         current === "out" ? "starter" : current === "starter" ? "substitute" : "out";
+      // Hard cap: at most 11 titulaires per side. A 12th starter falls back to substitute.
+      if (next === "starter") {
+        const starters = Object.entries(prev).filter(
+          ([id, role]) => role === "starter" && id !== playerId,
+        ).length;
+        if (starters >= STARTERS_MAX) {
+          next = "substitute";
+          toast(`11 titulaires maximum — le reste = remplaçants`, { icon: "⚠️" });
+        }
+      }
       return { ...prev, [playerId]: next };
     });
   };
@@ -257,8 +282,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         role: (sheet[p.id] as "starter" | "substitute"),
       }));
 
-    if (entries.length === 0) {
-      toast.error("Ajoute au moins un joueur à la feuille");
+    const starters = entries.filter((e) => e.role === "starter").length;
+    if (starters === 0) {
+      toast.error("Ajoute au moins un titulaire à la feuille");
+      return;
+    }
+    if (starters > STARTERS_MAX) {
+      toast.error("11 titulaires maximum");
       return;
     }
 
@@ -275,12 +305,31 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const handleLaunch = async () => {
     if (!match?.homeLineupReady || !match?.awayLineupReady) return;
+    const homeOnPitch = match.homeLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
+    const awayOnPitch = match.awayLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     try {
       await initLiveCompMatch(cid, mid);
+      await updateCompMatch(cid, mid, { home_on_pitch: homeOnPitch, away_on_pitch: awayOnPitch });
+      containerRef.current?.requestFullscreen?.().catch(() => {});
     } catch {
       toast.error("Erreur technique");
     }
   };
+
+  // Leave fullscreen once the match is over.
+  useEffect(() => {
+    if (match?.status === "completed" && typeof document !== "undefined" && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [match?.status]);
+
+  // Organizer quit during live: exit fullscreen + navigate back.
+  const handleQuit = useCallback(() => {
+    if (typeof document !== "undefined" && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    router.push(returnHref);
+  }, [router, returnHref]);
 
   // ----- Live scoring (player picker) -----
 
@@ -298,20 +347,73 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       toast.error("Équipe non définie");
       return;
     }
+    const period = match.liveState.currentPeriod ?? 1;
+    const minute = Math.floor(displayTime / 60000) + 1;
+    const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
+    const onPitchField = side === "home" ? "home_on_pitch" : "away_on_pitch";
+    const events = match.liveState.events ?? [];
 
     setIsSubmitting(true);
     try {
-      await addCompEvent(cid, mid, {
-        type,
-        side,
-        team_id: teamId,
-        period: match.liveState.currentPeriod ?? 1,
-        minute: Math.floor(displayTime / 60000) + 1,
-        player_id: entry.playerId,
-        player_name: entry.name,
-      });
-      if (type === "goal") toast.success("BUT !");
-      else toast.success("Carton enregistré");
+      if (type === "goal") {
+        await addCompEvent(cid, mid, {
+          type: "goal",
+          side,
+          team_id: teamId,
+          period,
+          minute,
+          player_id: entry.playerId,
+          player_name: entry.name,
+        });
+        toast.success("BUT !");
+      } else if (type === "yellow_card") {
+        const priorYellows = events.filter(
+          (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
+        ).length;
+        await addCompEvent(cid, mid, {
+          type: "yellow_card",
+          side,
+          team_id: teamId,
+          period,
+          minute,
+          player_id: entry.playerId,
+          player_name: entry.name,
+        });
+        if (priorYellows >= 1) {
+          // Second yellow → automatic send-off.
+          await addCompEvent(cid, mid, {
+            type: "red_card",
+            side,
+            team_id: teamId,
+            period,
+            minute,
+            player_id: entry.playerId,
+            player_name: entry.name,
+            detail: "2e carton jaune",
+          });
+          await updateCompMatch(cid, mid, {
+            [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
+          });
+          toast("2e jaune → exclusion", { icon: "🟥" });
+        } else {
+          toast.success("Carton jaune enregistré");
+        }
+      } else {
+        // Direct red card.
+        await addCompEvent(cid, mid, {
+          type: "red_card",
+          side,
+          team_id: teamId,
+          period,
+          minute,
+          player_id: entry.playerId,
+          player_name: entry.name,
+        });
+        await updateCompMatch(cid, mid, {
+          [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
+        });
+        toast("Carton rouge → exclusion", { icon: "🟥" });
+      }
       setPicker(null);
     } catch {
       toast.error("Erreur lors de l'enregistrement");
@@ -343,6 +445,15 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const inEntry = lineup.find((e) => e.playerId === subIn);
     if (!outEntry || !inEntry) return;
 
+    const events = match.liveState.events ?? [];
+    const subsUsed = events.filter((e) => e.type === "substitution" && e.teamId === teamId).length;
+    if (subsUsed >= SUBS_MAX) {
+      toast.error(`${SUBS_MAX} remplacements maximum`);
+      return;
+    }
+    const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
+    const onPitchField = side === "home" ? "home_on_pitch" : "away_on_pitch";
+
     setIsSubmitting(true);
     try {
       await addCompEvent(cid, mid, {
@@ -355,6 +466,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         player_name: inEntry.name,
         detail: `${outEntry.name} → ${inEntry.name}`,
       });
+      await updateCompMatch(cid, mid, {
+        [onPitchField]: [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
+      });
       toast.success("Changement effectué");
       setSubModal(null);
       setSubOut("");
@@ -366,9 +480,15 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
-  // Whistle for full time. On a knockout draw, collect penalties first.
-  const handleFinishClick = () => {
+  // Whistle for full time: snap the clock to 90:00 and stop, then finish.
+  // On a knockout draw, collect penalties first.
+  const handleFinishClick = async () => {
     if (!match) return;
+    try {
+      await pauseCompTimer(cid, mid, FULL_MS);
+    } catch {
+      // Best-effort clock snap; the finish flow still freezes the clock.
+    }
     const scoreHome = match.scoreHome ?? 0;
     const scoreAway = match.scoreAway ?? 0;
     if (match.stage === "knockout" && scoreHome === scoreAway) {
@@ -385,6 +505,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     setIsSubmitting(true);
     try {
       await finishCompMatch(cid, mid, opts);
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
       toast.success("Match terminé !");
       router.push(returnHref);
     } catch (err) {
@@ -434,7 +557,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const lineupsReady = match.homeLineupReady && match.awayLineupReady;
 
     return (
-      <div className="mx-auto max-w-5xl space-y-7 pb-28">
+      <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 bg-gray-50 pb-28">
         {/* Header */}
         <div className="flex items-center justify-between px-2">
           <button
@@ -506,7 +629,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             disabled={!lineupsReady}
             className="group relative inline-flex items-center gap-4 rounded-3xl bg-primary-600 px-12 py-6 text-xl font-black uppercase tracking-widest text-white shadow-[0_25px_50px_rgba(37,99,235,0.35)] transition-all hover:scale-105 hover:bg-primary-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
           >
-            <span className="relative">Lancer le Match</span>
+            <span className="relative">Coup d&apos;envoi</span>
             <Flame size={24} className="relative transition-transform group-hover:rotate-12 group-hover:scale-125" />
           </button>
         </div>
@@ -521,16 +644,55 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const awayDisabled = match.awayTeamId == null || awayLineup.length === 0;
   const events = match.liveState?.events ?? [];
 
+  // Players currently on the pitch for a side (id ∈ on_pitch), resolved to lineup entries.
+  const onPitchEntries = (side: Side): LineupEntry[] => {
+    const lineup = side === "home" ? homeLineup : awayLineup;
+    const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
+    const set = new Set(onPitch);
+    return lineup.filter((e) => set.has(e.playerId));
+  };
+
+  // Available bench: substitutes not on the pitch and not sent off (no red_card event).
+  const benchEntries = (side: Side): LineupEntry[] => {
+    const lineup = side === "home" ? homeLineup : awayLineup;
+    const onPitch = new Set(side === "home" ? match.homeOnPitch : match.awayOnPitch);
+    const sentOff = new Set(
+      events.filter((e) => e.type === "red_card" && e.playerId).map((e) => e.playerId as string),
+    );
+    return lineup.filter(
+      (e) => e.role === "substitute" && !onPitch.has(e.playerId) && !sentOff.has(e.playerId),
+    );
+  };
+
+  // Exit affordance: live → organizer only ("Quitter"); moderator locked out.
+  // Completed → everyone gets a normal back control.
+  const showQuit = !isCompleted && isOrganizer;
+  const showBack = isCompleted;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-7 pb-28">
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 bg-gray-50 pb-28">
       {/* Header */}
       <div className="flex items-center justify-between px-2">
-        <button
-          onClick={() => router.push(returnHref)}
-          className="group flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
-        >
-          <ChevronLeft size={22} className="text-gray-400 group-hover:text-gray-900" />
-        </button>
+        {showBack ? (
+          <button
+            onClick={() => router.push(returnHref)}
+            className="group flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
+          >
+            <ChevronLeft size={22} className="text-gray-400 group-hover:text-gray-900" />
+          </button>
+        ) : showQuit ? (
+          <button
+            onClick={handleQuit}
+            className="group flex h-11 items-center gap-2 rounded-2xl bg-white px-4 shadow-lg shadow-gray-200/60 transition-all hover:scale-105 active:scale-95"
+          >
+            <LogOut size={18} className="text-gray-400 group-hover:text-gray-900" />
+            <span className="text-xs font-black uppercase tracking-wider text-gray-500 group-hover:text-gray-900">
+              Quitter
+            </span>
+          </button>
+        ) : (
+          <div className="h-11 w-11" />
+        )}
         <div className="text-center">
           <div className="mb-1 flex items-center justify-center gap-2">
             {isCompleted ? (
@@ -593,7 +755,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 {formatTime(displayTime)}
               </div>
             </div>
-            {!isCompleted && (
+            {!isCompleted && (match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3) && (
               <div className="mt-8 flex gap-6">
                 {match.liveState?.isTimerRunning ? (
                   <button
@@ -702,22 +864,36 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Déroulé</h3>
               </div>
               <div className="space-y-3">
-                <button
-                  disabled={match.liveState?.currentPeriod === 4}
-                  onClick={handleNextPeriod}
-                  className="group flex w-full items-center justify-between rounded-2xl bg-gray-900 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
-                >
-                  <span>Période suivante</span>
-                  <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
-                </button>
-                <button
-                  onClick={handleFinishClick}
-                  disabled={isSubmitting}
-                  className="flex w-full items-center justify-between rounded-2xl border-2 border-red-50 bg-red-50/50 px-5 py-4 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
-                >
-                  <span>Siffler la fin</span>
-                  <CheckCircle2 size={20} />
-                </button>
+                {match.liveState?.currentPeriod === 1 && (
+                  <button
+                    onClick={handleHalfTime}
+                    disabled={isSubmitting}
+                    className="group flex w-full items-center justify-between rounded-2xl bg-gray-900 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <span>Mi-temps</span>
+                    <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
+                  </button>
+                )}
+                {match.liveState?.currentPeriod === 2 && (
+                  <button
+                    onClick={handleResume}
+                    disabled={isSubmitting}
+                    className="group flex w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <span>Reprise (2e mi-temps)</span>
+                    <Play size={18} fill="currentColor" />
+                  </button>
+                )}
+                {match.liveState?.currentPeriod === 3 && (
+                  <button
+                    onClick={handleFinishClick}
+                    disabled={isSubmitting}
+                    className="flex w-full items-center justify-between rounded-2xl border-2 border-red-50 bg-red-50/50 px-5 py-4 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <span>Fin du match</span>
+                    <CheckCircle2 size={20} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -737,12 +913,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         </>
       )}
 
-      {/* Player-picker modal (goal / card — scorer from the match sheet) */}
+      {/* Player-picker modal (goal / card — only players currently on the pitch) */}
       <AnimatePresence>
         {picker && (
           <PlayerPickerModal
             picker={picker}
-            lineup={picker.side === "home" ? homeLineup : awayLineup}
+            entries={onPitchEntries(picker.side)}
             minute={Math.floor(displayTime / 60000) + 1}
             isSubmitting={isSubmitting}
             onPick={recordEvent}
@@ -756,7 +932,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         {subModal && (
           <SubstitutionModal
             teamName={subModal.teamName}
-            lineup={subModal.side === "home" ? homeLineup : awayLineup}
+            outEntries={onPitchEntries(subModal.side)}
+            inEntries={benchEntries(subModal.side)}
             subOut={subOut}
             subIn={subIn}
             setSubOut={setSubOut}
@@ -898,8 +1075,11 @@ function LineupBuilder({
       ) : (
         <>
           <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-gray-400">
-            <span className={accentText}>{starters}</span> titulaire{starters > 1 ? "s" : ""} ·{" "}
-            <span className={accentText}>{subs}</span> remplaçant{subs > 1 ? "s" : ""}
+            Titulaires{" "}
+            <span className={starters > STARTERS_MAX ? "text-red-500" : accentText}>
+              {starters}/{STARTERS_MAX}
+            </span>{" "}
+            · <span className={accentText}>{subs}</span> remplaçant{subs > 1 ? "s" : ""}
           </p>
           <div className="custom-scrollbar mb-5 max-h-[320px] space-y-2 overflow-y-auto pr-1">
             {roster.map((p) => {
@@ -1049,14 +1229,14 @@ function TeamScoringCard({
 
 function PlayerPickerModal({
   picker,
-  lineup,
+  entries,
   minute,
   isSubmitting,
   onPick,
   onClose,
 }: {
   picker: PickerState;
-  lineup: LineupEntry[];
+  entries: LineupEntry[];
   minute: number;
   isSubmitting: boolean;
   onPick: (entry: LineupEntry) => void;
@@ -1066,7 +1246,7 @@ function PlayerPickerModal({
     picker.type === "goal" ? "But" : picker.type === "yellow_card" ? "Carton jaune" : "Carton rouge";
 
   // Starters first, then substitutes, for a natural reading order.
-  const ordered = [...lineup].sort((a, b) => {
+  const ordered = [...entries].sort((a, b) => {
     if (a.role === b.role) return 0;
     return a.role === "starter" ? -1 : 1;
   });
@@ -1142,7 +1322,8 @@ function PlayerPickerModal({
 
 function SubstitutionModal({
   teamName,
-  lineup,
+  outEntries,
+  inEntries,
   subOut,
   subIn,
   setSubOut,
@@ -1152,7 +1333,8 @@ function SubstitutionModal({
   onClose,
 }: {
   teamName: string;
-  lineup: LineupEntry[];
+  outEntries: LineupEntry[];
+  inEntries: LineupEntry[];
   subOut: string;
   subIn: string;
   setSubOut: (v: string) => void;
@@ -1161,8 +1343,8 @@ function SubstitutionModal({
   onSubmit: () => void;
   onClose: () => void;
 }) {
-  const starters = lineup.filter((e) => e.role === "starter");
-  const substitutes = lineup.filter((e) => e.role === "substitute");
+  const starters = outEntries;
+  const substitutes = inEntries;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1192,7 +1374,7 @@ function SubstitutionModal({
         <div className="space-y-5">
           <div>
             <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-              Joueur sortant (titulaire)
+              Joueur sortant (sur le terrain)
             </label>
             <select
               value={subOut}
