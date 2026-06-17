@@ -121,6 +121,29 @@ export async function listCompetitionsByOrganizer(uid: string): Promise<Competit
   return snap.docs.map((d) => toCompetition(d.id, d.data() as FirestoreCompetition));
 }
 
+/**
+ * Competitions the user can act on as staff: those they moderate plus those
+ * they organize (a user may be both). Two `array-contains` queries — neither
+ * uses `orderBy`, so no composite index is required (array-contains is
+ * auto-indexed). Results are merged, de-duped by id, and sorted by `createdAt`
+ * desc in memory.
+ */
+export async function listModeratedCompetitions(uid: string): Promise<Competition[]> {
+  const [modSnap, orgSnap] = await Promise.all([
+    getDocs(query(collection(db, "competitions"), where("moderator_ids", "array-contains", uid))),
+    getDocs(query(collection(db, "competitions"), where("organizer_ids", "array-contains", uid))),
+  ]);
+
+  const byId = new Map<string, Competition>();
+  for (const d of [...modSnap.docs, ...orgSnap.docs]) {
+    if (!byId.has(d.id)) {
+      byId.set(d.id, toCompetition(d.id, d.data() as FirestoreCompetition));
+    }
+  }
+
+  return Array.from(byId.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function onCompetition(id: string, cb: (c: Competition | null) => void): Unsubscribe {
   return onSnapshot(
     doc(db, "competitions", id),

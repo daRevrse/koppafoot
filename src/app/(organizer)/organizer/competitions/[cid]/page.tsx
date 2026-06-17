@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Trophy, ArrowLeft, Loader2, Users, LayoutGrid, Calendar, GitBranch, ChevronRight,
+  Trophy, ArrowLeft, Loader2, Users, LayoutGrid, Calendar, GitBranch, ChevronRight, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { onCompetition } from "@/lib/competition-firestore";
@@ -91,6 +91,14 @@ export default function CompetitionDashboardPage() {
       icon: GitBranch,
       iconColor: "text-purple-600",
       iconBg: "bg-purple-50",
+    },
+    {
+      label: "Staff",
+      description: "Inviter des modérateurs live",
+      href: `/organizer/competitions/${cid}/staff`,
+      icon: ShieldCheck,
+      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-50",
     },
   ];
 
