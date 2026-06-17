@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronDown, LogOut, User } from "lucide-react";
+import { ChevronDown, LogOut, User, Radio } from "lucide-react";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,6 +97,14 @@ export default function AppHeader() {
               >
                 <User size={16} className="text-gray-400" />
                 Mon profil
+              </Link>
+              <Link
+                href="/live-ops"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <Radio size={16} className="text-gray-400" />
+                Live ops
               </Link>
               <button
                 onClick={handleLogout}
