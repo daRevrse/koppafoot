@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Users, ArrowLeft, Plus, Loader2, Pencil, Trash2, X, Save, Shield,
+  Users, ArrowLeft, Plus, Loader2, Pencil, Trash2, X, Save, Shield, Upload,
 } from "lucide-react";
 import {
   onCompTeams,
@@ -169,14 +169,23 @@ export default function CompetitionTeamsPage() {
             {teams.length} équipe{teams.length !== 1 ? "s" : ""} inscrite{teams.length !== 1 ? "s" : ""}
           </motion.p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
-        >
-          <Plus size={16} />
-          Ajouter une équipe
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/organizer/competitions/${cid}/import`}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <Upload size={16} />
+            Importer
+          </Link>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+          >
+            <Plus size={16} />
+            Ajouter une équipe
+          </button>
+        </div>
       </div>
 
       {/* Body */}

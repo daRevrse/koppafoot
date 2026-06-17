@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Calendar, ArrowLeft, Loader2, Sparkles, Save, Check, ChevronRight, MapPin,
+  Calendar, ArrowLeft, Loader2, Sparkles, Save, Check, ChevronRight, MapPin, Upload,
 } from "lucide-react";
 import {
   onCompetition,
@@ -157,18 +157,24 @@ export default function CompetitionSchedulePage() {
             {groupMatches.length !== 1 ? "s" : ""} de poule
           </motion.p>
         </div>
-        {hasGroupMatches && (
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={generating}
-            title="Les matchs sont déjà générés"
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-400 shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/organizer/competitions/${cid}/import`}
+            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
           >
-            <Check size={16} />
-            Matchs générés
-          </button>
-        )}
+            <Upload size={16} />
+            Importer des matchs
+          </Link>
+          {hasGroupMatches && (
+            <span
+              title="Les matchs sont déjà générés"
+              className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-400 shadow-sm sm:flex"
+            >
+              <Check size={16} />
+              Matchs générés
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Body */}
@@ -185,19 +191,25 @@ export default function CompetitionSchedulePage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
             <Calendar size={26} className="text-blue-500" />
           </div>
-          <p className="mt-4 text-base font-bold text-gray-900">Aucun match de poule</p>
+          <p className="mt-4 text-base font-bold text-gray-900">Aucun match</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Générez le calendrier pour créer automatiquement toutes les rencontres de poule
-            (round-robin).
+            Importez votre calendrier de matchs — ou générez automatiquement un round-robin de poule.
           </p>
+          <Link
+            href={`/organizer/competitions/${cid}/import`}
+            className="mt-6 flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+          >
+            <Upload size={16} />
+            Importer des matchs
+          </Link>
           <button
             type="button"
             onClick={handleGenerate}
             disabled={generating}
-            className="mt-6 flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            Générer les matchs de poule
+            ou générer un round-robin
           </button>
         </motion.div>
       ) : (
