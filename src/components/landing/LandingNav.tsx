@@ -55,6 +55,12 @@ export default function LandingNav() {
           >
             Communauté
           </a>
+          <Link
+            href="/competitions"
+            className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
+          >
+            Compétitions
+          </Link>
         </div>
 
         {/* Desktop CTAs */}
@@ -107,6 +113,13 @@ export default function LandingNav() {
             >
               Témoignages
             </a>
+            <Link
+              href="/competitions"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
+            >
+              Compétitions
+            </Link>
           </div>
           <div className="flex flex-col gap-3 pt-4 border-t border-[#1A1715]/10">
             <Link

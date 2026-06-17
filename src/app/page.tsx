@@ -1,21 +1,28 @@
 import LandingNav from "@/components/landing/LandingNav";
-import HeroSection from "@/components/landing/HeroSection";
+import HeroSpotlight from "@/components/landing/HeroSpotlight";
+import CompetitionsTeaser from "@/components/landing/CompetitionsTeaser";
 import RolesSection from "@/components/landing/RolesSection";
 import StatsSection from "@/components/landing/StatsSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
-import FanSection from "@/components/landing/FanSection";
 import CTASection from "@/components/landing/CTASection";
 import LandingFooter from "@/components/landing/LandingFooter";
+import { getFeaturedCompetition, getPublicCompetitions } from "@/lib/competition-admin";
 
-export default function Home() {
+export const revalidate = 60;
+
+export default async function Home() {
+  const [featured, competitions] = await Promise.all([
+    getFeaturedCompetition(),
+    getPublicCompetitions(),
+  ]);
   return (
     <>
       <LandingNav />
-      <HeroSection />
+      <HeroSpotlight featured={featured} />
+      <CompetitionsTeaser competitions={competitions} />
       <RolesSection />
-      <StatsSection />
       <FeaturesSection />
-      <FanSection />
+      <StatsSection />
       <CTASection />
       <LandingFooter />
     </>
