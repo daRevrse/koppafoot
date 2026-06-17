@@ -118,6 +118,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const isOrganizer = !!(user && competition && competition.organizerIds.includes(user.uid));
 
+  // Goal cooldown: after a goal, both goal buttons are disabled for 60s.
+  const [goalCooldown, setGoalCooldown] = useState(0);
+  useEffect(() => {
+    if (goalCooldown <= 0) return;
+    const t = setTimeout(() => setGoalCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [goalCooldown]);
+
   // Load both rosters once, before kickoff, for the match-sheet builder. Drafts
   // are seeded from any previously-saved lineup so re-validation overwrites cleanly.
   const isPreKickoff = !!match && match.status !== "live" && match.status !== "completed";
@@ -248,23 +256,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // ----- Match-sheet builder -----
 
   const toggleSheetRole = (side: Side, playerId: string) => {
+    const sheet = side === "home" ? homeSheet : awaySheet;
     const setter = side === "home" ? setHomeSheet : setAwaySheet;
-    setter((prev) => {
-      const current = prev[playerId] ?? "out";
-      let next: SheetRole =
-        current === "out" ? "starter" : current === "starter" ? "substitute" : "out";
-      // Hard cap: at most 11 titulaires per side. A 12th starter falls back to substitute.
-      if (next === "starter") {
-        const starters = Object.entries(prev).filter(
-          ([id, role]) => role === "starter" && id !== playerId,
-        ).length;
-        if (starters >= STARTERS_MAX) {
-          next = "substitute";
-          toast(`11 titulaires maximum — le reste = remplaçants`, { icon: "⚠️" });
-        }
+    const current = sheet[playerId] ?? "out";
+    let next: SheetRole =
+      current === "out" ? "starter" : current === "starter" ? "substitute" : "out";
+    // Hard cap: at most 11 titulaires per side. A 12th starter falls back to substitute.
+    // Compute + toast OUTSIDE the state updater (no side effects during render).
+    if (next === "starter") {
+      const starters = Object.entries(sheet).filter(
+        ([id, role]) => role === "starter" && id !== playerId,
+      ).length;
+      if (starters >= STARTERS_MAX) {
+        next = "substitute";
+        toast(`11 titulaires maximum — le reste = remplaçants`, { icon: "⚠️" });
       }
-      return { ...prev, [playerId]: next };
-    });
+    }
+    setter((prev) => ({ ...prev, [playerId]: next }));
   };
 
   const handleValidateSheet = async (side: Side) => {
@@ -366,6 +374,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           player_name: entry.name,
         });
         toast.success("BUT !");
+        setGoalCooldown(60);
       } else if (type === "yellow_card") {
         const priorYellows = events.filter(
           (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
@@ -557,7 +566,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const lineupsReady = match.homeLineupReady && match.awayLineupReady;
 
     return (
-      <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 bg-gray-50 pb-28">
+      <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28">
         {/* Header */}
         <div className="flex items-center justify-between px-2">
           <button
@@ -643,6 +652,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const homeDisabled = match.homeTeamId == null || homeLineup.length === 0;
   const awayDisabled = match.awayTeamId == null || awayLineup.length === 0;
   const events = match.liveState?.events ?? [];
+  // Players who already have a yellow (for the picker marker). Player ids are unique.
+  const yellowCardedIds = new Set(
+    events.filter((e) => e.type === "yellow_card" && e.playerId).map((e) => e.playerId as string),
+  );
 
   // Players currently on the pitch for a side (id ∈ on_pitch), resolved to lineup entries.
   const onPitchEntries = (side: Side): LineupEntry[] => {
@@ -670,7 +683,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const showBack = isCompleted;
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 bg-gray-50 pb-28">
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28">
       {/* Header */}
       <div className="flex items-center justify-between px-2">
         {showBack ? (
@@ -840,6 +853,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               teamName={match.homeTeamName}
               accent="primary"
               disabled={homeDisabled}
+              goalCooldown={goalCooldown}
               onGoal={() => openPicker("goal", "home")}
               onYellow={() => openPicker("yellow_card", "home")}
               onRed={() => openPicker("red_card", "home")}
@@ -849,6 +863,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               teamName={match.awayTeamName}
               accent="amber"
               disabled={awayDisabled}
+              goalCooldown={goalCooldown}
               onGoal={() => openPicker("goal", "away")}
               onYellow={() => openPicker("yellow_card", "away")}
               onRed={() => openPicker("red_card", "away")}
@@ -919,6 +934,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <PlayerPickerModal
             picker={picker}
             entries={onPitchEntries(picker.side)}
+            yellowSet={yellowCardedIds}
             minute={Math.floor(displayTime / 60000) + 1}
             isSubmitting={isSubmitting}
             onPick={recordEvent}
@@ -1160,6 +1176,7 @@ function TeamScoringCard({
   teamName,
   accent,
   disabled,
+  goalCooldown,
   onGoal,
   onYellow,
   onRed,
@@ -1168,6 +1185,7 @@ function TeamScoringCard({
   teamName: string;
   accent: "primary" | "amber";
   disabled: boolean;
+  goalCooldown: number;
   onGoal: () => void;
   onYellow: () => void;
   onRed: () => void;
@@ -1193,10 +1211,11 @@ function TeamScoringCard({
         <>
           <button
             onClick={onGoal}
-            className={`flex w-full items-center justify-center gap-3 rounded-2xl py-6 text-lg font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 ${goalCls}`}
+            disabled={goalCooldown > 0}
+            className={`flex w-full items-center justify-center gap-3 rounded-2xl py-6 text-lg font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${goalCls}`}
           >
             <Goal size={24} />
-            +1 BUT
+            {goalCooldown > 0 ? `Buts dans ${goalCooldown}s` : "+1 BUT"}
           </button>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
@@ -1230,6 +1249,7 @@ function TeamScoringCard({
 function PlayerPickerModal({
   picker,
   entries,
+  yellowSet,
   minute,
   isSubmitting,
   onPick,
@@ -1237,6 +1257,7 @@ function PlayerPickerModal({
 }: {
   picker: PickerState;
   entries: LineupEntry[];
+  yellowSet: Set<string>;
   minute: number;
   isSubmitting: boolean;
   onPick: (entry: LineupEntry) => void;
@@ -1291,7 +1312,12 @@ function PlayerPickerModal({
                 {entry.number || entry.name[0]?.toUpperCase()}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-gray-900">{entry.name}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-bold text-gray-900">{entry.name}</span>
+                  {yellowSet.has(entry.playerId) && (
+                    <span title="Carton jaune" className="h-3 w-2 shrink-0 rounded-sm border border-amber-500/30 bg-amber-400" />
+                  )}
+                </span>
                 <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">
                   {entry.role === "starter" ? "Titulaire" : "Remplaçant"}
                 </span>
