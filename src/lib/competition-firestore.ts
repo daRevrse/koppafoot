@@ -521,12 +521,28 @@ export async function finishCompMatch(
     else if (opts.penaltyHome < opts.penaltyAway) winnerId = m.awayTeamId;
   }
 
-  await updateCompMatch(cid, mid, {
+  // Freeze the match clock as part of finishing. Without this, live_state keeps
+  // is_timer_running=true / timer_start_at set, so every viewer's elapsed-time
+  // computation (now - start + offset) keeps ticking after full time. We persist
+  // the final elapsed into timer_offset and stop the clock. Dotted live_state
+  // keys are merged via a Record (mirrors addCompEvent) to avoid a typed-patch fight.
+  const ls = m.liveState;
+  const updates: Record<string, unknown> = {
     status: "completed",
     winner_team_id: winnerId,
     penalty_home: opts?.penaltyHome ?? null,
     penalty_away: opts?.penaltyAway ?? null,
-  });
+    updated_at: serverTimestamp(),
+  };
+  if (ls) {
+    updates["live_state.is_timer_running"] = false;
+    updates["live_state.timer_start_at"] = null;
+    updates["live_state.timer_offset"] =
+      ls.isTimerRunning && ls.timerStartAt
+        ? Date.now() - new Date(ls.timerStartAt).getTime() + (ls.timerOffset ?? 0)
+        : ls.timerOffset ?? 0;
+  }
+  await updateDoc(compMatchRef(cid, mid), updates);
 
   // Idempotent bracket propagation.
   if (m.feedsIntoMatchId && winnerId) {

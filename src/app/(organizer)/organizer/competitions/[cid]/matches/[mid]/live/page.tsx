@@ -101,7 +101,7 @@ export default function OrganizerLiveMatch() {
 
     let interval: ReturnType<typeof setInterval>;
 
-    if (match.liveState.isTimerRunning && match.liveState.timerStartAt) {
+    if (match.status === "live" && match.liveState.isTimerRunning && match.liveState.timerStartAt) {
       const start = new Date(match.liveState.timerStartAt).getTime();
       const offset = match.liveState.timerOffset || 0;
 
@@ -130,7 +130,7 @@ export default function OrganizerLiveMatch() {
       if (interval) clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match?.liveState]);
+  }, [match?.liveState, match?.status]);
 
   const handleStartTimer = async () => {
     try {

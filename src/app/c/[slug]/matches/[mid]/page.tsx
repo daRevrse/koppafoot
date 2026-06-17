@@ -90,7 +90,7 @@ export default function PublicCompMatchView() {
   // effect only drives the running interval — no synchronous setState in its body).
   useEffect(() => {
     const ls = match?.liveState;
-    if (!ls || !ls.isTimerRunning || !ls.timerStartAt) return;
+    if (match?.status !== "live" || !ls || !ls.isTimerRunning || !ls.timerStartAt) return;
 
     const start = new Date(ls.timerStartAt).getTime();
     const offset = ls.timerOffset || 0;
@@ -99,7 +99,7 @@ export default function PublicCompMatchView() {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [match?.liveState]);
+  }, [match?.liveState, match?.status]);
 
   // Still resolving the slug (no cid yet) or awaiting the first match snapshot.
   if (loading || (cid && !match && !notFound)) {
