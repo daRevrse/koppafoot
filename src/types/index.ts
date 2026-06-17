@@ -836,6 +836,7 @@ export interface FirestoreCompetition {
   logo_url: string | null;
   banner_url: string | null;
   organizer_ids: string[];
+  moderator_ids: string[];
   created_by: string;
   status: CompetitionStatus;
   format: CompetitionFormat;
@@ -854,6 +855,7 @@ export interface Competition {
   logoUrl: string | null;
   bannerUrl: string | null;
   organizerIds: string[];
+  moderatorIds: string[];
   createdBy: string;
   status: CompetitionStatus;
   format: CompetitionFormat;

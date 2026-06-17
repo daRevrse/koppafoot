@@ -38,6 +38,7 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     logoUrl: d.logo_url,
     bannerUrl: d.banner_url,
     organizerIds: d.organizer_ids ?? [],
+    moderatorIds: d.moderator_ids ?? [],
     createdBy: d.created_by,
     status: d.status,
     format: d.format,

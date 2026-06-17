@@ -41,6 +41,12 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) && request.auth.uid in get(p).data.organizer_ids;
     }
 
+    function isModeratorOf(cid) {
+      let p = /databases/$(database)/documents/competitions/$(cid);
+      // .get(..., []) so older competitions without the field don't error.
+      return isAuthenticated() && exists(p) && request.auth.uid in get(p).data.get('moderator_ids', []);
+    }
+
     function noProtectedFields() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['email', 'user_type', 'is_superadmin', 'is_active', 'created_at']);
@@ -249,7 +255,7 @@ service cloud.firestore {
       }
       match /comp_matches/{mid} {
         allow read: if true;
-        allow write: if isOrganizerOf(cid) || isSuperAdmin();
+        allow write: if isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin();
       }
     }
   }

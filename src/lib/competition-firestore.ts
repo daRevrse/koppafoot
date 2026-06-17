@@ -81,6 +81,7 @@ export async function createCompetition(input: {
     logo_url: input.logoUrl ?? null,
     banner_url: input.bannerUrl ?? null,
     organizer_ids: [input.createdBy],
+    moderator_ids: [],
     created_by: input.createdBy,
     status: "draft",
     format: input.format,
