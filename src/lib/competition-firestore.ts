@@ -463,7 +463,7 @@ export async function scheduleCompMatch(
 /** Stored shape of a single live event (one entry of `live_state.events`). */
 type StoredCompEvent = {
   id: string;
-  type: "goal" | "yellow_card" | "red_card";
+  type: "goal" | "yellow_card" | "red_card" | "substitution";
   period: number;
   minute: number;
   team_id: string;
@@ -543,11 +543,12 @@ export async function addCompEvent(
   cid: string,
   mid: string,
   event: {
-    type: "goal" | "yellow_card" | "red_card";
+    type: "goal" | "yellow_card" | "red_card" | "substitution";
     side: "home" | "away";
     team_id: string;
     period: number;
     minute: number;
+    player_id?: string | null;
     player_name?: string | null;
     detail?: string | null;
   },
@@ -558,7 +559,7 @@ export async function addCompEvent(
     period: event.period,
     minute: event.minute,
     team_id: event.team_id,
-    player_id: null,
+    player_id: event.player_id ?? null,
     player_name: event.player_name ?? null,
     detail: event.detail ?? null,
     created_at: new Date().toISOString(),
