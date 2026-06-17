@@ -291,6 +291,157 @@ export async function setCompMatchLineup(
 }
 
 // ============================================
+// Bulk import (paste / CSV) — teams+players and matches
+// ============================================
+
+/**
+ * Split pasted/CSV text into trimmed cells. Detects the delimiter from the first
+ * non-empty line (tab > semicolon > comma — FR Excel uses ';'), drops empty lines.
+ * Column mapping + header-skip are the caller's job (it knows the expected columns).
+ */
+export function parseDelimited(text: string): string[][] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return [];
+  const first = lines[0];
+  const delim = first.includes("\t") ? "\t" : first.includes(";") ? ";" : ",";
+  return lines.map((l) => l.split(delim).map((c) => c.trim()));
+}
+
+export interface ImportPlayerRow {
+  team: string;
+  name: string;
+  number: string;
+  position?: string;
+}
+
+/**
+ * Create/reuse teams by name and (re)set each team's roster from the rows.
+ * Re-importing a team replaces its roster (idempotent).
+ */
+export async function importTeamsPlayers(
+  cid: string,
+  rows: ImportPlayerRow[],
+): Promise<{ teamsCreated: number; teamsUpdated: number; players: number }> {
+  const existing = await listCompTeams(cid);
+  const byName = new Map(existing.map((t) => [t.name.trim().toLowerCase(), t]));
+
+  // Group rows by team name (preserve first-seen casing for new teams).
+  const groups = new Map<string, ImportPlayerRow[]>();
+  for (const r of rows) {
+    const team = r.team.trim();
+    if (!team) continue;
+    const list = groups.get(team) ?? [];
+    list.push(r);
+    groups.set(team, list);
+  }
+
+  let teamsCreated = 0;
+  let teamsUpdated = 0;
+  let players = 0;
+
+  for (const [teamName, teamRows] of groups) {
+    const roster: CompPlayer[] = teamRows
+      .filter((r) => r.name.trim())
+      .map((r) => {
+        const position = r.position?.trim();
+        return {
+          id: Math.random().toString(36).substring(2, 11),
+          name: r.name.trim(),
+          number: r.number.trim(),
+          ...(position ? { position } : {}),
+        };
+      });
+    players += roster.length;
+
+    const found = byName.get(teamName.toLowerCase());
+    if (found) {
+      await updateCompTeam(cid, found.id, { players: roster });
+      teamsUpdated += 1;
+    } else {
+      const tid = await createCompTeam(cid, {
+        name: teamName,
+        shortName: teamName.slice(0, 3).toUpperCase(),
+        color: "#059669",
+      });
+      await updateCompTeam(cid, tid, { players: roster });
+      teamsCreated += 1;
+    }
+  }
+
+  return { teamsCreated, teamsUpdated, players };
+}
+
+export interface ImportMatchRow {
+  home: string;
+  away: string;
+  date?: string;
+  time?: string;
+  venue?: string;
+  group?: string;
+}
+
+/**
+ * Create group/standalone matches from rows, resolving teams by name (rows whose
+ * home/away team is unknown are skipped). Denormalizes team name/logo. Knockout
+ * bracket wiring is NOT done here (use generateKnockout for that).
+ */
+export async function importMatches(
+  cid: string,
+  rows: ImportMatchRow[],
+): Promise<{ created: number; skipped: number }> {
+  const teams = await listCompTeams(cid);
+  const byName = new Map(teams.map((t) => [t.name.trim().toLowerCase(), t]));
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+
+  const batch = writeBatch(db);
+  let created = 0;
+  let skipped = 0;
+
+  for (const r of rows) {
+    const home = byName.get(r.home.trim().toLowerCase());
+    const away = byName.get(r.away.trim().toLowerCase());
+    if (!home || !away) {
+      skipped += 1;
+      continue;
+    }
+    const ref = doc(matchesCol);
+    const data: FirestoreCompMatch = {
+      competition_id: cid,
+      stage: "group",
+      group: r.group?.trim() || null,
+      round: null,
+      bracket_slot: null,
+      home_team_id: home.id,
+      away_team_id: away.id,
+      home_team_name: home.name,
+      away_team_name: away.name,
+      home_team_logo: home.logoUrl ?? null,
+      away_team_logo: away.logoUrl ?? null,
+      date: r.date?.trim() || null,
+      time: r.time?.trim() || null,
+      venue_name: r.venue?.trim() || null,
+      venue_city: null,
+      status: "scheduled",
+      score_home: null,
+      score_away: null,
+      penalty_home: null,
+      penalty_away: null,
+      winner_team_id: null,
+      feeds_into_match_id: null,
+      feeds_into_slot: null,
+      live_state: null,
+      created_at: serverTimestamp() as unknown as string,
+      updated_at: serverTimestamp() as unknown as string,
+    };
+    batch.set(ref, data);
+    created += 1;
+  }
+
+  if (created > 0) await batch.commit();
+  return { created, skipped };
+}
+
+// ============================================
 // Competition Matches (subcollection: competitions/{cid}/comp_matches/{mid})
 // ============================================
 
