@@ -69,3 +69,50 @@ export async function getFeaturedCompetition(): Promise<{ competition: Competiti
     return null;
   }
 }
+
+export interface CompetitionHeroSlide {
+  competition: Competition;
+  featured: CompMatch | null;   // live match, else next scheduled
+  results: CompMatch[];          // recent completed (≤5)
+  upcoming: CompMatch[];         // scheduled with a date, soonest first (≤5)
+}
+
+/**
+ * One rich hero slide per public competition: banner data (the competition) plus
+ * its featured match, recent results and upcoming fixtures. One read per
+ * competition (the whole comp_matches collection), derived in memory. Degrades
+ * to [] on error.
+ */
+export async function getHeroCompetitions(maxComps = 5): Promise<CompetitionHeroSlide[]> {
+  try {
+    const comps = (await getPublicCompetitions()).slice(0, maxComps);
+    return await Promise.all(
+      comps.map(async (competition) => {
+        const snap = await adminDb
+          .collection("competitions")
+          .doc(competition.id)
+          .collection("comp_matches")
+          .get();
+        const all = snap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
+
+        const live = all.filter((m) => m.status === "live");
+        const scheduled = all
+          .filter((m) => m.status === "scheduled" && m.date != null)
+          .sort((a, b) => (a.date as string).localeCompare(b.date as string));
+        const completed = all
+          .filter((m) => m.status === "completed")
+          .sort((a, b) => (b.date ?? b.updatedAt).localeCompare(a.date ?? a.updatedAt));
+
+        return {
+          competition,
+          featured: live[0] ?? scheduled[0] ?? null,
+          results: completed.slice(0, 5),
+          upcoming: scheduled.slice(0, 5),
+        };
+      }),
+    );
+  } catch (err) {
+    console.error("getHeroCompetitions failed:", err);
+    return [];
+  }
+}
