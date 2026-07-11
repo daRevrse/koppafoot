@@ -61,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="main-content-app min-w-0 flex-1 overflow-x-hidden bg-[var(--color-bg-secondary)] p-4 lg:p-8">
+        <main className="main-content-app min-w-0 flex-1 overflow-x-hidden bg-[#F4F6FA] p-4 lg:p-6">
           {children}
         </main>
       </div>

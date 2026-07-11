@@ -2,18 +2,27 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
-import { Radio, CalendarDays, ChevronRight, Trophy, MessageCircle } from "lucide-react";
+import {
+  CalendarDays, ChevronRight, ChevronDown, Trophy, Star, MapPin,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
-import { listPublicCompetitions, onCompMatches } from "@/lib/competition-firestore";
+import {
+  listPublicCompetitions, onCompMatches, listCompTeams,
+  computeStandings, computeTopScorers,
+} from "@/lib/competition-firestore";
 import { onPosts } from "@/lib/firestore";
-import type { Competition, CompMatch, Post } from "@/types";
+import type { Competition, CompMatch, CompTeam, Post } from "@/types";
 
 // ============================================
 // DirectHome — the live-score home, served publicly at "/".
-// Receives server-fetched competitions for first paint (SEO/shares),
-// then goes real-time client-side. Auth only unlocks privileges in the
-// surrounding shell — the content itself is identical for guests.
+// ValueBet-style dashboard: hero image match card, underlined tabs,
+// fixtures grouped by poule, right rail (standings / scorers / Tribune).
+// Competition selection is URL-driven (?c=slug) so the sidebar and the
+// header quick logos can drive it.
 // ============================================
 
 type Tab = "all" | "live" | "finished" | "upcoming";
@@ -25,9 +34,19 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "upcoming", label: "À venir" },
 ];
 
-// ---- date helpers -----------------------------------------------------------
+// ---- helpers ------------------------------------------------------------------
 
-function dayLabel(date: string): string {
+function shortDay(date: string): string {
+  try {
+    return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
+      day: "2-digit", month: "2-digit",
+    });
+  } catch {
+    return date;
+  }
+}
+
+function heroDate(date: string): string {
   try {
     return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
       weekday: "long", day: "numeric", month: "long",
@@ -48,17 +67,13 @@ function liveMinute(m: CompMatch): number {
   return Math.floor((ls.timerOffset || 0) / 60000) + 1;
 }
 
-// ---- Team logo --------------------------------------------------------------
-
-function TeamBadge({ name, logo, size = 28 }: { name: string; logo?: string | null; size?: number }) {
+function TeamBadge({ name, logo, size = 26 }: { name: string; logo?: string | null; size?: number }) {
   if (logo) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={logo}
         alt={name}
-        width={size}
-        height={size}
         className="shrink-0 rounded-full object-cover"
         style={{ width: size, height: size }}
       />
@@ -67,98 +82,118 @@ function TeamBadge({ name, logo, size = 28 }: { name: string; logo?: string | nu
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-700"
-      style={{ width: size, height: size, fontSize: size * 0.38 }}
+      style={{ width: size, height: size, fontSize: Math.max(9, size * 0.36) }}
     >
       {name.slice(0, 2).toUpperCase()}
     </span>
   );
 }
 
-// ---- Hero match card ----------------------------------------------------------
+// ---- Hero match card (image, ValueBet-style) -------------------------------------
 
 function HeroMatchCard({ match, competition }: { match: CompMatch; competition: Competition }) {
   const [, forceTick] = useState(0);
   const isLive = match.status === "live";
+  const finished = match.status === "completed";
 
-  // Re-render every 30s so the live minute ticks.
   useEffect(() => {
     if (!isLive) return;
     const t = setInterval(() => forceTick((n) => n + 1), 30_000);
     return () => clearInterval(t);
   }, [isLive]);
 
-  const href = `/c/${competition.slug}/matches/${match.id}`;
-  const finished = match.status === "completed";
+  const bg = competition.bannerUrl ?? "/branding/hero_stadium.png";
 
   return (
-    <Link href={href} className="block">
+    <Link href={`/c/${competition.slug}/matches/${match.id}`} className="block">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="rounded-2xl bg-emerald-950 p-5 text-white transition-transform hover:scale-[1.01] sm:p-6"
+        className="relative overflow-hidden rounded-3xl shadow-sm transition-transform hover:scale-[1.005]"
       >
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-          {isLive ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-0.5 text-white">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+        {/* Background image + overlay */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={bg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/95 via-emerald-950/40 to-emerald-950/30" />
+
+        <div className="relative flex min-h-[240px] flex-col justify-between p-5 sm:min-h-[280px] sm:p-6">
+          {/* Top row: date/live badge + competition pill */}
+          <div className="flex items-start justify-between gap-2">
+            {isLive ? (
+              <span className="flex items-center gap-1.5 rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                </span>
+                EN DIRECT {liveMinute(match)}&apos;
               </span>
-              EN DIRECT {liveMinute(match)}&apos;
-            </span>
-          ) : finished ? (
-            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-emerald-200">Terminé</span>
-          ) : (
-            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-emerald-200">
-              {match.date ? `${dayLabel(match.date)}${match.time ? ` · ${match.time}` : ""}` : "À programmer"}
-            </span>
-          )}
-          <span className="truncate text-emerald-300/70">
-            {competition.name}
-            {match.group ? ` · Poule ${match.group}` : ""}
-          </span>
-        </div>
-
-        <div className="mt-5 flex items-center justify-center gap-4 sm:gap-8">
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 sm:flex-row sm:justify-end">
-            <span className="order-2 truncate text-sm font-bold text-emerald-50 sm:order-1 sm:text-base">
-              {match.homeTeamName}
-            </span>
-            <span className="order-1 sm:order-2">
-              <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={40} />
+            ) : (
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
+                {finished
+                  ? "Terminé"
+                  : match.date
+                    ? `${heroDate(match.date)}${match.time ? ` · ${match.time}` : ""}`
+                    : "À programmer"}
+              </span>
+            )}
+            <span className="truncate rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-emerald-100 backdrop-blur-sm">
+              {competition.name}{match.group ? ` · Poule ${match.group}` : ""}
             </span>
           </div>
 
-          {isLive || finished ? (
-            <div className="font-display text-3xl font-black tabular-nums sm:text-4xl">
-              {match.scoreHome ?? 0}
-              <span className="mx-2 text-white/30">–</span>
-              {match.scoreAway ?? 0}
+          {/* Bottom: teams + score */}
+          <div>
+            <div className="flex items-end justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={42} />
+                <span className="truncate font-display text-lg font-black text-white sm:text-2xl">
+                  {match.homeTeamName}
+                </span>
+              </div>
+
+              <div className="shrink-0 text-center">
+                {isLive || finished ? (
+                  <span className="font-display text-3xl font-black tabular-nums text-white sm:text-4xl">
+                    {match.scoreHome ?? 0}
+                    <span className="mx-1.5 text-white/40">:</span>
+                    {match.scoreAway ?? 0}
+                  </span>
+                ) : (
+                  <span className="font-display text-2xl font-black text-emerald-300 sm:text-3xl">
+                    {match.time ?? "VS"}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5">
+                <span className="truncate text-right font-display text-lg font-black text-white sm:text-2xl">
+                  {match.awayTeamName}
+                </span>
+                <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={42} />
+              </div>
             </div>
-          ) : (
-            <div className="font-display text-2xl font-black text-emerald-300 sm:text-3xl">VS</div>
-          )}
 
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 sm:flex-row">
-            <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={40} />
-            <span className="truncate text-sm font-bold text-emerald-50 sm:text-base">
-              {match.awayTeamName}
-            </span>
+            {/* Info bar */}
+            <div className="mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-emerald-100 backdrop-blur-sm">
+              {match.venueName && (
+                <>
+                  <MapPin size={12} className="text-emerald-300" />
+                  <span>{match.venueName}</span>
+                  <span className="text-white/30">·</span>
+                </>
+              )}
+              <span>Voir le match</span>
+              <ChevronRight size={13} className="text-emerald-300" />
+            </div>
           </div>
-        </div>
-
-        <div className="mt-5 flex items-center justify-center gap-1 text-xs font-semibold text-emerald-300">
-          {match.venueName && <span className="text-emerald-300/60">{match.venueName} ·</span>}
-          Voir le match
-          <ChevronRight size={14} />
         </div>
       </motion.div>
     </Link>
   );
 }
 
-// ---- Match row ----------------------------------------------------------------
+// ---- Match row (time | home | score | away | venue) --------------------------------
 
 function MatchRow({ match, competition }: { match: CompMatch; competition: Competition }) {
   const isLive = match.status === "live";
@@ -167,44 +202,231 @@ function MatchRow({ match, competition }: { match: CompMatch; competition: Compe
   return (
     <Link
       href={`/c/${competition.slug}/matches/${match.id}`}
-      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
+      className="flex items-center gap-3 border-b border-gray-50 px-4 py-3 transition-colors last:border-0 hover:bg-gray-50/70"
     >
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-        <span className="truncate text-sm font-semibold text-gray-900">{match.homeTeamName}</span>
-        <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={24} />
+      {/* Time column */}
+      <div className="w-12 shrink-0 text-center">
+        {isLive ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-black text-red-500">
+            <span className="h-1 w-1 rounded-full bg-red-500" />
+            {liveMinute(match)}&apos;
+          </span>
+        ) : (
+          <>
+            <p className="text-xs font-black tabular-nums text-gray-900">{match.time ?? "—"}</p>
+            {match.date && (
+              <p className="text-[10px] font-bold text-gray-300">{shortDay(match.date)}</p>
+            )}
+          </>
+        )}
       </div>
 
-      {isLive ? (
-        <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-500 px-2.5 py-1 text-sm font-black tabular-nums text-white">
-          {match.scoreHome ?? 0}–{match.scoreAway ?? 0}
+      {/* Home */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={24} />
+        <span className={`truncate text-sm font-bold ${finished && (match.scoreHome ?? 0) < (match.scoreAway ?? 0) ? "text-gray-400" : "text-gray-900"}`}>
+          {match.homeTeamName}
         </span>
-      ) : finished ? (
-        <span className="shrink-0 rounded-lg bg-gray-900 px-2.5 py-1 text-sm font-black tabular-nums text-white">
-          {match.scoreHome ?? 0}–{match.scoreAway ?? 0}
+      </div>
+
+      {/* Score / VS */}
+      {isLive || finished ? (
+        <span className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-black tabular-nums text-white ${isLive ? "bg-red-500" : "bg-gray-900"}`}>
+          {match.scoreHome ?? 0}:{match.scoreAway ?? 0}
         </span>
       ) : (
-        <span className="shrink-0 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">
-          {match.time ?? "—"}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-[9px] font-black text-gray-400">
+          VS
         </span>
       )}
 
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      {/* Away */}
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <span className={`truncate text-right text-sm font-bold ${finished && (match.scoreAway ?? 0) < (match.scoreHome ?? 0) ? "text-gray-400" : "text-gray-900"}`}>
+          {match.awayTeamName}
+        </span>
         <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={24} />
-        <span className="truncate text-sm font-semibold text-gray-900">{match.awayTeamName}</span>
       </div>
 
-      {match.group && (
-        <span className="hidden shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 sm:block">
-          Poule {match.group}
-        </span>
-      )}
+      {/* Venue (desktop) */}
+      <span className="hidden w-20 shrink-0 truncate text-right text-[10px] font-bold text-gray-300 md:block">
+        {match.venueName ?? ""}
+      </span>
     </Link>
   );
 }
 
-// ---- Tribune rail ---------------------------------------------------------------
+// ---- Group section (league-group style, collapsible) --------------------------------
 
-function TribuneRail({ uid }: { uid: string }) {
+function GroupSection({
+  label, matches, competition,
+}: {
+  label: string; matches: CompMatch[]; competition: Competition;
+}) {
+  const [open, setOpen] = useState(true);
+  const hasLive = matches.some((m) => m.status === "live");
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2.5 px-4 py-3 transition-colors hover:bg-gray-50/70"
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white">
+          {label.startsWith("Poule") ? label.slice(-1) : "★"}
+        </span>
+        <span className="text-sm font-black text-gray-900">{label}</span>
+        {hasLive && (
+          <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-red-500">
+            LIVE
+          </span>
+        )}
+        <Star size={13} className="text-gray-200" />
+        <span className="ml-auto text-[10px] font-bold text-gray-300">{matches.length} match{matches.length > 1 ? "s" : ""}</span>
+        <ChevronDown
+          size={15}
+          className={`text-gray-300 transition-transform ${open ? "" : "-rotate-90"}`}
+        />
+      </button>
+      {open && (
+        <div>
+          {matches.map((m) => (
+            <MatchRow key={m.id} match={m} competition={competition} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Right rail cards ------------------------------------------------------------
+
+function StandingsCard({
+  matches, teams, competition,
+}: {
+  matches: CompMatch[]; teams: CompTeam[]; competition: Competition;
+}) {
+  const standings = useMemo(
+    () => computeStandings(matches, teams, competition.format),
+    [matches, teams, competition.format],
+  );
+  const [group, setGroup] = useState<string | null>(null);
+
+  if (standings.length === 0) return null;
+  const active = standings.find((s) => s.group === group) ?? standings[0];
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-gray-900">Classement</h3>
+        <Link
+          href={`/c/${competition.slug}/standings`}
+          className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
+        >
+          Tout voir
+        </Link>
+      </div>
+
+      {standings.length > 1 && (
+        <div className="mt-2.5 flex gap-1">
+          {standings.map((s) => (
+            <button
+              key={s.group}
+              onClick={() => setGroup(s.group)}
+              className={`h-6 w-6 rounded-md text-[10px] font-black transition-colors ${
+                s.group === active.group
+                  ? "bg-emerald-500 text-white"
+                  : "bg-gray-50 text-gray-400 hover:bg-gray-100"
+              }`}
+            >
+              {s.group}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <table className="mt-2.5 w-full text-xs">
+        <thead>
+          <tr className="text-[9px] font-black uppercase tracking-wide text-gray-300">
+            <th className="pb-1.5 text-left">Équipe</th>
+            <th className="pb-1.5 text-center">J</th>
+            <th className="pb-1.5 text-center">+/-</th>
+            <th className="pb-1.5 text-right">Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {active.rows.slice(0, 4).map((row, i) => (
+            <tr key={row.team.id} className="border-t border-gray-50">
+              <td className="py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-3 text-center text-[10px] font-black ${i < 2 ? "text-emerald-500" : "text-gray-300"}`}>
+                    {i + 1}
+                  </span>
+                  <TeamBadge name={row.team.name} logo={row.team.logoUrl} size={16} />
+                  <span className="truncate font-bold text-gray-700">
+                    {row.team.shortName ?? row.team.name}
+                  </span>
+                </div>
+              </td>
+              <td className="py-1.5 text-center font-semibold tabular-nums text-gray-400">{row.played}</td>
+              <td className="py-1.5 text-center font-semibold tabular-nums text-gray-400">
+                {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
+              </td>
+              <td className="py-1.5 text-right font-black tabular-nums text-gray-900">{row.points}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TopScorersCard({
+  matches, teams, competition,
+}: {
+  matches: CompMatch[]; teams: CompTeam[]; competition: Competition;
+}) {
+  const scorers = useMemo(() => computeTopScorers(matches).slice(0, 5), [matches]);
+  const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+
+  if (scorers.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-gray-900">Top buteurs</h3>
+        <Link
+          href={`/c/${competition.slug}/scorers`}
+          className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
+        >
+          Tout voir
+        </Link>
+      </div>
+      <div className="mt-2.5 space-y-1.5">
+        {scorers.map((s, i) => {
+          const team = teamById.get(s.teamId);
+          return (
+            <div key={`${s.teamId}-${s.playerName}`} className="flex items-center gap-2.5">
+              <span className={`w-4 text-center text-[10px] font-black ${i === 0 ? "text-amber-400" : "text-gray-300"}`}>
+                {i + 1}
+              </span>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-black text-emerald-600">
+                {s.playerName.slice(0, 2).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-gray-900">{s.playerName}</p>
+                {team && <p className="truncate text-[10px] font-semibold text-gray-300">{team.name}</p>}
+              </div>
+              <span className="text-sm font-black tabular-nums text-gray-900">{s.goals}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TribuneCard({ uid }: { uid: string }) {
   const [posts, setPosts] = useState<Post[]>([]);
 
   useEffect(() => {
@@ -213,25 +435,28 @@ function TribuneRail({ uid }: { uid: string }) {
   }, [uid]);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
-          <MessageCircle size={15} className="text-emerald-600" />
-          La Tribune
-        </h3>
-        <Link href="/feed" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">
+        <h3 className="text-sm font-black text-gray-900">La Tribune</h3>
+        <Link
+          href="/feed"
+          className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
+        >
           Tout voir
         </Link>
       </div>
-
-      <div className="mt-3 space-y-2.5">
+      <div className="mt-2.5 space-y-3">
         {posts.length === 0 && (
-          <p className="py-4 text-center text-xs text-gray-400">Aucune publication pour le moment.</p>
+          <p className="py-3 text-center text-xs text-gray-300">Aucune publication.</p>
         )}
-        {posts.map((post) => (
-          <div key={post.id} className="rounded-xl bg-gray-50 p-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[9px] font-bold text-emerald-700">
+        {posts.map((post) => {
+          let ago = "";
+          try {
+            ago = formatDistanceToNow(new Date(post.createdAt), { locale: fr, addSuffix: true });
+          } catch { /* ignore */ }
+          return (
+            <div key={post.id} className="flex items-start gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-[10px] font-black text-emerald-600">
                 {post.authorAvatar?.startsWith("http") ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" />
@@ -239,11 +464,18 @@ function TribuneRail({ uid }: { uid: string }) {
                   post.authorName.slice(0, 2).toUpperCase()
                 )}
               </div>
-              <span className="truncate text-xs font-bold text-gray-900">{post.authorName}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="truncate text-xs font-black text-gray-900">{post.authorName}</p>
+                  {ago && <p className="shrink-0 text-[9px] font-bold text-gray-300">{ago}</p>}
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-500">
+                  {post.content}
+                </p>
+              </div>
             </div>
-            <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-gray-600">{post.content}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -253,32 +485,35 @@ function TribuneRail({ uid }: { uid: string }) {
 
 export default function DirectHome({ initialCompetitions }: { initialCompetitions: Competition[] }) {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [competitions, setCompetitions] = useState<Competition[]>(initialCompetitions);
   const [compsLoading, setCompsLoading] = useState(initialCompetitions.length === 0);
-  const [selectedCid, setSelectedCid] = useState<string | null>(initialCompetitions[0]?.id ?? null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
+  const [teams, setTeams] = useState<CompTeam[]>([]);
   const [tab, setTab] = useState<Tab>("all");
 
-  // Refresh the (ISR-cached) server list client-side; keep the selection.
+  // Refresh the (ISR-cached) server list client-side.
   useEffect(() => {
     listPublicCompetitions()
-      .then((comps) => {
-        setCompetitions(comps);
-        setSelectedCid((cur) => cur ?? comps[0]?.id ?? null);
-      })
+      .then(setCompetitions)
       .catch(() => {})
       .finally(() => setCompsLoading(false));
   }, []);
 
-  // Real-time fixtures for the selected competition.
-  useEffect(() => {
-    if (!selectedCid) return;
-    setMatches([]);
-    const unsub = onCompMatches(selectedCid, setMatches);
-    return () => unsub();
-  }, [selectedCid]);
+  // URL-driven selection (?c=slug) — the sidebar/header quick logos drive it.
+  const slug = searchParams.get("c");
+  const competition = competitions.find((c) => c.slug === slug) ?? competitions[0] ?? null;
 
-  const competition = competitions.find((c) => c.id === selectedCid) ?? null;
+  // Real-time fixtures + teams for the selected competition.
+  useEffect(() => {
+    if (!competition?.id) return;
+    setMatches([]);
+    setTeams([]);
+    const unsub = onCompMatches(competition.id, setMatches);
+    listCompTeams(competition.id).then(setTeams).catch(() => {});
+    return () => unsub();
+  }, [competition?.id]);
 
   // Featured match: live > next scheduled > latest completed.
   const hero = useMemo(() => {
@@ -294,8 +529,8 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
     return completed[0] ?? null;
   }, [matches]);
 
-  // Tab filter + group by day.
-  const grouped = useMemo(() => {
+  // Tab filter, then bucket by poule (league-group style).
+  const groups = useMemo(() => {
     let list = matches;
     if (tab === "live") list = matches.filter((m) => m.status === "live");
     if (tab === "finished") list = matches.filter((m) => m.status === "completed");
@@ -308,38 +543,29 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
       return asc ? ka.localeCompare(kb) : kb.localeCompare(ka);
     });
 
-    const days = new Map<string, CompMatch[]>();
+    const buckets = new Map<string, CompMatch[]>();
     for (const m of sorted) {
-      const key = m.date ?? "";
-      const bucket = days.get(key) ?? [];
+      const key = m.stage === "group" && m.group ? `Poule ${m.group}` : "Phase finale";
+      const bucket = buckets.get(key) ?? [];
       bucket.push(m);
-      days.set(key, bucket);
+      buckets.set(key, bucket);
     }
-    return Array.from(days.entries());
+    return Array.from(buckets.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [matches, tab]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      {/* Page header */}
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-gray-900">
-          <Radio size={22} className="text-emerald-600" />
-          Direct
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">Les compétitions Koppafoot en temps réel.</p>
-      </div>
-
-      {/* Competition chips */}
-      {competitions.length > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
+    <div className="mx-auto max-w-6xl">
+      {/* Mobile competition selector (desktop uses the sidebar list) */}
+      {competitions.length > 1 && (
+        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
           {competitions.map((c) => (
             <button
               key={c.id}
-              onClick={() => setSelectedCid(c.id)}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
-                c.id === selectedCid
-                  ? "bg-emerald-600 text-white"
-                  : "border border-gray-200 bg-white text-gray-600 hover:border-emerald-300"
+              onClick={() => router.replace(`/?c=${c.slug}`, { scroll: false })}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-black transition-colors ${
+                c.id === competition?.id
+                  ? "bg-emerald-500 text-white"
+                  : "border border-gray-200 bg-white text-gray-500"
               }`}
             >
               {c.name}
@@ -352,11 +578,11 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
         {/* Center column */}
         <div className="min-w-0 space-y-5">
           {compsLoading ? (
-            <div className="h-44 animate-pulse rounded-2xl bg-gray-200" />
+            <div className="h-64 animate-pulse rounded-3xl bg-gray-200" />
           ) : !competition ? (
-            <div className="flex flex-col items-center rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16">
+            <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-gray-200 bg-white py-16">
               <Trophy size={32} className="text-gray-300" />
-              <h3 className="mt-4 font-display text-lg font-bold text-gray-900">
+              <h3 className="mt-4 font-display text-lg font-black text-gray-900">
                 Aucune compétition en cours
               </h3>
               <p className="mt-1 text-sm text-gray-500">
@@ -367,49 +593,53 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
             <>
               {hero && <HeroMatchCard match={hero} competition={competition} />}
 
-              {/* Tabs */}
-              <div className="flex gap-1.5 overflow-x-auto">
-                {TABS.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setTab(t.key)}
-                    className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
-                      tab === t.key
-                        ? "bg-gray-900 text-white"
-                        : "text-gray-500 hover:bg-gray-100"
-                    }`}
+              {/* Section header + underlined tabs */}
+              <div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2 className="font-display text-xl font-black text-gray-900">
+                    Matchs <span className="font-bold text-gray-300">de {competition.name}</span>
+                  </h2>
+                  <Link
+                    href={`/c/${competition.slug}`}
+                    className="flex shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
                   >
-                    {t.label}
-                  </button>
-                ))}
-                <Link
-                  href={`/c/${competition.slug}`}
-                  className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700"
-                >
-                  Classements
-                  <ChevronRight size={14} />
-                </Link>
+                    Classements
+                    <ChevronRight size={13} />
+                  </Link>
+                </div>
+                <div className="mt-2 flex gap-5 border-b border-gray-200">
+                  {TABS.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => setTab(t.key)}
+                      className={`relative pb-2.5 text-sm font-bold transition-colors ${
+                        tab === t.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      {t.label}
+                      {tab === t.key && (
+                        <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Fixtures grouped by matchday */}
-              {grouped.length === 0 ? (
-                <div className="rounded-2xl border border-gray-200 bg-white py-12 text-center">
+              {/* Poule groups */}
+              {groups.length === 0 ? (
+                <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center shadow-sm">
                   <CalendarDays size={24} className="mx-auto text-gray-300" />
                   <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                  {grouped.map(([date, dayMatches]) => (
-                    <div key={date || "undated"}>
-                      <div className="border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                        {date ? dayLabel(date) : "Date à confirmer"}
-                      </div>
-                      <div className="divide-y divide-gray-50">
-                        {dayMatches.map((m) => (
-                          <MatchRow key={m.id} match={m} competition={competition} />
-                        ))}
-                      </div>
-                    </div>
+                <div className="space-y-3">
+                  {groups.map(([label, groupMatches]) => (
+                    <GroupSection
+                      key={label}
+                      label={label}
+                      matches={groupMatches}
+                      competition={competition}
+                    />
                   ))}
                 </div>
               )}
@@ -419,8 +649,14 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
 
         {/* Right rail — desktop only (mobile has the Tribune tab) */}
         <div className="hidden xl:block">
-          <div className="sticky top-6 space-y-4">
-            <TribuneRail uid={user?.uid ?? ""} />
+          <div className="sticky top-20 space-y-4">
+            {competition && (
+              <>
+                <StandingsCard matches={matches} teams={teams} competition={competition} />
+                <TopScorersCard matches={matches} teams={teams} competition={competition} />
+              </>
+            )}
+            <TribuneCard uid={user?.uid ?? ""} />
             {!user && (
               <div className="rounded-2xl bg-emerald-950 p-5 text-center">
                 <p className="text-sm font-bold text-white">
@@ -434,13 +670,6 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
                 </Link>
               </div>
             )}
-            <Link
-              href="/competitions"
-              className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-gray-900 transition-colors hover:border-emerald-300"
-            >
-              Toutes les compétitions
-              <ChevronRight size={16} className="text-emerald-600" />
-            </Link>
           </div>
         </div>
       </div>
