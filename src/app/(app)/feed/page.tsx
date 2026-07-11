@@ -11,7 +11,6 @@ import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { PostCard, avatarColor } from "@/components/feed/PostCard";
 import { UserProfileWidget } from "@/components/feed/UserProfileWidget";
-import { CityMatchesWidget } from "@/components/feed/CityMatchesWidget";
 import type { Post } from "@/types";
 
 // ============================================
@@ -313,10 +312,6 @@ export default function FeedPage() {
           )}
         </div>
 
-        {/* Right sidebar — desktop only */}
-        <div className="hidden lg:block w-60 shrink-0 sticky top-6">
-          <CityMatchesWidget city={user.locationCity} />
-        </div>
       </div>
     </div>
   );

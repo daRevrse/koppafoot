@@ -1,27 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Home, Users, Trophy, MessageCircle, Shield,
-  ShieldCheck, Calendar, MapPin, User, Settings, LogOut, X,
+  Home, Trophy, MessageCircle, User, LogOut, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_BOTTOM_NAV, ROLE_BADGE_COLORS, type BottomNavItem } from "@/config/navigation";
 import { ROLE_LABELS } from "@/types";
-import {
-  onJoinRequestsByManager, onInvitationsByManager,
-  onMatchChallengesForManager,
-  onInvitationsForPlayer, onParticipationsForPlayer,
-  onRefereeAssignments,
-  onLiveMatches,
-} from "@/lib/firestore";
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Home, Users, Trophy, MessageCircle, Shield,
-  ShieldCheck, Calendar, MapPin,
+  Home, Trophy, MessageCircle, User,
 };
 
 function isActive(pathname: string, item: BottomNavItem): boolean {
@@ -50,7 +41,7 @@ function AvatarBottomSheet({
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const badgeColor = ROLE_BADGE_COLORS[user.userType];
-  const profileUrl = user.userType === "venue_owner" ? "/venue-owner/profile" : "/profile";
+  const profileUrl = "/profile";
 
   return (
     <>
@@ -117,14 +108,6 @@ function AvatarBottomSheet({
               <User size={18} className="text-emerald-400" />
               Mon profil
             </Link>
-            <Link
-              href="/settings"
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-            >
-              <Settings size={18} className="text-emerald-400" />
-              Paramètres
-            </Link>
           </div>
 
           {/* Divider */}
@@ -150,59 +133,8 @@ function AvatarBottomSheet({
 export default function MobileBottomNav() {
   const { user } = useAuth();
   const pathname = usePathname();
-  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
   const [sheetOpen, setSheetOpen] = useState(false);
-
-  // Real-time badge counts (same logic as sidebar)
-  useEffect(() => {
-    if (!user) return;
-    const unsubs: (() => void)[] = [];
-
-    if (user.userType === "manager") {
-      let pendingApps = 0;
-      let pendingInvs = 0;
-      const updateMercato = () =>
-        setBadgeCounts((prev) => ({ ...prev, "/mercato": pendingApps + pendingInvs }));
-
-      unsubs.push(onJoinRequestsByManager(user.uid, (reqs) => {
-        pendingApps = reqs.filter((r) => r.status === "pending").length;
-        updateMercato();
-      }));
-      unsubs.push(onInvitationsByManager(user.uid, (invs) => {
-        pendingInvs = invs.filter((i) => i.status === "pending").length;
-        updateMercato();
-      }));
-      unsubs.push(onMatchChallengesForManager(user.uid, (challenges) => {
-        setBadgeCounts((prev) => ({ ...prev, "/matches": challenges.length }));
-      }));
-    }
-
-    if (user.userType === "player") {
-      unsubs.push(onInvitationsForPlayer(user.uid, (invs) => {
-        setBadgeCounts((prev) => ({ ...prev, "/mercato": invs.filter((i) => i.status === "pending").length }));
-      }));
-      unsubs.push(onParticipationsForPlayer(user.uid, (parts) => {
-        setBadgeCounts((prev) => ({ ...prev, "/participations": parts.filter((p) => p.status === "pending").length }));
-      }));
-    }
-
-    if (user.userType === "referee") {
-      unsubs.push(onRefereeAssignments(user.uid, (matches) => {
-        setBadgeCounts((prev) => ({ ...prev, "/referee-panel/matches": matches.filter((m) => m.refereeStatus === "invited").length }));
-      }));
-    }
-
-    unsubs.push(
-      onLiveMatches((liveMatches) => {
-        setBadgeCounts((prev) => ({
-          ...prev,
-          "/matches": liveMatches.length > 0 ? -1 : (prev["/matches"] || 0),
-        }));
-      })
-    );
-
-    return () => unsubs.forEach((u) => u());
-  }, [user]);
+  const badgeCounts: Record<string, number> = {};
 
   if (!user) return null;
 

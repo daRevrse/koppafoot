@@ -7,8 +7,23 @@ import {
   LayoutDashboard, Calendar, TrendingUp, LogOut, User, Building2, MapPin, Globe, MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { VENUE_OWNER_GROUPED_NAV, isNavGroup, type NavItem, type NavEntry } from "@/config/navigation";
+import { isNavGroup, type NavItem, type NavEntry } from "@/config/navigation";
 import SidebarNavGroup from "./SidebarNavGroup";
+
+// Shelved vertical: nav kept locally since the venue-owner routes moved to _shelved
+const VENUE_OWNER_GROUPED_NAV: NavEntry[] = [
+  { path: "/venue-owner", icon: "LayoutDashboard", label: "Tableau de bord", exact: true },
+  {
+    key: "gestion",
+    label: "Gestion",
+    icon: "Building2",
+    items: [
+      { path: "/venue-owner/venues", icon: "MapPin", label: "Mes terrains" },
+      { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
+      { path: "/venue-owner/stats", icon: "TrendingUp", label: "Statistiques" },
+    ],
+  },
+];
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   LayoutDashboard, Calendar, TrendingUp, Building2, MapPin, Globe, MessageCircle,

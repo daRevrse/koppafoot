@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/dashboard", "/profile", "/teams", "/matches", "/feed", "/calendar", "/venues", "/invitations", "/referees", "/referee", "/participations", "/my-participations", "/pending-validations", "/player-invitations", "/recruitment"];
-const VENUE_OWNER_ROUTES = ["/venue-owner"];
+const PROTECTED_ROUTES = ["/dashboard", "/profile", "/feed"];
 const ORGANIZER_ROUTES = ["/organizer"];
 const LIVE_OPS_ROUTES = ["/live-ops"];
 const ADMIN_ROUTES = ["/admin"];
@@ -23,11 +22,10 @@ export function proxy(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
   const isOnboardingRoute = ONBOARDING_ROUTES.some((r) => pathname.startsWith(r));
   const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
-  const isVenueOwnerRoute = VENUE_OWNER_ROUTES.some((r) => pathname.startsWith(r));
   const isOrganizerRoute = ORGANIZER_ROUTES.some((r) => pathname.startsWith(r));
   const isLiveOpsRoute = LIVE_OPS_ROUTES.some((r) => pathname.startsWith(r));
   const isAdminRoute = ADMIN_ROUTES.some((r) => pathname.startsWith(r));
-  const isProtected = isProtectedRoute || isVenueOwnerRoute || isOrganizerRoute || isLiveOpsRoute || isAdminRoute || isOnboardingRoute;
+  const isProtected = isProtectedRoute || isOrganizerRoute || isLiveOpsRoute || isAdminRoute || isOnboardingRoute;
 
   // Not logged in → redirect to login for protected routes (including onboarding)
   if (!session && isProtected) {

@@ -133,7 +133,7 @@ export const ROLE_REDIRECTS: Record<UserRole, string> = {
   player: "/dashboard",
   manager: "/dashboard",
   referee: "/dashboard",
-  venue_owner: "/venue-owner",
+  venue_owner: "/dashboard",
   organizer: "/organizer",
   superadmin: "/admin",
 };

@@ -26,135 +26,24 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 }
 
 // ============================================
-// Player / Manager / Referee — Grouped
+// Member — unified nav (competition-first scope)
 // ============================================
+// Post-pivot: every non-admin account gets the same simple navigation.
+// Legacy roles (manager/referee/venue_owner) map to the member nav until
+// their verticals come back from _shelved.
 
-const PLAYER_GROUPED: NavEntry[] = [
-  { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  {
-    key: "vestiaire",
-    label: "Vestiaire",
-    icon: "Shirt",
-    items: [
-      { path: "/teams", icon: "Users", label: "Mes équipes" },
-      { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
-    ],
-  },
-  {
-    key: "matchs",
-    label: "Matchs",
-    icon: "Trophy",
-    items: [
-      { path: "/participations", icon: "CheckCircle", label: "Participations", badge: true },
-      { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-    ],
-  },
-  {
-    key: "communaute",
-    label: "Communauté",
-    icon: "Globe",
-    items: [
-      { path: "/venues", icon: "MapPin", label: "Terrains" },
-      { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
-    ],
-  },
-];
-
-const MANAGER_GROUPED: NavEntry[] = [
-  { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  {
-    key: "equipe",
-    label: "Mon équipe",
-    icon: "Shield",
-    items: [
-      { path: "/teams", icon: "Users", label: "Mes équipes" },
-      { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
-    ],
-  },
-  {
-    key: "competition",
-    label: "Compétition",
-    icon: "Trophy",
-    items: [
-      { path: "/matches", icon: "Trophy", label: "Centre de match", badge: true },
-      { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-    ],
-  },
-  {
-    key: "communaute",
-    label: "Communauté",
-    icon: "Globe",
-    items: [
-      { path: "/venues", icon: "MapPin", label: "Terrains" },
-      { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
-    ],
-  },
-];
-
-const REFEREE_GROUPED: NavEntry[] = [
-  { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  {
-    key: "arbitrage",
-    label: "Arbitrage",
-    icon: "ShieldCheck",
-    items: [
-      { path: "/referee-panel/matches", icon: "ShieldCheck", label: "Mes matchs", badge: true },
-      { path: "/referee-panel/reports", icon: "FileText", label: "Rapports" },
-    ],
-  },
-  {
-    key: "planning",
-    label: "Planning",
-    icon: "Calendar",
-    items: [
-      { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-    ],
-  },
-  {
-    key: "communaute",
-    label: "Communauté",
-    icon: "MessageCircle",
-    items: [
-      { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
-    ],
-  },
+const MEMBER_NAV: NavEntry[] = [
+  { path: "/dashboard", icon: "Home", label: "Direct", exact: true },
+  { path: "/competitions", icon: "Trophy", label: "Compétitions" },
+  { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
 
 export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
-  player: PLAYER_GROUPED,
-  manager: MANAGER_GROUPED,
-  referee: REFEREE_GROUPED,
+  player: MEMBER_NAV,
+  manager: MEMBER_NAV,
+  referee: MEMBER_NAV,
+  venue_owner: MEMBER_NAV,
 };
-
-// ============================================
-// Venue Owner — Grouped
-// ============================================
-
-export const VENUE_OWNER_GROUPED_NAV: NavEntry[] = [
-  { path: "/venue-owner", icon: "LayoutDashboard", label: "Tableau de bord", exact: true },
-  {
-    key: "gestion",
-    label: "Gestion",
-    icon: "Building2",
-    items: [
-      { path: "/venue-owner/venues", icon: "MapPin", label: "Mes terrains" },
-      { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
-      { path: "/venue-owner/stats", icon: "TrendingUp", label: "Statistiques" },
-    ],
-  },
-  {
-    key: "communaute",
-    label: "Communauté",
-    icon: "Globe",
-    items: [
-      { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-      { path: "/community/matches", icon: "Trophy", label: "Matchs" },
-    ],
-  },
-];
 
 // ============================================
 // Organizer — Grouped
@@ -180,17 +69,6 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     ],
   },
   {
-    key: "competition",
-    label: "Compétition",
-    icon: "Trophy",
-    items: [
-      { path: "/admin/teams", icon: "Shield", label: "Équipes" },
-      { path: "/admin/matches", icon: "Trophy", label: "Matchs" },
-      { path: "/admin/venues", icon: "MapPin", label: "Terrains" },
-      { path: "/admin/referees", icon: "Award", label: "Arbitres" },
-    ],
-  },
-  {
     key: "moderation",
     label: "Modération",
     icon: "Flag",
@@ -213,81 +91,14 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
 ];
 
 // ============================================
-// Legacy flat exports (backward compat)
-// ============================================
-
-const PLAYER_NAV: NavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  { path: "/teams", icon: "Users", label: "Mes équipes" },
-  { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
-  { path: "/participations", icon: "CheckCircle", label: "Participations", badge: true },
-  { path: "/venues", icon: "MapPin", label: "Terrains" },
-  { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-  { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-];
-
-const MANAGER_NAV: NavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  { path: "/teams", icon: "Users", label: "Mes équipes" },
-  { path: "/matches", icon: "Trophy", label: "Matchs" },
-  { path: "/mercato", icon: "UserSearch", label: "Mercato", badge: true },
-  { path: "/venues", icon: "MapPin", label: "Terrains" },
-  { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-  { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-];
-
-const REFEREE_NAV: NavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Tableau de bord", exact: true },
-  { path: "/referee-panel/matches", icon: "ShieldCheck", label: "Mes matchs", badge: true },
-  { path: "/referee-panel/reports", icon: "FileText", label: "Rapports" },
-  { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-  { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-];
-
-export const ROLE_NAV: Partial<Record<UserRole, NavItem[]>> = {
-  player: PLAYER_NAV,
-  manager: MANAGER_NAV,
-  referee: REFEREE_NAV,
-};
-
-export const VENUE_OWNER_NAV: NavItem[] = [
-  { path: "/venue-owner", icon: "LayoutDashboard", label: "Tableau de bord", exact: true },
-  { path: "/venue-owner/venues", icon: "MapPin", label: "Mes terrains" },
-  { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
-  { path: "/venue-owner/stats", icon: "TrendingUp", label: "Statistiques" },
-  { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
-];
-
-export const ADMIN_NAV: NavItem[] = [
-  { path: "/admin", icon: "LayoutDashboard", label: "Dashboard", exact: true },
-  { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
-  { path: "/admin/teams", icon: "Shield", label: "Équipes" },
-  { path: "/admin/matches", icon: "Trophy", label: "Matchs" },
-  { path: "/admin/venues", icon: "MapPin", label: "Terrains" },
-  { path: "/admin/referees", icon: "Award", label: "Arbitres" },
-  { path: "/admin/reports", icon: "Flag", label: "Signalements" },
-  { path: "/admin/bans", icon: "AlertTriangle", label: "Bannissements" },
-  { path: "/admin/logs", icon: "FileText", label: "Logs" },
-  { path: "/admin/stats", icon: "TrendingUp", label: "Statistiques" },
-  { path: "/admin/settings", icon: "Settings", label: "Paramètres" },
-];
-
-// ============================================
 // Role display config
 // ============================================
 
-export const ROLE_HEADER_TITLES: Partial<Record<UserRole, string>> = {
-  player: "Espace Joueur",
-  manager: "Espace Manager",
-  referee: "Espace Arbitre",
-  organizer: "Espace Organisateur",
-};
-
 export const ROLE_BADGE_COLORS: Record<UserRole, string> = {
   player: "bg-emerald-100 text-emerald-700",
-  manager: "bg-blue-100 text-blue-700",
-  referee: "bg-purple-100 text-purple-700",
-  venue_owner: "bg-orange-100 text-orange-700",
+  manager: "bg-emerald-100 text-emerald-700",
+  referee: "bg-emerald-100 text-emerald-700",
+  venue_owner: "bg-emerald-100 text-emerald-700",
   organizer: "bg-amber-100 text-amber-700",
   superadmin: "bg-red-100 text-red-700",
 };
@@ -304,31 +115,9 @@ export interface BottomNavItem {
   exact?: boolean;
 }
 
-const PLAYER_BOTTOM: BottomNavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Accueil", exact: true },
-  { path: "/teams", icon: "Users", label: "Équipes" },
-  { path: "/participations", icon: "Trophy", label: "Matchs", badge: true },
-  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
-];
-
-const MANAGER_BOTTOM: BottomNavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Accueil", exact: true },
-  { path: "/teams", icon: "Shield", label: "Équipes" },
-  { path: "/matches", icon: "Trophy", label: "Matchs", badge: true },
-  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
-];
-
-const REFEREE_BOTTOM: BottomNavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Accueil", exact: true },
-  { path: "/referee-panel/matches", icon: "ShieldCheck", label: "Matchs", badge: true },
-  { path: "/calendar", icon: "Calendar", label: "Calendrier" },
-  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
-];
-
-const VENUE_OWNER_BOTTOM: BottomNavItem[] = [
-  { path: "/venue-owner", icon: "Home", label: "Accueil", exact: true },
-  { path: "/venue-owner/venues", icon: "MapPin", label: "Terrains" },
-  { path: "/venue-owner/bookings", icon: "Calendar", label: "Réservations" },
+const MEMBER_BOTTOM: BottomNavItem[] = [
+  { path: "/dashboard", icon: "Home", label: "Direct", exact: true },
+  { path: "/competitions", icon: "Trophy", label: "Compétitions" },
   { path: "/feed", icon: "MessageCircle", label: "Tribune" },
 ];
 
@@ -338,9 +127,9 @@ const ORGANIZER_BOTTOM: BottomNavItem[] = [
 ];
 
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {
-  player: PLAYER_BOTTOM,
-  manager: MANAGER_BOTTOM,
-  referee: REFEREE_BOTTOM,
-  venue_owner: VENUE_OWNER_BOTTOM,
+  player: MEMBER_BOTTOM,
+  manager: MEMBER_BOTTOM,
+  referee: MEMBER_BOTTOM,
+  venue_owner: MEMBER_BOTTOM,
   organizer: ORGANIZER_BOTTOM,
 };

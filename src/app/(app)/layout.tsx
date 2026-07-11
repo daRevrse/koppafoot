@@ -35,14 +35,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
 
     // 3. Role-based redirect (if in wrong layout group)
-    // AppLayout handles: player, manager, referee
-    const isVenueOwner = user.userType === "venue_owner";
+    // AppLayout handles every account except superadmin
     const isSuperadmin = user.userType === "superadmin";
 
-    if (isVenueOwner && !pathname.startsWith("/venue-owner")) {
-      router.replace(ROLE_REDIRECTS.venue_owner);
-      return;
-    }
     if (isSuperadmin && !pathname.startsWith("/admin")) {
       router.replace(ROLE_REDIRECTS.superadmin);
       return;
@@ -58,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // Don't render until user is valid for this layout
-  if (!user || user.userType === "venue_owner" || user.userType === "superadmin") return null;
+  if (!user || user.userType === "superadmin") return null;
 
   return (
     <div className="flex min-h-screen">

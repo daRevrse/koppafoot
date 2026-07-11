@@ -12,7 +12,6 @@ import {
   Target,
   Star,
   Building2,
-  ExternalLink,
   Award,
   CheckCircle,
   Plus,
@@ -336,13 +335,6 @@ function VenueOwnerSection({ profile }: { profile: UserProfile }) {
           </div>
         </div>
       )}
-      <a
-        href="/venues"
-        className="inline-flex items-center gap-2 rounded-lg bg-orange-100 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-200 transition-colors"
-      >
-        <ExternalLink size={14} />
-        Voir les terrains disponibles
-      </a>
     </div>
   );
 }
