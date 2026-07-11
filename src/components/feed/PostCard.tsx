@@ -155,7 +155,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         authorId: currentUser.uid,
         authorName,
         authorRole,
-        authorAvatar: currentUser.profilePictureUrl || `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`,
+        authorAvatar: currentUser.profilePictureUrl || "",
         type: "text",
         content: repostText,
         metadata: {

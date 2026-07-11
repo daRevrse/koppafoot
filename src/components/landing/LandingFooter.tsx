@@ -3,20 +3,10 @@ import Link from "next/link";
 
 const LINKS = {
   Plateforme: [
-    { label: "Joueur", href: "/signup" },
-    { label: "Manager", href: "/signup" },
-    { label: "Arbitre", href: "/signup" },
-    { label: "Propriétaire", href: "/signup/venue-owner" },
-  ],
-  Ressources: [
-    { label: "Aide", href: "#" },
-    { label: "Contact", href: "#" },
-    { label: "Blog", href: "#" },
-  ],
-  Légal: [
-    { label: "CGU", href: "#" },
-    { label: "Confidentialité", href: "#" },
-    { label: "Mentions légales", href: "#" },
+    { label: "Compétitions", href: "/competitions" },
+    { label: "La Tribune", href: "/feed" },
+    { label: "Organiser une compétition", href: "/organizer" },
+    { label: "Créer un compte", href: "/signup" },
   ],
 };
 
@@ -26,7 +16,7 @@ export default function LandingFooter() {
       {/* Links section */}
       <div className="relative py-16 lg:py-24 border-b border-white/[0.06]">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-12 sm:grid-cols-2">
             {/* Brand */}
             <div>
               <div className="relative h-24 w-40">
@@ -82,20 +72,6 @@ export default function LandingFooter() {
           <p className="text-xs text-white/30">
             &copy; {new Date().getFullYear()} KOPPAFOOT. Tous droits réservés.
           </p>
-          <div className="flex items-center gap-6">
-            <Link
-              href="#"
-              className="text-xs text-white/30 hover:text-white/60 transition-colors"
-            >
-              Confidentialité
-            </Link>
-            <Link
-              href="#"
-              className="text-xs text-white/30 hover:text-white/60 transition-colors"
-            >
-              Conditions
-            </Link>
-          </div>
         </div>
       </div>
     </footer>

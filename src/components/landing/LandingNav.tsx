@@ -37,29 +37,23 @@ export default function LandingNav() {
 
         {/* Desktop nav links */}
         <div className="hidden items-center gap-2 md:flex">
-          <a
-            href="#roles"
-            className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
-          >
-            Rôles
-          </a>
-          <a
-            href="#features"
-            className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
-          >
-            Fonctionnalités
-          </a>
-          <a
-            href="#community"
-            className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
-          >
-            Communauté
-          </a>
           <Link
             href="/competitions"
             className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
           >
             Compétitions
+          </Link>
+          <Link
+            href="/feed"
+            className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
+          >
+            La Tribune
+          </Link>
+          <Link
+            href="/organizer"
+            className="rounded-full px-5 py-2 text-sm font-medium text-[#1A1715]/70 transition-colors hover:text-[#1A1715] hover:bg-[#1A1715]/5"
+          >
+            Organiser
           </Link>
         </div>
 
@@ -92,33 +86,26 @@ export default function LandingNav() {
       {mobileOpen && (
         <div className="border-t border-[#1A1715]/10 bg-white px-6 py-6 md:hidden">
           <div className="flex flex-col gap-2 mb-4">
-            <a
-              href="#roles"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
-            >
-              Rôles
-            </a>
-            <a
-              href="#features"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
-            >
-              Fonctionnalités
-            </a>
-            <a
-              href="#testimonials"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
-            >
-              Témoignages
-            </a>
             <Link
               href="/competitions"
               onClick={() => setMobileOpen(false)}
               className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
             >
               Compétitions
+            </Link>
+            <Link
+              href="/feed"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
+            >
+              La Tribune
+            </Link>
+            <Link
+              href="/organizer"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-2xl px-4 py-3 text-sm font-medium text-[#1A1715]/70 hover:text-[#1A1715] hover:bg-[#1A1715]/5 transition-colors"
+            >
+              Organiser
             </Link>
           </div>
           <div className="flex flex-col gap-3 pt-4 border-t border-[#1A1715]/10">

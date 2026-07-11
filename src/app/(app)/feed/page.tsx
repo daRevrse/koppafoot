@@ -143,7 +143,7 @@ export default function FeedPage() {
         ? user.companyName 
         : `${user.firstName} ${user.lastName.charAt(0)}.`;
 
-      const authorAvatar = user.profilePictureUrl || `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
+      const authorAvatar = user.profilePictureUrl || "";
       
       const postId = await createPost({
         authorId: user.uid,

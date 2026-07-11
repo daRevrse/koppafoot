@@ -2,37 +2,37 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowRight, User, Users, Repeat, CalendarCheck } from "lucide-react";
+import { ArrowRight, Radio, BarChart3, Bell, ClipboardList } from "lucide-react";
 
 // ============================================
 // PlatformPromo
 // ============================================
-// Light acquisition band. Condenses the Roles/Features pitch into a few concise
-// value props + a join CTA. Pure presentational — always renders (it's the
-// acquisition pitch, not real-data driven).
+// Light acquisition band. Competition-first value props + a join CTA.
+// Pure presentational — always renders (it's the acquisition pitch,
+// not real-data driven).
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 const PROPS = [
   {
-    icon: User,
-    title: "Profil joueur",
-    description: "Construis ton profil, suis tes stats et progresse match après match.",
+    icon: Radio,
+    title: "Scores en direct",
+    description: "Chaque but, chaque carton, minute par minute, depuis le bord du terrain.",
   },
   {
-    icon: Users,
-    title: "Équipes",
-    description: "Crée ton équipe, recrute des joueurs et pilote ta formation.",
+    icon: BarChart3,
+    title: "Classements auto",
+    description: "Poules, classements et buteurs mis à jour après chaque match.",
   },
   {
-    icon: Repeat,
-    title: "Mercato",
-    description: "Trouve des coéquipiers, reçois des propositions, change de club.",
+    icon: Bell,
+    title: "Notifications",
+    description: "Suis ta compétition et reçois coups d'envoi, buts et résultats.",
   },
   {
-    icon: CalendarCheck,
-    title: "Matchs",
-    description: "Organise tes rencontres, gère tes dispos et trouve des adversaires.",
+    icon: ClipboardList,
+    title: "Organise la tienne",
+    description: "Crée ta compétition, importe les équipes, délègue le live à ton staff.",
   },
 ];
 
@@ -48,11 +48,11 @@ export default function PlatformPromo() {
           className="text-center"
         >
           <h2 className="font-display text-3xl font-black tracking-tight text-[#1A1715] sm:text-4xl">
-            Koppafoot, c&apos;est aussi…
+            Le direct du football amateur
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-[#1A1715]/50 leading-relaxed">
-            Bien plus que des scores : la plateforme du football amateur, de ton
-            profil jusqu&apos;à ton prochain match.
+            De la phase de poules à la finale : suis, partage et organise
+            tes compétitions sur Koppafoot.
           </p>
         </motion.div>
 
@@ -82,13 +82,19 @@ export default function PlatformPromo() {
           })}
         </div>
 
-        <div className="mt-12 text-center">
+        <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             href="/signup"
             className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-9 py-4 text-base font-bold text-white transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-[#1A1715]/20 active:scale-[0.97]"
           >
             Rejoindre Koppafoot
             <ArrowRight size={18} />
+          </Link>
+          <Link
+            href="/organizer"
+            className="inline-flex items-center gap-2 rounded-full border border-[#1A1715]/15 px-9 py-4 text-base font-bold text-[#1A1715] transition-all hover:bg-[#1A1715]/5 active:scale-[0.97]"
+          >
+            Organiser une compétition
           </Link>
         </div>
       </div>

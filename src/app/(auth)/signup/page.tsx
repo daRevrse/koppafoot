@@ -6,60 +6,19 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Loader2, Users, Shield, Award, Mail, Lock, Phone, MapPin, User, Check } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Eye, EyeOff, Loader2, Mail, Lock, Phone, MapPin, User } from "lucide-react";
+import { motion } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
-import type { UserRole, SignupData } from "@/types";
-
-// ============================================
-// Role cards config
-// ============================================
-
-type SignupRole = "player" | "manager" | "referee";
-
-const ROLES: { value: SignupRole; label: string; icon: typeof Users; description: string; gradient: string; bgSelected: string; borderSelected: string; iconSelected: string }[] = [
-  {
-    value: "player",
-    label: "Joueur",
-    icon: Users,
-    description: "Rejoindre des matchs et des équipes",
-    gradient: "from-emerald-400 to-emerald-600",
-    bgSelected: "bg-emerald-500/15",
-    borderSelected: "border-emerald-500/50",
-    iconSelected: "text-emerald-400",
-  },
-  {
-    value: "manager",
-    label: "Manager",
-    icon: Shield,
-    description: "Créer et gérer une équipe",
-    gradient: "from-blue-400 to-blue-600",
-    bgSelected: "bg-blue-500/15",
-    borderSelected: "border-blue-500/50",
-    iconSelected: "text-blue-400",
-  },
-  {
-    value: "referee",
-    label: "Arbitre",
-    icon: Award,
-    description: "Arbitrer des matchs",
-    gradient: "from-purple-400 to-purple-600",
-    bgSelected: "bg-purple-500/15",
-    borderSelected: "border-purple-500/50",
-    iconSelected: "text-purple-400",
-  },
-];
 
 // ============================================
 // Validation schema
 // ============================================
+// Post-pivot: single account type. Everyone signs up as a simple member
+// (stored as "player" — the technical default); organizer / live-ops /
+// superadmin are granted by promotion.
 
 const schema = yup.object({
-  userType: yup
-    .string()
-    .oneOf(["player", "manager", "referee"] as const, "Choisissez un rôle")
-    .required("Choisissez un rôle"),
   firstName: yup.string().min(2, "Min. 2 caractères").required("Prénom requis"),
   lastName: yup.string().min(2, "Min. 2 caractères").required("Nom requis"),
   email: yup.string().email("Email invalide").required("Email requis"),
@@ -70,39 +29,6 @@ const schema = yup.object({
     .oneOf([yup.ref("password")], "Les mots de passe ne correspondent pas")
     .required("Confirmation requise"),
   locationCity: yup.string().required("Ville requise"),
-  // Player
-  position: yup.string().when("userType", {
-    is: "player",
-    then: (s) => s.optional(),
-    otherwise: (s) => s.strip(),
-  }),
-  skillLevel: yup.string().when("userType", {
-    is: "player",
-    then: (s) => s.optional(),
-    otherwise: (s) => s.strip(),
-  }),
-  // Manager
-  teamName: yup.string().when("userType", {
-    is: "manager",
-    then: (s) => s.min(3, "Min. 3 caractères").required("Nom d'équipe requis"),
-    otherwise: (s) => s.strip(),
-  }),
-  // Referee
-  licenseNumber: yup.string().when("userType", {
-    is: "referee",
-    then: (s) => s.optional(),
-    otherwise: (s) => s.strip(),
-  }),
-  licenseLevel: yup.string().when("userType", {
-    is: "referee",
-    then: (s) => s.optional(),
-    otherwise: (s) => s.strip(),
-  }),
-  experienceYears: yup.number().when("userType", {
-    is: "referee",
-    then: (s) => s.min(0).optional(),
-    otherwise: (s) => s.strip(),
-  }),
 });
 
 type FormData = yup.InferType<typeof schema>;
@@ -113,10 +39,6 @@ type FormData = yup.InferType<typeof schema>;
 
 const inputClass =
   "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
-const inputClassNoIcon =
-  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-sm text-white placeholder:text-white/25 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm";
-const selectClass =
-  "w-full rounded-xl border border-white/[0.1] bg-white/[0.06] px-4 py-3 text-sm text-white focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all [&>option]:bg-[#1A1715] [&>option]:text-white";
 
 // ============================================
 // Component
@@ -130,16 +52,10 @@ export default function SignupPage() {
   const {
     register,
     handleSubmit,
-    watch,
-    setValue,
     formState: { errors },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<FormData>({
-    resolver: yupResolver(schema) as any,
-    defaultValues: { userType: undefined },
+    resolver: yupResolver(schema),
   });
-
-  const selectedRole = watch("userType");
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
@@ -149,15 +65,9 @@ export default function SignupPage() {
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        userType: data.userType as UserRole,
+        userType: "player",
         locationCity: data.locationCity,
         phone: data.phone,
-        position: data.position as SignupData["position"],
-        skillLevel: data.skillLevel as SignupData["skillLevel"],
-        teamName: data.teamName,
-        licenseNumber: data.licenseNumber,
-        licenseLevel: data.licenseLevel as SignupData["licenseLevel"],
-        experienceYears: data.experienceYears,
       });
       toast.success("Compte créé ! Vérifiez votre email.");
     } catch (err) {
@@ -174,52 +84,11 @@ export default function SignupPage() {
       transition={{ duration: 0.35 }}
     >
       <h2 className="mb-1 text-2xl font-black text-white font-display">Créer un compte</h2>
-      <p className="mb-8 text-sm text-white/40">Rejoins la communauté KOPPAFOOT</p>
+      <p className="mb-8 text-sm text-white/40">
+        Suis tes compétitions en direct et rejoins la communauté KOPPAFOOT
+      </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Role selection */}
-        <div>
-          <label className="mb-3 block text-xs font-medium text-white/50">Je suis...</label>
-          <div className="grid grid-cols-3 gap-3">
-            {ROLES.map((role) => {
-              const Icon = role.icon;
-              const isSelected = selectedRole === role.value;
-              return (
-                <motion.button
-                  key={role.value}
-                  type="button"
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setValue("userType", role.value, { shouldValidate: true })}
-                  className={`relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${
-                    isSelected
-                      ? `${role.borderSelected} ${role.bgSelected}`
-                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05]"
-                  }`}
-                >
-                  {isSelected && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500"
-                    >
-                      <Check size={12} className="text-white" />
-                    </motion.div>
-                  )}
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isSelected ? role.bgSelected : "bg-white/[0.06]"}`}>
-                    <Icon size={18} className={isSelected ? role.iconSelected : "text-white/30"} />
-                  </div>
-                  <span className={`text-sm font-semibold ${isSelected ? "text-white" : "text-white/50"}`}>{role.label}</span>
-                  <span className="text-[10px] text-white/30 leading-tight">{role.description}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-          {errors.userType && (
-            <p className="mt-1 text-xs text-red-400">{errors.userType.message}</p>
-          )}
-        </div>
-
         {/* Common fields */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -283,7 +152,7 @@ export default function SignupPage() {
               type="tel"
               {...register("phone")}
               className={inputClass}
-              placeholder="+33612345678"
+              placeholder="+22890123456"
             />
           </div>
         </div>
@@ -296,7 +165,7 @@ export default function SignupPage() {
               id="locationCity"
               {...register("locationCity")}
               className={inputClass}
-              placeholder="Paris, Lyon, Marseille..."
+              placeholder="Lomé, Abidjan, Cotonou..."
             />
           </div>
           {errors.locationCity && (
@@ -348,121 +217,6 @@ export default function SignupPage() {
           )}
         </div>
 
-        {/* Role-specific fields with AnimatePresence */}
-        <AnimatePresence mode="wait">
-          {selectedRole === "player" && (
-            <motion.div
-              key="player-fields"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
-                <p className="text-sm font-semibold text-emerald-400 font-display">Informations joueur</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="position" className="mb-1.5 block text-xs text-white/40">Poste</label>
-                    <select id="position" {...register("position")} className={selectClass}>
-                      <option value="">Non spécifié</option>
-                      <option value="goalkeeper">Gardien</option>
-                      <option value="defender">Défenseur</option>
-                      <option value="midfielder">Milieu</option>
-                      <option value="forward">Attaquant</option>
-                      <option value="any">Polyvalent</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="skillLevel" className="mb-1.5 block text-xs text-white/40">Niveau</label>
-                    <select id="skillLevel" {...register("skillLevel")} className={selectClass}>
-                      <option value="">Non spécifié</option>
-                      <option value="beginner">Débutant</option>
-                      <option value="amateur">Amateur</option>
-                      <option value="intermediate">Intermédiaire</option>
-                      <option value="advanced">Avancé</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {selectedRole === "manager" && (
-            <motion.div
-              key="manager-fields"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.06] p-4">
-                <p className="text-sm font-semibold text-blue-400 font-display">Informations manager</p>
-                <div>
-                  <label htmlFor="teamName" className="mb-1.5 block text-xs text-white/40">Nom de votre équipe</label>
-                  <input
-                    id="teamName"
-                    {...register("teamName")}
-                    className={inputClassNoIcon}
-                    placeholder="FC Mon Équipe"
-                  />
-                  {errors.teamName && (
-                    <p className="mt-1 text-xs text-red-400">{errors.teamName.message}</p>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {selectedRole === "referee" && (
-            <motion.div
-              key="referee-fields"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-3 rounded-xl border border-purple-500/20 bg-purple-500/[0.06] p-4">
-                <p className="text-sm font-semibold text-purple-400 font-display">Informations arbitre</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="licenseNumber" className="mb-1.5 block text-xs text-white/40">N° licence</label>
-                    <input
-                      id="licenseNumber"
-                      {...register("licenseNumber")}
-                      className={inputClassNoIcon}
-                      placeholder="Optionnel"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="licenseLevel" className="mb-1.5 block text-xs text-white/40">Niveau</label>
-                    <select id="licenseLevel" {...register("licenseLevel")} className={selectClass}>
-                      <option value="">Non spécifié</option>
-                      <option value="trainee">Stagiaire</option>
-                      <option value="regional">Régional</option>
-                      <option value="national">National</option>
-                      <option value="international">International</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="experienceYears" className="mb-1.5 block text-xs text-white/40">Années d&apos;expérience</label>
-                  <input
-                    id="experienceYears"
-                    type="number"
-                    min="0"
-                    {...register("experienceYears")}
-                    className={inputClassNoIcon}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <button
           type="submit"
           disabled={submitting}
@@ -473,17 +227,11 @@ export default function SignupPage() {
         </button>
       </form>
 
-      <div className="mt-8 space-y-2 text-center text-sm">
+      <div className="mt-8 text-center text-sm">
         <p className="text-white/30">
           Déjà un compte ?{" "}
           <Link href="/login" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
             Se connecter
-          </Link>
-        </p>
-        <p className="text-white/30">
-          Vous gérez un terrain ?{" "}
-          <Link href="/signup/venue-owner" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
-            Inscription propriétaire
           </Link>
         </p>
       </div>

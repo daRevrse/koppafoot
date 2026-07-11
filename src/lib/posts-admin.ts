@@ -65,7 +65,8 @@ export async function getRecentPublicPosts(limitCount = 5): Promise<PublicPost[]
         id: d.id,
         authorName: x.author_name ?? "",
         authorRole: x.author_role ?? "",
-        authorAvatar: x.author_avatar ?? null,
+        // Legacy posts stored author initials in author_avatar — only pass real URLs
+        authorAvatar: x.author_avatar?.startsWith("http") ? x.author_avatar : null,
         type: x.type ?? "text",
         content: x.content ?? "",
         metadata: m
