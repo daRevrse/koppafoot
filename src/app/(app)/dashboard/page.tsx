@@ -1,445 +1,435 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { motion } from "motion/react";
-import {
-  Trophy, Users, Target, UserPlus, Calendar, Shield, Award,
-  FileText, Star, Clock, MapPin, ChevronRight, Play
-} from "lucide-react";
+import { Radio, CalendarDays, ChevronRight, Trophy, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  getTeamsByManager,
-  getTeamsByPlayer,
-  getMatchesByTeamIds,
-  getParticipationsForPlayer,
-  onInvitationsForPlayer,
-  onInvitationsByManager,
-  onRefereeAssignments,
-} from "@/lib/firestore";
-import type { Team, Match, Participation, Invitation } from "@/types";
-import StatCard from "@/components/ui/StatCard";
-import XPProgressBar from "@/components/ui/XPProgressBar";
-import LevelBadge from "@/components/ui/LevelBadge";
+import { listPublicCompetitions, onCompMatches } from "@/lib/competition-firestore";
+import { onPosts } from "@/lib/firestore";
+import type { Competition, CompMatch, Post } from "@/types";
 
 // ============================================
-// Helpers
+// Dashboard "Direct" — the live-score home.
+// 3-zone layout: the app sidebar (layout) / this center column (featured
+// match + fixtures by matchday) / the Tribune rail (desktop only, the
+// mobile bottom nav has its own Tribune tab).
 // ============================================
 
-function getRelevantMatches(matches: Match[]): Match[] {
-  return matches
-    .filter((m) => m.status === "upcoming" || m.status === "live")
-    .sort((a, b) => {
-      // Live matches first
-      if (a.status === "live" && b.status !== "live") return -1;
-      if (a.status !== "live" && b.status === "live") return 1;
-      
-      const dateA = `${a.date}T${a.time || "00:00"}`;
-      const dateB = `${b.date}T${b.time || "00:00"}`;
-      return dateA.localeCompare(dateB);
-    })
-    .slice(0, 3);
-}
+type Tab = "all" | "live" | "finished" | "upcoming";
 
-function formatMatchDate(date: string, time: string): string {
+const TABS: { key: Tab; label: string }[] = [
+  { key: "all", label: "Tous" },
+  { key: "live", label: "En direct" },
+  { key: "finished", label: "Terminés" },
+  { key: "upcoming", label: "À venir" },
+];
+
+// ---- date helpers -----------------------------------------------------------
+
+function dayLabel(date: string): string {
   try {
-    const d = new Date(date);
-    const days = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
-    const months = ["Jan.", "Fév.", "Mar.", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sep.", "Oct.", "Nov.", "Déc."];
-    return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]} — ${time || "Heure N/A"}`;
+    return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
+      weekday: "long", day: "numeric", month: "long",
+    });
   } catch {
-    return `${date} — ${time}`;
+    return date;
   }
 }
 
-// ============================================
-// Static data (kept as-is for now)
-// ============================================
+/** Live minute from the shared live_state clock (same math as LiveMatchConsole). */
+function liveMinute(m: CompMatch): number {
+  const ls = m.liveState;
+  if (!ls) return 0;
+  if (m.status === "live" && ls.isTimerRunning && ls.timerStartAt) {
+    const elapsed = Date.now() - new Date(ls.timerStartAt).getTime() + (ls.timerOffset || 0);
+    return Math.floor(elapsed / 60000) + 1;
+  }
+  return Math.floor((ls.timerOffset || 0) / 60000) + 1;
+}
 
-// ============================================
-// Skeleton
-// ============================================
+// ---- Team logo --------------------------------------------------------------
 
-function StatCardSkeleton() {
+function TeamBadge({ name, logo, size = 28 }: { name: string; logo?: string | null; size?: number }) {
+  if (logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt={name}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <div className="flex items-start justify-between">
-        <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
-      </div>
-      <div className="mt-3 h-7 w-16 rounded bg-gray-200 animate-pulse" />
-      <div className="mt-1.5 h-4 w-24 rounded bg-gray-200 animate-pulse" />
-    </div>
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-700"
+      style={{ width: size, height: size, fontSize: size * 0.38 }}
+    >
+      {name.slice(0, 2).toUpperCase()}
+    </span>
   );
 }
 
-function MatchListSkeleton() {
+// ---- Hero match card ----------------------------------------------------------
+
+function HeroMatchCard({ match, competition }: { match: CompMatch; competition: Competition }) {
+  const [, forceTick] = useState(0);
+  const isLive = match.status === "live";
+
+  // Re-render every 30s so the live minute ticks.
+  useEffect(() => {
+    if (!isLive) return;
+    const t = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, [isLive]);
+
+  const href = `/c/${competition.slug}/matches/${match.id}`;
+  const finished = match.status === "completed";
+
   return (
-    <div className="divide-y divide-gray-50">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 px-5 py-3.5">
-          <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
-            <div className="h-3 w-56 rounded bg-gray-200 animate-pulse" />
+    <Link href={href} className="block">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="rounded-2xl bg-emerald-950 p-5 text-white transition-transform hover:scale-[1.01] sm:p-6"
+      >
+        <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+          {isLive ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-0.5 text-white">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+              </span>
+              EN DIRECT {liveMinute(match)}&apos;
+            </span>
+          ) : finished ? (
+            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-emerald-200">Terminé</span>
+          ) : (
+            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-emerald-200">
+              {match.date ? `${dayLabel(match.date)}${match.time ? ` · ${match.time}` : ""}` : "À programmer"}
+            </span>
+          )}
+          <span className="truncate text-emerald-300/70">
+            {competition.name}
+            {match.group ? ` · Poule ${match.group}` : ""}
+          </span>
+        </div>
+
+        <div className="mt-5 flex items-center justify-center gap-4 sm:gap-8">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 sm:flex-row sm:justify-end">
+            <span className="order-2 truncate text-sm font-bold text-emerald-50 sm:order-1 sm:text-base">
+              {match.homeTeamName}
+            </span>
+            <span className="order-1 sm:order-2">
+              <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={40} />
+            </span>
+          </div>
+
+          {isLive || finished ? (
+            <div className="font-display text-3xl font-black tabular-nums sm:text-4xl">
+              {match.scoreHome ?? 0}
+              <span className="mx-2 text-white/30">–</span>
+              {match.scoreAway ?? 0}
+            </div>
+          ) : (
+            <div className="font-display text-2xl font-black text-emerald-300 sm:text-3xl">VS</div>
+          )}
+
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 sm:flex-row">
+            <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={40} />
+            <span className="truncate text-sm font-bold text-emerald-50 sm:text-base">
+              {match.awayTeamName}
+            </span>
           </div>
         </div>
-      ))}
+
+        <div className="mt-5 flex items-center justify-center gap-1 text-xs font-semibold text-emerald-300">
+          {match.venueName && <span className="text-emerald-300/60">{match.venueName} ·</span>}
+          Voir le match
+          <ChevronRight size={14} />
+        </div>
+      </motion.div>
+    </Link>
+  );
+}
+
+// ---- Match row ----------------------------------------------------------------
+
+function MatchRow({ match, competition }: { match: CompMatch; competition: Competition }) {
+  const isLive = match.status === "live";
+  const finished = match.status === "completed";
+
+  return (
+    <Link
+      href={`/c/${competition.slug}/matches/${match.id}`}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
+    >
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <span className="truncate text-sm font-semibold text-gray-900">{match.homeTeamName}</span>
+        <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={24} />
+      </div>
+
+      {isLive ? (
+        <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-500 px-2.5 py-1 text-sm font-black tabular-nums text-white">
+          {match.scoreHome ?? 0}–{match.scoreAway ?? 0}
+        </span>
+      ) : finished ? (
+        <span className="shrink-0 rounded-lg bg-gray-900 px-2.5 py-1 text-sm font-black tabular-nums text-white">
+          {match.scoreHome ?? 0}–{match.scoreAway ?? 0}
+        </span>
+      ) : (
+        <span className="shrink-0 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">
+          {match.time ?? "—"}
+        </span>
+      )}
+
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={24} />
+        <span className="truncate text-sm font-semibold text-gray-900">{match.awayTeamName}</span>
+      </div>
+
+      {match.group && (
+        <span className="hidden shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 sm:block">
+          Poule {match.group}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+// ---- Tribune rail ---------------------------------------------------------------
+
+function TribuneRail({ uid }: { uid: string }) {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    const unsub = onPosts(5, uid, setPosts);
+    return () => unsub();
+  }, [uid]);
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+          <MessageCircle size={15} className="text-emerald-600" />
+          La Tribune
+        </h3>
+        <Link href="/feed" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">
+          Tout voir
+        </Link>
+      </div>
+
+      <div className="mt-3 space-y-2.5">
+        {posts.length === 0 && (
+          <p className="py-4 text-center text-xs text-gray-400">Aucune publication pour le moment.</p>
+        )}
+        {posts.map((post) => (
+          <div key={post.id} className="rounded-xl bg-gray-50 p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[9px] font-bold text-emerald-700">
+                {post.authorAvatar?.startsWith("http") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  post.authorName.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              <span className="truncate text-xs font-bold text-gray-900">{post.authorName}</span>
+            </div>
+            <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-gray-600">{post.content}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ============================================
-// Component
-// ============================================
+// ---- Page -----------------------------------------------------------------------
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [compsLoading, setCompsLoading] = useState(true);
+  const [selectedCid, setSelectedCid] = useState<string | null>(null);
+  const [matches, setMatches] = useState<CompMatch[]>([]);
+  const [tab, setTab] = useState<Tab>("all");
 
-  const [loading, setLoading] = useState(true);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [participations, setParticipations] = useState<Participation[]>([]);
-  const [pendingInvitations, setPendingInvitations] = useState(0);
-  const [refereeMatches, setRefereeMatches] = useState<Match[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
-
+  // Public competitions (most relevant first) — auto-select the first.
   useEffect(() => {
-    if (!user) return;
+    listPublicCompetitions()
+      .then((comps) => {
+        setCompetitions(comps);
+        setSelectedCid((cur) => cur ?? comps[0]?.id ?? null);
+      })
+      .finally(() => setCompsLoading(false));
+  }, []);
 
-    let cancelled = false;
-    let unsubs: (() => void)[] = [];
+  // Real-time fixtures for the selected competition.
+  useEffect(() => {
+    if (!selectedCid) return;
+    setMatches([]);
+    const unsub = onCompMatches(selectedCid, setMatches);
+    return () => unsub();
+  }, [selectedCid]);
 
-    async function loadData() {
-      try {
-        // Common activity listener
-        const { onPosts } = await import("@/lib/firestore");
-        const unsubPosts = onPosts(5, user!.uid, (posts) => {
-          if (!cancelled) {
-            const mappedActivities = posts.map(post => {
-              let icon = FileText;
-              if (post.type === "match_result") icon = Trophy;
-              if (post.type === "team_announcement") icon = Users;
-              if (post.type === "highlight") icon = Star;
-              
-              const date = new Date(post.createdAt);
-              const now = new Date();
-              const diffMs = now.getTime() - date.getTime();
-              const diffMins = Math.floor(diffMs / 60000);
-              const diffHours = Math.floor(diffMins / 60);
-              const diffDays = Math.floor(diffHours / 24);
+  const competition = competitions.find((c) => c.id === selectedCid) ?? null;
 
-              let timeStr = "À l'instant";
-              if (diffDays > 0) timeStr = `Il y a ${diffDays} j.`;
-              else if (diffHours > 0) timeStr = `Il y a ${diffHours} h`;
-              else if (diffMins > 0) timeStr = `Il y a ${diffMins} min`;
+  // Featured match: live > next scheduled > latest completed.
+  const hero = useMemo(() => {
+    const live = matches.filter((m) => m.status === "live");
+    if (live.length > 0) return live[0];
+    const scheduled = matches
+      .filter((m) => m.status === "scheduled" && m.date != null)
+      .sort((a, b) => `${a.date}T${a.time ?? ""}`.localeCompare(`${b.date}T${b.time ?? ""}`));
+    if (scheduled.length > 0) return scheduled[0];
+    const completed = matches
+      .filter((m) => m.status === "completed")
+      .sort((a, b) => `${b.date ?? ""}T${b.time ?? ""}`.localeCompare(`${a.date ?? ""}T${a.time ?? ""}`));
+    return completed[0] ?? null;
+  }, [matches]);
 
-              return {
-                id: post.id,
-                text: post.content,
-                time: timeStr,
-                icon
-              };
-            });
-            setActivities(mappedActivities);
-          }
-        });
-        unsubs.push(unsubPosts);
+  // Tab filter + group by day.
+  const grouped = useMemo(() => {
+    let list = matches;
+    if (tab === "live") list = matches.filter((m) => m.status === "live");
+    if (tab === "finished") list = matches.filter((m) => m.status === "completed");
+    if (tab === "upcoming") list = matches.filter((m) => m.status === "scheduled");
 
-        if (user!.userType === "player") {
-          const [playerTeams, playerParticipations] = await Promise.all([
-            getTeamsByPlayer(user!.uid),
-            getParticipationsForPlayer(user!.uid),
-          ]);
-          if (cancelled) return;
-          setTeams(playerTeams);
-          setParticipations(playerParticipations);
+    const asc = tab !== "finished";
+    const sorted = [...list].sort((a, b) => {
+      const ka = `${a.date ?? "9999"}T${a.time ?? ""}`;
+      const kb = `${b.date ?? "9999"}T${b.time ?? ""}`;
+      return asc ? ka.localeCompare(kb) : kb.localeCompare(ka);
+    });
 
-          const teamIds = playerTeams.map((t) => t.id);
-          if (teamIds.length > 0) {
-            const playerMatches = await getMatchesByTeamIds(teamIds);
-            if (!cancelled) setMatches(playerMatches);
-          }
-
-          // Real-time listener for pending invitations
-          const unsubInvitations = onInvitationsForPlayer(user!.uid, (invitations: Invitation[]) => {
-            if (!cancelled) {
-              setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
-            }
-          });
-          unsubs.push(unsubInvitations);
-        } else if (user!.userType === "manager") {
-          const managerTeams = await getTeamsByManager(user!.uid);
-          if (cancelled) return;
-          setTeams(managerTeams);
-
-          const teamIds = managerTeams.map((t) => t.id);
-          if (teamIds.length > 0) {
-            const managerMatches = await getMatchesByTeamIds(teamIds);
-            if (!cancelled) setMatches(managerMatches);
-          }
-
-          // Real-time listener for sent invitations
-          const unsubInvitationsByManager = onInvitationsByManager(user!.uid, (invitations: Invitation[]) => {
-            if (!cancelled) {
-              setPendingInvitations(invitations.filter((inv) => inv.status === "pending").length);
-            }
-          });
-          unsubs.push(unsubInvitationsByManager);
-        } else if (user!.userType === "referee") {
-          const unsubReferee = onRefereeAssignments(user!.uid, (matches: Match[]) => {
-            if (!cancelled) {
-              setRefereeMatches(matches);
-              setMatches(matches);
-            }
-          });
-          unsubs.push(unsubReferee);
-        }
-      } catch (err) {
-        console.error("Erreur lors du chargement du tableau de bord:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    const days = new Map<string, CompMatch[]>();
+    for (const m of sorted) {
+      const key = m.date ?? "";
+      const bucket = days.get(key) ?? [];
+      bucket.push(m);
+      days.set(key, bucket);
     }
-
-    loadData();
-
-    return () => {
-      cancelled = true;
-      unsubs.forEach(unsub => unsub());
-    };
-  }, [user]);
-
-  if (!user) return null;
-
-  // ---- Compute stats based on role ----
-
-  const relevantMatches = getRelevantMatches(matches);
-
-  const stats = (() => {
-    if (user.userType === "player") {
-      const confirmedParticipations = participations.filter((p) => p.status === "confirmed");
-      const matchesPlayed = user.matchesPlayed || confirmedParticipations.length;
-      const totalGoals = user.goals || confirmedParticipations.reduce((sum, p) => sum + p.goals, 0);
-      const upcomingCount = relevantMatches.length;
-
-      return [
-        { icon: Trophy, value: matchesPlayed, label: "Matchs joués", color: "bg-primary-50" },
-        { icon: Target, value: totalGoals, label: "Buts marqués", color: "bg-accent-50" },
-        { icon: Calendar, value: upcomingCount, label: "Prochains matchs", color: "bg-blue-50" },
-        { icon: UserPlus, value: pendingInvitations, label: "Invitations", color: "bg-purple-50" },
-      ];
-    }
-
-    if (user.userType === "manager") {
-      const totalPlayers = teams.reduce((sum, t) => sum + t.memberIds.length, 0);
-      const upcomingCount = matches.filter((m) => m.status === "upcoming").length;
-      const totalWins = teams.reduce((sum, t) => sum + t.wins, 0);
-
-      return [
-        { icon: Users, value: totalPlayers, label: "Joueurs", color: "bg-primary-50" },
-        { icon: Calendar, value: upcomingCount, label: "Matchs programmés", color: "bg-blue-50" },
-        { icon: Trophy, value: totalWins, label: "Victoires", color: "bg-accent-50" },
-        { icon: UserPlus, value: pendingInvitations, label: "Invitations envoyées", color: "bg-purple-50" },
-      ];
-    }
-
-    if (user.userType === "referee") {
-      const confirmedMatches = refereeMatches.filter(m => m.refereeStatus === "confirmed");
-      const liveCount = refereeMatches.filter(m => m.status === "live").length;
-      const completedCount = refereeMatches.filter(m => m.status === "completed").length;
-      const pendingInvites = refereeMatches.filter(m => m.refereeStatus === "invited").length;
-
-      return [
-        { icon: Play, value: liveCount, label: "Matchs en direct", color: "bg-red-50" },
-        { icon: Shield, value: confirmedMatches.length, label: "Matchs confirmés", color: "bg-primary-50" },
-        { icon: Award, value: completedCount, label: "Matchs arbitrés", color: "bg-emerald-50" },
-        { icon: UserPlus, value: pendingInvites, label: "Invitations", color: "bg-purple-50" },
-      ];
-    }
-
-    return [];
-  })();
-
-  // ---- Progression Logic ----
-  const matchesPlayed = user.matchesPlayed || 0;
-  const level = Math.floor(matchesPlayed / 5) + 1; // Level up every 5 matches
-  const currentXP = (matchesPlayed % 5) * 200; // 200 XP per match
-  const requiredXP = 1000;
-  const progressPercent = (currentXP / requiredXP) * 100;
-
-  const getPositionLabel = (pos?: string) => {
-    if (!pos) return "Passionné";
-    const labels: Record<string, string> = {
-      goalkeeper: "Gardien",
-      defender: "Défenseur",
-      midfielder: "Milieu",
-      forward: "Attaquant",
-      any: "Polyvalent"
-    };
-    return labels[pos] || pos;
-  };
-
-  const getSkillLabel = (level?: string) => {
-    const labels: Record<string, string> = {
-      beginner: "Débutant",
-      amateur: "Amateur",
-      intermediate: "Confirmé",
-      advanced: "Expert"
-    };
-    return labels[level || ""] || "Joueur";
-  };
+    return Array.from(days.entries());
+  }, [matches, tab]);
 
   return (
-    <div className="space-y-3 sm:space-y-5">
-      {/* Welcome */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <h1 className="text-lg sm:text-2xl font-bold text-gray-900 font-display">
-          Bienvenue, {user.firstName} !
+    <div className="mx-auto max-w-6xl space-y-5">
+      {/* Page header */}
+      <div>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-gray-900">
+          <Radio size={22} className="text-emerald-600" />
+          Direct
         </h1>
-        <p className="mt-0.5 text-sm sm:text-base text-gray-500">
-          Voici un aperçu de ton activité
-        </p>
-      </motion.div>
+        <p className="mt-1 text-sm text-gray-500">Les compétitions Koppafoot en temps réel.</p>
+      </div>
 
-      {/* Stats grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <StatCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
-          {stats.map((stat, i) => (
-            <StatCard
-              key={stat.label}
-              icon={stat.icon}
-              value={stat.value}
-              label={stat.label}
-              color={stat.color}
-              delay={i * 0.08}
-            />
+      {/* Competition chips */}
+      {competitions.length > 0 && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
+          {competitions.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setSelectedCid(c.id)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                c.id === selectedCid
+                  ? "bg-emerald-600 text-white"
+                  : "border border-gray-200 bg-white text-gray-600 hover:border-emerald-300"
+              }`}
+            >
+              {c.name}
+            </button>
           ))}
         </div>
       )}
 
-      {/* Two columns */}
-      <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
-        {/* Upcoming matches */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.35 }}
-          className="rounded-xl border border-gray-200 bg-white"
-        >
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <h3 className="text-sm font-semibold text-gray-900 font-display">Prochains matchs</h3>
-            <button className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700">
-              Tout voir <ChevronRight size={14} />
-            </button>
-          </div>
-          {loading ? (
-            <MatchListSkeleton />
-          ) : relevantMatches.length > 0 ? (
-            <div className="divide-y divide-gray-50">
-              {relevantMatches.map((match) => (
-                <div key={match.id} className="flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-2.5 sm:py-3.5 hover:bg-gray-50 transition-colors">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
-                    <Trophy size={18} className="text-primary-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {match.homeTeamName} vs {match.awayTeamName}
-                    </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
-                      {match.status === "live" ? (
-                        <span className="flex items-center gap-1 font-bold text-red-600">
-                          <div className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
-                          EN DIRECT
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} /> {formatMatchDate(match.date, match.time)}
-                        </span>
-                      )}
-                      {match.venueName && (
-                        <span className="flex items-center gap-1">
-                          <MapPin size={12} /> {match.venueName}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Center column */}
+        <div className="min-w-0 space-y-5">
+          {compsLoading ? (
+            <div className="h-44 animate-pulse rounded-2xl bg-gray-200" />
+          ) : !competition ? (
+            <div className="flex flex-col items-center rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16">
+              <Trophy size={32} className="text-gray-300" />
+              <h3 className="mt-4 font-display text-lg font-bold text-gray-900">
+                Aucune compétition en cours
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Les prochaines compétitions apparaîtront ici.
+              </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center py-10 text-center">
-              <Calendar size={24} className="text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">Aucun match à venir</p>
-            </div>
-          )}
-        </motion.div>
+            <>
+              {hero && <HeroMatchCard match={hero} competition={competition} />}
 
-        {/* Recent activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.4 }}
-          className="rounded-xl border border-gray-200 bg-white"
-        >
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h3 className="text-sm font-semibold text-gray-900 font-display">Activité récente</h3>
-          </div>
-          <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
-            {activities.length > 0 ? (
-              activities.map((activity) => {
-                const Icon = activity.icon;
-                return (
-                  <div key={activity.id} className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                      <Icon size={14} className="text-gray-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-700 line-clamp-2">{activity.text}</p>
-                      <p className="text-xs text-gray-400">{activity.time}</p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex flex-col items-center py-10 text-center">
-                <Clock size={24} className="text-gray-300" />
-                <p className="mt-2 text-sm text-gray-500">Aucune activité récente</p>
+              {/* Tabs */}
+              <div className="flex gap-1.5 overflow-x-auto">
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                      tab === t.key
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+                <Link
+                  href={`/c/${competition.slug}`}
+                  className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  Classements
+                  <ChevronRight size={14} />
+                </Link>
               </div>
-            )}
-          </div>
-        </motion.div>
-      </div>
 
-      {/* Level & Progression */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.5 }}
-        className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6"
-      >
-        <h3 className="mb-3 sm:mb-4 text-sm font-semibold text-gray-900 font-display">Niveau & Progression</h3>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <LevelBadge level={level} progress={progressPercent} size={56} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900">
-              Niveau {level} — {getPositionLabel(user.position)} {getSkillLabel(user.skillLevel)}
-            </p>
-            <p className="mb-2 sm:mb-3 text-xs text-gray-500">
-              {currentXP} / {requiredXP} XP — {requiredXP - currentXP} XP restants
-            </p>
-            <XPProgressBar currentXP={currentXP} requiredXP={requiredXP} level={level} />
+              {/* Fixtures grouped by matchday */}
+              {grouped.length === 0 ? (
+                <div className="rounded-2xl border border-gray-200 bg-white py-12 text-center">
+                  <CalendarDays size={24} className="mx-auto text-gray-300" />
+                  <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                  {grouped.map(([date, dayMatches]) => (
+                    <div key={date || "undated"}>
+                      <div className="border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                        {date ? dayLabel(date) : "Date à confirmer"}
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {dayMatches.map((m) => (
+                          <MatchRow key={m.id} match={m} competition={competition} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Right rail — desktop only (mobile has the Tribune tab) */}
+        <div className="hidden xl:block">
+          <div className="sticky top-6 space-y-4">
+            {user && <TribuneRail uid={user.uid} />}
+            <Link
+              href="/competitions"
+              className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-gray-900 transition-colors hover:border-emerald-300"
+            >
+              Toutes les compétitions
+              <ChevronRight size={16} className="text-emerald-600" />
+            </Link>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

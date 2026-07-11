@@ -112,6 +112,30 @@ export async function getCompetitionBySlug(slug: string): Promise<Competition | 
   return toCompetition(d.id, d.data() as FirestoreCompetition);
 }
 
+// Relevance rank shared with competition-admin.getPublicCompetitions:
+// ongoing first, then upcoming, then finished (draft filtered out).
+const PUBLIC_STATUS_RANK: Record<Competition["status"], number> = {
+  group_stage: 0, knockout: 0, registration: 1, completed: 2, draft: 99,
+};
+
+/**
+ * Client-side equivalent of competition-admin.getPublicCompetitions — all
+ * publicly-visible competitions (status != draft), most relevant first.
+ * Used by logged-in surfaces (dashboard) that need client Firestore.
+ */
+export async function listPublicCompetitions(): Promise<Competition[]> {
+  const snap = await getDocs(collection(db, "competitions"));
+  const comps = snap.docs
+    .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
+    .filter((c) => c.status !== "draft");
+  comps.sort((a, b) => {
+    const r = PUBLIC_STATUS_RANK[a.status] - PUBLIC_STATUS_RANK[b.status];
+    if (r !== 0) return r;
+    return (b.startDate ?? b.createdAt).localeCompare(a.startDate ?? a.createdAt);
+  });
+  return comps;
+}
+
 export async function listCompetitionsByOrganizer(uid: string): Promise<Competition[]> {
   const q = query(
     collection(db, "competitions"),

@@ -394,12 +394,6 @@ export default function LoginPage() {
             Créer un compte
           </Link>
         </p>
-        <p className="text-white/30">
-          Vous gérez un terrain ?{" "}
-          <Link href="/signup/venue-owner" className="font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors">
-            Inscription propriétaire
-          </Link>
-        </p>
       </div>
 
       <PWAInstallPrompt />

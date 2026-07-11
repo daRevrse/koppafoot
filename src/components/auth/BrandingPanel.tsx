@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import { motion } from "motion/react";
-import { Trophy, Users, MapPin } from "lucide-react";
+import { Trophy, Radio, Bell } from "lucide-react";
 
 const FEATURES = [
-  { icon: Users, text: "Rejoins des équipes et trouve des joueurs" },
-  { icon: Trophy, text: "Organise et participe à des matchs" },
-  { icon: MapPin, text: "Réserve des terrains près de chez toi" },
+  { icon: Radio, text: "Suis les scores de tes compétitions en direct" },
+  { icon: Bell, text: "Reçois buts et résultats en temps réel" },
+  { icon: Trophy, text: "Organise ta propre compétition" },
 ];
 
 export default function BrandingPanel() {
