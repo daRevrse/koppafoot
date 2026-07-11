@@ -28,12 +28,13 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 // ============================================
 // Member — unified nav (competition-first scope)
 // ============================================
-// Post-pivot: every non-admin account gets the same simple navigation.
-// Legacy roles (manager/referee/venue_owner) map to the member nav until
-// their verticals come back from _shelved.
+// Post-pivot: the same simple navigation for everyone, including guests
+// (the home shell is public — auth only unlocks privileges). Legacy roles
+// (manager/referee/venue_owner) map to the member nav until their
+// verticals come back from _shelved.
 
-const MEMBER_NAV: NavEntry[] = [
-  { path: "/dashboard", icon: "Home", label: "Direct", exact: true },
+export const MEMBER_NAV: NavEntry[] = [
+  { path: "/", icon: "Home", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
@@ -43,6 +44,8 @@ export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
   manager: MEMBER_NAV,
   referee: MEMBER_NAV,
   venue_owner: MEMBER_NAV,
+  organizer: MEMBER_NAV,
+  superadmin: MEMBER_NAV,
 };
 
 // ============================================
@@ -115,14 +118,9 @@ export interface BottomNavItem {
   exact?: boolean;
 }
 
-const MEMBER_BOTTOM: BottomNavItem[] = [
-  { path: "/dashboard", icon: "Home", label: "Direct", exact: true },
+export const MEMBER_BOTTOM: BottomNavItem[] = [
+  { path: "/", icon: "Home", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
-  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
-];
-
-const ORGANIZER_BOTTOM: BottomNavItem[] = [
-  { path: "/organizer", icon: "Trophy", label: "Compétitions", exact: true },
   { path: "/feed", icon: "MessageCircle", label: "Tribune" },
 ];
 
@@ -131,5 +129,6 @@ export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {
   manager: MEMBER_BOTTOM,
   referee: MEMBER_BOTTOM,
   venue_owner: MEMBER_BOTTOM,
-  organizer: ORGANIZER_BOTTOM,
+  organizer: MEMBER_BOTTOM,
+  superadmin: MEMBER_BOTTOM,
 };

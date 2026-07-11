@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Routes that require authentication
-const PROTECTED_ROUTES = ["/dashboard", "/profile", "/feed"];
+// Routes that require authentication ("/" is public — the shell shows
+// auth privileges based on session state)
+const PROTECTED_ROUTES = ["/profile", "/feed"];
 const ORGANIZER_ROUTES = ["/organizer"];
 const LIVE_OPS_ROUTES = ["/live-ops"];
 const ADMIN_ROUTES = ["/admin"];
@@ -36,7 +37,7 @@ export function proxy(request: NextRequest) {
 
   // Logged in → redirect away from auth pages (but NOT onboarding)
   if (session && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   // Note: Role-based route protection (e.g., only venue_owner can access /venue-owner)

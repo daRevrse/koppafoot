@@ -130,10 +130,10 @@ export interface FirestoreUser {
 
 // Route protection
 export const ROLE_REDIRECTS: Record<UserRole, string> = {
-  player: "/dashboard",
-  manager: "/dashboard",
-  referee: "/dashboard",
-  venue_owner: "/dashboard",
+  player: "/",
+  manager: "/",
+  referee: "/",
+  venue_owner: "/",
   organizer: "/organizer",
   superadmin: "/admin",
 };

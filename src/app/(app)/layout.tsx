@@ -4,19 +4,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { ROLE_REDIRECTS } from "@/types";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppHeader from "@/components/layout/AppHeader";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
+
+// Routes in this group that render for guests. Everything else requires
+// an authenticated profile. The shell (sidebar/header/bottom nav) renders
+// for everyone — auth only changes which privileges it shows.
+const PUBLIC_PATHS = ["/"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  const isPublic = PUBLIC_PATHS.includes(pathname);
+
   useEffect(() => {
-    if (loading) return;
+    if (loading || isPublic) return;
 
     // 1. Not authenticated -> go to login
     if (!firebaseUser) {
@@ -33,27 +39,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
       return;
     }
+  }, [user, firebaseUser, loading, router, pathname, isPublic]);
 
-    // 3. Role-based redirect (if in wrong layout group)
-    // AppLayout handles every account except superadmin
-    const isSuperadmin = user.userType === "superadmin";
-
-    if (isSuperadmin && !pathname.startsWith("/admin")) {
-      router.replace(ROLE_REDIRECTS.superadmin);
-      return;
+  // Protected routes gate on auth; the public home renders immediately
+  // (its content is server-rendered — blanking it while auth resolves
+  // would flash the page away).
+  if (!isPublic) {
+    if (loading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 size={32} className="animate-spin text-primary-600" />
+        </div>
+      );
     }
-  }, [user, firebaseUser, loading, router, pathname]);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-primary-600" />
-      </div>
-    );
+    if (!user) return null;
   }
-
-  // Don't render until user is valid for this layout
-  if (!user || user.userType === "superadmin") return null;
 
   return (
     <div className="flex min-h-screen">

@@ -45,7 +45,7 @@ export default function VerifyEmailPage() {
         <h2 className="mb-2 text-xl font-black text-white font-display">Email vérifié</h2>
         <p className="mb-6 text-sm text-white/40">Votre adresse email est vérifiée.</p>
         <Link
-          href="/dashboard"
+          href="/"
           className="inline-flex rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-400 transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.25)]"
         >
           Accéder à mon espace

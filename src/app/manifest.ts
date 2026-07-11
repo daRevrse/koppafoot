@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "KoppaFoot",
     description:
       "La plateforme qui connecte les passionnés de football amateur",
-    start_url: "/dashboard",
+    start_url: "/",
     display: "standalone",
     orientation: "portrait",
     background_color: "#022c22",

@@ -50,7 +50,7 @@ export default function GetStartedPage() {
       };
       await completeProfile(signupData);
       toast.success("Profil créé !");
-      router.push("/dashboard");
+      router.push("/");
     } catch (err) {
       console.error("completeProfile error:", err);
       toast.error(getAuthErrorMessage(err));

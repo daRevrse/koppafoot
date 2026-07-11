@@ -4,10 +4,10 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Home, Trophy, MessageCircle, User, LogOut, X,
+  Home, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_BOTTOM_NAV, ROLE_BADGE_COLORS, type BottomNavItem } from "@/config/navigation";
+import { ROLE_BOTTOM_NAV, ROLE_BADGE_COLORS, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 import { ROLE_LABELS } from "@/types";
 
 // ─── Icon map ────────────────────────────────────────────────
@@ -108,6 +108,26 @@ function AvatarBottomSheet({
               <User size={18} className="text-emerald-400" />
               Mon profil
             </Link>
+            {user.userType === "organizer" && (
+              <Link
+                href="/organizer"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <ClipboardList size={18} className="text-emerald-400" />
+                Espace organisateur
+              </Link>
+            )}
+            {user.userType === "superadmin" && (
+              <Link
+                href="/admin"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <Shield size={18} className="text-emerald-400" />
+                Administration
+              </Link>
+            )}
           </div>
 
           {/* Divider */}
@@ -136,12 +156,11 @@ export default function MobileBottomNav() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const badgeCounts: Record<string, number> = {};
 
-  if (!user) return null;
+  // Public shell: guests get the member tabs; the 5th tab becomes a
+  // login link instead of the profile sheet.
+  const items = (user ? ROLE_BOTTOM_NAV[user.userType] : MEMBER_BOTTOM) ?? MEMBER_BOTTOM;
 
-  const items = ROLE_BOTTOM_NAV[user.userType];
-  if (!items) return null;
-
-  const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "";
 
   return (
     <>
@@ -212,46 +231,58 @@ export default function MobileBottomNav() {
               );
             })}
 
-            {/* 5th tab: Avatar button */}
-            <button
-              onClick={() => setSheetOpen(true)}
-              className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
-            >
-              <span className="relative">
-                <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${
-                  sheetOpen
-                    ? "ring-emerald-400 bg-emerald-700"
-                    : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
-                }`}>
-                  {user.profilePictureUrl ? (
-                    <img
-                      src={user.profilePictureUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-[8px] font-bold text-emerald-300">
-                      {initials}
-                    </span>
-                  )}
-                </div>
-              </span>
-              <span
-                className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
-                  sheetOpen
-                    ? "text-emerald-400"
-                    : "text-white/40 group-hover:text-white/70"
-                }`}
+            {/* 5th tab: avatar (authed) or login link (guest) */}
+            {user ? (
+              <button
+                onClick={() => setSheetOpen(true)}
+                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
               >
-                Moi
-              </span>
-            </button>
+                <span className="relative">
+                  <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${
+                    sheetOpen
+                      ? "ring-emerald-400 bg-emerald-700"
+                      : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
+                  }`}>
+                    {user.profilePictureUrl ? (
+                      <img
+                        src={user.profilePictureUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-[8px] font-bold text-emerald-300">
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+                </span>
+                <span
+                  className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
+                    sheetOpen
+                      ? "text-emerald-400"
+                      : "text-white/40 group-hover:text-white/70"
+                  }`}
+                >
+                  Moi
+                </span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
+              >
+                <User size={22} className="text-white/50 group-hover:text-white/80" />
+                <span className="text-[10px] font-semibold leading-tight text-white/40 group-hover:text-white/70">
+                  Connexion
+                </span>
+              </Link>
+            )}
           </div>
         </div>
       </nav>
 
       {/* Profile bottom sheet */}
-      <AvatarBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      {user && <AvatarBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />}
     </>
   );
 }

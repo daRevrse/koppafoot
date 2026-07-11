@@ -105,7 +105,7 @@ export default function AdminSidebar() {
           Mon profil
         </Link>
         <Link
-          href="/dashboard"
+          href="/"
           className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-emerald-400 hover:bg-white/5 transition-colors"
         >
           <ChevronLeft size={17} />
