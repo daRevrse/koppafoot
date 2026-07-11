@@ -6,20 +6,27 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppHeader from "@/components/layout/AppHeader";
+import TribuneSidebar from "@/components/layout/TribuneSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
 
 // Routes in this group that render for guests. Everything else requires
 // an authenticated profile. The shell (sidebar/header/bottom nav) renders
 // for everyone — auth only changes which privileges it shows.
-const PUBLIC_PATHS = ["/"];
+function isPublicPath(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/competitions") ||
+    pathname.startsWith("/c/")
+  );
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublic = PUBLIC_PATHS.includes(pathname);
+  const isPublic = isPublicPath(pathname);
 
   useEffect(() => {
     if (loading || isPublic) return;
@@ -65,6 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <TribuneSidebar />
       <MobileBottomNav />
     </div>
   );

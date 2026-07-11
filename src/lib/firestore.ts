@@ -214,6 +214,7 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,
+    followedCompetitionIds: data.followed_competition_ids ?? [],
     galleryPhotos: data.gallery_photos ?? [],
     trophies: data.trophies ?? [],
   };

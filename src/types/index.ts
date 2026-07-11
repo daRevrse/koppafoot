@@ -44,6 +44,8 @@ export interface UserProfile {
   // Social
   followersCount?: number;
   followingCount?: number;
+  // Competitions followed (push notifications on kickoff/goal/final)
+  followedCompetitionIds?: string[];
   // Gallery
   galleryPhotos?: string[];
   // Palmarès / Trophies
@@ -117,6 +119,8 @@ export interface FirestoreUser {
   // Social
   followers_count?: number;
   following_count?: number;
+  // Competitions followed (push notifications on kickoff/goal/final)
+  followed_competition_ids?: string[];
   // Gallery
   gallery_photos?: string[];
   // Palmarès

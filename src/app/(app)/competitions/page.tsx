@@ -1,13 +1,13 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import CompetitionDirectorySearch from "@/components/competition/CompetitionDirectorySearch";
 
-// Public, login-free directory of all visible competitions. Server Component:
-// fetches via the firebase-admin lib (getPublicCompetitions) and hands the data
-// to a small client search island as props — the admin lib never enters the
-// client bundle. The middleware (src/proxy.ts) does NOT gate /competitions.
+// Public, login-free directory of all visible competitions, rendered inside
+// the general app shell (the (app) layout treats /competitions as public).
+// Server Component: fetches via the firebase-admin lib (getPublicCompetitions)
+// and hands the data to a small client search island as props — the admin lib
+// never enters the client bundle.
 export const revalidate = 60;
 
 export const metadata = {
@@ -19,33 +19,7 @@ export default async function CompetitionsPage() {
   const competitions = await getPublicCompetitions();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Slim public header — mirrors the /c/[slug] shell, plus a join CTA. */}
-      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/branding/logo_symbol.png"
-              alt="Koppafoot"
-              width={28}
-              height={28}
-              priority
-              className="h-7 w-7"
-            />
-            <span className="font-display text-base font-black tracking-tight text-gray-900">
-              Koppafoot
-            </span>
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-emerald-600"
-          >
-            Rejoindre
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-5xl">
         {/* Hero strip */}
         <div className="mb-8">
           <h1 className="font-display text-3xl font-black tracking-tight text-gray-900">
@@ -82,7 +56,6 @@ export default async function CompetitionsPage() {
         ) : (
           <CompetitionDirectorySearch competitions={competitions} />
         )}
-      </main>
     </div>
   );
 }

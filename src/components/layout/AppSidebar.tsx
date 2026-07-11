@@ -206,20 +206,23 @@ export default function AppSidebar() {
             {competitions.length === 0 ? (
               <p className="px-3 py-2 text-xs text-gray-300">Aucune compétition.</p>
             ) : (
-              competitions.slice(0, 6).map((c, i) => (
-                <Link
-                  key={c.id}
-                  href={`/?c=${c.slug}`}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
-                >
-                  <CompetitionLogo competition={c} />
-                  <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                  <Star
-                    size={14}
-                    className={i === 0 ? "fill-amber-400 text-amber-400" : "text-gray-200"}
-                  />
-                </Link>
-              ))
+              competitions.slice(0, 6).map((c) => {
+                const followed = user?.followedCompetitionIds?.includes(c.id) ?? false;
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/?c=${c.slug}`}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <CompetitionLogo competition={c} />
+                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                    <Star
+                      size={14}
+                      className={followed ? "fill-amber-400 text-amber-400" : "text-gray-200"}
+                    />
+                  </Link>
+                );
+              })
             )}
           </div>
         </nav>

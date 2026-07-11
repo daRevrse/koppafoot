@@ -14,6 +14,7 @@ import {
   onSnapshot,
   writeBatch,
   arrayUnion,
+  arrayRemove,
   increment,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -31,6 +32,22 @@ import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
 export { toCompetition, toCompTeam, toCompMatch };
+
+// ============================================
+// Follow (push notifications on kickoff/goal/final)
+// ============================================
+
+/** Add/remove a competition from the user's followed list (own doc only). */
+export async function setCompetitionFollow(
+  uid: string,
+  cid: string,
+  follow: boolean,
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    followed_competition_ids: follow ? arrayUnion(cid) : arrayRemove(cid),
+    updated_at: serverTimestamp(),
+  });
+}
 
 // ============================================
 // Helpers

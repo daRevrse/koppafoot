@@ -23,6 +23,7 @@ import {
   updateCompMatch,
 } from "@/lib/competition-firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import type { CompMatch, CompPlayer, LineupEntry, Competition } from "@/types";
 
 // Football rule constants.
@@ -318,6 +319,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     try {
       await initLiveCompMatch(cid, mid);
       await updateCompMatch(cid, mid, { home_on_pitch: homeOnPitch, away_on_pitch: awayOnPitch });
+      notifyCompetitionFollowers({
+        cid,
+        title: "🔴 C'est parti !",
+        body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !`,
+        link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
+      });
       containerRef.current?.requestFullscreen?.().catch(() => {});
     } catch {
       toast.error("Erreur technique");
@@ -372,6 +379,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           minute,
           player_id: entry.playerId,
           player_name: entry.name,
+        });
+        const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
+        const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
+        notifyCompetitionFollowers({
+          cid,
+          title: `⚽ BUT ! ${entry.name} (${minute}')`,
+          body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
+          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
         });
         toast.success("BUT !");
         setGoalCooldown(60);
@@ -514,6 +529,15 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     setIsSubmitting(true);
     try {
       await finishCompMatch(cid, mid, opts);
+      if (match) {
+        const scoreLine = `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`;
+        notifyCompetitionFollowers({
+          cid,
+          title: "🏁 Score final",
+          body: opts ? `${scoreLine} (${opts.penaltyHome} – ${opts.penaltyAway} t.a.b.)` : scoreLine,
+          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
+        });
+      }
       if (typeof document !== "undefined" && document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }

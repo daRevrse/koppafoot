@@ -7,15 +7,12 @@ import { motion } from "motion/react";
 import {
   CalendarDays, ChevronRight, ChevronDown, Trophy, Star, MapPin,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   listPublicCompetitions, onCompMatches, listCompTeams,
   computeStandings, computeTopScorers,
 } from "@/lib/competition-firestore";
-import { onPosts } from "@/lib/firestore";
-import type { Competition, CompMatch, CompTeam, Post } from "@/types";
+import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
+import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
 // DirectHome — the live-score home, served publicly at "/".
@@ -426,65 +423,9 @@ function TopScorersCard({
   );
 }
 
-function TribuneCard({ uid }: { uid: string }) {
-  const [posts, setPosts] = useState<Post[]>([]);
-
-  useEffect(() => {
-    const unsub = onPosts(5, uid, setPosts);
-    return () => unsub();
-  }, [uid]);
-
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-black text-gray-900">La Tribune</h3>
-        <Link
-          href="/feed"
-          className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
-        >
-          Tout voir
-        </Link>
-      </div>
-      <div className="mt-2.5 space-y-3">
-        {posts.length === 0 && (
-          <p className="py-3 text-center text-xs text-gray-300">Aucune publication.</p>
-        )}
-        {posts.map((post) => {
-          let ago = "";
-          try {
-            ago = formatDistanceToNow(new Date(post.createdAt), { locale: fr, addSuffix: true });
-          } catch { /* ignore */ }
-          return (
-            <div key={post.id} className="flex items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-[10px] font-black text-emerald-600">
-                {post.authorAvatar?.startsWith("http") ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  post.authorName.slice(0, 2).toUpperCase()
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate text-xs font-black text-gray-900">{post.authorName}</p>
-                  {ago && <p className="shrink-0 text-[9px] font-bold text-gray-300">{ago}</p>}
-                </div>
-                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-500">
-                  {post.content}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ---- Page -----------------------------------------------------------------------
 
 export default function DirectHome({ initialCompetitions }: { initialCompetitions: Competition[] }) {
-  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [competitions, setCompetitions] = useState<Competition[]>(initialCompetitions);
@@ -574,9 +515,7 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        {/* Center column */}
-        <div className="min-w-0 space-y-5">
+      <div className="min-w-0 space-y-5">
           {compsLoading ? (
             <div className="h-64 animate-pulse rounded-3xl bg-gray-200" />
           ) : !competition ? (
@@ -595,17 +534,20 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
 
               {/* Section header + underlined tabs */}
               <div>
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="font-display text-xl font-black text-gray-900">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="min-w-0 truncate font-display text-xl font-black text-gray-900">
                     Matchs <span className="font-bold text-gray-300">de {competition.name}</span>
                   </h2>
-                  <Link
-                    href={`/c/${competition.slug}`}
-                    className="flex shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
-                  >
-                    Classements
-                    <ChevronRight size={13} />
-                  </Link>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <FollowCompetitionButton cid={competition.id} />
+                    <Link
+                      href={`/c/${competition.slug}`}
+                      className="hidden shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600 sm:flex"
+                    >
+                      Classements
+                      <ChevronRight size={13} />
+                    </Link>
+                  </div>
                 </div>
                 <div className="mt-2 flex gap-5 border-b border-gray-200">
                   {TABS.map((t) => (
@@ -643,35 +585,14 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
                   ))}
                 </div>
               )}
-            </>
-          )}
-        </div>
 
-        {/* Right rail — desktop only (mobile has the Tribune tab) */}
-        <div className="hidden xl:block">
-          <div className="sticky top-20 space-y-4">
-            {competition && (
-              <>
+              {/* Standings + top scorers */}
+              <div className="grid gap-4 md:grid-cols-2">
                 <StandingsCard matches={matches} teams={teams} competition={competition} />
                 <TopScorersCard matches={matches} teams={teams} competition={competition} />
-              </>
-            )}
-            <TribuneCard uid={user?.uid ?? ""} />
-            {!user && (
-              <div className="rounded-2xl bg-emerald-950 p-5 text-center">
-                <p className="text-sm font-bold text-white">
-                  Suis tes compétitions et reçois les buts en direct
-                </p>
-                <Link
-                  href="/signup"
-                  className="mt-3 inline-block rounded-full bg-emerald-500 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-400"
-                >
-                  Créer mon compte
-                </Link>
               </div>
-            )}
-          </div>
-        </div>
+            </>
+          )}
       </div>
     </div>
   );
