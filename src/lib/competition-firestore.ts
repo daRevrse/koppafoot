@@ -263,6 +263,39 @@ export async function deleteCompTeam(cid: string, tid: string): Promise<void> {
   await deleteDoc(doc(db, "competitions", cid, "comp_teams", tid));
 }
 
+/**
+ * Propagate a team's denormalised name/logo onto its matches.
+ *
+ * Matches snapshot `home_team_name` / `home_team_logo` (and away) at creation
+ * time, so a logo uploaded (or a name changed) afterwards would not show on
+ * match cards. Call this after editing a team so every surface that reads the
+ * match-level fields (Direct feed, match page, calendar, bracket) stays in
+ * sync. Returns the number of matches touched.
+ */
+export async function syncTeamToMatches(
+  cid: string,
+  teamId: string,
+  data: { name: string; logoUrl: string | null },
+): Promise<number> {
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+  const [homeSnap, awaySnap] = await Promise.all([
+    getDocs(query(matchesCol, where("home_team_id", "==", teamId))),
+    getDocs(query(matchesCol, where("away_team_id", "==", teamId))),
+  ]);
+
+  if (homeSnap.empty && awaySnap.empty) return 0;
+
+  const batch = writeBatch(db);
+  homeSnap.forEach((d) =>
+    batch.update(d.ref, { home_team_name: data.name, home_team_logo: data.logoUrl }),
+  );
+  awaySnap.forEach((d) =>
+    batch.update(d.ref, { away_team_name: data.name, away_team_logo: data.logoUrl }),
+  );
+  await batch.commit();
+  return homeSnap.size + awaySnap.size;
+}
+
 // ============================================
 // Roster (players live on the comp_team doc as a small array — read-modify-write)
 // ============================================

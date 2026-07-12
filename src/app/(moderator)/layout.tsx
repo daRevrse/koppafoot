@@ -59,7 +59,7 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-gray-100 bg-white/90 px-4 backdrop-blur-xl">
+      <header className="pt-safe sticky top-0 z-20 flex h-14 items-center justify-between border-b border-gray-100 bg-white/90 px-4 backdrop-blur-xl">
         <Link href="/live-ops" className="flex items-center gap-2">
           <Image src="/branding/logo_symbol.png" alt="Koppafoot" width={28} height={28} className="h-7 w-7" />
           <span className="font-display text-base font-black tracking-tight text-gray-900">Live ops</span>

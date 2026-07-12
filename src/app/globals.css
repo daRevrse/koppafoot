@@ -156,6 +156,15 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* On mobile, guarantee a bit of breathing room under the status bar even
+   when the safe-area inset resolves to 0 (translucent status bar / browsers
+   that report no inset). Desktop keeps the raw inset (0). */
+@media (max-width: 1023px) {
+  .pt-safe {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  }
+}
+
 /* Glassmorphism bottom bar */
 .bottom-nav-glass {
   background: rgba(2, 44, 34, 0.92);

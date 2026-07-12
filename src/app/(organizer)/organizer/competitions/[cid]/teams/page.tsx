@@ -12,6 +12,7 @@ import {
   createCompTeam,
   updateCompTeam,
   deleteCompTeam,
+  syncTeamToMatches,
 } from "@/lib/competition-firestore";
 import { uploadTeamLogo } from "@/lib/storage";
 import type { CompTeam } from "@/types";
@@ -149,10 +150,15 @@ export default function CompetitionTeamsPage() {
       }
 
       // Uploaded logo wins over the URL field.
+      let finalLogo = logoUrl;
       if (logoFile) {
-        const url = await uploadTeamLogo(teamId, logoFile);
-        await updateCompTeam(cid, teamId, { logo_url: url });
+        finalLogo = await uploadTeamLogo(teamId, logoFile);
+        await updateCompTeam(cid, teamId, { logo_url: finalLogo });
       }
+
+      // Keep the match-level denormalised name/logo in sync so logos show
+      // on match cards created before this edit.
+      await syncTeamToMatches(cid, teamId, { name, logoUrl: finalLogo });
 
       toast.success(editing ? "Équipe mise à jour" : "Équipe ajoutée");
       clearLogoFile();
