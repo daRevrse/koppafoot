@@ -348,68 +348,83 @@ export function parseDelimited(text: string): string[][] {
   return lines.map((l) => l.split(delim).map((c) => c.trim()));
 }
 
-export interface ImportPlayerRow {
-  team: string;
+export interface ImportTeamRow {
+  name: string;
+  shortName?: string;
+  group?: string;
+  color?: string;
+}
+
+/**
+ * Create/reuse teams by name from team rows. Re-importing a team updates its
+ * short name / poule / colour (only the provided fields). Rosters are set
+ * separately, per team, via setTeamRoster.
+ */
+export async function importTeams(
+  cid: string,
+  rows: ImportTeamRow[],
+): Promise<{ created: number; updated: number }> {
+  const existing = await listCompTeams(cid);
+  const byName = new Map(existing.map((t) => [t.name.trim().toLowerCase(), t]));
+
+  let created = 0;
+  let updated = 0;
+
+  for (const r of rows) {
+    const name = r.name.trim();
+    if (!name) continue;
+    const shortName = r.shortName?.trim() || name.slice(0, 3).toUpperCase();
+    const color = r.color?.trim() || "#059669";
+    const group = r.group?.trim() || null;
+
+    const found = byName.get(name.toLowerCase());
+    if (found) {
+      await updateCompTeam(cid, found.id, {
+        short_name: shortName,
+        color,
+        group,
+      });
+      updated += 1;
+    } else {
+      const tid = await createCompTeam(cid, { name, shortName, color });
+      if (group) await updateCompTeam(cid, tid, { group });
+      created += 1;
+    }
+  }
+
+  return { created, updated };
+}
+
+export interface ImportRosterRow {
   name: string;
   number: string;
   position?: string;
 }
 
 /**
- * Create/reuse teams by name and (re)set each team's roster from the rows.
- * Re-importing a team replaces its roster (idempotent).
+ * Replace a single team's roster from the rows (idempotent — re-importing
+ * overwrites the previous roster). The organizer picks the team first, so
+ * roster rows carry no team column.
  */
-export async function importTeamsPlayers(
+export async function setTeamRoster(
   cid: string,
-  rows: ImportPlayerRow[],
-): Promise<{ teamsCreated: number; teamsUpdated: number; players: number }> {
-  const existing = await listCompTeams(cid);
-  const byName = new Map(existing.map((t) => [t.name.trim().toLowerCase(), t]));
+  teamId: string,
+  rows: ImportRosterRow[],
+): Promise<{ players: number }> {
+  const roster: CompPlayer[] = rows
+    .filter((r) => r.name.trim())
+    .map((r) => {
+      const position = r.position?.trim();
+      return {
+        id: Math.random().toString(36).substring(2, 11),
+        name: r.name.trim(),
+        number: r.number.trim(),
+        ...(position ? { position } : {}),
+      };
+    });
 
-  // Group rows by team name (preserve first-seen casing for new teams).
-  const groups = new Map<string, ImportPlayerRow[]>();
-  for (const r of rows) {
-    const team = r.team.trim();
-    if (!team) continue;
-    const list = groups.get(team) ?? [];
-    list.push(r);
-    groups.set(team, list);
-  }
-
-  let teamsCreated = 0;
-  let teamsUpdated = 0;
-  let players = 0;
-
-  for (const [teamName, teamRows] of groups) {
-    const roster: CompPlayer[] = teamRows
-      .filter((r) => r.name.trim())
-      .map((r) => {
-        const position = r.position?.trim();
-        return {
-          id: Math.random().toString(36).substring(2, 11),
-          name: r.name.trim(),
-          number: r.number.trim(),
-          ...(position ? { position } : {}),
-        };
-      });
-    players += roster.length;
-
-    const found = byName.get(teamName.toLowerCase());
-    if (found) {
-      await updateCompTeam(cid, found.id, { players: roster });
-      teamsUpdated += 1;
-    } else {
-      const tid = await createCompTeam(cid, {
-        name: teamName,
-        shortName: teamName.slice(0, 3).toUpperCase(),
-        color: "#059669",
-      });
-      await updateCompTeam(cid, tid, { players: roster });
-      teamsCreated += 1;
-    }
-  }
-
-  return { teamsCreated, teamsUpdated, players };
+  await updateCompTeam(cid, teamId, { players: roster });
+  return { players: roster.length };
 }
 
 export interface ImportMatchRow {

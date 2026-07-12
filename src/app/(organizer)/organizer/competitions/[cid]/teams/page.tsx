@@ -13,6 +13,7 @@ import {
   updateCompTeam,
   deleteCompTeam,
 } from "@/lib/competition-firestore";
+import { uploadTeamLogo } from "@/lib/storage";
 import type { CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
@@ -45,6 +46,8 @@ export default function CompetitionTeamsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CompTeam | null>(null);
   const [form, setForm] = useState<TeamFormState>(EMPTY_FORM);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Delete confirmation state.
@@ -65,9 +68,35 @@ export default function CompetitionTeamsPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const clearLogoFile = () => {
+    setLogoFile(null);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  const onLogoFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choisis une image (PNG, JPG, WebP).");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo trop lourd (2 Mo maximum).");
+      return;
+    }
+    setLogoFile(file);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    clearLogoFile();
     setModalOpen(true);
   };
 
@@ -79,11 +108,13 @@ export default function CompetitionTeamsPage() {
       color: team.color,
       logoUrl: team.logoUrl ?? "",
     });
+    clearLogoFile();
     setModalOpen(true);
   };
 
   const closeModal = () => {
     if (submitting) return;
+    clearLogoFile();
     setModalOpen(false);
   };
 
@@ -103,18 +134,28 @@ export default function CompetitionTeamsPage() {
 
     setSubmitting(true);
     try {
+      // Save the team first so we have an id for the logo upload path.
+      let teamId: string;
       if (editing) {
-        await updateCompTeam(cid, editing.id, {
+        teamId = editing.id;
+        await updateCompTeam(cid, teamId, {
           name,
           short_name: shortName,
           color: form.color,
           logo_url: logoUrl,
         });
-        toast.success("Équipe mise à jour");
       } else {
-        await createCompTeam(cid, { name, shortName, color: form.color, logoUrl });
-        toast.success("Équipe ajoutée");
+        teamId = await createCompTeam(cid, { name, shortName, color: form.color, logoUrl });
       }
+
+      // Uploaded logo wins over the URL field.
+      if (logoFile) {
+        const url = await uploadTeamLogo(teamId, logoFile);
+        await updateCompTeam(cid, teamId, { logo_url: url });
+      }
+
+      toast.success(editing ? "Équipe mise à jour" : "Équipe ajoutée");
+      clearLogoFile();
       setModalOpen(false);
     } catch (err) {
       console.error("Error saving team:", err);
@@ -384,12 +425,58 @@ export default function CompetitionTeamsPage() {
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Logo <span className="font-normal text-gray-400">(URL, optionnel)</span>
+                    Logo <span className="font-normal text-gray-400">(optionnel)</span>
                   </label>
+                  <div className="flex items-center gap-3">
+                    {/* Preview */}
+                    <div
+                      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200"
+                      style={logoPreview || form.logoUrl ? undefined : { backgroundColor: form.color }}
+                    >
+                      {logoPreview || form.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={logoPreview ?? form.logoUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Shield size={22} className="text-white/90" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+                        <Upload size={15} />
+                        {logoFile ? "Changer le fichier" : "Choisir un fichier"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => onLogoFile(e.target.files?.[0])}
+                        />
+                      </label>
+                      {logoFile ? (
+                        <button
+                          type="button"
+                          onClick={clearLogoFile}
+                          className="ml-2 text-xs font-medium text-gray-400 hover:text-red-500"
+                        >
+                          Retirer
+                        </button>
+                      ) : (
+                        <p className="mt-1 truncate text-xs text-gray-400">
+                          PNG, JPG ou WebP · 2 Mo max
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* URL fallback */}
                   <input
                     type="url"
-                    placeholder="https://…"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    placeholder="…ou coller une URL d'image"
+                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     value={form.logoUrl}
                     onChange={(e) => update("logoUrl", e.target.value)}
                   />
