@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Home, Trophy, MessageCircle, Star, Settings,
+  Home, Trophy, Star, Settings,
   ClipboardList, Shield, Radio, LogIn,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,9 +19,9 @@ import type { Competition } from "@/types";
 // Public shell: guests get join/login CTAs in the profile slot.
 // ============================================
 
+// La Tribune lives in the right sidebar (and the mobile tab) — not here.
 const MENU = [
   { path: "/", icon: Home, label: "Direct", exact: true },
-  { path: "/feed", icon: MessageCircle, label: "La Tribune" },
   { path: "/competitions", icon: Trophy, label: "Compétitions" },
 ];
 
