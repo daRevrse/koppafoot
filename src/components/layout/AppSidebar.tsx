@@ -9,7 +9,6 @@ import {
   ClipboardList, Shield, Radio, LogIn,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_LABELS } from "@/types";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
 import type { Competition } from "@/types";
 
@@ -116,9 +115,11 @@ export default function AppSidebar() {
             <p className="mt-3 truncate text-sm font-black text-gray-900">
               {user.firstName} {user.lastName}
             </p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-gray-400">
-              {ROLE_LABELS[user.userType]}{user.locationCity ? ` · ${user.locationCity}` : ""}
-            </p>
+            {user.locationCity && (
+              <p className="mt-0.5 truncate text-xs font-semibold text-gray-400">
+                {user.locationCity}
+              </p>
+            )}
             <div className="mt-4 flex items-center justify-center">
               <div className="flex-1">
                 <p className="text-sm font-black text-gray-900">{user.followersCount ?? 0}</p>

@@ -139,14 +139,8 @@ export default function TribuneSidebar() {
     <aside className="sticky top-0 hidden h-screen w-80 flex-shrink-0 xl:block">
       <div className="flex h-full flex-col border-l border-gray-200 bg-white">
         {/* Header */}
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 px-4">
+        <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-4">
           <h2 className="font-display text-sm font-black text-gray-900">La Tribune</h2>
-          <Link
-            href="/feed"
-            className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
-          >
-            Tout voir
-          </Link>
         </div>
 
         {/* Composer (authed) / CTA (guest) */}

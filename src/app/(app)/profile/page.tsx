@@ -15,8 +15,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadProfilePhoto, uploadGalleryPhoto } from "@/lib/storage";
 import { getPostsByUser } from "@/lib/firestore";
-import { ROLE_LABELS } from "@/types";
-import { ROLE_BADGE_COLORS } from "@/config/navigation";
 import KoppaFootCard from "@/components/ui/KoppaFootCard";
 import type { Post } from "@/types";
 
@@ -172,7 +170,6 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const badgeColor = ROLE_BADGE_COLORS[user.userType];
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const memberSince = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
@@ -362,9 +359,6 @@ export default function ProfilePage() {
               {user.firstName} {user.lastName}
             </h1>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-2 lg:justify-start lg:gap-3">
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${badgeColor}`}>
-                {ROLE_LABELS[user.userType]}
-              </span>
               {user.locationCity && (
                 <span className="flex items-center gap-1.5 text-sm text-gray-500">
                   <MapPin size={14} className="text-gray-400" /> {user.locationCity}

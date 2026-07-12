@@ -561,7 +561,6 @@ export default function PublicProfilePage() {
   }
 
   const initials = `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
-  const badgeColor = ROLE_BADGE_COLORS[profile.userType];
 
   const publicTabs: { key: PublicTab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
     { key: "overview", label: "Aperçu", icon: Users },
@@ -613,9 +612,6 @@ export default function PublicProfilePage() {
                   {profile.firstName} {profile.lastName}
                 </h1>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeColor}`}>
-                    {ROLE_LABELS[profile.userType]}
-                  </span>
                   {profile.locationCity && (
                     <span className="flex items-center gap-1 text-xs text-gray-500">
                       <MapPin size={11} /> {profile.locationCity}

@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit, DM_Sans } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import TopLoadingBar from "@/components/ui/TopLoadingBar";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -52,6 +54,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>
+          <Suspense fallback={null}>
+            <TopLoadingBar />
+          </Suspense>
           {children}
           <Toaster
             position="top-right"

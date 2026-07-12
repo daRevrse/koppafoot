@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  CalendarDays, ChevronRight, ChevronDown, Trophy, Star, MapPin,
+  CalendarDays, ChevronRight, ChevronLeft, Trophy, MapPin,
 } from "lucide-react";
 import {
   listPublicCompetitions, onCompMatches, listCompTeams,
@@ -253,42 +253,90 @@ function MatchRow({ match, competition }: { match: CompMatch; competition: Compe
   );
 }
 
-// ---- Group section (league-group style, collapsible) --------------------------------
+// ---- Poule carousel (one group card at a time, arrow navigation) --------------------
 
-function GroupSection({
-  label, matches, competition,
+function PouleCarousel({
+  groups, competition,
 }: {
-  label: string; matches: CompMatch[]; competition: Competition;
+  groups: [string, CompMatch[]][]; competition: Competition;
 }) {
-  const [open, setOpen] = useState(true);
-  const hasLive = matches.some((m) => m.status === "live");
+  const [idx, setIdx] = useState(0);
+
+  // Clamp when the group set shrinks (e.g. a tab with fewer poules).
+  const safeIdx = Math.min(idx, groups.length - 1);
+  const [label, groupMatches] = groups[safeIdx];
+  const hasLive = groupMatches.some((m) => m.status === "live");
+  const single = groups.length <= 1;
+
+  const go = (dir: 1 | -1) => {
+    setIdx((i) => {
+      const cur = Math.min(i, groups.length - 1);
+      return (cur + dir + groups.length) % groups.length;
+    });
+  };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2.5 px-4 py-3 transition-colors hover:bg-gray-50/70"
-      >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white">
-          {label.startsWith("Poule") ? label.slice(-1) : "★"}
-        </span>
-        <span className="text-sm font-black text-gray-900">{label}</span>
-        {hasLive && (
-          <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-red-500">
-            LIVE
+      {/* Header: prev / label + indicator / next */}
+      <div className="flex items-center gap-2.5 border-b border-gray-50 px-3 py-3">
+        <button
+          onClick={() => go(-1)}
+          disabled={single}
+          aria-label="Poule précédente"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronLeft size={16} />
+        </button>
+
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white">
+            {label.startsWith("Poule") ? label.slice(-1) : "★"}
           </span>
-        )}
-        <Star size={13} className="text-gray-200" />
-        <span className="ml-auto text-[10px] font-bold text-gray-300">{matches.length} match{matches.length > 1 ? "s" : ""}</span>
-        <ChevronDown
-          size={15}
-          className={`text-gray-300 transition-transform ${open ? "" : "-rotate-90"}`}
-        />
-      </button>
-      {open && (
-        <div>
-          {matches.map((m) => (
+          <span className="truncate text-sm font-black text-gray-900">{label}</span>
+          {hasLive && (
+            <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-red-500">
+              LIVE
+            </span>
+          )}
+        </div>
+
+        <button
+          onClick={() => go(1)}
+          disabled={single}
+          aria-label="Poule suivante"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {/* Matches for the active poule */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={label}
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -12 }}
+          transition={{ duration: 0.18 }}
+        >
+          {groupMatches.map((m) => (
             <MatchRow key={m.id} match={m} competition={competition} />
+          ))}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dots indicator */}
+      {!single && (
+        <div className="flex items-center justify-center gap-1.5 border-t border-gray-50 py-2.5">
+          {groups.map(([gLabel], i) => (
+            <button
+              key={gLabel}
+              onClick={() => setIdx(i)}
+              aria-label={gLabel}
+              className={`h-1.5 rounded-full transition-all ${
+                i === safeIdx ? "w-4 bg-emerald-500" : "w-1.5 bg-gray-200 hover:bg-gray-300"
+              }`}
+            />
           ))}
         </div>
       )}
@@ -574,16 +622,7 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
                   <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {groups.map(([label, groupMatches]) => (
-                    <GroupSection
-                      key={label}
-                      label={label}
-                      matches={groupMatches}
-                      competition={competition}
-                    />
-                  ))}
-                </div>
+                <PouleCarousel key={tab} groups={groups} competition={competition} />
               )}
 
               {/* Standings + top scorers */}

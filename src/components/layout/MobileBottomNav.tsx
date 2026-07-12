@@ -7,8 +7,7 @@ import {
   Home, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_BOTTOM_NAV, ROLE_BADGE_COLORS, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
-import { ROLE_LABELS } from "@/types";
+import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -40,7 +39,6 @@ function AvatarBottomSheet({
   if (!open || !user) return null;
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-  const badgeColor = ROLE_BADGE_COLORS[user.userType];
   const profileUrl = "/profile";
 
   return (
@@ -81,11 +79,6 @@ function AvatarBottomSheet({
               <p className="truncate text-xs text-emerald-400/70">
                 {user.email ?? user.phone}
               </p>
-              <span
-                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeColor}`}
-              >
-                {ROLE_LABELS[user.userType]}
-              </span>
             </div>
             <button
               onClick={onClose}

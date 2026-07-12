@@ -6,8 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Loader2, SearchX, Trophy, CalendarDays, ListOrdered, GitBranch, Target,
-  MapPin, ChevronRight,
+  Loader2, SearchX, Trophy, CalendarDays,
+  MapPin,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
@@ -290,13 +290,6 @@ export default function PublicCompetitionHome() {
   const statusCfg = STATUS_CONFIG[competition.status];
   const dateRange = formatDateRange(competition.startDate, competition.endDate);
 
-  const quickLinks = [
-    { label: "Calendrier", description: "Tous les matchs", href: `/c/${slug}/calendar`, icon: CalendarDays },
-    { label: "Classement", description: "Tableaux des groupes", href: `/c/${slug}/standings`, icon: ListOrdered },
-    { label: "Tableau final", description: "Phase à élimination", href: `/c/${slug}/bracket`, icon: GitBranch },
-    { label: "Buteurs", description: "Meilleurs marqueurs", href: `/c/${slug}/scorers`, icon: Target },
-  ];
-
   return (
     <div className="space-y-8 pb-20">
       {/* Hero */}
@@ -412,33 +405,6 @@ export default function PublicCompetitionHome() {
         </section>
       )}
 
-      {/* Quick-access cards */}
-      <section className="space-y-3">
-        <h2 className="px-1 font-display text-sm font-black uppercase tracking-tight text-gray-900">
-          Explorer
-        </h2>
-        <div className="grid grid-cols-2 gap-3">
-          {quickLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="group flex items-center gap-3 rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg"
-            >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
-                <link.icon size={20} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-gray-900">{link.label}</p>
-                <p className="truncate text-[11px] font-bold text-gray-400">{link.description}</p>
-              </div>
-              <ChevronRight
-                size={16}
-                className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-500"
-              />
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
