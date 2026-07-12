@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 // Routes that require authentication ("/" is public — the shell shows
 // auth privileges based on session state)
-const PROTECTED_ROUTES = ["/profile", "/feed"];
+const PROTECTED_ROUTES = ["/profile", "/feed", "/devenir-organisateur"];
 const ORGANIZER_ROUTES = ["/organizer"];
 const LIVE_OPS_ROUTES = ["/live-ops"];
 const ADMIN_ROUTES = ["/admin"];

@@ -68,6 +68,7 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     icon: "Users",
     items: [
       { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
+      { path: "/admin/organizers", icon: "ClipboardList", label: "Organisateurs" },
       { path: "/admin/bans", icon: "AlertTriangle", label: "Bannissements" },
     ],
   },

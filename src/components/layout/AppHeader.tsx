@@ -89,7 +89,11 @@ export default function AppHeader() {
         <div className="flex shrink-0 items-center gap-2 lg:gap-3">
           <NotificationDropdown />
           <Link
-            href="/organizer"
+            href={
+              user.userType === "organizer" || user.userType === "superadmin"
+                ? "/organizer"
+                : "/devenir-organisateur"
+            }
             className="hidden items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition-colors hover:bg-emerald-600 sm:flex"
           >
             <Plus size={14} />

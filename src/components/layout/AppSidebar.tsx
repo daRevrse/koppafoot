@@ -170,6 +170,15 @@ export default function AppSidebar() {
                 Espace organisateur
               </Link>
             )}
+            {user && user.userType !== "organizer" && user.userType !== "superadmin" && (
+              <Link
+                href="/devenir-organisateur"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              >
+                <ClipboardList size={18} className="text-gray-400" />
+                Devenir organisateur
+              </Link>
+            )}
             {user?.userType === "superadmin" && (
               <Link
                 href="/admin"

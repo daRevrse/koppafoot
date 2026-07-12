@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Shield, Trophy, MapPin, Award, Flag,
   AlertTriangle, FileText, TrendingUp, Settings, LogOut, Menu, X, User,
-  ChevronLeft, MessageSquare, Megaphone,
+  ChevronLeft, MessageSquare, Megaphone, ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ADMIN_GROUPED_NAV, isNavGroup, type NavItem, type NavEntry } from "@/config/navigation";
@@ -15,7 +15,7 @@ import SidebarNavGroup from "./SidebarNavGroup";
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   LayoutDashboard, Users, Shield, Trophy, MapPin, Award, Flag,
-  AlertTriangle, FileText, TrendingUp, Settings, MessageSquare, Megaphone,
+  AlertTriangle, FileText, TrendingUp, Settings, MessageSquare, Megaphone, ClipboardList,
 };
 
 function isActive(pathname: string, item: NavItem): boolean {

@@ -1,15 +1,54 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = "KoppaFoot <notifications@koppafoot.com>";
+const FROM_NAME = "KoppaFoot";
+const FROM_EMAIL = "notifications@koppafoot.com";
+const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 const APP_URL = "https://koppafoot.com";
+
+// ── Transport ──────────────────────────────────────────────
+// Provider-agnostic send: Brevo (BREVO_API_KEY) wins when configured,
+// falls back to Resend (RESEND_API_KEY), else logs and no-ops so email
+// never crashes a flow in environments without keys.
+
+async function sendViaBrevo(to: string, subject: string, html: string): Promise<void> {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY as string,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: FROM_NAME, email: FROM_EMAIL },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Brevo ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+}
+
+async function sendViaResend(to: string, subject: string, html: string): Promise<void> {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({ from: FROM, to, subject, html });
+}
 
 export async function sendNotificationEmail(
   to: string,
   subject: string,
   html: string
 ): Promise<void> {
-  await resend.emails.send({ from: FROM, to, subject, html });
+  if (process.env.BREVO_API_KEY) {
+    await sendViaBrevo(to, subject, html);
+    return;
+  }
+  if (process.env.RESEND_API_KEY) {
+    await sendViaResend(to, subject, html);
+    return;
+  }
+  console.warn(`[email] no provider configured (BREVO_API_KEY / RESEND_API_KEY) — skipped "${subject}" to ${to}`);
 }
 
 // ── Shared layout ──────────────────────────────────────────
@@ -137,6 +176,77 @@ export function adminMessageEmailHtml(title: string, body: string): string {
     </p>
     ${ctaButton("Ouvrir KoppaFoot", `${APP_URL}/dashboard`, "#1e293b")}
   `);
+}
+
+// ── Organizer application templates ─────────────────────────
+
+export function organizerApplicationReceivedHtml(firstName: string): string {
+  return emailLayout(`
+    <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+      Candidature bien reçue&nbsp;✅
+    </h2>
+    <p style="margin:0 0 16px;">
+      Ta demande pour devenir <strong>organisateur de compétition</strong> sur KoppaFoot
+      a bien été enregistrée. Notre équipe l'examine et tu recevras une réponse par email.
+    </p>
+    <p style="margin:0;color:#64748b;font-size:14px;">
+      En attendant, tu peux suivre les compétitions en direct sur la plateforme.
+    </p>
+    ${ctaButton("Ouvrir KoppaFoot", APP_URL)}
+  `);
+}
+
+export function organizerApplicationAdminHtml(
+  applicantName: string,
+  applicantEmail: string,
+  city: string,
+  motivation: string,
+): string {
+  return emailLayout(`
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e293b;">
+      Nouvelle candidature organisateur
+    </h2>
+    <p style="margin:0 0 8px;">
+      <strong>${applicantName}</strong> (${applicantEmail}${city ? ` · ${city}` : ""})
+      souhaite devenir organisateur de compétition.
+    </p>
+    ${divider()}
+    <p style="margin:0 0 8px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Motivation</p>
+    <p style="margin:0;color:#475569;white-space:pre-line;">${motivation}</p>
+    ${ctaButton("Examiner la candidature", `${APP_URL}/admin/organizers`, "#1e293b")}
+  `);
+}
+
+export function organizerApplicationDecisionHtml(
+  firstName: string,
+  approved: boolean,
+): string {
+  return approved
+    ? emailLayout(`
+      <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
+      <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+        Bienvenue parmi les organisateurs&nbsp;🏆
+      </h2>
+      <p style="margin:0 0 16px;">
+        Ta candidature a été <strong>acceptée</strong> ! Ton espace organisateur est
+        maintenant ouvert&nbsp;: crée ta compétition, importe tes équipes et passe
+        tes matchs en direct.
+      </p>
+      ${ctaButton("Créer ma compétition", `${APP_URL}/organizer`)}
+    `)
+    : emailLayout(`
+      <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
+      <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e293b;">
+        Ta candidature organisateur
+      </h2>
+      <p style="margin:0 0 16px;">
+        Merci pour ton intérêt&nbsp;! Après examen, nous ne pouvons pas retenir ta
+        candidature pour le moment. Tu peux repostuler plus tard avec plus de détails
+        sur ton projet de compétition.
+      </p>
+      ${ctaButton("Ouvrir KoppaFoot", APP_URL, "#1e293b")}
+    `);
 }
 
 // ── Campaign templates ──────────────────────────────────────
