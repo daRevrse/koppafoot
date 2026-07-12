@@ -1,34 +1,56 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Loader2, LogOut } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { listModeratedCompetitions } from "@/lib/competition-firestore";
 
-// Minimal "live ops" shell for moderators. Gated on AUTHENTICATION ONLY — any
-// userType is allowed (moderators keep their normal role; per-competition
-// membership is enforced on the pages + by Firestore rules). No sidebar.
+// "Live ops" shell for moderators. Access is CONTROLLED: besides
+// authentication, the user must moderate at least one competition (or be
+// a superadmin) — everyone else is sent home. Per-competition membership
+// stays enforced on the pages + by Firestore rules.
 export default function ModeratorLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading, logout } = useAuth();
   const router = useRouter();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (loading) return;
     if (!firebaseUser) { router.replace("/login"); return; }
     if (!user) { router.replace("/get-started"); return; }
+
+    if (user.userType === "superadmin") {
+      setAllowed(true);
+      return;
+    }
+    let cancelled = false;
+    listModeratedCompetitions(user.uid)
+      .then((comps) => {
+        if (cancelled) return;
+        if (comps.length > 0) {
+          setAllowed(true);
+        } else {
+          toast.error("Accès réservé aux modérateurs de compétition.");
+          router.replace("/");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) router.replace("/");
+      });
+    return () => { cancelled = true; };
   }, [user, firebaseUser, loading, router]);
 
-  if (loading) {
+  if (loading || !firebaseUser || !user || allowed !== true) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 size={32} className="animate-spin text-primary-600" />
       </div>
     );
   }
-
-  if (!firebaseUser || !user) return null;
 
   const handleLogout = async () => {
     await logout();

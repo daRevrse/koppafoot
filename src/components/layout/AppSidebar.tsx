@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_LABELS } from "@/types";
-import { listPublicCompetitions } from "@/lib/competition-firestore";
+import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
 import type { Competition } from "@/types";
 
 // ============================================
@@ -56,10 +56,25 @@ export default function AppSidebar() {
   const { user } = useAuth();
   const pathname = usePathname();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [moderatesAny, setModeratesAny] = useState(false);
 
   useEffect(() => {
     listPublicCompetitions().then(setCompetitions).catch(() => {});
   }, []);
+
+  // "Live ops" is only for actual moderators (access is enforced by the
+  // (moderator) layout too — this just hides the entry from everyone else).
+  useEffect(() => {
+    if (!user) {
+      setModeratesAny(false);
+      return;
+    }
+    let cancelled = false;
+    listModeratedCompetitions(user.uid)
+      .then((comps) => { if (!cancelled) setModeratesAny(comps.length > 0); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 flex-shrink-0 lg:block">
@@ -188,7 +203,7 @@ export default function AppSidebar() {
                 Administration
               </Link>
             )}
-            {user && (
+            {user && moderatesAny && (
               <Link
                 href="/live-ops"
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"

@@ -9,8 +9,9 @@ import toast from "react-hot-toast";
 import {
   Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone,
   Trophy, ImageIcon, FileText, CreditCard, Plus, Trash2,
-  Ruler, Weight, Footprints, Cake, Users,
+  Ruler, Weight, Footprints, Cake, Users, LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadProfilePhoto, uploadGalleryPhoto } from "@/lib/storage";
 import { getPostsByUser } from "@/lib/firestore";
@@ -106,7 +107,13 @@ function timeAgo(dateStr: string): string {
 // ============================================
 
 export default function ProfilePage() {
-  const { user, firebaseUser, updateProfile } = useAuth();
+  const { user, firebaseUser, updateProfile, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<TabType>("info");
   const [saving, setSaving] = useState(false);
@@ -756,6 +763,17 @@ export default function ProfilePage() {
             <KoppaFootCard profile={user} width={320} />
           </div>
         )}
+      </div>
+
+      {/* Logout — the only sign-out entry point in the shell */}
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+        >
+          <LogOut size={15} />
+          Déconnexion
+        </button>
       </div>
     </div>
   );
