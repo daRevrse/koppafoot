@@ -88,10 +88,26 @@ function TeamBadge({ name, logo, size = 26 }: { name: string; logo?: string | nu
 
 // ---- Hero match card (image, ValueBet-style) -------------------------------------
 
-function HeroMatchCard({ match, competition }: { match: CompMatch; competition: Competition }) {
+// Prefer the live team-doc logo (always current) over the match's
+// denormalised snapshot (stale if the logo was uploaded after the fixture).
+function logoFor(
+  teamsById: Map<string, CompTeam>,
+  teamId: string | null,
+  fallback: string | null,
+): string | null {
+  return (teamId ? teamsById.get(teamId)?.logoUrl : null) ?? fallback;
+}
+
+function HeroMatchCard({
+  match, competition, teamsById,
+}: {
+  match: CompMatch; competition: Competition; teamsById: Map<string, CompTeam>;
+}) {
   const [, forceTick] = useState(0);
   const isLive = match.status === "live";
   const finished = match.status === "completed";
+  const homeLogo = logoFor(teamsById, match.homeTeamId, match.homeTeamLogo);
+  const awayLogo = logoFor(teamsById, match.awayTeamId, match.awayTeamLogo);
 
   useEffect(() => {
     if (!isLive) return;
@@ -143,7 +159,7 @@ function HeroMatchCard({ match, competition }: { match: CompMatch; competition: 
           <div>
             <div className="flex items-end justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={42} />
+                <TeamBadge name={match.homeTeamName} logo={homeLogo} size={42} />
                 <span className="truncate font-display text-lg font-black text-white sm:text-2xl">
                   {match.homeTeamName}
                 </span>
@@ -167,7 +183,7 @@ function HeroMatchCard({ match, competition }: { match: CompMatch; competition: 
                 <span className="truncate text-right font-display text-lg font-black text-white sm:text-2xl">
                   {match.awayTeamName}
                 </span>
-                <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={42} />
+                <TeamBadge name={match.awayTeamName} logo={awayLogo} size={42} />
               </div>
             </div>
 
@@ -192,9 +208,15 @@ function HeroMatchCard({ match, competition }: { match: CompMatch; competition: 
 
 // ---- Match row (time | home | score | away | venue) --------------------------------
 
-function MatchRow({ match, competition }: { match: CompMatch; competition: Competition }) {
+function MatchRow({
+  match, competition, teamsById,
+}: {
+  match: CompMatch; competition: Competition; teamsById: Map<string, CompTeam>;
+}) {
   const isLive = match.status === "live";
   const finished = match.status === "completed";
+  const homeLogo = logoFor(teamsById, match.homeTeamId, match.homeTeamLogo);
+  const awayLogo = logoFor(teamsById, match.awayTeamId, match.awayTeamLogo);
 
   return (
     <Link
@@ -220,7 +242,7 @@ function MatchRow({ match, competition }: { match: CompMatch; competition: Compe
 
       {/* Home */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} size={24} />
+        <TeamBadge name={match.homeTeamName} logo={homeLogo} size={24} />
         <span className={`truncate text-sm font-bold ${finished && (match.scoreHome ?? 0) < (match.scoreAway ?? 0) ? "text-gray-400" : "text-gray-900"}`}>
           {match.homeTeamName}
         </span>
@@ -242,7 +264,7 @@ function MatchRow({ match, competition }: { match: CompMatch; competition: Compe
         <span className={`truncate text-right text-sm font-bold ${finished && (match.scoreAway ?? 0) < (match.scoreHome ?? 0) ? "text-gray-400" : "text-gray-900"}`}>
           {match.awayTeamName}
         </span>
-        <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} size={24} />
+        <TeamBadge name={match.awayTeamName} logo={awayLogo} size={24} />
       </div>
 
       {/* Venue (desktop) */}
@@ -256,9 +278,9 @@ function MatchRow({ match, competition }: { match: CompMatch; competition: Compe
 // ---- Poule carousel (one group card at a time, arrow navigation) --------------------
 
 function PouleCarousel({
-  groups, competition,
+  groups, competition, teamsById,
 }: {
-  groups: [string, CompMatch[]][]; competition: Competition;
+  groups: [string, CompMatch[]][]; competition: Competition; teamsById: Map<string, CompTeam>;
 }) {
   const [idx, setIdx] = useState(0);
 
@@ -320,7 +342,7 @@ function PouleCarousel({
           transition={{ duration: 0.18 }}
         >
           {groupMatches.map((m) => (
-            <MatchRow key={m.id} match={m} competition={competition} />
+            <MatchRow key={m.id} match={m} competition={competition} teamsById={teamsById} />
           ))}
         </motion.div>
       </AnimatePresence>
@@ -494,6 +516,10 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
   const slug = searchParams.get("c");
   const competition = competitions.find((c) => c.slug === slug) ?? competitions[0] ?? null;
 
+  // Resolve logos from the live team docs (always current) instead of the
+  // match's denormalised snapshot.
+  const teamsById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+
   // Real-time fixtures + teams for the selected competition.
   useEffect(() => {
     if (!competition?.id) return;
@@ -578,7 +604,7 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
             </div>
           ) : (
             <>
-              {hero && <HeroMatchCard match={hero} competition={competition} />}
+              {hero && <HeroMatchCard match={hero} competition={competition} teamsById={teamsById} />}
 
               {/* Section header + underlined tabs */}
               <div>
@@ -622,7 +648,7 @@ export default function DirectHome({ initialCompetitions }: { initialCompetition
                   <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
                 </div>
               ) : (
-                <PouleCarousel key={tab} groups={groups} competition={competition} />
+                <PouleCarousel key={tab} groups={groups} competition={competition} teamsById={teamsById} />
               )}
 
               {/* Standings + top scorers */}
