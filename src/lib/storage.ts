@@ -82,6 +82,39 @@ export async function uploadTeamGalleryImage(teamId: string, file: File): Promis
 }
 
 /**
+ * Upload a competition logo. Images only.
+ */
+export async function uploadCompetitionLogo(cid: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `competitions/${cid}/logo/logo.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
+ * Upload a competition banner. Images only.
+ */
+export async function uploadCompetitionBanner(cid: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `competitions/${cid}/banner/banner.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
+ * Upload a per-match banner. Images only.
+ */
+export async function uploadMatchBanner(cid: string, matchId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `competitions/${cid}/matches/${matchId}/banner.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
  * Upload a venue photo.
  */
 export async function uploadVenuePhoto(venueId: string, file: File): Promise<string> {

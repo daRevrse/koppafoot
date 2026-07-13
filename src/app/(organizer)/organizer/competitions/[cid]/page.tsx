@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy, ArrowLeft, Loader2, Users, LayoutGrid, Calendar, GitBranch, ChevronRight, ShieldCheck,
+  Pencil, Save, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { onCompetition } from "@/lib/competition-firestore";
+import { onCompetition, updateCompetition } from "@/lib/competition-firestore";
+import { uploadCompetitionLogo, uploadCompetitionBanner } from "@/lib/storage";
+import ImageUploadField from "@/components/ui/ImageUploadField";
+import toast from "react-hot-toast";
 import type { Competition, CompetitionStatus } from "@/types";
 
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
@@ -35,11 +39,59 @@ export default function CompetitionDashboardPage() {
   const router = useRouter();
   const [competition, setCompetition] = useState<Competition | null>(null);
 
+  // Settings modal
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [fName, setFName] = useState("");
+  const [fDesc, setFDesc] = useState("");
+  const [fLogoUrl, setFLogoUrl] = useState("");
+  const [fLogoFile, setFLogoFile] = useState<File | null>(null);
+  const [fBannerUrl, setFBannerUrl] = useState("");
+  const [fBannerFile, setFBannerFile] = useState<File | null>(null);
+
   useEffect(() => {
     if (!cid) return;
     const unsubscribe = onCompetition(cid, setCompetition);
     return unsubscribe;
   }, [cid]);
+
+  const openEdit = () => {
+    if (!competition) return;
+    setFName(competition.name);
+    setFDesc(competition.description ?? "");
+    setFLogoUrl(competition.logoUrl ?? "");
+    setFLogoFile(null);
+    setFBannerUrl(competition.bannerUrl ?? "");
+    setFBannerFile(null);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!competition || !fName.trim()) {
+      toast.error("Le nom est requis");
+      return;
+    }
+    setSaving(true);
+    try {
+      const patch: Record<string, unknown> = {
+        name: fName.trim(),
+        description: fDesc.trim() || null,
+        logo_url: fLogoUrl.trim() || null,
+        banner_url: fBannerUrl.trim() || null,
+      };
+      if (fLogoFile) patch.logo_url = await uploadCompetitionLogo(competition.id, fLogoFile);
+      if (fBannerFile) patch.banner_url = await uploadCompetitionBanner(competition.id, fBannerFile);
+      await updateCompetition(competition.id, patch);
+      toast.success("Compétition mise à jour");
+      setEditOpen(false);
+    } catch (err) {
+      console.error("Error updating competition:", err);
+      toast.error("Une erreur est survenue");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Guard: only organizers of this competition may view it.
   useEffect(() => {
@@ -137,6 +189,13 @@ export default function CompetitionDashboardPage() {
             {statusConf.label}
           </span>
         </div>
+        <button
+          onClick={openEdit}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+        >
+          <Pencil size={15} />
+          <span className="hidden sm:inline">Modifier</span>
+        </button>
       </motion.div>
 
       {/* Navigation cards */}
@@ -170,6 +229,93 @@ export default function CompetitionDashboardPage() {
           );
         })}
       </div>
+
+      {/* Settings modal */}
+      <AnimatePresence>
+        {editOpen && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-gray-900">
+                  Modifier la compétition
+                </h2>
+                <button
+                  onClick={() => !saving && setEditOpen(false)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={saveEdit} className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
+                  <input
+                    type="text"
+                    value={fName}
+                    onChange={(e) => setFName(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Description <span className="font-normal text-gray-400">(optionnel)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={fDesc}
+                    onChange={(e) => setFDesc(e.target.value)}
+                    className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
+                <ImageUploadField
+                  label="Logo"
+                  url={fLogoUrl}
+                  onUrlChange={setFLogoUrl}
+                  file={fLogoFile}
+                  onFile={setFLogoFile}
+                  aspect="square"
+                  maxMb={2}
+                  hint="PNG, JPG ou WebP · 2 Mo max"
+                />
+                <ImageUploadField
+                  label="Bannière"
+                  url={fBannerUrl}
+                  onUrlChange={setFBannerUrl}
+                  file={fBannerFile}
+                  onFile={setFBannerFile}
+                  aspect="wide"
+                  maxMb={5}
+                  hint="Affichée en haut de la page compétition"
+                />
+
+                <div className="flex justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => !saving && setEditOpen(false)}
+                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Enregistrer
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

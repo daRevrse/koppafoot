@@ -7,7 +7,9 @@ import {
   Trophy, ArrowLeft, Save, Loader2, Settings, Calendar, MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { createCompetition, slugify } from "@/lib/competition-firestore";
+import { createCompetition, updateCompetition, slugify } from "@/lib/competition-firestore";
+import { uploadCompetitionLogo, uploadCompetitionBanner } from "@/lib/storage";
+import ImageUploadField from "@/components/ui/ImageUploadField";
 import toast from "react-hot-toast";
 
 interface FormState {
@@ -44,6 +46,10 @@ export default function NewCompetitionPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [form, setForm] = useState<FormState>(INITIAL);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const slugPreview = slugify(form.name);
@@ -67,6 +73,8 @@ export default function NewCompetitionPage() {
       const id = await createCompetition({
         name: form.name.trim(),
         ...(description ? { description } : {}),
+        logoUrl: logoUrl.trim() || null,
+        bannerUrl: bannerUrl.trim() || null,
         format: {
           group_count: form.groupCount,
           teams_per_group: form.teamsPerGroup,
@@ -83,6 +91,13 @@ export default function NewCompetitionPage() {
         venueCity: venueCity || null,
         createdBy: user.uid,
       });
+
+      // Uploaded files win over the URL fields.
+      const patch: Record<string, string> = {};
+      if (logoFile) patch.logo_url = await uploadCompetitionLogo(id, logoFile);
+      if (bannerFile) patch.banner_url = await uploadCompetitionBanner(id, bannerFile);
+      if (Object.keys(patch).length > 0) await updateCompetition(id, patch);
+
       toast.success("Compétition créée !");
       router.push(`/organizer/competitions/${id}`);
     } catch (err) {
@@ -147,6 +162,29 @@ export default function NewCompetitionPage() {
               className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
               value={form.description}
               onChange={(e) => update("description", e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <ImageUploadField
+              label="Logo (optionnel)"
+              url={logoUrl}
+              onUrlChange={setLogoUrl}
+              file={logoFile}
+              onFile={setLogoFile}
+              aspect="square"
+              maxMb={2}
+              hint="PNG, JPG ou WebP · 2 Mo max"
+            />
+            <ImageUploadField
+              label="Bannière (optionnel)"
+              url={bannerUrl}
+              onUrlChange={setBannerUrl}
+              file={bannerFile}
+              onFile={setBannerFile}
+              aspect="wide"
+              maxMb={5}
+              hint="Affichée en haut de la page compétition"
             />
           </div>
         </div>

@@ -39,6 +39,16 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Competition assets: logo, banner, and per-match banners. Public read;
+    // any authenticated user may write (organizer role is enforced by the
+    // Firestore rules that gate the competition docs these images belong to).
+    match /competitions/{cid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     // Catch-all deny
     match /{allPaths=**} {
       allow read: if false;
