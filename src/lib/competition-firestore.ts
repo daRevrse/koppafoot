@@ -23,7 +23,7 @@ import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
   CompMatch, FirestoreCompMatch,
-  CompMatchRound,
+  CompMatchRound, CompMatchStage,
   CompetitionFormat,
   CompPlayer, LineupEntry, FirestoreLineupEntry,
 } from "@/types";
@@ -528,6 +528,64 @@ export async function importMatches(
 
   if (created > 0) await batch.commit();
   return { created, skipped };
+}
+
+/**
+ * Create a single match from scratch (organizer "add match" flow). Resolves
+ * the two teams by id to denormalise name/logo. Defaults to a group match;
+ * pass stage/round for a knockout fixture (bracket wiring stays manual).
+ */
+export async function createCompMatch(
+  cid: string,
+  input: {
+    homeTeamId: string;
+    awayTeamId: string;
+    stage?: CompMatchStage;
+    group?: string | null;
+    round?: CompMatchRound | null;
+    date?: string | null;
+    time?: string | null;
+    venueName?: string | null;
+    venueCity?: string | null;
+  },
+): Promise<string> {
+  const teams = await listCompTeams(cid);
+  const byId = new Map(teams.map((t) => [t.id, t]));
+  const home = byId.get(input.homeTeamId);
+  const away = byId.get(input.awayTeamId);
+  if (!home || !away) throw new Error("Équipe introuvable");
+  if (home.id === away.id) throw new Error("Une équipe ne peut pas jouer contre elle-même");
+
+  const data: FirestoreCompMatch = {
+    competition_id: cid,
+    stage: input.stage ?? "group",
+    group: input.group?.trim() || null,
+    round: input.round ?? null,
+    bracket_slot: null,
+    home_team_id: home.id,
+    away_team_id: away.id,
+    home_team_name: home.name,
+    away_team_name: away.name,
+    home_team_logo: home.logoUrl ?? null,
+    away_team_logo: away.logoUrl ?? null,
+    date: input.date?.trim() || null,
+    time: input.time?.trim() || null,
+    venue_name: input.venueName?.trim() || null,
+    venue_city: input.venueCity?.trim() || null,
+    status: "scheduled",
+    score_home: null,
+    score_away: null,
+    penalty_home: null,
+    penalty_away: null,
+    winner_team_id: null,
+    feeds_into_match_id: null,
+    feeds_into_slot: null,
+    live_state: null,
+    created_at: serverTimestamp() as unknown as string,
+    updated_at: serverTimestamp() as unknown as string,
+  };
+  const ref = await addDoc(collection(db, "competitions", cid, "comp_matches"), data);
+  return ref.id;
 }
 
 // ============================================

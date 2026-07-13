@@ -5,19 +5,21 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Calendar, ArrowLeft, Loader2, Sparkles, Save, Check, ChevronRight, MapPin, Upload,
-  Image as ImageIcon, X, AlertTriangle,
+  Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, MapPin, Upload,
+  Image as ImageIcon, X, AlertTriangle, Plus,
 } from "lucide-react";
 import {
   onCompetition,
   onCompMatches,
+  onCompTeams,
   generateGroupFixtures,
   scheduleCompMatch,
   updateCompMatch,
+  createCompMatch,
 } from "@/lib/competition-firestore";
 import { uploadMatchBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
-import type { Competition, CompMatch } from "@/types";
+import type { Competition, CompMatch, CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
 interface RowState {
@@ -32,8 +34,22 @@ export default function CompetitionSchedulePage() {
   const cid = params.cid;
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
+  const [teams, setTeams] = useState<CompTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+
+  // "Add match" modal.
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    homeTeamId: "",
+    awayTeamId: "",
+    group: "",
+    date: "",
+    time: "",
+    venueName: "",
+    venueCity: "",
+  });
+  const [addingMatch, setAddingMatch] = useState(false);
 
   // Per-row input state keyed by match id; never holds undefined (use "").
   const [rows, setRows] = useState<Record<string, RowState>>({});
@@ -75,9 +91,11 @@ export default function CompetitionSchedulePage() {
       setMatches(next);
       setLoading(false);
     });
+    const unsubTeams = onCompTeams(cid, setTeams);
     return () => {
       unsubCompetition();
       unsubMatches();
+      unsubTeams();
     };
   }, [cid]);
 
@@ -183,6 +201,69 @@ export default function CompetitionSchedulePage() {
     }
   };
 
+  const openAdd = () => {
+    setAddForm({ homeTeamId: "", awayTeamId: "", group: "", date: "", time: "", venueName: "", venueCity: "" });
+    setAddOpen(true);
+  };
+
+  const setAdd = (key: keyof typeof addForm, value: string) => {
+    setAddForm((prev) => {
+      const next = { ...prev, [key]: value };
+      // Auto-fill the poule from the home team's group when not set manually.
+      if (key === "homeTeamId" && !prev.group) {
+        const g = teams.find((t) => t.id === value)?.group;
+        if (g) next.group = g;
+      }
+      return next;
+    });
+  };
+
+  const handleAddMatch = async () => {
+    if (!addForm.homeTeamId || !addForm.awayTeamId) {
+      toast.error("Choisis les deux équipes");
+      return;
+    }
+    if (addForm.homeTeamId === addForm.awayTeamId) {
+      toast.error("Une équipe ne peut pas jouer contre elle-même");
+      return;
+    }
+    // Slot-conflict check against existing matches (same venue + date + time).
+    const venue = addForm.venueName.trim().toLowerCase();
+    const date = addForm.date.trim();
+    const time = addForm.time.trim();
+    if (venue && date && time) {
+      const clash = matches.some(
+        (m) =>
+          (m.venueName ?? "").trim().toLowerCase() === venue &&
+          (m.date ?? "").trim() === date &&
+          (m.time ?? "").trim() === time,
+      );
+      if (clash && !window.confirm("Ce créneau (stade + date + heure) est déjà pris. Ajouter quand même ?")) {
+        return;
+      }
+    }
+
+    setAddingMatch(true);
+    try {
+      await createCompMatch(cid, {
+        homeTeamId: addForm.homeTeamId,
+        awayTeamId: addForm.awayTeamId,
+        group: addForm.group.trim() || null,
+        date: addForm.date || null,
+        time: addForm.time || null,
+        venueName: addForm.venueName || null,
+        venueCity: addForm.venueCity || null,
+      });
+      toast.success("Match ajouté");
+      setAddOpen(false);
+    } catch (err) {
+      console.error("Error adding match:", err);
+      toast.error(err instanceof Error ? err.message : "Impossible d'ajouter le match");
+    } finally {
+      setAddingMatch(false);
+    }
+  };
+
   const handleSave = async (id: string) => {
     const row = rows[id] ?? { date: "", time: "", venueName: "", venueCity: "" };
 
@@ -245,22 +326,23 @@ export default function CompetitionSchedulePage() {
           </motion.p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={openAdd}
+            disabled={teams.length < 2}
+            title={teams.length < 2 ? "Ajoute au moins deux équipes d'abord" : "Ajouter un match"}
+            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size={16} />
+            Ajouter un match
+          </button>
           <Link
             href={`/organizer/competitions/${cid}/import`}
-            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
           >
             <Upload size={16} />
-            Importer des matchs
+            Importer
           </Link>
-          {hasGroupMatches && (
-            <span
-              title="Les matchs sont déjà générés"
-              className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-400 shadow-sm sm:flex"
-            >
-              <Check size={16} />
-              Matchs générés
-            </span>
-          )}
         </div>
       </div>
 
@@ -452,6 +534,150 @@ export default function CompetitionSchedulePage() {
           ))}
         </div>
       )}
+
+      {/* Add-match modal */}
+      <AnimatePresence>
+        {addOpen && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-gray-900">Ajouter un match</h2>
+                <button
+                  onClick={() => !addingMatch && setAddOpen(false)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Domicile</label>
+                    <select
+                      value={addForm.homeTeamId}
+                      onChange={(e) => setAdd("homeTeamId", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    >
+                      <option value="">— Équipe —</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id} disabled={t.id === addForm.awayTeamId}>
+                          {t.name}{t.group ? ` (${t.group})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Extérieur</label>
+                    <select
+                      value={addForm.awayTeamId}
+                      onChange={(e) => setAdd("awayTeamId", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    >
+                      <option value="">— Équipe —</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id} disabled={t.id === addForm.homeTeamId}>
+                          {t.name}{t.group ? ` (${t.group})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="col-span-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Poule</label>
+                    <input
+                      type="text"
+                      placeholder="A"
+                      value={addForm.group}
+                      onChange={(e) => setAdd("group", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                    <input
+                      type="date"
+                      value={addForm.date}
+                      onChange={(e) => setAdd("date", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Heure</label>
+                    <input
+                      type="time"
+                      value={addForm.time}
+                      onChange={(e) => setAdd("time", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
+                    <input
+                      type="text"
+                      placeholder="Lomé"
+                      value={addForm.venueCity}
+                      onChange={(e) => setAdd("venueCity", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Stade</label>
+                  <input
+                    type="text"
+                    placeholder="Nom du stade"
+                    value={addForm.venueName}
+                    onChange={(e) => setAdd("venueName", e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  />
+                  {/* Occupied slots hint for the chosen venue */}
+                  {addForm.venueName.trim() && (() => {
+                    const taken = takenSlotsFor(addForm.venueName).sort((a, b) =>
+                      `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`),
+                    );
+                    if (taken.length === 0) return null;
+                    return (
+                      <p className="mt-1.5 text-[11px] text-gray-400">
+                        <span className="font-semibold text-gray-500">Créneaux déjà pris :</span>{" "}
+                        {taken.slice(0, 6).map((s) => `${s.date} ${s.time}`).join(" · ")}
+                        {taken.length > 6 ? " …" : ""}
+                      </p>
+                    );
+                  })()}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => !addingMatch && setAddOpen(false)}
+                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddMatch}
+                    disabled={addingMatch}
+                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {addingMatch ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    Ajouter le match
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Per-match banner modal */}
       <AnimatePresence>
