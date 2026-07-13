@@ -325,24 +325,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !`,
         link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
       });
-      containerRef.current?.requestFullscreen?.().catch(() => {});
     } catch {
       toast.error("Erreur technique");
     }
   };
 
-  // Leave fullscreen once the match is over.
-  useEffect(() => {
-    if (match?.status === "completed" && typeof document !== "undefined" && document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
-  }, [match?.status]);
-
-  // Organizer quit during live: exit fullscreen + navigate back.
+  // Organizer quit during live: navigate back.
   const handleQuit = useCallback(() => {
-    if (typeof document !== "undefined" && document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
     router.push(returnHref);
   }, [router, returnHref]);
 
@@ -537,9 +526,6 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           body: opts ? `${scoreLine} (${opts.penaltyHome} – ${opts.penaltyAway} t.a.b.)` : scoreLine,
           link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
         });
-      }
-      if (typeof document !== "undefined" && document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
       }
       toast.success("Match terminé !");
       router.push(returnHref);

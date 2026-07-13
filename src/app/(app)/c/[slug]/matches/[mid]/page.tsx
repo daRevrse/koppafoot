@@ -86,6 +86,7 @@ export default function PublicCompMatchView() {
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [cid, setCid] = useState<string | null>(null);
   const [compBanner, setCompBanner] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"feed" | "lineups">("feed");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [displayTime, setDisplayTime] = useState(0);
@@ -264,27 +265,52 @@ export default function PublicCompMatchView() {
         </div>
       )}
 
-      {/* Feuille de match — hidden when neither side has a lineup. */}
-      {(match.homeLineup.length > 0 || match.awayLineup.length > 0) && (
-        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-sm">
-          <div className="mb-8 flex items-center justify-between">
-            <h3 className="font-display text-lg font-black text-gray-900">Compositions</h3>
-            <Users className="text-gray-200" size={24} />
-          </div>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-            <LineupColumn title={match.homeTeamName} entries={match.homeLineup} />
-            <LineupColumn title={match.awayTeamName} entries={match.awayLineup} />
-          </div>
-        </div>
-      )}
+      {/* Tabs: match feed / lineups */}
+      {(() => {
+        const hasLineups = match.homeLineup.length > 0 || match.awayLineup.length > 0;
+        const activeTab = detailTab === "lineups" && !hasLineups ? "feed" : detailTab;
+        return (
+          <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+            {/* Tab bar */}
+            <div className="mb-8 flex gap-6 border-b border-gray-100">
+              <button
+                onClick={() => setDetailTab("feed")}
+                className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
+                  activeTab === "feed" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <History size={16} />
+                Fil du match
+                {activeTab === "feed" && (
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+                )}
+              </button>
+              {hasLineups && (
+                <button
+                  onClick={() => setDetailTab("lineups")}
+                  className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
+                    activeTab === "lineups" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  <Users size={16} />
+                  Compositions
+                  {activeTab === "lineups" && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+                  )}
+                </button>
+              )}
+            </div>
 
-      {/* Events Timeline */}
-      <div className="rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-sm">
-        <div className="mb-8 flex items-center justify-between">
-          <h3 className="font-display text-lg font-black text-gray-900">Fil du match</h3>
-          <History className="text-gray-200" size={24} />
-        </div>
+            {/* Lineups panel */}
+            {activeTab === "lineups" && hasLineups && (
+              <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+                <LineupColumn title={match.homeTeamName} entries={match.homeLineup} />
+                <LineupColumn title={match.awayTeamName} entries={match.awayLineup} />
+              </div>
+            )}
 
+            {/* Feed panel */}
+            {activeTab === "feed" && (
         <div className="relative">
           {/* Vertical Line */}
           <div className="absolute left-[21px] top-4 bottom-4 w-0.5 bg-gray-50" />
@@ -339,7 +365,10 @@ export default function PublicCompMatchView() {
             )}
           </div>
         </div>
-      </div>
+            )}
+          </div>
+          );
+        })()}
     </div>
   );
 }

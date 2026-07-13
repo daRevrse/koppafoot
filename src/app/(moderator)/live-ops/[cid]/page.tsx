@@ -63,6 +63,8 @@ export default function LiveOpsCompetition() {
               <Link
                 key={m.id}
                 href={`/live-ops/${cid}/matches/${m.id}/live`}
+                target="_blank"
+                rel="noopener"
                 className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md"
               >
                 <div className="min-w-0 flex-1">

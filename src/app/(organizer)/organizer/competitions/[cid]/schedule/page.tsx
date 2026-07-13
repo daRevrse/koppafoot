@@ -446,6 +446,8 @@ export default function CompetitionSchedulePage() {
                           </button>
                           <Link
                             href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
+                            target="_blank"
+                            rel="noopener"
                             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50"
                           >
                             Console live

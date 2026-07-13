@@ -328,6 +328,8 @@ export default function CompetitionKnockoutPage() {
           </span>
           <Link
             href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
+            target="_blank"
+            rel="noopener"
             className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-purple-600 transition-colors hover:bg-purple-50"
           >
             Console live

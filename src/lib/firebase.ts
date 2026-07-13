@@ -23,8 +23,13 @@ export const storage = getStorage(app);
 let _messaging: Messaging | null = null;
 export function getClientMessaging(): Messaging | null {
   if (typeof window === "undefined") return null;
-  if (!_messaging) _messaging = getMessaging(app);
-  return _messaging;
+  try {
+    if (!_messaging) _messaging = getMessaging(app);
+    return _messaging;
+  } catch {
+    // Unsupported browser (no Push API / service workers).
+    return null;
+  }
 }
 
 export default app;
