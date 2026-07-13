@@ -6,7 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, Check, ChevronRight, MapPin, Upload,
-  Image as ImageIcon, X,
+  Image as ImageIcon, X, AlertTriangle,
 } from "lucide-react";
 import {
   onCompetition,
@@ -125,6 +125,51 @@ export default function CompetitionSchedulePage() {
     }));
   };
 
+  // Effective slot for a match = its edited row, falling back to saved values.
+  const slotOf = (m: CompMatch) => {
+    const r = rows[m.id];
+    return {
+      date: (r?.date ?? m.date ?? "").trim(),
+      time: (r?.time ?? m.time ?? "").trim(),
+      venue: (r?.venueName ?? m.venueName ?? "").trim().toLowerCase(),
+    };
+  };
+
+  // Double-booking detection: two matches sharing the same venue + date + time.
+  // Recomputed live as the organizer edits, so warnings appear immediately.
+  const conflictIds = useMemo(() => {
+    const seen = new Map<string, string>();
+    const bad = new Set<string>();
+    for (const m of groupMatches) {
+      const r = rows[m.id];
+      const date = (r?.date ?? m.date ?? "").trim();
+      const time = (r?.time ?? m.time ?? "").trim();
+      const venue = (r?.venueName ?? m.venueName ?? "").trim().toLowerCase();
+      if (!date || !time || !venue) continue;
+      const key = `${date}|${time}|${venue}`;
+      const prev = seen.get(key);
+      if (prev) {
+        bad.add(prev);
+        bad.add(m.id);
+      } else {
+        seen.set(key, m.id);
+      }
+    }
+    return bad;
+  }, [groupMatches, rows]);
+
+  // Slots already taken at a given venue (for the "créneaux occupés" hint).
+  const takenSlotsFor = (venue: string): { date: string; time: string }[] => {
+    const v = venue.trim().toLowerCase();
+    if (!v) return [];
+    const out: { date: string; time: string }[] = [];
+    for (const m of groupMatches) {
+      const s = slotOf(m);
+      if (s.venue === v && s.date && s.time) out.push({ date: s.date, time: s.time });
+    }
+    return out;
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     try {
@@ -140,6 +185,15 @@ export default function CompetitionSchedulePage() {
 
   const handleSave = async (id: string) => {
     const row = rows[id] ?? { date: "", time: "", venueName: "", venueCity: "" };
+
+    // Warn on double-booking before saving (same venue + date + time).
+    if (conflictIds.has(id)) {
+      const ok = window.confirm(
+        "Ce créneau (stade + date + heure) est déjà pris par un autre match. Enregistrer quand même ?",
+      );
+      if (!ok) return;
+    }
+
     setSavingId(id);
     try {
       await scheduleCompMatch(cid, id, {
@@ -274,14 +328,26 @@ export default function CompetitionSchedulePage() {
                     venueCity: "",
                   };
                   const saving = savingId === match.id;
+                  const conflict = conflictIds.has(match.id);
                   return (
-                    <div key={match.id} className="p-4">
+                    <div key={match.id} className={`p-4 ${conflict ? "bg-amber-50/40" : ""}`}>
                       {/* Teams + live link */}
                       <div className="mb-3 flex items-center justify-between gap-3">
-                        <p className="text-sm font-bold text-gray-900">
-                          {match.homeTeamName}{" "}
-                          <span className="font-normal text-gray-400">vs</span>{" "}
-                          {match.awayTeamName}
+                        <p className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                          <span>
+                            {match.homeTeamName}{" "}
+                            <span className="font-normal text-gray-400">vs</span>{" "}
+                            {match.awayTeamName}
+                          </span>
+                          {conflict && (
+                            <span
+                              title="Créneau déjà pris (stade + date + heure)"
+                              className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
+                            >
+                              <AlertTriangle size={11} />
+                              Conflit
+                            </span>
+                          )}
                         </p>
                         <div className="flex shrink-0 items-center gap-1">
                           <button
@@ -363,6 +429,21 @@ export default function CompetitionSchedulePage() {
                           Enregistrer
                         </button>
                       </div>
+
+                      {/* Occupied slots hint for the entered venue */}
+                      {row.venueName.trim() && (() => {
+                        const taken = takenSlotsFor(row.venueName)
+                          .filter((s) => !(s.date === row.date.trim() && s.time === row.time.trim()))
+                          .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+                        if (taken.length === 0) return null;
+                        return (
+                          <p className="mt-2 text-[11px] text-gray-400">
+                            <span className="font-semibold text-gray-500">Créneaux déjà pris à {row.venueName.trim()} :</span>{" "}
+                            {taken.slice(0, 6).map((s) => `${s.date} ${s.time}`).join(" · ")}
+                            {taken.length > 6 ? " …" : ""}
+                          </p>
+                        );
+                      })()}
                     </div>
                   );
                 })}

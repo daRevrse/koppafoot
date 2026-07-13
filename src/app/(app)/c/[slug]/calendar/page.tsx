@@ -102,6 +102,7 @@ export default function PublicCalendarPage() {
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [groupFilter, setGroupFilter] = useState<string>("all");
 
   // Resolve competition by slug, then subscribe to matches in real time.
   // Anonymous reads work because Firestore rules allow read on competitions/**.
@@ -131,12 +132,39 @@ export default function PublicCalendarPage() {
     };
   }, [slug]);
 
+  // Available poule filters: distinct group letters (sorted) + a knockout
+  // bucket when any knockout match exists.
+  const filters = useMemo(() => {
+    const groups = new Set<string>();
+    let hasKnockout = false;
+    for (const m of matches) {
+      if (m.group) groups.add(m.group);
+      else if (m.round) hasKnockout = true;
+    }
+    const sorted = [...groups].sort();
+    return [
+      { key: "all", label: "Tous" },
+      ...sorted.map((g) => ({ key: `group:${g}`, label: `Poule ${g}` })),
+      ...(hasKnockout ? [{ key: "knockout", label: "Phase finale" }] : []),
+    ];
+  }, [matches]);
+
+  const filteredMatches = useMemo(() => {
+    if (groupFilter === "all") return matches;
+    if (groupFilter === "knockout") return matches.filter((m) => !m.group && m.round);
+    if (groupFilter.startsWith("group:")) {
+      const g = groupFilter.slice("group:".length);
+      return matches.filter((m) => m.group === g);
+    }
+    return matches;
+  }, [matches, groupFilter]);
+
   // Group matches by day. Dated buckets sort chronologically ascending; the
   // undated bucket (date == null) is forced last. Within a day, matches sort by
   // time with nulls last. Pure derivation — recomputed only when matches change.
   const days = useMemo(() => {
     const byDay = new Map<string, CompMatch[]>();
-    for (const match of matches) {
+    for (const match of filteredMatches) {
       const key = match.date ?? UNDATED;
       const bucket = byDay.get(key);
       if (bucket) bucket.push(match);
@@ -159,7 +187,7 @@ export default function PublicCalendarPage() {
           return m1.time.localeCompare(m2.time);
         }),
       }));
-  }, [matches]);
+  }, [filteredMatches]);
 
   if (loading) {
     return (
@@ -195,6 +223,25 @@ export default function PublicCalendarPage() {
         </span>
         <h1 className="font-display text-xl font-black text-gray-900">Calendrier</h1>
       </div>
+
+      {/* Poule filter */}
+      {filters.length > 2 && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:px-0">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setGroupFilter(f.key)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-black transition-colors ${
+                groupFilter === f.key
+                  ? "bg-emerald-500 text-white"
+                  : "border border-gray-200 bg-white text-gray-500 hover:border-emerald-300"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {days.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-gray-100 bg-white py-20 text-center shadow-sm">
