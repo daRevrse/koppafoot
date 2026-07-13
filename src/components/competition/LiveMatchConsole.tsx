@@ -237,6 +237,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     try {
       await pauseCompTimer(cid, mid, HALF_MS);
       await updateCompPeriod(cid, mid, 2);
+      if (match) {
+        notifyCompetitionFollowers({
+          cid,
+          title: "⏸️ Mi-temps",
+          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`,
+          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
+        });
+      }
       toast.success("Mi-temps");
     } catch {
       toast.error("Erreur technique");
@@ -248,6 +256,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     try {
       await startCompTimer(cid, mid);
       await updateCompPeriod(cid, mid, 3);
+      if (match) {
+        notifyCompetitionFollowers({
+          cid,
+          title: "▶️ Reprise du match",
+          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName} — 2e mi-temps`,
+          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
+        });
+      }
       toast.success("Reprise du jeu");
     } catch {
       toast.error("Erreur technique");
@@ -345,7 +361,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const recordEvent = async (entry: LineupEntry) => {
     if (!match?.liveState || !picker) return;
-    const { type, side } = picker;
+    const { type, side, teamName } = picker;
+    const matchLink = competition ? `/c/${competition.slug}/matches/${mid}` : "/";
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
     if (!teamId) {
       toast.error("Équipe non définie");
@@ -375,7 +392,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           cid,
           title: `⚽ BUT ! ${entry.name} (${minute}')`,
           body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
+          link: matchLink,
         });
         toast.success("BUT !");
         setGoalCooldown(60);
@@ -407,8 +424,20 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           await updateCompMatch(cid, mid, {
             [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
           });
+          notifyCompetitionFollowers({
+            cid,
+            title: `🟥 Expulsion (${minute}')`,
+            body: `${entry.name} (${teamName}) — 2e carton jaune`,
+            link: matchLink,
+          });
           toast("2e jaune → exclusion", { icon: "🟥" });
         } else {
+          notifyCompetitionFollowers({
+            cid,
+            title: `🟨 Carton jaune (${minute}')`,
+            body: `${entry.name} (${teamName})`,
+            link: matchLink,
+          });
           toast.success("Carton jaune enregistré");
         }
       } else {
@@ -424,6 +453,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         });
         await updateCompMatch(cid, mid, {
           [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
+        });
+        notifyCompetitionFollowers({
+          cid,
+          title: `🟥 Carton rouge (${minute}')`,
+          body: `${entry.name} (${teamName})`,
+          link: matchLink,
         });
         toast("Carton rouge → exclusion", { icon: "🟥" });
       }
@@ -469,18 +504,25 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
     setIsSubmitting(true);
     try {
+      const subMinute = Math.floor(displayTime / 60000) + 1;
       await addCompEvent(cid, mid, {
         type: "substitution",
         side,
         team_id: teamId,
         period: match.liveState.currentPeriod ?? 1,
-        minute: Math.floor(displayTime / 60000) + 1,
+        minute: subMinute,
         player_id: inEntry.playerId,
         player_name: inEntry.name,
         detail: `${outEntry.name} → ${inEntry.name}`,
       });
       await updateCompMatch(cid, mid, {
         [onPitchField]: [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
+      });
+      notifyCompetitionFollowers({
+        cid,
+        title: `🔄 Changement (${subMinute}')`,
+        body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})`,
+        link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
       });
       toast.success("Changement effectué");
       setSubModal(null);
@@ -693,7 +735,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const showBack = isCompleted;
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28">
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28 lg:max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between px-2">
         {showBack ? (
@@ -731,18 +773,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               </>
             )}
           </div>
-          <h1 className="font-display text-xl font-extrabold tracking-tight text-gray-900">
+          <h1 className="font-display text-base font-extrabold tracking-tight text-gray-900 sm:text-xl">
             {match.homeTeamName} <span className="mx-1.5 text-gray-300">vs</span> {match.awayTeamName}
           </h1>
         </div>
         <div className="h-11 w-11" />
       </div>
 
+      {/* Landscape layout on desktop: scoreboard + status controls on the
+          left (sticky), scoring + events on the right. Mobile stays a
+          single vertical column. */}
+      <div className="space-y-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-7 lg:space-y-0">
+      <div className="space-y-7 lg:sticky lg:top-6">
       {/* Scoreboard */}
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-[2.5rem] bg-[#0A0A0B] p-8 text-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] sm:p-10"
+        className="relative overflow-hidden rounded-3xl bg-[#0A0A0B] p-5 text-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] sm:rounded-[2.5rem] sm:p-10"
       >
         <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[80%] -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.3),transparent)]" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-primary-500/10 blur-[100px]" />
@@ -753,7 +800,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-3xl font-black backdrop-blur-md">
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-2xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-[2rem] sm:text-3xl">
                 {match.homeTeamName[0]}
               </div>
             </div>
@@ -761,7 +808,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <h2 className="mb-1 max-w-[120px] truncate text-xs font-black uppercase tracking-tight text-white/50">
                 {match.homeTeamName}
               </h2>
-              <div className="text-7xl font-black tracking-tighter drop-shadow-2xl">
+              <div className="text-5xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
                 {match.scoreHome ?? 0}
               </div>
             </div>
@@ -774,25 +821,25 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             </div>
             <div className="relative flex flex-col items-center">
               <div className="absolute -inset-8 rounded-full bg-primary-500/10 blur-3xl" />
-              <div className="relative font-mono text-[4.5rem] font-black leading-none tracking-tighter tabular-nums text-primary-400">
+              <div className="relative font-mono text-4xl font-black leading-none tracking-tighter tabular-nums text-primary-400 sm:text-[4.5rem]">
                 {formatTime(displayTime)}
               </div>
             </div>
             {!isCompleted && (match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3) && (
-              <div className="mt-8 flex gap-6">
+              <div className="mt-5 flex gap-6 sm:mt-8">
                 {match.liveState?.isTimerRunning ? (
                   <button
                     onClick={handlePauseTimer}
-                    className="flex h-16 w-16 items-center justify-center rounded-[1.75rem] bg-amber-500 text-white shadow-[0_15px_30px_rgba(245,158,11,0.3)] transition-all hover:scale-110 hover:bg-amber-600 active:scale-95"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-[0_15px_30px_rgba(245,158,11,0.3)] transition-all hover:scale-110 hover:bg-amber-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-[1.75rem]"
                   >
-                    <Pause size={28} fill="currentColor" />
+                    <Pause size={24} fill="currentColor" />
                   </button>
                 ) : (
                   <button
                     onClick={handleStartTimer}
-                    className="flex h-16 w-16 items-center justify-center rounded-[1.75rem] bg-primary-500 text-white shadow-[0_15px_30px_rgba(37,99,235,0.3)] transition-all hover:scale-110 hover:bg-primary-600 active:scale-95"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-500 text-white shadow-[0_15px_30px_rgba(37,99,235,0.3)] transition-all hover:scale-110 hover:bg-primary-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-[1.75rem]"
                   >
-                    <Play size={28} fill="currentColor" className="ml-1" />
+                    <Play size={24} fill="currentColor" className="ml-1" />
                   </button>
                 )}
               </div>
@@ -803,7 +850,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-3xl font-black backdrop-blur-md">
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-2xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-[2rem] sm:text-3xl">
                 {match.awayTeamName[0]}
               </div>
             </div>
@@ -811,7 +858,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <h2 className="mb-1 max-w-[120px] truncate text-xs font-black uppercase tracking-tight text-white/50">
                 {match.awayTeamName}
               </h2>
-              <div className="text-7xl font-black tracking-tighter drop-shadow-2xl">
+              <div className="text-5xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
                 {match.scoreAway ?? 0}
               </div>
             </div>
@@ -826,6 +873,66 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         )}
       </motion.div>
 
+      {!isCompleted && (
+        <>
+          {/* Lock banner */}
+          <div className="flex items-center justify-between rounded-3xl bg-amber-500 p-4 text-white shadow-xl shadow-amber-500/20">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20">
+                <Shield size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Session live active</p>
+                <p className="font-display text-xs font-bold italic">Ne quittez pas cette page avant le coup de sifflet final</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Workflow */}
+          <div className="rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/50">
+            <div className="mb-5 flex items-center gap-3">
+              <Clock className="text-gray-400" size={18} />
+              <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Déroulé</h3>
+            </div>
+            <div className="space-y-3">
+              {match.liveState?.currentPeriod === 1 && (
+                <button
+                  onClick={handleHalfTime}
+                  disabled={isSubmitting}
+                  className="group flex w-full items-center justify-between rounded-2xl bg-gray-900 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                >
+                  <span>Mi-temps</span>
+                  <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
+                </button>
+              )}
+              {match.liveState?.currentPeriod === 2 && (
+                <button
+                  onClick={handleResume}
+                  disabled={isSubmitting}
+                  className="group flex w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <span>Reprise (2e mi-temps)</span>
+                  <Play size={18} fill="currentColor" />
+                </button>
+              )}
+              {match.liveState?.currentPeriod === 3 && (
+                <button
+                  onClick={handleFinishClick}
+                  disabled={isSubmitting}
+                  className="flex w-full items-center justify-between rounded-2xl border-2 border-red-50 bg-red-50/50 px-5 py-4 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <span>Fin du match</span>
+                  <CheckCircle2 size={20} />
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      </div>
+
+      {/* Right column: scoring + events (or the completed summary) */}
+      <div className="space-y-7">
       {isCompleted ? (
         /* ----- Read-only completed summary ----- */
         <div className="rounded-[2rem] border border-gray-100 bg-white p-8 shadow-xl shadow-gray-200/40">
@@ -844,19 +951,6 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         </div>
       ) : (
         <>
-          {/* Lock banner */}
-          <div className="flex items-center justify-between rounded-3xl bg-amber-500 p-4 text-white shadow-xl shadow-amber-500/20">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20">
-                <Shield size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Session live active</p>
-                <p className="font-display text-xs font-bold italic">Ne quittez pas cette page avant le coup de sifflet final</p>
-              </div>
-            </div>
-          </div>
-
           {/* Scoring controls */}
           <div className="grid gap-5 px-1 md:grid-cols-2">
             <TeamScoringCard
@@ -881,62 +975,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             />
           </div>
 
-          {/* Workflow + timeline */}
-          <div className="grid gap-6 px-1 md:grid-cols-3">
-            <div className="rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/50">
-              <div className="mb-5 flex items-center gap-3">
-                <Clock className="text-gray-400" size={18} />
-                <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Déroulé</h3>
+          {/* Events */}
+          <div className="rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/50">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <History className="text-gray-400" size={18} />
+                <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Événements</h3>
               </div>
-              <div className="space-y-3">
-                {match.liveState?.currentPeriod === 1 && (
-                  <button
-                    onClick={handleHalfTime}
-                    disabled={isSubmitting}
-                    className="group flex w-full items-center justify-between rounded-2xl bg-gray-900 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <span>Mi-temps</span>
-                    <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
-                  </button>
-                )}
-                {match.liveState?.currentPeriod === 2 && (
-                  <button
-                    onClick={handleResume}
-                    disabled={isSubmitting}
-                    className="group flex w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <span>Reprise (2e mi-temps)</span>
-                    <Play size={18} fill="currentColor" />
-                  </button>
-                )}
-                {match.liveState?.currentPeriod === 3 && (
-                  <button
-                    onClick={handleFinishClick}
-                    disabled={isSubmitting}
-                    className="flex w-full items-center justify-between rounded-2xl border-2 border-red-50 bg-red-50/50 px-5 py-4 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <span>Fin du match</span>
-                    <CheckCircle2 size={20} />
-                  </button>
-                )}
+              <div className="rounded-full bg-gray-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                {events.length} Total
               </div>
             </div>
-
-            <div className="rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/50 md:col-span-2">
-              <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <History className="text-gray-400" size={18} />
-                  <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Événements</h3>
-                </div>
-                <div className="rounded-full bg-gray-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  {events.length} Total
-                </div>
-              </div>
-              <EventTimeline events={events} homeTeamId={match.homeTeamId} homeTeamName={match.homeTeamName} awayTeamName={match.awayTeamName} />
-            </div>
+            <EventTimeline events={events} homeTeamId={match.homeTeamId} homeTeamName={match.homeTeamName} awayTeamName={match.awayTeamName} />
           </div>
         </>
       )}
+      </div>
+      </div>
 
       {/* Player-picker modal (goal / card — only players currently on the pitch) */}
       <AnimatePresence>
