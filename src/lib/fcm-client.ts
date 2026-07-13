@@ -16,11 +16,20 @@ export async function requestPushPermission(userId: string): Promise<void> {
   // FCM needs its own service worker to mint a token and to render
   // background messages. Register it explicitly and hand it to getToken so
   // it never falls back to a missing default file.
-  // Register at a dedicated scope so it coexists with the PWA sw.js (scope
-  // "/") instead of replacing it.
+  // Pass the (public) Firebase web config to the worker via query params so
+  // nothing is hardcoded in the committed sw file. Register at a dedicated
+  // scope so it coexists with the PWA sw.js (scope "/") instead of replacing it.
+  const cfg = new URLSearchParams({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "",
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "",
+  });
   let registration: ServiceWorkerRegistration;
   try {
-    registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+    registration = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?${cfg.toString()}`, {
       scope: "/firebase-cloud-messaging-push-scope",
     });
   } catch (err) {

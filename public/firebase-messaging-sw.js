@@ -1,19 +1,25 @@
 /* KoppaFoot — Firebase Cloud Messaging service worker.
  *
  * Required for FCM web push: getToken() looks for this file to obtain a
- * token, and background messages are displayed from here. Service workers
- * can't read process.env, so the (public) Firebase web config is inlined.
+ * token, and background messages are displayed from here.
+ *
+ * The Firebase web config is passed as query params when the client
+ * registers this worker (see requestPushPermission), so nothing is
+ * hardcoded here — the registration URL persists, so params survive the
+ * worker being woken for a background push.
  */
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
+const params = new URLSearchParams(self.location.search);
+
 firebase.initializeApp({
-  apiKey: "AIzaSyCxCSdN4NBQYFZFEuMQlzfzXIWHKzKxNEU",
-  authDomain: "koppafoot.firebaseapp.com",
-  projectId: "koppafoot",
-  storageBucket: "koppafoot.firebasestorage.app",
-  messagingSenderId: "234916872903",
-  appId: "1:234916872903:web:dc3f28da6140c699a874e2",
+  apiKey: params.get("apiKey"),
+  authDomain: params.get("authDomain"),
+  projectId: params.get("projectId"),
+  storageBucket: params.get("storageBucket"),
+  messagingSenderId: params.get("messagingSenderId"),
+  appId: params.get("appId"),
 });
 
 const messaging = firebase.messaging();
