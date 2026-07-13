@@ -85,6 +85,7 @@ export default function PublicCompMatchView() {
   const { slug, mid } = useParams() as { slug: string; mid: string };
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [cid, setCid] = useState<string | null>(null);
+  const [compBanner, setCompBanner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [displayTime, setDisplayTime] = useState(0);
@@ -105,6 +106,7 @@ export default function PublicCompMatchView() {
         return;
       }
       setCid(competition.id);
+      setCompBanner(competition.bannerUrl);
       unsub = onCompMatch(competition.id, mid, (m) => {
         if (cancelled) return;
         if (!m) setNotFound(true);
@@ -192,6 +194,19 @@ export default function PublicCompMatchView() {
         animate={{ opacity: 1, scale: 1 }}
         className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-gray-900 via-gray-800 to-black p-10 text-white shadow-2xl"
       >
+        {/* Banner background: per-match → competition → none. A dark overlay
+            keeps the scoreboard legible. */}
+        {(match.bannerUrl || compBanner) && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={match.bannerUrl ?? compBanner ?? ""}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-30"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 via-gray-900/70 to-black/80" />
+          </>
+        )}
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Activity size={120} />
         </div>

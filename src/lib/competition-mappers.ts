@@ -79,6 +79,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     awayTeamName: d.away_team_name,
     homeTeamLogo: d.home_team_logo,
     awayTeamLogo: d.away_team_logo,
+    bannerUrl: d.banner_url ?? null,
     date: d.date,
     time: d.time,
     venueName: d.venue_name,

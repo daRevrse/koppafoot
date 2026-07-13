@@ -3,16 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, Check, ChevronRight, MapPin, Upload,
+  Image as ImageIcon, X,
 } from "lucide-react";
 import {
   onCompetition,
   onCompMatches,
   generateGroupFixtures,
   scheduleCompMatch,
+  updateCompMatch,
 } from "@/lib/competition-firestore";
+import { uploadMatchBanner } from "@/lib/storage";
+import ImageUploadField from "@/components/ui/ImageUploadField";
 import type { Competition, CompMatch } from "@/types";
 import toast from "react-hot-toast";
 
@@ -34,6 +38,35 @@ export default function CompetitionSchedulePage() {
   // Per-row input state keyed by match id; never holds undefined (use "").
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Per-match banner modal.
+  const [bannerMatch, setBannerMatch] = useState<CompMatch | null>(null);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [savingBanner, setSavingBanner] = useState(false);
+
+  const openBanner = (m: CompMatch) => {
+    setBannerMatch(m);
+    setBannerUrl(m.bannerUrl ?? "");
+    setBannerFile(null);
+  };
+
+  const saveBanner = async () => {
+    if (!bannerMatch) return;
+    setSavingBanner(true);
+    try {
+      let url: string | null = bannerUrl.trim() || null;
+      if (bannerFile) url = await uploadMatchBanner(cid, bannerMatch.id, bannerFile);
+      await updateCompMatch(cid, bannerMatch.id, { banner_url: url });
+      toast.success("Bannière du match enregistrée");
+      setBannerMatch(null);
+    } catch (err) {
+      console.error("Error saving match banner:", err);
+      toast.error("Impossible d'enregistrer la bannière");
+    } finally {
+      setSavingBanner(false);
+    }
+  };
 
   useEffect(() => {
     if (!cid) return;
@@ -250,13 +283,27 @@ export default function CompetitionSchedulePage() {
                           <span className="font-normal text-gray-400">vs</span>{" "}
                           {match.awayTeamName}
                         </p>
-                        <Link
-                          href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50"
-                        >
-                          Console live
-                          <ChevronRight size={14} />
-                        </Link>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openBanner(match)}
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                              match.bannerUrl
+                                ? "text-emerald-600 hover:bg-emerald-50"
+                                : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            }`}
+                          >
+                            <ImageIcon size={14} />
+                            {match.bannerUrl ? "Bannière" : "Bannière"}
+                          </button>
+                          <Link
+                            href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50"
+                          >
+                            Console live
+                            <ChevronRight size={14} />
+                          </Link>
+                        </div>
                       </div>
 
                       {/* Inline scheduling inputs */}
@@ -324,6 +371,85 @@ export default function CompetitionSchedulePage() {
           ))}
         </div>
       )}
+
+      {/* Per-match banner modal */}
+      <AnimatePresence>
+        {bannerMatch && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="w-full max-w-lg rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-gray-900">Bannière du match</h2>
+                <button
+                  onClick={() => !savingBanner && setBannerMatch(null)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="mb-4 text-sm text-gray-500">
+                {bannerMatch.homeTeamName} vs {bannerMatch.awayTeamName}. Si vide, la bannière
+                de la compétition (puis une image par défaut) est utilisée.
+              </p>
+
+              <ImageUploadField
+                label="Bannière du match"
+                url={bannerUrl}
+                onUrlChange={setBannerUrl}
+                file={bannerFile}
+                onFile={setBannerFile}
+                aspect="wide"
+                maxMb={5}
+                hint="Affichée sur la carte du match et le centre de match"
+              />
+
+              <div className="mt-5 flex justify-between gap-3">
+                {bannerMatch.bannerUrl && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setSavingBanner(true);
+                      try {
+                        await updateCompMatch(cid, bannerMatch.id, { banner_url: null });
+                        toast.success("Bannière retirée");
+                        setBannerMatch(null);
+                      } finally {
+                        setSavingBanner(false);
+                      }
+                    }}
+                    disabled={savingBanner}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Retirer
+                  </button>
+                )}
+                <div className="ml-auto flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => !savingBanner && setBannerMatch(null)}
+                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveBanner}
+                    disabled={savingBanner}
+                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {savingBanner ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Enregistrer
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

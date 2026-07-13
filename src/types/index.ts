@@ -929,6 +929,7 @@ export interface FirestoreCompMatch {
   away_team_name: string;
   home_team_logo: string | null;
   away_team_logo: string | null;
+  banner_url?: string | null;
   date: string | null;
   time: string | null;
   venue_name: string | null;
@@ -965,6 +966,7 @@ export interface CompMatch {
   awayTeamName: string;
   homeTeamLogo: string | null;
   awayTeamLogo: string | null;
+  bannerUrl: string | null;
   date: string | null;
   time: string | null;
   venueName: string | null;

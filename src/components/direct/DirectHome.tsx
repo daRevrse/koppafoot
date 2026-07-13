@@ -115,7 +115,8 @@ function HeroMatchCard({
     return () => clearInterval(t);
   }, [isLive]);
 
-  const bg = competition.bannerUrl ?? "/branding/hero_stadium.png";
+  // Banner fallback chain: per-match → competition → default stadium.
+  const bg = match.bannerUrl ?? competition.bannerUrl ?? "/branding/hero_stadium.png";
 
   return (
     <Link href={`/c/${competition.slug}/matches/${match.id}`} className="block">
