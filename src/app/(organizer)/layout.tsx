@@ -35,7 +35,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <OrganizerSidebar />
       <div className="flex flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
+        <header className="pt-safe flex min-h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
           <h2 className="text-lg font-semibold text-gray-900">Espace Organisateur</h2>
         </header>
         <main className="main-content-app flex-1 bg-[var(--color-bg-secondary)] p-4 lg:p-8">

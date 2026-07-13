@@ -59,7 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <AdminSidebar />
       <div className="flex flex-1 flex-col">
         {/* Premium header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200/60 bg-white/80 backdrop-blur-xl px-6">
+        <header className="pt-safe sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-gray-200/60 bg-white/80 backdrop-blur-xl px-6">
           <div className="flex items-center gap-4">
             <h2 className="text-base font-bold text-gray-900 font-display">{pageTitle}</h2>
           </div>
