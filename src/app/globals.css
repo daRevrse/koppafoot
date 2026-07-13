@@ -165,11 +165,18 @@ body {
   }
 }
 
-/* Glassmorphism bottom bar */
+/* Bottom bar. Solid background (no backdrop-filter): on iOS Safari the
+   blur can't be composited fast enough during momentum scroll, making the
+   fixed bar visually lag/float mid-screen. The bar is also promoted to its
+   own compositor layer so it stays pinned. */
 .bottom-nav-glass {
-  background: rgba(2, 44, 34, 0.92);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  background: rgb(2, 44, 34);
+}
+
+#mobile-bottom-nav {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Subtle active tap feedback */
@@ -193,7 +200,7 @@ body {
 /* PWA standalone mode: adjust for no browser chrome */
 @media (display-mode: standalone) {
   .bottom-nav-glass {
-    background: rgba(2, 44, 34, 0.96);
+    background: rgb(2, 44, 34);
   }
 }
 

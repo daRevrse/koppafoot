@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
 import {
-  History, Trophy, Loader2, Activity, MapPin, Calendar, Clock, SearchX, Users,
+  History, Loader2, Activity, MapPin, Calendar, Clock, SearchX, Users,
+  Goal, ArrowRightLeft,
 } from "lucide-react";
 import type { LineupEntry } from "@/types";
 import { getCompetitionBySlug, onCompMatch } from "@/lib/competition-firestore";
@@ -33,11 +34,11 @@ const PERIODS = [
 // Team crest: real logo when present, otherwise a first-letter avatar.
 function TeamCrest({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl">
+    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl sm:mb-4 sm:h-20 sm:w-20 sm:rounded-[2rem]">
       {logo ? (
         <Image src={logo} alt={name} width={80} height={80} className="h-full w-full object-cover" />
       ) : (
-        <span className="text-3xl font-black">{name?.[0]?.toUpperCase() || "?"}</span>
+        <span className="text-2xl font-black sm:text-3xl">{name?.[0]?.toUpperCase() || "?"}</span>
       )}
     </div>
   );
@@ -193,7 +194,7 @@ export default function PublicCompMatchView() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-gray-900 via-gray-800 to-black p-10 text-white shadow-2xl"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 text-white shadow-2xl sm:rounded-[3rem] sm:p-10"
       >
         {/* Banner background: per-match → competition → none. A dark overlay
             keeps the scoreboard legible. */}
@@ -212,21 +213,21 @@ export default function PublicCompMatchView() {
           <Activity size={120} />
         </div>
 
-        <div className="relative z-10 grid grid-cols-3 items-center gap-6">
+        <div className="relative z-10 grid grid-cols-3 items-center gap-2 sm:gap-6">
           {/* Home */}
           <div className="text-center">
             <TeamCrest name={match.homeTeamName} logo={match.homeTeamLogo} />
-            <h2 className="mb-2 truncate text-sm font-black uppercase tracking-tight">{match.homeTeamName}</h2>
-            <div className="text-7xl font-black tracking-tighter">{match.scoreHome || 0}</div>
+            <h2 className="mb-1 truncate text-xs font-black uppercase tracking-tight sm:mb-2 sm:text-sm">{match.homeTeamName}</h2>
+            <div className="text-5xl font-black tracking-tighter sm:text-7xl">{match.scoreHome || 0}</div>
           </div>
 
           {/* Center Info */}
           <div className="flex flex-col items-center justify-center">
-            <div className="mb-4 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+            <div className="mb-3 whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-400 sm:mb-4 sm:px-4 sm:text-[10px] sm:tracking-widest">
               {periodLabel}
             </div>
             {match.liveState ? (
-              <div className="font-mono text-5xl font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <div className="font-mono text-2xl font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)] sm:text-5xl">
                 {formatTime(shownTime)}
               </div>
             ) : (
@@ -239,8 +240,8 @@ export default function PublicCompMatchView() {
           {/* Away */}
           <div className="text-center">
             <TeamCrest name={match.awayTeamName} logo={match.awayTeamLogo} />
-            <h2 className="mb-2 truncate text-sm font-black uppercase tracking-tight">{match.awayTeamName}</h2>
-            <div className="text-7xl font-black tracking-tighter">{match.scoreAway || 0}</div>
+            <h2 className="mb-1 truncate text-xs font-black uppercase tracking-tight sm:mb-2 sm:text-sm">{match.awayTeamName}</h2>
+            <div className="text-5xl font-black tracking-tighter sm:text-7xl">{match.scoreAway || 0}</div>
           </div>
         </div>
       </motion.div>
@@ -315,46 +316,62 @@ export default function PublicCompMatchView() {
           {/* Vertical Line */}
           <div className="absolute left-[21px] top-4 bottom-4 w-0.5 bg-gray-50" />
 
-          <div className="relative space-y-8">
+          <div className="relative space-y-5 sm:space-y-7">
             {match.liveState?.events && match.liveState.events.length > 0 ? (
-              [...match.liveState.events].reverse().map((event) => (
-                <div key={event.id} className="group flex items-start gap-6">
-                  <div
-                    className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 shadow-sm transition-all group-hover:scale-110 ${
-                      event.type === "goal"
-                        ? "border-amber-100 bg-amber-50 text-amber-500"
-                        : event.type === "yellow_card"
-                          ? "border-amber-100 bg-amber-50 text-amber-400"
-                          : event.type === "red_card"
-                            ? "border-red-100 bg-red-50 text-red-500"
-                            : "border-gray-100 bg-gray-50 text-gray-400"
-                    }`}
-                  >
-                    <span className="text-[10px] font-black">{event.minute}&apos;</span>
-                  </div>
-
-                  <div className="flex-1 pt-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      {event.type === "goal" && <Trophy size={16} />}
-                      <span className="text-sm font-black uppercase tracking-wide text-gray-900">
-                        {event.type === "goal"
-                          ? "BUT !"
+              [...match.liveState.events].reverse().map((event) => {
+                const isHome = event.teamId === match.homeTeamId;
+                const teamName = isHome ? match.homeTeamName : match.awayTeamName;
+                const isSub = event.type === "substitution";
+                return (
+                  <div key={event.id} className="group flex items-start gap-3 sm:gap-5">
+                    {/* Minute badge */}
+                    <div
+                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${
+                        event.type === "goal"
+                          ? "border-emerald-100 bg-emerald-50 text-emerald-600"
                           : event.type === "yellow_card"
-                            ? "Carton Jaune"
+                            ? "border-amber-100 bg-amber-50 text-amber-500"
                             : event.type === "red_card"
-                              ? "Carton Rouge"
-                              : "Événement"}
-                      </span>
+                              ? "border-red-100 bg-red-50 text-red-500"
+                              : "border-gray-100 bg-gray-50 text-gray-400"
+                      }`}
+                    >
+                      <span className="text-[10px] font-black">{event.minute}&apos;</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-bold text-gray-500">{event.playerName || ""}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-300">
-                        {event.teamId === match.homeTeamId ? "DOM" : "EXT"}
+
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="flex items-center gap-1.5">
+                        {/* Type marker */}
+                        {event.type === "goal" && <Goal size={15} className="shrink-0 text-emerald-600" />}
+                        {event.type === "yellow_card" && (
+                          <span className="h-3.5 w-2.5 shrink-0 rounded-[3px] bg-amber-400" />
+                        )}
+                        {event.type === "red_card" && (
+                          <span className="h-3.5 w-2.5 shrink-0 rounded-[3px] bg-red-500" />
+                        )}
+                        {isSub && <ArrowRightLeft size={14} className="shrink-0 text-blue-500" />}
+                        <span className="truncate text-xs font-black uppercase tracking-wide text-gray-900 sm:text-sm">
+                          {event.type === "goal"
+                            ? "But"
+                            : event.type === "yellow_card"
+                              ? "Carton jaune"
+                              : event.type === "red_card"
+                                ? event.detail === "2e carton jaune" ? "Expulsion (2e jaune)" : "Carton rouge"
+                                : isSub
+                                  ? "Changement"
+                                  : "Événement"}
+                        </span>
+                        <span className="ml-auto shrink-0 truncate text-[10px] font-black uppercase tracking-wide text-gray-300 max-w-[35%]">
+                          {teamName}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] font-bold text-gray-500 sm:text-xs">
+                        {isSub && event.detail ? event.detail : event.playerName || ""}
                       </p>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-50 text-gray-200">
