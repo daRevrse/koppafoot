@@ -52,6 +52,20 @@ service cloud.firestore {
         .hasAny(['email', 'user_type', 'is_superadmin', 'is_active', 'created_at']);
     }
 
+    // Évolution onboarding: the owner may flip their own user_type, but only
+    // between the non-privileged roles (never to/from organizer/superadmin —
+    // those transitions stay admin-SDK only), together with the onboarding
+    // profile fields.
+    function isRoleEvolution() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly([
+          'user_type', 'evolution_role', 'position', 'skill_level',
+          'strong_foot', 'team_name', 'location_city', 'updated_at'
+        ])
+        && request.resource.data.user_type in ['player', 'manager']
+        && resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner'];
+    }
+
     // ============================================
     // Users collection
     // ============================================
@@ -60,7 +74,8 @@ service cloud.firestore {
       allow create: if isOwner(uid);
       
       allow update: if (isOwner(uid) && noProtectedFields())
-                   || (isAuthenticated() && 
+                   || (isOwner(uid) && isRoleEvolution())
+                   || (isAuthenticated() &&
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers_count', 'updated_at']))
                    || (isAuthenticated() && 
                        request.resource.data.diff(resource.data).affectedKeys()
