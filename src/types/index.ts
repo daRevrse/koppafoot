@@ -4,6 +4,10 @@
 
 export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organizer" | "superadmin";
 
+// Role picked in the Évolution onboarding (null/absent = not activated yet;
+// everyone starts as a plain spectator account).
+export type EvolutionRole = "player" | "manager";
+
 export type AuthProvider = "email" | "phone" | "google";
 
 export interface UserProfile {
@@ -44,6 +48,8 @@ export interface UserProfile {
   // Social
   followersCount?: number;
   followingCount?: number;
+  // Évolution onboarding — role activated by the user (Espace joueur/manager)
+  evolutionRole?: EvolutionRole | null;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
   // Gallery
@@ -119,6 +125,8 @@ export interface FirestoreUser {
   // Social
   followers_count?: number;
   following_count?: number;
+  // Évolution onboarding — role activated by the user (Espace joueur/manager)
+  evolution_role?: EvolutionRole | null;
   // Competitions followed (push notifications on kickoff/goal/final)
   followed_competition_ids?: string[];
   // Gallery
@@ -913,8 +921,25 @@ export interface CompTeam {
   color: string;
   group: string | null;
   players: CompPlayer[];
+  claimedByManagerId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// Team-manager invitation, as returned by the API routes (the Firestore
+// `team_manager_invites` collection is admin-SDK only — no client rules).
+export type TeamManagerInviteStatus = "pending" | "accepted" | "revoked";
+
+export interface TeamManagerInvite {
+  id: string;
+  competitionId: string;
+  teamId: string;
+  teamName: string;
+  competitionName: string;
+  email: string;
+  invitedByName: string;
+  status: TeamManagerInviteStatus;
+  createdAt: string | null;
 }
 
 export interface FirestoreCompMatch {

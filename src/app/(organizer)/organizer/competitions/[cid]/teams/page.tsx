@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users, ArrowLeft, Plus, Loader2, Pencil, Trash2, X, Save, Shield, Upload,
+  UserPlus, Mail, Send, BadgeCheck,
 } from "lucide-react";
 import {
   onCompTeams,
@@ -15,7 +16,8 @@ import {
   syncTeamToMatches,
 } from "@/lib/competition-firestore";
 import { uploadTeamLogo } from "@/lib/storage";
-import type { CompTeam } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import type { CompTeam, TeamManagerInvite } from "@/types";
 import toast from "react-hot-toast";
 
 const COLOR_PRESETS = [
@@ -40,8 +42,15 @@ const EMPTY_FORM: TeamFormState = {
 export default function CompetitionTeamsPage() {
   const params = useParams<{ cid: string }>();
   const cid = params.cid;
+  const { firebaseUser } = useAuth();
   const [teams, setTeams] = useState<CompTeam[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Manager invitations (pending), keyed by team id.
+  const [invites, setInvites] = useState<Record<string, TeamManagerInvite>>({});
+  const [inviting, setInviting] = useState<CompTeam | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
 
   // Modal state: null = closed, otherwise create (no editing.id) or edit.
   const [modalOpen, setModalOpen] = useState(false);
@@ -64,6 +73,98 @@ export default function CompetitionTeamsPage() {
     });
     return unsubscribe;
   }, [cid]);
+
+  // Pending manager invitations of this competition.
+  useEffect(() => {
+    if (!cid || !firebaseUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await firebaseUser.getIdToken();
+        const res = await fetch(`/api/competitions/team-manager-invites?cid=${cid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { invites: TeamManagerInvite[] };
+        if (cancelled) return;
+        setInvites(Object.fromEntries(data.invites.map((inv) => [inv.teamId, inv])));
+      } catch {
+        // silent — the invite chips just won't show
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [cid, firebaseUser]);
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviting || !firebaseUser) return;
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
+      toast.error("L'email du futur manager est requis");
+      return;
+    }
+    setInviteSubmitting(true);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/competitions/team-manager-invites", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ cid, teamId: inviting.id, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Une erreur est survenue");
+        return;
+      }
+      setInvites((prev) => ({
+        ...prev,
+        [inviting.id]: {
+          id: data.id,
+          competitionId: cid,
+          teamId: inviting.id,
+          teamName: inviting.name,
+          competitionName: "",
+          email,
+          invitedByName: "",
+          status: "pending",
+          createdAt: null,
+        },
+      }));
+      toast.success(`Invitation envoyée à ${email}`);
+      setInviting(null);
+      setInviteEmail("");
+    } catch (err) {
+      console.error("Manager invite failed:", err);
+      toast.error("Une erreur est survenue");
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
+  const handleRevokeInvite = async (invite: TeamManagerInvite) => {
+    if (!firebaseUser) return;
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/competitions/team-manager-invites", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id: invite.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error ?? "Impossible d'annuler l'invitation");
+        return;
+      }
+      setInvites((prev) => {
+        const next = { ...prev };
+        delete next[invite.teamId];
+        return next;
+      });
+      toast.success("Invitation annulée");
+    } catch {
+      toast.error("Impossible d'annuler l'invitation");
+    }
+  };
 
   const update = <K extends keyof TeamFormState>(key: K, value: TeamFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -303,13 +404,43 @@ export default function CompetitionTeamsPage() {
                     {team.shortName}
                   </span>
                 </div>
-                <Link
-                  href={`/organizer/competitions/${cid}/teams/${team.id}`}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
-                >
-                  <Users size={13} />
-                  Effectif ({team.players.length})
-                </Link>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <Link
+                    href={`/organizer/competitions/${cid}/teams/${team.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                  >
+                    <Users size={13} />
+                    Effectif ({team.players.length})
+                  </Link>
+                  {team.claimedByManagerId ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <BadgeCheck size={13} />
+                      Manager assigné
+                    </span>
+                  ) : invites[team.id] ? (
+                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                      <Mail size={13} className="shrink-0" />
+                      <span className="truncate">Invité : {invites[team.id].email}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeInvite(invites[team.id])}
+                        aria-label="Annuler l'invitation"
+                        className="shrink-0 rounded p-0.5 text-amber-500 transition-colors hover:bg-amber-100 hover:text-amber-800"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setInviting(team); setInviteEmail(""); }}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                    >
+                      <UserPlus size={13} />
+                      Inviter un manager
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Actions */}
@@ -504,6 +635,84 @@ export default function CompetitionTeamsPage() {
                   >
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     {editing ? "Enregistrer" : "Ajouter"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Invite manager modal */}
+      <AnimatePresence>
+        {inviting && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !inviteSubmitting && setInviting(null)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-gray-900">
+                  Inviter un manager
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => !inviteSubmitting && setInviting(null)}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="mb-5 text-sm text-gray-500">
+                La personne invitée recevra un email et deviendra{" "}
+                <span className="font-semibold text-gray-700">propriétaire et manager</span> de{" "}
+                <span className="font-semibold text-gray-700">{inviting.name}</span> en acceptant.
+              </p>
+
+              <form onSubmit={handleInviteSubmit} className="space-y-5">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Email du futur manager
+                  </label>
+                  <div className="relative">
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <input
+                      type="email"
+                      required
+                      autoFocus
+                      placeholder="manager@email.com"
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-primary-500 focus:outline-none"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setInviting(null)}
+                    disabled={inviteSubmitting}
+                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={inviteSubmitting}
+                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {inviteSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    Envoyer l&apos;invitation
                   </button>
                 </div>
               </form>

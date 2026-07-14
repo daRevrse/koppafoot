@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import CompetitionDirectorySearch from "@/components/competition/CompetitionDirectorySearch";
+import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
 
 // Public, login-free directory of all visible competitions, rendered inside
 // the general app shell (the (app) layout treats /competitions as public).
@@ -54,8 +55,16 @@ export default async function CompetitionsPage() {
             </Link>
           </div>
         ) : (
-          <CompetitionDirectorySearch competitions={competitions} />
+          <CompetitionDirectorySearch
+            competitions={competitions}
+            action={<OrganizeCompetitionCta variant="button" />}
+          />
         )}
+
+        {/* Bottom entry point for future organizers */}
+        <div className="mt-10">
+          <OrganizeCompetitionCta variant="link" />
+        </div>
     </div>
   );
 }

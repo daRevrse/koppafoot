@@ -249,6 +249,36 @@ export function organizerApplicationDecisionHtml(
     `);
 }
 
+// ── Team manager invitation ─────────────────────────────────
+
+export function teamManagerInviteHtml(
+  inviterName: string,
+  teamName: string,
+  competitionName: string,
+  acceptLink: string,
+): string {
+  return emailLayout(`
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+      On te confie une équipe&nbsp;🧑‍💼⚽
+    </h2>
+    <p style="margin:0 0 12px;">
+      <strong>${inviterName}</strong> t'invite à prendre la gestion de l'équipe
+      <strong style="color:#059669;">${teamName}</strong> dans la compétition
+      <strong>${competitionName}</strong> sur KoppaFoot.
+    </p>
+    <p style="margin:0;color:#64748b;font-size:14px;">
+      En acceptant, tu deviens propriétaire et manager de cette équipe&nbsp;:
+      effectif, compositions et suivi des matchs.
+    </p>
+    ${ctaButton("Accepter la gestion", acceptLink)}
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:#94a3b8;">
+      Connecte-toi (ou crée ton compte) avec cette adresse email pour accepter.
+      Si tu n'es pas concerné, ignore simplement cet email.
+    </p>
+  `);
+}
+
 // ── Campaign templates ──────────────────────────────────────
 
 export function campaignManagerNoTeamHtml(firstName: string): string {

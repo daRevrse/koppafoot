@@ -16,10 +16,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // Redirect authenticated users to their space
+  // Redirect authenticated users to their space — or to a same-site ?next=
+  // target (invitation links bounce through login and come back here).
   useEffect(() => {
     if (!loading && user) {
-      router.replace(ROLE_REDIRECTS[user.userType] ?? "/");
+      const next = new URLSearchParams(window.location.search).get("next");
+      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+      router.replace(safeNext ?? ROLE_REDIRECTS[user.userType] ?? "/");
     }
   }, [user, loading, router]);
 

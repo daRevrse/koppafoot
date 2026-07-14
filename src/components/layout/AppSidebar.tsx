@@ -6,10 +6,11 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home, Trophy, Star, Settings,
-  ClipboardList, Shield, Radio, LogIn,
+  ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
+import { shareInviteLink } from "@/lib/invite-link";
 import type { Competition } from "@/types";
 
 // ============================================
@@ -56,6 +57,24 @@ export default function AppSidebar() {
   const pathname = usePathname();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [moderatesAny, setModeratesAny] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  const handleInvite = async () => {
+    const result = await shareInviteLink(user?.firstName);
+    if (result === "copied") {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2500);
+    }
+  };
+
+  // Évolution entry: label follows the activated role.
+  const evolution = user
+    ? user.evolutionRole === "player"
+      ? { label: "Espace joueur", Icon: User }
+      : user.evolutionRole === "manager"
+        ? { label: "Espace manager", Icon: Briefcase }
+        : { label: "Évolution", Icon: Rocket }
+    : null;
 
   useEffect(() => {
     listPublicCompetitions().then(setCompetitions).catch(() => {});
@@ -177,22 +196,32 @@ export default function AppSidebar() {
                 </Link>
               );
             })}
-            {user?.userType === "organizer" && (
+            {evolution && (() => {
+              const active = isActive(pathname, "/evolution");
+              return (
+                <Link
+                  href="/evolution"
+                  className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${
+                    active
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+                  )}
+                  <evolution.Icon size={18} className={active ? "text-emerald-600" : "text-gray-400"} />
+                  {evolution.label}
+                </Link>
+              );
+            })()}
+            {(user?.userType === "organizer" || user?.userType === "superadmin") && (
               <Link
                 href="/organizer"
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
               >
                 <ClipboardList size={18} className="text-gray-400" />
                 Espace organisateur
-              </Link>
-            )}
-            {user && user.userType !== "organizer" && user.userType !== "superadmin" && (
-              <Link
-                href="/devenir-organisateur"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
-              >
-                <ClipboardList size={18} className="text-gray-400" />
-                Devenir organisateur
               </Link>
             )}
             {user?.userType === "superadmin" && (
@@ -253,15 +282,25 @@ export default function AppSidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="flex items-center justify-center border-t border-gray-100 px-4 py-3">
-          <Image
-            src="/branding/logo_full_name.png"
-            alt="KOPPAFOOT"
-            width={100}
-            height={26}
-            style={{ height: "auto" }}
-            className="opacity-30"
-          />
+        <div className="border-t border-gray-100 px-4 py-3">
+          <button
+            type="button"
+            onClick={handleInvite}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+          >
+            {inviteCopied ? <Check size={15} /> : <UserPlus size={15} />}
+            {inviteCopied ? "Lien copié !" : "Inviter un ami"}
+          </button>
+          <div className="mt-3 flex items-center justify-center">
+            <Image
+              src="/branding/logo_full_name.png"
+              alt="KOPPAFOOT"
+              width={100}
+              height={26}
+              style={{ height: "auto" }}
+              className="opacity-30"
+            />
+          </div>
         </div>
       </div>
     </aside>
