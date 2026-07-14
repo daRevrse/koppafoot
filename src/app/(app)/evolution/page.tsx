@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Rocket, User, Briefcase, ArrowLeft, ArrowRight, Loader2,
   Check, Circle, CheckCircle2, Trophy, Pencil, RefreshCw, Mail,
+  Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Search, Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,6 +50,29 @@ const ROLES: {
     ],
   },
 ];
+
+// Feature map of each espace — mirrors the shelved verticals (src/app/_shelved)
+// that come back one by one: set `href` when a vertical is unfrozen and the
+// row flips from a "Bientôt" teaser to a real link.
+const ROLE_FEATURES: Record<EvolutionRole, {
+  label: string;
+  desc: string;
+  Icon: typeof User;
+  href?: string;
+}[]> = {
+  player: [
+    { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store },
+    { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck },
+    { label: "Mes statistiques", desc: "Buts, passes décisives, matchs joués", Icon: BarChart3 },
+    { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays },
+  ],
+  manager: [
+    { label: "Mon équipe", desc: "Effectif, numéros, entraînements", Icon: Users },
+    { label: "Recrutement", desc: "Shortlist de joueurs et demandes d'adhésion", Icon: Search },
+    { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords },
+    { label: "Mercato", desc: "Repère les joueurs disponibles sur le marché", Icon: Store },
+  ],
+};
 
 const POSITIONS = [
   { value: "goalkeeper", label: "Gardien" },
@@ -243,6 +267,53 @@ export default function EvolutionPage() {
               </span>
               <ArrowRight size={16} className="text-gray-300" />
             </Link>
+          </div>
+
+          {/* The role's features — unfrozen one by one */}
+          <div className="mt-8">
+            <p className="px-1 text-xs font-black uppercase tracking-widest text-gray-400">
+              {isPlayer ? "Ton espace joueur" : "Ton espace manager"}
+            </p>
+            <p className="mt-1 px-1 text-xs font-semibold text-gray-400">
+              Ces fonctionnalités arrivent progressivement.
+            </p>
+            <div className="mt-3 space-y-2.5">
+              {ROLE_FEATURES[activated].map(({ label, desc, Icon, href }) =>
+                href ? (
+                  <Link
+                    key={label}
+                    href={href}
+                    className="flex items-center gap-4 rounded-2xl border border-gray-100 p-4 transition-colors hover:bg-gray-50"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
+                      <Icon size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-gray-900">{label}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-gray-400">{desc}</p>
+                    </div>
+                    <ArrowRight size={16} className="shrink-0 text-gray-300" />
+                  </Link>
+                ) : (
+                  <div
+                    key={label}
+                    className="flex items-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-4"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+                      <Icon size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-gray-500">{label}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-gray-400">{desc}</p>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-200/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-gray-500">
+                      <Lock size={10} />
+                      Bientôt
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
           </div>
         </div>
 
