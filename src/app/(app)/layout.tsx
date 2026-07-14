@@ -17,7 +17,9 @@ function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/" ||
     pathname.startsWith("/competitions") ||
-    pathname.startsWith("/c/")
+    pathname.startsWith("/c/") ||
+    // Invitation links arrive by email — guests must see them to sign in/up.
+    pathname.startsWith("/invitations/")
   );
 }
 

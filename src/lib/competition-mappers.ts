@@ -60,6 +60,7 @@ export function toCompTeam(id: string, competitionId: string, d: FirestoreCompTe
     color: d.color,
     group: d.group,
     players: d.players ?? [],
+    claimedByManagerId: d.claimed_by_manager_id ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };

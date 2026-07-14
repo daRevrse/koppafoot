@@ -5,8 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Home, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
+  Rocket, Briefcase, UserPlus, Check,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { shareInviteLink } from "@/lib/invite-link";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
 // ─── Icon map ────────────────────────────────────────────────
@@ -29,6 +31,7 @@ function AvatarBottomSheet({
 }) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   const handleLogout = useCallback(async () => {
     onClose();
@@ -36,7 +39,23 @@ function AvatarBottomSheet({
     router.push("/login");
   }, [logout, router, onClose]);
 
+  const handleInvite = useCallback(async () => {
+    const result = await shareInviteLink(user?.firstName);
+    if (result === "copied") {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2500);
+    }
+  }, [user?.firstName]);
+
   if (!open || !user) return null;
+
+  // Évolution entry: label follows the activated role.
+  const evolution =
+    user.evolutionRole === "player"
+      ? { label: "Espace joueur", Icon: User }
+      : user.evolutionRole === "manager"
+        ? { label: "Espace manager", Icon: Briefcase }
+        : { label: "Évolution", Icon: Rocket };
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const profileUrl = "/profile";
@@ -101,6 +120,25 @@ function AvatarBottomSheet({
               <User size={18} className="text-emerald-400" />
               Mon profil
             </Link>
+            <Link
+              href="/evolution"
+              onClick={onClose}
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              <evolution.Icon size={18} className="text-emerald-400" />
+              {evolution.label}
+            </Link>
+            <button
+              onClick={handleInvite}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              {inviteCopied ? (
+                <Check size={18} className="text-emerald-400" />
+              ) : (
+                <UserPlus size={18} className="text-emerald-400" />
+              )}
+              {inviteCopied ? "Lien copié !" : "Inviter un ami"}
+            </button>
             {user.userType === "organizer" && (
               <Link
                 href="/organizer"

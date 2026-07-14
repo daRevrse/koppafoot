@@ -3,16 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
 // AppHeader — light top bar: search on the left, actions on the right
-// (notifications + Organiser CTA for authed users, join/login for
-// guests). Profile, competitions and logout live in the sidebar and
-// the profile page — the header stays minimal.
+// (notifications for authed users, join/login for guests). Profile,
+// competitions and logout live in the sidebar and the profile page;
+// the "Organiser ma compétition" CTA lives on /competitions — the
+// header stays minimal.
 // ============================================
 
 export default function AppHeader() {
@@ -58,17 +59,6 @@ export default function AppHeader() {
       {user ? (
         <div className="flex shrink-0 items-center gap-2 lg:gap-3">
           <NotificationDropdown />
-          <Link
-            href={
-              user.userType === "organizer" || user.userType === "superadmin"
-                ? "/organizer"
-                : "/devenir-organisateur"
-            }
-            className="hidden items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition-colors hover:bg-emerald-600 sm:flex"
-          >
-            <Plus size={14} />
-            Organiser
-          </Link>
         </div>
       ) : loading ? (
         <div className="h-8 w-40" />

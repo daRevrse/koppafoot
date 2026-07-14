@@ -106,6 +106,9 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     // Social
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,
+    // Évolution
+    evolutionRole: data.evolution_role ?? null,
+    followedCompetitionIds: data.followed_competition_ids ?? [],
     // Gallery
     galleryPhotos: data.gallery_photos ?? [],
     // Trophies

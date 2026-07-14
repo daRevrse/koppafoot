@@ -15,10 +15,13 @@ const SECTIONS: { title: string; statuses: Competition["status"][] }[] = [
 
 // Client search island. Receives already-fetched competitions as props so the
 // firebase-admin lib (competition-admin) stays out of the client bundle.
+// `action` renders next to the search bar (the "Organiser ma compétition" CTA).
 export default function CompetitionDirectorySearch({
   competitions,
+  action,
 }: {
   competitions: Competition[];
+  action?: React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
 
@@ -44,20 +47,23 @@ export default function CompetitionDirectorySearch({
 
   return (
     <div className="space-y-8">
-      {/* Search */}
-      <div className="relative">
-        <Search
-          size={18}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-        />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher une compétition ou une ville…"
-          aria-label="Rechercher une compétition"
-          className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-11 pr-4 text-sm font-bold text-gray-900 shadow-sm outline-none transition-colors placeholder:font-medium placeholder:text-gray-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
-        />
+      {/* Search + action */}
+      <div className="flex items-stretch gap-3">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            size={18}
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher une compétition ou une ville…"
+            aria-label="Rechercher une compétition"
+            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-11 pr-4 text-sm font-bold text-gray-900 shadow-sm outline-none transition-colors placeholder:font-medium placeholder:text-gray-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
+          />
+        </div>
+        {action}
       </div>
 
       {sections.length === 0 ? (
