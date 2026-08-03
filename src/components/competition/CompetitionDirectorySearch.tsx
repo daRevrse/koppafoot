@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, SearchX } from "lucide-react";
 import type { Competition } from "@/types";
 import CompetitionDirectoryCard from "./CompetitionDirectoryCard";
@@ -23,16 +24,25 @@ export default function CompetitionDirectorySearch({
   competitions: Competition[];
   action?: React.ReactNode;
 }) {
-  const [query, setQuery] = useState("");
+  // The header search bar navigates to /competitions?q=… — seed the local
+  // filter from the URL and follow it (the header can push a new q while
+  // this page is already mounted). Requires a <Suspense> boundary upstream.
+  const urlQuery = useSearchParams().get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
 
-  // Case-insensitive, trimmed match on name + venueCity.
+  // Case- and accent-insensitive match on name + venueCity ("miabe" must
+  // find "Miabé").
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const fold = (s: string) =>
+      s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const q = fold(query.trim());
     if (!q) return competitions;
-    return competitions.filter((c) => {
-      const haystack = `${c.name} ${c.venueCity ?? ""}`.toLowerCase();
-      return haystack.includes(q);
-    });
+    return competitions.filter((c) =>
+      fold(`${c.name} ${c.venueCity ?? ""}`).includes(q),
+    );
   }, [query, competitions]);
 
   // Group the filtered list into the ordered sections, dropping empties.

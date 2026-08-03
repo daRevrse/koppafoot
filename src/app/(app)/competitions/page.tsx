@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
@@ -55,10 +56,14 @@ export default async function CompetitionsPage() {
             </Link>
           </div>
         ) : (
-          <CompetitionDirectorySearch
-            competitions={competitions}
-            action={<OrganizeCompetitionCta variant="button" />}
-          />
+          // Suspense: the search island reads ?q= via useSearchParams (the
+          // header search bar lands here) — required on a static page.
+          <Suspense fallback={null}>
+            <CompetitionDirectorySearch
+              competitions={competitions}
+              action={<OrganizeCompetitionCta variant="button" />}
+            />
+          </Suspense>
         )}
 
         {/* Bottom entry point for future organizers */}

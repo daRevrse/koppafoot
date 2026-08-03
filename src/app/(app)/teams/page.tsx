@@ -210,7 +210,9 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const isManager = user?.userType === "manager";
+  // Legacy manager accounts + the Évolution manager role (organizer accounts
+  // keep their user_type, the activated role lives in evolutionRole).
+  const isManager = user?.userType === "manager" || user?.evolutionRole === "manager";
 
   const fetchTeams = async () => {
     if (!user) return;
@@ -307,12 +309,10 @@ export default function TeamsPage() {
               <Plus size={16} /> Créer une équipe
             </button>
           ) : (
-            <Link
-              href="/mercato"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
-            >
-              <Search size={16} /> Trouver une équipe
-            </Link>
+            // Mercato is still shelved — teaser until that vertical is unfrozen.
+            <span className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-400">
+              <Search size={16} /> Trouver une équipe — bientôt
+            </span>
           )}
         </motion.div>
       </div>
@@ -431,12 +431,9 @@ export default function TeamsPage() {
               <Plus size={16} /> Créer une équipe
             </button>
           ) : (
-            <Link
-              href="/mercato"
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all"
-            >
-              <Plus size={16} /> Trouver une équipe
-            </Link>
+            <span className="mt-6 inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-400">
+              <Search size={16} /> Le mercato arrive bientôt
+            </span>
           )}
         </motion.div>
       )}

@@ -1320,10 +1320,10 @@ export default function TeamDetailPage() {
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <Plus size={16} /> Ajouter un joueur
               </button>
-              <Link href="/recruitment"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
-                <UserPlus size={16} /> Recruter
-              </Link>
+              {/* Recruitment vertical still shelved — teaser until unfrozen. */}
+              <span className="flex flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 py-4 text-sm font-medium text-gray-400">
+                <UserPlus size={16} /> Recruter — bientôt
+              </span>
             </div>
           )}
         </motion.div>
@@ -1411,20 +1411,18 @@ export default function TeamDetailPage() {
               <Trophy size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucun match programme</p>
               {isTeamManager && (
-                <Link href="/matches"
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-all">
-                  <Calendar size={14} /> Programmer un match
-                </Link>
+                <span className="mt-4 inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400">
+                  <Calendar size={14} /> Programmer un match — bientôt
+                </span>
               )}
             </div>
           )}
 
           {/* CTA for manager */}
           {isTeamManager && matches.length > 0 && (
-            <Link href="/matches"
-              className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
-              <Calendar size={16} /> Programmer un match
-            </Link>
+            <span className="flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 py-4 text-sm font-medium text-gray-400">
+              <Calendar size={16} /> Programmer un match — bientôt
+            </span>
           )}
         </motion.div>
       )}

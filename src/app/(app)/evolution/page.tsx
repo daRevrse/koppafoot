@@ -67,7 +67,7 @@ const ROLE_FEATURES: Record<EvolutionRole, {
     { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays },
   ],
   manager: [
-    { label: "Mon équipe", desc: "Effectif, numéros, entraînements", Icon: Users },
+    { label: "Mon équipe", desc: "Effectif, numéros, entraînements", Icon: Users, href: "/teams" },
     { label: "Recrutement", desc: "Shortlist de joueurs et demandes d'adhésion", Icon: Search },
     { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords },
     { label: "Mercato", desc: "Repère les joueurs disponibles sur le marché", Icon: Store },
