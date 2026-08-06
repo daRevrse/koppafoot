@@ -341,6 +341,71 @@ export async function listCompTeamsByManager(uid: string): Promise<CompTeam[]> {
   });
 }
 
+/**
+ * Attach one of the manager's clubs (`teams`) to their competition team
+ * (`comp_teams`) and seed the competition roster from the club's squad.
+ *
+ * This is the bridge `claimed_by_team_id` was always meant to be: without it
+ * a manager types their squad twice, once per model. Real members carry
+ * their `user_id` across, so their personal stats start filling immediately
+ * — the manager vouching for their own squad IS the validation step, and
+ * they are the validator the claim flow would have asked anyway. Ghost
+ * players (no account) come over as plain names.
+ *
+ * Roster lines already present are kept: matching is on `user_id` for real
+ * members and on `ghost:<id>` for ghosts, so re-running only tops up.
+ * Returns how many lines were added.
+ */
+export async function linkClubToCompTeam(
+  cid: string,
+  tid: string,
+  club: {
+    id: string;
+    squadNumbers?: { [playerId: string]: string };
+    members: { uid: string; name: string; position?: string }[];
+    ghosts: { id: string; name: string; position?: string; squadNumber?: string }[];
+  },
+): Promise<number> {
+  const team = await getCompTeam(cid, tid);
+  if (!team) throw new Error(`Comp team ${tid} not found`);
+
+  const existing = [...team.players];
+  const byUser = new Set(existing.map((p) => p.user_id).filter(Boolean));
+  const byGhost = new Set(existing.map((p) => p.id));
+
+  const added: CompPlayer[] = [];
+
+  for (const member of club.members) {
+    if (byUser.has(member.uid)) continue;
+    added.push({
+      id: `u_${member.uid}`,
+      name: member.name,
+      number: club.squadNumbers?.[member.uid] ?? "",
+      ...(member.position ? { position: member.position } : {}),
+      user_id: member.uid,
+    });
+  }
+
+  for (const ghost of club.ghosts) {
+    const id = `ghost_${ghost.id}`;
+    if (byGhost.has(id)) continue;
+    added.push({
+      id,
+      name: ghost.name,
+      number: ghost.squadNumber ?? "",
+      ...(ghost.position ? { position: ghost.position } : {}),
+      user_id: null,
+    });
+  }
+
+  await updateCompTeam(cid, tid, {
+    players: [...existing, ...added],
+    claimed_by_team_id: club.id,
+  });
+
+  return added.length;
+}
+
 export async function getCompTeam(cid: string, tid: string): Promise<CompTeam | null> {
   const snap = await getDoc(doc(db, "competitions", cid, "comp_teams", tid));
   if (!snap.exists()) return null;

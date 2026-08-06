@@ -6,16 +6,17 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   ArrowLeft, Loader2, Users, BarChart3, UserCheck, Plus, Pencil, Trash2,
-  Check, X, BadgeCheck, Save,
+  Check, X, BadgeCheck, Save, Link2, Download,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getCompetition, getCompTeam, listCompMatches,
-  addCompPlayer, updateCompPlayer, removeCompPlayer,
+  addCompPlayer, updateCompPlayer, removeCompPlayer, linkClubToCompTeam,
 } from "@/lib/competition-firestore";
+import { getTeamsByManager, getUsersByIds, getGhostPlayersByTeam } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
-import type { Competition, CompPlayer, CompTeam, RosterClaim } from "@/types";
+import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
 // ============================================
 // Mon équipe — one competition team. The manager runs the roster, validates
@@ -48,6 +49,10 @@ export default function MyTeamPage() {
   const [fPosition, setFPosition] = useState("");
   const [saving, setSaving] = useState(false);
   const [busyClaim, setBusyClaim] = useState<string | null>(null);
+
+  // Club link
+  const [clubs, setClubs] = useState<Team[]>([]);
+  const [importing, setImporting] = useState(false);
 
   const reloadTeam = useCallback(async () => {
     const t = await getCompTeam(cid, tid);
@@ -97,6 +102,61 @@ export default function MyTeamPage() {
   useEffect(() => {
     reloadClaims();
   }, [reloadClaims]);
+
+  // The manager's clubs — source of the roster import.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getTeamsByManager(user.uid)
+      .then((t) => {
+        if (!cancelled) setClubs(t);
+      })
+      .catch((err) => console.error("Error loading clubs:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  /**
+   * Pulls the club's squad into the competition roster. Real members keep
+   * their account link, so their personal stats start filling without each
+   * of them having to claim their line.
+   */
+  const importClub = async (club: Team) => {
+    setImporting(true);
+    try {
+      const [members, ghosts] = await Promise.all([
+        club.memberIds.length ? getUsersByIds(club.memberIds) : Promise.resolve([]),
+        getGhostPlayersByTeam(club.id).catch(() => []),
+      ]);
+      const added = await linkClubToCompTeam(cid, tid, {
+        id: club.id,
+        squadNumbers: club.squadNumbers,
+        members: members.map((m) => ({
+          uid: m.uid,
+          name: `${m.firstName} ${m.lastName}`.trim(),
+          position: m.position,
+        })),
+        ghosts: ghosts.map((g) => ({
+          id: g.id,
+          name: `${g.firstName} ${g.lastName}`.trim(),
+          position: g.position,
+          squadNumber: g.squadNumber,
+        })),
+      });
+      await reloadTeam();
+      toast.success(
+        added === 0
+          ? "Effectif déjà à jour"
+          : `${added} joueur${added > 1 ? "s" : ""} importé${added > 1 ? "s" : ""}`,
+      );
+    } catch (err) {
+      console.error("Error importing club roster:", err);
+      toast.error("L'import a échoué");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   // Guard: only this team's manager (or an organizer) belongs here.
   useEffect(() => {
@@ -307,6 +367,74 @@ export default function MyTeamPage() {
       {/* ── Effectif ─────────────────────────────── */}
       {tab === "roster" && (
         <div className="space-y-3">
+          {/* Club link — avoids typing the same squad into two models. */}
+          {team.claimedByTeamId ? (
+            (() => {
+              const club = clubs.find((c) => c.id === team.claimedByTeamId);
+              return (
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <Link2 size={16} className="shrink-0 text-emerald-600" />
+                  <p className="min-w-0 flex-1 text-sm font-bold text-emerald-900">
+                    Rattachée à {club ? club.name : "ton club"}
+                  </p>
+                  {club && (
+                    <button
+                      type="button"
+                      onClick={() => importClub(club)}
+                      disabled={importing}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      {importing ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Download size={13} />
+                      )}
+                      Resynchroniser
+                    </button>
+                  )}
+                </div>
+              );
+            })()
+          ) : clubs.length > 0 ? (
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <p className="text-sm font-bold text-gray-900">Importer ton effectif</p>
+              <p className="mt-0.5 text-xs font-semibold text-gray-500">
+                Reprends les joueurs de ton club plutôt que de tout ressaisir. Ceux qui
+                ont un compte KoppaFoot sont rattachés directement — leurs stats se
+                remplissent sans qu&apos;ils aient à le demander.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {clubs.map((club) => (
+                  <button
+                    key={club.id}
+                    type="button"
+                    onClick={() => importClub(club)}
+                    disabled={importing}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    {importing ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Download size={13} />
+                    )}
+                    {club.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-4">
+              <p className="text-sm font-bold text-gray-700">Pas encore de club</p>
+              <p className="mt-0.5 text-xs font-semibold text-gray-500">
+                Crée ton club pour gérer un effectif permanent et l&apos;importer dans
+                chacune de tes compétitions.{" "}
+                <Link href="/teams" className="font-black text-emerald-600 hover:underline">
+                  Créer mon club →
+                </Link>
+              </p>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={openAdd}

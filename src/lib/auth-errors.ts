@@ -35,7 +35,15 @@ const AUTH_ERRORS: Record<string, string> = {
 export function getAuthErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code: string }).code;
-    return AUTH_ERRORS[code] ?? "Une erreur est survenue. Veuillez réessayer.";
+    const known = AUTH_ERRORS[code];
+    if (known) return known;
+    // An unmapped code used to vanish behind the generic message, which made
+    // every auth failure look identical in support. Log the raw error so the
+    // next one is one glance away — Firebase nests the server's reason under
+    // `customData.serverResponse`.
+    console.error("[auth] unmapped Firebase error:", code, error);
+    return "Une erreur est survenue. Veuillez réessayer.";
   }
+  console.error("[auth] non-Firebase error:", error);
   return "Une erreur est survenue. Veuillez réessayer.";
 }

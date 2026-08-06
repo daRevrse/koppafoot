@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Home, Trophy, Star, Settings,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
+  Users, BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -24,6 +25,20 @@ const MENU = [
   { path: "/", icon: Home, label: "Direct", exact: true },
   { path: "/competitions", icon: Trophy, label: "Compétitions" },
 ];
+
+// Sub-entries of the role space, rendered indented under it. Gated on the
+// ACTIVATED role: a spectator never sees the manager's plumbing. Each entry
+// must point at a route the role can actually use today — a submenu of
+// teasers would just be noise.
+const ROLE_SPACE_MENU: Record<"player" | "manager", { path: string; icon: typeof Home; label: string }[]> = {
+  player: [
+    { path: "/stats", icon: BarChart3, label: "Mes statistiques" },
+  ],
+  manager: [
+    { path: "/teams", icon: Users, label: "Mon équipe" },
+    { path: "/mon-equipe", icon: Trophy, label: "Mes compétitions" },
+  ],
+};
 
 function isActive(pathname: string, path: string, exact?: boolean): boolean {
   if (exact) return pathname === path;
@@ -215,6 +230,25 @@ export default function AppSidebar() {
                 </Link>
               );
             })()}
+            {/* Role space sub-entries */}
+            {user?.evolutionRole && ROLE_SPACE_MENU[user.evolutionRole]?.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(pathname, item.path);
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={`relative ml-3 flex items-center gap-3 rounded-lg border-l border-gray-100 py-2 pl-5 pr-3 text-sm font-semibold transition-colors ${
+                    active
+                      ? "border-emerald-200 bg-emerald-50/60 text-emerald-700"
+                      : "text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+                  }`}
+                >
+                  <Icon size={15} className={active ? "text-emerald-600" : "text-gray-300"} />
+                  {item.label}
+                </Link>
+              );
+            })}
             {(user?.userType === "organizer" || user?.userType === "superadmin") && (
               <Link
                 href="/organizer"

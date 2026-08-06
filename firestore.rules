@@ -54,10 +54,15 @@ service cloud.firestore {
     }
 
     // Fields a team manager may touch on their own comp_team doc. Notably
-    // absent: name, group, claimed_by_manager_id, claimed_by_team_id.
+    // absent: name, group and claimed_by_manager_id — those decide the
+    // competition itself and stay with the organizer.
+    // claimed_by_team_id IS allowed: linking their own club to their own
+    // competition entry is the manager's call. It is a back-reference only —
+    // nothing authorizes off it — so a wrong id costs a broken link, not access.
     function managerEditableTeamFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['players', 'short_name', 'logo_url', 'color', 'updated_at']);
+        .hasOnly(['players', 'short_name', 'logo_url', 'color',
+                  'claimed_by_team_id', 'updated_at']);
     }
 
     function noProtectedFields() {

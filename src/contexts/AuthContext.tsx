@@ -33,6 +33,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { formatDate } from "@/lib/dates";
 import type { UserProfile, UserRole, SignupData, FirestoreUser, AuthProvider } from "@/types";
 
 // ============================================
@@ -89,8 +90,11 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     isActive: data.is_active,
     emailVerified: false, // overwritten by Firebase auth state
     authProviders: data.auth_providers ?? [],
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
+    // Written with serverTimestamp(), so Firestore returns a Timestamp object
+    // even though the type says string — `new Date(...)` on it yields
+    // "Invalid Date", which is what the profile header used to show.
+    createdAt: formatDate(data.created_at),
+    updatedAt: formatDate(data.updated_at),
     // Role-specific optional fields
     ...(data.position !== undefined && { position: data.position }),
     ...(data.skill_level !== undefined && { skillLevel: data.skill_level }),

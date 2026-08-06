@@ -988,6 +988,8 @@ export interface CompTeam {
   group: string | null;
   players: CompPlayer[];
   claimedByManagerId: string | null;
+  /** The manager's club (`teams` collection) this competition entry stands for. */
+  claimedByTeamId: string | null;
   createdAt: string;
   updatedAt: string;
 }
