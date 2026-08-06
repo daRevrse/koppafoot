@@ -17,6 +17,7 @@ import {
   updateCompMatch,
   createCompMatch,
 } from "@/lib/competition-firestore";
+import { hasGroupStage } from "@/lib/competition-format";
 import { uploadMatchBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import type { Competition, CompMatch, CompTeam } from "@/types";
@@ -236,7 +237,9 @@ export default function CompetitionSchedulePage() {
       toast.success("Matchs de poule générés");
     } catch (err) {
       console.error("Error generating fixtures:", err);
-      toast.error("La génération a échoué");
+      // Surface the thrown message verbatim (e.g. "Une coupe n'a pas de
+      // phase de groupes").
+      toast.error(err instanceof Error ? err.message : "La génération a échoué");
     } finally {
       setGenerating(false);
     }
@@ -496,15 +499,18 @@ export default function CompetitionSchedulePage() {
             <Upload size={16} />
             Importer des matchs
           </Link>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={generating}
-            className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            ou générer un round-robin
-          </button>
+          {/* A cup has no group stage — its matches come from the bracket. */}
+          {competition && hasGroupStage(competition.competitionType) && (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating}
+              className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              ou générer un round-robin
+            </button>
+          )}
         </motion.div>
       ) : (
         <div className="space-y-6">

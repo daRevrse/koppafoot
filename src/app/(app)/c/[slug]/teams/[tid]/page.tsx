@@ -16,6 +16,7 @@ import {
   onCompTeams,
   computeStandings,
 } from "@/lib/competition-firestore";
+import RosterClaimList from "@/components/competition/RosterClaimList";
 import type { Competition, CompMatch, CompTeam, CompMatchRound } from "@/types";
 
 // ============================================
@@ -479,23 +480,7 @@ export default function PublicTeamPage() {
             <p className="text-sm font-bold text-gray-400 italic">Effectif non communiqué.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50 overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
-            {roster.map((player) => (
-              <div key={player.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-                  {player.number || "—"}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">
-                  {player.name}
-                </span>
-                {player.position && (
-                  <span className="shrink-0 rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                    {player.position}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+          <RosterClaimList cid={competition.id} teamId={tid} roster={roster} />
         )}
       </section>
     </div>

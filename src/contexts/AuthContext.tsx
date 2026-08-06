@@ -52,7 +52,7 @@ interface AuthContextType {
     confirmation: ConfirmationResult,
     code: string,
     signupData?: SignupData
-  ) => Promise<void>;
+  ) => Promise<{ isNewUser: boolean }>;
   // Google auth
   loginWithGoogle: (signupData?: SignupData) => Promise<{ isNewUser: boolean }>;
   // Account linking
@@ -113,6 +113,8 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     galleryPhotos: data.gallery_photos ?? [],
     // Trophies
     trophies: data.trophies ?? [],
+    // Competition roster lines validated as being this user
+    linkedCompPlayers: data.linked_comp_players ?? [],
   };
 }
 
@@ -260,12 +262,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await confirmation.confirm(code);
       // Check if user profile already exists (returning user)
       const existing = await fetchUserProfile(result.user.uid);
-      if (!existing && signupData) {
+      if (existing) return { isNewUser: false };
+
+      // First sign-in on this number. With signupData we can create the
+      // profile straight away; without it the caller must route to
+      // /get-started — an authenticated user with no profile is a dead end.
+      if (signupData) {
         await createUserProfile(result.user.uid, {
           ...signupData,
           phone: result.user.phoneNumber ?? signupData.phone,
         }, ["phone"]);
+        return { isNewUser: false };
       }
+      return { isNewUser: true };
     },
     []
   );

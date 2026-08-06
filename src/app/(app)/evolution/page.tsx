@@ -61,13 +61,13 @@ const ROLE_FEATURES: Record<EvolutionRole, {
   href?: string;
 }[]> = {
   player: [
+    { label: "Mes statistiques", desc: "Buts, cartons et matchs joués en compétition", Icon: BarChart3, href: "/stats" },
     { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store },
     { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck },
-    { label: "Mes statistiques", desc: "Buts, passes décisives, matchs joués", Icon: BarChart3 },
     { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays },
   ],
   manager: [
-    { label: "Mon équipe", desc: "Effectif, numéros, entraînements", Icon: Users, href: "/teams" },
+    { label: "Mon équipe", desc: "Effectif, rattachements et stats de ton équipe", Icon: Users, href: "/mon-equipe" },
     { label: "Recrutement", desc: "Shortlist de joueurs et demandes d'adhésion", Icon: Search },
     { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords },
     { label: "Mercato", desc: "Repère les joueurs disponibles sur le marché", Icon: Store },

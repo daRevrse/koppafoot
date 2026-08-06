@@ -13,6 +13,13 @@ import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import {
+  COUNTRY_CODES,
+  DEFAULT_DIAL_CODE,
+  RESEND_COOLDOWN_S,
+  normalizeNational,
+  toE164 as joinE164,
+} from "@/lib/phone";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 
 // ============================================
@@ -24,10 +31,14 @@ const emailSchema = yup.object({
   password: yup.string().required("Mot de passe requis"),
 });
 
+// The national part only — the country code comes from the picker and the
+// two are joined into E.164 before hitting Firebase. Users type their number
+// the way they say it ("90 12 34 56"), spaces and leading 0 included.
 const phoneSchema = yup.object({
   phone: yup
     .string()
-    .matches(/^\+[1-9]\d{6,14}$/, "Format international requis (ex: +33612345678)")
+    .transform((v: string) => normalizeNational(v))
+    .matches(/^\d{6,14}$/, "Numéro invalide")
     .required("Numéro requis"),
 });
 
@@ -62,6 +73,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [phoneStep, setPhoneStep] = useState<"number" | "code">("number");
+  const [dialCode, setDialCode] = useState<string>(DEFAULT_DIAL_CODE);
+  const [sentTo, setSentTo] = useState("");
+  const [cooldown, setCooldown] = useState(0);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
@@ -79,20 +93,22 @@ export default function LoginPage() {
     });
   };
 
-  // Setup reCAPTCHA when switching to phone tab
+  // The verifier is built on demand by requestCode (Firebase consumes it on
+  // every attempt), so here we only tear it down — on unmount and whenever
+  // the user leaves the phone tab.
   useEffect(() => {
-    if (tab === "phone") {
-      initRecaptcha();
-    } else {
-      recaptchaVerifier.current?.clear();
-      recaptchaVerifier.current = null;
-    }
     return () => {
       recaptchaVerifier.current?.clear();
       recaptchaVerifier.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // Resend countdown
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
 
   // --- Email form ---
 
@@ -122,28 +138,66 @@ export default function LoginPage() {
     resolver: yupResolver(codeSchema),
   });
 
+  // Sends (or resends) the SMS. Firebase consumes the verifier on every
+  // attempt — successful or not — so a fresh one is built each time.
+  const requestCode = async (e164: string) => {
+    initRecaptcha();
+    if (!recaptchaVerifier.current) throw new Error("reCAPTCHA non initialisé");
+    const result = await sendPhoneCode(e164, recaptchaVerifier.current);
+    setConfirmation(result);
+    setSentTo(e164);
+    setCooldown(RESEND_COOLDOWN_S);
+  };
+
   const handleSendCode = async (data: PhoneForm) => {
     setSubmitting(true);
     try {
-      if (!recaptchaVerifier.current) throw new Error("reCAPTCHA non initialisé");
-      const result = await sendPhoneCode(data.phone, recaptchaVerifier.current);
-      setConfirmation(result);
+      await requestCode(joinE164(dialCode, data.phone));
       setPhoneStep("code");
+      codeForm.reset();
       toast.success("Code envoyé !");
     } catch (err) {
-      // Firebase invalide le verifier après chaque tentative — en recréer un
-      initRecaptcha();
       toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleResendCode = async () => {
+    if (cooldown > 0 || !sentTo) return;
+    setSubmitting(true);
+    try {
+      await requestCode(sentTo);
+      codeForm.reset();
+      toast.success("Nouveau code envoyé !");
+    } catch (err) {
+      toast.error(getAuthErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleChangeNumber = () => {
+    setPhoneStep("number");
+    setConfirmation(null);
+    setSentTo("");
+    setCooldown(0);
+    codeForm.reset();
+    // The verifier was consumed by the previous send — rebuild it so the
+    // next "Envoyer le code" doesn't fail on a stale reCAPTCHA.
+    initRecaptcha();
+  };
+
   const handleConfirmCode = async (data: CodeForm) => {
     setSubmitting(true);
     try {
       if (!confirmation) throw new Error("Pas de confirmation en cours");
-      await confirmPhoneCode(confirmation, data.code);
+      const { isNewUser } = await confirmPhoneCode(confirmation, data.code);
+      if (isNewUser) {
+        // Authenticated but no Firestore profile yet — same path as Google.
+        router.push("/get-started");
+        return;
+      }
       toast.success("Connexion réussie");
     } catch (err) {
       toast.error(getAuthErrorMessage(err));
@@ -290,15 +344,31 @@ export default function LoginPage() {
           >
             <div>
               <label htmlFor="phone" className="mb-1.5 block text-xs font-bold text-gray-600">Numéro de téléphone</label>
-              <div className="relative">
-                <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input
-                  id="phone"
-                  type="tel"
-                  {...phoneForm.register("phone")}
-                  className={inputClass}
-                  placeholder="+33612345678"
-                />
+              <div className="flex gap-2">
+                <select
+                  aria-label="Indicatif pays"
+                  value={dialCode}
+                  onChange={(e) => setDialCode(e.target.value)}
+                  className="w-[7.5rem] shrink-0 rounded-xl border border-gray-200 bg-gray-50 py-3 pl-3 pr-2 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all"
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label.slice(0, 2)} {c.code}
+                    </option>
+                  ))}
+                </select>
+                <div className="relative flex-1">
+                  <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <input
+                    id="phone"
+                    type="tel"
+                    autoComplete="tel-national"
+                    inputMode="tel"
+                    {...phoneForm.register("phone")}
+                    className={inputClass}
+                    placeholder="90 12 34 56"
+                  />
+                </div>
               </div>
               {phoneForm.formState.errors.phone && (
                 <p className="mt-1 text-xs text-red-400">{phoneForm.formState.errors.phone.message}</p>
@@ -326,7 +396,10 @@ export default function LoginPage() {
             onSubmit={codeForm.handleSubmit(handleConfirmCode)}
             className="space-y-4"
           >
-            <p className="text-sm text-gray-500">Un code à 6 chiffres a été envoyé à votre numéro.</p>
+            <p className="text-sm text-gray-500">
+              Un code à 6 chiffres a été envoyé au{" "}
+              <span className="font-semibold text-gray-700">{sentTo}</span>.
+            </p>
             <div>
               <label htmlFor="code" className="mb-1.5 block text-xs font-bold text-gray-600">Code de vérification</label>
               <input
@@ -352,13 +425,23 @@ export default function LoginPage() {
               Vérifier
             </button>
 
-            <button
-              type="button"
-              onClick={() => { setPhoneStep("number"); setConfirmation(null); }}
-              className="w-full text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              Changer de numéro
-            </button>
+            <div className="flex items-center justify-between gap-3 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={handleChangeNumber}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Changer de numéro
+              </button>
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={cooldown > 0 || submitting}
+                className="text-emerald-600 hover:text-emerald-700 disabled:text-gray-300 disabled:hover:text-gray-300 transition-colors"
+              >
+                {cooldown > 0 ? `Renvoyer le code (${cooldown}s)` : "Renvoyer le code"}
+              </button>
+            </div>
           </motion.form>
         )}
       </AnimatePresence>

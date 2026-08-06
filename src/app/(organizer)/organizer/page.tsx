@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listCompetitionsByOrganizer } from "@/lib/competition-firestore";
+import { COMPETITION_TYPE_LABELS } from "@/lib/competition-format";
 import type { Competition, CompetitionStatus } from "@/types";
 import toast from "react-hot-toast";
 
@@ -140,12 +141,17 @@ export default function OrganizerHomePage() {
                         {statusConf.label}
                       </span>
                     </div>
-                    {dateRange && (
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-                        <Calendar size={12} />
-                        {dateRange}
-                      </p>
-                    )}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600">
+                        {COMPETITION_TYPE_LABELS[comp.competitionType]}
+                      </span>
+                      {dateRange && (
+                        <span className="flex items-center gap-1.5">
+                          <Calendar size={12} />
+                          {dateRange}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <ChevronRight
                     size={18}

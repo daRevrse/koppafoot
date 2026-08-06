@@ -56,6 +56,8 @@ export interface UserProfile {
   galleryPhotos?: string[];
   // Palmarès / Trophies
   trophies?: { title: string; year: number; description?: string }[];
+  // Competition roster lines validated as being this user
+  linkedCompPlayers?: LinkedCompPlayer[];
 }
 
 // Signup form data before Firestore write
@@ -133,6 +135,8 @@ export interface FirestoreUser {
   gallery_photos?: string[];
   // Palmarès
   trophies?: { title: string; year: number; description?: string }[];
+  // Validated roster claims — written by the roster-claims API only.
+  linked_comp_players?: LinkedCompPlayer[];
   // FCM push tokens
   fcm_tokens?: string[];
   // Timestamps
@@ -829,6 +833,16 @@ export interface Notification {
 // ============================================
 
 export type CompetitionStatus = "draft" | "registration" | "group_stage" | "knockout" | "completed";
+
+/**
+ * Shape of a competition. Drives which stages exist, which generators the
+ * organizer is offered, and which public tabs (classement / tableau) render.
+ *  - cup             : direct elimination only, no group stage
+ *  - league          : one single group, table only, no final stage
+ *  - groups_knockout : group stage then a bracket (the historical format)
+ *  - league_playoffs : one single group then a bracket on the top N
+ */
+export type CompetitionType = "cup" | "league" | "groups_knockout" | "league_playoffs";
 export type CompMatchStage = "group" | "knockout";
 export type CompMatchRound = "round_of_16" | "quarter" | "semi" | "final" | "third_place";
 export type CompMatchStatus = "scheduled" | "live" | "completed" | "cancelled";
@@ -839,6 +853,16 @@ export interface CompetitionFormat {
   qualifiers_per_group: number;
   has_third_place: boolean;
   points: { win: number; draw: number; loss: number };
+  /** Aller-retour: every group pairing is played twice, home and away. */
+  double_round?: boolean;
+  /**
+   * Size of the bracket, in teams. Only read for the types whose final stage
+   * is not fed by group qualifiers:
+   *  - cup             : how many teams enter round 1
+   *  - league_playoffs : how many of the table's top rows qualify
+   * Rounded down to the nearest power of two at generation time.
+   */
+  knockout_teams?: number;
 }
 
 export interface FirestoreCompetition {
@@ -851,6 +875,8 @@ export interface FirestoreCompetition {
   moderator_ids: string[];
   created_by: string;
   status: CompetitionStatus;
+  /** Absent on competitions created before types existed → groups_knockout. */
+  competition_type?: CompetitionType;
   format: CompetitionFormat;
   start_date: string | null;
   end_date: string | null;
@@ -870,6 +896,7 @@ export interface Competition {
   moderatorIds: string[];
   createdBy: string;
   status: CompetitionStatus;
+  competitionType: CompetitionType;
   format: CompetitionFormat;
   startDate: string | null;
   endDate: string | null;
@@ -883,6 +910,45 @@ export interface CompPlayer {
   name: string;
   number: string;       // dossard
   position?: string;
+  /**
+   * KoppaFoot account this roster line belongs to, once a claim has been
+   * validated by the organizer or the team's manager. Null/absent means the
+   * line is just a name typed by the organizer.
+   */
+  user_id?: string | null;
+}
+
+// ============================================
+// Roster claims — a player says "this line is me"; the organizer or the
+// team's manager validates. The `roster_claims` collection is admin-SDK only
+// (clients go through /api/competitions/roster-claims), so it needs no rules.
+// ============================================
+
+export type RosterClaimStatus = "pending" | "accepted" | "rejected";
+
+export interface RosterClaim {
+  id: string;
+  competitionId: string;
+  competitionName: string;
+  teamId: string;
+  teamName: string;
+  playerId: string;
+  playerName: string;
+  userId: string;
+  userName: string;
+  status: RosterClaimStatus;
+  createdAt: string | null;
+}
+
+/** One validated link, denormalized on the user so /stats reads in one hop. */
+export interface LinkedCompPlayer {
+  competition_id: string;
+  competition_name: string;
+  competition_slug: string;
+  team_id: string;
+  team_name: string;
+  player_id: string;
+  player_name: string;
 }
 
 export interface FirestoreLineupEntry {

@@ -1,22 +1,53 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import { getCompetitionBySlug } from "@/lib/competition-firestore";
+import { hasGroupStage, hasKnockout } from "@/lib/competition-format";
+import type { CompetitionType } from "@/types";
 
 // Public hub navigation for /c/[slug]/** pages. Client component so it can
 // resolve the active tab from the current path. No auth — purely presentational.
+// It reads the competition once to know which tabs the format actually has:
+// a cup has no classement, a championnat has no tableau.
 export default function CompetitionPublicNav() {
   const params = useParams();
   const pathname = usePathname();
   const slug = typeof params.slug === "string" ? params.slug : null;
+  const [type, setType] = useState<CompetitionType | null>(null);
+
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    getCompetitionBySlug(slug)
+      .then((c) => {
+        if (!cancelled) setType(c?.competitionType ?? null);
+      })
+      .catch(() => {
+        // Keep every tab visible rather than hiding content on a read error.
+        if (!cancelled) setType(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
   if (!slug) return null;
+
+  // Until the type is known, show everything — hiding then re-adding tabs
+  // would make the bar jump on every page load.
+  const showStandings = type === null || hasGroupStage(type);
+  const showBracket = type === null || hasKnockout(type);
 
   const base = `/c/${slug}`;
   const tabs: { href: string; label: string; exact?: boolean }[] = [
     { href: base, label: "Accueil", exact: true },
     { href: `${base}/calendar`, label: "Calendrier" },
-    { href: `${base}/standings`, label: "Classement" },
-    { href: `${base}/bracket`, label: "Tableau" },
+    ...(showStandings ? [{ href: `${base}/standings`, label: "Classement" }] : []),
+    ...(showBracket
+      ? [{ href: `${base}/bracket`, label: type === "league_playoffs" ? "Play-offs" : "Tableau" }]
+      : []),
     { href: `${base}/scorers`, label: "Buteurs" },
   ];
 
