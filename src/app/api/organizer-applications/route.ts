@@ -82,20 +82,28 @@ export async function POST(req: NextRequest) {
       created_at: FieldValue.serverTimestamp(),
     });
 
-    // Emails — best-effort, never block the submission.
-    if (u.email) {
-      sendNotificationEmail(
-        u.email,
-        "Candidature organisateur reçue — KoppaFoot",
-        organizerApplicationReceivedHtml(u.first_name ?? "toi"),
-      ).catch((e) => console.warn("[organizer-applications] applicant email failed:", e?.message));
-    }
-    adminDb
-      .collection("users")
-      .where("user_type", "==", "superadmin")
-      .get()
-      .then((admins) =>
-        Promise.allSettled(
+    // Emails must be awaited: this is a serverless function, and anything
+    // still in flight when the response returns is dropped when the instance
+    // freezes. `allSettled` keeps them best-effort — the application is
+    // already stored, so a dead mailer must not fail the submission.
+    await Promise.allSettled([
+      u.email
+        ? sendNotificationEmail(
+            u.email,
+            "Candidature organisateur reçue — KoppaFoot",
+            organizerApplicationReceivedHtml(u.first_name ?? "toi"),
+          ).catch((e) => {
+            console.warn("[organizer-applications] applicant email failed:", e?.message);
+            throw e;
+          })
+        : Promise.resolve(),
+
+      (async () => {
+        const admins = await adminDb
+          .collection("users")
+          .where("user_type", "==", "superadmin")
+          .get();
+        await Promise.allSettled(
           admins.docs
             .map((d) => d.data()?.email)
             .filter(Boolean)
@@ -111,9 +119,12 @@ export async function POST(req: NextRequest) {
                 ),
               ),
             ),
-        ),
-      )
-      .catch((e) => console.warn("[organizer-applications] admin email failed:", e?.message));
+        );
+      })().catch((e) => {
+        console.warn("[organizer-applications] admin email failed:", e?.message);
+        throw e;
+      }),
+    ]);
 
     return NextResponse.json({ ok: true, id: doc.id });
   } catch (err) {

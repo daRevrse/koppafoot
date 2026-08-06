@@ -164,7 +164,25 @@ export async function listCompetitionsByOrganizer(uid: string): Promise<Competit
     orderBy("created_at", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => toCompetition(d.id, d.data() as FirestoreCompetition));
+  return snap.docs
+    .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
+    // Training sandboxes are owned by their user but are not real work —
+    // they belong in /live-ops, not in the organizer's competition list.
+    .filter((c) => !c.isSandbox);
+}
+
+/** The caller's live-console training sandbox, if they have created one. */
+export async function getSandboxCompetition(uid: string): Promise<Competition | null> {
+  const q = query(
+    collection(db, "competitions"),
+    where("is_sandbox", "==", true),
+    where("created_by", "==", uid),
+    firestoreLimit(1),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return toCompetition(d.id, d.data() as FirestoreCompetition);
 }
 
 /**
@@ -187,7 +205,11 @@ export async function listModeratedCompetitions(uid: string): Promise<Competitio
     }
   }
 
-  return Array.from(byId.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return Array.from(byId.values())
+    // The sandbox gets its own card on /live-ops — listing it alongside real
+    // competitions would blur what is live and what is practice.
+    .filter((c) => !c.isSandbox)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function onCompetition(id: string, cb: (c: Competition | null) => void): Unsubscribe {

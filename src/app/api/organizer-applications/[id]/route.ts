@@ -62,24 +62,35 @@ export async function PATCH(
       });
     }
 
-    // Notify the applicant — best-effort.
+    // Awaited: serverless instances freeze once the response is returned, so
+    // an un-awaited email or push is simply lost. `allSettled` keeps both
+    // best-effort — the decision is already written.
     const firstName = (application.name as string)?.split(" ")[0] ?? "toi";
-    if (application.email) {
-      sendNotificationEmail(
-        application.email,
-        approved
-          ? "Candidature acceptée — bienvenue parmi les organisateurs !"
-          : "Ta candidature organisateur — KoppaFoot",
-        organizerApplicationDecisionHtml(firstName, approved),
-      ).catch((e) => console.warn("[organizer-applications PATCH] email failed:", e?.message));
-    }
-    sendPushToUser(application.uid, {
-      title: approved ? "🏆 Candidature acceptée !" : "Candidature organisateur",
-      body: approved
-        ? "Ton espace organisateur est ouvert. Crée ta première compétition !"
-        : "Ta candidature n'a pas été retenue pour le moment.",
-      link: approved ? "/organizer" : "/",
-    }).catch(() => {});
+    await Promise.allSettled([
+      application.email
+        ? sendNotificationEmail(
+            application.email,
+            approved
+              ? "Candidature acceptée — bienvenue parmi les organisateurs !"
+              : "Ta candidature organisateur — KoppaFoot",
+            organizerApplicationDecisionHtml(firstName, approved),
+          ).catch((e) => {
+            console.warn("[organizer-applications PATCH] email failed:", e?.message);
+            throw e;
+          })
+        : Promise.resolve(),
+
+      sendPushToUser(application.uid, {
+        title: approved ? "🏆 Candidature acceptée !" : "Candidature organisateur",
+        body: approved
+          ? "Ton espace organisateur est ouvert. Crée ta première compétition !"
+          : "Ta candidature n'a pas été retenue pour le moment.",
+        link: approved ? "/organizer" : "/",
+      }).catch((e) => {
+        console.warn("[organizer-applications PATCH] push failed:", e?.message);
+        throw e;
+      }),
+    ]);
 
     return NextResponse.json({ ok: true, status: approved ? "approved" : "rejected" });
   } catch (err) {

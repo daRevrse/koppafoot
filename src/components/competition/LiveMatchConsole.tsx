@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Play, Pause, ChevronLeft, ChevronRight, History, Clock,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
-  ArrowRightLeft, AlertTriangle, X, LogOut,
+  ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -736,6 +736,22 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   return (
     <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28 lg:max-w-7xl">
+      {/* Sandbox banner — the console is otherwise indistinguishable from the
+          real thing, and a trainee must never wonder whether it counts. */}
+      {competition?.isSandbox && (
+        <div className="mx-2 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <GraduationCap size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div className="min-w-0">
+            <p className="text-sm font-black text-emerald-900">Mode entraînement</p>
+            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-800">
+              Ce match est fictif. Rien n&apos;est publié, aucune notification n&apos;est
+              envoyée, aucune statistique n&apos;est comptée — essaie tout ce que tu
+              veux. Tu peux le remettre à zéro depuis l&apos;espace live.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-2">
         {showBack ? (

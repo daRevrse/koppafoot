@@ -34,6 +34,7 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     // Pre-dates competition types: every existing competition is a group
     // stage feeding a bracket.
     competitionType: d.competition_type ?? "groups_knockout",
+    isSandbox: d.is_sandbox ?? false,
     format: d.format,
     startDate: d.start_date,
     endDate: d.end_date,

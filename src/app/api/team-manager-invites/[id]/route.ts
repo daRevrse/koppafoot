@@ -129,15 +129,22 @@ export async function POST(
     const managerName = userSnap.exists
       ? `${userSnap.data()?.first_name ?? ""} ${userSnap.data()?.last_name ?? ""}`.trim()
       : callerEmail;
-    adminDb.collection("notifications").add({
-      user_id: invite.invited_by,
-      type: "admin_message",
-      title: "Invitation acceptée",
-      body: `${managerName || callerEmail} gère désormais « ${invite.team_name} » (${invite.competition_name})`,
-      link: `/organizer/competitions/${invite.competition_id}/teams`,
-      read: false,
-      created_at: FieldValue.serverTimestamp(),
-    }).catch(() => {});
+    // Awaited on purpose: this runs as a serverless function, and a promise
+    // left in flight when the response returns is dropped when the instance
+    // freezes. Caught so a failed notification can't undo an accepted invite.
+    try {
+      await adminDb.collection("notifications").add({
+        user_id: invite.invited_by,
+        type: "invitation",
+        title: "Invitation acceptée",
+        body: `${managerName || callerEmail} gère désormais « ${invite.team_name} » (${invite.competition_name})`,
+        link: `/organizer/competitions/${invite.competition_id}/teams`,
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn("[team-manager-invites/[id]] notification failed:", e);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -877,6 +877,12 @@ export interface FirestoreCompetition {
   status: CompetitionStatus;
   /** Absent on competitions created before types existed → groups_knockout. */
   competition_type?: CompetitionType;
+  /**
+   * Training sandbox: a throwaway competition owned by one user so they can
+   * practise the live console on a fake match. Hidden from every public and
+   * organizer listing; only /live-ops surfaces it.
+   */
+  is_sandbox?: boolean;
   format: CompetitionFormat;
   start_date: string | null;
   end_date: string | null;
@@ -897,6 +903,8 @@ export interface Competition {
   createdBy: string;
   status: CompetitionStatus;
   competitionType: CompetitionType;
+  /** Training sandbox — see FirestoreCompetition.is_sandbox. */
+  isSandbox: boolean;
   format: CompetitionFormat;
   startDate: string | null;
   endDate: string | null;
