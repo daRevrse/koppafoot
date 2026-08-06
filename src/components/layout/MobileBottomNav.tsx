@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Home, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
-  Rocket, Briefcase, UserPlus, Check,
+  Rocket, Briefcase, UserPlus, Check, Radio,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
@@ -32,6 +33,20 @@ function AvatarBottomSheet({
   const { user, logout } = useAuth();
   const router = useRouter();
   const [inviteCopied, setInviteCopied] = useState(false);
+  // Same signal as the desktop sidebar: without it /live-ops was unreachable
+  // on mobile, so a moderator had to switch to a laptop to cover a match.
+  const [moderatesUid, setModeratesUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !user) return;
+    let cancelled = false;
+    listModeratedCompetitions(user.uid)
+      .then((comps) => {
+        if (!cancelled && comps.length > 0) setModeratesUid(user.uid);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, user]);
 
   const handleLogout = useCallback(async () => {
     onClose();
@@ -139,7 +154,7 @@ function AvatarBottomSheet({
               )}
               {inviteCopied ? "Lien copié !" : "Inviter un ami"}
             </button>
-            {user.userType === "organizer" && (
+            {(user.userType === "organizer" || user.userType === "superadmin") && (
               <Link
                 href="/organizer"
                 onClick={onClose}
@@ -147,6 +162,16 @@ function AvatarBottomSheet({
               >
                 <ClipboardList size={18} className="text-emerald-400" />
                 Espace organisateur
+              </Link>
+            )}
+            {moderatesUid === user.uid && (
+              <Link
+                href="/live-ops"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <Radio size={18} className="text-emerald-400" />
+                Espace live
               </Link>
             )}
             {user.userType === "superadmin" && (
