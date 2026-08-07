@@ -1,9 +1,11 @@
 // KoppaFoot — Service Worker
 // Handles: install, activate, push notifications, notification clicks
 
-// Bumped from v1: the old cache holds HTML documents that must be evicted —
-// see the fetch handler below for why caching them was a mistake.
-const CACHE_NAME = "koppafoot-v2";
+// Bump this whenever the caching rules change: the activate handler deletes
+// every cache whose key differs, which is how bad entries from a previous
+// policy get evicted from users who already have the worker installed.
+// v1 cached HTML documents, v2 cached RSC payloads — both had to go.
+const CACHE_NAME = "koppafoot-v3";
 
 // Minimal shell to cache for offline fallback
 const PRECACHE_URLS = ["/branding/logo_symbol.png", "/branding/logo_full_name.png"];
@@ -45,6 +47,14 @@ self.addEventListener("activate", (event) => {
 // 3. Never resolve to undefined. `caches.match()` gives undefined on a
 //    miss, and respondWith(undefined) throws "Failed to convert value to
 //    'Response'" — turning a slow network into a hard page failure.
+//
+// 4. Only static assets. Anything else — documents, RSC payloads, API
+//    calls — is data: caching it serves stale content, and failing it
+//    turns a slow network into a broken page. Next.js fetches RSC
+//    payloads from the page's own URL with an empty `destination`, which
+//    is how /login ended up answering 504 from the cache layer.
+const CACHEABLE_DESTINATIONS = new Set(["image", "style", "script", "font"]);
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -56,9 +66,10 @@ self.addEventListener("fetch", (event) => {
     return; // Not a URL we can reason about — leave it to the browser.
   }
 
-  // (1) cross-origin and (2) navigations: hands off entirely.
+  // (1) cross-origin, (2) navigations, (4) anything that is not an asset.
   if (url.origin !== self.location.origin) return;
   if (request.mode === "navigate" || request.destination === "document") return;
+  if (!CACHEABLE_DESTINATIONS.has(request.destination)) return;
 
   event.respondWith(
     fetch(request)

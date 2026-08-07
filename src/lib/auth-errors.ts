@@ -30,6 +30,11 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/user-disabled": "Ce compte a été désactivé.",
   "auth/network-request-failed": "Connexion impossible. Vérifiez votre réseau et réessayez.",
   "auth/requires-recent-login": "Reconnectez-vous pour effectuer cette action.",
+  // Anti-abuse throttle on the NUMBER, not the project — it appears in no
+  // quota dashboard. The SDK passes the backend's numeric code straight
+  // through, hence the odd shape.
+  "auth/error-code:-39":
+    "Trop de tentatives sur ce numéro. Réessayez dans quelques heures, ou utilisez un autre numéro.",
 };
 
 /**
