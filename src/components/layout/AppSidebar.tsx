@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Home, Trophy, Star, Settings,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
-  Users, BarChart3, Plus, GraduationCap,
+  Users, BarChart3, Plus, GraduationCap, Store,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -55,10 +55,12 @@ interface Space {
 const ROLE_SPACE_ITEMS: Record<"player" | "manager", SpaceItem[]> = {
   player: [
     { path: "/stats", icon: BarChart3, label: "Mes statistiques" },
+    { path: "/mercato", icon: Store, label: "Mercato" },
   ],
   manager: [
     { path: "/teams", icon: Users, label: "Mon équipe" },
     { path: "/mon-equipe", icon: Trophy, label: "Mes compétitions" },
+    { path: "/mercato", icon: Store, label: "Mercato" },
   ],
 };
 

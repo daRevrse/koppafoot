@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Search, MapPin, Filter, ChevronDown, X, UserPlus,
-  Star, Bookmark, BookmarkCheck, Send, Clock, Check,
-  Inbox, RefreshCw, ChevronRight, Loader2, Users, Shield,
+  Search, MapPin, Filter, X, UserPlus,
+  Bookmark, BookmarkCheck, Send, Clock,
+  Inbox, ChevronRight, Loader2, Users, Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -39,8 +39,12 @@ const LEVEL_COLORS: Record<string, string> = {
   beginner: "bg-green-100 text-green-700", amateur: "bg-blue-100 text-blue-700",
   intermediate: "bg-amber-100 text-amber-700", advanced: "bg-red-100 text-red-700",
 };
-const CITIES = ["Toutes", "Paris", "Lyon", "Marseille", "Toulouse"];
-const POSITIONS = ["Toutes", "goalkeeper", "defender", "midfielder", "forward"];
+// Villes du public visé. La liste gelée proposait Paris/Lyon/Marseille/Toulouse,
+// héritage d'avant le pivot — inutilisable pour une audience togolaise.
+const CITIES = ["Toutes", "Lomé", "Kara", "Sokodé", "Kpalimé", "Atakpamé", "Dapaong", "Tsévié"];
+
+// NB : searchPlayers accepte aussi un filtre `position`, jamais câblé dans l'UI.
+
 const LEVELS = ["Tous", "beginner", "amateur", "intermediate", "advanced"];
 
 const INV_STATUS_CONFIG = {
@@ -204,8 +208,14 @@ function CandidatureModal({ team, onClose, onSubmit, submitting }: {
 
 export default function MercatoPage() {
   const { user } = useAuth();
-  const isManager = user?.userType === "manager";
-  const isPlayer  = user?.userType === "player";
+  // Post-pivot the side of the market a user sees follows their ACTIVATED
+  // role, not their account type: an organizer who also activated the
+  // manager space keeps `userType: "organizer"`, so gating on userType
+  // alone would show them the player view. userType stays as the fallback
+  // for accounts created before /evolution existed.
+  const role = user?.evolutionRole ?? user?.userType ?? null;
+  const isManager = role === "manager";
+  const isPlayer = role === "player";
 
   // ---- Tabs ----
   const [mainTab, setMainTab] = useState<string>(isManager ? "players" : "teams");
@@ -280,14 +290,14 @@ export default function MercatoPage() {
     setLoading(true);
     try {
       if (isManager) {
-        const filters: any = {};
+        const filters: Parameters<typeof searchPlayers>[0] = {};
         if (cityFilter !== "Toutes") filters.city = cityFilter;
         if (levelFilter !== "Tous") filters.skillLevel = levelFilter;
         if (nameQuery) filters.query = nameQuery;
         const results = await searchPlayers(filters);
         setPlayers(results.filter((p) => p.uid !== user.uid && !myMemberIds.has(p.uid)));
       } else if (isPlayer) {
-        const filters: any = {};
+        const filters: Parameters<typeof searchTeams>[0] = {};
         if (cityFilter !== "Toutes") filters.city = cityFilter;
         if (levelFilter !== "Tous") filters.level = levelFilter;
         if (nameQuery) filters.query = nameQuery;
@@ -388,6 +398,30 @@ export default function MercatoPage() {
   };
 
   if (!user) return null;
+
+  // The market has two sides and no neutral one: without an activated role
+  // every tab below is gated off and the page would render empty.
+  if (!isManager && !isPlayer) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+          <Users size={26} />
+        </div>
+        <h1 className="mt-4 font-display text-2xl font-black text-gray-900">Mercato</h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-relaxed text-gray-500">
+          Active ton espace pour entrer sur le marché : en <strong>joueur</strong> pour
+          trouver une équipe, en <strong>manager</strong> pour recruter.
+        </p>
+        <Link
+          href="/evolution"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
+        >
+          Choisir mon rôle
+          <ChevronRight size={15} />
+        </Link>
+      </div>
+    );
+  }
 
   const pendingAppsCount = joinRequests.filter(r => r.status === "pending").length;
   const pendingInvsCount = invitations.filter(i => i.status === "pending").length;
@@ -653,8 +687,22 @@ export default function MercatoPage() {
                     
                     {isManager && req.status === "pending" && (
                       <div className="mt-4 flex gap-2">
-                        <button onClick={() => handleRespondToApp(req, true)} className="flex-1 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold">Accepter</button>
-                        <button onClick={() => handleRespondToApp(req, false)} className="flex-1 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold">Refuser</button>
+                        {/* Disabled while in flight: accepting also fires an
+                            invitation, so a double-click sends it twice. */}
+                        <button
+                          onClick={() => handleRespondToApp(req, true)}
+                          disabled={respondingApp === req.id}
+                          className="flex-1 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                        >
+                          {respondingApp === req.id ? "..." : "Accepter"}
+                        </button>
+                        <button
+                          onClick={() => handleRespondToApp(req, false)}
+                          disabled={respondingApp === req.id}
+                          className="flex-1 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold disabled:opacity-50"
+                        >
+                          Refuser
+                        </button>
                       </div>
                     )}
                   </div>
@@ -746,9 +794,3 @@ export default function MercatoPage() {
     </div>
   );
 }
-
-// Manager specific removals
-const handleRemoveFromShortlist = async (entry: ShortlistEntry) => {
-  // This had to be moved inside or handled differently if I want to use state. 
-  // I'll leave it as a placeholder or move it up.
-};

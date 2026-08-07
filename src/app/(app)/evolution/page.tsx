@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Rocket, User, Briefcase, ArrowLeft, ArrowRight, Loader2,
   Check, Trophy, RefreshCw, Mail,
-  Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Search, Lock,
+  Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,16 +64,15 @@ const ROLE_FEATURES: Record<EvolutionRole, {
 }[]> = {
   player: [
     { label: "Mes statistiques", desc: "Buts, cartons et matchs joués en compétition", Icon: BarChart3, href: "/stats" },
-    { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store },
+    { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store, href: "/mercato" },
     { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck },
     { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays },
   ],
   manager: [
     { label: "Mon équipe", desc: "Effectif permanent, entraînements, palmarès", Icon: Users, href: "/teams" },
     { label: "Mes compétitions", desc: "Effectif engagé, rattachements et stats", Icon: Trophy, href: "/mon-equipe" },
-    { label: "Recrutement", desc: "Shortlist de joueurs et demandes d'adhésion", Icon: Search },
+    { label: "Mercato", desc: "Recrute des joueurs, gère shortlist et candidatures", Icon: Store, href: "/mercato" },
     { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords },
-    { label: "Mercato", desc: "Repère les joueurs disponibles sur le marché", Icon: Store },
   ],
 };
 
