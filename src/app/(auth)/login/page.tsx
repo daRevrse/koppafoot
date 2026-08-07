@@ -9,8 +9,8 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Mail, Phone, Loader2, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { type RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
+import { createRecaptchaVerifier } from "@/lib/recaptcha";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import {
@@ -82,15 +82,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { loginWithEmail, sendPhoneCode, confirmPhoneCode, loginWithGoogle } = useAuth();
 
-  const initRecaptcha = () => {
-    if (!recaptchaRef.current) return;
-    if (recaptchaVerifier.current) {
-      recaptchaVerifier.current.clear();
-      recaptchaVerifier.current = null;
-    }
-    recaptchaVerifier.current = new RecaptchaVerifier(auth, recaptchaRef.current, {
-      size: "invisible",
-    });
+  // Fresh verifier AND fresh container on every attempt — see lib/recaptcha.
+  const buildRecaptcha = (): RecaptchaVerifier => {
+    if (!recaptchaRef.current) throw new Error("reCAPTCHA indisponible");
+    const verifier = createRecaptchaVerifier(recaptchaRef.current, recaptchaVerifier.current);
+    recaptchaVerifier.current = verifier;
+    return verifier;
   };
 
   // The verifier is built on demand by requestCode (Firebase consumes it on
@@ -141,9 +138,7 @@ export default function LoginPage() {
   // Sends (or resends) the SMS. Firebase consumes the verifier on every
   // attempt — successful or not — so a fresh one is built each time.
   const requestCode = async (e164: string) => {
-    initRecaptcha();
-    if (!recaptchaVerifier.current) throw new Error("reCAPTCHA non initialisé");
-    const result = await sendPhoneCode(e164, recaptchaVerifier.current);
+    const result = await sendPhoneCode(e164, buildRecaptcha());
     setConfirmation(result);
     setSentTo(e164);
     setCooldown(RESEND_COOLDOWN_S);
@@ -183,9 +178,8 @@ export default function LoginPage() {
     setSentTo("");
     setCooldown(0);
     codeForm.reset();
-    // The verifier was consumed by the previous send — rebuild it so the
-    // next "Envoyer le code" doesn't fail on a stale reCAPTCHA.
-    initRecaptcha();
+    // No need to rebuild the verifier here: requestCode builds a fresh one
+    // (and a fresh container) on every send.
   };
 
   const handleConfirmCode = async (data: CodeForm) => {

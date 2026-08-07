@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Mail, Phone, Loader2, Check, Plus, ShieldCheck, X, Lock } from "lucide-react";
-import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { type RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
+import { createRecaptchaVerifier } from "@/lib/recaptcha";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import {
@@ -77,13 +77,13 @@ export default function LoginMethodsCard() {
     recaptchaVerifier.current = null;
   };
 
-  // Firebase consumes the verifier on every attempt — build a fresh one.
+  // Fresh verifier AND fresh container on every attempt — see lib/recaptcha.
   const requestCode = async (e164: string) => {
-    if (!recaptchaRef.current) throw new Error("reCAPTCHA non initialisé");
-    recaptchaVerifier.current?.clear();
-    recaptchaVerifier.current = new RecaptchaVerifier(auth, recaptchaRef.current, {
-      size: "invisible",
-    });
+    if (!recaptchaRef.current) throw new Error("reCAPTCHA indisponible");
+    recaptchaVerifier.current = createRecaptchaVerifier(
+      recaptchaRef.current,
+      recaptchaVerifier.current,
+    );
     const result = await sendPhoneCode(e164, recaptchaVerifier.current);
     setConfirmation(result);
     setSentTo(e164);
