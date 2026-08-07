@@ -26,6 +26,13 @@ const schema = yup.object({
 
 type FormData = yup.InferType<typeof schema>;
 
+// Same field styling as the (auth) pages — this screen is the tail of the
+// same funnel and must not read as a different product.
+const inputClass =
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+const labelClass = "mb-1.5 block text-xs font-bold text-gray-600";
+const errorClass = "mt-1 text-xs text-red-400";
+
 export default function GetStartedPage() {
   const [submitting, setSubmitting] = useState(false);
   const { firebaseUser, completeProfile } = useAuth();
@@ -60,53 +67,49 @@ export default function GetStartedPage() {
   };
 
   return (
-    <div className="rounded-xl bg-white p-8 shadow-md">
-      <h2 className="mb-2 text-center text-2xl font-semibold text-gray-900">
+    <>
+      <h2 className="mb-1 font-display text-2xl font-black text-gray-900">
         Bienvenue !
       </h2>
-      <p className="mb-6 text-center text-sm text-gray-500">
-        {firebaseUser?.email ?? firebaseUser?.phoneNumber ?? "Complétez votre profil"}
+      <p className="mb-8 text-sm text-gray-400">
+        {firebaseUser?.email ?? firebaseUser?.phoneNumber ?? "Complète ton profil pour continuer"}
       </p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Common fields */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Prénom</label>
-            <input
-              {...register("firstName")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-            />
-            {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
+            <label htmlFor="firstName" className={labelClass}>Prénom</label>
+            <input id="firstName" autoComplete="given-name" {...register("firstName")} className={inputClass} />
+            {errors.firstName && <p className={errorClass}>{errors.firstName.message}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
-            <input
-              {...register("lastName")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-            />
-            {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>}
+            <label htmlFor="lastName" className={labelClass}>Nom</label>
+            <input id="lastName" autoComplete="family-name" {...register("lastName")} className={inputClass} />
+            {errors.lastName && <p className={errorClass}>{errors.lastName.message}</p>}
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
+          <label htmlFor="locationCity" className={labelClass}>Ta ville</label>
           <input
+            id="locationCity"
+            autoComplete="address-level2"
+            placeholder="ex: Lomé"
             {...register("locationCity")}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+            className={inputClass}
           />
-          {errors.locationCity && <p className="mt-1 text-xs text-red-600">{errors.locationCity.message}</p>}
+          {errors.locationCity && <p className={errorClass}>{errors.locationCity.message}</p>}
         </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
         >
           {submitting && <Loader2 size={16} className="animate-spin" />}
           Continuer
         </button>
       </form>
-    </div>
+    </>
   );
 }
