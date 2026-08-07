@@ -33,16 +33,20 @@ const AUTH_ERRORS: Record<string, string> = {
   // Backend refusal from the SMS layer (503). The SDK passes the numeric
   // code straight through, hence the odd shape.
   //
-  // Root cause when this blocked production (2026-08-07): Google's
-  // project-level SMS anti-fraud defense, whose default enforcement is too
-  // strict — every real number was refused while test numbers went through,
-  // which made it look like a client bug for a whole day. Fixed OUTSIDE this
-  // repo by PATCHing the Identity Toolkit project config to
-  // `recaptchaConfig.phoneEnforcementState = AUDIT` with
-  // `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+  // STILL BLOCKING PRODUCTION as of 2026-08-07: every real number is refused
+  // while test numbers go through. Ruled out by test — per-number throttle
+  // (reproduced on a fresh number, first attempt), browser extensions and
+  // third-party cookies (reproduced in a clean private window), SMS region
+  // policy (TG allowed), billing (Blaze active), authorized domain.
   //
-  // So if this fires again: check that setting before touching any code.
-  // The message stays neutral — the user can do nothing about it either way.
+  // Lead, NOT yet applied here: a sister project hit the same symptom and
+  // traced it to Google's project-level SMS anti-fraud defense, whose
+  // default enforcement is too strict. Fixed there by PATCHing the Identity
+  // Toolkit project config to `recaptchaConfig.phoneEnforcementState = AUDIT`
+  // with `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+  //
+  // The message stays neutral — the user can do nothing about it either way,
+  // and we do not yet know the cause for THIS project.
   "auth/error-code:-39":
     "L'envoi du SMS a échoué. Réessayez dans quelques minutes — si le problème persiste, prévenez-nous.",
 };
