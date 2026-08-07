@@ -31,11 +31,18 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/network-request-failed": "Connexion impossible. Vérifiez votre réseau et réessayez.",
   "auth/requires-recent-login": "Reconnectez-vous pour effectuer cette action.",
   // Backend refusal from the SMS layer (503). The SDK passes the numeric
-  // code straight through, hence the odd shape. Do NOT claim a cause here:
-  // it is reported both for a per-number anti-abuse throttle AND for
-  // project-level conditions (region policy, billing), and we have observed
-  // it on a never-used number at the very first attempt. Guessing wrong in
-  // the UI sends the user chasing the wrong fix.
+  // code straight through, hence the odd shape.
+  //
+  // Root cause when this blocked production (2026-08-07): Google's
+  // project-level SMS anti-fraud defense, whose default enforcement is too
+  // strict — every real number was refused while test numbers went through,
+  // which made it look like a client bug for a whole day. Fixed OUTSIDE this
+  // repo by PATCHing the Identity Toolkit project config to
+  // `recaptchaConfig.phoneEnforcementState = AUDIT` with
+  // `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+  //
+  // So if this fires again: check that setting before touching any code.
+  // The message stays neutral — the user can do nothing about it either way.
   "auth/error-code:-39":
     "L'envoi du SMS a échoué. Réessayez dans quelques minutes — si le problème persiste, prévenez-nous.",
 };
