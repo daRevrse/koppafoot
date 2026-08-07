@@ -7,10 +7,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { CompPlayer, RosterClaim } from "@/types";
 
 // ============================================
-// Roster list with the "C'est moi" action. A logged-in player claims the
-// line that is them; the organizer or the team's manager validates it (see
-// /api/competitions/roster-claims). Guests and already-linked lines just see
-// the plain roster.
+// Public roster, with a superadmin repair action.
+//
+// Players do NOT claim their line any more: the link is created for them
+// when their manager registers the club in a competition, or imports it into
+// an existing team. Everyone therefore sees a plain roster — the "Toi" badge
+// marks their own line — and only a superadmin gets the attach control, to
+// repair rosters an organizer typed by hand.
 // ============================================
 
 export default function RosterClaimList({
@@ -26,8 +29,10 @@ export default function RosterClaimList({
   const [myClaims, setMyClaims] = useState<RosterClaim[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
 
+  // Only the repair path reads claims, so ordinary visitors — the vast
+  // majority on a public roster — no longer pay for that request.
   const loadClaims = useCallback(async () => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || user?.userType !== "superadmin") return;
     try {
       const token = await firebaseUser.getIdToken();
       const res = await fetch("/api/competitions/roster-claims?mine=1", {
@@ -39,7 +44,7 @@ export default function RosterClaimList({
     } catch {
       // Non-blocking: the roster still renders, just without claim state.
     }
-  }, [firebaseUser]);
+  }, [firebaseUser, user?.userType]);
 
   useEffect(() => {
     loadClaims();
@@ -74,6 +79,13 @@ export default function RosterClaimList({
   const linkedHere = roster.some((p) => p.user_id && p.user_id === user?.uid);
   const pendingHere = myClaims.some((c) => c.teamId === teamId && c.status === "pending");
 
+  // Claiming is now an ADMIN repair tool, not a player flow. Links are
+  // created automatically when a manager registers their club or imports it
+  // into a competition team, so asking players to claim their own line would
+  // duplicate a job the system already does — and re-introduce a validation
+  // queue for organizers. Superadmins keep it to fix rosters typed by hand.
+  const canRepair = user?.userType === "superadmin";
+
   return (
     <div className="divide-y divide-gray-50 overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
       {roster.map((player) => {
@@ -82,7 +94,7 @@ export default function RosterClaimList({
           (c) => c.playerId === player.id && c.teamId === teamId && c.status === "pending",
         );
         const canClaim =
-          !!user && !player.user_id && !linkedHere && !pendingHere;
+          canRepair && !player.user_id && !linkedHere && !pendingHere;
 
         return (
           <div key={player.id} className="flex items-center gap-3 px-4 py-3">
@@ -118,7 +130,7 @@ export default function RosterClaimList({
                 ) : (
                   <UserCheck size={11} />
                 )}
-                C&apos;est moi
+                Rattacher
               </button>
             ) : null}
           </div>

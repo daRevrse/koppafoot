@@ -68,6 +68,55 @@ export function computePlayerStats(
   return stats;
 }
 
+export interface PlayerAppearance {
+  match: CompMatch;
+  role: "starter" | "substitute";
+  goals: number;
+  yellowCards: number;
+  redCards: number;
+}
+
+/**
+ * Match-by-match record for one roster line, most recent first.
+ *
+ * Totals answer "how good a season", this answers "what did I do last
+ * Saturday" — which is the question a player actually opens the app with.
+ * Only completed matches the player was on the sheet for are returned.
+ */
+export function computeAppearances(
+  matches: CompMatch[],
+  teamId: string,
+  playerId: string,
+): PlayerAppearance[] {
+  const out: PlayerAppearance[] = [];
+
+  for (const match of matches) {
+    if (match.status !== "completed") continue;
+    const isHome = match.homeTeamId === teamId;
+    const isAway = match.awayTeamId === teamId;
+    if (!isHome && !isAway) continue;
+
+    const lineup = isHome ? match.homeLineup : match.awayLineup;
+    const entry = lineup.find((e) => e.playerId === playerId);
+    if (!entry) continue;
+
+    const events = (match.liveState?.events ?? []).filter((e) => e.playerId === playerId);
+    out.push({
+      match,
+      role: entry.role,
+      goals: events.filter((e) => e.type === "goal").length,
+      yellowCards: events.filter((e) => e.type === "yellow_card").length,
+      redCards: events.filter((e) => e.type === "red_card").length,
+    });
+  }
+
+  return out.sort((a, b) =>
+    `${b.match.date ?? ""}T${b.match.time ?? ""}`.localeCompare(
+      `${a.match.date ?? ""}T${a.match.time ?? ""}`,
+    ),
+  );
+}
+
 /** Same, for every linked roster line of a team at once. */
 export function computeSquadStats(
   matches: CompMatch[],
