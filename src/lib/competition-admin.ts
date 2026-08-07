@@ -83,6 +83,43 @@ export interface CompetitionHeroSlide {
  * competition (the whole comp_matches collection), derived in memory. Degrades
  * to [] on error.
  */
+/** One competition with ALL its fixtures — the Direct feed reads across them. */
+export interface CompetitionFeed {
+  competition: Competition;
+  matches: CompMatch[];
+}
+
+/**
+ * Every public competition with its full fixture list, for the Direct home.
+ *
+ * The home used to bind to ONE competition (?c=slug) and show its poules,
+ * standings and scorers. It now answers "what is on today, everywhere", so
+ * it needs every competition's matches at once. One read per competition,
+ * same cost as getHeroCompetitions; the client then attaches a real-time
+ * listener per competition for live scores.
+ */
+export async function getDirectFeed(maxComps = 8): Promise<CompetitionFeed[]> {
+  try {
+    const comps = (await getPublicCompetitions()).slice(0, maxComps);
+    return await Promise.all(
+      comps.map(async (competition) => {
+        const snap = await adminDb
+          .collection("competitions")
+          .doc(competition.id)
+          .collection("comp_matches")
+          .get();
+        return {
+          competition,
+          matches: snap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch)),
+        };
+      }),
+    );
+  } catch (err) {
+    console.error("getDirectFeed failed:", err);
+    return [];
+  }
+}
+
 export async function getHeroCompetitions(maxComps = 5): Promise<CompetitionHeroSlide[]> {
   try {
     const comps = (await getPublicCompetitions()).slice(0, maxComps);

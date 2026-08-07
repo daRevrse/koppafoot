@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Home, Trophy, Star, Settings,
+  Home, Activity, Trophy, Star, Settings,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
   Users, BarChart3, Plus, GraduationCap, Store,
 } from "lucide-react";
@@ -22,7 +22,9 @@ import type { Competition } from "@/types";
 
 // La Tribune lives in the right sidebar (and the mobile tab) — not here.
 const MENU = [
-  { path: "/", icon: Home, label: "Direct", exact: true },
+  // "Direct" is a live-score board, not a home page — a pulse reads truer
+  // than a house, and leaves Radio free for the live-ops space.
+  { path: "/", icon: Activity, label: "Direct", exact: true },
   { path: "/competitions", icon: Trophy, label: "Compétitions" },
 ];
 
@@ -347,7 +349,9 @@ export default function AppSidebar() {
                 return (
                   <Link
                     key={c.id}
-                    href={`/?c=${c.slug}`}
+                    // The Direct home no longer scopes to one competition, so
+                    // ?c=slug is dead — send the user to the competition itself.
+                    href={`/c/${c.slug}`}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
                   >
                     <CompetitionLogo competition={c} />

@@ -1,25 +1,23 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   CalendarDays, ChevronRight, ChevronLeft, Trophy, MapPin,
 } from "lucide-react";
-import {
-  listPublicCompetitions, onCompMatches, listCompTeams,
-  computeStandings, computeTopScorers,
-} from "@/lib/competition-firestore";
-import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
+import { onCompMatches, listCompTeams } from "@/lib/competition-firestore";
+import type { CompetitionFeed } from "@/lib/competition-admin";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
 // DirectHome — the live-score home, served publicly at "/".
-// ValueBet-style dashboard: hero image match card, underlined tabs,
-// fixtures grouped by poule, right rail (standings / scorers / Tribune).
-// Competition selection is URL-driven (?c=slug) so the sidebar and the
-// header quick logos can drive it.
+//
+// It answers one question: what is on right now, everywhere. It used to bind
+// to a single competition (?c=slug) and show that competition's poules,
+// standings and scorers — which is what the competition page is for. Now it
+// reads ACROSS every public competition: a banner carousel of the matches
+// that matter, then a timeline bucketed by day with today first.
 // ============================================
 
 type Tab = "all" | "live" | "finished" | "upcoming";
@@ -268,398 +266,338 @@ function MatchRow({
         <TeamBadge name={match.awayTeamName} logo={awayLogo} size={24} />
       </div>
 
-      {/* Venue (desktop) */}
-      <span className="hidden w-20 shrink-0 truncate text-right text-[10px] font-bold text-gray-300 md:block">
-        {match.venueName ?? ""}
+      {/* Competition (desktop). The feed mixes every competition, so the
+          fixture has to say which one it belongs to — the venue does not. */}
+      <span className="hidden w-28 shrink-0 truncate text-right text-[10px] font-bold text-gray-300 md:block">
+        {competition.name}
       </span>
     </Link>
   );
 }
 
-// ---- Poule carousel (one group card at a time, arrow navigation) --------------------
+// ---- Hero carousel (featured match per competition, auto-advancing) ----------------
 
-function PouleCarousel({
-  groups, competition, teamsById,
+function HeroCarousel({
+  slides, teamsById,
 }: {
-  groups: [string, CompMatch[]][]; competition: Competition; teamsById: Map<string, CompTeam>;
+  slides: { match: CompMatch; competition: Competition }[];
+  teamsById: Map<string, CompTeam>;
 }) {
-  const [idx, setIdx] = useState(0);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
 
-  // Clamp when the group set shrinks (e.g. a tab with fewer poules).
-  const safeIdx = Math.min(idx, groups.length - 1);
-  const [label, groupMatches] = groups[safeIdx];
-  const hasLive = groupMatches.some((m) => m.status === "live");
-  const single = groups.length <= 1;
+  const count = slides.length;
+  const safeIndex = count === 0 ? 0 : index % count;
 
-  const go = (dir: 1 | -1) => {
-    setIdx((i) => {
-      const cur = Math.min(i, groups.length - 1);
-      return (cur + dir + groups.length) % groups.length;
-    });
-  };
+  // Auto-advance. Pauses on hover and while a finger is down, so the banner
+  // never slides out from under a tap.
+  useEffect(() => {
+    if (count < 2 || paused) return;
+    const t = setInterval(() => setIndex((i) => (i + 1) % count), 6000);
+    return () => clearInterval(t);
+  }, [count, paused]);
+
+  if (count === 0) return null;
+
+  const go = (next: number) => setIndex(((next % count) + count) % count);
+  const current = slides[safeIndex];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-      {/* Header: prev / label + indicator / next */}
-      <div className="flex items-center gap-2.5 border-b border-gray-50 px-3 py-3">
-        <button
-          onClick={() => go(-1)}
-          disabled={single}
-          aria-label="Poule précédente"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
-        >
-          <ChevronLeft size={16} />
-        </button>
-
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white">
-            {label.startsWith("Poule") ? label.slice(-1) : "★"}
-          </span>
-          <span className="truncate text-sm font-black text-gray-900">{label}</span>
-          {hasLive && (
-            <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-red-500">
-              LIVE
-            </span>
-          )}
-        </div>
-
-        <button
-          onClick={() => go(1)}
-          disabled={single}
-          aria-label="Poule suivante"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
-
-      {/* Matches for the active poule */}
+    <div
+      className="relative"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={(e) => {
+        setPaused(true);
+        touchStartX.current = e.touches[0].clientX;
+      }}
+      onTouchEnd={(e) => {
+        setPaused(false);
+        const start = touchStartX.current;
+        touchStartX.current = null;
+        if (start == null) return;
+        const dx = e.changedTouches[0].clientX - start;
+        if (Math.abs(dx) > 50) go(safeIndex + (dx < 0 ? 1 : -1));
+      }}
+    >
       <AnimatePresence mode="wait">
         <motion.div
-          key={label}
-          initial={{ opacity: 0, x: 12 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -12 }}
-          transition={{ duration: 0.18 }}
+          key={`${current.competition.id}-${current.match.id}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
         >
-          {groupMatches.map((m) => (
-            <MatchRow key={m.id} match={m} competition={competition} teamsById={teamsById} />
-          ))}
+          <HeroMatchCard
+            match={current.match}
+            competition={current.competition}
+            teamsById={teamsById}
+          />
         </motion.div>
       </AnimatePresence>
 
-      {/* Dots indicator */}
-      {!single && (
-        <div className="flex items-center justify-center gap-1.5 border-t border-gray-50 py-2.5">
-          {groups.map(([gLabel], i) => (
-            <button
-              key={gLabel}
-              onClick={() => setIdx(i)}
-              aria-label={gLabel}
-              className={`h-1.5 rounded-full transition-all ${
-                i === safeIdx ? "w-4 bg-emerald-500" : "w-1.5 bg-gray-200 hover:bg-gray-300"
-              }`}
-            />
-          ))}
-        </div>
+      {count > 1 && (
+        <>
+          {/* Arrows are pointer-only; mobile swipes instead. */}
+          <button
+            aria-label="Affiche précédente"
+            onClick={() => go(safeIndex - 1)}
+            className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 sm:flex"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            aria-label="Affiche suivante"
+            onClick={() => go(safeIndex + 1)}
+            className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 sm:flex"
+          >
+            <ChevronRight size={18} />
+          </button>
+
+          <div className="absolute inset-x-0 bottom-2.5 flex justify-center gap-1.5">
+            {slides.map((s, i) => (
+              <button
+                key={`${s.competition.id}-${s.match.id}`}
+                aria-label={`Affiche ${i + 1}`}
+                onClick={() => go(i)}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === safeIndex ? "w-5 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+                }`}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-// ---- Right rail cards ------------------------------------------------------------
+// ---- Day grouping -----------------------------------------------------------------
 
-function StandingsCard({
-  matches, teams, competition,
-}: {
-  matches: CompMatch[]; teams: CompTeam[]; competition: Competition;
-}) {
-  const standings = useMemo(
-    () => computeStandings(matches, teams, competition.format),
-    [matches, teams, competition.format],
-  );
-  const [group, setGroup] = useState<string | null>(null);
-
-  if (standings.length === 0) return null;
-  const active = standings.find((s) => s.group === group) ?? standings[0];
-
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-black text-gray-900">Classement</h3>
-        <Link
-          href={`/c/${competition.slug}/standings`}
-          className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
-        >
-          Tout voir
-        </Link>
-      </div>
-
-      {standings.length > 1 && (
-        <div className="mt-2.5 flex gap-1">
-          {standings.map((s) => (
-            <button
-              key={s.group}
-              onClick={() => setGroup(s.group)}
-              className={`h-6 w-6 rounded-md text-[10px] font-black transition-colors ${
-                s.group === active.group
-                  ? "bg-emerald-500 text-white"
-                  : "bg-gray-50 text-gray-400 hover:bg-gray-100"
-              }`}
-            >
-              {s.group}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <table className="mt-2.5 w-full text-xs">
-        <thead>
-          <tr className="text-[9px] font-black uppercase tracking-wide text-gray-300">
-            <th className="pb-1.5 text-left">Équipe</th>
-            <th className="pb-1.5 text-center">J</th>
-            <th className="pb-1.5 text-center">+/-</th>
-            <th className="pb-1.5 text-right">Pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {active.rows.slice(0, 4).map((row, i) => (
-            <tr key={row.team.id} className="border-t border-gray-50">
-              <td className="py-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className={`w-3 text-center text-[10px] font-black ${i < 2 ? "text-emerald-500" : "text-gray-300"}`}>
-                    {i + 1}
-                  </span>
-                  <TeamBadge name={row.team.name} logo={row.team.logoUrl} size={16} />
-                  <span className="truncate font-bold text-gray-700">
-                    {row.team.shortName ?? row.team.name}
-                  </span>
-                </div>
-              </td>
-              <td className="py-1.5 text-center font-semibold tabular-nums text-gray-400">{row.played}</td>
-              <td className="py-1.5 text-center font-semibold tabular-nums text-gray-400">
-                {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
-              </td>
-              <td className="py-1.5 text-right font-black tabular-nums text-gray-900">{row.points}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function TopScorersCard({
-  matches, teams, competition,
-}: {
-  matches: CompMatch[]; teams: CompTeam[]; competition: Competition;
-}) {
-  const scorers = useMemo(() => computeTopScorers(matches).slice(0, 5), [matches]);
-  const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+/** Aujourd&apos;hui / Demain / Hier, else a full French date. */
+function dayLabel(date: string): string {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
 
-  if (scorers.length === 0) return null;
-
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-black text-gray-900">Top buteurs</h3>
-        <Link
-          href={`/c/${competition.slug}/scorers`}
-          className="text-[10px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
-        >
-          Tout voir
-        </Link>
-      </div>
-      <div className="mt-2.5 space-y-1.5">
-        {scorers.map((s, i) => {
-          const team = teamById.get(s.teamId);
-          return (
-            <div key={`${s.teamId}-${s.playerName}`} className="flex items-center gap-2.5">
-              <span className={`w-4 text-center text-[10px] font-black ${i === 0 ? "text-amber-400" : "text-gray-300"}`}>
-                {i + 1}
-              </span>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-black text-emerald-600">
-                {s.playerName.slice(0, 2).toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-gray-900">{s.playerName}</p>
-                {team && <p className="truncate text-[10px] font-semibold text-gray-300">{team.name}</p>}
-              </div>
-              <span className="text-sm font-black tabular-nums text-gray-900">{s.goals}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  if (date === dayKey(today)) return "Aujourd'hui";
+  if (date === dayKey(tomorrow)) return "Demain";
+  if (date === dayKey(yesterday)) return "Hier";
+  try {
+    return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+  } catch {
+    return date;
+  }
 }
 
-// ---- Page -----------------------------------------------------------------------
+const UNDATED = "0000-00-00";
 
-export default function DirectHome({ initialCompetitions }: { initialCompetitions: Competition[] }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [competitions, setCompetitions] = useState<Competition[]>(initialCompetitions);
-  const [compsLoading, setCompsLoading] = useState(initialCompetitions.length === 0);
-  const [matches, setMatches] = useState<CompMatch[]>([]);
+// ---- Page -------------------------------------------------------------------------
+
+export default function DirectHome({ initialFeed }: { initialFeed: CompetitionFeed[] }) {
+  const [feed, setFeed] = useState<CompetitionFeed[]>(initialFeed);
   const [teams, setTeams] = useState<CompTeam[]>([]);
   const [tab, setTab] = useState<Tab>("all");
 
-  // Refresh the (ISR-cached) server list client-side.
+  const competitions = useMemo(() => feed.map((f) => f.competition), [feed]);
+  // Stable dependency: `competitions` is a fresh array on every feed update,
+  // so keying the effects on it would tear down the listeners each time a
+  // score changes.
+  const competitionIds = useMemo(
+    () => competitions.map((c) => c.id).join(","),
+    [competitions],
+  );
+
+  // One real-time listener per competition: the home is a live-score board,
+  // so every fixture on screen has to move on its own.
   useEffect(() => {
-    listPublicCompetitions()
-      .then(setCompetitions)
-      .catch(() => {})
-      .finally(() => setCompsLoading(false));
-  }, []);
+    const ids = competitionIds ? competitionIds.split(",") : [];
+    if (ids.length === 0) return;
+    const unsubs = ids.map((id) =>
+      onCompMatches(id, (matches) =>
+        setFeed((prev) =>
+          prev.map((f) => (f.competition.id === id ? { ...f, matches } : f)),
+        ),
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [competitionIds]);
 
-  // URL-driven selection (?c=slug) — the sidebar/header quick logos drive it.
-  const slug = searchParams.get("c");
-  const competition = competitions.find((c) => c.slug === slug) ?? competitions[0] ?? null;
+  // Team docs carry the current crest; match docs only a snapshot of it.
+  useEffect(() => {
+    const ids = competitionIds ? competitionIds.split(",") : [];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    Promise.all(ids.map((id) => listCompTeams(id).catch(() => []))).then((lists) => {
+      if (!cancelled) setTeams(lists.flat());
+    });
+    return () => { cancelled = true; };
+  }, [competitionIds]);
 
-  // Resolve logos from the live team docs (always current) instead of the
-  // match's denormalised snapshot.
   const teamsById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
-  // Real-time fixtures + teams for the selected competition.
-  useEffect(() => {
-    if (!competition?.id) return;
-    setMatches([]);
-    setTeams([]);
-    const unsub = onCompMatches(competition.id, setMatches);
-    listCompTeams(competition.id).then(setTeams).catch(() => {});
-    return () => unsub();
-  }, [competition?.id]);
+  // Every fixture, all competitions, each keeping its competition context.
+  const allMatches = useMemo(
+    () => feed.flatMap((f) => f.matches.map((match) => ({ match, competition: f.competition }))),
+    [feed],
+  );
 
-  // Featured match: live > next scheduled > latest completed.
-  const hero = useMemo(() => {
-    const live = matches.filter((m) => m.status === "live");
-    if (live.length > 0) return live[0];
-    const scheduled = matches
-      .filter((m) => m.status === "scheduled" && m.date != null)
-      .sort((a, b) => `${a.date}T${a.time ?? ""}`.localeCompare(`${b.date}T${b.time ?? ""}`));
-    if (scheduled.length > 0) return scheduled[0];
-    const completed = matches
-      .filter((m) => m.status === "completed")
-      .sort((a, b) => `${b.date ?? ""}T${b.time ?? ""}`.localeCompare(`${a.date ?? ""}T${a.time ?? ""}`));
-    return completed[0] ?? null;
-  }, [matches]);
+  // Banner: live first, then soonest upcoming, then most recent results —
+  // capped so the carousel stays a highlight reel, not a second fixture list.
+  const heroSlides = useMemo(() => {
+    const live = allMatches.filter((x) => x.match.status === "live");
+    const upcoming = allMatches
+      .filter((x) => x.match.status === "scheduled" && x.match.date != null)
+      .sort((a, b) =>
+        `${a.match.date}T${a.match.time ?? ""}`.localeCompare(`${b.match.date}T${b.match.time ?? ""}`),
+      );
+    const recent = allMatches
+      .filter((x) => x.match.status === "completed")
+      .sort((a, b) =>
+        `${b.match.date ?? ""}T${b.match.time ?? ""}`.localeCompare(`${a.match.date ?? ""}T${a.match.time ?? ""}`),
+      );
+    return [...live, ...upcoming, ...recent].slice(0, 5);
+  }, [allMatches]);
 
-  // Tab filter, then bucket by poule (league-group style).
-  const groups = useMemo(() => {
-    let list = matches;
-    if (tab === "live") list = matches.filter((m) => m.status === "live");
-    if (tab === "finished") list = matches.filter((m) => m.status === "completed");
-    if (tab === "upcoming") list = matches.filter((m) => m.status === "scheduled");
+  // Timeline: filtered by tab, then bucketed by DAY — today first.
+  const days = useMemo(() => {
+    let list = allMatches;
+    if (tab === "live") list = allMatches.filter((x) => x.match.status === "live");
+    if (tab === "finished") list = allMatches.filter((x) => x.match.status === "completed");
+    if (tab === "upcoming") list = allMatches.filter((x) => x.match.status === "scheduled");
 
-    const asc = tab !== "finished";
-    const sorted = [...list].sort((a, b) => {
-      const ka = `${a.date ?? "9999"}T${a.time ?? ""}`;
-      const kb = `${b.date ?? "9999"}T${b.time ?? ""}`;
-      return asc ? ka.localeCompare(kb) : kb.localeCompare(ka);
-    });
-
-    const buckets = new Map<string, CompMatch[]>();
-    for (const m of sorted) {
-      const key = m.stage === "group" && m.group ? `Poule ${m.group}` : "Phase finale";
+    const buckets = new Map<string, typeof list>();
+    for (const x of list) {
+      const key = x.match.date ?? UNDATED;
       const bucket = buckets.get(key) ?? [];
-      bucket.push(m);
+      bucket.push(x);
       buckets.set(key, bucket);
     }
-    return Array.from(buckets.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [matches, tab]);
+
+    const today = dayKey(new Date());
+    const todayMs = new Date(`${today}T00:00:00`).getTime();
+
+    return Array.from(buckets.entries())
+      .map(([date, items]) => ({
+        date,
+        items: [...items].sort((a, b) =>
+          (a.match.time ?? "99:99").localeCompare(b.match.time ?? "99:99"),
+        ),
+      }))
+      // Today first, then the nearest days around it; undated last.
+      .sort((a, b) => {
+        if (a.date === UNDATED) return 1;
+        if (b.date === UNDATED) return -1;
+        if (a.date === today) return -1;
+        if (b.date === today) return 1;
+        const da = Math.abs(new Date(`${a.date}T00:00:00`).getTime() - todayMs);
+        const db = Math.abs(new Date(`${b.date}T00:00:00`).getTime() - todayMs);
+        return da - db;
+      });
+  }, [allMatches, tab]);
+
+  const liveCount = allMatches.filter((x) => x.match.status === "live").length;
+
+  if (feed.length === 0) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-gray-200 bg-white py-16">
+          <Trophy size={32} className="text-gray-300" />
+          <h3 className="mt-4 font-display text-lg font-black text-gray-900">
+            Aucune compétition en cours
+          </h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Les prochaines compétitions apparaîtront ici.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      {/* Mobile competition selector (desktop uses the sidebar list) */}
-      {competitions.length > 1 && (
-        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
-          {competitions.map((c) => (
+    <div className="mx-auto max-w-6xl space-y-5">
+      <HeroCarousel slides={heroSlides} teamsById={teamsById} />
+
+      {/* Section header + underlined tabs */}
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex min-w-0 items-center gap-2 truncate font-display text-xl font-black text-gray-900">
+            Le direct
+            {liveCount > 0 && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-black text-red-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                {liveCount}
+              </span>
+            )}
+          </h2>
+          <Link
+            href="/competitions"
+            className="hidden shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600 sm:flex"
+          >
+            Toutes les compétitions
+            <ChevronRight size={13} />
+          </Link>
+        </div>
+        <div className="mt-2 flex gap-5 border-b border-gray-200">
+          {TABS.map((t) => (
             <button
-              key={c.id}
-              onClick={() => router.replace(`/?c=${c.slug}`, { scroll: false })}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-black transition-colors ${
-                c.id === competition?.id
-                  ? "bg-emerald-500 text-white"
-                  : "border border-gray-200 bg-white text-gray-500"
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`relative pb-2.5 text-sm font-bold transition-colors ${
+                tab === t.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
               }`}
             >
-              {c.name}
+              {t.label}
+              {tab === t.key && (
+                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+              )}
             </button>
           ))}
         </div>
-      )}
-
-      <div className="min-w-0 space-y-5">
-          {compsLoading ? (
-            <div className="h-64 animate-pulse rounded-3xl bg-gray-200" />
-          ) : !competition ? (
-            <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-gray-200 bg-white py-16">
-              <Trophy size={32} className="text-gray-300" />
-              <h3 className="mt-4 font-display text-lg font-black text-gray-900">
-                Aucune compétition en cours
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Les prochaines compétitions apparaîtront ici.
-              </p>
-            </div>
-          ) : (
-            <>
-              {hero && <HeroMatchCard match={hero} competition={competition} teamsById={teamsById} />}
-
-              {/* Section header + underlined tabs */}
-              <div>
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="min-w-0 truncate font-display text-xl font-black text-gray-900">
-                    Matchs <span className="font-bold text-gray-300">de {competition.name}</span>
-                  </h2>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <FollowCompetitionButton cid={competition.id} />
-                    <Link
-                      href={`/c/${competition.slug}`}
-                      className="hidden shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600 sm:flex"
-                    >
-                      Classements
-                      <ChevronRight size={13} />
-                    </Link>
-                  </div>
-                </div>
-                <div className="mt-2 flex gap-5 border-b border-gray-200">
-                  {TABS.map((t) => (
-                    <button
-                      key={t.key}
-                      onClick={() => setTab(t.key)}
-                      className={`relative pb-2.5 text-sm font-bold transition-colors ${
-                        tab === t.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
-                      }`}
-                    >
-                      {t.label}
-                      {tab === t.key && (
-                        <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Poule groups */}
-              {groups.length === 0 ? (
-                <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center shadow-sm">
-                  <CalendarDays size={24} className="mx-auto text-gray-300" />
-                  <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
-                </div>
-              ) : (
-                <PouleCarousel key={tab} groups={groups} competition={competition} teamsById={teamsById} />
-              )}
-
-              {/* Standings + top scorers */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <StandingsCard matches={matches} teams={teams} competition={competition} />
-                <TopScorersCard matches={matches} teams={teams} competition={competition} />
-              </div>
-            </>
-          )}
       </div>
+
+      {/* Timeline by day */}
+      {days.length === 0 ? (
+        <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center shadow-sm">
+          <CalendarDays size={24} className="mx-auto text-gray-300" />
+          <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {days.map(({ date, items }) => (
+            <div
+              key={date}
+              className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-2.5">
+                <p className="text-xs font-black uppercase tracking-wide text-gray-500">
+                  {date === UNDATED ? "À programmer" : dayLabel(date)}
+                </p>
+                <span className="text-[11px] font-bold text-gray-400">
+                  {items.length} match{items.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              {items.map(({ match, competition }) => (
+                <MatchRow
+                  key={`${competition.id}-${match.id}`}
+                  match={match}
+                  competition={competition}
+                  teamsById={teamsById}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

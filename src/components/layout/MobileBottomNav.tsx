@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Home, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
+  Activity, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
   Rocket, Briefcase, UserPlus, Check, Radio,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +14,7 @@ import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/nav
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Home, Trophy, MessageCircle, User,
+  Activity, Trophy, MessageCircle, User,
 };
 
 function isActive(pathname: string, item: BottomNavItem): boolean {
@@ -229,7 +229,7 @@ export default function MobileBottomNav() {
           <div className="flex items-end justify-around px-1 pt-1.5 pb-safe">
             {/* Regular nav items (4 tabs) */}
             {items.map((item) => {
-              const Icon = ICONS[item.icon] ?? Home;
+              const Icon = ICONS[item.icon] ?? Activity;
               const active = isActive(pathname, item);
               const count = badgeCounts[item.path] ?? 0;
 
