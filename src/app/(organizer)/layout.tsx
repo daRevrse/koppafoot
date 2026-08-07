@@ -1,25 +1,37 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { ROLE_REDIRECTS } from "@/types";
-import OrganizerSidebar from "@/components/layout/OrganizerSidebar";
-import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import AppShell from "@/components/layout/AppShell";
+
+// Organizer space. It renders inside the SHARED app shell — it used to have
+// its own sidebar and header, which made entering it feel like leaving the
+// product. Only the live match console breaks out: covering a match wants
+// the full screen, not a navigation rail.
+function isLiveConsole(pathname: string): boolean {
+  return pathname.endsWith("/live");
+}
 
 export default function OrganizerLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Superadmins run the organizer screens too — the sidebar offers them the
+  // entry, so the guard has to agree or the link dead-ends.
+  const allowed = user?.userType === "organizer" || user?.userType === "superadmin";
 
   useEffect(() => {
     if (loading) return;
     if (!firebaseUser) { router.replace("/login"); return; }
     if (!user) { router.replace("/get-started"); return; }
-    if (user.userType !== "organizer") {
-      router.replace(ROLE_REDIRECTS[user.userType] ?? "/dashboard");
+    if (!allowed) {
+      router.replace(ROLE_REDIRECTS[user.userType] ?? "/");
     }
-  }, [user, firebaseUser, loading, router]);
+  }, [user, firebaseUser, loading, allowed, router]);
 
   if (loading) {
     return (
@@ -29,20 +41,11 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!user || user.userType !== "organizer") return null;
+  if (!user || !allowed) return null;
 
-  return (
-    <div className="flex min-h-screen">
-      <OrganizerSidebar />
-      <div className="flex flex-1 flex-col">
-        <header className="pt-safe flex min-h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
-          <h2 className="text-lg font-semibold text-gray-900">Espace Organisateur</h2>
-        </header>
-        <main className="main-content-app flex-1 bg-[var(--color-bg-secondary)] p-4 lg:p-8">
-          {children}
-        </main>
-      </div>
-      <MobileBottomNav />
-    </div>
-  );
+  if (isLiveConsole(pathname)) {
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+
+  return <AppShell showTribune={false}>{children}</AppShell>;
 }

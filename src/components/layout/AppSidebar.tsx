@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Home, Trophy, Star, Settings,
+  Home, Activity, Trophy, Star, Settings,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
+  Users, BarChart3, Plus, GraduationCap, Store,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -21,8 +22,61 @@ import type { Competition } from "@/types";
 
 // La Tribune lives in the right sidebar (and the mobile tab) — not here.
 const MENU = [
-  { path: "/", icon: Home, label: "Direct", exact: true },
+  // "Direct" is a live-score board, not a home page — a pulse reads truer
+  // than a house, and leaves Radio free for the live-ops space.
+  { path: "/", icon: Activity, label: "Direct", exact: true },
   { path: "/competitions", icon: Trophy, label: "Compétitions" },
+];
+
+// ============================================
+// Spaces — the privileged areas (role, organizer, live, admin). Each is one
+// header entry plus its destinations, rendered indented underneath.
+//
+// They live in the SAME sidebar as the public menu on purpose: /organizer
+// and /live-ops have their own route groups and shells, which made them feel
+// like separate products. Surfacing their destinations here keeps it one app.
+//
+// Every sub-entry must be a route the user can actually use today — a
+// submenu of teasers would just be noise.
+// ============================================
+
+interface SpaceItem {
+  path: string;
+  icon: typeof Home;
+  label: string;
+  exact?: boolean;
+}
+
+interface Space {
+  path: string;
+  icon: typeof Home;
+  label: string;
+  items: SpaceItem[];
+}
+
+const ROLE_SPACE_ITEMS: Record<"player" | "manager", SpaceItem[]> = {
+  player: [
+    // /teams serves both sides: getTeamsByManager for a manager,
+    // getTeamsByPlayer for a player. The player just had no way in.
+    { path: "/teams", icon: Users, label: "Mes équipes" },
+    { path: "/stats", icon: BarChart3, label: "Mes statistiques" },
+    { path: "/mercato", icon: Store, label: "Mercato" },
+  ],
+  manager: [
+    { path: "/teams", icon: Users, label: "Mon équipe" },
+    { path: "/mon-equipe", icon: Trophy, label: "Mes compétitions" },
+    { path: "/mercato", icon: Store, label: "Mercato" },
+  ],
+};
+
+const ORGANIZER_ITEMS: SpaceItem[] = [
+  { path: "/organizer", icon: Trophy, label: "Mes compétitions", exact: true },
+  { path: "/organizer/competitions/new", icon: Plus, label: "Nouvelle compétition" },
+];
+
+const LIVE_ITEMS: SpaceItem[] = [
+  { path: "/live-ops", icon: Radio, label: "Mes directs", exact: true },
+  { path: "/live-ops/entrainement", icon: GraduationCap, label: "Match d'entraînement" },
 ];
 
 function isActive(pathname: string, path: string, exact?: boolean): boolean {
@@ -56,7 +110,7 @@ export default function AppSidebar() {
   const { user } = useAuth();
   const pathname = usePathname();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [moderatesAny, setModeratesAny] = useState(false);
+  const [moderatesUid, setModeratesUid] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
 
   const handleInvite = async () => {
@@ -76,20 +130,57 @@ export default function AppSidebar() {
         : { label: "Évolution", Icon: Rocket }
     : null;
 
+  const isOrganizer = user?.userType === "organizer" || user?.userType === "superadmin";
+  const moderatesAny = !!user && moderatesUid === user.uid;
+
+  // Order matters: what the user does most often comes first.
+  const spaces: Space[] = [];
+  if (user && evolution) {
+    spaces.push({
+      path: "/evolution",
+      icon: evolution.Icon,
+      label: evolution.label,
+      // Only an activated role has destinations; "Évolution" is the pitch.
+      items: user.evolutionRole ? ROLE_SPACE_ITEMS[user.evolutionRole] ?? [] : [],
+    });
+  }
+  if (isOrganizer) {
+    // Gated on the granted role, not on owning a competition: an organizer
+    // with none yet is exactly who needs "Nouvelle compétition".
+    spaces.push({
+      path: "/organizer",
+      icon: ClipboardList,
+      label: "Espace organisateur",
+      items: ORGANIZER_ITEMS,
+    });
+  }
+  if (user && moderatesAny) {
+    spaces.push({
+      path: "/live-ops",
+      icon: Radio,
+      label: "Espace live",
+      items: LIVE_ITEMS,
+    });
+  }
+  if (user?.userType === "superadmin") {
+    spaces.push({ path: "/admin", icon: Shield, label: "Administration", items: [] });
+  }
+
   useEffect(() => {
     listPublicCompetitions().then(setCompetitions).catch(() => {});
   }, []);
 
   // "Live ops" is only for actual moderators (access is enforced by the
   // (moderator) layout too — this just hides the entry from everyone else).
+  // The result is stored WITH the uid it belongs to, so logging out or
+  // switching account can't leave the entry showing on stale data.
   useEffect(() => {
-    if (!user) {
-      setModeratesAny(false);
-      return;
-    }
+    if (!user) return;
     let cancelled = false;
     listModeratedCompetitions(user.uid)
-      .then((comps) => { if (!cancelled) setModeratesAny(comps.length > 0); })
+      .then((comps) => {
+        if (!cancelled && comps.length > 0) setModeratesUid(user.uid);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [user]);
@@ -196,52 +287,48 @@ export default function AppSidebar() {
                 </Link>
               );
             })}
-            {evolution && (() => {
-              const active = isActive(pathname, "/evolution");
+            {/* Privileged spaces — same shell, one app. Each renders its
+                header entry plus its destinations, indented. */}
+            {spaces.map((space) => {
+              const SpaceIcon = space.icon;
+              const spaceActive = isActive(pathname, space.path);
               return (
-                <Link
-                  href="/evolution"
-                  className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${
-                    active
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  {active && (
-                    <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-                  )}
-                  <evolution.Icon size={18} className={active ? "text-emerald-600" : "text-gray-400"} />
-                  {evolution.label}
-                </Link>
+                <div key={space.path} className="space-y-0.5">
+                  <Link
+                    href={space.path}
+                    className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${
+                      spaceActive
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    {spaceActive && (
+                      <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+                    )}
+                    <SpaceIcon size={18} className={spaceActive ? "text-emerald-600" : "text-gray-400"} />
+                    {space.label}
+                  </Link>
+                  {space.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(pathname, item.path, item.exact);
+                    return (
+                      <Link
+                        key={item.path}
+                        href={item.path}
+                        className={`relative ml-3 flex items-center gap-3 rounded-lg border-l border-gray-100 py-2 pl-5 pr-3 text-sm font-semibold transition-colors ${
+                          active
+                            ? "border-emerald-200 bg-emerald-50/60 text-emerald-700"
+                            : "text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+                        }`}
+                      >
+                        <Icon size={15} className={active ? "text-emerald-600" : "text-gray-300"} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               );
-            })()}
-            {(user?.userType === "organizer" || user?.userType === "superadmin") && (
-              <Link
-                href="/organizer"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
-              >
-                <ClipboardList size={18} className="text-gray-400" />
-                Espace organisateur
-              </Link>
-            )}
-            {user?.userType === "superadmin" && (
-              <Link
-                href="/admin"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
-              >
-                <Shield size={18} className="text-gray-400" />
-                Administration
-              </Link>
-            )}
-            {user && moderatesAny && (
-              <Link
-                href="/live-ops"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
-              >
-                <Radio size={18} className="text-gray-400" />
-                Live ops
-              </Link>
-            )}
+            })}
           </div>
 
           {/* Followed competitions (favorite leagues slot) */}
@@ -265,7 +352,9 @@ export default function AppSidebar() {
                 return (
                   <Link
                     key={c.id}
-                    href={`/?c=${c.slug}`}
+                    // The Direct home no longer scopes to one competition, so
+                    // ?c=slug is dead — send the user to the competition itself.
+                    href={`/c/${c.slug}`}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
                   >
                     <CompetitionLogo competition={c} />

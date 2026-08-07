@@ -47,6 +47,24 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) && request.auth.uid in get(p).data.get('moderator_ids', []);
     }
 
+    function isTeamManagerOf(cid, tid) {
+      let p = /databases/$(database)/documents/competitions/$(cid)/comp_teams/$(tid);
+      return isAuthenticated() && exists(p)
+        && get(p).data.get('claimed_by_manager_id', null) == request.auth.uid;
+    }
+
+    // Fields a team manager may touch on their own comp_team doc. Notably
+    // absent: name, group and claimed_by_manager_id — those decide the
+    // competition itself and stay with the organizer.
+    // claimed_by_team_id IS allowed: linking their own club to their own
+    // competition entry is the manager's call. It is a back-reference only —
+    // nothing authorizes off it — so a wrong id costs a broken link, not access.
+    function managerEditableTeamFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['players', 'short_name', 'logo_url', 'color',
+                  'claimed_by_team_id', 'updated_at']);
+    }
+
     function noProtectedFields() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['email', 'user_type', 'is_superadmin', 'is_active', 'created_at']);
@@ -266,12 +284,24 @@ service cloud.firestore {
 
       match /comp_teams/{tid} {
         allow read: if true;
-        allow write: if isOrganizerOf(cid) || isSuperAdmin();
+        allow create, delete: if isOrganizerOf(cid) || isSuperAdmin();
+        // The team's manager runs their own squad: roster, kit colour, crest.
+        // Everything that decides the competition itself — the team's name,
+        // its poule, who manages it — stays with the organizer.
+        allow update: if isOrganizerOf(cid) || isSuperAdmin()
+                      || (isTeamManagerOf(cid, tid) && managerEditableTeamFields());
       }
       match /comp_matches/{mid} {
         allow read: if true;
         allow write: if isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin();
       }
+    }
+
+    // Collection-group read of comp_teams — the manager's "Mon équipe" screen
+    // finds their teams across every competition. Rosters are public anyway
+    // (the nested rule above already allows read: if true).
+    match /{path=**}/comp_teams/{tid} {
+      allow read: if true;
     }
   }
 }

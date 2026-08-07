@@ -15,6 +15,7 @@ import {
   updateCompPlayer,
   removeCompPlayer,
 } from "@/lib/competition-firestore";
+import RosterClaimsPanel from "@/components/competition/RosterClaimsPanel";
 import type { Competition, CompTeam, CompPlayer } from "@/types";
 import toast from "react-hot-toast";
 
@@ -252,6 +253,9 @@ export default function CompetitionRosterPage() {
           Ajouter un joueur
         </button>
       </div>
+
+      {/* Pending "C'est moi" requests from players */}
+      <RosterClaimsPanel cid={cid} teamId={tid} />
 
       {/* Body */}
       {players.length === 0 ? (

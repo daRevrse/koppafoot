@@ -59,6 +59,35 @@ async function authorize(
   return { callerUid, competition };
 }
 
+/**
+ * Every account reachable at this email.
+ *
+ * `adminAuth.getUserByEmail` only knows about emails carried by the Firebase
+ * Auth record, which a phone-only account does not have — its email lives on
+ * the Firestore profile instead. Looking in both is what lets us notify a
+ * manager who signed up with their phone number.
+ */
+async function findUidsByEmail(email: string): Promise<string[]> {
+  const uids = new Set<string>();
+
+  try {
+    const record = await adminAuth.getUserByEmail(email);
+    uids.add(record.uid);
+  } catch {
+    // No Auth record with this email — expected for phone-only accounts,
+    // and for invitees who have not signed up yet.
+  }
+
+  try {
+    const snap = await adminDb.collection("users").where("email", "==", email).get();
+    for (const d of snap.docs) uids.add(d.id);
+  } catch (e) {
+    console.warn("[team-manager-invites] profile lookup failed:", e);
+  }
+
+  return [...uids];
+}
+
 function toInviteJson(id: string, x: FirebaseFirestore.DocumentData) {
   return {
     id,
@@ -140,28 +169,46 @@ export async function POST(req: NextRequest) {
 
     const acceptLink = `${APP_URL}/invitations/equipe/${ref.id}`;
 
-    // Invite email — best-effort, the invite itself is already stored.
-    sendNotificationEmail(
-      normalizedEmail,
-      `${inviterName} te confie l'équipe ${team.name} — KoppaFoot`,
-      teamManagerInviteHtml(inviterName, team.name, competition.name, acceptLink),
-    ).catch((e) => console.warn("[team-manager-invites] email failed:", e?.message));
+    // Both of these MUST be awaited. This route runs as a serverless
+    // function: once the response is returned the instance can be frozen, so
+    // any promise still in flight is dropped — which is exactly why the
+    // in-app notification kept not arriving. Failures are caught rather than
+    // propagated: the invite doc is already written, so a dead mailer must
+    // not turn a successful invite into a 500.
+    await Promise.allSettled([
+      sendNotificationEmail(
+        normalizedEmail,
+        `${inviterName} te confie l'équipe ${team.name} — KoppaFoot`,
+        teamManagerInviteHtml(inviterName, team.name, competition.name, acceptLink),
+      ).catch((e) => {
+        console.warn("[team-manager-invites] email failed:", e?.message);
+        throw e;
+      }),
 
-    // If the invitee already has an account, drop an in-app notification too.
-    adminAuth
-      .getUserByEmail(normalizedEmail)
-      .then((invitee) =>
-        adminDb.collection("notifications").add({
-          user_id: invitee.uid,
-          type: "admin_message",
-          title: "On te confie une équipe",
-          body: `${inviterName} t'invite à gérer « ${team.name} » (${competition.name})`,
-          link: `/invitations/equipe/${ref.id}`,
-          read: false,
-          created_at: FieldValue.serverTimestamp(),
-        }),
-      )
-      .catch(() => {}); // no account yet — the email carries the invite
+      // In-app notification for every account already reachable at that
+      // email. None found = the invitee has no account yet; the email carries
+      // the invite.
+      (async () => {
+        const uids = await findUidsByEmail(normalizedEmail);
+        if (uids.length === 0) {
+          console.info("[team-manager-invites] no account yet for", normalizedEmail);
+          return;
+        }
+        await Promise.all(
+          uids.map((uid) =>
+            adminDb.collection("notifications").add({
+              user_id: uid,
+              type: "invitation",
+              title: "On te confie une équipe",
+              body: `${inviterName} t'invite à gérer « ${team.name} » (${competition.name})`,
+              link: `/invitations/equipe/${ref.id}`,
+              read: false,
+              created_at: FieldValue.serverTimestamp(),
+            }),
+          ),
+        );
+      })(),
+    ]);
 
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (err) {

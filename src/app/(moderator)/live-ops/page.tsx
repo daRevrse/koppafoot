@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { Trophy, Loader2, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
+import LiveTrainingCard from "@/components/competition/LiveTrainingCard";
 import type { Competition } from "@/types";
 
 export default function LiveOpsHome() {
@@ -39,6 +40,10 @@ export default function LiveOpsHome() {
           Gère les matchs en direct des compétitions où tu es modérateur ou organisateur.
         </p>
       </div>
+
+      {/* Practice before the real thing — always available, first-timers
+          especially need it when the list below is empty. */}
+      <LiveTrainingCard />
 
       {competitions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">

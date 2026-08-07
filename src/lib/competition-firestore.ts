@@ -1,5 +1,6 @@
 import {
   collection,
+  collectionGroup,
   query,
   where,
   orderBy,
@@ -24,10 +25,11 @@ import type {
   CompTeam, FirestoreCompTeam,
   CompMatch, FirestoreCompMatch,
   CompMatchRound, CompMatchStage,
-  CompetitionFormat,
+  CompetitionFormat, CompetitionType,
   CompPlayer, LineupEntry, FirestoreLineupEntry,
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
+import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -74,6 +76,7 @@ export async function createCompetition(input: {
   description?: string;
   logoUrl?: string | null;
   bannerUrl?: string | null;
+  competitionType: CompetitionType;
   format: CompetitionFormat;
   startDate?: string | null;
   endDate?: string | null;
@@ -102,6 +105,7 @@ export async function createCompetition(input: {
     moderator_ids: [],
     created_by: input.createdBy,
     status: "draft",
+    competition_type: input.competitionType,
     format: input.format,
     start_date: input.startDate ?? null,
     end_date: input.endDate ?? null,
@@ -160,7 +164,25 @@ export async function listCompetitionsByOrganizer(uid: string): Promise<Competit
     orderBy("created_at", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => toCompetition(d.id, d.data() as FirestoreCompetition));
+  return snap.docs
+    .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
+    // Training sandboxes are owned by their user but are not real work —
+    // they belong in /live-ops, not in the organizer's competition list.
+    .filter((c) => !c.isSandbox);
+}
+
+/** The caller's live-console training sandbox, if they have created one. */
+export async function getSandboxCompetition(uid: string): Promise<Competition | null> {
+  const q = query(
+    collection(db, "competitions"),
+    where("is_sandbox", "==", true),
+    where("created_by", "==", uid),
+    firestoreLimit(1),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return toCompetition(d.id, d.data() as FirestoreCompetition);
 }
 
 /**
@@ -183,7 +205,11 @@ export async function listModeratedCompetitions(uid: string): Promise<Competitio
     }
   }
 
-  return Array.from(byId.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return Array.from(byId.values())
+    // The sandbox gets its own card on /live-ops — listing it alongside real
+    // competitions would blur what is live and what is practice.
+    .filter((c) => !c.isSandbox)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function onCompetition(id: string, cb: (c: Competition | null) => void): Unsubscribe {
@@ -200,6 +226,83 @@ export function onCompetition(id: string, cb: (c: Competition | null) => void): 
 
 export async function updateCompetition(id: string, patch: Partial<FirestoreCompetition>): Promise<void> {
   await updateDoc(doc(db, "competitions", id), { ...patch, updated_at: serverTimestamp() });
+}
+
+/** Firestore caps a write batch at 500 operations. */
+const BATCH_LIMIT = 450;
+
+/** Deletes every doc of a subcollection, in batches. */
+async function deleteSubcollection(cid: string, name: "comp_teams" | "comp_matches"): Promise<void> {
+  const snap = await getDocs(collection(db, "competitions", cid, name));
+  for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const d of snap.docs.slice(i, i + BATCH_LIMIT)) batch.delete(d.ref);
+    await batch.commit();
+  }
+}
+
+/**
+ * Permanently deletes a competition with its teams and matches.
+ *
+ * Subcollections go first: the security rules resolve `isOrganizerOf(cid)` by
+ * reading the parent competition, so removing the parent first would lock us
+ * out of its own children and orphan them.
+ */
+export async function deleteCompetition(cid: string): Promise<void> {
+  await deleteSubcollection(cid, "comp_matches");
+  await deleteSubcollection(cid, "comp_teams");
+  await deleteDoc(doc(db, "competitions", cid));
+}
+
+/**
+ * Creates a fresh competition from an existing one: same type, format and
+ * team list (rosters included), but no matches, no groups, no staff and no
+ * manager claims — a new edition starts from a clean slate.
+ */
+export async function duplicateCompetition(
+  cid: string,
+  name: string,
+  createdBy: string,
+): Promise<string> {
+  const source = await getCompetition(cid);
+  if (!source) throw new Error(`Competition ${cid} not found`);
+
+  const newId = await createCompetition({
+    name,
+    ...(source.description ? { description: source.description } : {}),
+    logoUrl: source.logoUrl,
+    bannerUrl: source.bannerUrl,
+    competitionType: source.competitionType,
+    format: source.format,
+    startDate: null,
+    endDate: null,
+    venueCity: source.venueCity,
+    createdBy,
+  });
+
+  const teams = await listCompTeams(cid);
+  const targetCol = collection(db, "competitions", newId, "comp_teams");
+  for (let i = 0; i < teams.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const team of teams.slice(i, i + BATCH_LIMIT)) {
+      const data: FirestoreCompTeam = {
+        name: team.name,
+        short_name: team.shortName,
+        logo_url: team.logoUrl,
+        color: team.color,
+        group: null,
+        players: team.players,
+        claimed_by_manager_id: null,
+        claimed_by_team_id: null,
+        created_at: serverTimestamp() as unknown as string,
+        updated_at: serverTimestamp() as unknown as string,
+      };
+      batch.set(doc(targetCol), data);
+    }
+    await batch.commit();
+  }
+
+  return newId;
 }
 
 // ============================================
@@ -240,6 +343,24 @@ export function onCompTeams(cid: string, cb: (teams: CompTeam[]) => void): Unsub
       console.error("Error in onCompTeams listener:", error);
     },
   );
+}
+
+/**
+ * Every competition team this manager owns, across all competitions.
+ * Collection-group query — needs the `comp_teams.claimed_by_manager_id`
+ * COLLECTION_GROUP field override in firestore.indexes.json.
+ */
+export async function listCompTeamsByManager(uid: string): Promise<CompTeam[]> {
+  const q = query(
+    collectionGroup(db, "comp_teams"),
+    where("claimed_by_manager_id", "==", uid),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    // competitions/{cid}/comp_teams/{tid} — the parent's parent is the comp.
+    const cid = d.ref.parent.parent?.id ?? "";
+    return toCompTeam(d.id, cid, d.data() as FirestoreCompTeam);
+  });
 }
 
 export async function getCompTeam(cid: string, tid: string): Promise<CompTeam | null> {
@@ -320,18 +441,22 @@ export async function updateCompPlayer(
   cid: string,
   tid: string,
   playerId: string,
-  patch: { name?: string; number?: string; position?: string },
+  patch: { name?: string; number?: string; position?: string; user_id?: string | null },
 ): Promise<void> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
   const players: CompPlayer[] = team.players.map((p) => {
     if (p.id !== playerId) return p;
     const position = patch.position ?? p.position;
+    // `user_id` is carried over unless the patch explicitly sets it —
+    // renaming a player must not silently unlink their account.
+    const userId = patch.user_id !== undefined ? patch.user_id : p.user_id ?? null;
     return {
       id: p.id,
       name: patch.name ?? p.name,
       number: patch.number ?? p.number,
       ...(position ? { position } : {}),
+      user_id: userId,
     };
   });
   await updateCompTeam(cid, tid, { players });
@@ -618,12 +743,19 @@ export function roundRobinPairs(teamIds: string[]): [string, string][] {
  * Re-running is therefore a no-op rather than an error.
  *
  * Teams are grouped by their `group` field; teams with `group == null` (unassigned)
- * are ignored. Within each group, `roundRobinPairs` produces every unordered pair once.
+ * are ignored — except on single-group types (championnat, championnat +
+ * play-offs) where every team plays in the one group, so unassigned teams are
+ * folded into it rather than dropped. Within each group, `roundRobinPairs`
+ * produces every unordered pair once, and `format.double_round` appends the
+ * return leg with the venues swapped.
  * Team name/logo are denormalized onto each match doc (logo → null when absent).
  */
 export async function generateGroupFixtures(cid: string): Promise<void> {
   const competition = await getCompetition(cid);
   if (!competition) throw new Error(`Competition ${cid} not found`);
+  if (competition.competitionType === "cup") {
+    throw new Error("Une coupe n'a pas de phase de groupes");
+  }
 
   // Idempotency guard: bail out if group fixtures already exist.
   const matchesCol = collection(db, "competitions", cid, "comp_matches");
@@ -631,14 +763,18 @@ export async function generateGroupFixtures(cid: string): Promise<void> {
   if (!existing.empty) return;
 
   const teams = await listCompTeams(cid);
+  const singleGroup = isSingleGroup(competition.competitionType);
 
   // Group assigned teams by their group letter.
   const groups = new Map<string, CompTeam[]>();
   for (const team of teams) {
-    if (team.group == null) continue;
-    const bucket = groups.get(team.group);
+    // On a single-group competition there are no poules to compose, so an
+    // unassigned team belongs to the one and only group.
+    const letter = singleGroup ? SINGLE_GROUP_LETTER : team.group;
+    if (letter == null) continue;
+    const bucket = groups.get(letter);
     if (bucket) bucket.push(team);
-    else groups.set(team.group, [team]);
+    else groups.set(letter, [team]);
   }
 
   const byId = new Map<string, CompTeam>(teams.map((t) => [t.id, t]));
@@ -648,7 +784,11 @@ export async function generateGroupFixtures(cid: string): Promise<void> {
 
   for (const [groupLetter, groupTeams] of groups) {
     const pairs = roundRobinPairs(groupTeams.map((t) => t.id));
-    for (const [homeId, awayId] of pairs) {
+    // Aller-retour: replay every pairing with the venues swapped.
+    const legs: [string, string][] = competition.format.double_round
+      ? [...pairs, ...pairs.map(([h, a]) => [a, h] as [string, string])]
+      : pairs;
+    for (const [homeId, awayId] of legs) {
       const home = byId.get(homeId);
       const away = byId.get(awayId);
       if (!home || !away) continue; // defensive; pairs come from team ids
@@ -688,6 +828,12 @@ export async function generateGroupFixtures(cid: string): Promise<void> {
   }
 
   if (pairCount > 0) await batch.commit();
+}
+
+/** One-shot read of a competition's matches (the stats pages don't need live). */
+export async function listCompMatches(cid: string): Promise<CompMatch[]> {
+  const snap = await getDocs(collection(db, "competitions", cid, "comp_matches"));
+  return snap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
 }
 
 export function onCompMatches(cid: string, cb: (m: CompMatch[]) => void): Unsubscribe {
@@ -1182,9 +1328,14 @@ function knockoutRoundName(roundTeams: number): CompMatchRound {
 }
 
 /**
- * Generate the knockout bracket for a competition: gather group qualifiers,
- * seed round 1, then create every subsequent round down to the final, wiring
- * each match to its successor so `finishCompMatch` can propagate winners.
+ * Generate the knockout bracket for a competition: gather the entrants, seed
+ * round 1, then create every subsequent round down to the final, wiring each
+ * match to its successor so `finishCompMatch` can propagate winners.
+ *
+ * Entrants depend on `competitionType`: a cup takes the team list directly,
+ * play-offs take the top `knockout_teams` rows of the single table, and
+ * groups_knockout takes `qualifiers_per_group` rows per group. A championnat
+ * has no bracket at all and throws.
  *
  * Idempotency: if any `stage === "knockout"` match already exists we return
  * early without creating duplicates (re-running is a safe no-op). The optional
@@ -1224,32 +1375,79 @@ export async function generateKnockout(cid: string): Promise<void> {
   if (!existingKnockout.empty) return;
 
   const format = competition.format;
+  const type = competition.competitionType;
+  if (!hasKnockout(type)) {
+    throw new Error("Un championnat n'a pas de phase finale");
+  }
   const teams = await listCompTeams(cid);
 
-  // Standings are computed from completed group matches only.
-  const groupSnap = await getDocs(query(matchesCol, where("stage", "==", "group")));
-  const groupMatches = groupSnap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
-  const standings = computeStandings(groupMatches, teams, format);
+  // Where the bracket's entrants come from depends on the type:
+  //  - cup             : straight from the team list, no group stage played
+  //  - league_playoffs : the top `knockout_teams` rows of the single table
+  //  - groups_knockout : the top `qualifiers_per_group` rows of each group
+  let qualifiersByGroup: Qualifier[][];
+  let cap = 0;
 
-  // Gather qualifiers: top `qualifiers_per_group` rows per (already sorted) group.
-  const qualifiersByGroup: Qualifier[][] = standings.map((standing) =>
-    standing.rows.slice(0, format.qualifiers_per_group).map((row, i) => ({
-      teamId: row.team.id,
-      name: row.team.name,
-      logo: row.team.logoUrl ?? null,
-      group: standing.group,
-      rank: i + 1,
-    })),
-  );
+  if (type === "cup") {
+    qualifiersByGroup = [
+      teams.map((team, i) => ({
+        teamId: team.id,
+        name: team.name,
+        logo: team.logoUrl ?? null,
+        group: "",
+        rank: i + 1,
+      })),
+    ];
+    cap = format.knockout_teams || teams.length;
+  } else {
+    // Standings are computed from completed group matches only.
+    const groupSnap = await getDocs(query(matchesCol, where("stage", "==", "group")));
+    const groupMatches = groupSnap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
+    const standings = computeStandings(groupMatches, teams, format);
+
+    if (type === "league_playoffs") {
+      const table = standings[0];
+      if (!table) throw new Error("Aucun classement disponible pour les play-offs");
+      cap = format.knockout_teams || 4;
+      qualifiersByGroup = [
+        table.rows.slice(0, cap).map((row, i) => ({
+          teamId: row.team.id,
+          name: row.team.name,
+          logo: row.team.logoUrl ?? null,
+          group: table.group,
+          rank: i + 1,
+        })),
+      ];
+    } else {
+      // Gather qualifiers: top `qualifiers_per_group` rows per (already sorted) group.
+      qualifiersByGroup = standings.map((standing) =>
+        standing.rows.slice(0, format.qualifiers_per_group).map((row, i) => ({
+          teamId: row.team.id,
+          name: row.team.name,
+          logo: row.team.logoUrl ?? null,
+          group: standing.group,
+          rank: i + 1,
+        })),
+      );
+      cap = Number.POSITIVE_INFINITY;
+    }
+  }
+
   const qualifiers = qualifiersByGroup.flat();
 
-  const qualifierCount = qualifiers.length;
+  const qualifierCount = Math.min(qualifiers.length, cap);
   const bracketSize = largestPowerOfTwoAtMost(qualifierCount);
   if (bracketSize < 2) throw new Error("Pas assez de qualifiés pour une phase finale");
+  // knockoutRoundName only names rounds down from a 16-team bracket; a larger
+  // one would need a `round_of_32` round value across the bracket UI.
+  if (bracketSize > 16) {
+    throw new Error("Le tableau final est limité à 16 équipes pour le moment");
+  }
 
-  // Build the bracketSize/2 round-1 matchups.
+  // Build the bracketSize/2 round-1 matchups. The group-pairing seed only
+  // applies when the bracket is actually fed by several groups.
   const round1: { home: Qualifier; away: Qualifier }[] = [];
-  if (format.qualifiers_per_group === 2 && format.group_count % 2 === 0) {
+  if (type === "groups_knockout" && format.qualifiers_per_group === 2 && format.group_count % 2 === 0) {
     // Primary: pair groups two-by-two. Each group standing is sorted, so
     // qualifiersByGroup[g][0] is the winner (rank 1) and [1] the runner-up.
     for (let g = 0; g + 1 < qualifiersByGroup.length; g += 2) {
@@ -1261,9 +1459,10 @@ export async function generateKnockout(cid: string): Promise<void> {
       round1.push({ home: y[0], away: x[1] }); // 1Y vs 2X
     }
   } else {
-    // NOTE: best-effort seed for non-standard shapes (odd group_count, or
-    // qualifiers_per_group !== 2). Standard 1-vs-N pairing on seed order; the
-    // organizer can manually adjust matchups afterwards.
+    // Standard 1-vs-N pairing on seed order — used by cups (team list order),
+    // play-offs (table order) and any non-standard group shape (odd
+    // group_count, or qualifiers_per_group !== 2). The organizer can adjust
+    // matchups manually afterwards.
     const seeded = [...qualifiers].sort((a, b) => a.rank - b.rank); // rank-1s first, then rank-2s, …
     const top = seeded.slice(0, bracketSize);
     for (let i = 0; i < bracketSize / 2; i++) {

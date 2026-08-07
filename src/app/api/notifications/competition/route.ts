@@ -50,6 +50,13 @@ export async function POST(req: NextRequest) {
     }
     const competition = compSnap.data() as FirestoreCompetition;
 
+    // A training sandbox must never reach anyone. Blocked here rather than at
+    // the console's nine call sites: this route is the only way out, so the
+    // guarantee holds even if a new event type is added later.
+    if (competition.is_sandbox) {
+      return NextResponse.json({ ok: true, followers: 0, sent: 0, sandbox: true });
+    }
+
     const isStaff =
       (competition.organizer_ids ?? []).includes(callerUid) ||
       (competition.moderator_ids ?? []).includes(callerUid);

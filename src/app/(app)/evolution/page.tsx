@@ -5,11 +5,13 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Rocket, User, Briefcase, ArrowLeft, ArrowRight, Loader2,
-  Check, Circle, CheckCircle2, Trophy, Pencil, RefreshCw, Mail,
-  Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Search, Lock,
+  Check, Trophy, RefreshCw, Mail,
+  Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoleOnboarding } from "@/hooks/useRoleOnboarding";
+import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
 import type { EvolutionRole, FirestoreUser } from "@/types";
 
 // ============================================
@@ -61,16 +63,17 @@ const ROLE_FEATURES: Record<EvolutionRole, {
   href?: string;
 }[]> = {
   player: [
-    { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store },
+    { label: "Mes équipes", desc: "Les équipes dont tu fais partie", Icon: Users, href: "/teams" },
+    { label: "Mes statistiques", desc: "Buts, cartons et matchs joués en compétition", Icon: BarChart3, href: "/stats" },
+    { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store, href: "/mercato" },
     { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck },
-    { label: "Mes statistiques", desc: "Buts, passes décisives, matchs joués", Icon: BarChart3 },
     { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays },
   ],
   manager: [
-    { label: "Mon équipe", desc: "Effectif, numéros, entraînements", Icon: Users },
-    { label: "Recrutement", desc: "Shortlist de joueurs et demandes d'adhésion", Icon: Search },
+    { label: "Mon équipe", desc: "Effectif permanent, entraînements, palmarès", Icon: Users, href: "/teams" },
+    { label: "Mes compétitions", desc: "Effectif engagé, rattachements et stats", Icon: Trophy, href: "/mon-equipe" },
+    { label: "Mercato", desc: "Recrute des joueurs, gère shortlist et candidatures", Icon: Store, href: "/mercato" },
     { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords },
-    { label: "Mercato", desc: "Repère les joueurs disponibles sur le marché", Icon: Store },
   ],
 };
 
@@ -121,6 +124,7 @@ function ChoicePills({
 
 export default function EvolutionPage() {
   const { user, updateProfile } = useAuth();
+  const onboarding = useRoleOnboarding();
 
   // null = show role home (if activated) or selection; otherwise onboarding.
   const [picking, setPicking] = useState<EvolutionRole | null>(null);
@@ -171,21 +175,6 @@ export default function EvolutionPage() {
   // ── Role home (activated) ──────────────────────────────────
   if (activated && !switching && !picking) {
     const isPlayer = activated === "player";
-    const checklist = isPlayer
-      ? [
-          { label: "Photo de profil", done: !!user.profilePictureUrl },
-          { label: "Poste préféré", done: !!user.position },
-          { label: "Pied fort", done: !!user.strongFoot },
-          { label: "Ville", done: !!user.locationCity },
-          { label: "Bio", done: !!user.bio },
-        ]
-      : [
-          { label: "Photo de profil", done: !!user.profilePictureUrl },
-          { label: "Nom d'équipe", done: !!user.teamName },
-          { label: "Ville", done: !!user.locationCity },
-          { label: "Contact (téléphone)", done: !!user.phone },
-        ];
-    const doneCount = checklist.filter((c) => c.done).length;
 
     return (
       <div className="mx-auto max-w-2xl space-y-6">
@@ -206,68 +195,29 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          {/* Completion checklist */}
-          <div className="mt-6 rounded-2xl bg-gray-50 p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-black uppercase tracking-widest text-gray-400">
-                Compte complété
-              </p>
-              <span className="text-xs font-black text-emerald-600">
-                {doneCount}/{checklist.length}
-              </span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
-                style={{ width: `${(doneCount / checklist.length) * 100}%` }}
-              />
-            </div>
-            <ul className="mt-4 space-y-2.5">
-              {checklist.map((item) => (
-                <li key={item.label} className="flex items-center gap-2.5 text-sm font-bold">
-                  {item.done ? (
-                    <CheckCircle2 size={17} className="shrink-0 text-emerald-500" />
-                  ) : (
-                    <Circle size={17} className="shrink-0 text-gray-300" />
-                  )}
-                  <span className={item.done ? "text-gray-700" : "text-gray-400"}>
-                    {item.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/profile"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
-            >
-              <Pencil size={14} />
-              Compléter mon profil
-            </Link>
+          {/* Guided onboarding — steps come from lib/onboarding.ts and are
+              derived from live data, so the list can't drift from reality. */}
+          <div className="mt-6">
+            {onboarding ? (
+              <OnboardingChecklist progress={onboarding} />
+            ) : (
+              <div className="h-32 animate-pulse rounded-2xl bg-gray-50" />
+            )}
           </div>
 
-          {/* Role-specific next steps */}
-          <div className="mt-6 space-y-3">
-            {!isPlayer && (
-              <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
-                <p className="text-sm font-semibold leading-relaxed text-amber-800">
-                  Un organisateur peut t&apos;inviter à prendre la gestion d&apos;une équipe
-                  de sa compétition — tu recevras l&apos;invitation par email et dans tes
-                  notifications.
-                </p>
-              </div>
-            )}
-            <Link
-              href="/competitions"
-              className="flex items-center justify-between rounded-2xl border border-gray-100 p-4 transition-colors hover:bg-gray-50"
-            >
-              <span className="flex items-center gap-3 text-sm font-bold text-gray-700">
-                <Trophy size={17} className="text-emerald-500" />
-                Suivre les compétitions
-              </span>
-              <ArrowRight size={16} className="text-gray-300" />
-            </Link>
-          </div>
+          {/* Role-specific next steps. "Suivre les compétitions" used to sit
+              here; it duplicated the sidebar entry and pushed the real
+              features down. */}
+          {!isPlayer && (
+            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
+              <p className="text-sm font-semibold leading-relaxed text-amber-800">
+                Un organisateur peut t&apos;inviter à prendre la gestion d&apos;une équipe
+                de sa compétition — tu recevras l&apos;invitation par email et dans tes
+                notifications.
+              </p>
+            </div>
+          )}
 
           {/* The role's features — unfrozen one by one */}
           <div className="mt-8">

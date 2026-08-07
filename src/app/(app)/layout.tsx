@@ -4,11 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import AppSidebar from "@/components/layout/AppSidebar";
-import AppHeader from "@/components/layout/AppHeader";
-import TribuneSidebar from "@/components/layout/TribuneSidebar";
-import MobileBottomNav from "@/components/layout/MobileBottomNav";
-import PushNotificationSetup from "@/components/PushNotificationSetup";
+import AppShell from "@/components/layout/AppShell";
 
 // Routes in this group that render for guests. Everything else requires
 // an authenticated profile. The shell (sidebar/header/bottom nav) renders
@@ -64,18 +60,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!user) return null;
   }
 
-  return (
-    <div className="flex min-h-screen">
-      <PushNotificationSetup />
-      <AppSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader />
-        <main className="main-content-app min-w-0 flex-1 overflow-x-hidden bg-[#F4F6FA] p-4 lg:p-6">
-          {children}
-        </main>
-      </div>
-      <TribuneSidebar />
-      <MobileBottomNav />
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

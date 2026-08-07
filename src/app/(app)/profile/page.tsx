@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { uploadProfilePhoto, uploadGalleryPhoto } from "@/lib/storage";
 import { getPostsByUser } from "@/lib/firestore";
 import KoppaFootCard from "@/components/ui/KoppaFootCard";
+import LoginMethodsCard from "@/components/auth/LoginMethodsCard";
 import type { Post } from "@/types";
 
 // ============================================
@@ -469,6 +470,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+            <LoginMethodsCard />
           </div>
         )}
 

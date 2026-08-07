@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Play, Pause, ChevronLeft, ChevronRight, History, Clock,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
-  ArrowRightLeft, AlertTriangle, X, LogOut,
+  ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -86,6 +86,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const [homeSheet, setHomeSheet] = useState<Record<string, SheetRole>>({});
   const [awaySheet, setAwaySheet] = useState<Record<string, SheetRole>>({});
   const [savingSide, setSavingSide] = useState<Side | null>(null);
+  // Mobile shows ONE match sheet at a time: stacking both put the kickoff
+  // button several screens down. On md+ the two sit side by side and this
+  // is ignored.
+  const [sheetSide, setSheetSide] = useState<Side>("home");
 
   // Player-picker modal (goal / card)
   const [picker, setPicker] = useState<PickerState | null>(null);
@@ -617,81 +621,109 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   if (match.status !== "live" && match.status !== "completed") {
     const lineupsReady = match.homeLineupReady && match.awayLineupReady;
 
+    // Full-height column: header and kickoff bar are pinned, only the roster
+    // scrolls. `pt-safe` keeps the header clear of the status bar — the
+    // console renders without the app shell, so nothing else provides it.
     return (
-      <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28">
+      <div
+        ref={containerRef}
+        className="mx-auto flex min-h-[100dvh] max-w-5xl flex-col bg-gray-50 pt-safe"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-2">
+        <div className="flex shrink-0 items-center justify-between gap-2 px-2 pt-2">
           <button
             onClick={() => router.push(returnHref)}
-            className="group flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
+            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
           >
-            <ChevronLeft size={22} className="text-gray-400 group-hover:text-gray-900" />
+            <ChevronLeft size={20} className="text-gray-400 group-hover:text-gray-900" />
           </button>
-          <div className="text-center">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
+          <div className="min-w-0 text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
               Feuilles de match
             </p>
-            <h1 className="font-display text-xl font-extrabold tracking-tight text-gray-900">
-              {match.homeTeamName} <span className="mx-1.5 text-gray-300">vs</span> {match.awayTeamName}
+            <h1 className="truncate font-display text-base font-extrabold tracking-tight text-gray-900 sm:text-xl">
+              {match.homeTeamName} <span className="mx-1 text-gray-300">vs</span> {match.awayTeamName}
             </h1>
           </div>
-          <div className="h-11 w-11" />
+          <div className="h-10 w-10 shrink-0" />
         </div>
 
-        <p className="px-2 text-center text-sm font-medium text-gray-500">
-          Compose les deux feuilles de match. Le coup d&apos;envoi démarre le suivi en{" "}
-          <span className="font-bold text-primary-600">Direct</span>.
-        </p>
+        {/* Team switch — mobile only. Carries each side's validation state,
+            since only one sheet is visible at a time. */}
+        {!rostersLoading && (
+          <div className="mx-2 mt-3 flex shrink-0 gap-1 rounded-2xl bg-gray-200/70 p-1 md:hidden">
+            {([
+              { side: "home" as Side, label: "Domicile", name: match.homeTeamName, ready: match.homeLineupReady },
+              { side: "away" as Side, label: "Extérieur", name: match.awayTeamName, ready: match.awayLineupReady },
+            ]).map((t) => (
+              <button
+                key={t.side}
+                onClick={() => setSheetSide(t.side)}
+                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-black transition-colors ${
+                  sheetSide === t.side ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                }`}
+              >
+                {t.ready && <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />}
+                <span className="truncate">{t.name || t.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {rostersLoading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
             <p className="text-sm font-bold text-gray-400 italic">Chargement des effectifs...</p>
           </div>
         ) : (
-          <div className="grid gap-5 px-1 md:grid-cols-2">
-            <LineupBuilder
-              side="home"
-              teamName={match.homeTeamName}
-              accent="primary"
-              roster={homeRoster ?? []}
-              sheet={homeSheet}
-              ready={match.homeLineupReady}
-              saving={savingSide === "home"}
-              onToggle={(pid) => toggleSheetRole("home", pid)}
-              onValidate={() => handleValidateSheet("home")}
-            />
-            <LineupBuilder
-              side="away"
-              teamName={match.awayTeamName}
-              accent="amber"
-              roster={awayRoster ?? []}
-              sheet={awaySheet}
-              ready={match.awayLineupReady}
-              saving={savingSide === "away"}
-              onToggle={(pid) => toggleSheetRole("away", pid)}
-              onValidate={() => handleValidateSheet("away")}
-            />
+          <div className="grid flex-1 gap-5 px-1 py-3 md:grid-cols-2">
+            <div className={sheetSide === "home" ? "" : "hidden md:block"}>
+              <LineupBuilder
+                side="home"
+                teamName={match.homeTeamName}
+                accent="primary"
+                roster={homeRoster ?? []}
+                sheet={homeSheet}
+                ready={match.homeLineupReady}
+                saving={savingSide === "home"}
+                onToggle={(pid) => toggleSheetRole("home", pid)}
+                onValidate={() => handleValidateSheet("home")}
+              />
+            </div>
+            <div className={sheetSide === "away" ? "" : "hidden md:block"}>
+              <LineupBuilder
+                side="away"
+                teamName={match.awayTeamName}
+                accent="amber"
+                roster={awayRoster ?? []}
+                sheet={awaySheet}
+                ready={match.awayLineupReady}
+                saving={savingSide === "away"}
+                onToggle={(pid) => toggleSheetRole("away", pid)}
+                onValidate={() => handleValidateSheet("away")}
+              />
+            </div>
           </div>
         )}
 
-        {/* Launch gate */}
-        <div className="flex flex-col items-center gap-4 px-2 pt-4">
+        {/* Launch gate — pinned, so kickoff is always one tap away instead of
+            two rosters further down. */}
+        <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200 bg-white/95 px-3 py-3 pb-safe backdrop-blur">
           {!lineupsReady && !rostersLoading && (
-            <div className="flex max-w-md items-center gap-3 rounded-2xl bg-amber-50 px-5 py-4 text-amber-800">
-              <AlertTriangle size={20} className="shrink-0 text-amber-500" />
-              <p className="text-xs font-bold leading-relaxed">
-                Le match ne peut démarrer que lorsque les deux feuilles de match sont validées.
+            <div className="mb-2 flex items-center justify-center gap-2 text-amber-700">
+              <AlertTriangle size={15} className="shrink-0 text-amber-500" />
+              <p className="text-[11px] font-bold leading-tight">
+                Valide les deux feuilles pour lancer le match.
               </p>
             </div>
           )}
           <button
             onClick={handleLaunch}
             disabled={!lineupsReady}
-            className="group relative inline-flex items-center gap-4 rounded-3xl bg-primary-600 px-12 py-6 text-xl font-black uppercase tracking-widest text-white shadow-[0_25px_50px_rgba(37,99,235,0.35)] transition-all hover:scale-105 hover:bg-primary-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            className="group relative inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-600 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-primary-300/40 transition-all hover:bg-primary-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
           >
             <span className="relative">Coup d&apos;envoi</span>
-            <Flame size={24} className="relative transition-transform group-hover:rotate-12 group-hover:scale-125" />
+            <Flame size={20} className="relative transition-transform group-hover:rotate-12 group-hover:scale-125" />
           </button>
         </div>
       </div>
@@ -735,7 +767,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const showBack = isCompleted;
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28 lg:max-w-7xl">
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28 pt-safe lg:max-w-7xl">
+      {/* Sandbox banner — the console is otherwise indistinguishable from the
+          real thing, and a trainee must never wonder whether it counts. */}
+      {competition?.isSandbox && (
+        <div className="mx-2 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <GraduationCap size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div className="min-w-0">
+            <p className="text-sm font-black text-emerald-900">Mode entraînement</p>
+            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-800">
+              Ce match est fictif. Rien n&apos;est publié, aucune notification n&apos;est
+              envoyée, aucune statistique n&apos;est comptée — essaie tout ce que tu
+              veux. Tu peux le remettre à zéro depuis l&apos;espace live.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-2">
         {showBack ? (
@@ -1136,8 +1184,10 @@ function LineupBuilder({
   const subs = roster.filter((p) => sheet[p.id] === "substitute").length;
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/40">
-      <div className="mb-1 flex items-center justify-between">
+    <div className="relative overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/40 sm:p-7">
+      {/* Side label and team name are already in the mobile tab above, so
+          they only appear from md up where both sheets show at once. */}
+      <div className="mb-1 hidden items-center justify-between md:flex">
         <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
           {accent === "primary" ? "Domicile" : "Extérieur"}
         </h3>
@@ -1147,7 +1197,9 @@ function LineupBuilder({
           </span>
         )}
       </div>
-      <h2 className="mb-1 max-w-full truncate text-lg font-black tracking-tight text-gray-900">{teamName}</h2>
+      <h2 className="mb-1 hidden max-w-full truncate text-lg font-black tracking-tight text-gray-900 md:block">
+        {teamName}
+      </h2>
 
       {roster.length === 0 ? (
         <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
@@ -1155,14 +1207,16 @@ function LineupBuilder({
         </div>
       ) : (
         <>
-          <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-400">
             Titulaires{" "}
             <span className={starters > STARTERS_MAX ? "text-red-500" : accentText}>
               {starters}/{STARTERS_MAX}
             </span>{" "}
             · <span className={accentText}>{subs}</span> remplaçant{subs > 1 ? "s" : ""}
           </p>
-          <div className="custom-scrollbar mb-5 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+          {/* The roster is the only thing that scrolls. On mobile it takes
+              the viewport minus header, tabs and the pinned kickoff bar. */}
+          <div className="custom-scrollbar mb-4 max-h-[calc(100dvh-20rem)] space-y-2 overflow-y-auto pr-1 md:max-h-[320px]">
             {roster.map((p) => {
               const role = sheet[p.id] ?? "out";
               return (

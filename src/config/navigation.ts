@@ -34,7 +34,7 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 // verticals come back from _shelved.
 
 export const MEMBER_NAV: NavEntry[] = [
-  { path: "/", icon: "Home", label: "Direct", exact: true },
+  { path: "/", icon: "Activity", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
@@ -48,13 +48,9 @@ export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
   superadmin: MEMBER_NAV,
 };
 
-// ============================================
-// Organizer — Grouped
-// ============================================
-
-export const ORGANIZER_GROUPED_NAV: NavEntry[] = [
-  { path: "/organizer", icon: "Trophy", label: "Mes compétitions", exact: true },
-];
+// Organizer navigation used to live here, feeding a dedicated
+// OrganizerSidebar. The organizer space now renders inside the shared app
+// shell, so its entries are declared with the other spaces in AppSidebar.
 
 // ============================================
 // Admin — Grouped
@@ -120,7 +116,7 @@ export interface BottomNavItem {
 }
 
 export const MEMBER_BOTTOM: BottomNavItem[] = [
-  { path: "/", icon: "Home", label: "Direct", exact: true },
+  { path: "/", icon: "Activity", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
   { path: "/feed", icon: "MessageCircle", label: "Tribune" },
 ];

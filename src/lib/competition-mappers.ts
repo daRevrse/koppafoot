@@ -14,20 +14,10 @@ import type {
   CompMatch, FirestoreCompMatch,
 } from "@/types";
 
-type FirestoreDate = string | { seconds?: number; toDate?: () => Date } | null | undefined;
-
-/**
- * Convert Firestore dates (string or Timestamp, web or admin) to ISO string.
- */
-export function formatDate(date: FirestoreDate): string {
-  if (!date) return new Date().toISOString();
-  if (typeof date === "string") return date;
-  // Handle Firestore serverTimestamp placeholder (no toDate or seconds on first snapshot)
-  if (!date.seconds && !date.toDate) return new Date().toISOString();
-  if (typeof date.toDate === "function") return date.toDate().toISOString();
-  if (date.seconds) return new Date(date.seconds * 1000).toISOString();
-  return new Date().toISOString();
-}
+// Moved to lib/dates.ts — every read path needs it, not just competitions.
+// Re-exported so existing importers keep working.
+import { formatDate } from "./dates";
+export { formatDate };
 
 export function toCompetition(id: string, d: FirestoreCompetition): Competition {
   return {
@@ -41,6 +31,10 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     moderatorIds: d.moderator_ids ?? [],
     createdBy: d.created_by,
     status: d.status,
+    // Pre-dates competition types: every existing competition is a group
+    // stage feeding a bracket.
+    competitionType: d.competition_type ?? "groups_knockout",
+    isSandbox: d.is_sandbox ?? false,
     format: d.format,
     startDate: d.start_date,
     endDate: d.end_date,
@@ -61,6 +55,7 @@ export function toCompTeam(id: string, competitionId: string, d: FirestoreCompTe
     group: d.group,
     players: d.players ?? [],
     claimedByManagerId: d.claimed_by_manager_id ?? null,
+    claimedByTeamId: d.claimed_by_team_id ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
