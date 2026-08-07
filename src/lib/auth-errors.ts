@@ -30,30 +30,25 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/user-disabled": "Ce compte a été désactivé.",
   "auth/network-request-failed": "Connexion impossible. Vérifiez votre réseau et réessayez.",
   "auth/requires-recent-login": "Reconnectez-vous pour effectuer cette action.",
-  // Anti-abuse throttle on the NUMBER, not the project — it appears in no
-  // quota dashboard. The SDK passes the backend's numeric code straight
-  // through, hence the odd shape.
+  // Backend refusal from the SMS layer (503). The SDK passes the numeric
+  // code straight through, hence the odd shape. Do NOT claim a cause here:
+  // it is reported both for a per-number anti-abuse throttle AND for
+  // project-level conditions (region policy, billing), and we have observed
+  // it on a never-used number at the very first attempt. Guessing wrong in
+  // the UI sends the user chasing the wrong fix.
   "auth/error-code:-39":
-    "Trop de tentatives sur ce numéro. Réessayez dans quelques heures, ou utilisez un autre numéro.",
+    "L'envoi du SMS a échoué. Réessayez dans quelques minutes — si le problème persiste, prévenez-nous.",
 };
 
 /**
- * Identity Toolkit failures the SDK does not give a distinct code for. It
- * surfaces them as a generic internal error, with the real reason buried in
- * the raw server body — so we match on that body.
+ * Identity Toolkit failures the SDK does not give a distinct code for: the
+ * real reason sits in the raw server body, so we match on that body.
  *
- * "Error code: 39" is an anti-abuse throttle on the PHONE NUMBER, not on the
- * project: too many sign-in attempts on the same number in a short window.
- * It never shows up in the project's quota dashboard, which makes it very
- * confusing without a dedicated message. Test numbers are exempt.
+ * Kept as an extension point — "Error code: 39" is handled by its own SDK
+ * code above, since in practice `customData.serverResponse` was not
+ * populated when it fired.
  */
-const SERVER_RESPONSE_ERRORS: { match: string; message: string }[] = [
-  {
-    match: "Error code: 39",
-    message:
-      "Trop de tentatives sur ce numéro. Réessayez dans quelques heures, ou utilisez un autre numéro.",
-  },
-];
+const SERVER_RESPONSE_ERRORS: { match: string; message: string }[] = [];
 
 function serverResponseMessage(error: unknown): string | null {
   const raw = (error as { customData?: { serverResponse?: unknown } })?.customData
