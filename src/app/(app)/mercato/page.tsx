@@ -537,8 +537,8 @@ export default function MercatoPage() {
                   const age = playerAge(p.dateOfBirth);
                   return (
                   <div key={p.uid} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 font-black text-emerald-700">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-xl font-black text-emerald-700 ring-2 ring-emerald-100">
                         {p.profilePictureUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={p.profilePictureUrl} alt="" className="h-full w-full object-cover" />
@@ -547,7 +547,7 @@ export default function MercatoPage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="truncate font-black text-gray-900">{p.firstName} {p.lastName}</h4>
+                        <h4 className="truncate text-lg font-black text-gray-900">{p.firstName} {p.lastName}</h4>
                         <p className="flex items-center gap-1 truncate text-xs font-semibold text-gray-400">
                           <MapPin size={10} className="shrink-0" /> {p.locationCity || "Ville non précisée"}
                         </p>
@@ -652,13 +652,13 @@ export default function MercatoPage() {
                    const played = t.matchesPlayed ?? 0;
                    return (
                     <div key={t.id} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
-                      <div className="flex items-start justify-between gap-2">
-                         <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${colors.bg}`}>
+                      <div className="flex items-start justify-between gap-3">
+                         <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl ${colors.bg}`}>
                            {t.logoUrl ? (
                              // eslint-disable-next-line @next/next/no-img-element
                              <img src={t.logoUrl} alt="" className="h-full w-full object-cover" />
                            ) : (
-                             <Shield size={22} className={colors.icon} />
+                             <Shield size={38} className={colors.icon} />
                            )}
                          </div>
                          <div className="flex flex-col items-end gap-1">
@@ -675,7 +675,7 @@ export default function MercatoPage() {
                          </div>
                       </div>
 
-                      <h4 className="mt-3 truncate font-black text-gray-900">{t.name}</h4>
+                      <h4 className="mt-3 truncate text-lg font-black text-gray-900">{t.name}</h4>
                       <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-gray-400">
                         <MapPin size={10} className="shrink-0" /> {t.city || "Ville non précisée"}
                       </p>

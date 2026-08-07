@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Trophy, Loader2, Send, Clock3, X, MapPin } from "lucide-react";
+import { Trophy, Clock3, MapPin } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions } from "@/lib/competition-firestore";
+import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
 import type { Competition, CompetitionRegistration, Team } from "@/types";
 
 // ============================================
@@ -16,20 +17,11 @@ import type { Competition, CompetitionRegistration, Team } from "@/types";
 // already runs a roster never types it twice.
 // ============================================
 
-export default function CompetitionRegistrationPanel({
-  clubs,
-  onAccepted,
-}: {
-  clubs: Team[];
-  onAccepted?: () => void;
-}) {
+export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] }) {
   const { firebaseUser } = useAuth();
   const [open, setOpen] = useState<Competition[]>([]);
   const [mine, setMine] = useState<CompetitionRegistration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [target, setTarget] = useState<Competition | null>(null);
-  const [clubId, setClubId] = useState("");
-  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   const loadMine = useCallback(async () => {
@@ -63,38 +55,6 @@ export default function CompetitionRegistrationPanel({
   useEffect(() => {
     loadMine();
   }, [loadMine]);
-
-  const startApply = (competition: Competition) => {
-    setTarget(competition);
-    setClubId(clubs[0]?.id ?? "");
-    setMessage("");
-  };
-
-  const submit = async () => {
-    if (!firebaseUser || !target || !clubId) return;
-    setBusy(true);
-    try {
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch("/api/competitions/registrations", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ cid: target.id, clubId, message }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error ?? "L'inscription a échoué");
-        return;
-      }
-      toast.success("Demande envoyée — en attente de l'organisateur");
-      setTarget(null);
-      await loadMine();
-      onAccepted?.();
-    } catch {
-      toast.error("Une erreur est survenue");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const withdraw = async (reg: CompetitionRegistration) => {
     if (!firebaseUser) return;
@@ -192,78 +152,11 @@ export default function CompetitionRegistrationPanel({
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => startApply(c)}
-                  className="shrink-0 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-600"
-                >
-                  S&apos;inscrire
-                </button>
+                {/* Same component as the public competition page, so the
+                    modal and its rules live in one place. */}
+                <RegisterTeamButton competition={c} label="S'inscrire" />
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Apply modal */}
-      {target && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="font-display text-lg font-bold text-gray-900">
-                  Inscrire une équipe
-                </h2>
-                <p className="truncate text-xs font-semibold text-gray-400">{target.name}</p>
-              </div>
-              <button
-                onClick={() => !busy && setTarget(null)}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <label className="mb-1.5 block text-xs font-bold text-gray-600">Équipe</label>
-            <select
-              value={clubId}
-              onChange={(e) => setClubId(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none"
-            >
-              {clubs.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-
-            <label className="mb-1.5 mt-4 block text-xs font-bold text-gray-600">
-              Message <span className="font-semibold text-gray-300">(optionnel)</span>
-            </label>
-            <textarea
-              rows={3}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Un mot pour l'organisateur…"
-              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none"
-            />
-
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => !busy && setTarget(null)}
-                className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={submit}
-                disabled={busy || !clubId}
-                className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
-              >
-                {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                Envoyer
-              </button>
-            </div>
           </div>
         </div>
       )}
