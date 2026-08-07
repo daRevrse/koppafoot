@@ -32,11 +32,40 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/requires-recent-login": "Reconnectez-vous pour effectuer cette action.",
 };
 
+/**
+ * Identity Toolkit failures the SDK does not give a distinct code for. It
+ * surfaces them as a generic internal error, with the real reason buried in
+ * the raw server body — so we match on that body.
+ *
+ * "Error code: 39" is an anti-abuse throttle on the PHONE NUMBER, not on the
+ * project: too many sign-in attempts on the same number in a short window.
+ * It never shows up in the project's quota dashboard, which makes it very
+ * confusing without a dedicated message. Test numbers are exempt.
+ */
+const SERVER_RESPONSE_ERRORS: { match: string; message: string }[] = [
+  {
+    match: "Error code: 39",
+    message:
+      "Trop de tentatives sur ce numéro. Réessayez dans quelques heures, ou utilisez un autre numéro.",
+  },
+];
+
+function serverResponseMessage(error: unknown): string | null {
+  const raw = (error as { customData?: { serverResponse?: unknown } })?.customData
+    ?.serverResponse;
+  if (!raw) return null;
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw);
+  return SERVER_RESPONSE_ERRORS.find((e) => body.includes(e.match))?.message ?? null;
+}
+
 export function getAuthErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code: string }).code;
     const known = AUTH_ERRORS[code];
     if (known) return known;
+
+    const fromServer = serverResponseMessage(error);
+    if (fromServer) return fromServer;
     // An unmapped code used to vanish behind the generic message, which made
     // every auth failure look identical in support. Log the raw error so the
     // next one is one glance away — Firebase nests the server's reason under
