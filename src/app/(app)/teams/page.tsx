@@ -8,7 +8,7 @@ import {
   Star, Settings, X, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTeamsByManager, getTeamsByPlayer, createTeam } from "@/lib/firestore";
+import { getTeamsByManager, getTeamsByPlayer, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
 import type { Team } from "@/types";
 
 // ============================================
@@ -207,6 +207,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
 export default function TeamsPage() {
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
+  const [ghostCounts, setGhostCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -222,6 +223,14 @@ export default function TeamsPage() {
         ? await getTeamsByManager(user.uid)
         : await getTeamsByPlayer(user.uid);
       setTeams(data);
+      // Ghost players live in a subcollection, so member_ids alone
+      // under-counts any squad that has players without an account.
+      const counts = await Promise.all(
+        data.map((t) =>
+          getGhostPlayersByTeam(t.id).then((g) => [t.id, g.length] as const).catch(() => [t.id, 0] as const),
+        ),
+      );
+      setGhostCounts(new Map(counts));
     } catch {
       // Silent fail - empty state will show
     } finally {
@@ -361,7 +370,7 @@ export default function TeamsPage() {
                   {/* Stats row */}
                   <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 rounded-lg bg-gray-50 p-2.5 sm:p-3">
                     <div className="text-center">
-                      <p className="text-base sm:text-lg font-bold text-gray-900 font-display">{team.memberIds.length}</p>
+                      <p className="text-base sm:text-lg font-bold text-gray-900 font-display">{team.memberIds.length + (ghostCounts.get(team.id) ?? 0)}</p>
                       <p className="text-xs text-gray-500">Joueurs</p>
                     </div>
                     <div className="text-center">
@@ -381,7 +390,7 @@ export default function TeamsPage() {
                         <Star size={12} /> {LEVEL_LABELS[team.level] ?? team.level}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Users size={12} /> {team.memberIds.length}/{team.maxMembers}
+                        <Users size={12} /> {team.memberIds.length + (ghostCounts.get(team.id) ?? 0)}/{team.maxMembers}
                       </span>
                     </div>
                   </div>

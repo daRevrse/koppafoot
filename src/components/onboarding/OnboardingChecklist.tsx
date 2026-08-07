@@ -1,14 +1,54 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, ArrowRight, PartyPopper } from "lucide-react";
+import { CheckCircle2, Circle, ArrowRight, PartyPopper, ChevronDown } from "lucide-react";
 import type { OnboardingProgress } from "@/lib/onboarding";
 
 // ============================================
 // Guided onboarding checklist — the same widget for every role. Unlike the
 // passive list it replaces, it names the *next* action and gives it a
 // button; finished steps collapse to a line.
+//
+// Collapsible, and the choice sticks: this sits at the top of the role home,
+// so a user who has read it once should not have to scroll past it forever.
+// The progress bar stays visible when collapsed.
 // ============================================
+
+const STORAGE_KEY = "koppafoot:onboarding-collapsed";
+
+// localStorage is external state, so it is read through useSyncExternalStore
+// rather than an effect: no hydration mismatch (the server snapshot is
+// "expanded"), and every mounted checklist stays in sync.
+const listeners = new Set<() => void>();
+
+function subscribe(onChange: () => void): () => void {
+  listeners.add(onChange);
+  return () => {
+    listeners.delete(onChange);
+  };
+}
+
+function getCollapsed(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "1";
+  } catch {
+    return false; // Private mode / storage disabled — stay expanded.
+  }
+}
+
+function getServerCollapsed(): boolean {
+  return false;
+}
+
+function storeCollapsed(value: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // Nothing to persist — the toggle still works for this render.
+  }
+  listeners.forEach((l) => l());
+}
 
 export default function OnboardingChecklist({
   progress,
@@ -18,15 +58,28 @@ export default function OnboardingChecklist({
   title?: string;
 }) {
   const { steps, doneCount, total, current, complete } = progress;
+  const collapsed = useSyncExternalStore(subscribe, getCollapsed, getServerCollapsed);
+  const toggle = () => storeCollapsed(!collapsed);
 
   return (
     <div className="rounded-2xl bg-gray-50 p-5">
-      <div className="flex items-center justify-between">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
         <p className="text-xs font-black uppercase tracking-widest text-gray-400">{title}</p>
-        <span className="text-xs font-black text-emerald-600">
-          {doneCount}/{total}
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="text-xs font-black text-emerald-600">
+            {doneCount}/{total}
+          </span>
+          <ChevronDown
+            size={15}
+            className={`text-gray-400 transition-transform ${collapsed ? "" : "rotate-180"}`}
+          />
         </span>
-      </div>
+      </button>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200">
         <div
           className="h-full rounded-full bg-emerald-500 transition-all"
@@ -34,7 +87,7 @@ export default function OnboardingChecklist({
         />
       </div>
 
-      {complete ? (
+      {collapsed ? null : complete ? (
         <p className="mt-4 flex items-center gap-2 text-sm font-bold text-emerald-700">
           <PartyPopper size={16} />
           Tout est en place. Bon match !

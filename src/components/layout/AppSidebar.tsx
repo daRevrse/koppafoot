@@ -56,6 +56,9 @@ interface Space {
 
 const ROLE_SPACE_ITEMS: Record<"player" | "manager", SpaceItem[]> = {
   player: [
+    // /teams serves both sides: getTeamsByManager for a manager,
+    // getTeamsByPlayer for a player. The player just had no way in.
+    { path: "/teams", icon: Users, label: "Mes équipes" },
     { path: "/stats", icon: BarChart3, label: "Mes statistiques" },
     { path: "/mercato", icon: Store, label: "Mercato" },
   ],

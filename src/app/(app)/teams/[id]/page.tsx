@@ -965,6 +965,10 @@ export default function TeamDetailPage() {
   const upcomingMatches = matches.filter((m) => m.status === "upcoming");
   const completedMatches = matches.filter((m) => m.status === "completed");
   const pendingCount = joinRequests.filter((r) => r.status === "pending").length;
+  // Squad size = accounts on the roster + ghost players. The manager is not
+  // in member_ids (createTeam starts it empty), so this is the real count —
+  // memberIds alone silently dropped every player without a smartphone.
+  const squadCount = team.memberIds.length + ghostPlayers.length;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -1041,7 +1045,7 @@ export default function TeamDetailPage() {
                 {team.slogan && <p className="mt-1 text-sm font-medium opacity-90 italic">«&nbsp;{team.slogan}&nbsp;»</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold opacity-80 sm:gap-4">
                   <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary-400" /> {team.city}</span>
-                  <span className="flex items-center gap-1.5"><Users size={14} className="text-blue-400" /> {team.memberIds.length}/{team.maxMembers} joueurs</span>
+                  <span className="flex items-center gap-1.5"><Users size={14} className="text-blue-400" /> {squadCount}/{team.maxMembers} joueurs</span>
                   <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
                 </div>
               </div>
@@ -1063,7 +1067,7 @@ export default function TeamDetailPage() {
              <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-gray-100 bg-gray-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
                 <div className="absolute -right-2 -top-2 opacity-10"><Users size={64}/></div>
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Effectif</p>
-                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-gray-900 font-display">{team.memberIds.length}</p>
+                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-gray-900 font-display">{squadCount}</p>
              </div>
              <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
                 <div className="absolute -right-2 -top-2 opacity-10 text-emerald-600"><Trophy size={64}/></div>
@@ -1788,7 +1792,7 @@ export default function TeamDetailPage() {
             <dl className="mt-3 space-y-3">
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Capacite</dt>
-                <dd className="font-medium text-gray-900 text-right">{team.memberIds.length} / {team.maxMembers} joueurs</dd>
+                <dd className="font-medium text-gray-900 text-right">{squadCount} / {team.maxMembers} joueurs</dd>
               </div>
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Matchs joues</dt>

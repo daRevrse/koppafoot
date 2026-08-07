@@ -1293,8 +1293,17 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
 // Players (for recruitment search)
 // ============================================
 
+/**
+ * Players available on the market.
+ *
+ * Filters on the ACTIVATED role, not on `user_type`: since the pivot every
+ * account is created with `user_type: "player"`, so that field would put
+ * every spectator who never opened the player space into the mercato —
+ * which is why managers were seeing profiles with no position. Docs without
+ * `evolution_role` are excluded by the equality filter, which is the point.
+ */
 export async function searchPlayers(filters: { city?: string; position?: string; skillLevel?: string; query?: string }): Promise<UserProfile[]> {
-  const constraints: QueryConstraint[] = [where("user_type", "==", "player"), where("is_active", "==", true)];
+  const constraints: QueryConstraint[] = [where("evolution_role", "==", "player"), where("is_active", "==", true)];
   if (filters.city) constraints.push(where("location_city", "==", filters.city));
   if (filters.position) constraints.push(where("position", "==", filters.position));
   if (filters.skillLevel) constraints.push(where("skill_level", "==", filters.skillLevel));

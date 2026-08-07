@@ -12,9 +12,9 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getCompetition, getCompTeam, listCompMatches,
-  addCompPlayer, updateCompPlayer, removeCompPlayer, linkClubToCompTeam,
+  addCompPlayer, updateCompPlayer, removeCompPlayer,
 } from "@/lib/competition-firestore";
-import { getTeamsByManager, getUsersByIds, getGhostPlayersByTeam } from "@/lib/firestore";
+import { getTeamsByManager } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
@@ -117,38 +117,30 @@ export default function MyTeamPage() {
     };
   }, [user]);
 
-  /**
-   * Pulls the club's squad into the competition roster. Real members keep
-   * their account link, so their personal stats start filling without each
-   * of them having to claim their line.
-   */
+  // Pulls the club squad into the competition roster. Runs server-side: the
+  // import also writes a `linked_comp_players` row on each player's own user
+  // doc — only the admin SDK may do that — which is what makes their personal
+  // statistics fill with no claim and no validation.
   const importClub = async (club: Team) => {
+    if (!firebaseUser) return;
     setImporting(true);
     try {
-      const [members, ghosts] = await Promise.all([
-        club.memberIds.length ? getUsersByIds(club.memberIds) : Promise.resolve([]),
-        getGhostPlayersByTeam(club.id).catch(() => []),
-      ]);
-      const added = await linkClubToCompTeam(cid, tid, {
-        id: club.id,
-        squadNumbers: club.squadNumbers,
-        members: members.map((m) => ({
-          uid: m.uid,
-          name: `${m.firstName} ${m.lastName}`.trim(),
-          position: m.position,
-        })),
-        ghosts: ghosts.map((g) => ({
-          id: g.id,
-          name: `${g.firstName} ${g.lastName}`.trim(),
-          position: g.position,
-          squadNumber: g.squadNumber,
-        })),
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/competitions/club-import", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cid, teamId: tid, clubId: club.id }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "L'import a échoué");
+        return;
+      }
       await reloadTeam();
       toast.success(
-        added === 0
+        data.added === 0
           ? "Effectif déjà à jour"
-          : `${added} joueur${added > 1 ? "s" : ""} importé${added > 1 ? "s" : ""}`,
+          : `${data.added} joueur${data.added > 1 ? "s" : ""} importé${data.added > 1 ? "s" : ""}`,
       );
     } catch (err) {
       console.error("Error importing club roster:", err);

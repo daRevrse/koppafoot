@@ -63,6 +63,7 @@ const ROLE_FEATURES: Record<EvolutionRole, {
   href?: string;
 }[]> = {
   player: [
+    { label: "Mes équipes", desc: "Les équipes dont tu fais partie", Icon: Users, href: "/teams" },
     { label: "Mes statistiques", desc: "Buts, cartons et matchs joués en compétition", Icon: BarChart3, href: "/stats" },
     { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store, href: "/mercato" },
     { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck },
@@ -204,29 +205,19 @@ export default function EvolutionPage() {
             )}
           </div>
 
-          {/* Role-specific next steps */}
-          <div className="mt-6 space-y-3">
-            {!isPlayer && (
-              <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
-                <p className="text-sm font-semibold leading-relaxed text-amber-800">
-                  Un organisateur peut t&apos;inviter à prendre la gestion d&apos;une équipe
-                  de sa compétition — tu recevras l&apos;invitation par email et dans tes
-                  notifications.
-                </p>
-              </div>
-            )}
-            <Link
-              href="/competitions"
-              className="flex items-center justify-between rounded-2xl border border-gray-100 p-4 transition-colors hover:bg-gray-50"
-            >
-              <span className="flex items-center gap-3 text-sm font-bold text-gray-700">
-                <Trophy size={17} className="text-emerald-500" />
-                Suivre les compétitions
-              </span>
-              <ArrowRight size={16} className="text-gray-300" />
-            </Link>
-          </div>
+          {/* Role-specific next steps. "Suivre les compétitions" used to sit
+              here; it duplicated the sidebar entry and pushed the real
+              features down. */}
+          {!isPlayer && (
+            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
+              <p className="text-sm font-semibold leading-relaxed text-amber-800">
+                Un organisateur peut t&apos;inviter à prendre la gestion d&apos;une équipe
+                de sa compétition — tu recevras l&apos;invitation par email et dans tes
+                notifications.
+              </p>
+            </div>
+          )}
 
           {/* The role's features — unfrozen one by one */}
           <div className="mt-8">
