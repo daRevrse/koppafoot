@@ -17,6 +17,7 @@ import {
 } from "@/lib/competition-firestore";
 import { uploadTeamLogo } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
+import RegistrationsPanel from "@/components/competition/RegistrationsPanel";
 import type { CompTeam, TeamManagerInvite } from "@/types";
 import toast from "react-hot-toast";
 
@@ -297,6 +298,11 @@ export default function CompetitionTeamsPage() {
         <ArrowLeft size={16} />
         Tableau de bord
       </Link>
+
+      {/* Managers applying with their own club. No reload callback needed:
+          onCompTeams is a live listener, so the accepted team appears on
+          its own. */}
+      <RegistrationsPanel cid={cid} />
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">

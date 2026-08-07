@@ -1018,6 +1018,31 @@ export interface TeamManagerInvite {
   createdAt: string | null;
 }
 
+// ============================================
+// Competition registrations — a manager applies to enter their club in a
+// competition open for entries. The mirror of team_manager_invites, which
+// runs the other way (an organizer hands an existing team to a manager).
+// The `competition_registrations` collection is admin-SDK only.
+// ============================================
+
+export type RegistrationStatus = "pending" | "accepted" | "rejected";
+
+export interface CompetitionRegistration {
+  id: string;
+  competitionId: string;
+  competitionName: string;
+  competitionSlug: string;
+  clubId: string;
+  clubName: string;
+  clubCity: string;
+  clubLogo: string | null;
+  managerId: string;
+  managerName: string;
+  message: string;
+  status: RegistrationStatus;
+  createdAt: string | null;
+}
+
 export interface FirestoreCompMatch {
   competition_id: string;
   stage: CompMatchStage;

@@ -6,16 +6,20 @@ import { motion } from "motion/react";
 import { Users, Loader2, ArrowRight, Mail, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listCompTeamsByManager } from "@/lib/competition-firestore";
-import type { CompTeam } from "@/types";
+import { getTeamsByManager } from "@/lib/firestore";
+import CompetitionRegistrationPanel from "@/components/competition/CompetitionRegistrationPanel";
+import type { CompTeam, Team } from "@/types";
 
 // ============================================
-// Mon équipe — the competition teams this manager owns. A manager gets one
-// by accepting an organizer's invitation (/invitations/equipe/[id]).
+// Mon équipe — the competition teams this manager owns. Two ways in: an
+// organizer invites them onto an existing team (/invitations/equipe/[id]),
+// or they enter one of their own clubs from the panel below.
 // ============================================
 
 export default function MyTeamsPage() {
   const { user } = useAuth();
   const [teams, setTeams] = useState<CompTeam[] | null>(null);
+  const [clubs, setClubs] = useState<Team[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -28,6 +32,13 @@ export default function MyTeamsPage() {
         console.error("Error loading managed teams:", err);
         if (!cancelled) setTeams([]);
       });
+    // Clubs are the entry ticket: a manager registers a club, not a
+    // competition team.
+    getTeamsByManager(user.uid)
+      .then((c) => {
+        if (!cancelled) setClubs(c);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -58,6 +69,10 @@ export default function MyTeamsPage() {
           </p>
         </div>
       </div>
+
+      {/* Entering a competition with one of the manager's own clubs. Sits
+          above the list because it is how that list gets populated. */}
+      <CompetitionRegistrationPanel clubs={clubs} />
 
       {teams.length === 0 ? (
         <div className="rounded-[2rem] border border-gray-100 bg-white p-8 text-center shadow-sm">
