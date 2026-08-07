@@ -24,6 +24,27 @@ import type { FirestoreCompetition } from "@/types";
  * DELETE { id }                         — the manager withdraws.
  */
 
+// Clubs store a colour NAME ("emerald"); competition teams store a hex, and
+// the organizer's edit form feeds it to <input type="color">, which silently
+// falls back to black on anything else. Translate rather than copy.
+const CLUB_COLOR_HEX: Record<string, string> = {
+  emerald: "#10b981",
+  blue: "#3b82f6",
+  red: "#ef4444",
+  amber: "#f59e0b",
+  purple: "#8b5cf6",
+  orange: "#f97316",
+};
+
+function toHex(clubColor: unknown): string {
+  if (typeof clubColor === "string") {
+    if (/^#[0-9a-f]{6}$/i.test(clubColor)) return clubColor;
+    const mapped = CLUB_COLOR_HEX[clubColor.toLowerCase()];
+    if (mapped) return mapped;
+  }
+  return "#10b981";
+}
+
 async function callerUidOf(req: NextRequest): Promise<string | null> {
   const authHeader = req.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
@@ -250,7 +271,7 @@ export async function PATCH(req: NextRequest) {
       name: club.name ?? "",
       short_name: (club.name ?? "").slice(0, 3).toUpperCase(),
       logo_url: club.logo_url ?? null,
-      color: club.color ?? "#10b981",
+      color: toHex(club.color),
       group: null,
       players: [],
       claimed_by_manager_id: reg.manager_id,

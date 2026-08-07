@@ -47,6 +47,22 @@ const CITIES = ["Toutes", "Lomé", "Kara", "Sokodé", "Kpalimé", "Atakpamé", "
 
 const LEVELS = ["Tous", "beginner", "amateur", "intermediate", "advanced"];
 
+const FOOT_LABELS: Record<string, string> = {
+  left: "gauche", right: "droit", both: "ambidextre",
+};
+
+/** Age in whole years, or null when no date of birth is on file. */
+function playerAge(dateOfBirth?: string): number | null {
+  if (!dateOfBirth) return null;
+  const birth = new Date(dateOfBirth);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age -= 1;
+  return age >= 0 && age < 120 ? age : null;
+}
+
 const INV_STATUS_CONFIG = {
   pending:  { label: "En attente", color: "bg-amber-100 text-amber-700" },
   accepted: { label: "Acceptée",   color: "bg-emerald-100 text-emerald-700" },
@@ -516,31 +532,69 @@ export default function MercatoPage() {
               </div>
             ) : players.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {players.map(p => (
-                  <div key={p.uid} className="rounded-xl border border-gray-200 bg-white p-5">
+                {players.map(p => {
+                  const shortlisted = shortlistedIds.has(p.uid);
+                  const age = playerAge(p.dateOfBirth);
+                  return (
+                  <div key={p.uid} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
-                        {p.firstName[0]}{p.lastName[0]}
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 font-black text-emerald-700">
+                        {p.profilePictureUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.profilePictureUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <>{p.firstName[0]}{p.lastName[0]}</>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-bold truncate">{p.firstName} {p.lastName}</h4>
-                        <p className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={10}/> {p.locationCity}</p>
+                        <h4 className="truncate font-black text-gray-900">{p.firstName} {p.lastName}</h4>
+                        <p className="flex items-center gap-1 truncate text-xs font-semibold text-gray-400">
+                          <MapPin size={10} className="shrink-0" /> {p.locationCity || "Ville non précisée"}
+                        </p>
                       </div>
                     </div>
-                    <div className="mt-3 flex gap-2 flex-wrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${POSITION_COLORS[p.position ?? ""] || "bg-gray-100 text-gray-600"}`}>
-                        {POSITION_LABELS[p.position ?? ""] || p.position}
-                      </span>
+
+                    {/* What a manager actually scouts on */}
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {p.position && (
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${POSITION_COLORS[p.position] || "bg-gray-100 text-gray-600"}`}>
+                          {POSITION_LABELS[p.position] || p.position}
+                        </span>
+                      )}
+                      {p.skillLevel && (
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${LEVEL_COLORS[p.skillLevel] || "bg-gray-100 text-gray-600"}`}>
+                          {LEVEL_LABELS[p.skillLevel] || p.skillLevel}
+                        </span>
+                      )}
                     </div>
-                    <div className="mt-4 flex gap-2">
-                       <Link href={`/profile/${p.uid}`} className="flex-1 text-center py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Profil</Link>
-                       <button onClick={() => !shortlistedIds.has(p.uid) && handleAddToShortlist(p)}
-                        className={`px-3 py-2 rounded-lg transition-colors ${shortlistedIds.has(p.uid) ? "bg-primary-50 text-primary-600" : "bg-primary-600 text-white hover:bg-primary-700"}`}>
-                        {addingToShortlist.has(p.uid) ? <Loader2 size={16} className="animate-spin" /> : shortlistedIds.has(p.uid) ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+
+                    {(age !== null || p.strongFoot || p.height) && (
+                      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-gray-500">
+                        {age !== null && <span>{age} ans</span>}
+                        {p.strongFoot && <span>Pied {FOOT_LABELS[p.strongFoot]}</span>}
+                        {p.height && <span>{p.height} cm</span>}
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex gap-2 pt-1">
+                       <Link href={`/profile/${p.uid}`} className="flex-1 rounded-xl border border-gray-200 py-2 text-center text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">Profil</Link>
+                       <button
+                         onClick={() => !shortlisted && handleAddToShortlist(p)}
+                         disabled={shortlisted || addingToShortlist.has(p.uid)}
+                         aria-label={shortlisted ? "Déjà dans la shortlist" : "Ajouter à la shortlist"}
+                         className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold transition-colors ${
+                           shortlisted
+                             ? "bg-emerald-50 text-emerald-600"
+                             : "bg-emerald-500 text-white hover:bg-emerald-600"
+                         }`}
+                       >
+                        {addingToShortlist.has(p.uid) ? <Loader2 size={16} className="animate-spin" /> : shortlisted ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
+                        <span className="hidden sm:inline">{shortlisted ? "Suivi" : "Suivre"}</span>
                        </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-20 text-center border-2 border-dashed rounded-2xl">
@@ -594,22 +648,71 @@ export default function MercatoPage() {
                 {teams.map(t => {
                    const hasSent = sentRequestIds.has(t.id);
                    const colors = COLOR_MAP[t.color] || COLOR_MAP.emerald;
+                   const full = t.memberIds.length >= t.maxMembers;
+                   const played = t.matchesPlayed ?? 0;
                    return (
-                    <div key={t.id} className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col">
-                      <div className="flex items-start justify-between">
-                         <div className={`h-11 w-11 rounded-xl ${colors.bg} flex items-center justify-center`}>
-                           <Shield size={24} className={colors.icon} />
+                    <div key={t.id} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
+                      <div className="flex items-start justify-between gap-2">
+                         <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${colors.bg}`}>
+                           {t.logoUrl ? (
+                             // eslint-disable-next-line @next/next/no-img-element
+                             <img src={t.logoUrl} alt="" className="h-full w-full object-cover" />
+                           ) : (
+                             <Shield size={22} className={colors.icon} />
+                           )}
                          </div>
-                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${LEVEL_COLORS[t.level] || ""}`}>{LEVEL_LABELS[t.level] || t.level}</span>
+                         <div className="flex flex-col items-end gap-1">
+                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${LEVEL_COLORS[t.level] || "bg-gray-100 text-gray-600"}`}>
+                             {LEVEL_LABELS[t.level] || t.level}
+                           </span>
+                           {/* Whether they are taking players is the first thing
+                               a player needs to know. */}
+                           {t.isRecruiting && !full && (
+                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-600">
+                               Recrute
+                             </span>
+                           )}
+                         </div>
                       </div>
-                      <h4 className="mt-3 font-bold text-gray-900">{t.name}</h4>
-                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1"><MapPin size={10}/> {t.city}</p>
-                      <p className="mt-2 text-xs text-gray-600 line-clamp-2 italic">&ldquo;{t.description}&rdquo;</p>
-                      <div className="mt-auto pt-4 flex gap-2">
-                         <Link href={`/teams/${t.id}`} className="flex-1 text-center py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Détails</Link>
-                         <button onClick={() => !hasSent && setCandidatureTeam(t)} disabled={hasSent}
-                          className={`flex-[2] py-2 rounded-lg text-sm font-medium transition-all ${hasSent ? "bg-gray-50 text-gray-400" : "bg-primary-600 text-white hover:bg-primary-700"}`}>
-                          {hasSent ? "Postulé" : "Candidater"}
+
+                      <h4 className="mt-3 truncate font-black text-gray-900">{t.name}</h4>
+                      <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-gray-400">
+                        <MapPin size={10} className="shrink-0" /> {t.city || "Ville non précisée"}
+                      </p>
+
+                      {t.description && (
+                        <p className="mt-2 line-clamp-2 text-xs italic leading-relaxed text-gray-500">
+                          &ldquo;{t.description}&rdquo;
+                        </p>
+                      )}
+
+                      {/* Squad size and record — what tells a player whether
+                          there is room, and what they would be joining. */}
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold">
+                        <span className={full ? "text-red-500" : "text-gray-600"}>
+                          {t.memberIds.length}/{t.maxMembers} joueurs{full ? " · complet" : ""}
+                        </span>
+                        {played > 0 && (
+                          <span className="text-gray-500">
+                            <span className="text-emerald-600">{t.wins}V</span>
+                            {" · "}{t.draws}N{" · "}
+                            <span className="text-red-500">{t.losses}D</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-auto flex gap-2 pt-4">
+                         <Link href={`/teams/${t.id}`} className="flex-1 rounded-xl border border-gray-200 py-2 text-center text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">Détails</Link>
+                         <button
+                           onClick={() => !hasSent && !full && setCandidatureTeam(t)}
+                           disabled={hasSent || full}
+                           className={`flex-[2] rounded-xl py-2 text-sm font-bold transition-all ${
+                             hasSent || full
+                               ? "bg-gray-50 text-gray-400"
+                               : "bg-emerald-500 text-white hover:bg-emerald-600"
+                           }`}
+                         >
+                          {hasSent ? "Candidature envoyée" : full ? "Effectif complet" : "Candidater"}
                          </button>
                       </div>
                     </div>

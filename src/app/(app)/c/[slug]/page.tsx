@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Loader2, SearchX, Trophy, CalendarDays,
+  Loader2, SearchX, Trophy, CalendarDays, ClipboardList, ChevronRight,
   MapPin,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -356,6 +356,24 @@ export default function PublicCompetitionHome() {
           )}
         </div>
       </motion.section>
+
+      {/* Entries are open — say so here, where a manager browsing
+          competitions actually is, instead of only on /mon-equipe. */}
+      {competition.status === "registration" && (
+        <Link
+          href="/mon-equipe"
+          className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 transition-colors hover:bg-emerald-100/70"
+        >
+          <ClipboardList size={18} className="shrink-0 text-emerald-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-emerald-900">Inscriptions ouvertes</p>
+            <p className="mt-0.5 text-xs font-semibold text-emerald-800">
+              Tu diriges une équipe ? Inscris-la depuis Mes compétitions.
+            </p>
+          </div>
+          <ChevronRight size={16} className="shrink-0 text-emerald-500" />
+        </Link>
+      )}
 
       {/* En direct maintenant — or — Prochains matchs */}
       {liveMatches.length > 0 ? (
