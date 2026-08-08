@@ -89,6 +89,10 @@
 body {
   background: var(--color-bg);
   color: var(--color-text-primary);
+  /* The app owns pull-to-refresh (see PullToRefresh.tsx) — iOS gives a
+     standalone PWA none, so leaving Android's native one enabled would mean
+     two different gestures depending on the phone. */
+  overscroll-behavior-y: contain;
 }
 
 /* ============================================
