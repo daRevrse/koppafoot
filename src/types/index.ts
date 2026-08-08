@@ -512,7 +512,22 @@ export interface Venue {
 // Feed / Posts
 // ============================================
 
-export type PostType = "text" | "match_result" | "team_announcement" | "highlight";
+export type PostType =
+  | "text"
+  | "match_result"
+  | "team_announcement"
+  | "highlight"
+  /** Written by the official account when a competition reaches a milestone. */
+  | "competition_announcement";
+
+/**
+ * The official KoppaFoot account. Its posts are written by the platform, not
+ * by a person: they carry no profile to visit and no role to display, which
+ * is why the Tribune gives them a verified badge instead of the grey role
+ * pill everyone else gets.
+ */
+export const SYSTEM_AUTHOR_ID = "system";
+export const SYSTEM_AUTHOR_NAME = "KoppaFoot";
 
 export interface FirestorePost {
   author_id: string;
@@ -532,6 +547,10 @@ export interface FirestorePost {
   likes: string[];
   comment_count: number;
   media_urls?: string[];
+  /** Official posts a superadmin has stuck to the top of the Tribune. */
+  pinned?: boolean;
+  /** Where the post points — a competition page, a match. Official posts only. */
+  link?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -556,6 +575,8 @@ export interface Post {
   commentCount: number;
   isLiked: boolean;
   mediaUrls?: string[];
+  pinned: boolean;
+  link: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -887,6 +908,19 @@ export interface FirestoreCompetition {
   start_date: string | null;
   end_date: string | null;
   venue_city: string | null;
+  /**
+   * Entry file — what a manager agrees to and owes to enter. Every field is
+   * optional and nothing is on by default: a neighbourhood tournament asks
+   * for none of this, a real competition asks for all of it. The organizer
+   * decides, not the platform.
+   */
+  rules_text?: string | null;
+  rules_url?: string | null;
+  /** When true, the manager cannot submit without ticking the box. */
+  require_rules_acceptance?: boolean;
+  /** null or 0 → free entry, and the fee block never renders. */
+  entry_fee?: number | null;
+  entry_fee_currency?: string;
   created_at: string;
   updated_at: string;
 }
@@ -909,6 +943,12 @@ export interface Competition {
   startDate: string | null;
   endDate: string | null;
   venueCity: string | null;
+  /** Entry file — see FirestoreCompetition. */
+  rulesText: string | null;
+  rulesUrl: string | null;
+  requireRulesAcceptance: boolean;
+  entryFee: number | null;
+  entryFeeCurrency: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -982,6 +1022,14 @@ export interface FirestoreCompTeam {
   players?: CompPlayer[];
   claimed_by_manager_id?: string | null;
   claimed_by_team_id?: string | null;
+  /**
+   * A team that has already played is never removed — its results would
+   * vanish from tables its opponents earned. It is disqualified instead:
+   * played matches stand, every remaining one is forfeited to the opponent.
+   */
+  disqualified?: boolean;
+  disqualified_at?: string | null;
+  disqualified_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -998,6 +1046,10 @@ export interface CompTeam {
   claimedByManagerId: string | null;
   /** The manager's club (`teams` collection) this competition entry stands for. */
   claimedByTeamId: string | null;
+  /** Disqualification — see FirestoreCompTeam. */
+  disqualified: boolean;
+  disqualifiedAt: string | null;
+  disqualifiedReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1025,7 +1077,16 @@ export interface TeamManagerInvite {
 // The `competition_registrations` collection is admin-SDK only.
 // ============================================
 
-export type RegistrationStatus = "pending" | "accepted" | "rejected";
+/**
+ * `removed` is not a decision the organizer takes on the entry itself: it is
+ * what an accepted entry becomes when its competition team is deleted. Kept
+ * distinct from `rejected` so the history stays honest — the club was in,
+ * then taken out — and so the manager is free to enter again.
+ */
+export type RegistrationStatus = "pending" | "accepted" | "rejected" | "removed";
+
+/** Entry fees are tracked by hand — the platform takes no money. */
+export type RegistrationFeeStatus = "unpaid" | "paid";
 
 export interface CompetitionRegistration {
   id: string;
@@ -1040,6 +1101,15 @@ export interface CompetitionRegistration {
   managerName: string;
   message: string;
   status: RegistrationStatus;
+  /** When the manager ticked the règlement box. Null = never accepted. */
+  rulesAcceptedAt: string | null;
+  feeStatus: RegistrationFeeStatus;
+  /**
+   * Snapshot of the fee as it stood when the club entered. Kept on the
+   * registration so raising the fee later does not rewrite what was owed.
+   */
+  feeAmount: number | null;
+  feeCurrency: string;
   createdAt: string | null;
 }
 
@@ -1066,6 +1136,11 @@ export interface FirestoreCompMatch {
   penalty_home: number | null;
   penalty_away: number | null;
   winner_team_id: string | null;
+  /**
+   * Set when the score was awarded rather than played — the id of the side
+   * that forfeited. Keeps a 3-0 walkover distinguishable from a real 3-0.
+   */
+  forfeit_by_team_id?: string | null;
   feeds_into_match_id: string | null;
   feeds_into_slot: "home" | "away" | null;
   home_lineup?: FirestoreLineupEntry[];
@@ -1103,6 +1178,8 @@ export interface CompMatch {
   penaltyHome: number | null;
   penaltyAway: number | null;
   winnerTeamId: string | null;
+  /** Id of the side that forfeited, when the score was awarded not played. */
+  forfeitByTeamId: string | null;
   feedsIntoMatchId: string | null;
   feedsIntoSlot: "home" | "away" | null;
   homeLineup: LineupEntry[];

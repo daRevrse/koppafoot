@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { importClubRoster } from "@/lib/club-import-server";
+import { announceCompetitionEvent } from "@/lib/tribune-server";
 import type { FirestoreCompetition } from "@/types";
 
 /**
@@ -17,10 +18,16 @@ import type { FirestoreCompetition } from "@/types";
  * The `competition_registrations` collection is admin-SDK only: clients
  * always go through this route, so no Firestore rules are needed.
  *
- * POST   { cid, clubId, message? }      — apply.
- * GET    ?cid=...                       — pending entries (organizer).
+ * POST   { cid, clubId, message?, rulesAccepted? }  — apply.
+ * GET    ?cid=...[&status=all]          — entries (organizer); pending only
+ *                                         unless status=all.
  * GET    ?mine=1                        — the caller's own entries.
- * PATCH  { id, action: accept|reject }  — organizer decision.
+ * PATCH  { id, action: accept|reject|mark_paid|mark_unpaid }
+ *                                       — organizer decision, then fee
+ *                                         tracking once accepted.
+ * PATCH  { compTeamId, action: release } — the competition team was deleted;
+ *                                         free the entry so the club is no
+ *                                         longer shown as taking part.
  * DELETE { id }                         — the manager withdraws.
  */
 
@@ -70,14 +77,18 @@ function toJson(id: string, x: FirebaseFirestore.DocumentData) {
     managerName: x.manager_name ?? "",
     message: x.message ?? "",
     status: x.status ?? "pending",
+    rulesAcceptedAt: x.rules_accepted_at?.toDate?.()?.toISOString() ?? null,
+    feeStatus: x.fee_status ?? "unpaid",
+    feeAmount: x.fee_amount ?? null,
+    feeCurrency: x.fee_currency ?? "FCFA",
     createdAt: x.created_at?.toDate?.()?.toISOString() ?? null,
   };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { cid, clubId, message } = (await req.json()) as {
-      cid?: string; clubId?: string; message?: string;
+    const { cid, clubId, message, rulesAccepted } = (await req.json()) as {
+      cid?: string; clubId?: string; message?: string; rulesAccepted?: boolean;
     };
     if (!cid || !clubId) {
       return NextResponse.json({ error: "cid et clubId requis" }, { status: 400 });
@@ -108,6 +119,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Les inscriptions ne sont pas ouvertes pour cette compétition." },
         { status: 409 },
+      );
+    }
+
+    // The règlement is only binding when the organizer made it so. Checked
+    // server-side because the box lives in the client's modal.
+    if (competition.require_rules_acceptance && !rulesAccepted) {
+      return NextResponse.json(
+        { error: "Tu dois accepter le règlement de la compétition." },
+        { status: 400 },
       );
     }
 
@@ -145,6 +165,10 @@ export async function POST(req: NextRequest) {
       manager_name: managerName,
       message: (message ?? "").trim(),
       status: "pending",
+      rules_accepted_at: rulesAccepted ? FieldValue.serverTimestamp() : null,
+      fee_status: "unpaid",
+      fee_amount: competition.entry_fee ?? null,
+      fee_currency: competition.entry_fee_currency ?? "FCFA",
       created_at: FieldValue.serverTimestamp(),
     });
 
@@ -171,6 +195,40 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/**
+ * Repair pass over a manager's own entries.
+ *
+ * `release` keeps new deletions clean, but it cannot help entries orphaned
+ * before it existed — or by a route that wipes comp_teams wholesale, like
+ * deleting a whole competition. An accepted entry whose competition team is
+ * gone is the bug the manager actually sees ("Inscrite" for a competition
+ * they were pulled out of), so it is fixed on the way out.
+ *
+ * Costs one extra read per accepted entry, and a manager has a handful.
+ */
+async function healOrphans(docs: FirebaseFirestore.QueryDocumentSnapshot[]) {
+  return Promise.all(
+    docs.map(async (d) => {
+      const x = d.data();
+      if (x.status !== "accepted" || !x.comp_team_id) return toJson(d.id, x);
+
+      const team = await adminDb
+        .collection("competitions").doc(x.competition_id)
+        .collection("comp_teams").doc(x.comp_team_id)
+        .get();
+      if (team.exists) return toJson(d.id, x);
+
+      await d.ref.update({
+        status: "removed",
+        comp_team_id: null,
+        removed_at: FieldValue.serverTimestamp(),
+        removed_reason: "orphan",
+      });
+      return toJson(d.id, { ...x, status: "removed", comp_team_id: null });
+    }),
+  );
+}
+
 export async function GET(req: NextRequest) {
   try {
     const callerUid = await callerUidOf(req);
@@ -181,7 +239,8 @@ export async function GET(req: NextRequest) {
         .collection("competition_registrations")
         .where("manager_id", "==", callerUid)
         .get();
-      return NextResponse.json({ registrations: snap.docs.map((d) => toJson(d.id, d.data())) });
+      const docs = await healOrphans(snap.docs);
+      return NextResponse.json({ registrations: docs });
     }
 
     const cid = req.nextUrl.searchParams.get("cid");
@@ -199,11 +258,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const snap = await adminDb
+    // Default stays pending-only — the decision panel wants nothing else.
+    // status=all is for the fee tracker, which follows accepted entries.
+    const base = adminDb
       .collection("competition_registrations")
-      .where("competition_id", "==", cid)
-      .where("status", "==", "pending")
-      .get();
+      .where("competition_id", "==", cid);
+    const snap = await (req.nextUrl.searchParams.get("status") === "all"
+      ? base.get()
+      : base.where("status", "==", "pending").get());
     return NextResponse.json({ registrations: snap.docs.map((d) => toJson(d.id, d.data())) });
   } catch (err) {
     console.error("[registrations GET]", err);
@@ -213,21 +275,51 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, action } = (await req.json()) as { id?: string; action?: string };
-    if (!id || (action !== "accept" && action !== "reject")) {
-      return NextResponse.json({ error: "id et action (accept|reject) requis" }, { status: 400 });
+    const { id, compTeamId, action } = (await req.json()) as {
+      id?: string; compTeamId?: string; action?: string;
+    };
+    const ACTIONS = ["accept", "reject", "mark_paid", "mark_unpaid", "release"];
+    if (!action || !ACTIONS.includes(action)) {
+      return NextResponse.json(
+        { error: `action (${ACTIONS.join("|")}) requise` },
+        { status: 400 },
+      );
+    }
+    // `release` comes from the team screen, which knows the competition team
+    // it is about to delete, not the entry that produced it.
+    if (action === "release" ? !compTeamId : !id) {
+      return NextResponse.json(
+        { error: action === "release" ? "compTeamId requis" : "id requis" },
+        { status: 400 },
+      );
     }
 
     const callerUid = await callerUidOf(req);
     if (!callerUid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const regRef = adminDb.collection("competition_registrations").doc(id);
+    let regRef;
+    if (action === "release") {
+      // A team the organizer created by hand has no entry behind it; that is
+      // not an error, there is simply nothing to free.
+      const found = await adminDb
+        .collection("competition_registrations")
+        .where("comp_team_id", "==", compTeamId)
+        .where("status", "==", "accepted")
+        .limit(1)
+        .get();
+      if (found.empty) return NextResponse.json({ ok: true, released: false });
+      regRef = found.docs[0].ref;
+    } else {
+      regRef = adminDb.collection("competition_registrations").doc(id!);
+    }
     const regSnap = await regRef.get();
     if (!regSnap.exists) {
       return NextResponse.json({ error: "Inscription introuvable" }, { status: 404 });
     }
     const reg = regSnap.data()!;
-    if (reg.status !== "pending") {
+    // Only the accept/reject decision is one-shot; the fee flag stays
+    // editable for as long as the competition runs.
+    if ((action === "accept" || action === "reject") && reg.status !== "pending") {
       return NextResponse.json({ error: "Inscription déjà traitée" }, { status: 409 });
     }
 
@@ -241,6 +333,35 @@ export async function PATCH(req: NextRequest) {
       if (callerDoc.data()?.user_type !== "superadmin") {
         return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
       }
+    }
+
+    if (action === "release") {
+      await regRef.update({
+        status: "removed",
+        comp_team_id: null,
+        removed_by: callerUid,
+        removed_at: FieldValue.serverTimestamp(),
+      });
+      await adminDb.collection("notifications").add({
+        user_id: reg.manager_id,
+        type: "join_request",
+        title: "Équipe retirée",
+        body: `« ${reg.club_name} » ne participe plus à ${reg.competition_name}.`,
+        link: "/mon-equipe",
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      });
+      return NextResponse.json({ ok: true, released: true });
+    }
+
+    if (action === "mark_paid" || action === "mark_unpaid") {
+      const paid = action === "mark_paid";
+      await regRef.update({
+        fee_status: paid ? "paid" : "unpaid",
+        fee_marked_by: callerUid,
+        fee_marked_at: paid ? FieldValue.serverTimestamp() : null,
+      });
+      return NextResponse.json({ ok: true, feeStatus: paid ? "paid" : "unpaid" });
     }
 
     if (action === "reject") {
@@ -288,6 +409,17 @@ export async function PATCH(req: NextRequest) {
     });
 
     await regRef.update({ status: "accepted", decided_by: callerUid, comp_team_id: teamRef.id });
+
+    // Already on the server — no need to go back out through the announce
+    // route. Best-effort: a missing post must not fail an accepted entry.
+    if (!competition.is_sandbox) {
+      await announceCompetitionEvent({
+        kind: "team_entered",
+        competitionName: competition.name,
+        slug: competition.slug,
+        teamName: reg.club_name ?? "Une équipe",
+      }).catch((e) => console.error("[registrations] announce failed", e));
+    }
 
     await adminDb.collection("notifications").add({
       user_id: reg.manager_id,

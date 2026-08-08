@@ -65,16 +65,16 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     items: [
       { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
       { path: "/admin/organizers", icon: "ClipboardList", label: "Organisateurs" },
-      { path: "/admin/bans", icon: "AlertTriangle", label: "Bannissements" },
     ],
   },
   {
-    key: "moderation",
-    label: "Modération",
-    icon: "Flag",
+    key: "contenu",
+    label: "Contenu",
+    icon: "Shield",
     items: [
-      { path: "/admin/reports", icon: "Flag", label: "Signalements" },
-      { path: "/admin/logs", icon: "FileText", label: "Logs" },
+      { path: "/admin/tribune", icon: "Megaphone", label: "Tribune" },
+      { path: "/admin/teams", icon: "Shield", label: "Équipes" },
+      { path: "/admin/matches", icon: "Trophy", label: "Matchs" },
     ],
   },
   {

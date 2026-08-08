@@ -4,6 +4,7 @@ import AppSidebar from "@/components/layout/AppSidebar";
 import AppHeader from "@/components/layout/AppHeader";
 import TribuneSidebar from "@/components/layout/TribuneSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import PullToRefresh from "@/components/layout/PullToRefresh";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
 
 // ============================================
@@ -33,7 +34,7 @@ export default function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
         <main className="main-content-app min-w-0 flex-1 overflow-x-hidden bg-[#F4F6FA] p-4 lg:p-6">
-          {children}
+          <PullToRefresh>{children}</PullToRefresh>
         </main>
       </div>
       {showTribune && <TribuneSidebar />}

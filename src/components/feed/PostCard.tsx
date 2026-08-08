@@ -7,11 +7,13 @@ import {
   Heart, MessageCircle, Share2, MoreHorizontal,
   Trophy, UserPlus, ThumbsUp, Clock, Shield,
   Copy, Repeat2, Pencil, Trash2, Flag,
-  Check, X,
+  Check, X, BadgeCheck, ChevronRight, Pin,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { deletePost, updatePostContent, createPost } from "@/lib/firestore";
+import { auth } from "@/lib/firebase";
 import { CommentSection } from "./CommentSection";
+import { SYSTEM_AUTHOR_ID } from "@/types";
 import type { Post, PostType, UserProfile } from "@/types";
 
 // ============================================
@@ -23,6 +25,7 @@ export const TYPE_BADGES: Record<PostType, { label: string; icon: typeof Trophy;
   match_result: { label: "Résultat", icon: Trophy, color: "bg-primary-100 text-primary-700" },
   team_announcement: { label: "Recrutement", icon: UserPlus, color: "bg-blue-100 text-blue-700" },
   highlight: { label: "Performance", icon: ThumbsUp, color: "bg-accent-100 text-accent-700" },
+  competition_announcement: { label: "Compétition", icon: Trophy, color: "bg-emerald-100 text-emerald-700" },
 };
 
 export const AVATAR_COLORS = [
@@ -93,14 +96,15 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const [repostText, setRepostText] = useState("");
   const [reposting, setReposting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const shareDropdown = useDropdown();
   const optionsDropdown = useDropdown();
 
   const badge = TYPE_BADGES[post.type];
   const BadgeIcon = badge?.icon;
-  const initials = post.authorAvatar || post.authorName.slice(0, 2).toUpperCase();
   const isOwn = post.authorId === currentUser.uid;
+  const isSystem = post.authorId === SYSTEM_AUTHOR_ID;
 
   const isVenueOwner = currentUser.userType === "venue_owner";
 
@@ -127,6 +131,32 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     }
   };
 
+  // This used to pop a toast and send nothing at all — a reported post
+  // reached nobody. It now lands in the moderation queue.
+  const handleReport = async () => {
+    setReporting(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/tribune/reports", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ postId: post.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Le signalement a échoué.");
+        return;
+      }
+      toast.success(
+        data.duplicate ? "Tu as déjà signalé cette publication." : "Signalement envoyé.",
+      );
+    } catch {
+      toast.error("Le signalement a échoué.");
+    } finally {
+      setReporting(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm("Supprimer cette publication ?")) return;
     setDeleting(true);
@@ -139,16 +169,52 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     }
   };
 
-  const handleCopyLink = () => {
-    const url = `${window.location.origin}/feed?post=${post.id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      toast.success("Lien copié !");
-    });
+  const postUrl = () => `${window.location.origin}/feed?post=${post.id}`;
+
+  // clipboard.writeText rejects outside a secure context and on some mobile
+  // browsers. It used to have no catch at all, so the copy just did nothing.
+  const handleCopyLink = async () => {
     shareDropdown.close();
+    const url = postUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Lien copié !");
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = url;
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(field);
+      if (ok) toast.success("Lien copié !");
+      else toast.error("Copie impossible sur ce navigateur.");
+    }
   };
 
+  // The share sheet people expect on a phone. Absent on desktop browsers,
+  // where the dropdown's copy/repost entries remain the whole story.
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+
+  const handleNativeShare = async () => {
+    shareDropdown.close();
+    try {
+      await navigator.share({
+        title: `${post.authorName} sur KoppaFoot`,
+        text: post.content.slice(0, 160),
+        url: postUrl(),
+      });
+    } catch (err) {
+      // Cancelling the sheet rejects with AbortError — not a failure.
+      if ((err as Error)?.name !== "AbortError") {
+        toast.error("Le partage a échoué.");
+      }
+    }
+  };
+
+  // Commenting is optional: a bare repost is a normal thing to want.
   const handleRepost = async () => {
-    if (!repostText.trim()) return;
     setReposting(true);
     try {
       await createPost({
@@ -179,32 +245,66 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   if (deleting) return null;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white">
+    <div
+      className={`rounded-xl border bg-white ${
+        post.pinned ? "border-emerald-200 ring-1 ring-emerald-100" : "border-gray-200"
+      }`}
+    >
+      {post.pinned && (
+        <p className="flex items-center gap-1.5 rounded-t-xl bg-emerald-50 px-4 py-1.5 text-[11px] font-bold text-emerald-700">
+          <Pin size={11} /> Épinglé
+        </p>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between p-4 pb-0">
         <div className="flex items-center gap-3">
-          <Link href={`/profile/${post.authorId}`} className="shrink-0">
-            <div className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white transition-opacity hover:opacity-80 ${avatarColor(post.authorName)}`}>
-              {post.authorAvatar?.startsWith("http") ? (
-                <img
-                  src={post.authorAvatar}
-                  alt={post.authorName}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span>{post.authorAvatar || post.authorName.slice(0, 2).toUpperCase()}</span>
-              )}
+          {/* The official account has no profile page to visit — its name and
+              avatar are deliberately not links. */}
+          {isSystem ? (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#022c22]">
+              <img
+                src="/icons/icon-192.png"
+                alt=""
+                className="h-full w-full object-contain p-1"
+              />
             </div>
-          </Link>
+          ) : (
+            <Link href={`/profile/${post.authorId}`} className="shrink-0">
+              <div className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white transition-opacity hover:opacity-80 ${avatarColor(post.authorName)}`}>
+                {post.authorAvatar?.startsWith("http") ? (
+                  <img
+                    src={post.authorAvatar}
+                    alt={post.authorName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{post.authorAvatar || post.authorName.slice(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+            </Link>
+          )}
           <div>
             <div className="flex items-center gap-2">
-              <Link
-                href={`/profile/${post.authorId}`}
-                className="text-sm font-semibold text-gray-900 hover:underline"
-              >
-                {post.authorName}
-              </Link>
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{post.authorRole}</span>
+              {isSystem ? (
+                <span className="text-sm font-semibold text-gray-900">{post.authorName}</span>
+              ) : (
+                <Link
+                  href={`/profile/${post.authorId}`}
+                  className="text-sm font-semibold text-gray-900 hover:underline"
+                >
+                  {post.authorName}
+                </Link>
+              )}
+              {isSystem ? (
+                <span
+                  title="Compte officiel KoppaFoot"
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                >
+                  <BadgeCheck size={11} />
+                </span>
+              ) : (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{post.authorRole}</span>
+              )}
             </div>
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <Clock size={12} /> {timeAgo(post.createdAt)}
@@ -248,8 +348,9 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                     </>
                   ) : (
                     <button
-                      onClick={() => { toast("Signalement envoyé", { icon: "🚩" }); optionsDropdown.close(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => { optionsDropdown.close(); handleReport(); }}
+                      disabled={reporting}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
                       <Flag size={14} /> Signaler
                     </button>
@@ -299,6 +400,16 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           </div>
         ) : (
           <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
+        )}
+        {/* Official posts point somewhere — an announcement you cannot act on
+            is just noise. */}
+        {!editing && post.link && (
+          <Link
+            href={post.link}
+            className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700"
+          >
+            Voir <ChevronRight size={13} />
+          </Link>
         )}
       </div>
 
@@ -401,6 +512,14 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                   transition={{ duration: 0.15 }}
                   className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 min-w-[200px] rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                 >
+                  {canNativeShare && (
+                    <button
+                      onClick={handleNativeShare}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Share2 size={14} /> Partager…
+                    </button>
+                  )}
                   <button
                     onClick={handleCopyLink}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -429,7 +548,9 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             exit={{ opacity: 0, height: 0 }}
             className="border-t border-gray-100 px-4 py-3 overflow-hidden"
           >
-            <p className="text-xs text-gray-500 mb-2 font-medium">Ajouter un commentaire à votre partage</p>
+            <p className="text-xs text-gray-500 mb-2 font-medium">
+              Ajouter un commentaire <span className="text-gray-400">(optionnel)</span>
+            </p>
             <div className="rounded-lg border-l-4 border-primary-400 bg-gray-50 px-3 py-2 mb-2">
               <p className="text-xs font-semibold text-gray-500">{post.authorName}</p>
               <p className="text-xs text-gray-600 italic line-clamp-2">{post.content}</p>
@@ -445,7 +566,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             <div className="mt-2 flex gap-2">
               <button
                 onClick={handleRepost}
-                disabled={!repostText.trim() || reposting}
+                disabled={reposting}
                 className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 <Repeat2 size={12} /> Partager

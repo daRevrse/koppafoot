@@ -307,11 +307,19 @@ export default function PublicCalendarPage() {
                         {/* Center: score or kickoff time */}
                         <div className="flex shrink-0 flex-col items-center justify-center px-1">
                           {hasScore ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
-                              <span className="text-sm font-black text-gray-300">-</span>
-                              <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
-                            </div>
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
+                                <span className="text-sm font-black text-gray-300">-</span>
+                                <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
+                              </div>
+                              {/* An awarded score is not a played one — say so. */}
+                              {match.forfeitByTeamId && (
+                                <span className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-red-500">
+                                  Forfait
+                                </span>
+                              )}
+                            </>
                           ) : match.time ? (
                             <span className="rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-black tabular-nums text-gray-500">
                               {match.time}

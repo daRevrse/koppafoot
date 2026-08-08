@@ -82,9 +82,12 @@ export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] 
 
   const pending = mine.filter((r) => r.status === "pending");
   // A competition already applied to (pending or accepted) must not be
-  // offered again — the API would reject it anyway.
+  // offered again — the API would reject it anyway. Rejected and removed
+  // entries do not block: both leave the club free to enter again.
   const claimed = new Set(
-    mine.filter((r) => r.status !== "rejected").map((r) => r.competitionId),
+    mine
+      .filter((r) => r.status !== "rejected" && r.status !== "removed")
+      .map((r) => r.competitionId),
   );
   const available = open.filter((c) => !claimed.has(c.id));
 

@@ -6,15 +6,19 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users, ArrowLeft, Plus, Loader2, Pencil, Trash2, X, Save, Shield, Upload,
-  UserPlus, Mail, Send, BadgeCheck,
+  UserPlus, Mail, Send, BadgeCheck, Ban,
 } from "lucide-react";
 import {
   onCompTeams,
   createCompTeam,
   updateCompTeam,
   deleteCompTeam,
+  disqualifyCompTeam,
+  TeamHasPlayedError,
+  FORFEIT_SCORE,
   syncTeamToMatches,
 } from "@/lib/competition-firestore";
+import { announce } from "@/lib/tribune-client";
 import { uploadTeamLogo } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import RegistrationsPanel from "@/components/competition/RegistrationsPanel";
@@ -63,6 +67,9 @@ export default function CompetitionTeamsPage() {
 
   // Delete confirmation state.
   const [deleting, setDeleting] = useState<CompTeam | null>(null);
+  const [disqualifying, setDisqualifying] = useState<CompTeam | null>(null);
+  const [dqReason, setDqReason] = useState("");
+  const [dqSubmitting, setDqSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => {
@@ -274,17 +281,60 @@ export default function CompetitionTeamsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleting) return;
+    if (!deleting || !firebaseUser) return;
     setDeleteSubmitting(true);
     try {
+      // Free the entry FIRST. Deleting the team while its registration still
+      // reads "accepted" is what used to leave the club shown as taking part
+      // in a competition it had been pulled out of — and barred from
+      // entering again. If this fails we stop, rather than create that state.
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/competitions/registrations", {
+        method: "PATCH",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ compTeamId: deleting.id, action: "release" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Impossible de libérer l'inscription");
+        return;
+      }
       await deleteCompTeam(cid, deleting.id);
       toast.success("Équipe supprimée");
       setDeleting(null);
     } catch (err) {
+      if (err instanceof TeamHasPlayedError) {
+        toast.error("Cette équipe a déjà joué — disqualifie-la plutôt que de la retirer.");
+        setDeleting(null);
+        setDisqualifying(deleting);
+        setDqReason("");
+        return;
+      }
       console.error("Error deleting team:", err);
       toast.error("Impossible de supprimer l'équipe");
     } finally {
       setDeleteSubmitting(false);
+    }
+  };
+
+  const handleDisqualify = async () => {
+    if (!disqualifying) return;
+    setDqSubmitting(true);
+    try {
+      const { forfeited } = await disqualifyCompTeam(cid, disqualifying.id, dqReason);
+      announce(cid, { kind: "team_disqualified", teamName: disqualifying.name });
+      toast.success(
+        forfeited > 0
+          ? `${disqualifying.name} disqualifiée — ${forfeited} match${forfeited > 1 ? "s" : ""} perdu${forfeited > 1 ? "s" : ""} par forfait`
+          : `${disqualifying.name} disqualifiée`,
+      );
+      setDisqualifying(null);
+      setDqReason("");
+    } catch (err) {
+      console.error("Error disqualifying team:", err);
+      toast.error("Impossible de disqualifier l'équipe");
+    } finally {
+      setDqSubmitting(false);
     }
   };
 
@@ -400,6 +450,11 @@ export default function CompetitionTeamsPage() {
                       Poule {team.group}
                     </span>
                   )}
+                  {team.disqualified && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                      <Ban size={11} /> Disqualifiée
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <span
@@ -459,6 +514,17 @@ export default function CompetitionTeamsPage() {
                 >
                   <Pencil size={16} />
                 </button>
+                {!team.disqualified && (
+                  <button
+                    type="button"
+                    onClick={() => { setDisqualifying(team); setDqReason(""); }}
+                    aria-label={`Disqualifier ${team.name}`}
+                    title="Disqualifier"
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Ban size={16} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setDeleting(team)}
@@ -771,6 +837,75 @@ export default function CompetitionTeamsPage() {
                 >
                   {deleteSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   Supprimer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Disqualification modal */}
+      <AnimatePresence>
+        {disqualifying && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !dqSubmitting && setDisqualifying(null)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+                <Ban size={22} className="text-red-600" />
+              </div>
+              <h2 className="mt-4 font-display text-lg font-bold text-gray-900">
+                Disqualifier l&apos;équipe ?
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                <span className="font-semibold text-gray-700">{disqualifying.name}</span> garde
+                les résultats déjà joués. Tous ses matchs à venir sont perdus par forfait{" "}
+                <span className="font-semibold text-gray-700">0-{FORFEIT_SCORE}</span>, et
+                comptés comme des victoires pour ses adversaires — classement et tableau final
+                compris.
+              </p>
+              <p className="mt-2 text-xs font-semibold text-red-600">
+                Cette action ne peut pas être annulée depuis l&apos;interface.
+              </p>
+
+              <label className="mt-4 mb-1 block text-sm font-medium text-gray-700">
+                Motif <span className="font-normal text-gray-400">(optionnel)</span>
+              </label>
+              <input
+                type="text"
+                value={dqReason}
+                onChange={(e) => setDqReason(e.target.value)}
+                placeholder="Joueur non qualifié, forfait général…"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              />
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDisqualifying(null)}
+                  disabled={dqSubmitting}
+                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisqualify}
+                  disabled={dqSubmitting}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
+                >
+                  {dqSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                  Disqualifier
                 </button>
               </div>
             </motion.div>

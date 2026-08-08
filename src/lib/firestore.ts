@@ -294,6 +294,8 @@ function toPost(id: string, d: FirestorePost, currentUserId?: string): Post {
     likes, commentCount: d.comment_count ?? 0,
     isLiked: currentUserId ? likes.includes(currentUserId) : false,
     mediaUrls: d.media_urls ?? [],
+    pinned: d.pinned ?? false,
+    link: d.link ?? null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }

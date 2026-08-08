@@ -30,10 +30,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "KoppaFoot",
   description: "La plateforme qui connecte les passionnés de football",
-  icons: {
-    icon: "/branding/logo_symbol.png",
-    apple: "/branding/logo_symbol.png",
-  },
+  // No `icons` block on purpose: src/app/{favicon.ico,icon.png,apple-icon.png}
+  // are picked up by the file convention and would be overridden by an
+  // explicit entry here. They serve properly sized files — the old entries
+  // pointed at the 2000x2000 source for every slot.
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

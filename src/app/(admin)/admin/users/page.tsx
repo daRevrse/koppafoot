@@ -4,10 +4,12 @@ import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users, Search, Filter, ChevronDown, MoreVertical,
-  UserCheck, UserX, Shield, Mail, Phone, MapPin, Calendar,
+  UserCheck, UserX, Shield, ShieldCheck, ClipboardList, UserMinus,
+  Mail, Phone, MapPin, Calendar,
   Eye, Ban, CheckCircle, XCircle, Loader2,
 } from "lucide-react";
 import { getAllUsers, toggleUserActive } from "@/lib/admin-firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import type { UserProfile, UserRole } from "@/types";
 import toast from "react-hot-toast";
 
@@ -16,8 +18,13 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; do
   manager: { label: "Manager", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-400" },
   referee: { label: "Arbitre", color: "text-purple-700", bg: "bg-purple-50", dot: "bg-purple-400" },
   venue_owner: { label: "Propriétaire", color: "text-orange-700", bg: "bg-orange-50", dot: "bg-orange-400" },
+  organizer: { label: "Organisateur", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-400" },
   superadmin: { label: "Admin", color: "text-red-700", bg: "bg-red-50", dot: "bg-red-400" },
 };
+
+// The two roles /api/admin/promote can grant. Everything else (player,
+// manager, referee) is chosen by the user at signup, not handed out here.
+type RoleAction = "organizer" | "superadmin" | "revoke";
 
 function timeAgo(dateInput: any): string {
   if (!dateInput) return "";
@@ -33,14 +40,48 @@ function timeAgo(dateInput: any): string {
   return new Date(date).toLocaleDateString("fr-FR");
 }
 
+const ROLE_OPTION_TONES = {
+  amber: "border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-700",
+  red: "border-red-200 bg-red-50/50 hover:bg-red-50 text-red-700",
+  gray: "border-gray-200 bg-gray-50/50 hover:bg-gray-50 text-gray-700",
+} as const;
+
+function RoleOption({
+  icon: Icon, label, hint, tone, busy, disabled, onClick,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  hint: string;
+  tone: keyof typeof ROLE_OPTION_TONES;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-50 ${ROLE_OPTION_TONES[tone]}`}
+    >
+      {busy ? <Loader2 size={17} className="animate-spin shrink-0" /> : <Icon size={17} className="shrink-0" />}
+      <span>
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="block text-xs text-gray-500">{hint}</span>
+      </span>
+    </button>
+  );
+}
+
 export default function AdminUsersPage() {
+  const { firebaseUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [roleTarget, setRoleTarget] = useState<UserProfile | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [savingRole, setSavingRole] = useState<RoleAction | null>(null);
 
   useEffect(() => {
     getAllUsers(500)
@@ -86,6 +127,38 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleRoleChange = async (target: UserProfile, choice: RoleAction) => {
+    if (!firebaseUser) return;
+    setSavingRole(choice);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/admin/promote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(
+          choice === "revoke"
+            ? { uid: target.uid, action: "revoke" }
+            : { uid: target.uid, action: "promote", role: choice },
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Erreur lors du changement de rôle.");
+        return;
+      }
+      const newType = data.user_type as UserRole;
+      setUsers((prev) =>
+        prev.map((u) => (u.uid === target.uid ? { ...u, userType: newType } : u)),
+      );
+      toast.success(data.message ?? "Rôle mis à jour.");
+      setRoleTarget(null);
+    } catch {
+      toast.error("Erreur réseau.");
+    } finally {
+      setSavingRole(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -120,6 +193,8 @@ export default function AdminUsersPage() {
           { value: "manager" as const, label: "Managers", count: roleCounts.get("manager") ?? 0 },
           { value: "referee" as const, label: "Arbitres", count: roleCounts.get("referee") ?? 0 },
           { value: "venue_owner" as const, label: "Propriétaires", count: roleCounts.get("venue_owner") ?? 0 },
+          { value: "organizer" as const, label: "Organisateurs", count: roleCounts.get("organizer") ?? 0 },
+          { value: "superadmin" as const, label: "Admins", count: roleCounts.get("superadmin") ?? 0 },
         ].map((pill) => (
           <button
             key={pill.value}
@@ -223,10 +298,15 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleConf.bg} ${roleConf.color}`}>
+                        <button
+                          onClick={() => setRoleTarget(u)}
+                          title="Modifier le rôle"
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all hover:ring-2 hover:ring-gray-200 ${roleConf.bg} ${roleConf.color}`}
+                        >
                           <span className={`h-1.5 w-1.5 rounded-full ${roleConf.dot}`} />
                           {roleConf.label}
-                        </span>
+                          <ChevronDown size={11} className="opacity-40 group-hover:opacity-70" />
+                        </button>
                       </td>
                       <td className="px-5 py-3">
                         <span className="text-sm text-gray-600">{u.locationCity || "—"}</span>
@@ -290,15 +370,15 @@ export default function AdminUsersPage() {
         </p>
       )}
 
-      {/* User detail modal */}
+      {/* Role change modal */}
       <AnimatePresence>
-        {selectedUser && (
+        {roleTarget && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-            onClick={() => setSelectedUser(null)}
+            onClick={() => savingRole === null && setRoleTarget(null)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -308,12 +388,63 @@ export default function AdminUsersPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="font-bold text-gray-900">
-                {selectedUser.firstName} {selectedUser.lastName}
+                Rôle de {roleTarget.firstName} {roleTarget.lastName}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">{selectedUser.email}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Actuellement{" "}
+                <span className="font-medium text-gray-700">
+                  {(ROLE_CONFIG[roleTarget.userType] ?? ROLE_CONFIG.player).label}
+                </span>
+                {" — "}
+                {roleTarget.email || roleTarget.phone || "sans contact"}
+              </p>
+
+              {roleTarget.uid === firebaseUser?.uid ? (
+                <p className="mt-5 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                  Vous ne pouvez pas modifier votre propre rôle.
+                </p>
+              ) : (
+                <div className="mt-5 space-y-2">
+                  {roleTarget.userType !== "organizer" && (
+                    <RoleOption
+                      icon={ClipboardList}
+                      label="Promouvoir organisateur"
+                      hint="Peut créer et gérer ses compétitions."
+                      tone="amber"
+                      busy={savingRole === "organizer"}
+                      disabled={savingRole !== null}
+                      onClick={() => handleRoleChange(roleTarget, "organizer")}
+                    />
+                  )}
+                  {roleTarget.userType !== "superadmin" && (
+                    <RoleOption
+                      icon={ShieldCheck}
+                      label="Promouvoir superadmin"
+                      hint="Accès total au panel d'administration."
+                      tone="red"
+                      busy={savingRole === "superadmin"}
+                      disabled={savingRole !== null}
+                      onClick={() => handleRoleChange(roleTarget, "superadmin")}
+                    />
+                  )}
+                  {(roleTarget.userType === "organizer" || roleTarget.userType === "superadmin") && (
+                    <RoleOption
+                      icon={UserMinus}
+                      label="Retirer les droits"
+                      hint="Le compte redevient un simple joueur."
+                      tone="gray"
+                      busy={savingRole === "revoke"}
+                      disabled={savingRole !== null}
+                      onClick={() => handleRoleChange(roleTarget, "revoke")}
+                    />
+                  )}
+                </div>
+              )}
+
               <button
-                onClick={() => setSelectedUser(null)}
-                className="mt-4 text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => setRoleTarget(null)}
+                disabled={savingRole !== null}
+                className="mt-5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
               >
                 Fermer
               </button>
