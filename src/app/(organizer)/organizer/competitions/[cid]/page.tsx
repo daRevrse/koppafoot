@@ -55,6 +55,12 @@ export default function CompetitionDashboardPage() {
   const [fBannerUrl, setFBannerUrl] = useState("");
   const [fBannerFile, setFBannerFile] = useState<File | null>(null);
   const [fFormat, setFFormat] = useState<CompetitionFormat | null>(null);
+  // Entry file — règlement and fee. Off unless the organizer fills them in.
+  const [fRulesText, setFRulesText] = useState("");
+  const [fRulesUrl, setFRulesUrl] = useState("");
+  const [fRequireRules, setFRequireRules] = useState(false);
+  const [fEntryFee, setFEntryFee] = useState("");
+  const [fFeeCurrency, setFFeeCurrency] = useState("FCFA");
 
   // Danger zone
   const [statusSaving, setStatusSaving] = useState(false);
@@ -78,6 +84,11 @@ export default function CompetitionDashboardPage() {
     setFBannerUrl(competition.bannerUrl ?? "");
     setFBannerFile(null);
     setFFormat({ ...competition.format, points: { ...competition.format.points } });
+    setFRulesText(competition.rulesText ?? "");
+    setFRulesUrl(competition.rulesUrl ?? "");
+    setFRequireRules(competition.requireRulesAcceptance);
+    setFEntryFee(competition.entryFee != null ? String(competition.entryFee) : "");
+    setFFeeCurrency(competition.entryFeeCurrency || "FCFA");
     setEditOpen(true);
   };
 
@@ -85,6 +96,10 @@ export default function CompetitionDashboardPage() {
     e.preventDefault();
     if (!competition || !fName.trim()) {
       toast.error("Le nom est requis");
+      return;
+    }
+    if (fEntryFee.trim() && !Number.isFinite(Number(fEntryFee))) {
+      toast.error("Le montant des frais doit être un nombre");
       return;
     }
     setSaving(true);
@@ -95,6 +110,13 @@ export default function CompetitionDashboardPage() {
         logo_url: fLogoUrl.trim() || null,
         banner_url: fBannerUrl.trim() || null,
         ...(fFormat ? { format: fFormat } : {}),
+        rules_text: fRulesText.trim() || null,
+        rules_url: fRulesUrl.trim() || null,
+        // Nothing to accept means nothing can be required.
+        require_rules_acceptance:
+          fRequireRules && Boolean(fRulesText.trim() || fRulesUrl.trim()),
+        entry_fee: fEntryFee.trim() ? Number(fEntryFee) : null,
+        entry_fee_currency: fFeeCurrency.trim() || "FCFA",
       };
       if (fLogoFile) patch.logo_url = await uploadCompetitionLogo(competition.id, fLogoFile);
       if (fBannerFile) patch.banner_url = await uploadCompetitionBanner(competition.id, fBannerFile);
@@ -508,6 +530,86 @@ export default function CompetitionDashboardPage() {
                     />
                   </div>
                 )}
+
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="mb-1 text-sm font-semibold text-gray-900">
+                    Dossier d&apos;inscription
+                  </p>
+                  <p className="mb-4 text-xs text-gray-400">
+                    Tout est facultatif. Laissé vide, l&apos;inscription reste en un clic —
+                    chaque exigence ajoutée fait tomber des inscriptions.
+                  </p>
+
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Règlement <span className="font-normal text-gray-400">(optionnel)</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={fRulesText}
+                    onChange={(e) => setFRulesText(e.target.value)}
+                    placeholder="Conditions de participation, catégories d'âge, sanctions…"
+                    className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  />
+
+                  <label className="mb-1 mt-3 block text-sm font-medium text-gray-700">
+                    Lien vers le document{" "}
+                    <span className="font-normal text-gray-400">(optionnel)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={fRulesUrl}
+                    onChange={(e) => setFRulesUrl(e.target.value)}
+                    placeholder="https://…"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  />
+
+                  <label
+                    className={`mt-3 flex items-start gap-2.5 text-sm ${
+                      fRulesText.trim() || fRulesUrl.trim()
+                        ? "text-gray-700"
+                        : "cursor-not-allowed text-gray-400"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={fRequireRules}
+                      disabled={!fRulesText.trim() && !fRulesUrl.trim()}
+                      onChange={(e) => setFRequireRules(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                    />
+                    <span>
+                      Acceptation obligatoire à l&apos;inscription
+                      <span className="block text-xs text-gray-400">
+                        Le manager ne peut pas envoyer sa demande sans cocher la case.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="mb-1 mt-4 block text-sm font-medium text-gray-700">
+                    Frais d&apos;inscription{" "}
+                    <span className="font-normal text-gray-400">(optionnel)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      value={fEntryFee}
+                      onChange={(e) => setFEntryFee(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={fFeeCurrency}
+                      onChange={(e) => setFFeeCurrency(e.target.value)}
+                      className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-400">
+                    Suivi manuel : KoppaFoot n&apos;encaisse rien, tu coches qui a payé.
+                  </p>
+                </div>
 
                 <div className="flex justify-end gap-3 pt-1">
                   <button

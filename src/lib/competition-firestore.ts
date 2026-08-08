@@ -380,8 +380,77 @@ export async function updateCompTeam(
   });
 }
 
+/** Thrown by `deleteCompTeam` when the team already has a result on record. */
+export class TeamHasPlayedError extends Error {
+  constructor(public readonly playedCount: number) {
+    super("Cette équipe a déjà joué — elle ne peut plus être retirée.");
+    this.name = "TeamHasPlayedError";
+  }
+}
+
+/**
+ * Remove a team from a competition.
+ *
+ * Refuses once the team has a completed match: deleting it would strip
+ * results its opponents earned out of the tables, and rewrite a competition
+ * that has already been played. Disqualification is the way out from there.
+ */
 export async function deleteCompTeam(cid: string, tid: string): Promise<void> {
+  const played = (await listCompMatches(cid)).filter(
+    (m) =>
+      m.status === "completed" && (m.homeTeamId === tid || m.awayTeamId === tid),
+  );
+  if (played.length > 0) throw new TeamHasPlayedError(played.length);
   await deleteDoc(doc(db, "competitions", cid, "comp_teams", tid));
+}
+
+/**
+ * The awarded score of a forfeited match, CAF/FIFA convention.
+ * The disqualified side takes 0, the opponent 3.
+ */
+export const FORFEIT_SCORE = 3;
+
+/**
+ * Disqualify a team: results already played stand, every match still to come
+ * is awarded to the opponent 3-0.
+ *
+ * Each forfeited match goes through `finishCompMatch`, so a knockout tie also
+ * carries the opponent into the next round exactly as a played result would.
+ * Only `scheduled` matches are touched — a match already live belongs to the
+ * organizer's console, not to this.
+ *
+ * Returns how many matches were forfeited.
+ */
+export async function disqualifyCompTeam(
+  cid: string,
+  tid: string,
+  reason?: string,
+): Promise<{ forfeited: number }> {
+  await updateDoc(doc(db, "competitions", cid, "comp_teams", tid), {
+    disqualified: true,
+    disqualified_at: new Date().toISOString(),
+    disqualified_reason: reason?.trim() || null,
+    updated_at: serverTimestamp(),
+  });
+
+  const remaining = (await listCompMatches(cid)).filter(
+    (m) =>
+      m.status === "scheduled" && (m.homeTeamId === tid || m.awayTeamId === tid),
+  );
+
+  for (const m of remaining) {
+    const teamIsHome = m.homeTeamId === tid;
+    await updateCompMatch(cid, m.id, {
+      score_home: teamIsHome ? 0 : FORFEIT_SCORE,
+      score_away: teamIsHome ? FORFEIT_SCORE : 0,
+      forfeit_by_team_id: tid,
+    });
+    // Resolves the winner from the score we just wrote, marks the match
+    // completed and propagates the opponent through the bracket.
+    await finishCompMatch(cid, m.id);
+  }
+
+  return { forfeited: remaining.length };
 }
 
 /**

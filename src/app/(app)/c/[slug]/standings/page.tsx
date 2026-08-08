@@ -195,7 +195,20 @@ export default function PublicStandingsPage() {
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2.5">
                               <TeamBadge team={row.team} />
-                              <span className="truncate font-bold text-gray-900">{row.team.name}</span>
+                              <span
+                                className={`truncate font-bold ${
+                                  row.team.disqualified
+                                    ? "text-gray-400 line-through"
+                                    : "text-gray-900"
+                                }`}
+                              >
+                                {row.team.name}
+                              </span>
+                              {row.team.disqualified && (
+                                <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide bg-red-50 text-red-600">
+                                  DQ
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-2 py-3 text-center font-bold text-gray-500">{row.played}</td>

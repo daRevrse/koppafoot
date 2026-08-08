@@ -39,6 +39,13 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     startDate: d.start_date,
     endDate: d.end_date,
     venueCity: d.venue_city,
+    // Entry file — absent on every competition created before it existed,
+    // which is exactly the "asks for nothing" default.
+    rulesText: d.rules_text ?? null,
+    rulesUrl: d.rules_url ?? null,
+    requireRulesAcceptance: d.require_rules_acceptance ?? false,
+    entryFee: d.entry_fee ?? null,
+    entryFeeCurrency: d.entry_fee_currency ?? "FCFA",
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -56,6 +63,9 @@ export function toCompTeam(id: string, competitionId: string, d: FirestoreCompTe
     players: d.players ?? [],
     claimedByManagerId: d.claimed_by_manager_id ?? null,
     claimedByTeamId: d.claimed_by_team_id ?? null,
+    disqualified: d.disqualified ?? false,
+    disqualifiedAt: d.disqualified_at ?? null,
+    disqualifiedReason: d.disqualified_reason ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -86,6 +96,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     penaltyHome: d.penalty_home,
     penaltyAway: d.penalty_away,
     winnerTeamId: d.winner_team_id,
+    forfeitByTeamId: d.forfeit_by_team_id ?? null,
     feedsIntoMatchId: d.feeds_into_match_id,
     feedsIntoSlot: d.feeds_into_slot,
     homeLineup: (d.home_lineup ?? []).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
