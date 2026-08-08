@@ -15,6 +15,7 @@ import {
 import {
   COMPETITION_TYPE_LABELS, hasGroupStage, hasKnockout, isSingleGroup, statusFlow,
 } from "@/lib/competition-format";
+import { announce } from "@/lib/tribune-client";
 import { uploadCompetitionLogo, uploadCompetitionBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import CompetitionFormatFields from "@/components/competition/CompetitionFormatFields";
@@ -136,6 +137,12 @@ export default function CompetitionDashboardPage() {
     setStatusSaving(true);
     try {
       await updateCompetition(competition.id, { status });
+      // Two milestones are worth the whole platform hearing about.
+      if (status === "registration") {
+        announce(competition.id, { kind: "registrations_open" });
+      } else if (status === "completed") {
+        announce(competition.id, { kind: "competition_completed" });
+      }
       toast.success(
         status === "draft"
           ? "Compétition repassée en brouillon (invisible du public)"

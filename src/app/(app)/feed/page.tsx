@@ -60,11 +60,31 @@ export default function FeedPage() {
     if (!user) return;
     setLoading(true);
     const unsubscribe = onPosts(30, user.uid, (data) => {
-      setPosts(data);
+      // Pinned official posts ride at the top; everything else keeps the
+      // newest-first order the query already applied.
+      setPosts([...data].sort((a, b) => Number(b.pinned) - Number(a.pinned)));
       setLoading(false);
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Deep link from "Copier le lien" (/feed?post=<id>). Read from the URL
+  // rather than useSearchParams so no Suspense boundary is needed, and wait
+  // for the posts to be in the DOM before scrolling.
+  useEffect(() => {
+    if (loading || posts.length === 0) return;
+    const target = new URLSearchParams(window.location.search).get("post");
+    if (!target) return;
+    const el = document.getElementById(`post-${target}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary-400", "rounded-xl");
+    const t = setTimeout(
+      () => el.classList.remove("ring-2", "ring-primary-400", "rounded-xl"),
+      2400,
+    );
+    return () => clearTimeout(t);
+  }, [loading, posts.length]);
 
   const handleLike = async (postId: string, isLiked: boolean) => {
     if (!user) return;
@@ -83,8 +103,11 @@ export default function FeedPage() {
     );
     try {
       await toggleLike(postId, user.uid, isLiked);
-    } catch {
-      // revert optimistic update on error
+    } catch (err) {
+      // This used to fail silently: the heart filled, then snapped back with
+      // no explanation. A denied write is worth a word.
+      console.error("toggleLike failed:", err);
+      toast.error("Impossible d'enregistrer ton like.");
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -294,6 +317,7 @@ export default function FeedPage() {
               {posts.map((post, i) => (
                 <motion.div
                   key={post.id}
+                  id={`post-${post.id}`}
                   layout
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}

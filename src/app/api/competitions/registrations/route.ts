@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { importClubRoster } from "@/lib/club-import-server";
+import { announceCompetitionEvent } from "@/lib/tribune-server";
 import type { FirestoreCompetition } from "@/types";
 
 /**
@@ -408,6 +409,17 @@ export async function PATCH(req: NextRequest) {
     });
 
     await regRef.update({ status: "accepted", decided_by: callerUid, comp_team_id: teamRef.id });
+
+    // Already on the server — no need to go back out through the announce
+    // route. Best-effort: a missing post must not fail an accepted entry.
+    if (!competition.is_sandbox) {
+      await announceCompetitionEvent({
+        kind: "team_entered",
+        competitionName: competition.name,
+        slug: competition.slug,
+        teamName: reg.club_name ?? "Une équipe",
+      }).catch((e) => console.error("[registrations] announce failed", e));
+    }
 
     await adminDb.collection("notifications").add({
       user_id: reg.manager_id,

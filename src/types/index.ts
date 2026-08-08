@@ -512,7 +512,22 @@ export interface Venue {
 // Feed / Posts
 // ============================================
 
-export type PostType = "text" | "match_result" | "team_announcement" | "highlight";
+export type PostType =
+  | "text"
+  | "match_result"
+  | "team_announcement"
+  | "highlight"
+  /** Written by the official account when a competition reaches a milestone. */
+  | "competition_announcement";
+
+/**
+ * The official KoppaFoot account. Its posts are written by the platform, not
+ * by a person: they carry no profile to visit and no role to display, which
+ * is why the Tribune gives them a verified badge instead of the grey role
+ * pill everyone else gets.
+ */
+export const SYSTEM_AUTHOR_ID = "system";
+export const SYSTEM_AUTHOR_NAME = "KoppaFoot";
 
 export interface FirestorePost {
   author_id: string;
@@ -532,6 +547,10 @@ export interface FirestorePost {
   likes: string[];
   comment_count: number;
   media_urls?: string[];
+  /** Official posts a superadmin has stuck to the top of the Tribune. */
+  pinned?: boolean;
+  /** Where the post points — a competition page, a match. Official posts only. */
+  link?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -556,6 +575,8 @@ export interface Post {
   commentCount: number;
   isLiked: boolean;
   mediaUrls?: string[];
+  pinned: boolean;
+  link: string | null;
   createdAt: string;
   updatedAt: string;
 }

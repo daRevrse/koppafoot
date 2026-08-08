@@ -18,6 +18,7 @@ import {
   FORFEIT_SCORE,
   syncTeamToMatches,
 } from "@/lib/competition-firestore";
+import { announce } from "@/lib/tribune-client";
 import { uploadTeamLogo } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import RegistrationsPanel from "@/components/competition/RegistrationsPanel";
@@ -321,6 +322,7 @@ export default function CompetitionTeamsPage() {
     setDqSubmitting(true);
     try {
       const { forfeited } = await disqualifyCompTeam(cid, disqualifying.id, dqReason);
+      announce(cid, { kind: "team_disqualified", teamName: disqualifying.name });
       toast.success(
         forfeited > 0
           ? `${disqualifying.name} disqualifiée — ${forfeited} match${forfeited > 1 ? "s" : ""} perdu${forfeited > 1 ? "s" : ""} par forfait`
