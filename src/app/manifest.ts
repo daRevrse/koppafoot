@@ -12,9 +12,14 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#022c22",
     theme_color: "#059669",
     categories: ["sports", "football"],
-    // Each entry now serves a file that really is the size it declares. The
-    // maskable one is a separate render: launchers crop maskable icons to a
-    // safe circle, and this symbol's stem was being sliced off.
+    // Each entry serves a file that really is the size it declares — the old
+    // ones pointed at the 2000x2000 source for every slot.
+    //
+    // The artwork doubles as the maskable icon by explicit choice. Launchers
+    // crop maskable icons to a circle covering the middle 80%, and this
+    // drawing reaches 16% past that, so the top of the ball and the foot of
+    // the stem are clipped on the home screen. Accepted: the alternative was
+    // recomposing the motif behind a shrunken symbol, and the artwork wins.
     icons: [
       {
         src: "/icons/icon-192.png",
@@ -28,8 +33,10 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
         purpose: "any",
       },
+      // Same file, declared twice: the spec allows "any maskable" in one
+      // entry but Next's Manifest type only takes a single purpose.
       {
-        src: "/icons/icon-maskable-512.png",
+        src: "/icons/icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
