@@ -15,11 +15,12 @@ export default function manifest(): MetadataRoute.Manifest {
     // Each entry serves a file that really is the size it declares — the old
     // ones pointed at the 2000x2000 source for every slot.
     //
-    // The artwork doubles as the maskable icon by explicit choice. Launchers
-    // crop maskable icons to a circle covering the middle 80%, and this
-    // drawing reaches 16% past that, so the top of the ball and the foot of
-    // the stem are clipped on the home screen. Accepted: the alternative was
-    // recomposing the motif behind a shrunken symbol, and the artwork wins.
+    // The `any` icons are the artwork untouched. The maskable one cannot be:
+    // launchers crop it to a circle covering the middle 80%, and the drawing
+    // reaches 924px from centre on 2000 — 16% past the safe zone — so the top
+    // of the ball and the foot of the stem would be clipped. It is rebuilt
+    // instead from the artwork's own motif, tiled from its symbol-free
+    // margins, with the symbol brought inside the circle.
     icons: [
       {
         src: "/icons/icon-192.png",
@@ -33,10 +34,8 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
         purpose: "any",
       },
-      // Same file, declared twice: the spec allows "any maskable" in one
-      // entry but Next's Manifest type only takes a single purpose.
       {
-        src: "/icons/icon-512.png",
+        src: "/icons/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
