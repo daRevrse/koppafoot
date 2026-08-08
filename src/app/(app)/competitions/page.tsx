@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import CompetitionDirectorySearch from "@/components/competition/CompetitionDirectorySearch";
+import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
 
 // Public, login-free directory of all visible competitions, rendered inside
 // the general app shell (the (app) layout treats /competitions as public).
@@ -61,10 +62,11 @@ export default async function CompetitionsPage() {
             <CompetitionDirectorySearch competitions={competitions} />
           </Suspense>
         )}
-        {/* "Organiser ma compétition" used to sit here, as a button next to
-            the search and again as a banner at the bottom. This screen is for
-            finding a competition to follow; becoming an organizer is a rare,
-            deliberate act that belongs in /devenir-organisateur. */}
+        {/* Discreet, and at the bottom: this screen is first about finding a
+            competition to follow. But /devenir-organisateur had no way in at
+            all, so the link comes back here rather than as a button competing
+            with the directory. */}
+        <OrganizeCompetitionCta variant="link" />
     </div>
   );
 }
