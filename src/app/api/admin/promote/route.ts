@@ -26,10 +26,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { email, action, role = "superadmin" } = body;
+    const { uid, email, action, role = "superadmin" } = body;
 
-    if (!email || !action) {
-      return NextResponse.json({ error: "Email et action requis" }, { status: 400 });
+    // uid is what the admin UI has on hand; email stays supported for the
+    // CLI script and for phone-less lookups by address.
+    if ((!uid && !email) || !action) {
+      return NextResponse.json({ error: "uid ou email, et action requis" }, { status: 400 });
     }
 
     if (!["promote", "revoke"].includes(action)) {
@@ -40,16 +42,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Rôle invalide (superadmin|organizer)" }, { status: 400 });
     }
 
-    // Find user by email
+    // Find the target account, by uid when the caller has it, else by email
     let userRecord;
     try {
-      userRecord = await adminAuth.getUserByEmail(email);
+      userRecord = uid
+        ? await adminAuth.getUser(uid)
+        : await adminAuth.getUserByEmail(email);
     } catch {
       return NextResponse.json(
-        { error: `Aucun compte trouvé pour "${email}"` },
+        { error: `Aucun compte trouvé pour "${uid ?? email}"` },
         { status: 404 }
       );
     }
+
+    const label = userRecord.email ?? userRecord.phoneNumber ?? userRecord.uid;
 
     // Check Firestore profile
     const userDoc = await adminDb.collection("users").doc(userRecord.uid).get();
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
         updated_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({
-        message: `${email} promu ${role}`,
+        message: `${label} promu ${role}`,
         user_type: role,
         previous_type: currentType,
       });
@@ -85,17 +91,19 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      if (currentType !== "superadmin") {
-        return NextResponse.json({ message: "N'est pas superadmin", user_type: currentType });
+      // Revocation covers both elevated roles — an organizer stripped of
+      // their rights falls back to player, same as a superadmin.
+      if (currentType !== "superadmin" && currentType !== "organizer") {
+        return NextResponse.json({ message: "Aucun droit à révoquer", user_type: currentType });
       }
       await adminDb.collection("users").doc(userRecord.uid).update({
         user_type: "player", // Fallback to player
         updated_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({
-        message: `${email} rétrogradé`,
+        message: `${label} rétrogradé`,
         user_type: "player",
-        previous_type: "superadmin",
+        previous_type: currentType,
       });
     }
   } catch (err) {
