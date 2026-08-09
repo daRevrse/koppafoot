@@ -9,7 +9,9 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#022c22",
+    // Chrome paints its generated splash on this colour, so it matches the
+    // iOS launch artwork's background rather than fighting it.
+    background_color: "#f8f8f8",
     theme_color: "#059669",
     categories: ["sports", "football"],
     // Each entry serves a file that really is the size it declares — the old
