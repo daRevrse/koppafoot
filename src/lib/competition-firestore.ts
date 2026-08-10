@@ -490,20 +490,82 @@ export async function syncTeamToMatches(
 // Roster (players live on the comp_team doc as a small array — read-modify-write)
 // ============================================
 
+/**
+ * Returns the created player's id. The dossard is optional: a scorer typed
+ * from the calendar (post-hoc result entry) is often just a name.
+ */
 export async function addCompPlayer(
   cid: string,
   tid: string,
-  input: { name: string; number: string; position?: string },
-): Promise<void> {
+  input: { name: string; number?: string; position?: string },
+): Promise<string> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
   const player: CompPlayer = {
     id: Math.random().toString(36).substring(2, 11),
     name: input.name,
-    number: input.number,
+    number: input.number ?? "",
     ...(input.position ? { position: input.position } : {}),
   };
   await updateCompTeam(cid, tid, { players: [...team.players, player] });
+  return player.id;
+}
+
+/** Accent- and case-insensitive key used to match a typed name to a roster line. */
+export function rosterNameKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Resolve a list of typed names against a team's roster, creating the missing
+ * lines in ONE read-modify-write. Matching is by normalized name, so typing
+ * "Kodjo" twice (or "kodjo" after "Kodjo") reuses the same roster line instead
+ * of stacking duplicates.
+ *
+ * Returns the resolved players in the same order as `inputs` — callers need the
+ * ids to link goal events. Prefer this over looping `addCompPlayer`: the roster
+ * is a single array field, so N sequential read-modify-writes would be N chances
+ * to lose a concurrent edit.
+ */
+export async function ensureCompPlayers(
+  cid: string,
+  tid: string,
+  inputs: { name: string; number?: string; position?: string }[],
+): Promise<CompPlayer[]> {
+  const team = await getCompTeam(cid, tid);
+  if (!team) throw new Error(`Comp team ${tid} not found`);
+
+  const byKey = new Map<string, CompPlayer>();
+  for (const p of team.players) {
+    const key = rosterNameKey(p.name);
+    if (!byKey.has(key)) byKey.set(key, p);
+  }
+
+  const created: CompPlayer[] = [];
+  const resolved = inputs.map((input) => {
+    const key = rosterNameKey(input.name);
+    const existing = byKey.get(key);
+    if (existing) return existing;
+    const player: CompPlayer = {
+      id: Math.random().toString(36).substring(2, 11),
+      name: input.name.trim(),
+      number: input.number ?? "",
+      ...(input.position ? { position: input.position } : {}),
+    };
+    byKey.set(key, player);
+    created.push(player);
+    return player;
+  });
+
+  if (created.length > 0) {
+    await updateCompTeam(cid, tid, { players: [...team.players, ...created] });
+  }
+  return resolved;
 }
 
 export async function updateCompPlayer(
@@ -1151,32 +1213,172 @@ export async function finishCompMatch(
   }
   await updateDoc(compMatchRef(cid, mid), updates);
 
-  // Idempotent bracket propagation.
-  if (m.feedsIntoMatchId && winnerId) {
-    const tgt = await getCompMatch(cid, m.feedsIntoMatchId);
-    const slot = m.feedsIntoSlot;
-    if (tgt && slot) {
-      const idField = slot === "home" ? "homeTeamId" : "awayTeamId";
-      if (tgt[idField] !== winnerId) {
-        const winnerTeam = await getCompTeam(cid, winnerId);
-        await updateCompMatch(
-          cid,
-          m.feedsIntoMatchId,
-          slot === "home"
-            ? {
-                home_team_id: winnerId,
-                home_team_name: winnerTeam?.name ?? "",
-                home_team_logo: winnerTeam?.logoUrl ?? null,
-              }
-            : {
-                away_team_id: winnerId,
-                away_team_name: winnerTeam?.name ?? "",
-                away_team_logo: winnerTeam?.logoUrl ?? null,
-              },
-        );
-      }
-    }
+  await propagateBracketWinner(cid, m, winnerId);
+}
+
+/**
+ * Push a decided winner into the slot it feeds in the next round.
+ *
+ * Idempotent: it writes only when the target slot does not already hold that
+ * team, so finishing a match twice is a no-op — and correcting a result that
+ * flipped the winner overwrites the stale qualifier instead of duplicating it.
+ */
+async function propagateBracketWinner(
+  cid: string,
+  m: CompMatch,
+  winnerId: string | null,
+): Promise<void> {
+  if (!m.feedsIntoMatchId || !winnerId) return;
+  const tgt = await getCompMatch(cid, m.feedsIntoMatchId);
+  const slot = m.feedsIntoSlot;
+  if (!tgt || !slot) return;
+
+  const idField = slot === "home" ? "homeTeamId" : "awayTeamId";
+  if (tgt[idField] === winnerId) return;
+
+  const winnerTeam = await getCompTeam(cid, winnerId);
+  await updateCompMatch(
+    cid,
+    m.feedsIntoMatchId,
+    slot === "home"
+      ? {
+          home_team_id: winnerId,
+          home_team_name: winnerTeam?.name ?? "",
+          home_team_logo: winnerTeam?.logoUrl ?? null,
+        }
+      : {
+          away_team_id: winnerId,
+          away_team_name: winnerTeam?.name ?? "",
+          away_team_logo: winnerTeam?.logoUrl ?? null,
+        },
+  );
+}
+
+/**
+ * `detail` marker put on an own goal. The event counts for the team that
+ * benefits (`team_id`), while `player_id` points at the player who scored it —
+ * a player of the OTHER team. `computeTopScorers` skips these so a defender
+ * never climbs the scoring chart for a mistake.
+ */
+export const OWN_GOAL_DETAIL = "csc";
+
+/** One goal of a result entered after the fact (see `setCompMatchResult`). */
+export interface ResultGoal {
+  /** Side the goal counts FOR. */
+  side: "home" | "away";
+  /** Roster line of the scorer — of the OPPOSING team when `ownGoal`. */
+  playerId: string | null;
+  playerName: string | null;
+  /** `null` (or 0) = unknown. No real goal is scored at the 0th minute. */
+  minute: number | null;
+  ownGoal?: boolean;
+}
+
+/**
+ * Write a final result — score AND scorers — on a match that was never run
+ * through the live console (a date the organizer is catching up on).
+ *
+ * Unlike `addCompEvent`, this NEVER increments the scoreboard: the score is
+ * whatever the organizer typed, and the goal events are written alongside it in
+ * the same update. Feeding post-hoc goals through `addCompEvent` would count
+ * every goal twice (once typed, once incremented).
+ *
+ * Re-entering a result REPLACES the goal events instead of appending, so an
+ * organizer can reopen and correct without duplicating. Cards, substitutions
+ * and period markers from a real live session are preserved untouched — only
+ * `type === "goal"` entries are rebuilt.
+ *
+ * Fewer scorers than goals is allowed (an unknown scorer is a legitimate state);
+ * more is rejected.
+ *
+ * On a knockout match, a level score is decided by the shootout when one is
+ * given, and the winner is pushed into the next round exactly like
+ * `finishCompMatch` does — correcting a result that flips the winner re-seeds
+ * the successor slot.
+ */
+export async function setCompMatchResult(
+  cid: string,
+  mid: string,
+  input: {
+    scoreHome: number;
+    scoreAway: number;
+    goals: ResultGoal[];
+    penaltyHome?: number | null;
+    penaltyAway?: number | null;
+  },
+): Promise<void> {
+  const snap = await getDoc(doc(db, "competitions", cid, "comp_matches", mid));
+  if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
+  const d = snap.data() as FirestoreCompMatch;
+
+  const homeGoals = input.goals.filter((g) => g.side === "home").length;
+  const awayGoals = input.goals.filter((g) => g.side === "away").length;
+  if (homeGoals > input.scoreHome || awayGoals > input.scoreAway) {
+    throw new Error("Plus de buteurs que de buts");
   }
+
+  const now = new Date().toISOString();
+  const goalEvents: StoredCompEvent[] = input.goals.map((g) => ({
+    id: Math.random().toString(36).substring(2, 11),
+    type: "goal",
+    period: 0, // unknown — the match was not clocked
+    minute: g.minute ?? 0,
+    team_id: (g.side === "home" ? d.home_team_id : d.away_team_id) ?? "",
+    player_id: g.ownGoal ? null : g.playerId ?? null,
+    player_name: g.playerName ?? null,
+    detail: g.ownGoal ? OWN_GOAL_DETAIL : null,
+    created_at: now,
+  }));
+
+  // Unknown minutes (0) sort last so the feed still reads chronologically.
+  goalEvents.sort((a, b) => (a.minute || Infinity) - (b.minute || Infinity));
+
+  // Keep whatever a live session recorded, in its original order, and append
+  // the rebuilt goals. Sorting the merged list would scramble period markers.
+  const kept = (d.live_state?.events ?? []).filter((e) => e.type !== "goal");
+  const events = [...kept, ...goalEvents];
+
+  // Same rules as `finishCompMatch`: regulation score first, then the shootout
+  // on a knockout tie. Any other level score (a group draw, or a knockout the
+  // organizer has not decided yet) leaves the match without a winner.
+  const ph = input.penaltyHome;
+  const pa = input.penaltyAway;
+  let winnerId: string | null = null;
+  if (input.scoreHome > input.scoreAway) {
+    winnerId = d.home_team_id;
+  } else if (input.scoreAway > input.scoreHome) {
+    winnerId = d.away_team_id;
+  } else if (d.stage === "knockout" && ph != null && pa != null) {
+    if (ph > pa) winnerId = d.home_team_id;
+    else if (pa > ph) winnerId = d.away_team_id;
+  }
+
+  const liveState = d.live_state
+    ? { ...d.live_state, events }
+    : {
+        current_period: 4, // finished
+        timer_start_at: null,
+        timer_offset: 0,
+        is_timer_running: false,
+        events,
+      };
+
+  // Written through a Record so the `player_id: string | null` of a stored
+  // event does not fight FirestoreMatch's optional-string shape (same reason
+  // `addCompEvent` and `finishCompMatch` do it).
+  const updates: Record<string, unknown> = {
+    score_home: input.scoreHome,
+    score_away: input.scoreAway,
+    status: "completed",
+    winner_team_id: winnerId,
+    penalty_home: ph ?? null,
+    penalty_away: pa ?? null,
+    live_state: liveState,
+    updated_at: serverTimestamp(),
+  };
+  await updateDoc(doc(db, "competitions", cid, "comp_matches", mid), updates);
+
+  await propagateBracketWinner(cid, toCompMatch(mid, d), winnerId);
 }
 
 // ============================================
@@ -1317,7 +1519,8 @@ export interface TopScorer {
  * trimmed name}` for legacy events that only carry a free-text `playerName`.
  * This keeps name-only events working while new player-linked events dedupe
  * correctly per player (even across name spelling/casing). Goals with neither a
- * `playerId` nor a non-empty trimmed `playerName` are anonymous and not ranked.
+ * `playerId` nor a non-empty trimmed `playerName` are anonymous and not ranked,
+ * and own goals (`detail === OWN_GOAL_DETAIL`) are excluded entirely.
  * The first-seen original casing of `playerName` is kept for display. Results
  * are ordered by goals desc, then name asc.
  */
@@ -1328,6 +1531,10 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
     const events = match.liveState?.events ?? [];
     for (const event of events) {
       if (event.type !== "goal") continue;
+      // An own goal counts on the scoreboard for `teamId`, but the player who
+      // scored it plays for the other side — crediting them here would rank
+      // them under an opponent's colours. Not a scorer.
+      if (event.detail === OWN_GOAL_DETAIL) continue;
 
       const name = (event.playerName ?? "").trim();
       let key: string;

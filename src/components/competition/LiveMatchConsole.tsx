@@ -1611,7 +1611,8 @@ function EventTimeline({
             className="group flex items-center gap-5"
           >
             <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 text-xs font-black shadow-sm">
-              {event.minute}&apos;
+              {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
+              {event.minute ? `${event.minute}'` : "—"}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-3">

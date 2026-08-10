@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  GitBranch, ArrowLeft, Loader2, Sparkles, ChevronRight, Pencil, Check, X, Trophy,
+  GitBranch, ArrowLeft, Loader2, Sparkles, ChevronRight, Pencil, Check, X, Trophy, Goal,
 } from "lucide-react";
 import {
   onCompetition,
@@ -16,6 +16,7 @@ import {
   updateCompMatch,
   updateCompetition,
 } from "@/lib/competition-firestore";
+import MatchResultModal from "@/components/competition/MatchResultModal";
 import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
@@ -139,6 +140,8 @@ export default function CompetitionKnockoutPage() {
   const [settingStatus, setSettingStatus] = useState(false);
   // Which slot is currently open in the inline editor: `${matchId}:${side}`.
   const [editing, setEditing] = useState<string | null>(null);
+  // Match whose result (score + scorers + shootout) is being entered.
+  const [resultMatch, setResultMatch] = useState<CompMatch | null>(null);
 
   useEffect(() => {
     if (!cid) return;
@@ -231,6 +234,10 @@ export default function CompetitionKnockoutPage() {
     const homeKey = `${match.id}:home`;
     const awayKey = `${match.id}:away`;
     const played = match.status === "live" || match.status === "completed";
+    // A result can only be entered once both slots hold a real team.
+    const canEnterResult =
+      match.status !== "cancelled" && !!match.homeTeamId && !!match.awayTeamId;
+    const shootout = match.penaltyHome != null && match.penaltyAway != null;
     return (
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         {/* Slots */}
@@ -256,8 +263,15 @@ export default function CompetitionKnockoutPage() {
             {editing !== homeKey && (
               <>
                 {played && (
-                  <span className="text-base font-black tabular-nums text-gray-900">
-                    {match.scoreHome ?? 0}
+                  <span className="flex items-baseline gap-1">
+                    <span className="text-base font-black tabular-nums text-gray-900">
+                      {match.scoreHome ?? 0}
+                    </span>
+                    {shootout && (
+                      <span className="text-[10px] font-bold tabular-nums text-amber-600">
+                        ({match.penaltyHome} tab)
+                      </span>
+                    )}
                   </span>
                 )}
                 <button
@@ -293,8 +307,15 @@ export default function CompetitionKnockoutPage() {
             {editing !== awayKey && (
               <>
                 {played && (
-                  <span className="text-base font-black tabular-nums text-gray-900">
-                    {match.scoreAway ?? 0}
+                  <span className="flex items-baseline gap-1">
+                    <span className="text-base font-black tabular-nums text-gray-900">
+                      {match.scoreAway ?? 0}
+                    </span>
+                    {shootout && (
+                      <span className="text-[10px] font-bold tabular-nums text-amber-600">
+                        ({match.penaltyAway} tab)
+                      </span>
+                    )}
                   </span>
                 )}
                 <button
@@ -326,15 +347,29 @@ export default function CompetitionKnockoutPage() {
               "À venir"
             )}
           </span>
-          <Link
-            href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
-            target="_blank"
-            rel="noopener"
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-purple-600 transition-colors hover:bg-purple-50"
-          >
-            Console live
-            <ChevronRight size={14} />
-          </Link>
+          <div className="flex shrink-0 items-center gap-1">
+            {/* Result entered after the fact — for a match the live console
+                never ran, and to correct one it did. */}
+            {canEnterResult && (
+              <button
+                type="button"
+                onClick={() => setResultMatch(match)}
+                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+              >
+                <Goal size={14} />
+                {match.status === "completed" ? "Score & buteurs" : "Ajouter score"}
+              </button>
+            )}
+            <Link
+              href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-purple-600 transition-colors hover:bg-purple-50"
+            >
+              Console live
+              <ChevronRight size={14} />
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -468,6 +503,14 @@ export default function CompetitionKnockoutPage() {
           )}
         </div>
       )}
+
+      {/* Score + scorers modal — shared with the calendar */}
+      <MatchResultModal
+        cid={cid}
+        match={resultMatch}
+        teams={teams}
+        onClose={() => setResultMatch(null)}
+      />
     </div>
   );
 }

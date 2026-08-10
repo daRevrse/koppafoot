@@ -9,7 +9,7 @@ import {
   Goal, ArrowRightLeft,
 } from "lucide-react";
 import type { LineupEntry } from "@/types";
-import { getCompetitionBySlug, onCompMatch } from "@/lib/competition-firestore";
+import { getCompetitionBySlug, onCompMatch, OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
 import type { CompMatch } from "@/types";
 
 // ============================================
@@ -336,7 +336,11 @@ export default function PublicCompMatchView() {
                               : "border-gray-100 bg-gray-50 text-gray-400"
                       }`}
                     >
-                      <span className="text-[10px] font-black">{event.minute}&apos;</span>
+                      {/* A result entered after the fact may carry no minute
+                          (stored as 0) — no goal is ever scored at the 0th. */}
+                      <span className="text-[10px] font-black">
+                        {event.minute ? `${event.minute}'` : "—"}
+                      </span>
                     </div>
 
                     <div className="min-w-0 flex-1 pt-0.5">
@@ -352,7 +356,7 @@ export default function PublicCompMatchView() {
                         {isSub && <ArrowRightLeft size={14} className="shrink-0 text-blue-500" />}
                         <span className="truncate text-xs font-black uppercase tracking-wide text-gray-900 sm:text-sm">
                           {event.type === "goal"
-                            ? "But"
+                            ? event.detail === OWN_GOAL_DETAIL ? "But contre son camp" : "But"
                             : event.type === "yellow_card"
                               ? "Carton jaune"
                               : event.type === "red_card"

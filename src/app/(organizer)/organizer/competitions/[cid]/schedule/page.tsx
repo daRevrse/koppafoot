@@ -6,7 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, ChevronLeft, MapPin, Upload,
-  Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock,
+  Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock, Goal,
 } from "lucide-react";
 import {
   onCompetition,
@@ -20,6 +20,7 @@ import {
 import { hasGroupStage } from "@/lib/competition-format";
 import { uploadMatchBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
+import MatchResultModal from "@/components/competition/MatchResultModal";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
@@ -56,11 +57,8 @@ export default function CompetitionSchedulePage() {
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // "Add score" modal for past matches.
+  // "Add score" modal for past matches (also reopened to fix a saved result).
   const [scoreMatch, setScoreMatch] = useState<CompMatch | null>(null);
-  const [scoreHome, setScoreHome] = useState("");
-  const [scoreAway, setScoreAway] = useState("");
-  const [savingScore, setSavingScore] = useState(false);
 
   // "Postpone" modal for past matches.
   const [postponeMatch, setPostponeMatch] = useState<CompMatch | null>(null);
@@ -346,40 +344,7 @@ export default function CompetitionSchedulePage() {
     return new Date(iso).getTime() < Date.now();
   };
 
-  const openScore = (m: CompMatch) => {
-    setScoreMatch(m);
-    setScoreHome(String(m.scoreHome ?? ""));
-    setScoreAway(String(m.scoreAway ?? ""));
-  };
-
-  const handleSaveScore = async () => {
-    if (!scoreMatch) return;
-    const h = parseInt(scoreHome, 10);
-    const a = parseInt(scoreAway, 10);
-    if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
-      toast.error("Entrez un score valide (≥ 0)");
-      return;
-    }
-    setSavingScore(true);
-    try {
-      await updateCompMatch(cid, scoreMatch.id, {
-        score_home: h,
-        score_away: a,
-        status: "completed",
-        winner_team_id:
-          h > a ? scoreMatch.homeTeamId :
-          a > h ? scoreMatch.awayTeamId :
-          null,
-      });
-      toast.success("Score enregistré — match terminé");
-      setScoreMatch(null);
-    } catch (err) {
-      console.error("Error saving score:", err);
-      toast.error("Impossible d'enregistrer le score");
-    } finally {
-      setSavingScore(false);
-    }
-  };
+  const openScore = (m: CompMatch) => setScoreMatch(m);
 
   const openPostpone = (m: CompMatch) => {
     setPostponeMatch(m);
@@ -644,6 +609,18 @@ export default function CompetitionSchedulePage() {
                           )}
                         </p>
                         <div className="flex shrink-0 items-center gap-1">
+                          {/* Saved results stay editable — a wrong score or a
+                              forgotten scorer is corrected from the same modal. */}
+                          {completed && (
+                            <button
+                              type="button"
+                              onClick={() => openScore(match)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+                            >
+                              <Goal size={14} />
+                              Score &amp; buteurs
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => openBanner(match)}
@@ -1002,81 +979,13 @@ export default function CompetitionSchedulePage() {
         )}
       </AnimatePresence>
 
-      {/* Score modal for past matches */}
-      <AnimatePresence>
-        {scoreMatch && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-display text-lg font-bold text-gray-900">Ajouter le score final</h2>
-                <button
-                  onClick={() => !savingScore && setScoreMatch(null)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <p className="mb-1 text-sm text-gray-500">
-                Le match sera marqué comme <strong>terminé</strong>.
-              </p>
-              <p className="mb-5 text-xs text-gray-400">
-                {scoreMatch.homeTeamName} vs {scoreMatch.awayTeamName}
-                {scoreMatch.date ? ` · ${scoreMatch.date}` : ""}
-              </p>
-
-              <div className="flex items-center justify-center gap-4">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs font-bold text-gray-600">{scoreMatch.homeTeamName}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={scoreHome}
-                    onChange={(e) => setScoreHome(e.target.value)}
-                    className="w-20 rounded-xl border border-gray-300 px-3 py-3 text-center text-2xl font-black text-gray-900 focus:border-primary-500 focus:outline-none"
-                    placeholder="0"
-                  />
-                </div>
-                <span className="mt-5 text-xl font-bold text-gray-300">—</span>
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs font-bold text-gray-600">{scoreMatch.awayTeamName}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={scoreAway}
-                    onChange={(e) => setScoreAway(e.target.value)}
-                    className="w-20 rounded-xl border border-gray-300 px-3 py-3 text-center text-2xl font-black text-gray-900 focus:border-primary-500 focus:outline-none"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => !savingScore && setScoreMatch(null)}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveScore}
-                  disabled={savingScore}
-                  className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {savingScore ? <Loader2 size={16} className="animate-spin" /> : <Trophy size={16} />}
-                  Valider le score
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Score + scorers modal — shared with the knockout bracket */}
+      <MatchResultModal
+        cid={cid}
+        match={scoreMatch}
+        teams={teams}
+        onClose={() => setScoreMatch(null)}
+      />
 
       {/* Postpone / reschedule modal */}
       <AnimatePresence>
