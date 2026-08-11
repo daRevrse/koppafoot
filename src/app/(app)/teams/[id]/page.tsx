@@ -969,6 +969,11 @@ export default function TeamDetailPage() {
   // in member_ids (createTeam starts it empty), so this is the real count —
   // memberIds alone silently dropped every player without a smartphone.
   const squadCount = team.memberIds.length + ghostPlayers.length;
+  // Adversaire hors plateforme : un doc `teams` sans compte derrière. Tout ce
+  // qui est social (suivre, recruter, candidatures, entraînements, palmarès)
+  // n'a pas de sens sur une équipe qui n'existe pas ici — et laisser le
+  // recrutement joignable la ferait entrer dans searchTeams, donc au mercato.
+  const isGhostTeam = !!team.isGhost;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -997,7 +1002,7 @@ export default function TeamDetailPage() {
           
           {/* Top Actions overlay */}
           <div className="absolute right-4 top-4 flex gap-2">
-             {!isTeamManager && (
+             {!isTeamManager && !isGhostTeam && (
                 <button onClick={handleFollowToggle} disabled={followLoading}
                   className={`flex items-center gap-1.5 rounded-full backdrop-blur-md px-4 py-2 text-xs font-bold transition-all shadow-lg ${
                     isFollowing 
@@ -1034,19 +1039,33 @@ export default function TeamDetailPage() {
               <div className="mb-1 flex-1 text-white">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
-                    team.level === "advanced" ? "bg-red-500/80" :
-                    team.level === "intermediate" ? "bg-amber-500/80" :
-                    "bg-blue-500/80"
-                  }`}>
-                    {LEVEL_LABELS[team.level] ?? team.level}
-                  </span>
+                  {isGhostTeam ? (
+                    <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md">
+                      Hors plateforme
+                    </span>
+                  ) : (
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
+                      team.level === "advanced" ? "bg-red-500/80" :
+                      team.level === "intermediate" ? "bg-amber-500/80" :
+                      "bg-blue-500/80"
+                    }`}>
+                      {LEVEL_LABELS[team.level] ?? team.level}
+                    </span>
+                  )}
                 </div>
                 {team.slogan && <p className="mt-1 text-sm font-medium opacity-90 italic">«&nbsp;{team.slogan}&nbsp;»</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold opacity-80 sm:gap-4">
-                  <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary-400" /> {team.city}</span>
-                  <span className="flex items-center gap-1.5"><Users size={14} className="text-blue-400" /> {squadCount}/{team.maxMembers} joueurs</span>
-                  <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
+                  {team.city && (
+                    <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary-400" /> {team.city}</span>
+                  )}
+                  <span className="flex items-center gap-1.5">
+                    <Users size={14} className="text-blue-400" />
+                    {/* max_members vaut 0 sur un fantôme : « 5/0 joueurs » n'a aucun sens. */}
+                    {isGhostTeam ? `${squadCount} joueurs` : `${squadCount}/${team.maxMembers} joueurs`}
+                  </span>
+                  {!isGhostTeam && (
+                    <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1098,10 +1117,14 @@ export default function TeamDetailPage() {
         {[
           { id: "roster", label: "Effectif", icon: Users, count: members.length },
           { id: "matches", label: "Matchs", icon: Calendar, count: matches.length },
-          { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
-          { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
-          { id: "gallery", label: "Galerie", icon: Image, count: (team.galleryUrls ?? []).length },
-          ...(isTeamManager ? [{ id: "candidatures", label: "Candidatures", icon: ClipboardList, count: pendingCount, isBadge: true }] : []),
+          // Sur un fantôme il ne reste que l'effectif, les matchs joués contre
+          // lui et de quoi le supprimer.
+          ...(isGhostTeam ? [] : [
+            { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
+            { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
+            { id: "gallery", label: "Galerie", icon: Image, count: (team.galleryUrls ?? []).length },
+          ]),
+          ...(isTeamManager && !isGhostTeam ? [{ id: "candidatures", label: "Candidatures", icon: ClipboardList, count: pendingCount, isBadge: true }] : []),
           ...(isTeamManager ? [{ id: "settings", label: "Paramètres", icon: Settings, count: 0 }] : []),
         ].map((tab) => (
           <button
@@ -1674,7 +1697,20 @@ export default function TeamDetailPage() {
           transition={{ duration: 0.3 }}
           className="space-y-4"
         >
-          {/* Recruiting toggle */}
+          {isGhostTeam && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
+              <h3 className="font-semibold text-gray-900">Équipe hors plateforme</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Cette équipe n&apos;a pas de compte sur KoppaFoot : tu l&apos;as créée pour pouvoir
+                planifier un match contre elle. Elle n&apos;apparaît ni dans l&apos;annuaire ni dans
+                le mercato, et ses joueurs ne sont pas notifiés.
+              </p>
+            </div>
+          )}
+
+          {/* Recruiting toggle — masqué sur un fantôme : l'activer le ferait
+              entrer dans searchTeams, donc dans le mercato. */}
+          {!isGhostTeam && (
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -1694,8 +1730,10 @@ export default function TeamDetailPage() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Training schedule */}
+          {!isGhostTeam && (
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Dumbbell size={16} className="text-violet-500" />
@@ -1785,14 +1823,17 @@ export default function TeamDetailPage() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Team info summary */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <h3 className="font-semibold text-gray-900">Informations</h3>
             <dl className="mt-3 space-y-3">
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
-                <dt className="text-gray-500">Capacite</dt>
-                <dd className="font-medium text-gray-900 text-right">{squadCount} / {team.maxMembers} joueurs</dd>
+                <dt className="text-gray-500">{isGhostTeam ? "Effectif" : "Capacite"}</dt>
+                <dd className="font-medium text-gray-900 text-right">
+                  {isGhostTeam ? `${squadCount} joueurs` : `${squadCount} / ${team.maxMembers} joueurs`}
+                </dd>
               </div>
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <dt className="text-gray-500">Matchs joues</dt>

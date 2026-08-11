@@ -1,7 +1,7 @@
 # Design : Dégel du matchmaking + équipes fantômes
 
 **Date :** 2026-08-11
-**Statut :** Approuvé — lots 1 à 4 faits ; reste le lot 5
+**Statut :** Livré — lots 1 à 5. Reste à déployer les règles Firestore et à valider les parcours connectés.
 
 ## Contexte
 
@@ -113,11 +113,15 @@ Les deux premiers points ont été livrés avec le lot 3 (voir ci-dessus). Compl
 - `updateMatchStatus("completed")` : garder le rollup équipe, **sauter le rollup `users/{uid}`** si le match est fantôme.
 - `MatchStatus` / `validation_status` : ajouter `"unverified"` au type.
 
-### Lot 5 — Affichage
+### Lot 5 — Affichage — FAIT
 
-- Badge « amical non vérifié » (liste + détail).
-- Section « Adversaires fantômes » sur `/teams`.
-- Page équipe d'un fantôme : accessible par lien, hors annuaire, sans CTA social (suivre, rejoindre, recruter).
+- Badge « amical non vérifié » (liste + détail) — livré avec le lot 3.
+- Section « Adversaires hors plateforme » sur `/teams` — livrée avec le lot 3.
+- **Fiche d'une équipe fantôme** : accessible par lien, hors annuaire, dépouillée de tout ce qui suppose un compte en face.
+  - En-tête : pas de bouton « Suivre », pas de compteur d'abonnés, badge « Hors plateforme » à la place du niveau, et `N joueurs` au lieu de `N/max` (`max_members` vaut 0 sur un fantôme, « 5/0 joueurs » n'avait aucun sens).
+  - Onglets réduits à Effectif, Matchs et Paramètres : Entraînements, Palmarès, Galerie et Candidatures supposent tous des joueurs avec un compte.
+  - Paramètres : **le toggle de recrutement est masqué** — l'activer poserait `is_recruiting: true` et ferait entrer le fantôme dans `searchTeams`, donc dans le mercato et le sélecteur d'adversaire. Planning d'entraînement masqué aussi. Restent un encart explicatif, le résumé et la suppression.
+  - Le bloc « Manager » de l'effectif disparaît de lui-même : `member_ids` est vide, donc `getTeamMembers` ne renvoie personne.
 
 ## Vérification
 
