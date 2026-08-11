@@ -46,6 +46,15 @@ const PERIODS = [
   { id: 4, label: "Fin de match" }
 ];
 
+// Un joueur tel que la console le manipule, qu'il ait un compte (participation)
+// ou non (feuille de match d'une équipe hors plateforme).
+type ConsolePlayer = {
+  playerId: string;
+  playerName: string;
+  squadNumber?: string;
+  isStarter: boolean;
+};
+
 // ============================================
 // Component
 // ============================================
@@ -60,7 +69,7 @@ export default function LiveMatchManage() {
   const [displayTime, setDisplayTime] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubModal, setShowSubModal] = useState<{ teamId: string; teamName: string } | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<{ player: Participation, teamId: string, teamName: string } | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<{ player: ConsolePlayer, teamId: string, teamName: string } | null>(null);
   const [subInPlayer, setSubInPlayer] = useState("");
   const [subOutPlayer, setSubOutPlayer] = useState("");
 
@@ -199,17 +208,23 @@ export default function LiveMatchManage() {
   const handleSubstitution = async () => {
     if (!showSubModal || !subInPlayer || !subOutPlayer) return;
     
-    const inPlayer = participations.find(p => p.playerId === subInPlayer);
-    const outPlayer = participations.find(p => p.playerId === subOutPlayer);
-    
-    if (!inPlayer || !outPlayer) return;
+    // Le sortant/entrant peut venir d'une participation ou de la feuille d'une
+    // équipe hors plateforme.
+    const nameOf = (playerId: string) =>
+      participations.find(p => p.playerId === playerId)?.playerName
+      ?? match?.ghostLineup?.find(e => e.playerId === playerId)?.name;
+
+    const inName = nameOf(subInPlayer);
+    const outName = nameOf(subOutPlayer);
+
+    if (!inName || !outName) return;
 
     await handleAddEvent(
-      "substitution", 
-      showSubModal.teamId, 
-      undefined, 
-      undefined, 
-      `${outPlayer.playerName} ➔ ${inPlayer.playerName}`
+      "substitution",
+      showSubModal.teamId,
+      undefined,
+      undefined,
+      `${outName} ➔ ${inName}`
     );
     
     setShowSubModal(null);
@@ -325,9 +340,27 @@ export default function LiveMatchManage() {
     );
   }
 
-  const confirmedPlayers = participations.filter(p => p.status === "confirmed");
-  const homePlayers = confirmedPlayers.filter(p => p.teamId === match.homeTeamId);
-  const awayPlayers = confirmedPlayers.filter(p => p.teamId === match.awayTeamId);
+  // Un adversaire hors plateforme n'a pas de participations : sa grille vient
+  // de la feuille de match dénormalisée sur le match. Sans ça son panneau
+  // restait vide et aucun de ses buts n'était attribuable à un joueur.
+  const isGhostMatch = !match.awayManagerId;
+  const ghostIsHome = isGhostMatch && !match.isHome;
+
+  const playersOf = (teamId: string, sideIsGhost: boolean): ConsolePlayer[] =>
+    sideIsGhost
+      ? (match.ghostLineup ?? []).map((e) => ({
+          playerId: e.playerId, playerName: e.name,
+          squadNumber: e.number, isStarter: e.role === "starter",
+        }))
+      : participations
+          .filter((p) => p.teamId === teamId && p.status === "confirmed")
+          .map((p) => ({
+            playerId: p.playerId, playerName: p.playerName,
+            squadNumber: p.squadNumber, isStarter: p.matchRole === "starter",
+          }));
+
+  const homePlayers = playersOf(match.homeTeamId, ghostIsHome);
+  const awayPlayers = playersOf(match.awayTeamId, isGhostMatch && !ghostIsHome);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-32">
@@ -460,14 +493,14 @@ export default function LiveMatchManage() {
             </div>
 
             <div className="grid grid-cols-5 gap-3">
-              {participations.filter(p => p.teamId === match.homeTeamId && p.status === 'confirmed').map(p => (
+              {homePlayers.map(p => (
                 <button
                   key={p.playerId}
                   onClick={() => setSelectedPlayer({ player: p, teamId: match.homeTeamId, teamName: match.homeTeamName })}
                   className="group relative h-16 rounded-2xl border-2 border-gray-100 bg-gray-50/50 text-sm font-black transition-all flex items-center justify-center hover:border-emerald-500 hover:bg-white hover:text-emerald-600 hover:scale-105 active:scale-95"
                 >
                   <span className="text-lg">{p.squadNumber || p.playerName[0].toUpperCase()}</span>
-                  {p.matchRole === 'starter' && (
+                  {p.isStarter && (
                     <div className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                   {/* Subtle Tooltip-like label */}
@@ -502,14 +535,14 @@ export default function LiveMatchManage() {
             </div>
 
             <div className="grid grid-cols-5 gap-3">
-              {participations.filter(p => p.teamId === match.awayTeamId && p.status === 'confirmed').map(p => (
+              {awayPlayers.map(p => (
                 <button
                   key={p.playerId}
                   onClick={() => setSelectedPlayer({ player: p, teamId: match.awayTeamId, teamName: match.awayTeamName })}
                   className="group relative h-16 rounded-2xl border-2 border-gray-100 bg-gray-50/50 text-sm font-black transition-all flex items-center justify-center hover:border-blue-600 hover:bg-white hover:text-blue-600 hover:scale-105 active:scale-95"
                 >
                   <span className="text-lg">{p.squadNumber || p.playerName[0].toUpperCase()}</span>
-                  {p.matchRole === 'starter' && (
+                  {p.isStarter && (
                     <div className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full border-2 border-white bg-blue-600" />
                   )}
                   <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-gray-900 text-[8px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">

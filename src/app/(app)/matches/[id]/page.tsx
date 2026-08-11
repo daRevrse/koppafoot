@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Timer, Shield, History, ChevronLeft, Trophy, Activity,
@@ -16,7 +17,7 @@ import {
   toMatch, toParticipation,
   invitePlayerToMatch, respondToParticipation,
   getMatchParticipations, getTeamMembers,
-  updateMatchLineup, submitManagerFeedback,
+  updateMatchLineup, setGhostLineup, submitManagerFeedback,
   contestMatchEvent, getTeamById,
   getGhostPlayersByTeam,
 } from "@/lib/firestore";
@@ -88,6 +89,9 @@ export default function MatchDetailPage() {
   const [refereeRating, setRefereeRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [ghostPlayers, setGhostPlayers] = useState<GhostPlayer[]>([]);
+  const [opponentGhostPlayers, setOpponentGhostPlayers] = useState<GhostPlayer[]>([]);
+  const [ghostAssignments, setGhostAssignments] = useState<Record<string, { number: string; role: "starter" | "substitute" }>>({});
+  const [savingGhostLineup, setSavingGhostLineup] = useState(false);
 
   // 1. Check Roles & IDs
   const isManager = useMemo(() => {
@@ -95,21 +99,36 @@ export default function MatchDetailPage() {
     return user.uid === match.managerId || user.uid === match.awayManagerId;
   }, [match, user]);
 
+  // `is_home` dit si le CRÉATEUR du match joue à domicile. Sans ça on
+  // assimilait manager_id à l'équipe domicile, ce qui inversait les deux camps
+  // dès qu'un manager planifiait un déplacement : feuille de match, numéros et
+  // drapeau « compo prête » atterrissaient chez l'adversaire.
+  const iAmCreator = useMemo(() => !!user && user.uid === match?.managerId, [user, match]);
+
+  const myTeamIsHome = useMemo(() => {
+    if (!match || !user) return false;
+    return iAmCreator ? match.isHome : !match.isHome;
+  }, [match, user, iAmCreator]);
+
   const myTeamId = useMemo(() => {
     if (!match || !user) return null;
-    if (user.uid === match.managerId) return match.homeTeamId;
-    if (user.uid === match.awayManagerId) return match.awayTeamId;
-    return null;
-  }, [match, user]);
+    if (user.uid !== match.managerId && user.uid !== match.awayManagerId) return null;
+    return myTeamIsHome ? match.homeTeamId : match.awayTeamId;
+  }, [match, user, myTeamIsHome]);
 
-  const isHomeManager = useMemo(() => user?.uid === match?.managerId, [user, match]);
+  const isHomeManager = useMemo(() => myTeamIsHome, [myTeamIsHome]);
 
   const isMyTeamReady = useMemo(() => {
-    if (!match || !user) return false;
-    if (user.uid === match.managerId) return match.homeLineupReady;
-    if (user.uid === match.awayManagerId) return match.awayLineupReady;
-    return false;
-  }, [match, user]);
+    if (!match || !user || !myTeamId) return false;
+    return myTeamIsHome ? match.homeLineupReady : match.awayLineupReady;
+  }, [match, user, myTeamId, myTeamIsHome]);
+
+  // Adversaire hors plateforme : personne en face pour composer sa feuille de
+  // match, c'est donc le créateur qui la pose depuis l'effectif fantôme.
+  const ghostOpponentTeamId = useMemo(() => {
+    if (!match || !iAmCreator || match.awayManagerId) return null;
+    return myTeamIsHome ? match.awayTeamId : match.homeTeamId;
+  }, [match, iAmCreator, myTeamIsHome]);
 
   const myParticipation = useMemo(() => {
     return participations.find(p => p.playerId === user?.uid);
@@ -166,6 +185,20 @@ export default function MatchDetailPage() {
     if (!myTeamId) return;
     getGhostPlayersByTeam(myTeamId).then(setGhostPlayers).catch(console.error);
   }, [myTeamId]);
+
+  // Effectif de l'adversaire hors plateforme, source de sa feuille de match.
+  useEffect(() => {
+    if (!ghostOpponentTeamId) return;
+    getGhostPlayersByTeam(ghostOpponentTeamId).then(setOpponentGhostPlayers).catch(console.error);
+  }, [ghostOpponentTeamId]);
+
+  // Repartir de la compo déjà enregistrée plutôt que d'une feuille vierge.
+  useEffect(() => {
+    if (!match?.ghostLineup?.length) return;
+    setGhostAssignments(Object.fromEntries(
+      match.ghostLineup.map((e) => [e.playerId, { number: e.number, role: e.role }]),
+    ));
+  }, [match?.ghostLineup]);
 
   // 3. Timer Logic
   useEffect(() => {
@@ -731,7 +764,7 @@ export default function MatchDetailPage() {
                             role: val.role
                           }));
                           // This updateMatchLineup also sets the ready flag in firestore
-                          await updateMatchLineup(match.id, myTeamId, user?.uid === match.managerId, assignments);
+                          await updateMatchLineup(match.id, myTeamId, myTeamIsHome, assignments);
                           setLineupMode(false);
                           toast.success("Feuille de match validée !");
                         } catch (err) {
@@ -748,6 +781,113 @@ export default function MatchDetailPage() {
                       Envoyer à l'arbitre
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Feuille de match de l'adversaire hors plateforme : personne en
+                  face pour la poser, et ses joueurs n'ont pas de participation
+                  — la compo est donc écrite sur le match. Sans elle, aucun but
+                  adverse ne peut être attribué à un joueur dans la console. */}
+              {ghostOpponentTeamId && (
+                <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-5">
+                  <div className="mb-1 flex items-center gap-2">
+                    <ClipboardList size={16} className="text-gray-400" />
+                    <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-500">
+                      Feuille de match · {myTeamIsHome ? match.awayTeamName : match.homeTeamName}
+                    </h3>
+                  </div>
+                  <p className="mb-4 text-xs text-gray-400">
+                    Cette équipe n&apos;est pas sur KoppaFoot : c&apos;est toi qui composes sa feuille,
+                    depuis l&apos;effectif que tu lui as créé.
+                  </p>
+
+                  {opponentGhostPlayers.length === 0 ? (
+                    <Link
+                      href={`/teams/${ghostOpponentTeamId}`}
+                      className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 px-4 py-6 text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50"
+                    >
+                      <UserPlus size={14} /> Aucun joueur — composer l&apos;effectif
+                    </Link>
+                  ) : (
+                    <div className="space-y-2">
+                      {opponentGhostPlayers.map((ghost) => {
+                        const asgn = ghostAssignments[ghost.id];
+                        return (
+                          <div key={ghost.id} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-gray-900">
+                                {ghost.firstName} {ghost.lastName}
+                              </p>
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400">
+                                {ghost.position}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <input
+                                type="text"
+                                placeholder="N°"
+                                maxLength={3}
+                                className="h-9 w-12 rounded-xl border border-gray-200 bg-white text-center text-xs font-black text-gray-900 focus:border-emerald-500 focus:outline-none"
+                                value={asgn?.number ?? ghost.squadNumber ?? ""}
+                                onChange={(e) => setGhostAssignments((prev) => ({
+                                  ...prev,
+                                  [ghost.id]: { role: prev[ghost.id]?.role ?? "starter", number: e.target.value },
+                                }))}
+                              />
+                              <select
+                                className="h-9 rounded-xl border border-gray-200 bg-white px-2 text-[10px] font-black uppercase text-gray-700 focus:outline-none"
+                                value={asgn?.role ?? "none"}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setGhostAssignments((prev) => {
+                                    const next = { ...prev };
+                                    if (v === "none") delete next[ghost.id];
+                                    else next[ghost.id] = {
+                                      number: prev[ghost.id]?.number ?? ghost.squadNumber ?? "",
+                                      role: v as "starter" | "substitute",
+                                    };
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <option value="none">Hors feuille</option>
+                                <option value="starter">Titu</option>
+                                <option value="substitute">Sub</option>
+                              </select>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <button
+                        onClick={async () => {
+                          if (!match) return;
+                          setSavingGhostLineup(true);
+                          try {
+                            const entries = opponentGhostPlayers
+                              .filter((g) => ghostAssignments[g.id])
+                              .map((g) => ({
+                                playerId: g.id,
+                                name: `${g.firstName} ${g.lastName}`.trim(),
+                                number: ghostAssignments[g.id].number || g.squadNumber || "",
+                                role: ghostAssignments[g.id].role,
+                              }));
+                            await setGhostLineup(match.id, !myTeamIsHome, entries);
+                            toast.success("Feuille de l'adversaire enregistrée");
+                          } catch (err) {
+                            console.error(err);
+                            toast.error("Erreur lors de l'enregistrement");
+                          } finally {
+                            setSavingGhostLineup(false);
+                          }
+                        }}
+                        disabled={savingGhostLineup}
+                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-800 disabled:opacity-50"
+                      >
+                        {savingGhostLineup ? <RefreshCcw size={14} className="animate-spin" /> : <Save size={14} />}
+                        Enregistrer la feuille adverse
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -315,6 +315,10 @@ export interface FirestoreMatch {
   } | null;
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
+  // Feuille de match du camp sans comptes (adversaire hors plateforme). Les
+  // joueurs réels passent par les participations ; un fantôme n'en a pas, donc
+  // sa compo est dénormalisée sur le match, comme côté compétition.
+  ghost_lineup?: FirestoreLineupEntry[];
   post_match_feedback?: {
     [manager_id: string]: {
       validation: "validated" | "contested";
@@ -379,6 +383,7 @@ export interface Match {
   modificationRequest?: MatchModificationRequest | null;
   homeLineupReady?: boolean;
   awayLineupReady?: boolean;
+  ghostLineup?: LineupEntry[];
   postMatchFeedback?: {
     [managerId: string]: {
       validation: "validated" | "contested";

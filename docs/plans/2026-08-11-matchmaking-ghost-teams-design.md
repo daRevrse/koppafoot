@@ -1,7 +1,7 @@
 # Design : Dégel du matchmaking + équipes fantômes
 
 **Date :** 2026-08-11
-**Statut :** Approuvé — lots 1 à 3 faits (+ le cœur du lot 4)
+**Statut :** Approuvé — lots 1 à 4 faits ; reste le lot 5
 
 ## Contexte
 
@@ -95,7 +95,16 @@ Reste au lot 4 : la feuille de match adverse composée depuis les `ghost_players
 - **Exclusions d'annuaire** : `searchTeams` (`firestore.ts:424`) filtre déjà sur `is_recruiting == true`, donc une équipe fantôme en est exclue *de fait* — mercato compris. À l'inverse `getTeamsByManager` **remontera** les fantômes dans « Mes équipes » : les afficher dans une section distincte « Adversaires fantômes » plutôt que mélangées (ça donne aussi l'accès à l'édition de leur effectif, qui existe déjà).
 - Sélecteur d'adversaire du formulaire de création : garder la recherche `searchTeams` pour les vraies équipes, ajouter une branche « Cette équipe n'est pas sur KoppaFoot » → création inline du fantôme + réutilisation des fantômes déjà créés par ce manager.
 
-### Lot 4 — Flux de match fantôme
+### Lot 4 — Flux de match fantôme — FAIT
+
+Les deux premiers points ont été livrés avec le lot 3 (voir ci-dessus). Complété ici :
+
+- **Feuille de match adverse** : `updateMatchLineup` écrit le rôle sur les docs `participations` — un joueur fantôme n'en a pas, ses assignations y étaient donc **silencieusement perdues** (bug préexistant, y compris pour les joueurs fantômes de sa propre équipe). Nouveau champ `ghost_lineup: FirestoreLineupEntry[]` dénormalisé sur le match, écrit par `setGhostLineup(matchId, ghostIsHome, entries)`, qui lève aussi le `*_lineup_ready` du bon côté. Même modèle que `home_lineup`/`away_lineup` côté compétition.
+- **UI** : bloc « Feuille de match · <adversaire> » dans l'onglet Feuille de match, alimenté par les `ghost_players` de l'équipe fantôme (titulaire / remplaçant / hors feuille + numéro), visible uniquement pour le créateur d'un match fantôme.
+- **Console live** : les deux grilles de joueurs passent par un type `ConsolePlayer` unique, alimenté soit par les participations, soit par `ghost_lineup`. Sans ça le panneau de l'adversaire restait vide et **aucun de ses buts n'était attribuable à un joueur**. Les remplacements résolvent les noms dans les deux sources.
+
+**Bug préexistant corrigé au passage** : `myTeamId` assimilait `manager_id` à l'équipe **domicile**. Or `is_home` dit seulement si le créateur joue à domicile — dès qu'un manager planifiait un déplacement, les deux camps étaient inversés : feuille de match, numéros de maillot et drapeau « compo prête » atterrissaient chez l'adversaire. Le mapping passe désormais par `is_home`, et `updateMatchLineup` reçoit le bon côté.
+
 
 - `createMatch` : si l'adversaire est fantôme → `away_manager_id: ""` (chaîne vide, pas `null` : les requêtes `where("away_manager_id","==",uid)` restent saines), statut direct `upcoming`/`pending`, **pas** de notification de défi.
 - `respondToMatchChallenge` : non appelé pour ces matchs ; ne créer les participations que pour l'équipe réelle (`createParticipationsForTeam` une seule fois).

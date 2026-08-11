@@ -38,7 +38,7 @@ import type {
   Training, FirestoreTraining, TrainingAttendee,
   PlayerRating, FirestorePlayerRating,
   Booking, FirestoreBooking,
-  GhostPlayer, FirestoreGhostPlayer,
+  GhostPlayer, FirestoreGhostPlayer, LineupEntry,
   Notification, FirestoreNotification, NotificationType,
 } from "@/types";
 
@@ -142,6 +142,9 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     confirmedAway: d.confirmed_away ?? 0,
     homeLineupReady: d.home_lineup_ready ?? false,
     awayLineupReady: d.away_lineup_ready ?? false,
+    ghostLineup: (d.ghost_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+    })),
     modificationRequest: d.modification_request ? {
       date: d.modification_request.date,
       time: d.modification_request.time,
@@ -789,6 +792,30 @@ export async function updateMatchLineup(
   });
 
   await batch.commit();
+}
+
+/**
+ * Feuille de match du camp sans comptes (adversaire hors plateforme).
+ *
+ * `updateMatchLineup` écrit le rôle sur les docs `participations` : un joueur
+ * fantôme n'en a pas, ses assignations y étaient donc silencieusement perdues.
+ * On dénormalise la compo sur le match, comme le fait déjà le côté compétition.
+ *
+ * `ghostIsHome` dit de quel côté joue le fantôme — c'est lui qui décide quel
+ * drapeau `*_lineup_ready` est levé.
+ */
+export async function setGhostLineup(
+  matchId: string,
+  ghostIsHome: boolean,
+  entries: LineupEntry[],
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    ghost_lineup: entries.map((e) => ({
+      player_id: e.playerId, name: e.name, number: e.number, role: e.role,
+    })),
+    [ghostIsHome ? "home_lineup_ready" : "away_lineup_ready"]: entries.length > 0,
+    updated_at: serverTimestamp(),
+  });
 }
 
 export async function cancelMatch(matchId: string): Promise<void> {
