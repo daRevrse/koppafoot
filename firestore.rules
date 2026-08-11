@@ -152,26 +152,59 @@ service cloud.firestore {
     // ============================================
     // Matches collection
     // ============================================
+    // Les branches 3 et 4 utilisaient `hasAny`, qui ne contraint QUE la
+    // présence d'une clé parmi la liste : toutes les autres restaient
+    // librement modifiables. N'importe quel compte authentifié pouvait donc
+    // réécrire le statut, le score ou le résultat de n'importe quel match.
+    // Tant que la surface était au placard c'était théorique — plus depuis
+    // le dégel du matchmaking. Passage en `hasOnly` + contrôle de l'acteur.
     match /matches/{matchId} {
-      allow read: if true; 
-      allow create: if isAuthenticated();
+      allow read: if true;
+      allow create: if isAuthenticated()
+        && (request.resource.data.manager_id == request.auth.uid || isSuperAdmin());
       allow update: if isAuthenticated()
         && (
-          // 1. Managers/Admins
+          // 1. Managers/Admins — away_manager_id vaut "" pour un adversaire
+          //    fantôme (aucun compte en face) ; un uid n'est jamais vide.
           resource.data.manager_id == request.auth.uid
-          || (resource.data.away_manager_id != null && resource.data.away_manager_id == request.auth.uid)
+          || resource.data.get('away_manager_id', '') == request.auth.uid
           || isSuperAdmin()
-          
+
           // 2. Confirmed Referee
           || (resource.data.referee_id == request.auth.uid && resource.data.referee_status == 'confirmed')
-          
-          // 3. Referee Basic Flow (Apply/Invite)
-          || (request.resource.data.diff(resource.data).affectedKeys()
-                .hasAny(['referee_id', 'referee_name', 'referee_status', 'updated_at', 'result']))
 
-          // 4. Player Flow
-          || (request.resource.data.diff(resource.data).affectedKeys()
-                .hasAny(['confirmed_home', 'confirmed_away', 'players_confirmed', 'status', 'updated_at']))
+          // 3. Arbitre, en self-service : se porter candidat sur un match sans
+          //    arbitre, ou accepter/décliner sa propre désignation. Les
+          //    réponses côté manager (accepter/inviter) passent par la
+          //    branche 1.
+          || (
+               request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['referee_id', 'referee_name', 'referee_status', 'updated_at'])
+               && (
+                    (
+                      resource.data.get('referee_id', null) == null
+                      && request.resource.data.referee_id == request.auth.uid
+                      && request.resource.data.referee_status == 'pending'
+                    )
+                    || resource.data.referee_id == request.auth.uid
+                  )
+             )
+
+          // 4. Compteurs de confirmation joueur (respondToParticipation).
+          //    On ne peut pas vérifier en règles que l'appelant est convoqué :
+          //    l'id du doc participation n'est pas dérivable du match. On borne
+          //    donc au jeu de champs exact plus la SEULE transition de statut
+          //    légitime de ce flux (pending -> upcoming quand le quota est
+          //    atteint) — impossible de basculer un match en live, completed
+          //    ou cancelled par ce chemin.
+          || (
+               request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['confirmed_home', 'confirmed_away', 'players_confirmed', 'status', 'updated_at'])
+               && (
+                    request.resource.data.status == resource.data.status
+                    || (resource.data.status == 'pending' && request.resource.data.status == 'upcoming')
+                  )
+             )
         );
       allow delete: if isAuthenticated() && (resource.data.manager_id == request.auth.uid || isSuperAdmin());
 

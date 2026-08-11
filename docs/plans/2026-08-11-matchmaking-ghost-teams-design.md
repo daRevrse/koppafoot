@@ -1,7 +1,7 @@
 # Design : Dégel du matchmaking + équipes fantômes
 
 **Date :** 2026-08-11
-**Statut :** Approuvé — lot 1 fait
+**Statut :** Approuvé — lots 1 et 2 faits
 
 ## Contexte
 
@@ -68,10 +68,20 @@ Fix : borner ces deux branches aux acteurs du match (manager domicile, manager e
 - Le lien de notification `createMatch` → `/matches` (`firestore.ts:672`) redevient valide automatiquement.
 - **Trou UX comblé** : le formulaire de création lisait les lieux via `getVenues()` alors que la verticale `venues` reste gelée (collection vide → `venue_name: ""`). Saisie libre nom + ville, affichée seule quand aucun terrain n'est référencé, en option « Autre terrain » sinon. Même repli côté demande de modification, qui effaçait le terrain du match au lieu de le conserver.
 
-### Lot 2 — Durcissement des règles
+### Lot 2 — Durcissement des règles — FAIT (⚠️ non déployé)
 
-- Réécrire les branches 3 et 4 de `match /matches/{matchId}` dans `firestore.rules`.
-- `firebase deploy --only firestore:rules`.
+Branches 3 et 4 de `match /matches/{matchId}` passées de `hasAny` à `hasOnly` + contrôle de l'acteur :
+
+- **Branche 3, arbitre en self-service** : bornée aux quatre champs arbitre, et réservée à qui se porte candidat sur un match sans arbitre (`referee_id` posé sur soi, statut `pending`) ou répond à sa propre désignation (`resource.data.referee_id == uid`). Les réponses côté manager passent par la branche 1.
+- **Branche 4, compteurs joueur** : bornée au jeu de champs exact de `respondToParticipation` plus la seule transition légitime `pending → upcoming`. Les règles ne peuvent pas vérifier que l'appelant est convoqué (l'id du doc participation n'est pas dérivable du match), mais plus personne ne peut basculer un match en `live`, `completed` ou `cancelled` par ce chemin.
+- **Branche 1** : `away_manager_id` lu via `.get(…, '')` — un uid n'est jamais vide, donc un adversaire fantôme (lot 3) ne matchera jamais.
+- **`allow create`** resserré : `manager_id` doit être l'appelant (ou superadmin). C'était `isAuthenticated()` seul.
+
+Tous les appels légitimes de `firestore.ts` ont été retracés un par un (console live, `respondToMatchChallenge`, `cancelMatch`, `updateMatchStatus`, `forceCompleteMatch`, `submitMatchReport`, `contestMatchEvent`, les quatre fonctions arbitre, `respondToParticipation`) : ils tombent tous dans les branches 1, 2 ou dans les deux branches bornées.
+
+**Vérifié** : les règles compilent (chargées par `firebase emulators:exec --only firestore`). **Non vérifié** : le comportement autorisé/refusé, qui demanderait `@firebase/rules-unit-testing` — le projet n'a pas de runner de test et je n'ai pas ajouté de dépendance.
+
+**Reste à faire par l'utilisateur** : `npx firebase deploy --only firestore:rules` (les règles prennent effet immédiatement, sans redéploiement applicatif).
 
 ### Lot 3 — Modèle équipe fantôme
 
