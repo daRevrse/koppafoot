@@ -1113,12 +1113,34 @@ export interface CompetitionRegistration {
   createdAt: string | null;
 }
 
+/**
+ * Where a first-round bracket slot takes its team from, expressed in terms of
+ * the group stage rather than a team id — so an organizer can draw the whole
+ * bracket before a single group match is played, and the slots fill themselves
+ * once the tables are final.
+ *
+ * Later rounds need no source: they are fed by `feeds_into_match_id` from the
+ * round before, which already says "the winner of that match".
+ *
+ *  - `group_rank` : a finishing position in one named group ("1er poule A").
+ *  - `best_rank`  : the repêchage — the `index`-th best team across every group
+ *    among those that finished `rank`-th ("2e meilleur 3e"). Needed whenever the
+ *    group count does not divide the bracket, which is exactly the case an
+ *    automatic seed cannot resolve on its own.
+ */
+export type BracketSlotSource =
+  | { kind: "group_rank"; group: string; rank: number }
+  | { kind: "best_rank"; rank: number; index: number };
+
 export interface FirestoreCompMatch {
   competition_id: string;
   stage: CompMatchStage;
   group: string | null;
   round: CompMatchRound | null;
   bracket_slot: number | null;
+  /** Provenance of each slot — first knockout round only. See BracketSlotSource. */
+  home_source?: BracketSlotSource | null;
+  away_source?: BracketSlotSource | null;
   home_team_id: string | null;
   away_team_id: string | null;
   home_team_name: string;
@@ -1161,6 +1183,9 @@ export interface CompMatch {
   group: string | null;
   round: CompMatchRound | null;
   bracketSlot: number | null;
+  /** Provenance of each slot — first knockout round only. See BracketSlotSource. */
+  homeSource: BracketSlotSource | null;
+  awaySource: BracketSlotSource | null;
   homeTeamId: string | null;
   awayTeamId: string | null;
   homeTeamName: string;

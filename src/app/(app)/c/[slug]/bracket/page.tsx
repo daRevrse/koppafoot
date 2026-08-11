@@ -6,7 +6,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Loader2, SearchX, GitBranch, Trophy } from "lucide-react";
-import { getCompetitionBySlug, onCompMatches } from "@/lib/competition-firestore";
+import {
+  getCompetitionBySlug, onCompMatches, describeBracketSlotSource,
+} from "@/lib/competition-firestore";
 import type { Competition, CompMatch, CompMatchRound } from "@/types";
 
 // ============================================
@@ -39,8 +41,10 @@ function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
   );
 }
 
-// One side (home/away) of a read-only bracket match. "À déterminer" until a
-// team id is present; the winning side of a completed match is emphasized.
+// One side (home/away) of a read-only bracket match. Until a team id is
+// present it shows where the place comes from ("1er poule A") when the
+// organizer drew the bracket that way, else "À déterminer". The winning side of
+// a completed match is emphasized.
 function BracketSide({
   teamId,
   name,
@@ -49,6 +53,7 @@ function BracketSide({
   showScore,
   isWinner,
   dimmed,
+  placeholder,
 }: {
   teamId: string | null;
   name: string;
@@ -57,6 +62,7 @@ function BracketSide({
   showScore: boolean;
   isWinner: boolean;
   dimmed: boolean;
+  placeholder?: string | null;
 }) {
   return (
     <div
@@ -77,11 +83,21 @@ function BracketSide({
         </>
       ) : (
         <>
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-[11px] font-black text-gray-300">
+          <div
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] font-black ${
+              placeholder
+                ? "border-emerald-200 bg-emerald-50 text-emerald-400"
+                : "border-gray-200 bg-gray-50 text-gray-300"
+            }`}
+          >
             ?
           </div>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium italic text-gray-400">
-            À déterminer
+          <span
+            className={`min-w-0 flex-1 truncate text-sm font-medium italic ${
+              placeholder ? "text-emerald-600" : "text-gray-400"
+            }`}
+          >
+            {placeholder ?? "À déterminer"}
           </span>
         </>
       )}
@@ -124,6 +140,7 @@ function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
           showScore={showScore}
           isWinner={homeWon}
           dimmed={hasWinner && !homeWon}
+          placeholder={match.homeSource ? describeBracketSlotSource(match.homeSource) : null}
         />
         <BracketSide
           teamId={match.awayTeamId}
@@ -133,6 +150,7 @@ function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
           showScore={showScore}
           isWinner={awayWon}
           dimmed={hasWinner && !awayWon}
+          placeholder={match.awaySource ? describeBracketSlotSource(match.awaySource) : null}
         />
       </div>
       {isLive && (

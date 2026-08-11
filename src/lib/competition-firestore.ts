@@ -27,6 +27,7 @@ import type {
   CompMatchRound, CompMatchStage,
   CompetitionFormat, CompetitionType,
   CompPlayer, LineupEntry, FirestoreLineupEntry,
+  BracketSlotSource,
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
@@ -1839,4 +1840,296 @@ export async function generateKnockout(cid: string): Promise<void> {
   }
 
   await batch.commit();
+}
+
+// ============================================
+// Manual bracket design
+//
+// Automatic seeding only lands cleanly when the group count divides the
+// bracket. Five groups of four (Miabé CAN) qualify ten teams for an eight-team
+// bracket: two qualifiers have to be cut and there is no universal rule saying
+// which — real competitions write that rule in their own regulations. So the
+// organizer draws the tree instead: pick a size, then say where each first-round
+// slot comes from ("1er poule A", "2e meilleur 3e"). Slots are resolved into
+// real teams once the tables are final.
+// ============================================
+
+/** Bracket sizes the tree supports, in teams. Every round is a clean halving. */
+export const KNOCKOUT_BRACKET_SIZES = [4, 8, 16] as const;
+
+export type KnockoutBracketSize = (typeof KNOCKOUT_BRACKET_SIZES)[number];
+
+/** "1er", "2e", "3e"… — used to label positions and repêchage indexes. */
+function ordinalFr(n: number): string {
+  return n === 1 ? "1er" : `${n}e`;
+}
+
+/** Human label for a slot source, e.g. "1er poule A" or "2e meilleur 3e". */
+export function describeBracketSlotSource(source: BracketSlotSource): string {
+  return source.kind === "group_rank"
+    ? `${ordinalFr(source.rank)} poule ${source.group}`
+    : `${ordinalFr(source.index)} meilleur ${ordinalFr(source.rank)}`;
+}
+
+/** Stable key for a source — used to spot the same slot picked twice. */
+export function bracketSlotSourceKey(source: BracketSlotSource): string {
+  return source.kind === "group_rank"
+    ? `g:${source.group}:${source.rank}`
+    : `b:${source.rank}:${source.index}`;
+}
+
+/**
+ * Inverse of `bracketSlotSourceKey` — lets a `<select>` carry a source as its
+ * option value. Returns null for anything malformed (including the empty
+ * "no source" value).
+ */
+export function parseBracketSlotSourceKey(key: string): BracketSlotSource | null {
+  const parts = key.split(":");
+  if (parts[0] === "g" && parts.length === 3) {
+    const rank = Number(parts[2]);
+    if (!parts[1] || !Number.isInteger(rank) || rank < 1) return null;
+    return { kind: "group_rank", group: parts[1], rank };
+  }
+  if (parts[0] === "b" && parts.length === 3) {
+    const rank = Number(parts[1]);
+    const index = Number(parts[2]);
+    if (!Number.isInteger(rank) || !Number.isInteger(index) || rank < 1 || index < 1) return null;
+    return { kind: "best_rank", rank, index };
+  }
+  return null;
+}
+
+/**
+ * The teams that finished `rank`-th in their group, ranked against each other —
+ * the repêchage ladder. Ordered by points, then goal difference, then goals
+ * scored, then name, matching `computeStandings`'s within-group ordering.
+ *
+ * Comparing across groups is only fair when the groups are the same size; the
+ * caller decides whether that holds (the format's `teams_per_group` says so).
+ */
+export function rankedBestOfRank(standings: GroupStanding[], rank: number): StandingRow[] {
+  const rows = standings
+    .map((standing) => standing.rows[rank - 1])
+    .filter((row): row is StandingRow => row != null);
+  return rows.sort(
+    (a, b) =>
+      b.points - a.points ||
+      b.goalDiff - a.goalDiff ||
+      b.goalsFor - a.goalsFor ||
+      a.team.name.localeCompare(b.team.name, "fr"),
+  );
+}
+
+/**
+ * Team a source currently points at, or null while the group stage has not
+ * produced one. Pure — feeds both the live preview and the write path.
+ */
+export function resolveBracketSlot(
+  source: BracketSlotSource,
+  standings: GroupStanding[],
+): CompTeam | null {
+  if (source.kind === "group_rank") {
+    const standing = standings.find((s) => s.group === source.group);
+    return standing?.rows[source.rank - 1]?.team ?? null;
+  }
+  return rankedBestOfRank(standings, source.rank)[source.index - 1]?.team ?? null;
+}
+
+/** A knockout fixture with both slots empty. */
+function emptyKnockoutMatch(
+  cid: string,
+  opts: {
+    round: CompMatchRound;
+    bracketSlot: number;
+    feedsIntoMatchId: string | null;
+    feedsIntoSlot: "home" | "away" | null;
+  },
+): FirestoreCompMatch {
+  return {
+    competition_id: cid,
+    stage: "knockout",
+    group: null,
+    round: opts.round,
+    bracket_slot: opts.bracketSlot,
+    home_source: null,
+    away_source: null,
+    home_team_id: null,
+    away_team_id: null,
+    home_team_name: "",
+    away_team_name: "",
+    home_team_logo: null,
+    away_team_logo: null,
+    date: null,
+    time: null,
+    venue_name: null,
+    venue_city: null,
+    status: "scheduled",
+    score_home: null,
+    score_away: null,
+    penalty_home: null,
+    penalty_away: null,
+    winner_team_id: null,
+    feeds_into_match_id: opts.feedsIntoMatchId,
+    feeds_into_slot: opts.feedsIntoSlot,
+    live_state: null,
+    created_at: serverTimestamp() as unknown as string,
+    updated_at: serverTimestamp() as unknown as string,
+  };
+}
+
+/**
+ * Create an empty bracket of `size` teams: every round from the first down to
+ * the final, each match wired to its successor so winners propagate. Slots are
+ * left blank — the organizer fills them with sources afterwards.
+ *
+ * Refuses to run over an existing bracket: clearing one destroys played
+ * results, so that has to be an explicit `clearKnockoutBracket` call.
+ */
+export async function createKnockoutBracket(
+  cid: string,
+  size: KnockoutBracketSize,
+): Promise<void> {
+  const competition = await getCompetition(cid);
+  if (!competition) throw new Error(`Competition ${cid} not found`);
+  if (!hasKnockout(competition.competitionType)) {
+    throw new Error("Un championnat n'a pas de phase finale");
+  }
+  if (!(KNOCKOUT_BRACKET_SIZES as readonly number[]).includes(size)) {
+    throw new Error(`Taille de tableau non supportée: ${size}`);
+  }
+
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+  const existing = await getDocs(query(matchesCol, where("stage", "==", "knockout")));
+  if (!existing.empty) {
+    throw new Error("Un tableau existe déjà — supprimez-le avant d'en dessiner un autre");
+  }
+
+  // Pre-mint a ref per match so a round can point at the next one before write.
+  const rounds: { ref: ReturnType<typeof doc>; teams: number }[][] = [];
+  for (let roundTeams: number = size; roundTeams >= 2; roundTeams = Math.floor(roundTeams / 2)) {
+    const refs: { ref: ReturnType<typeof doc>; teams: number }[] = [];
+    for (let i = 0; i < roundTeams / 2; i++) refs.push({ ref: doc(matchesCol), teams: roundTeams });
+    rounds.push(refs);
+  }
+
+  const batch = writeBatch(db);
+  let bracketSlot = 0;
+
+  for (let r = 0; r < rounds.length; r++) {
+    const roundRefs = rounds[r];
+    const roundName = knockoutRoundName(roundRefs[0].teams);
+    const nextRound = rounds[r + 1]; // undefined for the final
+    for (let i = 0; i < roundRefs.length; i++) {
+      const successor = nextRound ? nextRound[Math.floor(i / 2)] : null;
+      batch.set(roundRefs[i].ref, emptyKnockoutMatch(cid, {
+        round: roundName,
+        bracketSlot,
+        feedsIntoMatchId: successor ? successor.ref.id : null,
+        feedsIntoSlot: successor ? (i % 2 === 0 ? "home" : "away") : null,
+      }));
+      bracketSlot += 1;
+    }
+  }
+
+  // Third place stays out of the tree: propagation forwards winners, not
+  // losers, so the organizer seats the two beaten semi-finalists by hand.
+  if (competition.format.has_third_place) {
+    batch.set(doc(matchesCol), emptyKnockoutMatch(cid, {
+      round: "third_place",
+      bracketSlot,
+      feedsIntoMatchId: null,
+      feedsIntoSlot: null,
+    }));
+  }
+
+  await batch.commit();
+}
+
+/**
+ * Delete every knockout match of a competition. Destructive by nature — any
+ * score, scorer or lineup recorded on those matches goes with them — so the UI
+ * must confirm before calling, and say what is being lost.
+ */
+export async function clearKnockoutBracket(cid: string): Promise<number> {
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+  const snap = await getDocs(query(matchesCol, where("stage", "==", "knockout")));
+  if (snap.empty) return 0;
+
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+  return snap.size;
+}
+
+/**
+ * Point one slot of a bracket match at a source (or clear it with `null`).
+ *
+ * Setting a source also wipes the team currently sitting in that slot: the slot
+ * now means "whoever finishes there", and leaving the old team behind would
+ * show a name the source no longer backs.
+ */
+export async function setBracketSlotSource(
+  cid: string,
+  mid: string,
+  side: "home" | "away",
+  source: BracketSlotSource | null,
+): Promise<void> {
+  const patch: Partial<FirestoreCompMatch> = side === "home"
+    ? { home_source: source, home_team_id: null, home_team_name: "", home_team_logo: null }
+    : { away_source: source, away_team_id: null, away_team_name: "", away_team_logo: null };
+  await updateCompMatch(cid, mid, patch);
+}
+
+/**
+ * Fill every sourced slot with the team its source currently points at.
+ *
+ * Skips matches that have already started (a result stands, whatever the tables
+ * say afterwards) and slots whose source resolves to nothing yet. Returns how
+ * many slots were seated, so the caller can tell "12 places attribuées" from
+ * "rien à attribuer".
+ */
+export async function resolveBracketSlots(cid: string): Promise<number> {
+  const competition = await getCompetition(cid);
+  if (!competition) throw new Error(`Competition ${cid} not found`);
+
+  const teams = await listCompTeams(cid);
+  const matchesCol = collection(db, "competitions", cid, "comp_matches");
+  const snap = await getDocs(matchesCol);
+  const all = snap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
+  const standings = computeStandings(
+    all.filter((m) => m.stage === "group"),
+    teams,
+    competition.format,
+  );
+
+  const batch = writeBatch(db);
+  let seated = 0;
+
+  for (const match of all) {
+    if (match.stage !== "knockout") continue;
+    // A played match keeps the teams it was played by, whatever the tables say.
+    if (match.status === "live" || match.status === "completed") continue;
+
+    const patch: Record<string, unknown> = {};
+    for (const side of ["home", "away"] as const) {
+      const source = side === "home" ? match.homeSource : match.awaySource;
+      if (!source) continue;
+      const team = resolveBracketSlot(source, standings);
+      if (!team) continue;
+      const current = side === "home" ? match.homeTeamId : match.awayTeamId;
+      if (current === team.id) continue; // already seated
+      patch[`${side}_team_id`] = team.id;
+      patch[`${side}_team_name`] = team.name;
+      patch[`${side}_team_logo`] = team.logoUrl ?? null;
+      seated += 1;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = serverTimestamp();
+      batch.update(doc(matchesCol, match.id), patch);
+    }
+  }
+
+  if (seated > 0) await batch.commit();
+  return seated;
 }

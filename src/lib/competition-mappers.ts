@@ -79,6 +79,8 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     group: d.group,
     round: d.round,
     bracketSlot: d.bracket_slot,
+    homeSource: d.home_source ?? null,
+    awaySource: d.away_source ?? null,
     homeTeamId: d.home_team_id,
     awayTeamId: d.away_team_id,
     homeTeamName: d.home_team_name,
