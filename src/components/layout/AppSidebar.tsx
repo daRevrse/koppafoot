@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Home, Activity, Trophy, Star, Settings,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
-  Users, BarChart3, Plus, GraduationCap, Store,
+  Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -59,11 +59,15 @@ const ROLE_SPACE_ITEMS: Record<"player" | "manager", SpaceItem[]> = {
     // /teams serves both sides: getTeamsByManager for a manager,
     // getTeamsByPlayer for a player. The player just had no way in.
     { path: "/teams", icon: Users, label: "Mes équipes" },
+    { path: "/participations", icon: ClipboardCheck, label: "Mes convocations" },
+    { path: "/calendar", icon: CalendarDays, label: "Calendrier" },
     { path: "/stats", icon: BarChart3, label: "Mes statistiques" },
     { path: "/mercato", icon: Store, label: "Mercato" },
   ],
   manager: [
     { path: "/teams", icon: Users, label: "Mon équipe" },
+    { path: "/matches", icon: Swords, label: "Matchs amicaux" },
+    { path: "/calendar", icon: CalendarDays, label: "Calendrier" },
     { path: "/mon-equipe", icon: Trophy, label: "Mes compétitions" },
     { path: "/mercato", icon: Store, label: "Mercato" },
   ],

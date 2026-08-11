@@ -76,6 +76,22 @@ export default function LiveMatchManage() {
     return () => unsub();
   }, [id]);
 
+  // Only the two managers and a confirmed referee may operate the match. The
+  // console had no guard at all while it lived in the shelved referee panel —
+  // reachable by URL alone. Server-side enforcement is the Firestore rules'
+  // job (lot 2); this just keeps the wrong people out of the controls.
+  useEffect(() => {
+    if (!match || !user) return;
+    const canOperate =
+      user.uid === match.managerId ||
+      user.uid === match.awayManagerId ||
+      (match.refereeId === user.uid && match.refereeStatus === "confirmed");
+    if (!canOperate) {
+      toast.error("Seuls les managers du match peuvent le diriger.");
+      router.replace(`/matches/${id}`);
+    }
+  }, [match, user, router, id]);
+
   // Fetch players (Real-time)
   useEffect(() => {
     if (!id) return;
@@ -222,8 +238,8 @@ export default function LiveMatchManage() {
     setIsSubmitting(true);
     try {
        await updateMatchStatus(id, "completed");
-       toast.success("Match terminé ! Bravo pour l'arbitrage.");
-       router.push("/referee-panel/matches");
+       toast.success("Match terminé ! Le résultat est enregistré.");
+       router.push(`/matches/${id}`);
     } catch (err) {
       console.error("Match finish error:", err);
       toast.error("Erreur technique : " + (err instanceof Error ? err.message : "Inconnue"));

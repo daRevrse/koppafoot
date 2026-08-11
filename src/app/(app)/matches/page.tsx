@@ -127,6 +127,11 @@ export default function MatchesPage() {
   const [matchDate, setMatchDate] = useState("");
   const [matchTime, setMatchTime] = useState("");
   const [selectedVenueId, setSelectedVenueId] = useState("");
+  // La verticale "venues" est restée au placard : la collection est vide pour
+  // la plupart des clubs, et sans repli le match partait avec venue_name = "".
+  // Saisie libre du terrain, imposée quand aucun terrain n'est référencé.
+  const [customVenueName, setCustomVenueName] = useState("");
+  const [customVenueCity, setCustomVenueCity] = useState("");
   const [format, setFormat] = useState("11v11");
   const [isHome, setIsHome] = useState(true);
 
@@ -261,6 +266,8 @@ export default function MatchesPage() {
     if (!team) return;
 
     const venue = venues.find((v) => v.id === selectedVenueId);
+    const venueName = venue?.name ?? customVenueName.trim();
+    const venueCity = venue?.city ?? customVenueCity.trim();
     const homeTeamName = isHome ? team.name : awayTeamName;
     const awayTeamNameFinal = isHome ? awayTeamName : team.name;
     const playersTotal = FORMAT_TOTAL_PLAYERS[format] ?? 22;
@@ -277,8 +284,8 @@ export default function MatchesPage() {
         date: matchDate,
         localRefereeName: refereeMode === "local" && localRefereeName.trim() ? localRefereeName.trim() : undefined,
         time: matchTime,
-        venueName: venue?.name ?? "",
-        venueCity: venue?.city ?? "",
+        venueName,
+        venueCity,
         format,
         isHome,
         playersTotal,
@@ -296,6 +303,8 @@ export default function MatchesPage() {
       setMatchDate("");
       setMatchTime("");
       setSelectedVenueId("");
+      setCustomVenueName("");
+      setCustomVenueCity("");
       setFormat("11v11");
       setIsHome(true);
       setShowCreateForm(false);
@@ -406,12 +415,14 @@ export default function MatchesPage() {
     if (!modifyingMatch || !user) return;
     setSubmittingMod(true);
     try {
+      // Sans terrain référencé sélectionné, on conserve celui du match plutôt
+      // que de l'effacer (la collection venues est vide pour la plupart des clubs).
       const selectedVenue = venues.find((v) => v.id === modVenueId);
       await requestMatchModification(modifyingMatch.id, {
         date: modDate,
         time: modTime,
-        venueName: selectedVenue?.name || "",
-        venueCity: selectedVenue?.city || "",
+        venueName: selectedVenue?.name || modifyingMatch.venueName,
+        venueCity: selectedVenue?.city || modifyingMatch.venueCity,
         reason: modReason,
         requestedBy: user.uid,
       });
@@ -627,19 +638,40 @@ export default function MatchesPage() {
                     className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   />
                 </div>
-                {/* Venue */}
+                {/* Venue — terrain référencé si la collection en contient,
+                    saisie libre sinon (ou via « Autre terrain »). */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Terrain</label>
-                  <select
-                    value={selectedVenueId}
-                    onChange={(e) => setSelectedVenueId(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                  >
-                    <option value="">Sélectionner un terrain</option>
-                    {venues.map((v) => (
-                      <option key={v.id} value={v.id}>{v.name} — {v.city}</option>
-                    ))}
-                  </select>
+                  {venues.length > 0 && (
+                    <select
+                      value={selectedVenueId}
+                      onChange={(e) => setSelectedVenueId(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    >
+                      <option value="">Autre terrain (saisie libre)</option>
+                      {venues.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name} — {v.city}</option>
+                      ))}
+                    </select>
+                  )}
+                  {!selectedVenueId && (
+                    <div className={`grid grid-cols-2 gap-2 ${venues.length > 0 ? "mt-2" : ""}`}>
+                      <input
+                        type="text"
+                        value={customVenueName}
+                        onChange={(e) => setCustomVenueName(e.target.value)}
+                        placeholder="Nom du terrain"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                      />
+                      <input
+                        type="text"
+                        value={customVenueCity}
+                        onChange={(e) => setCustomVenueCity(e.target.value)}
+                        placeholder="Ville"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                      />
+                    </div>
+                  )}
                 </div>
                 {/* Format */}
                 <div>
@@ -1187,15 +1219,9 @@ export default function MatchesPage() {
                               >
                                 <XCircle size={14} /> Annuler
                               </button>
-                              {match.refereeStatus === "none" && match.managerId === user?.uid && (
-                                <Link
-                                  href={`/referees?matchId=${match.id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="flex items-center gap-1 rounded-lg border border-primary-200 px-3 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors"
-                                >
-                                  <Award size={14} /> Trouver un arbitre
-                                </Link>
-                              )}
+                              {/* "Trouver un arbitre" pointait vers /referees, resté
+                                  au placard. L'arbitre de terrain se saisit en
+                                  texte libre à la création (localRefereeName). */}
                             </div>
                           )}
                         </div>

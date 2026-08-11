@@ -66,14 +66,15 @@ const ROLE_FEATURES: Record<EvolutionRole, {
     { label: "Mes équipes", desc: "Les équipes dont tu fais partie", Icon: Users, href: "/teams" },
     { label: "Mes statistiques", desc: "Buts, cartons et matchs joués en compétition", Icon: BarChart3, href: "/stats" },
     { label: "Mercato", desc: "Trouve une équipe qui recrute près de chez toi", Icon: Store, href: "/mercato" },
-    { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck },
-    { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays },
+    { label: "Mes matchs & convocations", desc: "Réponds aux convocations et suis tes matchs", Icon: ClipboardCheck, href: "/participations" },
+    { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays, href: "/calendar" },
   ],
   manager: [
     { label: "Mon équipe", desc: "Effectif permanent, entraînements, palmarès", Icon: Users, href: "/teams" },
     { label: "Mes compétitions", desc: "Effectif engagé, rattachements et stats", Icon: Trophy, href: "/mon-equipe" },
     { label: "Mercato", desc: "Recrute des joueurs, gère shortlist et candidatures", Icon: Store, href: "/mercato" },
-    { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords },
+    { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords, href: "/matches" },
+    { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays, href: "/calendar" },
   ],
 };
 

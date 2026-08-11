@@ -1150,7 +1150,7 @@ export default function MatchDetailPage() {
               Gérer l'effectif
             </button>
             <button
-              onClick={() => router.push(`/referee-panel/matches/${id}/manage`)}
+              onClick={() => router.push(`/matches/${id}/manage`)}
               className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-[1.5rem] sm:rounded-[2rem] bg-emerald-500 text-white shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-90"
             >
               <Activity size={24} />
