@@ -633,7 +633,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         <div className="flex shrink-0 items-center justify-between gap-2 px-2 pt-2">
           <button
             onClick={() => router.push(returnHref)}
-            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
+            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
           >
             <ChevronLeft size={20} className="text-gray-400 group-hover:text-gray-900" />
           </button>
@@ -651,7 +651,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         {/* Team switch — mobile only. Carries each side's validation state,
             since only one sheet is visible at a time. */}
         {!rostersLoading && (
-          <div className="mx-2 mt-3 flex shrink-0 gap-1 rounded-2xl bg-gray-200/70 p-1 md:hidden">
+          <div className="mx-2 mt-3 flex shrink-0 gap-1 rounded-xl bg-gray-200/70 p-1 md:hidden">
             {([
               { side: "home" as Side, label: "Domicile", name: match.homeTeamName, ready: match.homeLineupReady },
               { side: "away" as Side, label: "Extérieur", name: match.awayTeamName, ready: match.awayLineupReady },
@@ -659,7 +659,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <button
                 key={t.side}
                 onClick={() => setSheetSide(t.side)}
-                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-black transition-colors ${
+                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-black transition-colors ${
                   sheetSide === t.side ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                 }`}
               >
@@ -676,7 +676,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             <p className="text-sm font-bold text-gray-400 italic">Chargement des effectifs...</p>
           </div>
         ) : (
-          <div className="grid flex-1 gap-5 px-1 py-3 md:grid-cols-2">
+          <div className="grid flex-1 gap-3 px-1 py-3 sm:gap-5 md:grid-cols-2">
             <div className={sheetSide === "home" ? "" : "hidden md:block"}>
               <LineupBuilder
                 side="home"
@@ -720,7 +720,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <button
             onClick={handleLaunch}
             disabled={!lineupsReady}
-            className="group relative inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-600 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-primary-300/40 transition-all hover:bg-primary-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
+            className="group relative inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary-600 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-primary-300/40 transition-all hover:bg-primary-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
           >
             <span className="relative">Coup d&apos;envoi</span>
             <Flame size={20} className="relative transition-transform group-hover:rotate-12 group-hover:scale-125" />
@@ -767,11 +767,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const showBack = isCompleted;
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-5xl space-y-7 overflow-y-auto bg-gray-50 pb-28 pt-safe lg:max-w-7xl">
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-4 overflow-y-auto bg-gray-50 pb-28 pt-safe sm:space-y-7 lg:max-w-7xl">
       {/* Sandbox banner — the console is otherwise indistinguishable from the
           real thing, and a trainee must never wonder whether it counts. */}
       {competition?.isSandbox && (
-        <div className="mx-2 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mx-2 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <GraduationCap size={18} className="mt-0.5 shrink-0 text-emerald-600" />
           <div className="min-w-0">
             <p className="text-sm font-black text-emerald-900">Mode entraînement</p>
@@ -789,14 +789,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         {showBack ? (
           <button
             onClick={() => router.push(returnHref)}
-            className="group flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
+            className="group flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
           >
             <ChevronLeft size={22} className="text-gray-400 group-hover:text-gray-900" />
           </button>
         ) : showQuit ? (
           <button
             onClick={handleQuit}
-            className="group flex h-11 items-center gap-2 rounded-2xl bg-white px-4 shadow-lg shadow-gray-200/60 transition-all hover:scale-105 active:scale-95"
+            className="group flex h-11 items-center gap-2 rounded-xl bg-white px-4 shadow-lg shadow-gray-200/60 transition-all hover:scale-105 active:scale-95"
           >
             <LogOut size={18} className="text-gray-400 group-hover:text-gray-900" />
             <span className="text-xs font-black uppercase tracking-wider text-gray-500 group-hover:text-gray-900">
@@ -831,13 +831,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       {/* Landscape layout on desktop: scoreboard + status controls on the
           left (sticky), scoring + events on the right. Mobile stays a
           single vertical column. */}
-      <div className="space-y-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-7 lg:space-y-0">
-      <div className="space-y-7 lg:sticky lg:top-6">
+      <div className="space-y-4 sm:space-y-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-7 lg:space-y-0">
+      <div className="space-y-4 sm:space-y-7 lg:sticky lg:top-6">
       {/* Scoreboard */}
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-3xl bg-[#0A0A0B] p-5 text-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] sm:rounded-[2.5rem] sm:p-10"
+        className="relative overflow-hidden rounded-xl bg-[#0A0A0B] p-4 text-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] sm:rounded-2xl sm:p-10"
       >
         <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[80%] -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.3),transparent)]" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-primary-500/10 blur-[100px]" />
@@ -845,10 +845,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
         <div className="relative z-10 grid grid-cols-3 items-center">
           {/* Home */}
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-2.5 sm:gap-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-2xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-[2rem] sm:text-3xl">
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-2xl sm:text-3xl">
                 {match.homeTeamName[0]}
               </div>
             </div>
@@ -856,7 +856,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <h2 className="mb-1 max-w-[120px] truncate text-xs font-black uppercase tracking-tight text-white/50">
                 {match.homeTeamName}
               </h2>
-              <div className="text-5xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
+              <div className="text-4xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
                 {match.scoreHome ?? 0}
               </div>
             </div>
@@ -864,28 +864,28 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
           {/* Center */}
           <div className="flex flex-col items-center">
-            <div className="mb-5 rounded-full border border-white/5 bg-white/10 px-5 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-primary-400 backdrop-blur-xl">
+            <div className="mb-3 rounded-full border border-white/5 bg-white/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-primary-400 backdrop-blur-xl sm:mb-5 sm:px-5 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]">
               {PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
             </div>
             <div className="relative flex flex-col items-center">
               <div className="absolute -inset-8 rounded-full bg-primary-500/10 blur-3xl" />
-              <div className="relative font-mono text-4xl font-black leading-none tracking-tighter tabular-nums text-primary-400 sm:text-[4.5rem]">
+              <div className="relative font-mono text-3xl font-black leading-none tracking-tighter tabular-nums text-primary-400 sm:text-[4.5rem]">
                 {formatTime(displayTime)}
               </div>
             </div>
             {!isCompleted && (match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3) && (
-              <div className="mt-5 flex gap-6 sm:mt-8">
+              <div className="mt-3.5 flex gap-6 sm:mt-8">
                 {match.liveState?.isTimerRunning ? (
                   <button
                     onClick={handlePauseTimer}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-[0_15px_30px_rgba(245,158,11,0.3)] transition-all hover:scale-110 hover:bg-amber-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-[1.75rem]"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-500 text-white shadow-[0_15px_30px_rgba(245,158,11,0.3)] transition-all hover:scale-110 hover:bg-amber-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-2xl"
                   >
                     <Pause size={24} fill="currentColor" />
                   </button>
                 ) : (
                   <button
                     onClick={handleStartTimer}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-500 text-white shadow-[0_15px_30px_rgba(37,99,235,0.3)] transition-all hover:scale-110 hover:bg-primary-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-[1.75rem]"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-white shadow-[0_15px_30px_rgba(37,99,235,0.3)] transition-all hover:scale-110 hover:bg-primary-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-2xl"
                   >
                     <Play size={24} fill="currentColor" className="ml-1" />
                   </button>
@@ -895,10 +895,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           </div>
 
           {/* Away */}
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-2.5 sm:gap-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-2xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-[2rem] sm:text-3xl">
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-2xl sm:text-3xl">
                 {match.awayTeamName[0]}
               </div>
             </div>
@@ -906,7 +906,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <h2 className="mb-1 max-w-[120px] truncate text-xs font-black uppercase tracking-tight text-white/50">
                 {match.awayTeamName}
               </h2>
-              <div className="text-5xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
+              <div className="text-4xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
                 {match.scoreAway ?? 0}
               </div>
             </div>
@@ -924,9 +924,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       {!isCompleted && (
         <>
           {/* Lock banner */}
-          <div className="flex items-center justify-between rounded-3xl bg-amber-500 p-4 text-white shadow-xl shadow-amber-500/20">
+          <div className="flex items-center justify-between rounded-lg bg-amber-500 p-3 text-white shadow-xl shadow-amber-500/20 sm:rounded-xl sm:p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
                 <Shield size={20} />
               </div>
               <div>
@@ -937,8 +937,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           </div>
 
           {/* Workflow */}
-          <div className="rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/50">
-            <div className="mb-5 flex items-center gap-3">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/50 sm:rounded-2xl sm:p-7">
+            <div className="mb-3.5 flex items-center gap-3 sm:mb-5">
               <Clock className="text-gray-400" size={18} />
               <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Déroulé</h3>
             </div>
@@ -947,7 +947,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <button
                   onClick={handleHalfTime}
                   disabled={isSubmitting}
-                  className="group flex w-full items-center justify-between rounded-2xl bg-gray-900 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                  className="group flex w-full items-center justify-between rounded-lg bg-gray-900 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
                 >
                   <span>Mi-temps</span>
                   <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
@@ -957,7 +957,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <button
                   onClick={handleResume}
                   disabled={isSubmitting}
-                  className="group flex w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-4 text-sm font-bold text-white transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50"
+                  className="group flex w-full items-center justify-between rounded-lg bg-primary-600 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50"
                 >
                   <span>Reprise (2e mi-temps)</span>
                   <Play size={18} fill="currentColor" />
@@ -967,7 +967,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <button
                   onClick={handleFinishClick}
                   disabled={isSubmitting}
-                  className="flex w-full items-center justify-between rounded-2xl border-2 border-red-50 bg-red-50/50 px-5 py-4 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+                  className="flex w-full items-center justify-between rounded-lg border-2 border-red-50 bg-red-50/50 px-4 py-3 text-sm font-bold text-red-600 sm:px-5 sm:py-4 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   <span>Fin du match</span>
                   <CheckCircle2 size={20} />
@@ -980,12 +980,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       </div>
 
       {/* Right column: scoring + events (or the completed summary) */}
-      <div className="space-y-7">
+      <div className="space-y-4 sm:space-y-7">
       {isCompleted ? (
         /* ----- Read-only completed summary ----- */
-        <div className="rounded-[2rem] border border-gray-100 bg-white p-8 shadow-xl shadow-gray-200/40">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/40 sm:rounded-2xl sm:p-8">
+          <div className="mb-4 flex items-center gap-3 sm:mb-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <CheckCircle2 size={22} />
             </div>
             <div>
@@ -1000,7 +1000,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       ) : (
         <>
           {/* Scoring controls */}
-          <div className="grid gap-5 px-1 md:grid-cols-2">
+          <div className="grid gap-3 px-1 sm:gap-5 md:grid-cols-2">
             <TeamScoringCard
               teamName={match.homeTeamName}
               accent="primary"
@@ -1024,8 +1024,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           </div>
 
           {/* Events */}
-          <div className="rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/50">
-            <div className="mb-6 flex items-center justify-between">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/50 sm:rounded-2xl sm:p-7">
+            <div className="mb-4 flex items-center justify-between sm:mb-6">
               <div className="flex items-center gap-3">
                 <History className="text-gray-400" size={18} />
                 <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Événements</h3>
@@ -1089,10 +1089,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 shadow-2xl"
+              className="relative w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-8"
             >
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+              <div className="mb-4 flex items-center gap-3 sm:mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                   <Trophy size={20} />
                 </div>
                 <div>
@@ -1111,7 +1111,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                     min={0}
                     value={penaltyHome}
                     onChange={(e) => setPenaltyHome(e.target.value)}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-primary-500"
+                    className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-primary-500"
                   />
                 </label>
                 <label className="flex flex-col gap-2">
@@ -1123,7 +1123,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                     min={0}
                     value={penaltyAway}
                     onChange={(e) => setPenaltyAway(e.target.value)}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-primary-500"
+                    className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-primary-500"
                   />
                 </label>
               </div>
@@ -1131,7 +1131,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <button
                 onClick={handlePenaltySubmit}
                 disabled={isSubmitting}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Terminer le match"}
               </button>
@@ -1184,7 +1184,7 @@ function LineupBuilder({
   const subs = roster.filter((p) => sheet[p.id] === "substitute").length;
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/40 sm:p-7">
+    <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/40 sm:rounded-2xl sm:p-7">
       {/* Side label and team name are already in the mobile tab above, so
           they only appear from md up where both sheets show at once. */}
       <div className="mb-1 hidden items-center justify-between md:flex">
@@ -1202,7 +1202,7 @@ function LineupBuilder({
       </h2>
 
       {roster.length === 0 ? (
-        <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
+        <div className="mt-4 rounded-xl border-2 border-dashed border-gray-200 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
           Effectif vide — ajoute les joueurs dans la config de l&apos;équipe
         </div>
       ) : (
@@ -1223,7 +1223,7 @@ function LineupBuilder({
                 <button
                   key={p.id}
                   onClick={() => onToggle(p.id)}
-                  className={`flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
                     role === "out"
                       ? "border-gray-100 bg-gray-50/50 hover:border-gray-200"
                       : role === "starter"
@@ -1231,7 +1231,7 @@ function LineupBuilder({
                         : "border-sky-500/30 bg-sky-50/60"
                   }`}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-gray-900 shadow-sm">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-gray-900 shadow-sm">
                     {p.number || p.name[0]?.toUpperCase()}
                   </span>
                   <span className="flex-1 truncate text-sm font-bold text-gray-900">{p.name}</span>
@@ -1243,7 +1243,7 @@ function LineupBuilder({
           <button
             onClick={onValidate}
             disabled={saving}
-            className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 ${validateCls}`}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 ${validateCls}`}
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : ready ? "Mettre à jour la feuille" : "Valider la feuille"}
           </button>
@@ -1316,14 +1316,14 @@ function TeamScoringCard({
       : "bg-amber-500 hover:bg-amber-600 shadow-amber-200";
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-7 shadow-xl shadow-gray-200/40">
+    <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/40 sm:rounded-2xl sm:p-7">
       <h3 className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
         {accent === "primary" ? "Domicile" : "Extérieur"}
       </h3>
       <h2 className="mb-6 max-w-full truncate text-lg font-black tracking-tight text-gray-900">{teamName}</h2>
 
       {disabled ? (
-        <div className="rounded-2xl border-2 border-dashed border-gray-200 px-4 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-300">
+        <div className="rounded-xl border-2 border-dashed border-gray-200 px-4 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-300">
           Feuille de match vide
         </div>
       ) : (
@@ -1331,7 +1331,7 @@ function TeamScoringCard({
           <button
             onClick={onGoal}
             disabled={goalCooldown > 0}
-            className={`flex w-full items-center justify-center gap-3 rounded-2xl py-6 text-lg font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${goalCls}`}
+            className={`flex w-full items-center justify-center gap-3 rounded-lg py-4 text-base font-black uppercase tracking-widest text-white shadow-lg sm:py-6 sm:text-lg transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${goalCls}`}
           >
             <Goal size={24} />
             {goalCooldown > 0 ? `Buts dans ${goalCooldown}s` : "+1 BUT"}
@@ -1339,14 +1339,14 @@ function TeamScoringCard({
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
               onClick={onYellow}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex items-center justify-center gap-2 rounded-lg bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
             >
               <span className="h-4 w-3 rounded-sm border border-amber-500/20 bg-amber-400" />
               Jaune
             </button>
             <button
               onClick={onRed}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex items-center justify-center gap-2 rounded-lg bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
             >
               <span className="h-4 w-3 rounded-sm border border-red-700/20 bg-red-600" />
               Rouge
@@ -1354,7 +1354,7 @@ function TeamScoringCard({
           </div>
           <button
             onClick={onSub}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-100 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-95"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-gray-100 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-95"
           >
             <ArrowRightLeft size={16} />
             Remplacement
@@ -1404,7 +1404,7 @@ function PlayerPickerModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md rounded-[2rem] bg-white p-7 shadow-2xl"
+        className="relative w-full max-w-md rounded-xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-7"
       >
         <button
           onClick={onClose}
@@ -1425,9 +1425,9 @@ function PlayerPickerModal({
               key={entry.playerId}
               disabled={isSubmitting}
               onClick={() => onPick(entry)}
-              className="group flex items-center gap-3 rounded-2xl border-2 border-gray-100 bg-gray-50/50 px-4 py-3 text-left transition-all hover:border-primary-500 hover:bg-white active:scale-95 disabled:opacity-50"
+              className="group flex items-center gap-3 rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-3 text-left transition-all hover:border-primary-500 hover:bg-white active:scale-95 disabled:opacity-50"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-900 text-sm font-black text-white">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-sm font-black text-white">
                 {entry.number || entry.name[0]?.toUpperCase()}
               </span>
               <span className="min-w-0 flex-1">
@@ -1504,10 +1504,10 @@ function SubstitutionModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md rounded-[2rem] bg-white p-8 shadow-2xl"
+        className="relative w-full max-w-md rounded-xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-8"
       >
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-900 text-white">
+        <div className="mb-4 flex items-center gap-3 sm:mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900 text-white">
             <ArrowRightLeft size={20} />
           </div>
           <div>
@@ -1524,7 +1524,7 @@ function SubstitutionModal({
             <select
               value={subOut}
               onChange={(e) => setSubOut(e.target.value)}
-              className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-red-500"
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-red-500"
             >
               <option value="">Sélectionner...</option>
               {starters.map((e) => (
@@ -1549,7 +1549,7 @@ function SubstitutionModal({
             <select
               value={subIn}
               onChange={(e) => setSubIn(e.target.value)}
-              className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-emerald-500"
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-emerald-500"
             >
               <option value="">Sélectionner...</option>
               {substitutes.map((e) => (
@@ -1564,7 +1564,7 @@ function SubstitutionModal({
           <button
             onClick={onSubmit}
             disabled={!subOut || !subIn || isSubmitting}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Valider le changement"}
           </button>
@@ -1599,7 +1599,7 @@ function EventTimeline({
   }
 
   return (
-    <div className="custom-scrollbar max-h-[350px] space-y-4 overflow-y-auto pr-2">
+    <div className="custom-scrollbar max-h-[350px] space-y-3 overflow-y-auto pr-2 sm:space-y-4">
       {[...events].reverse().map((event) => {
         const isHome = event.teamId === homeTeamId;
         const isSub = event.type === "substitution";
@@ -1608,9 +1608,9 @@ function EventTimeline({
             key={event.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="group flex items-center gap-5"
+            className="group flex items-center gap-3.5 sm:gap-5"
           >
-            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 text-xs font-black shadow-sm">
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-xs font-black shadow-sm">
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
               {event.minute ? `${event.minute}'` : "—"}
             </div>

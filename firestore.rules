@@ -47,6 +47,53 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) && request.auth.uid in get(p).data.get('moderator_ids', []);
     }
 
+    // ── Staff access codes ────────────────────────────────
+    // A redeemed code writes competitions/{cid}/staff_grants/{uid}. That doc
+    // is what lets a volunteer with no role on the platform run the live
+    // console — but only on the matches its `scope` names, only until it
+    // expires, and only until the organizer revokes it. Grants are written by
+    // the admin SDK exclusively (see the write rule below), so what is read
+    // here can be trusted.
+
+    function staffGrantOf(cid) {
+      let p = /databases/$(database)/documents/competitions/$(cid)/staff_grants/$(request.auth.uid);
+      return isAuthenticated() && exists(p) ? get(p).data : null;
+    }
+
+    function grantIsLive(g) {
+      return g != null
+        && g.get('revoked', false) == false
+        && (g.get('expires_at_ms', null) == null
+            || request.time.toMillis() < g.get('expires_at_ms', 0));
+    }
+
+    // What the winner of `srcMid` feeds into. A match-scoped grant has to be
+    // able to write that one other document: finishing a knockout match pushes
+    // the winner into the next round, and without this the console would save
+    // the result and then fail half-way.
+    function feedsInto(cid, srcMid) {
+      let p = /databases/$(database)/documents/competitions/$(cid)/comp_matches/$(srcMid);
+      return exists(p) ? get(p).data.get('feeds_into_match_id', null) : null;
+    }
+
+    // Reads `resource.data` — the match being written, which exists because
+    // grants are only ever consulted on update, never on create.
+    function grantCoversMatch(cid, mid, g) {
+      let scope = g.get('scope', {});
+      let kind = scope.get('kind', '');
+      return kind == 'competition'
+        || (kind == 'stage' && resource.data.stage == scope.get('stage', ''))
+        || (kind == 'group' && resource.data.get('group', null) == scope.get('group', ''))
+        || (kind == 'match'
+            && (scope.get('match_id', '') == mid
+                || feedsInto(cid, scope.get('match_id', '')) == mid));
+    }
+
+    function hasStaffGrantFor(cid, mid) {
+      let g = staffGrantOf(cid);
+      return grantIsLive(g) && grantCoversMatch(cid, mid, g);
+    }
+
     function isTeamManagerOf(cid, tid) {
       let p = /databases/$(database)/documents/competitions/$(cid)/comp_teams/$(tid);
       return isAuthenticated() && exists(p)
@@ -367,8 +414,35 @@ service cloud.firestore {
       }
       match /comp_matches/{mid} {
         allow read: if true;
-        allow write: if isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin();
+        // Creating and deleting matches is shaping the competition itself —
+        // that stays with the organizer and the moderators they named.
+        allow create, delete: if isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin();
+        // Updating is what covering a match means (score, clock, events), so
+        // it also opens to a live, in-scope access-code holder.
+        allow update: if isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin()
+                      || hasStaffGrantFor(cid, mid);
       }
+
+      // Access-code grants. Written by the API only: the admin SDK bypasses
+      // rules, so denying every client write here means a holder can neither
+      // widen their own scope nor un-revoke themselves.
+      match /staff_grants/{gid} {
+        allow read: if isOrganizerOf(cid) || isSuperAdmin()
+                    || (isAuthenticated() && resource.data.uid == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
+    // A code is a secret. It is readable through the organizer API and
+    // nowhere else — never by a client, not even the organizer's browser.
+    match /staff_codes/{code} {
+      allow read, write: if false;
+    }
+
+    // Collection-group read of the grants — the live space asks "which
+    // competitions did I redeem a code for?" and can only ever see its own.
+    match /{path=**}/staff_grants/{gid} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
     // Collection-group read of comp_teams — the manager's "Mon équipe" screen

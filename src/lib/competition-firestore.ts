@@ -31,6 +31,7 @@ import type {
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
+import { listGrantedCompetitionIds } from "./staff-access";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -187,22 +188,36 @@ export async function getSandboxCompetition(uid: string): Promise<Competition | 
 }
 
 /**
- * Competitions the user can act on as staff: those they moderate plus those
- * they organize (a user may be both). Two `array-contains` queries — neither
- * uses `orderBy`, so no composite index is required (array-contains is
- * auto-indexed). Results are merged, de-duped by id, and sorted by `createdAt`
+ * Competitions the user can act on as staff: those they moderate, those they
+ * organize (a user may be both), and those where they redeemed an access code.
+ * Two `array-contains` queries — neither uses `orderBy`, so no composite index
+ * is required (array-contains is auto-indexed) — plus a collection-group read
+ * of the grants. Results are merged, de-duped by id, and sorted by `createdAt`
  * desc in memory.
  */
 export async function listModeratedCompetitions(uid: string): Promise<Competition[]> {
-  const [modSnap, orgSnap] = await Promise.all([
+  const [modSnap, orgSnap, grantedIds] = await Promise.all([
     getDocs(query(collection(db, "competitions"), where("moderator_ids", "array-contains", uid))),
     getDocs(query(collection(db, "competitions"), where("organizer_ids", "array-contains", uid))),
+    listGrantedCompetitionIds(uid),
   ]);
 
   const byId = new Map<string, Competition>();
   for (const d of [...modSnap.docs, ...orgSnap.docs]) {
     if (!byId.has(d.id)) {
       byId.set(d.id, toCompetition(d.id, d.data() as FirestoreCompetition));
+    }
+  }
+
+  // Code holders are not in either array, so their competitions are fetched
+  // one by one — a volunteer holds one or two codes, never a hundred.
+  const missing = grantedIds.filter((id) => !byId.has(id));
+  if (missing.length > 0) {
+    const snaps = await Promise.all(missing.map((id) => getDoc(doc(db, "competitions", id))));
+    for (const snap of snaps) {
+      if (snap.exists()) {
+        byId.set(snap.id, toCompetition(snap.id, snap.data() as FirestoreCompetition));
+      }
     }
   }
 

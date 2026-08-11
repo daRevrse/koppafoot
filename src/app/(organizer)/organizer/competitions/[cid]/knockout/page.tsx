@@ -7,7 +7,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   GitBranch, ArrowLeft, Loader2, Sparkles, ChevronRight, Pencil, Check, X, Trophy, Goal,
-  Users, AlertTriangle, Trash2, PenLine,
+  Users, AlertTriangle, Trash2, PenLine, CalendarClock, MapPin, Save,
 } from "lucide-react";
 import {
   onCompetition,
@@ -16,6 +16,7 @@ import {
   generateKnockout,
   updateCompMatch,
   updateCompetition,
+  scheduleCompMatch,
   computeStandings,
   createKnockoutBracket,
   clearKnockoutBracket,
@@ -60,6 +61,22 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
   final: "Finale",
   third_place: "Petite finale",
 };
+
+/** "sam. 11 août · 16:00 · Stade X" — empty string when nothing is scheduled. */
+function formatSlot(match: CompMatch): string {
+  const parts: string[] = [];
+  if (match.date) {
+    const d = new Date(`${match.date}T00:00`);
+    parts.push(
+      Number.isNaN(d.getTime())
+        ? match.date
+        : d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }),
+    );
+  }
+  if (match.time) parts.push(match.time);
+  if (match.venueName) parts.push(match.venueName);
+  return parts.join(" · ");
+}
 
 // A team slot shows the team once one is seated. Until then it shows where the
 // place comes from ("1er poule A") when the organizer has drawn it, and falls
@@ -247,6 +264,12 @@ export default function CompetitionKnockoutPage() {
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
+  // Date / heure / lieu of one bracket match. A knockout match is scheduled
+  // before its two teams are known — the tournament calendar is fixed first,
+  // the qualifiers arrive later — so this never waits on a seated team.
+  const [scheduleMatch, setScheduleMatch] = useState<CompMatch | null>(null);
+  const [slotForm, setSlotForm] = useState({ date: "", time: "", venueName: "", venueCity: "" });
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   // Group matches are kept alongside the knockout ones: the standings they
   // produce are what every slot source resolves against.
@@ -430,6 +453,89 @@ export default function CompetitionKnockoutPage() {
     }
   };
 
+  // ── Scheduling ────────────────────────────────────────────
+  // A venue clash does not care about the stage: a quarter-final and a group
+  // match cannot share a pitch at the same hour, so both are checked.
+  const allMatches = useMemo(() => [...groupMatches, ...matches], [groupMatches, matches]);
+
+  /** Slots already booked at that venue, other matches only. */
+  const takenSlotsFor = (venue: string, exceptId: string): string[] => {
+    const v = venue.trim().toLowerCase();
+    if (!v) return [];
+    return allMatches
+      .filter(
+        (m) =>
+          m.id !== exceptId &&
+          (m.venueName ?? "").trim().toLowerCase() === v &&
+          m.date &&
+          m.time,
+      )
+      .map((m) => `${m.date} ${m.time}`)
+      .sort((a, b) => a.localeCompare(b));
+  };
+
+  /** True when another match already holds this venue + date + time. */
+  const hasSlotClash = (m: CompMatch): boolean => {
+    const venue = (m.venueName ?? "").trim().toLowerCase();
+    if (!venue || !m.date || !m.time) return false;
+    return allMatches.some(
+      (other) =>
+        other.id !== m.id &&
+        (other.venueName ?? "").trim().toLowerCase() === venue &&
+        (other.date ?? "").trim() === m.date &&
+        (other.time ?? "").trim() === m.time,
+    );
+  };
+
+  const openSchedule = (m: CompMatch) => {
+    setScheduleMatch(m);
+    setSlotForm({
+      date: m.date ?? "",
+      time: m.time ?? "",
+      venueName: m.venueName ?? "",
+      venueCity: m.venueCity ?? "",
+    });
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!scheduleMatch) return;
+    const venue = slotForm.venueName.trim().toLowerCase();
+    const date = slotForm.date.trim();
+    const time = slotForm.time.trim();
+    if (venue && date && time) {
+      const clash = allMatches.some(
+        (m) =>
+          m.id !== scheduleMatch.id &&
+          (m.venueName ?? "").trim().toLowerCase() === venue &&
+          (m.date ?? "").trim() === date &&
+          (m.time ?? "").trim() === time,
+      );
+      if (
+        clash &&
+        !window.confirm("Ce créneau (stade + date + heure) est déjà pris. Enregistrer quand même ?")
+      ) {
+        return;
+      }
+    }
+
+    setSavingSchedule(true);
+    try {
+      await scheduleCompMatch(cid, scheduleMatch.id, {
+        date: slotForm.date,
+        time: slotForm.time,
+        venueName: slotForm.venueName,
+        venueCity: slotForm.venueCity,
+      });
+      toast.success("Date et lieu enregistrés");
+      setScheduleMatch(null);
+    } catch (err) {
+      console.error("Error scheduling knockout match:", err);
+      toast.error("Impossible d'enregistrer la date");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     try {
@@ -583,6 +689,49 @@ export default function CompetitionKnockoutPage() {
           {renderSlot("home")}
           {renderSlot("away")}
         </div>
+
+        {/* Date, heure, lieu — settable before the two teams are known */}
+        {(() => {
+          const slot = formatSlot(match);
+          const clash = hasSlotClash(match);
+          return (
+            <button
+              type="button"
+              onClick={() => openSchedule(match)}
+              className={`group flex w-full items-center gap-2 border-t px-4 py-2 text-left transition-colors ${
+                clash
+                  ? "border-amber-100 bg-amber-50/60 hover:bg-amber-50"
+                  : "border-gray-50 hover:bg-gray-50/70"
+              }`}
+            >
+              <CalendarClock
+                size={13}
+                className={`shrink-0 ${clash ? "text-amber-500" : slot ? "text-purple-500" : "text-gray-300"}`}
+              />
+              <span
+                className={`min-w-0 flex-1 truncate text-xs ${
+                  slot ? "font-semibold text-gray-600" : "font-medium italic text-gray-400"
+                }`}
+              >
+                {slot || "Aucune date"}
+                {match.venueCity && <span className="font-normal text-gray-400"> ({match.venueCity})</span>}
+              </span>
+              {clash && (
+                <span
+                  title="Créneau déjà pris (stade + date + heure)"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
+                >
+                  <AlertTriangle size={10} />
+                  Conflit
+                </span>
+              )}
+              <Pencil
+                size={11}
+                className="shrink-0 text-gray-300 transition-colors group-hover:text-purple-600"
+              />
+            </button>
+          );
+        })()}
 
         {/* Footer: status + live console link */}
         <div className="flex items-center justify-between gap-2 border-t border-gray-50 bg-gray-50/60 px-4 py-2">
@@ -886,6 +1035,116 @@ export default function CompetitionKnockoutPage() {
           </motion.div>
         </div>
       )}
+
+      {/* Date / heure / lieu of one bracket match */}
+      {scheduleMatch && (() => {
+        const sideLabel = (side: "home" | "away") => {
+          const name = side === "home" ? scheduleMatch.homeTeamName : scheduleMatch.awayTeamName;
+          if (name) return name;
+          const source = side === "home" ? scheduleMatch.homeSource : scheduleMatch.awaySource;
+          return source ? describeBracketSlotSource(source) : "À déterminer";
+        };
+        const taken = takenSlotsFor(slotForm.venueName, scheduleMatch.id).filter(
+          (s) => s !== `${slotForm.date.trim()} ${slotForm.time.trim()}`,
+        );
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-gray-900">Date et lieu</h2>
+                <button
+                  onClick={() => !savingSchedule && setScheduleMatch(null)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="mb-5 text-xs text-gray-400">
+                {scheduleMatch.round ? `${ROUND_LABELS[scheduleMatch.round]} · ` : ""}
+                {sideLabel("home")} vs {sideLabel("away")}
+              </p>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                    <input
+                      type="date"
+                      value={slotForm.date}
+                      onChange={(e) => setSlotForm((p) => ({ ...p, date: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Heure</label>
+                    <input
+                      type="time"
+                      value={slotForm.time}
+                      onChange={(e) => setSlotForm((p) => ({ ...p, time: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Stade</label>
+                  <input
+                    type="text"
+                    placeholder="Nom du stade"
+                    value={slotForm.venueName}
+                    onChange={(e) => setSlotForm((p) => ({ ...p, venueName: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                  />
+                  {taken.length > 0 && (
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                      <span className="font-semibold text-gray-500">Créneaux déjà pris :</span>{" "}
+                      {taken.slice(0, 6).join(" · ")}
+                      {taken.length > 6 ? " …" : ""}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-sm font-medium text-gray-700">
+                    <MapPin size={13} />
+                    Ville
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Lomé"
+                    value={slotForm.venueCity}
+                    onChange={(e) => setSlotForm((p) => ({ ...p, venueCity: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => !savingSchedule && setScheduleMatch(null)}
+                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSchedule}
+                  disabled={savingSchedule}
+                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {savingSchedule ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Enregistrer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
 
       {/* Score + scorers modal — shared with the calendar */}
       <MatchResultModal

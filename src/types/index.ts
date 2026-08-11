@@ -1232,3 +1232,96 @@ export interface CompMatch {
   createdAt: string;
   updatedAt: string;
 }
+
+// ============================================
+// Staff access codes
+//
+// An organizer hands a volunteer a short code instead of an e-mail invite:
+// the volunteer may not have a KoppaFoot account, and often only covers one
+// poule or one match. Redeeming a code writes a GRANT under the competition,
+// and that grant is what Firestore rules check on every live write — so the
+// access is scoped, expirable and revocable, unlike `moderator_ids` which is
+// all-or-nothing for the whole competition.
+// ============================================
+
+/** What a code (and the grant it produces) unlocks. */
+export type StaffScope =
+  | { kind: "competition" }
+  | { kind: "stage"; stage: CompMatchStage }
+  | { kind: "group"; group: string }
+  | { kind: "match"; matchId: string; matchLabel: string };
+
+export type FirestoreStaffScope =
+  | { kind: "competition" }
+  | { kind: "stage"; stage: CompMatchStage }
+  | { kind: "group"; group: string }
+  | { kind: "match"; match_id: string; match_label: string };
+
+/**
+ * A code, at `staff_codes/{CODE}`. Deliberately NOT client-readable: a code is
+ * a secret, so it only ever travels through the API to an organizer of its
+ * competition.
+ */
+export interface FirestoreStaffCode {
+  competition_id: string;
+  competition_name: string;
+  /** Who the organizer wrote it for — "Kodjo (poule A)". */
+  label: string;
+  scope: FirestoreStaffScope;
+  created_by: string;
+  created_at: string;
+  /** ISO date-time, or null for "until revoked". */
+  expires_at: string | null;
+  revoked: boolean;
+  used_count: number;
+  last_used_at: string | null;
+}
+
+export interface StaffCode extends Omit<
+  FirestoreStaffCode,
+  "competition_id" | "competition_name" | "created_by" | "created_at" | "expires_at" | "used_count" | "last_used_at" | "scope"
+> {
+  /** The code itself — the document id. */
+  code: string;
+  competitionId: string;
+  competitionName: string;
+  scope: StaffScope;
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string | null;
+  usedCount: number;
+  lastUsedAt: string | null;
+}
+
+/**
+ * A redeemed code, at `competitions/{cid}/staff_grants/{uid}`. Written by the
+ * API only (rules deny every client write) and read by the holder, by the
+ * organizer, and by the rules that guard live writes.
+ */
+export interface FirestoreStaffGrant {
+  uid: string;
+  /** Denormalized so the staff list needs no user lookup. */
+  name: string;
+  code: string;
+  label: string;
+  scope: FirestoreStaffScope;
+  granted_at: string;
+  /**
+   * Epoch milliseconds, not an ISO string: security rules cannot parse a
+   * string into a timestamp, but they can compare
+   * `request.time.toMillis() < expires_at_ms`.
+   */
+  expires_at_ms: number | null;
+  revoked: boolean;
+}
+
+export interface StaffGrant {
+  uid: string;
+  name: string;
+  code: string;
+  label: string;
+  scope: StaffScope;
+  grantedAt: string;
+  expiresAt: string | null;
+  revoked: boolean;
+}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
-import type { FirestoreCompetition } from "@/types";
+import type { FirestoreCompetition, FirestoreStaffGrant } from "@/types";
 
 /**
  * POST /api/notifications/competition
@@ -12,9 +12,9 @@ import type { FirestoreCompetition } from "@/types";
  * Body: { cid: string; title: string; body: string; link?: string }
  *
  * Authorization: Bearer id token; the caller must be an organizer OR a
- * moderator of THAT competition, or a superadmin — the same people allowed
- * to operate the live console. Checked against the server-loaded competition
- * doc, never trusting the client.
+ * moderator of THAT competition, hold a live staff grant on it, or be a
+ * superadmin — the same people allowed to operate the live console. Checked
+ * against the server-loaded documents, never trusting the client.
  *
  * Fire-and-forget from the console: failures here must never block the
  * live flow, so the handler degrades to per-user catch + a count response.
@@ -57,9 +57,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, followers: 0, sent: 0, sandbox: true });
     }
 
-    const isStaff =
+    let isStaff =
       (competition.organizer_ids ?? []).includes(callerUid) ||
       (competition.moderator_ids ?? []).includes(callerUid);
+    if (!isStaff) {
+      // Access-code holders run the console too — without this, every goal
+      // they enter would reach the scoreboard but never the followers' phones.
+      const grantSnap = await adminDb
+        .collection("competitions")
+        .doc(cid)
+        .collection("staff_grants")
+        .doc(callerUid)
+        .get();
+      const grant = grantSnap.data() as FirestoreStaffGrant | undefined;
+      isStaff =
+        grant != null &&
+        grant.revoked !== true &&
+        (grant.expires_at_ms == null || grant.expires_at_ms > Date.now());
+    }
     if (!isStaff) {
       const callerDoc = await adminDb.collection("users").doc(callerUid).get();
       const isSuperadmin = callerDoc.exists && callerDoc.data()?.user_type === "superadmin";

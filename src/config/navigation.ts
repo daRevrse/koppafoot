@@ -115,10 +115,13 @@ export interface BottomNavItem {
   exact?: boolean;
 }
 
+// La Tribune is deliberately absent here: on mobile it lives in the header,
+// next to the notification bell, so the tab bar keeps room for the role
+// spaces (organisateur / live / évolution) that used to be buried in the
+// profile sheet.
 export const MEMBER_BOTTOM: BottomNavItem[] = [
   { path: "/", icon: "Activity", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
-  { path: "/feed", icon: "MessageCircle", label: "Tribune" },
 ];
 
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {

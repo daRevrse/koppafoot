@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
-  Rocket, Briefcase, UserPlus, Check, Radio,
+  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -33,20 +33,6 @@ function AvatarBottomSheet({
   const { user, logout } = useAuth();
   const router = useRouter();
   const [inviteCopied, setInviteCopied] = useState(false);
-  // Same signal as the desktop sidebar: without it /live-ops was unreachable
-  // on mobile, so a moderator had to switch to a laptop to cover a match.
-  const [moderatesUid, setModeratesUid] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open || !user) return;
-    let cancelled = false;
-    listModeratedCompetitions(user.uid)
-      .then((comps) => {
-        if (!cancelled && comps.length > 0) setModeratesUid(user.uid);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [open, user]);
 
   const handleLogout = useCallback(async () => {
     onClose();
@@ -63,14 +49,6 @@ function AvatarBottomSheet({
   }, [user?.firstName]);
 
   if (!open || !user) return null;
-
-  // Évolution entry: label follows the activated role.
-  const evolution =
-    user.evolutionRole === "player"
-      ? { label: "Espace joueur", Icon: User }
-      : user.evolutionRole === "manager"
-        ? { label: "Espace manager", Icon: Briefcase }
-        : { label: "Évolution", Icon: Rocket };
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const profileUrl = "/profile";
@@ -135,14 +113,6 @@ function AvatarBottomSheet({
               <User size={18} className="text-emerald-400" />
               Mon profil
             </Link>
-            <Link
-              href="/evolution"
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-            >
-              <evolution.Icon size={18} className="text-emerald-400" />
-              {evolution.label}
-            </Link>
             <button
               onClick={handleInvite}
               className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
@@ -154,36 +124,6 @@ function AvatarBottomSheet({
               )}
               {inviteCopied ? "Lien copié !" : "Inviter un ami"}
             </button>
-            {(user.userType === "organizer" || user.userType === "superadmin") && (
-              <Link
-                href="/organizer"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-              >
-                <ClipboardList size={18} className="text-emerald-400" />
-                Espace organisateur
-              </Link>
-            )}
-            {moderatesUid === user.uid && (
-              <Link
-                href="/live-ops"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-              >
-                <Radio size={18} className="text-emerald-400" />
-                Espace live
-              </Link>
-            )}
-            {user.userType === "superadmin" && (
-              <Link
-                href="/admin"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-              >
-                <Shield size={18} className="text-emerald-400" />
-                Administration
-              </Link>
-            )}
           </div>
 
           {/* Divider */}
@@ -205,11 +145,139 @@ function AvatarBottomSheet({
   );
 }
 
+// ─── Spaces Bottom Sheet ─────────────────────────────────────
+// The role spaces used to hang at the bottom of the profile sheet, three taps
+// deep. They now have their own tab — the one the Tribune freed when it moved
+// up to the header — and the same sheet styling as the profile button.
+function SpacesSheet({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { user } = useAuth();
+  // Same signal as the desktop sidebar: without it /live-ops was unreachable
+  // on mobile, so a moderator had to switch to a laptop to cover a match.
+  const [moderates, setModerates] = useState(false);
+
+  useEffect(() => {
+    if (!open || !user) return;
+    let cancelled = false;
+    listModeratedCompetitions(user.uid)
+      .then((comps) => {
+        if (!cancelled) setModerates(comps.length > 0);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, user]);
+
+  if (!open || !user) return null;
+
+  // Évolution entry: label follows the activated role.
+  const evolution =
+    user.evolutionRole === "player"
+      ? { label: "Espace joueur", hint: "Ton profil sportif et tes stats", Icon: User }
+      : user.evolutionRole === "manager"
+        ? { label: "Espace manager", hint: "Ton équipe et tes joueurs", Icon: Briefcase }
+        : { label: "Évolution", hint: "Choisis ton rôle sur KoppaFoot", Icon: Rocket };
+
+  const spaces: { href: string; label: string; hint: string; Icon: typeof User }[] = [
+    { href: "/evolution", ...evolution },
+  ];
+  if (user.userType === "organizer" || user.userType === "superadmin") {
+    spaces.push({
+      href: "/organizer",
+      label: "Espace organisateur",
+      hint: "Tes compétitions, calendriers et équipes",
+      Icon: ClipboardList,
+    });
+  }
+  if (moderates) {
+    spaces.push({
+      href: "/live-ops",
+      label: "Espace live",
+      hint: "Saisir les matchs en direct",
+      Icon: Radio,
+    });
+  }
+  if (user.userType === "superadmin") {
+    spaces.push({
+      href: "/admin",
+      label: "Administration",
+      hint: "Utilisateurs, contenu et système",
+      Icon: Shield,
+    });
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-fade-in"
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div className="fixed inset-x-0 bottom-0 z-[70] animate-slide-up">
+        <div className="mx-2 mb-2 overflow-hidden rounded-2xl border border-white/10 bg-emerald-950/95 shadow-2xl backdrop-blur-xl">
+          {/* Handle bar */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="h-1 w-10 rounded-full bg-white/20" />
+          </div>
+
+          {/* Title */}
+          <div className="flex items-center gap-3 px-5 py-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-emerald-800 ring-2 ring-emerald-400/30">
+              <LayoutGrid size={20} className="text-emerald-300" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-white">Mes espaces</p>
+              <p className="truncate text-xs text-emerald-400/70">
+                Change de casquette sans quitter l&apos;app
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white/40 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="mx-5 h-px bg-white/10" />
+
+          {/* Spaces */}
+          <div className="p-2 pb-safe">
+            {spaces.map(({ href, label, hint, Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <Icon size={18} className="flex-shrink-0 text-emerald-400" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{label}</span>
+                  <span className="block truncate text-xs font-normal text-white/40">{hint}</span>
+                </span>
+                <ChevronRight size={16} className="flex-shrink-0 text-white/25" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────
 export default function MobileBottomNav() {
   const { user } = useAuth();
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [spacesOpen, setSpacesOpen] = useState(false);
   const badgeCounts: Record<string, number> = {};
 
   // Public shell: guests get the member tabs; the 5th tab becomes a
@@ -287,7 +355,35 @@ export default function MobileBottomNav() {
               );
             })}
 
-            {/* 5th tab: avatar (authed) or login link (guest) */}
+            {/* Role spaces — a sheet, like the profile tab next to it */}
+            {user && (
+              <button
+                onClick={() => setSpacesOpen(true)}
+                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
+              >
+                <span className="relative">
+                  <LayoutGrid
+                    size={22}
+                    className={`transition-colors duration-200 ${
+                      spacesOpen
+                        ? "text-emerald-400"
+                        : "text-white/50 group-hover:text-white/80"
+                    }`}
+                  />
+                </span>
+                <span
+                  className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
+                    spacesOpen
+                      ? "text-emerald-400"
+                      : "text-white/40 group-hover:text-white/70"
+                  }`}
+                >
+                  Espaces
+                </span>
+              </button>
+            )}
+
+            {/* Last tab: avatar (authed) or login link (guest) */}
             {user ? (
               <button
                 onClick={() => setSheetOpen(true)}
@@ -339,6 +435,9 @@ export default function MobileBottomNav() {
 
       {/* Profile bottom sheet */}
       {user && <AvatarBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />}
+
+      {/* Role spaces bottom sheet */}
+      {user && <SpacesSheet open={spacesOpen} onClose={() => setSpacesOpen(false)} />}
     </>
   );
 }

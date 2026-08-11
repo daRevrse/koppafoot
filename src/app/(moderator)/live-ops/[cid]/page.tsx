@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ChevronLeft, ChevronRight, Radio } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Radio, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { onCompetition, onCompMatches } from "@/lib/competition-firestore";
-import type { Competition, CompMatch } from "@/types";
+import { getStaffGrant } from "@/lib/staff-access";
+import { describeStaffScope, grantCoversMatch, isGrantActive } from "@/lib/staff-scope";
+import type { Competition, CompMatch, StaffGrant } from "@/types";
 
 export default function LiveOpsCompetition() {
   const { cid } = useParams() as { cid: string };
@@ -15,6 +17,10 @@ export default function LiveOpsCompetition() {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  // Access-code holders reach this screen too — with a grant that may cover
+  // one poule or one match, which is what filters the list below.
+  const [grant, setGrant] = useState<StaffGrant | null>(null);
+  const [grantChecked, setGrantChecked] = useState(false);
 
   useEffect(() => {
     if (!cid) return;
@@ -23,14 +29,37 @@ export default function LiveOpsCompetition() {
     return () => { unsub(); unsubMatches(); };
   }, [cid]);
 
-  // Membership guard: only an organizer or moderator of THIS competition may
-  // operate its matches (Firestore rules also enforce this on writes).
   useEffect(() => {
-    if (!user || !competition) return;
+    if (!cid || !user) return;
+    let cancelled = false;
+    getStaffGrant(cid, user.uid)
+      .then((g) => {
+        if (cancelled) return;
+        setGrant(g && isGrantActive(g) ? g : null);
+        setGrantChecked(true);
+      })
+      .catch(() => { if (!cancelled) setGrantChecked(true); });
+    return () => { cancelled = true; };
+  }, [cid, user]);
+
+  // Membership guard: an organizer, a moderator, or a live access-code holder
+  // of THIS competition (Firestore rules also enforce this on writes).
+  useEffect(() => {
+    if (!user || !competition || !grantChecked) return;
     const member =
-      competition.organizerIds.includes(user.uid) || competition.moderatorIds.includes(user.uid);
+      competition.organizerIds.includes(user.uid) ||
+      competition.moderatorIds.includes(user.uid) ||
+      grant != null;
     if (!member) router.replace("/live-ops");
-  }, [user, competition, router]);
+  }, [user, competition, grant, grantChecked, router]);
+
+  // A scoped holder is shown only the matches they may actually write to —
+  // opening a console that refuses every save would be a trap.
+  const visibleMatches =
+    grant && competition && !competition.organizerIds.includes(user?.uid ?? "")
+      && !competition.moderatorIds.includes(user?.uid ?? "")
+      ? matches.filter((m) => grantCoversMatch(grant, m))
+      : matches;
 
   if (loading) {
     return (
@@ -51,13 +80,23 @@ export default function LiveOpsCompetition() {
       </Link>
       <h1 className="font-display text-2xl font-extrabold text-gray-900">{competition.name}</h1>
 
+      {grant && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+          <p className="text-xs text-emerald-800">
+            <span className="font-bold">Accès staff : {describeStaffScope(grant.scope)}.</span>{" "}
+            Seuls les matchs concernés apparaissent ici.
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-2">
-        {matches.length === 0 ? (
+        {visibleMatches.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-gray-200 bg-white py-12 text-center text-sm text-gray-500">
             Aucun match pour cette compétition.
           </p>
         ) : (
-          matches.map((m) => {
+          visibleMatches.map((m) => {
             const live = m.status === "live";
             return (
               <Link
