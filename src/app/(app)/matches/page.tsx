@@ -21,6 +21,9 @@ import {
   createMatch,
   cancelMatch,
   searchTeams,
+  getGhostTeamsByManager,
+  createGhostTeam,
+  getTeamMembers,
   getTeamById,
   getUsersByIds,
   getParticipationsForMatch,
@@ -52,6 +55,16 @@ const REFEREE_STATUS_CONFIG = {
   invited: { label: "Invitation envoyée", color: "bg-blue-100 text-blue-700", icon: Send },
   pending: { label: "Arbitre en attente", color: "bg-amber-100 text-amber-700", icon: Clock },
   none: { label: "Non assigné", color: "bg-gray-100 text-gray-500", icon: AlertCircle },
+};
+
+// Miroir client de ce que createGhostTeam écrit en base : évite un aller-retour
+// Firestore juste pour réafficher l'adversaire qu'on vient de créer.
+const EMPTY_GHOST_TEAM: Team = {
+  id: "", name: "", managerId: "", city: "", description: "",
+  level: "amateur", lookingFor: [], memberIds: [], maxMembers: 0,
+  color: "#6B7280", wins: 0, losses: 0, draws: 0, matchesPlayed: 0,
+  isRecruiting: false, isGhost: true,
+  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
 };
 
 const FORMAT_TOTAL_PLAYERS: Record<string, number> = { "5v5": 10, "7v7": 14, "11v11": 22 };
@@ -141,6 +154,12 @@ export default function MatchesPage() {
   const [awayTeamId, setAwayTeamId] = useState("");
   const [awayTeamName, setAwayTeamName] = useState("");
   const [awayManagerId, setAwayManagerId] = useState("");
+  // Adversaires hors plateforme déjà créés par ce manager, et drapeau sur la
+  // sélection courante : un fantôme n'a pas de manager en face, donc pas de
+  // défi à envoyer ni de compte à notifier.
+  const [ghostTeams, setGhostTeams] = useState<Team[]>([]);
+  const [awayIsGhost, setAwayIsGhost] = useState(false);
+  const [creatingGhost, setCreatingGhost] = useState(false);
   const [showAwayDropdown, setShowAwayDropdown] = useState(false);
   const awaySearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const awayDropdownRef = useRef<HTMLDivElement>(null);
@@ -162,13 +181,15 @@ export default function MatchesPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [matchesData, teamsData, venuesData] = await Promise.all([
+      const [matchesData, teamsData, ghostsData, venuesData] = await Promise.all([
         getMatchesByManager(user.uid),
         getTeamsByManager(user.uid),
+        getGhostTeamsByManager(user.uid),
         getVenues(),
       ]);
       setMatches(matchesData);
       setTeams(teamsData);
+      setGhostTeams(ghostsData);
       setVenues(venuesData);
     } catch (err) {
       console.error("Erreur de chargement:", err);
@@ -218,6 +239,7 @@ export default function MatchesPage() {
     setAwayTeamId("");
     setAwayTeamName("");
     setAwayManagerId("");
+    setAwayIsGhost(false);
 
     if (awaySearchTimeout.current) clearTimeout(awaySearchTimeout.current);
     if (!value.trim()) {
@@ -225,11 +247,13 @@ export default function MatchesPage() {
       setShowAwayDropdown(false);
       return;
     }
+    // Le dropdown s'ouvre tout de suite : même sans résultat, il porte l'entrée
+    // « créer l'adversaire », qui est le cas courant en amateur.
+    setShowAwayDropdown(true);
     awaySearchTimeout.current = setTimeout(async () => {
       try {
         const results = await searchTeams({ query: value });
         setAwaySearchResults(results);
-        setShowAwayDropdown(true);
       } catch (err) {
         console.error("Erreur recherche équipe:", err);
       }
@@ -239,10 +263,42 @@ export default function MatchesPage() {
   const selectAwayTeam = (team: Team) => {
     setAwayTeamId(team.id);
     setAwayTeamName(team.name);
-    setAwayManagerId(team.managerId);
+    // Une équipe fantôme porte le manager_id de son créateur — le laisser
+    // passer ferait de lui le manager des DEUX camps.
+    setAwayManagerId(team.isGhost ? "" : team.managerId);
+    setAwayIsGhost(!!team.isGhost);
     setAwaySearchQuery(team.name);
     setShowAwayDropdown(false);
     setAwaySearchResults([]);
+  };
+
+  // Adversaires hors plateforme correspondant à la saisie.
+  const ghostMatches = awaySearchQuery.trim()
+    ? ghostTeams.filter((t) => t.name.toLowerCase().includes(awaySearchQuery.trim().toLowerCase()))
+    : [];
+
+  const handleCreateGhostOpponent = async () => {
+    if (!user) return;
+    const name = awaySearchQuery.trim();
+    if (!name) return;
+    setCreatingGhost(true);
+    try {
+      const id = await createGhostTeam({ name, managerId: user.uid });
+      const created: Team = {
+        ...EMPTY_GHOST_TEAM,
+        id,
+        name,
+        managerId: user.uid,
+      };
+      setGhostTeams((prev) => [created, ...prev]);
+      selectAwayTeam(created);
+      toast.success(`« ${name} » ajoutée comme adversaire hors plateforme`);
+    } catch (err) {
+      console.error("Création équipe fantôme:", err);
+      toast.error("Impossible de créer l'adversaire");
+    } finally {
+      setCreatingGhost(false);
+    }
   };
 
   // Filter matches by tab
@@ -274,6 +330,18 @@ export default function MatchesPage() {
 
     setCreating(true);
     try {
+      // Face à un fantôme personne n'acceptera le défi : c'est la création qui
+      // doit convoquer notre effectif.
+      let homeSquad: { teamId: string; memberIds: string[]; memberNames: Map<string, string> } | undefined;
+      if (awayIsGhost) {
+        const members = await getTeamMembers(team.id);
+        homeSquad = {
+          teamId: team.id,
+          memberIds: members.map((m) => m.uid),
+          memberNames: new Map(members.map((m) => [m.uid, `${m.firstName} ${m.lastName}`.trim()])),
+        };
+      }
+
       await createMatch({
         homeTeamId: isHome ? team.id : awayTeamId,
         awayTeamId: isHome ? awayTeamId : team.id,
@@ -290,6 +358,7 @@ export default function MatchesPage() {
         isHome,
         playersTotal,
         autoAcceptPlayers,
+        homeSquad,
       });
 
       // Reset form and refresh
@@ -298,6 +367,7 @@ export default function MatchesPage() {
       setAwayTeamId("");
       setAwayTeamName("");
       setAwayManagerId("");
+      setAwayIsGhost(false);
       setAwaySearchResults([]);
       setShowAwayDropdown(false);
       setMatchDate("");
@@ -597,27 +667,65 @@ export default function MatchesPage() {
                       className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                     />
                   </div>
-                  {showAwayDropdown && awaySearchResults.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
+                  {showAwayDropdown && awaySearchQuery.trim() && (
+                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
                       {awaySearchResults.map((team) => (
                         <button
                           key={team.id}
                           type="button"
                           onClick={() => selectAwayTeam(team)}
-                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-primary-50 transition-colors flex flex-col"
+                          className="flex w-full flex-col px-4 py-2.5 text-left text-sm transition-colors hover:bg-primary-50"
                         >
                           <span className="font-medium text-gray-900">{team.name}</span>
                           <span className="text-xs text-gray-500">{team.city}</span>
                         </button>
                       ))}
-                    </div>
-                  )}
-                  {showAwayDropdown && awaySearchResults.length === 0 && awaySearchQuery.trim() && (
-                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg px-4 py-3">
-                      <p className="text-sm text-gray-500">Aucune équipe trouvée</p>
+                      {ghostMatches.map((team) => (
+                        <button
+                          key={team.id}
+                          type="button"
+                          onClick={() => selectAwayTeam(team)}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-primary-50"
+                        >
+                          <span className="flex-1 font-medium text-gray-900">{team.name}</span>
+                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                            Hors plateforme
+                          </span>
+                        </button>
+                      ))}
+                      {/* Le cas courant en amateur : l'adversaire n'a pas de compte. */}
+                      <button
+                        type="button"
+                        onClick={handleCreateGhostOpponent}
+                        disabled={creatingGhost}
+                        className="flex w-full items-center gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-50 disabled:opacity-50"
+                      >
+                        {creatingGhost ? (
+                          <Loader2 size={14} className="shrink-0 animate-spin text-primary-600" />
+                        ) : (
+                          <Plus size={14} className="shrink-0 text-primary-600" />
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium text-primary-700">
+                            « {awaySearchQuery.trim()} » n&apos;est pas sur KoppaFoot
+                          </span>
+                          <span className="block text-xs text-gray-500">
+                            L&apos;ajouter comme adversaire et composer son effectif
+                          </span>
+                        </span>
+                      </button>
                     </div>
                   )}
                 </div>
+                {awayIsGhost && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                    <p className="text-xs text-gray-600">
+                      <strong className="font-semibold text-gray-800">{awayTeamName}</strong> n&apos;est pas sur
+                      KoppaFoot : pas de défi à accepter, le match est planifié directement. Son effectif se
+                      compose depuis sa fiche équipe.
+                    </p>
+                  </div>
+                )}
                 {/* Date */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Date</label>
@@ -1059,12 +1167,15 @@ export default function MatchesPage() {
                           <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
                             match.validationStatus === 'validated' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
                             match.validationStatus === 'contested' ? 'bg-red-50 border-red-100 text-red-600' :
+                            match.validationStatus === 'unverified' ? 'bg-gray-100 border-gray-200 text-gray-500' :
                             'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
                           }`}>
-                            {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> : 
-                             match.validationStatus === 'contested' ? <AlertCircle size={10} /> : <Clock size={10} />}
-                            {match.validationStatus === 'validated' ? 'Score Validé' : 
-                             match.validationStatus === 'contested' ? 'Contesté' : 'Validation en attente'}
+                            {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
+                             match.validationStatus === 'contested' ? <AlertCircle size={10} /> :
+                             match.validationStatus === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
+                            {match.validationStatus === 'validated' ? 'Score Validé' :
+                             match.validationStatus === 'contested' ? 'Contesté' :
+                             match.validationStatus === 'unverified' ? 'Amical non vérifié' : 'Validation en attente'}
                           </div>
                         )}
                       </div>

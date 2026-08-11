@@ -1,7 +1,7 @@
 # Design : Dégel du matchmaking + équipes fantômes
 
 **Date :** 2026-08-11
-**Statut :** Approuvé — lots 1 et 2 faits
+**Statut :** Approuvé — lots 1 à 3 faits (+ le cœur du lot 4)
 
 ## Contexte
 
@@ -83,7 +83,12 @@ Tous les appels légitimes de `firestore.ts` ont été retracés un par un (cons
 
 **Reste à faire par l'utilisateur** : `npx firebase deploy --only firestore:rules` (les règles prennent effet immédiatement, sans redéploiement applicatif).
 
-### Lot 3 — Modèle équipe fantôme
+### Lot 3 — Modèle équipe fantôme — FAIT
+
+Le sélecteur d'adversaire ne peut pas être livré seul : une fois qu'on peut choisir un fantôme, le match doit se créer correctement. Les deux premiers points du lot 4 (statut à la création, convocations) et le garde-fou stats ont donc été tirés en avant — livrer le sélecteur sans eux aurait créé des matchs bloqués dans une boîte de défis que personne ne lit, sans joueur convoqué, et avec des stats auto-déclarées qui remontent aux profils.
+
+Reste au lot 4 : la feuille de match adverse composée depuis les `ghost_players` du fantôme. Reste au lot 5 : la fiche d'une équipe fantôme (sans CTA social).
+
 
 - `FirestoreTeam` / `Team` : `is_ghost?: boolean` / `isGhost?` (+ mapper `toTeam`).
 - `createGhostTeam({ name, city?, color?, managerId })` dans `firestore.ts` : doc `teams` avec `manager_id` = créateur, `member_ids: []`, `is_recruiting: false`, `is_ghost: true`.

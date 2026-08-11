@@ -26,7 +26,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import type {
   Team, FirestoreTeam, Achievement,
-  Match, FirestoreMatch,
+  Match, FirestoreMatch, MatchStatus,
   Participation, FirestoreParticipation,
   Invitation, FirestoreInvitation,
   Venue, FirestoreVenue,
@@ -105,6 +105,7 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
     achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
     squadNumbers: d.squad_numbers ?? {},
     trainingSchedule: d.training_schedule ?? [],
+    isGhost: d.is_ghost ?? false,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -331,10 +332,23 @@ function toJoinRequest(id: string, d: FirestoreJoinRequest): JoinRequest {
 // Teams
 // ============================================
 
-export async function getTeamsByManager(managerId: string): Promise<Team[]> {
+// Les équipes fantômes portent le manager_id de celui qui les a créées : sans
+// filtre elles remonteraient parmi ses vraies équipes (page /teams, sélecteur
+// d'équipe du formulaire de match, mercato). Le tri se fait en mémoire pour
+// éviter un index composite sur (manager_id, is_ghost, created_at).
+async function fetchTeamsOfManager(managerId: string): Promise<Team[]> {
   const q = query(collection(db, "teams"), where("manager_id", "==", managerId), orderBy("created_at", "desc"));
   const snap = await getDocs(q);
   return snap.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam));
+}
+
+export async function getTeamsByManager(managerId: string): Promise<Team[]> {
+  return (await fetchTeamsOfManager(managerId)).filter((t) => !t.isGhost);
+}
+
+/** Les adversaires hors plateforme créés par ce manager. */
+export async function getGhostTeamsByManager(managerId: string): Promise<Team[]> {
+  return (await fetchTeamsOfManager(managerId)).filter((t) => t.isGhost);
 }
 
 export async function getTeamsByPlayer(playerId: string): Promise<Team[]> {
@@ -360,6 +374,34 @@ export async function createTeam(data: {
     max_members: data.maxMembers, color: data.color,
     wins: 0, losses: 0, draws: 0, matches_played: 0,
     is_recruiting: true,
+    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Crée une équipe adverse qui n'est pas sur KoppaFoot.
+ *
+ * C'est un vrai doc `teams`, pas un nom libre sur le match : la clôture d'un
+ * match incrémente `teams/{away_team_id}` et un update sur un doc absent fait
+ * échouer tout le batch. Le doc appartient à son créateur (`manager_id`), ce
+ * qui lui donne au passage le droit d'écriture sur la sous-collection
+ * `ghost_players` — l'effectif de l'adversaire.
+ *
+ * `is_recruiting: false` la tient hors de `searchTeams`, donc hors du mercato
+ * et hors du sélecteur d'adversaire, où seules les vraies équipes ont leur place.
+ */
+export async function createGhostTeam(data: {
+  name: string; managerId: string; city?: string; color?: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "teams"), {
+    name: data.name, manager_id: data.managerId, city: data.city ?? "",
+    description: "", level: "amateur",
+    looking_for: [], member_ids: [],
+    max_members: 0, color: data.color ?? "#6B7280",
+    wins: 0, losses: 0, draws: 0, matches_played: 0,
+    is_recruiting: false,
+    is_ghost: true,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   return ref.id;
@@ -643,19 +685,35 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
   return Array.from(map.values()).sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
 }
 
+/**
+ * Crée un match. `awayManagerId` vide = adversaire hors plateforme.
+ *
+ * Le flux normal naît en `challenge` : le manager adverse accepte, et c'est
+ * son acceptation (`respondToMatchChallenge`) qui crée les convocations des
+ * deux camps. Face à un fantôme il n'y a personne pour accepter — le match
+ * partirait donc dans une boîte de réception que personne ne lit, et aucun
+ * joueur ne serait convoqué. On planifie donc directement, et on convoque
+ * l'équipe réelle ici même.
+ */
 export async function createMatch(data: {
   homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
   managerId: string; awayManagerId: string; date: string; time: string; venueName: string; venueCity: string;
   format: string; isHome: boolean; playersTotal: number; localRefereeName?: string;
   autoAcceptPlayers?: boolean;
+  // Effectif à convoquer côté équipe réelle, requis pour un adversaire fantôme.
+  homeSquad?: { teamId: string; memberIds: string[]; memberNames: Map<string, string> };
 }): Promise<string> {
+  const isGhostOpponent = !data.awayManagerId;
+  const status: MatchStatus = isGhostOpponent
+    ? (data.autoAcceptPlayers ? "upcoming" : "pending")
+    : "challenge";
   const ref = await addDoc(collection(db, "matches"), {
     home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
     home_team_name: data.homeTeamName, away_team_name: data.awayTeamName,
     manager_id: data.managerId, away_manager_id: data.awayManagerId,
     date: data.date, time: data.time,
     venue_name: data.venueName, venue_city: data.venueCity,
-    status: "challenge", result: null, score_home: null, score_away: null,
+    status, result: null, score_home: null, score_away: null,
     referee_id: null, referee_name: null, referee_status: "none",
     local_referee_name: data.localRefereeName ?? null,
     format: data.format, is_home: data.isHome,
@@ -664,13 +722,26 @@ export async function createMatch(data: {
     auto_accept_players: !!data.autoAcceptPlayers,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
-  void createNotification({
-    userId: data.awayManagerId,
-    type: "match_challenge",
-    title: "Nouveau défi reçu",
-    body: `${data.homeTeamName} vous défie`,
-    link: "/matches",
-  });
+  if (isGhostOpponent) {
+    // Personne à notifier en face ; on convoque directement notre camp, ce que
+    // respondToMatchChallenge aurait fait à l'acceptation.
+    if (data.homeSquad && data.homeSquad.memberIds.length > 0) {
+      await createParticipationsForTeam(
+        ref.id, `${data.homeTeamName} vs ${data.awayTeamName}`,
+        data.date, data.time, data.venueName,
+        data.homeSquad.teamId, data.homeSquad.memberIds, data.homeSquad.memberNames,
+        data.format, data.isHome, !!data.autoAcceptPlayers,
+      );
+    }
+  } else {
+    void createNotification({
+      userId: data.awayManagerId,
+      type: "match_challenge",
+      title: "Nouveau défi reçu",
+      body: `${data.homeTeamName} vous défie`,
+      link: "/matches",
+    });
+  }
   return ref.id;
 }
 
@@ -757,7 +828,10 @@ export async function submitManagerFeedback(
 
     feedback[managerId] = feedbackEntry;
 
-    let validation_status: "pending" | "contested" | "validated" = matchData.validation_status ?? "pending";
+    // "unverified" (adversaire hors plateforme) est terminal : bothValidated
+    // ne peut pas être vrai sans manager adverse, donc le statut y reste.
+    let validation_status: NonNullable<FirestoreMatch["validation_status"]> =
+      matchData.validation_status ?? "pending";
     if (data.validation === "contested") {
       validation_status = "contested";
     } else if (validation_status !== "contested") {
@@ -1102,8 +1176,13 @@ export async function updateMatchStatus(matchId: string, status: Match["status"]
     updated_at: serverTimestamp(),
   };
 
+  // Adversaire hors plateforme : aucun manager en face pour contresigner le
+  // résultat. Un seul témoin, donc des stats auto-déclarées — elles comptent
+  // pour l'historique des clubs mais restent hors des compteurs de joueurs.
+  const isGhostMatch = !matchData.away_manager_id;
+
   if (status === "completed") {
-    updates.validation_status = "pending";
+    updates.validation_status = isGhostMatch ? "unverified" : "pending";
     updates.completed_at = serverTimestamp();
   }
 
@@ -1169,10 +1248,14 @@ export async function updateMatchStatus(matchId: string, status: Match["status"]
       const playerGoals = goalsPerPlayer[playerId] || 0;
       const playerAssists = pData.assists || 0;
 
+      // La feuille de match reste juste dans les deux cas : c'est le compteur
+      // global du profil qu'on protège.
       batch.update(pDoc.ref, {
         goals: playerGoals,
         updated_at: serverTimestamp(),
       });
+
+      if (isGhostMatch) continue;
 
       const userRef = doc(db, "users", playerId);
       batch.update(userRef, {

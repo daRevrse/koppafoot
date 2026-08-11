@@ -302,13 +302,16 @@ export default function MatchDetailPage() {
               <div className={`flex items-center gap-2 px-4 py-1 rounded-full border backdrop-blur-md ${
                 match.validationStatus === 'validated' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                 match.validationStatus === 'contested' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
+                match.validationStatus === 'unverified' ? 'bg-white/5 border-white/15 text-gray-300' :
                 'bg-amber-500/10 border-amber-500/20 text-amber-400'
               }`}>
-                {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> : 
-                 match.validationStatus === 'contested' ? <AlertCircle size={10} /> : <Clock size={10} />}
+                {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
+                 match.validationStatus === 'contested' ? <AlertCircle size={10} /> :
+                 match.validationStatus === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-                  {match.validationStatus === 'validated' ? 'Validé' : 
-                   match.validationStatus === 'contested' ? 'Contesté' : 'En attente'}
+                  {match.validationStatus === 'validated' ? 'Validé' :
+                   match.validationStatus === 'contested' ? 'Contesté' :
+                   match.validationStatus === 'unverified' ? 'Non vérifié' : 'En attente'}
                 </span>
               </div>
             )}

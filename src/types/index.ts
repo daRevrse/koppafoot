@@ -199,6 +199,12 @@ export interface FirestoreTeam {
   followers_count?: number;
   squad_numbers?: { [playerId: string]: string };
   training_schedule?: TrainingScheduleSlot[];
+  // Équipe adverse qui n'est pas sur la plateforme, créée par un manager pour
+  // pouvoir planifier un amical contre elle. C'est un vrai doc `teams` (sinon
+  // le rollup de fin de match échouerait sur un doc absent) mais elle n'a ni
+  // compte ni membres : son effectif vit dans la sous-collection ghost_players,
+  // et son manager_id est celui qui l'a créée.
+  is_ghost?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -228,6 +234,7 @@ export interface Team {
   followersCount?: number;
   squadNumbers?: { [playerId: string]: string };
   trainingSchedule?: TrainingScheduleSlot[];
+  isGhost?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -274,7 +281,10 @@ export interface FirestoreMatch {
   confirmed_home: number;
   confirmed_away: number;
   auto_accept_players?: boolean;
-  validation_status?: "pending" | "contested" | "validated";
+  // "unverified" = match contre un adversaire hors plateforme : un seul
+  // manager l'a vécu, donc aucune contre-signature possible. État terminal,
+  // il ne deviendra jamais "validated".
+  validation_status?: "pending" | "contested" | "validated" | "unverified";
   completed_at?: string | null;
   live_state?: {
     current_period: number; // 0: pre, 1: 1st, 2: halftime, 3: 2nd, 4: finished
@@ -345,7 +355,7 @@ export interface Match {
   confirmedHome: number;
   confirmedAway: number;
   autoAcceptPlayers?: boolean;
-  validationStatus?: "pending" | "contested" | "validated";
+  validationStatus?: "pending" | "contested" | "validated" | "unverified";
   completedAt?: string | null;
   liveState?: {
     currentPeriod: number;
