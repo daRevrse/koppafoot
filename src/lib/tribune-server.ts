@@ -12,6 +12,40 @@ import type { PostType } from "@/types";
 // route that has already checked who is asking.
 // ============================================
 
+/**
+ * Display identity of the official account, editable from /admin/tribune.
+ *
+ * Kept in one document rather than only copied onto each post: the Tribune
+ * resolves it at render time, so renaming the account or changing its picture
+ * updates every post it ever wrote instead of only the next one.
+ */
+export const TRIBUNE_SETTINGS_PATH = "settings/tribune";
+
+export interface TribuneIdentity {
+  name: string;
+  avatarUrl: string | null;
+}
+
+export async function getTribuneIdentity(): Promise<TribuneIdentity> {
+  const snap = await adminDb.doc(TRIBUNE_SETTINGS_PATH).get();
+  const d = snap.data();
+  return {
+    name: d?.system_name || SYSTEM_AUTHOR_NAME,
+    avatarUrl: d?.system_avatar_url || null,
+  };
+}
+
+export async function setTribuneIdentity(input: TribuneIdentity): Promise<void> {
+  await adminDb.doc(TRIBUNE_SETTINGS_PATH).set(
+    {
+      system_name: input.name.trim() || SYSTEM_AUTHOR_NAME,
+      system_avatar_url: input.avatarUrl?.trim() || null,
+      updated_at: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 export async function publishOfficialPost(input: {
   type: PostType;
   content: string;
@@ -19,11 +53,14 @@ export async function publishOfficialPost(input: {
   link?: string | null;
   pinned?: boolean;
 }): Promise<string> {
+  // Snapshotted like every other post, so one still reads correctly if the
+  // settings document is ever lost — but the feed prefers the live value.
+  const identity = await getTribuneIdentity();
   const ref = await adminDb.collection("posts").add({
     author_id: SYSTEM_AUTHOR_ID,
-    author_name: SYSTEM_AUTHOR_NAME,
+    author_name: identity.name,
     author_role: "official",
-    author_avatar: "",
+    author_avatar: identity.avatarUrl ?? "",
     type: input.type,
     content: input.content,
     metadata: null,

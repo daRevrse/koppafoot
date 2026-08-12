@@ -261,11 +261,12 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           {/* The official account has no profile page to visit — its name and
               avatar are deliberately not links. */}
           {isSystem ? (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#022c22]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-gray-100">
+              {/* Picture set in /admin/tribune; the app icon is the fallback. */}
               <img
-                src="/icons/icon-192.png"
+                src={post.authorAvatar?.startsWith("http") ? post.authorAvatar : "/icons/icon-192.png"}
                 alt=""
-                className="h-full w-full object-contain p-1"
+                className="h-full w-full object-cover"
               />
             </div>
           ) : (

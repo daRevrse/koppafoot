@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Megaphone, Flag, Loader2, Send, Pin, Trash2, Check, ExternalLink,
+  BadgeCheck, Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { uploadTribuneAvatar } from "@/lib/storage";
 
 // ============================================
 // Admin — the official account's voice, and the moderation queue.
@@ -14,6 +16,17 @@ import { useAuth } from "@/contexts/AuthContext";
 // require a post's author_id to match the caller), so both halves of this
 // screen go through admin-SDK routes.
 // ============================================
+
+interface OfficialPost {
+  id: string;
+  content: string;
+  type: string;
+  link: string | null;
+  pinned: boolean;
+  likes: number;
+  commentCount: number;
+  createdAt: string | null;
+}
 
 interface Report {
   id: string;
@@ -39,6 +52,119 @@ export default function AdminTribunePage() {
   const [loadingReports, setLoadingReports] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
 
+  // Identity of the official account, and its own posts.
+  const [identityName, setIdentityName] = useState("");
+  const [identityAvatar, setIdentityAvatar] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [savingIdentity, setSavingIdentity] = useState(false);
+
+  const [official, setOfficial] = useState<OfficialPost[]>([]);
+  const [loadingOfficial, setLoadingOfficial] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+
+  const loadOfficial = useCallback(async () => {
+    if (!firebaseUser) return;
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/admin/tribune", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setOfficial(data.posts ?? []);
+      setIdentityName(data.identity?.name ?? "");
+      setIdentityAvatar(data.identity?.avatarUrl ?? null);
+    } catch {
+      toast.error("Impossible de charger le compte officiel.");
+    } finally {
+      setLoadingOfficial(false);
+    }
+  }, [firebaseUser]);
+
+  const saveIdentity = async () => {
+    if (!firebaseUser || !identityName.trim()) {
+      toast.error("Le nom est requis.");
+      return;
+    }
+    setSavingIdentity(true);
+    try {
+      let avatarUrl = identityAvatar;
+      if (avatarFile) avatarUrl = await uploadTribuneAvatar(avatarFile);
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/admin/tribune", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: identityName.trim(), avatarUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Enregistrement impossible.");
+        return;
+      }
+      setIdentityAvatar(data.identity?.avatarUrl ?? null);
+      setAvatarFile(null);
+      setAvatarPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+      toast.success("Compte officiel mis à jour — tous ses posts suivent.");
+    } catch (err) {
+      console.error("Tribune identity save failed:", err);
+      toast.error("Enregistrement impossible.");
+    } finally {
+      setSavingIdentity(false);
+    }
+  };
+
+  const patchOfficial = async (id: string, body: Record<string, unknown>, done: string) => {
+    if (!firebaseUser) return;
+    setActing(id);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/admin/tribune", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, ...body }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Une erreur est survenue.");
+        return;
+      }
+      toast.success(done);
+      setEditingId(null);
+      await loadOfficial();
+    } catch {
+      toast.error("Une erreur est survenue.");
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const deleteOfficial = async (id: string) => {
+    if (!firebaseUser) return;
+    if (!confirm("Supprimer cette publication officielle ?")) return;
+    setActing(id);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/admin/tribune", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error ?? "Suppression impossible.");
+        return;
+      }
+      toast.success("Publication supprimée.");
+      setOfficial((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      toast.error("Suppression impossible.");
+    } finally {
+      setActing(null);
+    }
+  };
+
   const loadReports = useCallback(async () => {
     if (!firebaseUser) return;
     try {
@@ -58,7 +184,8 @@ export default function AdminTribunePage() {
 
   useEffect(() => {
     loadReports();
-  }, [loadReports]);
+    loadOfficial();
+  }, [loadReports, loadOfficial]);
 
   const publish = async () => {
     if (!firebaseUser || !content.trim()) return;
@@ -79,6 +206,7 @@ export default function AdminTribunePage() {
       setContent("");
       setLink("");
       setPinned(false);
+      await loadOfficial();
     } catch {
       toast.error("La publication a échoué.");
     } finally {
@@ -120,6 +248,64 @@ export default function AdminTribunePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {/* Identity of the official account */}
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
+          <BadgeCheck size={18} className="text-emerald-500" />
+          Compte officiel
+        </h2>
+        <p className="mt-0.5 text-xs font-medium text-gray-400">
+          Le nom et la photo sont résolus à l&apos;affichage : les modifier met à jour
+          toutes ses publications, y compris les anciennes.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-gray-200">
+            <img
+              src={avatarPreview ?? (identityAvatar || "/icons/icon-192.png")}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-2">
+            <input
+              type="text"
+              value={identityName}
+              onChange={(e) => setIdentityName(e.target.value)}
+              placeholder="KoppaFoot"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 2 * 1024 * 1024) {
+                  toast.error("Image trop lourde (2 Mo maximum).");
+                  return;
+                }
+                setAvatarFile(f);
+                setAvatarPreview((prev) => {
+                  if (prev) URL.revokeObjectURL(prev);
+                  return URL.createObjectURL(f);
+                });
+              }}
+              className="block w-full text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-gray-700"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={saveIdentity}
+            disabled={savingIdentity}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          >
+            {savingIdentity ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+            Enregistrer
+          </button>
+        </div>
+      </section>
+
       {/* Composer */}
       <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
@@ -171,6 +357,117 @@ export default function AdminTribunePage() {
             Publier
           </button>
         </div>
+      </section>
+
+      {/* The official account's own posts */}
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
+          <Megaphone size={18} className="text-emerald-500" />
+          Publications officielles
+          {official.length > 0 && (
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-500">
+              {official.length}
+            </span>
+          )}
+        </h2>
+
+        {loadingOfficial ? (
+          <div className="flex justify-center py-8">
+            <Loader2 size={22} className="animate-spin text-gray-300" />
+          </div>
+        ) : official.length === 0 ? (
+          <p className="py-6 text-center text-sm font-medium text-gray-400">
+            Le compte officiel n&apos;a encore rien publié.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {official.map((p) => (
+              <div key={p.id} className="rounded-xl border border-gray-100 p-3">
+                {editingId === p.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      rows={3}
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => patchOfficial(p.id, { content: editContent }, "Publication modifiée.")}
+                        disabled={acting === p.id || !editContent.trim()}
+                        className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        {acting === p.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                        Enregistrer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="whitespace-pre-line text-sm text-gray-700">{p.content}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      {p.pinned && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                          <Pin size={11} /> Épinglée
+                        </span>
+                      )}
+                      <span className="text-[11px] font-semibold text-gray-400">
+                        {p.likes} j&apos;aime · {p.commentCount} commentaire{p.commentCount > 1 ? "s" : ""}
+                      </span>
+                      {p.link && (
+                        <a
+                          href={p.link}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline"
+                        >
+                          <ExternalLink size={11} /> {p.link}
+                        </a>
+                      )}
+                      <div className="ml-auto flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingId(p.id); setEditContent(p.content); }}
+                          title="Modifier"
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => patchOfficial(p.id, { pinned: !p.pinned }, p.pinned ? "Désépinglée." : "Épinglée en haut de la Tribune.")}
+                          disabled={acting === p.id}
+                          title={p.pinned ? "Désépingler" : "Épingler"}
+                          className={`rounded-lg p-1.5 transition-colors hover:bg-amber-50 disabled:opacity-50 ${
+                            p.pinned ? "text-amber-600" : "text-gray-400 hover:text-amber-600"
+                          }`}
+                        >
+                          <Pin size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteOfficial(p.id)}
+                          disabled={acting === p.id}
+                          title="Supprimer"
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Reports */}

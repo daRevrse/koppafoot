@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { publishOfficialPost } from "@/lib/tribune-server";
+import {
+  publishOfficialPost, getTribuneIdentity, setTribuneIdentity,
+} from "@/lib/tribune-server";
 import { SYSTEM_AUTHOR_ID } from "@/types";
 
 /**
  * The superadmin's own voice in the Tribune.
  *
+ * GET                                  — the official account's own posts,
+ *                                        plus its display identity.
  * POST   { content, pinned?, link? }   — publish as the official account.
- * PATCH  { id, pinned }                — pin or unpin any post.
+ * PATCH  { id, pinned? , content? }    — pin/unpin, or rewrite the text.
+ * PUT    { name, avatarUrl }           — the account's display identity.
  * DELETE { id }                        — moderation: remove any post.
  *
  * Everything here is superadmin-only. Publishing as "system" is impossible
@@ -25,6 +30,62 @@ async function superadminUidOf(req: NextRequest): Promise<string | null> {
     return doc.data()?.user_type === "superadmin" ? decoded.uid : null;
   } catch {
     return null;
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const uid = await superadminUidOf(req);
+    if (!uid) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+
+    const [snap, identity] = await Promise.all([
+      adminDb
+        .collection("posts")
+        .where("author_id", "==", SYSTEM_AUTHOR_ID)
+        .orderBy("created_at", "desc")
+        .limit(50)
+        .get(),
+      getTribuneIdentity(),
+    ]);
+
+    return NextResponse.json({
+      identity,
+      posts: snap.docs.map((d) => {
+        const x = d.data();
+        return {
+          id: d.id,
+          content: x.content ?? "",
+          type: x.type ?? "text",
+          link: x.link ?? null,
+          pinned: x.pinned ?? false,
+          likes: (x.likes ?? []).length,
+          commentCount: x.comment_count ?? 0,
+          createdAt: x.created_at?.toDate?.()?.toISOString() ?? null,
+        };
+      }),
+    });
+  } catch (err) {
+    console.error("[admin/tribune GET]", err);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const uid = await superadminUidOf(req);
+    if (!uid) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+
+    const { name, avatarUrl } = (await req.json()) as {
+      name?: string; avatarUrl?: string | null;
+    };
+    if (!name?.trim()) {
+      return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
+    }
+    await setTribuneIdentity({ name: name.trim(), avatarUrl: avatarUrl ?? null });
+    return NextResponse.json({ ok: true, identity: await getTribuneIdentity() });
+  } catch (err) {
+    console.error("[admin/tribune PUT]", err);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
@@ -66,18 +127,43 @@ export async function PATCH(req: NextRequest) {
     const uid = await superadminUidOf(req);
     if (!uid) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
-    const { id, pinned } = (await req.json()) as { id?: string; pinned?: boolean };
-    if (!id || typeof pinned !== "boolean") {
-      return NextResponse.json({ error: "id et pinned requis" }, { status: 400 });
+    const { id, pinned, content } = (await req.json()) as {
+      id?: string; pinned?: boolean; content?: string;
+    };
+    if (!id || (typeof pinned !== "boolean" && content === undefined)) {
+      return NextResponse.json({ error: "id, et pinned ou content requis" }, { status: 400 });
     }
 
     const ref = adminDb.collection("posts").doc(id);
-    if (!(await ref.get()).exists) {
+    const snap = await ref.get();
+    if (!snap.exists) {
       return NextResponse.json({ error: "Publication introuvable" }, { status: 404 });
     }
-    if (pinned) await unpinAll();
-    await ref.update({ pinned, updated_at: FieldValue.serverTimestamp() });
-    return NextResponse.json({ ok: true, pinned });
+
+    const patch: Record<string, unknown> = { updated_at: FieldValue.serverTimestamp() };
+
+    if (content !== undefined) {
+      // Rewriting text is only offered on the platform's own posts — editing
+      // someone else's words under their name is not moderation.
+      if (snap.data()?.author_id !== SYSTEM_AUTHOR_ID) {
+        return NextResponse.json(
+          { error: "Seules les publications officielles sont modifiables." },
+          { status: 403 },
+        );
+      }
+      if (!content.trim()) {
+        return NextResponse.json({ error: "Le message ne peut pas être vide" }, { status: 400 });
+      }
+      patch.content = content.trim();
+    }
+
+    if (typeof pinned === "boolean") {
+      if (pinned) await unpinAll();
+      patch.pinned = pinned;
+    }
+
+    await ref.update(patch);
+    return NextResponse.json({ ok: true, pinned, content: patch.content ?? undefined });
   } catch (err) {
     console.error("[admin/tribune PATCH]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

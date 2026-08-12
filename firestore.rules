@@ -326,6 +326,14 @@ service cloud.firestore {
         && request.resource.data.comment_count >= 0;
     }
 
+    // Display identity of the official Tribune account. Everyone reads it —
+    // the feed resolves it on every official post — and only the admin SDK
+    // writes it, from the superadmin-gated route.
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /posts/{postId} {
       allow read: if true;
       // A post must be signed by its writer. Without the author_id check any
