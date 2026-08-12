@@ -47,7 +47,6 @@ const IOS_LAUNCH_DEVICES: ReadonlyArray<readonly [number, number, number]> = [
 ];
 
 const appleLaunchImages = IOS_LAUNCH_DEVICES.map(([w, h, dpr]) => ({
-  rel: "apple-touch-startup-image",
   url: `/splash/splash-${w * dpr}x${h * dpr}.jpg`,
   media:
     `(device-width: ${w}px) and (device-height: ${h}px)` +
@@ -57,19 +56,23 @@ const appleLaunchImages = IOS_LAUNCH_DEVICES.map(([w, h, dpr]) => ({
 export const metadata: Metadata = {
   title: "KoppaFoot",
   description: "La plateforme qui connecte les passionnés de football",
-  // icon and apple have to be repeated here: declaring `icons` at all makes
-  // this block win over the file convention, and setting only `other` dropped
-  // the icon.png and apple-icon.png links (the home-screen icon on iOS). The
-  // routes themselves still come from src/app/{icon,apple-icon}.png.
-  icons: {
-    icon: [{ url: "/icon.png", sizes: "512x512", type: "image/png" }],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
-    other: appleLaunchImages,
-  },
+  // No `icons` block: src/app/{favicon.ico,icon.png,apple-icon.png} come from
+  // the file convention, and declaring `icons` at all makes this object win
+  // over it — which is how the apple-touch-icon went missing when the launch
+  // images were (wrongly) hung off `icons.other`.
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "KoppaFoot",
+    startupImage: appleLaunchImages,
+  },
+  other: {
+    // Next only emits the standardised `mobile-web-app-capable`, which Safari
+    // did not understand before 17.4. Without the Apple-prefixed one an
+    // iPhone opens the app in a browser view instead of standalone — and iOS
+    // shows a launch image only in standalone, which is why the splash never
+    // appeared. Kept alongside, not instead of.
+    "apple-mobile-web-app-capable": "yes",
   },
   applicationName: "KoppaFoot",
 };
