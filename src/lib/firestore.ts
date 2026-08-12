@@ -6,6 +6,7 @@ import {
   orderBy,
   limit as firestoreLimit,
   getDocs,
+  documentId,
   getDoc,
   addDoc,
   updateDoc,
@@ -41,6 +42,7 @@ import type {
   GhostPlayer, FirestoreGhostPlayer, LineupEntry,
   Notification, FirestoreNotification, NotificationType,
 } from "@/types";
+import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 
 // ============================================
 // Converters
@@ -1469,11 +1471,89 @@ export async function getVenues(filters?: { city?: string; fieldSize?: string; q
 // Feed / Posts
 // ============================================
 
+/**
+ * Replace each post's copied-in author name and picture with the author's
+ * current ones.
+ *
+ * A post stores author_name / author_avatar at the moment it is written, so
+ * changing your profile picture used to leave every old post showing the old
+ * one. The stored values stay as a fallback for authors whose account has
+ * since gone; what the feed displays is live.
+ *
+ * `cache` is owned by the caller and survives across snapshots, so a realtime
+ * feed does not refetch the same handful of authors on every update.
+ */
+async function hydratePostAuthors(
+  posts: Post[],
+  cache: Map<string, { name: string; avatar: string }>,
+): Promise<void> {
+  const missing = [
+    ...new Set(
+      posts
+        .map((p) => p.authorId)
+        // The official account has no users document — its identity comes
+        // from the Tribune settings, resolved at render time.
+        .filter((id) => id && id !== SYSTEM_AUTHOR_ID && !cache.has(id)),
+    ),
+  ];
+
+  // documentId() 'in' takes at most 30 values per query.
+  for (let i = 0; i < missing.length; i += 30) {
+    const chunk = missing.slice(i, i + 30);
+    try {
+      const snap = await getDocs(
+        query(collection(db, "users"), where(documentId(), "in", chunk)),
+      );
+      for (const d of snap.docs) {
+        const u = d.data();
+        const name = `${u.first_name ?? ""} ${u.last_name ? u.last_name.charAt(0) + "." : ""}`.trim();
+        cache.set(d.id, { name, avatar: u.profile_picture_url ?? "" });
+      }
+    } catch (err) {
+      console.error("Error hydrating post authors:", err);
+    }
+  }
+
+  // The official account's identity lives in settings/tribune and is editable
+  // from the admin panel, so it is resolved the same way — renaming it or
+  // changing its picture must update everything it ever posted.
+  if (posts.some((p) => p.authorId === SYSTEM_AUTHOR_ID) && !cache.has(SYSTEM_AUTHOR_ID)) {
+    try {
+      const snap = await getDoc(doc(db, "settings", "tribune"));
+      const d = snap.data();
+      cache.set(SYSTEM_AUTHOR_ID, {
+        name: d?.system_name || SYSTEM_AUTHOR_NAME,
+        avatar: d?.system_avatar_url || "",
+      });
+    } catch (err) {
+      console.error("Error reading Tribune settings:", err);
+    }
+  }
+
+  for (const p of posts) {
+    const fresh = cache.get(p.authorId);
+    if (!fresh) continue;
+    if (fresh.name) p.authorName = fresh.name;
+    p.authorAvatar = fresh.avatar;
+  }
+}
+
 export function onPosts(maxResults: number, currentUserId: string, callback: (data: Post[]) => void): Unsubscribe {
   const q = query(collection(db, "posts"), orderBy("created_at", "desc"), firestoreLimit(maxResults));
+  const authorCache = new Map<string, { name: string; avatar: string }>();
+  // Snapshots can overlap while authors are being fetched; only the newest
+  // one is allowed to reach the callback.
+  let latest = 0;
   return onSnapshot(q,
     (snap) => {
-      callback(snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId)));
+      const seq = ++latest;
+      const posts = snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
+      // Render immediately with the stored values, then correct them — the
+      // feed must not wait on a second round trip to appear.
+      callback(posts);
+      hydratePostAuthors(posts, authorCache).then(() => {
+        if (seq === latest) callback([...posts]);
+      });
     },
     (error) => {
       console.error("Error in onPosts listener:", error);
