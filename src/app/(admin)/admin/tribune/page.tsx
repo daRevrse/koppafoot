@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadTribuneAvatar } from "@/lib/storage";
 
 // ============================================
 // Admin — the official account's voice, and the moderation queue.
@@ -38,6 +37,16 @@ interface Report {
   reason: string;
   status: string;
   createdAt: string | null;
+}
+
+/** Strips the `data:<type>;base64,` prefix — the route wants the payload. */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function AdminTribunePage() {
@@ -90,13 +99,17 @@ export default function AdminTribunePage() {
     }
     setSavingIdentity(true);
     try {
-      let avatarUrl = identityAvatar;
-      if (avatarFile) avatarUrl = await uploadTribuneAvatar(avatarFile);
+      // The picture travels in the request rather than going straight to the
+      // bucket: storage.rules denies browser writes on that path, because the
+      // only thing that authorizes it is the superadmin check the route does.
+      const avatar = avatarFile
+        ? { data: await fileToBase64(avatarFile), contentType: avatarFile.type }
+        : null;
       const token = await firebaseUser.getIdToken();
       const res = await fetch("/api/admin/tribune", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: identityName.trim(), avatarUrl }),
+        body: JSON.stringify({ name: identityName.trim(), avatarUrl: identityAvatar, avatar }),
       });
       const data = await res.json();
       if (!res.ok) {

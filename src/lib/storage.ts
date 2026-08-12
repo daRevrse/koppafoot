@@ -84,18 +84,6 @@ export async function uploadTeamGalleryImage(teamId: string, file: File): Promis
 /**
  * Upload a competition logo. Images only.
  */
-/**
- * Picture of the official Tribune account. Superadmin-only, enforced in
- * storage.rules — a fixed path so a new upload replaces the old file.
- */
-export async function uploadTribuneAvatar(file: File): Promise<string> {
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `branding/tribune/avatar.${ext}`;
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file, { contentType: file.type });
-  return getDownloadURL(storageRef);
-}
-
 export async function uploadCompetitionLogo(cid: string, file: File): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `competitions/${cid}/logo/logo.${ext}`;

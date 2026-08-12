@@ -1,4 +1,5 @@
-import { adminDb } from "@/lib/firebase-admin";
+import { randomUUID } from "node:crypto";
+import { adminDb, adminStorage } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import type { PostType } from "@/types";
@@ -33,6 +34,38 @@ export async function getTribuneIdentity(): Promise<TribuneIdentity> {
     name: d?.system_name || SYSTEM_AUTHOR_NAME,
     avatarUrl: d?.system_avatar_url || null,
   };
+}
+
+/**
+ * Store the official account's picture and return its download URL.
+ *
+ * Server-side on purpose. The browser cannot write this path (storage.rules
+ * denies it outright) because the only thing that may authorize the write is
+ * the superadmin check the calling route has already done.
+ *
+ * The URL is built the way the Firebase SDK builds one — a download token in
+ * the object's metadata — rather than via makePublic(), which fails on
+ * buckets with uniform access. A fresh token per upload also busts the cache
+ * even though the path never changes.
+ */
+export async function storeTribuneAvatar(
+  data: Buffer,
+  contentType: string,
+): Promise<string> {
+  const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+  const path = `branding/tribune/avatar.${ext}`;
+  const token = randomUUID();
+
+  const bucket = adminStorage.bucket();
+  await bucket.file(path).save(data, {
+    contentType,
+    metadata: { metadata: { firebaseStorageDownloadTokens: token } },
+  });
+
+  return (
+    `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
+    `/o/${encodeURIComponent(path)}?alt=media&token=${token}`
+  );
 }
 
 export async function setTribuneIdentity(input: TribuneIdentity): Promise<void> {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import {
-  publishOfficialPost, getTribuneIdentity, setTribuneIdentity,
+  publishOfficialPost, getTribuneIdentity, setTribuneIdentity, storeTribuneAvatar,
 } from "@/lib/tribune-server";
 import { SYSTEM_AUTHOR_ID } from "@/types";
 
@@ -75,13 +75,29 @@ export async function PUT(req: NextRequest) {
     const uid = await superadminUidOf(req);
     if (!uid) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
-    const { name, avatarUrl } = (await req.json()) as {
-      name?: string; avatarUrl?: string | null;
+    const { name, avatarUrl, avatar } = (await req.json()) as {
+      name?: string;
+      avatarUrl?: string | null;
+      /** New picture, base64 — the browser cannot write the bucket itself. */
+      avatar?: { data?: string; contentType?: string } | null;
     };
     if (!name?.trim()) {
       return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
     }
-    await setTribuneIdentity({ name: name.trim(), avatarUrl: avatarUrl ?? null });
+
+    let finalUrl = avatarUrl ?? null;
+    if (avatar?.data && avatar.contentType) {
+      if (!avatar.contentType.startsWith("image/")) {
+        return NextResponse.json({ error: "Le fichier doit être une image" }, { status: 400 });
+      }
+      const buffer = Buffer.from(avatar.data, "base64");
+      if (buffer.length > 2 * 1024 * 1024) {
+        return NextResponse.json({ error: "Image trop lourde (2 Mo maximum)" }, { status: 400 });
+      }
+      finalUrl = await storeTribuneAvatar(buffer, avatar.contentType);
+    }
+
+    await setTribuneIdentity({ name: name.trim(), avatarUrl: finalUrl });
     return NextResponse.json({ ok: true, identity: await getTribuneIdentity() });
   } catch (err) {
     console.error("[admin/tribune PUT]", err);

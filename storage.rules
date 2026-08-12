@@ -49,15 +49,17 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // Picture of the official Tribune account, set from /admin/tribune.
-    // Superadmin-only: the Firestore pointer is admin-SDK written, but the
-    // file itself would otherwise be overwritable by any signed-in account.
+    // Picture of the official Tribune account. Public to read, never writable
+    // from a browser: the file goes through /api/admin/tribune, whose admin
+    // SDK bypasses these rules after checking the caller is a superadmin.
+    //
+    // This used to allow writes gated on a cross-service firestore.get() of
+    // the caller's user_type. It returned 403 in production, and a rule that
+    // can only be tested by deploying it is the wrong place for an
+    // authorization check that the route already performs.
     match /branding/tribune/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.user_type == 'superadmin'
-                   && request.resource.size < 2 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow write: if false;
     }
 
     // Catch-all deny
