@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, ChevronLeft, MapPin, Upload,
   Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock, Goal,
+  GitBranch,
 } from "lucide-react";
 import {
   onCompetition,
@@ -16,12 +17,13 @@ import {
   scheduleCompMatch,
   updateCompMatch,
   createCompMatch,
+  describeBracketSlotSource,
 } from "@/lib/competition-firestore";
 import { hasGroupStage } from "@/lib/competition-format";
 import { uploadMatchBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import MatchResultModal from "@/components/competition/MatchResultModal";
-import type { Competition, CompMatch, CompTeam } from "@/types";
+import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
 interface RowState {
@@ -29,6 +31,39 @@ interface RowState {
   time: string;
   venueName: string;
   venueCity: string;
+}
+
+// Display order of the final-phase rounds. `third_place` closes the list — it
+// is not part of the elimination tree but it is a match to schedule all the same.
+const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final", "third_place"];
+
+const ROUND_LABELS: Record<CompMatchRound, string> = {
+  round_of_16: "8es de finale",
+  quarter: "Quarts de finale",
+  semi: "Demi-finales",
+  final: "Finale",
+  third_place: "Petite finale",
+};
+
+/** Short badge form of a round, for the section tabs. */
+const ROUND_SHORT: Record<CompMatchRound, string> = {
+  round_of_16: "8es",
+  quarter: "¼",
+  semi: "½",
+  final: "F",
+  third_place: "3e",
+};
+
+/**
+ * One block of the calendar: a group, or a round of the final phase. Both are
+ * scheduled the same way, so they share the row UI below.
+ */
+interface Section {
+  id: string;
+  kind: "group" | "knockout";
+  badge: string;
+  title: string;
+  matches: CompMatch[];
 }
 
 export default function CompetitionSchedulePage() {
@@ -43,9 +78,11 @@ export default function CompetitionSchedulePage() {
   // "Add match" modal.
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
+    stage: "group" as "group" | "knockout",
     homeTeamId: "",
     awayTeamId: "",
     group: "",
+    round: "final" as CompMatchRound,
     date: "",
     time: "",
     venueName: "",
@@ -115,13 +152,18 @@ export default function CompetitionSchedulePage() {
     [matches],
   );
 
+  const knockoutMatches = useMemo(
+    () => matches.filter((m) => m.stage === "knockout"),
+    [matches],
+  );
+
   // Seed row state from match values whenever matches change, without clobbering
   // edits the user has already started (only fill rows we haven't seeded yet).
   useEffect(() => {
     setRows((prev) => {
       const next = { ...prev };
       let changed = false;
-      for (const m of groupMatches) {
+      for (const m of matches) {
         if (next[m.id]) continue;
         next[m.id] = {
           date: m.date ?? "",
@@ -133,48 +175,83 @@ export default function CompetitionSchedulePage() {
       }
       return changed ? next : prev;
     });
-  }, [groupMatches]);
+  }, [matches]);
 
-  // Bucket group matches by their group letter, sorted by letter then name.
-  const matchesByGroup = useMemo(() => {
-    const map = new Map<string, CompMatch[]>();
+  // Every schedulable block, in order: the groups first, then the final phase
+  // round by round. A knockout match is scheduled before its two teams are
+  // known — the calendar is fixed first, the qualifiers arrive later.
+  const sections = useMemo<Section[]>(() => {
+    const out: Section[] = [];
+
+    const byGroup = new Map<string, CompMatch[]>();
     for (const m of groupMatches) {
       const key = m.group ?? "—";
-      const bucket = map.get(key);
+      const bucket = byGroup.get(key);
       if (bucket) bucket.push(m);
-      else map.set(key, [m]);
+      else byGroup.set(key, [m]);
     }
-    return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
-  }, [groupMatches]);
+    for (const [key, list] of [...byGroup.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      out.push({ id: `G:${key}`, kind: "group", badge: key, title: `Poule ${key}`, matches: list });
+    }
 
-  const [selectedGroup, setSelectedGroup] = useState<string>("ALL");
-  const groupKeys = useMemo(() => [...matchesByGroup.keys()], [matchesByGroup]);
+    for (const round of ROUND_ORDER) {
+      const list = knockoutMatches
+        .filter((m) => m.round === round)
+        .sort((a, b) => (a.bracketSlot ?? 0) - (b.bracketSlot ?? 0));
+      if (list.length === 0) continue;
+      out.push({
+        id: `K:${round}`,
+        kind: "knockout",
+        badge: ROUND_SHORT[round],
+        title: ROUND_LABELS[round],
+        matches: list,
+      });
+    }
 
-  const handlePrevGroup = () => {
-    const list = ["ALL", ...groupKeys];
-    const currentIndex = list.indexOf(selectedGroup);
+    // Knockout matches added by hand carry no round — keep them visible.
+    const looseKnockout = knockoutMatches.filter((m) => !m.round);
+    if (looseKnockout.length > 0) {
+      out.push({
+        id: "K:other",
+        kind: "knockout",
+        badge: "PF",
+        title: "Phase finale",
+        matches: looseKnockout,
+      });
+    }
+
+    return out;
+  }, [groupMatches, knockoutMatches]);
+
+  const [selectedSection, setSelectedSection] = useState<string>("ALL");
+  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
+
+  const handlePrevSection = () => {
+    const list = ["ALL", ...sectionIds];
+    const currentIndex = list.indexOf(selectedSection);
     if (currentIndex <= 0) {
-      setSelectedGroup(list[list.length - 1]);
+      setSelectedSection(list[list.length - 1]);
     } else {
-      setSelectedGroup(list[currentIndex - 1]);
+      setSelectedSection(list[currentIndex - 1]);
     }
   };
 
-  const handleNextGroup = () => {
-    const list = ["ALL", ...groupKeys];
-    const currentIndex = list.indexOf(selectedGroup);
+  const handleNextSection = () => {
+    const list = ["ALL", ...sectionIds];
+    const currentIndex = list.indexOf(selectedSection);
     if (currentIndex < 0 || currentIndex >= list.length - 1) {
-      setSelectedGroup(list[0]);
+      setSelectedSection(list[0]);
     } else {
-      setSelectedGroup(list[currentIndex + 1]);
+      setSelectedSection(list[currentIndex + 1]);
     }
   };
 
-  const visibleGroups = useMemo(() => {
-    const entries = [...matchesByGroup.entries()];
-    if (selectedGroup === "ALL") return entries;
-    return entries.filter(([key]) => key === selectedGroup);
-  }, [matchesByGroup, selectedGroup]);
+  const visibleSections = useMemo(() => {
+    // Fall back to everything when the selected block no longer exists (a
+    // bracket redraw, a poule emptied by an import).
+    if (selectedSection === "ALL" || !sectionIds.includes(selectedSection)) return sections;
+    return sections.filter((s) => s.id === selectedSection);
+  }, [sections, sectionIds, selectedSection]);
 
   const updateRow = (id: string, key: keyof RowState, value: string) => {
     setRows((prev) => ({
@@ -195,10 +272,12 @@ export default function CompetitionSchedulePage() {
 
   // Double-booking detection: two matches sharing the same venue + date + time.
   // Recomputed live as the organizer edits, so warnings appear immediately.
+  // A clash does not care about the stage — a quarter-final and a group match
+  // cannot share a pitch at the same hour either.
   const conflictIds = useMemo(() => {
     const seen = new Map<string, string>();
     const bad = new Set<string>();
-    for (const m of groupMatches) {
+    for (const m of matches) {
       const r = rows[m.id];
       const date = (r?.date ?? m.date ?? "").trim();
       const time = (r?.time ?? m.time ?? "").trim();
@@ -214,14 +293,14 @@ export default function CompetitionSchedulePage() {
       }
     }
     return bad;
-  }, [groupMatches, rows]);
+  }, [matches, rows]);
 
   // Slots already taken at a given venue (for the "créneaux occupés" hint).
   const takenSlotsFor = (venue: string): { date: string; time: string }[] => {
     const v = venue.trim().toLowerCase();
     if (!v) return [];
     const out: { date: string; time: string }[] = [];
-    for (const m of groupMatches) {
+    for (const m of matches) {
       const s = slotOf(m);
       if (s.venue === v && s.date && s.time) out.push({ date: s.date, time: s.time });
     }
@@ -244,11 +323,24 @@ export default function CompetitionSchedulePage() {
   };
 
   const openAdd = () => {
-    setAddForm({ homeTeamId: "", awayTeamId: "", group: "", date: "", time: "", venueName: "", venueCity: "" });
+    // A cup has no poule — default such a competition to the final phase.
+    const stage: "group" | "knockout" =
+      competition && !hasGroupStage(competition.competitionType) ? "knockout" : "group";
+    setAddForm({
+      stage,
+      homeTeamId: "",
+      awayTeamId: "",
+      group: "",
+      round: "final",
+      date: "",
+      time: "",
+      venueName: "",
+      venueCity: "",
+    });
     setAddOpen(true);
   };
 
-  const setAdd = (key: keyof typeof addForm, value: string) => {
+  const setAdd = <K extends keyof typeof addForm>(key: K, value: (typeof addForm)[K]) => {
     setAddForm((prev) => {
       const next = { ...prev, [key]: value };
       // Auto-fill the poule from the home team's group when not set manually.
@@ -285,12 +377,15 @@ export default function CompetitionSchedulePage() {
       }
     }
 
+    const knockout = addForm.stage === "knockout";
     setAddingMatch(true);
     try {
       await createCompMatch(cid, {
+        stage: addForm.stage,
         homeTeamId: addForm.homeTeamId,
         awayTeamId: addForm.awayTeamId,
-        group: addForm.group.trim() || null,
+        group: knockout ? null : addForm.group.trim() || null,
+        round: knockout ? addForm.round : null,
         date: addForm.date || null,
         time: addForm.time || null,
         venueName: addForm.venueName || null,
@@ -385,7 +480,220 @@ export default function CompetitionSchedulePage() {
     }
   };
 
-  const hasGroupMatches = groupMatches.length > 0;
+  /**
+   * Name of one side. A bracket slot is often still empty — it then shows where
+   * the place comes from ("1er poule A"), so the organizer knows what they are
+   * scheduling before the qualifiers are known.
+   */
+  const sideName = (m: CompMatch, side: "home" | "away"): { label: string; pending: boolean } => {
+    const name = side === "home" ? m.homeTeamName : m.awayTeamName;
+    const teamId = side === "home" ? m.homeTeamId : m.awayTeamId;
+    if (teamId && name) return { label: name, pending: false };
+    const source = side === "home" ? m.homeSource : m.awaySource;
+    return { label: source ? describeBracketSlotSource(source) : "À déterminer", pending: true };
+  };
+
+  // One schedulable match: teams, status badges, inline date/heure/stade/ville.
+  const renderMatchRow = (match: CompMatch) => {
+    const row = rows[match.id] ?? { date: "", time: "", venueName: "", venueCity: "" };
+    const saving = savingId === match.id;
+    const conflict = conflictIds.has(match.id);
+    const past = match.status !== "completed" && match.status !== "cancelled" && isMatchPast(match);
+    const completed = match.status === "completed";
+    const home = sideName(match, "home");
+    const away = sideName(match, "away");
+    // A result can only be entered once both slots hold a real team.
+    const canEnterResult = !!match.homeTeamId && !!match.awayTeamId;
+    const isKnockout = match.stage === "knockout";
+
+    return (
+      <div
+        key={match.id}
+        className={`p-4 ${conflict ? "bg-amber-50/40" : ""} ${past ? "bg-red-50/30" : ""} ${completed ? "bg-emerald-50/30" : ""}`}
+      >
+        {/* Teams + live link */}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900">
+            <span>
+              <span className={home.pending ? "font-medium italic text-gray-400" : ""}>{home.label}</span>{" "}
+              <span className="font-normal text-gray-400">vs</span>{" "}
+              <span className={away.pending ? "font-medium italic text-gray-400" : ""}>{away.label}</span>
+            </span>
+            {completed && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-700">
+                <Check size={11} />
+                {match.scoreHome ?? 0} - {match.scoreAway ?? 0}
+              </span>
+            )}
+            {past && (
+              <span
+                title="Date dépassée — ajoutez un score ou reportez le match"
+                className="inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
+              >
+                <Clock size={11} />
+                Date dépassée
+              </span>
+            )}
+            {conflict && (
+              <span
+                title="Créneau déjà pris (stade + date + heure)"
+                className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
+              >
+                <AlertTriangle size={11} />
+                Conflit
+              </span>
+            )}
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            {/* Saved results stay editable — a wrong score or a
+                forgotten scorer is corrected from the same modal. */}
+            {completed && canEnterResult && (
+              <button
+                type="button"
+                onClick={() => openScore(match)}
+                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+              >
+                <Goal size={14} />
+                Score &amp; buteurs
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => openBanner(match)}
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                match.bannerUrl
+                  ? "text-emerald-600 hover:bg-emerald-50"
+                  : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              }`}
+            >
+              <ImageIcon size={14} />
+              Bannière
+            </button>
+            <Link
+              href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
+              target="_blank"
+              rel="noopener"
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                isKnockout
+                  ? "text-purple-600 hover:bg-purple-50"
+                  : "text-primary-600 hover:bg-primary-50"
+              }`}
+            >
+              {completed ? "Console" : "Console live"}
+              <ChevronRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        {/* Past-date action bar */}
+        {past && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
+            <div className="flex items-center gap-2 text-sm text-red-700">
+              <AlertTriangle size={16} />
+              <span className="font-semibold">Ce match devait se jouer le {row.date}{row.time ? ` à ${row.time}` : ""}.</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              {canEnterResult && (
+                <button
+                  type="button"
+                  onClick={() => openScore(match)}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+                >
+                  <Trophy size={15} />
+                  Ajouter score
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => openPostpone(match)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+              >
+                <CalendarClock size={15} />
+                Reporter
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Inline scheduling inputs */}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-gray-500">Date</span>
+            <input
+              type="date"
+              value={row.date}
+              onChange={(e) => updateRow(match.id, "date", e.target.value)}
+              className={`rounded-lg border px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none ${
+                past ? "border-red-300 bg-red-50/50" : "border-gray-200"
+              }`}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-gray-500">Heure</span>
+            <input
+              type="time"
+              value={row.time}
+              onChange={(e) => updateRow(match.id, "time", e.target.value)}
+              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1">
+            <span className="text-[11px] font-medium text-gray-500">Stade</span>
+            <input
+              type="text"
+              placeholder="Nom du stade"
+              value={row.venueName}
+              onChange={(e) => updateRow(match.id, "venueName", e.target.value)}
+              className="min-w-[8rem] rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-gray-500">
+              <MapPin size={11} />
+              Ville
+            </span>
+            <input
+              type="text"
+              placeholder="Ville"
+              value={row.venueCity}
+              onChange={(e) => updateRow(match.id, "venueCity", e.target.value)}
+              className="min-w-[7rem] rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => handleSave(match.id)}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Save size={15} />
+            )}
+            Enregistrer
+          </button>
+        </div>
+
+        {/* Occupied slots hint for the entered venue */}
+        {row.venueName.trim() && (() => {
+          const taken = takenSlotsFor(row.venueName)
+            .filter((s) => !(s.date === row.date.trim() && s.time === row.time.trim()))
+            .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+          if (taken.length === 0) return null;
+          return (
+            <p className="mt-2 text-[11px] text-gray-400">
+              <span className="font-semibold text-gray-500">Créneaux déjà pris à {row.venueName.trim()} :</span>{" "}
+              {taken.slice(0, 6).map((s) => `${s.date} ${s.time}`).join(" · ")}
+              {taken.length > 6 ? " …" : ""}
+            </p>
+          );
+        })()}
+      </div>
+    );
+  };
+
+  const hasMatches = matches.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -416,6 +724,12 @@ export default function CompetitionSchedulePage() {
           >
             {competition?.name ?? "Compétition"} · {groupMatches.length} match
             {groupMatches.length !== 1 ? "s" : ""} de poule
+            {knockoutMatches.length > 0 && (
+              <>
+                {" · "}
+                {knockoutMatches.length} en phase finale
+              </>
+            )}
           </motion.p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -444,7 +758,7 @@ export default function CompetitionSchedulePage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 size={28} className="animate-spin text-gray-300" />
         </div>
-      ) : !hasGroupMatches ? (
+      ) : !hasMatches ? (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -456,6 +770,7 @@ export default function CompetitionSchedulePage() {
           <p className="mt-4 text-base font-bold text-gray-900">Aucun match</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
             Importez votre calendrier de matchs — ou générez automatiquement un round-robin de poule.
+            Les matchs de phase finale apparaîtront ici dès que le tableau sera dessiné.
           </p>
           <Link
             href={`/organizer/competitions/${cid}/import`}
@@ -476,17 +791,24 @@ export default function CompetitionSchedulePage() {
               ou générer un round-robin
             </button>
           )}
+          <Link
+            href={`/organizer/competitions/${cid}/knockout`}
+            className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <GitBranch size={16} />
+            ou dessiner la phase finale
+          </Link>
         </motion.div>
       ) : (
         <div className="space-y-6">
-          {/* Horizontal navigation bar for groups */}
-          {groupKeys.length > 0 && (
+          {/* Horizontal navigation bar for the groups and the final phase */}
+          {sections.length > 0 && (
             <div className="flex items-center justify-between gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
               <button
                 type="button"
-                onClick={handlePrevGroup}
-                aria-label="Poule précédente"
-                title="Poule précédente"
+                onClick={handlePrevSection}
+                aria-label="Bloc précédent"
+                title="Bloc précédent"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
                 <ChevronLeft size={18} />
@@ -495,37 +817,43 @@ export default function CompetitionSchedulePage() {
               <div className="no-scrollbar flex flex-1 items-center gap-2 overflow-x-auto px-1 py-0.5">
                 <button
                   type="button"
-                  onClick={() => setSelectedGroup("ALL")}
+                  onClick={() => setSelectedSection("ALL")}
                   className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                    selectedGroup === "ALL"
+                    selectedSection === "ALL"
                       ? "bg-primary-600 text-white shadow-md shadow-primary-200"
                       : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  Toutes les poules ({groupMatches.length})
+                  Tout ({matches.length})
                 </button>
-                {groupKeys.map((key) => {
-                  const count = matchesByGroup.get(key)?.length ?? 0;
-                  const isSelected = selectedGroup === key;
+                {sections.map((section) => {
+                  const isSelected = selectedSection === section.id;
+                  const knockout = section.kind === "knockout";
                   return (
                     <button
-                      key={key}
+                      key={section.id}
                       type="button"
-                      onClick={() => setSelectedGroup(key)}
+                      onClick={() => setSelectedSection(section.id)}
                       className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                         isSelected
-                          ? "bg-amber-500 text-white shadow-md shadow-amber-200"
+                          ? knockout
+                            ? "bg-purple-600 text-white shadow-md shadow-purple-200"
+                            : "bg-amber-500 text-white shadow-md shadow-amber-200"
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                       }`}
                     >
                       <span
-                        className={`flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-black ${
-                          isSelected ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
+                        className={`flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-[11px] font-black ${
+                          isSelected
+                            ? "bg-white/20 text-white"
+                            : knockout
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-amber-100 text-amber-700"
                         }`}
                       >
-                        {key}
+                        {section.badge}
                       </span>
-                      Poule {key} ({count})
+                      {section.title} ({section.matches.length})
                     </button>
                   );
                 })}
@@ -533,9 +861,9 @@ export default function CompetitionSchedulePage() {
 
               <button
                 type="button"
-                onClick={handleNextGroup}
-                aria-label="Poule suivante"
-                title="Poule suivante"
+                onClick={handleNextSection}
+                aria-label="Bloc suivant"
+                title="Bloc suivant"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
                 <ChevronRight size={18} />
@@ -543,216 +871,45 @@ export default function CompetitionSchedulePage() {
             </div>
           )}
 
-          {visibleGroups.map(([groupKey, groupMatchList], gi) => (
-            <motion.section
-              key={groupKey}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: gi * 0.04 }}
-              className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
-            >
-              <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-sm font-bold text-amber-700">
-                  {groupKey}
-                </span>
-                <h2 className="text-sm font-bold text-gray-900">Poule {groupKey}</h2>
-                <span className="ml-auto text-xs font-medium text-gray-400">
-                  {groupMatchList.length} match{groupMatchList.length !== 1 ? "s" : ""}
-                </span>
-              </div>
+          {visibleSections.map((section, si) => {
+            const knockout = section.kind === "knockout";
+            return (
+              <motion.section
+                key={section.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: si * 0.04 }}
+                className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+              >
+                <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3">
+                  <span
+                    className={`flex h-7 min-w-7 items-center justify-center rounded-lg px-1 text-sm font-bold ${
+                      knockout ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {knockout ? <GitBranch size={15} /> : section.badge}
+                  </span>
+                  <h2 className="text-sm font-bold text-gray-900">{section.title}</h2>
+                  {knockout && (
+                    <Link
+                      href={`/organizer/competitions/${cid}/knockout`}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold text-purple-600 transition-colors hover:bg-purple-50"
+                    >
+                      Tableau
+                      <ChevronRight size={12} />
+                    </Link>
+                  )}
+                  <span className="ml-auto text-xs font-medium text-gray-400">
+                    {section.matches.length} match{section.matches.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
 
-              <div className="divide-y divide-gray-100">
-                {groupMatchList.map((match) => {
-                  const row = rows[match.id] ?? {
-                    date: "",
-                    time: "",
-                    venueName: "",
-                    venueCity: "",
-                  };
-                  const saving = savingId === match.id;
-                  const conflict = conflictIds.has(match.id);
-                  const past = match.status !== "completed" && match.status !== "cancelled" && isMatchPast(match);
-                  const completed = match.status === "completed";
-                  return (
-                    <div key={match.id} className={`p-4 ${conflict ? "bg-amber-50/40" : ""} ${past ? "bg-red-50/30" : ""} ${completed ? "bg-emerald-50/30" : ""}`}>
-                      {/* Teams + live link */}
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <p className="flex items-center gap-2 text-sm font-bold text-gray-900">
-                          <span>
-                            {match.homeTeamName}{" "}
-                            <span className="font-normal text-gray-400">vs</span>{" "}
-                            {match.awayTeamName}
-                          </span>
-                          {completed && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-700">
-                              <Check size={11} />
-                              {match.scoreHome ?? 0} - {match.scoreAway ?? 0}
-                            </span>
-                          )}
-                          {past && (
-                            <span
-                              title="Date dépassée — ajoutez un score ou reportez le match"
-                              className="inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
-                            >
-                              <Clock size={11} />
-                              Date dépassée
-                            </span>
-                          )}
-                          {conflict && (
-                            <span
-                              title="Créneau déjà pris (stade + date + heure)"
-                              className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
-                            >
-                              <AlertTriangle size={11} />
-                              Conflit
-                            </span>
-                          )}
-                        </p>
-                        <div className="flex shrink-0 items-center gap-1">
-                          {/* Saved results stay editable — a wrong score or a
-                              forgotten scorer is corrected from the same modal. */}
-                          {completed && (
-                            <button
-                              type="button"
-                              onClick={() => openScore(match)}
-                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
-                            >
-                              <Goal size={14} />
-                              Score &amp; buteurs
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => openBanner(match)}
-                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                              match.bannerUrl
-                                ? "text-emerald-600 hover:bg-emerald-50"
-                                : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                            }`}
-                          >
-                            <ImageIcon size={14} />
-                            {match.bannerUrl ? "Bannière" : "Bannière"}
-                          </button>
-                          <Link
-                            href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
-                            target="_blank"
-                            rel="noopener"
-                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50"
-                          >
-                            {completed ? "Console" : "Console live"}
-                            <ChevronRight size={14} />
-                          </Link>
-                        </div>
-                      </div>
-
-                      {/* Past-date action bar */}
-                      {past && (
-                        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
-                          <div className="flex items-center gap-2 text-sm text-red-700">
-                            <AlertTriangle size={16} />
-                            <span className="font-semibold">Ce match devait se jouer le {row.date}{row.time ? ` à ${row.time}` : ""}.</span>
-                          </div>
-                          <div className="ml-auto flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openScore(match)}
-                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
-                            >
-                              <Trophy size={15} />
-                              Ajouter score
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openPostpone(match)}
-                              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-                            >
-                              <CalendarClock size={15} />
-                              Reporter
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Inline scheduling inputs */}
-                      <div className="flex flex-wrap items-end gap-2">
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[11px] font-medium text-gray-500">Date</span>
-                          <input
-                            type="date"
-                            value={row.date}
-                            onChange={(e) => updateRow(match.id, "date", e.target.value)}
-                            className={`rounded-lg border px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none ${
-                              past ? "border-red-300 bg-red-50/50" : "border-gray-200"
-                            }`}
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[11px] font-medium text-gray-500">Heure</span>
-                          <input
-                            type="time"
-                            value={row.time}
-                            onChange={(e) => updateRow(match.id, "time", e.target.value)}
-                            className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
-                          />
-                        </label>
-                        <label className="flex flex-1 flex-col gap-1">
-                          <span className="text-[11px] font-medium text-gray-500">Stade</span>
-                          <input
-                            type="text"
-                            placeholder="Nom du stade"
-                            value={row.venueName}
-                            onChange={(e) => updateRow(match.id, "venueName", e.target.value)}
-                            className="min-w-[8rem] rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
-                          />
-                        </label>
-                        <label className="flex flex-1 flex-col gap-1">
-                          <span className="flex items-center gap-1 text-[11px] font-medium text-gray-500">
-                            <MapPin size={11} />
-                            Ville
-                          </span>
-                          <input
-                            type="text"
-                            placeholder="Ville"
-                            value={row.venueCity}
-                            onChange={(e) => updateRow(match.id, "venueCity", e.target.value)}
-                            className="min-w-[7rem] rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => handleSave(match.id)}
-                          disabled={saving}
-                          className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {saving ? (
-                            <Loader2 size={15} className="animate-spin" />
-                          ) : (
-                            <Save size={15} />
-                          )}
-                          Enregistrer
-                        </button>
-                      </div>
-
-                      {/* Occupied slots hint for the entered venue */}
-                      {row.venueName.trim() && (() => {
-                        const taken = takenSlotsFor(row.venueName)
-                          .filter((s) => !(s.date === row.date.trim() && s.time === row.time.trim()))
-                          .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-                        if (taken.length === 0) return null;
-                        return (
-                          <p className="mt-2 text-[11px] text-gray-400">
-                            <span className="font-semibold text-gray-500">Créneaux déjà pris à {row.venueName.trim()} :</span>{" "}
-                            {taken.slice(0, 6).map((s) => `${s.date} ${s.time}`).join(" · ")}
-                            {taken.length > 6 ? " …" : ""}
-                          </p>
-                        );
-                      })()}
-                    </div>
-                  );
-                })}
-              </div>
-            </motion.section>
-          ))}
+                <div className="divide-y divide-gray-100">
+                  {section.matches.map((match) => renderMatchRow(match))}
+                </div>
+              </motion.section>
+            );
+          })}
         </div>
       )}
 
@@ -777,6 +934,27 @@ export default function CompetitionSchedulePage() {
               </div>
 
               <div className="space-y-4">
+                {/* Phase — a poule match or a final-phase one */}
+                <div className="flex items-center gap-2">
+                  {(["group", "knockout"] as const).map((stage) => (
+                    <button
+                      key={stage}
+                      type="button"
+                      onClick={() => setAdd("stage", stage)}
+                      className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        addForm.stage === stage
+                          ? stage === "knockout"
+                            ? "bg-purple-600 text-white shadow-md shadow-purple-200"
+                            : "bg-amber-500 text-white shadow-md shadow-amber-200"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      {stage === "knockout" ? <GitBranch size={14} /> : <Calendar size={14} />}
+                      {stage === "knockout" ? "Phase finale" : "Poule"}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Domicile</label>
@@ -812,14 +990,33 @@ export default function CompetitionSchedulePage() {
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="col-span-1">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Poule</label>
-                    <input
-                      type="text"
-                      placeholder="A"
-                      value={addForm.group}
-                      onChange={(e) => setAdd("group", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    />
+                    {addForm.stage === "knockout" ? (
+                      <>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Tour</label>
+                        <select
+                          value={addForm.round}
+                          onChange={(e) => setAdd("round", e.target.value as CompMatchRound)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                        >
+                          {ROUND_ORDER.map((r) => (
+                            <option key={r} value={r}>
+                              {ROUND_LABELS[r]}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Poule</label>
+                        <input
+                          type="text"
+                          placeholder="A"
+                          value={addForm.group}
+                          onChange={(e) => setAdd("group", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="col-span-1">
                     <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
@@ -876,6 +1073,17 @@ export default function CompetitionSchedulePage() {
                   })()}
                 </div>
 
+                {addForm.stage === "knockout" && (
+                  <p className="rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
+                    Ce match est ajouté au tableau sans y être relié : le vainqueur ne remonte pas
+                    automatiquement. Pour un arbre complet, passez par{" "}
+                    <Link href={`/organizer/competitions/${cid}/knockout`} className="font-bold underline">
+                      Phase finale
+                    </Link>
+                    .
+                  </p>
+                )}
+
                 <div className="flex justify-end gap-3 pt-1">
                   <button
                     type="button"
@@ -920,8 +1128,8 @@ export default function CompetitionSchedulePage() {
                 </button>
               </div>
               <p className="mb-4 text-sm text-gray-500">
-                {bannerMatch.homeTeamName} vs {bannerMatch.awayTeamName}. Si vide, la bannière
-                de la compétition (puis une image par défaut) est utilisée.
+                {sideName(bannerMatch, "home").label} vs {sideName(bannerMatch, "away").label}. Si vide,
+                la bannière de la compétition (puis une image par défaut) est utilisée.
               </p>
 
               <ImageUploadField
@@ -1010,7 +1218,10 @@ export default function CompetitionSchedulePage() {
                 Choisissez une nouvelle date et heure pour ce match.
               </p>
               <p className="mb-5 text-xs text-gray-400">
-                {postponeMatch.homeTeamName} vs {postponeMatch.awayTeamName}
+                {postponeMatch.stage === "knockout" && postponeMatch.round
+                  ? `${ROUND_LABELS[postponeMatch.round]} · `
+                  : ""}
+                {sideName(postponeMatch, "home").label} vs {sideName(postponeMatch, "away").label}
                 {postponeMatch.date ? ` · ancien : ${postponeMatch.date}` : ""}
               </p>
 
