@@ -1192,6 +1192,7 @@ export default function CompetitionSchedulePage() {
         cid={cid}
         match={scoreMatch}
         teams={teams}
+        competition={competition}
         onClose={() => setScoreMatch(null)}
       />
 

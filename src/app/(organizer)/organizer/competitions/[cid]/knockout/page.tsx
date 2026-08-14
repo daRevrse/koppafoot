@@ -1151,6 +1151,7 @@ export default function CompetitionKnockoutPage() {
         cid={cid}
         match={resultMatch}
         teams={teams}
+        competition={competition}
         onClose={() => setResultMatch(null)}
       />
     </div>

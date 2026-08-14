@@ -10,7 +10,8 @@ import {
   OWN_GOAL_DETAIL,
   type ResultGoal,
 } from "@/lib/competition-firestore";
-import type { CompMatch, CompPlayer, CompTeam } from "@/types";
+import { notifyCompetitionFollowers } from "@/lib/competition-notify";
+import type { Competition, CompMatch, CompPlayer, CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
 /** Sentinel option of the scorer picker: "this name is not on the roster yet". */
@@ -53,6 +54,7 @@ export default function MatchResultModal({
   cid,
   match,
   teams,
+  competition,
   onClose,
 }: {
   cid: string;
@@ -60,6 +62,12 @@ export default function MatchResultModal({
   match: CompMatch | null;
   /** Competition teams — the source of both rosters. */
   teams: CompTeam[];
+  /**
+   * The competition, when the caller has it loaded. Only used to notify its
+   * followers of a result the live console never announced — without it the
+   * score still saves, it just goes out unlinked.
+   */
+  competition?: Competition | null;
   onClose: () => void;
 }) {
   const [scoreHome, setScoreHome] = useState("");
@@ -211,6 +219,10 @@ export default function MatchResultModal({
       return;
     }
 
+    // Read before the write: a result already saved is being corrected, and a
+    // correction is not worth a push.
+    const wasCompleted = match.status === "completed";
+
     setSaving(true);
     try {
       // Create the missing roster lines first — one write per team, so two
@@ -259,6 +271,22 @@ export default function MatchResultModal({
         penaltyHome: ph,
         penaltyAway: pa,
       });
+
+      // Announce the result to the competition's followers — this is the match
+      // the live console never ran, so nobody has heard about it yet. Only on
+      // the first save: reopening to fix a typo or add a scorer must not ring
+      // every phone again. A sandbox competition is filtered server-side.
+      if (!wasCompleted) {
+        const scoreLine = `${match.homeTeamName} ${h} – ${a} ${match.awayTeamName}`;
+        notifyCompetitionFollowers({
+          cid,
+          title: "🏁 Score final",
+          body:
+            ph != null && pa != null ? `${scoreLine} (${ph} – ${pa} t.a.b.)` : scoreLine,
+          link: competition ? `/c/${competition.slug}/matches/${match.id}` : "/",
+        });
+      }
+
       toast.success(
         createdCount > 0
           ? `Score enregistré — ${createdCount} joueur${createdCount > 1 ? "s ajoutés" : " ajouté"} à l'effectif`
