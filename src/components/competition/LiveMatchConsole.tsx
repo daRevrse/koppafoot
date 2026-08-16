@@ -7,7 +7,7 @@ import {
   Play, Pause, ChevronLeft, ChevronRight, History, Clock,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
-  MonitorPlay, Ban, Undo2, Check,
+  MonitorPlay, Ban, Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -1665,10 +1665,10 @@ function EventTimeline({
     );
   }
 
-  // The VAR is called on the goal that just happened, so the controls hang off
-  // the last goal alone — repeated on every line they turned the feed into a
-  // wall of buttons. A review still open keeps its controls wherever it sits,
-  // otherwise a goal scored meanwhile would leave it impossible to close.
+  // The VAR is called on the goal that just happened — and play is stopped
+  // while it runs, so no other goal can come in and push the review down the
+  // feed. The controls therefore hang off the last goal alone, and disappear
+  // once it has been ruled on: a verdict is final.
   const lastGoalId = [...events].reverse().find((e) => e.type === "goal")?.id ?? null;
 
   return (
@@ -1681,7 +1681,8 @@ function EventTimeline({
         const cancelled = isGoal && event.varStatus === "cancelled";
         const confirmed = isGoal && event.varStatus === "confirmed";
         const varBusy = varPendingId === event.id;
-        const reviewable = isGoal && !!onVarVerdict && (event.id === lastGoalId || checking);
+        const reviewable =
+          isGoal && !!onVarVerdict && event.id === lastGoalId && !confirmed && !cancelled;
         return (
           <motion.div
             key={event.id}
@@ -1761,7 +1762,7 @@ function EventTimeline({
               {reviewable && onVarVerdict && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {varBusy && <Loader2 size={13} className="animate-spin text-gray-300" />}
-                  {!checking && !cancelled && (
+                  {!checking && (
                     <button
                       type="button"
                       disabled={varBusy}
@@ -1783,28 +1784,15 @@ function EventTimeline({
                       But accordé
                     </button>
                   )}
-                  {!cancelled && (
-                    <button
-                      type="button"
-                      disabled={varBusy}
-                      onClick={() => onVarVerdict(event, "cancelled")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
-                    >
-                      <Ban size={12} />
-                      Refuser le but
-                    </button>
-                  )}
-                  {cancelled && (
-                    <button
-                      type="button"
-                      disabled={varBusy}
-                      onClick={() => onVarVerdict(event, "confirmed")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <Undo2 size={12} />
-                      Rétablir le but
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={varBusy}
+                    onClick={() => onVarVerdict(event, "cancelled")}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                  >
+                    <Ban size={12} />
+                    Refuser le but
+                  </button>
                 </div>
               )}
             </div>
