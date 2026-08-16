@@ -1665,6 +1665,12 @@ function EventTimeline({
     );
   }
 
+  // The VAR is called on the goal that just happened, so the controls hang off
+  // the last goal alone — repeated on every line they turned the feed into a
+  // wall of buttons. A review still open keeps its controls wherever it sits,
+  // otherwise a goal scored meanwhile would leave it impossible to close.
+  const lastGoalId = [...events].reverse().find((e) => e.type === "goal")?.id ?? null;
+
   return (
     <div className="custom-scrollbar max-h-[350px] space-y-3 overflow-y-auto pr-2 sm:space-y-4">
       {[...events].reverse().map((event) => {
@@ -1675,6 +1681,7 @@ function EventTimeline({
         const cancelled = isGoal && event.varStatus === "cancelled";
         const confirmed = isGoal && event.varStatus === "confirmed";
         const varBusy = varPendingId === event.id;
+        const reviewable = isGoal && !!onVarVerdict && (event.id === lastGoalId || checking);
         return (
           <motion.div
             key={event.id}
@@ -1750,8 +1757,8 @@ function EventTimeline({
                 )}
               </p>
 
-              {/* VAR controls — goals only, while the match is still running */}
-              {isGoal && onVarVerdict && (
+              {/* VAR controls — last goal only, while the match is running */}
+              {reviewable && onVarVerdict && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {varBusy && <Loader2 size={13} className="animate-spin text-gray-300" />}
                   {!checking && !cancelled && (
