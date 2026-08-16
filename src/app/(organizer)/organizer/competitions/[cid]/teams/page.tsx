@@ -542,7 +542,7 @@ export default function CompetitionTeamsPage() {
       {/* Add / Edit modal */}
       <AnimatePresence>
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -718,7 +718,7 @@ export default function CompetitionTeamsPage() {
       {/* Invite manager modal */}
       <AnimatePresence>
         {inviting && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -796,7 +796,7 @@ export default function CompetitionTeamsPage() {
       {/* Delete confirmation modal */}
       <AnimatePresence>
         {deleting && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -847,7 +847,7 @@ export default function CompetitionTeamsPage() {
       {/* Disqualification modal */}
       <AnimatePresence>
         {disqualifying && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

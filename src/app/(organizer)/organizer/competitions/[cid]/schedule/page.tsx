@@ -916,12 +916,12 @@ export default function CompetitionSchedulePage() {
       {/* Add-match modal */}
       <AnimatePresence>
         {addOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Ajouter un match</h2>
@@ -1111,12 +1111,12 @@ export default function CompetitionSchedulePage() {
       {/* Per-match banner modal */}
       <AnimatePresence>
         {bannerMatch && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-lg rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-lg modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
             >
               <div className="mb-1 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Bannière du match</h2>
@@ -1199,12 +1199,12 @@ export default function CompetitionSchedulePage() {
       {/* Postpone / reschedule modal */}
       <AnimatePresence>
         {postponeMatch && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Reporter le match</h2>

@@ -130,7 +130,7 @@ function InviteModal({ entry, teams, senderName, onClose, onSent }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 modal-layer flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -183,7 +183,7 @@ function CandidatureModal({ team, onClose, onSubmit, submitting }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 modal-layer flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">

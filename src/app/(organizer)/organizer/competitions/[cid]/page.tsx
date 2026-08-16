@@ -402,12 +402,12 @@ export default function CompetitionDashboardPage() {
       {/* Delete confirmation */}
       <AnimatePresence>
         {deleteOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500">
@@ -460,12 +460,12 @@ export default function CompetitionDashboardPage() {
       {/* Settings modal */}
       <AnimatePresence>
         {editOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">

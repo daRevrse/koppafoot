@@ -731,12 +731,12 @@ export default function CompetitionStaffPage() {
       {/* ── Create-code modal ────────────────────────────── */}
       <AnimatePresence>
         {createOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl"
+              className="max-h-[90vh] w-full max-w-md overflow-y-auto modal-sheet rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -849,12 +849,12 @@ export default function CompetitionStaffPage() {
       {/* ── Fresh code, shown once, big ──────────────────── */}
       <AnimatePresence>
         {freshCode && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md rounded-t-2xl bg-white p-6 text-center shadow-xl sm:rounded-2xl"
+              className="w-full max-w-md modal-sheet rounded-t-2xl bg-white p-6 text-center shadow-xl sm:rounded-2xl"
             >
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
                 <Check size={24} className="text-emerald-600" />

@@ -1430,9 +1430,9 @@ export default function MatchesPage() {
         {ratingMatch && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm" onClick={() => setRatingMatch(null)} />
+              className="fixed inset-0 modal-layer bg-gray-900/40 backdrop-blur-sm" onClick={() => setRatingMatch(null)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl max-h-[80vh] flex flex-col">
+              className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl max-h-[80vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                 <h3 className="text-lg font-bold text-gray-900 font-display">Noter les joueurs</h3>
                 <button onClick={() => setRatingMatch(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -1480,14 +1480,14 @@ export default function MatchesPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm"
+              className="fixed inset-0 modal-layer bg-gray-900/40 backdrop-blur-sm"
               onClick={() => setModifyingMatch(null)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl"
+              className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl"
             >
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                 <h3 className="text-lg font-bold text-gray-900 font-display">Modifier le match</h3>

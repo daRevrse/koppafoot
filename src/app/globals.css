@@ -209,6 +209,26 @@ body {
 }
 
 /* ============================================
+   Modals & bottom sheets
+   ============================================ */
+
+/* Every modal layer — backdrop and panel — sits above the mobile bottom nav.
+   At the same z-index the nav wins (it comes later in the DOM), which left a
+   sheet's action row buttons hidden behind the tab bar on phones. */
+.modal-layer {
+  z-index: 80;
+}
+
+/* A sheet anchored to the bottom edge now covers the nav, so its last row
+   needs to clear the home indicator itself. Phones only: from `sm` up the
+   panel is centered and its own padding applies. */
+@media (max-width: 639px) {
+  .modal-sheet {
+    padding-bottom: calc(env(safe-area-inset-bottom, 8px) + 1.5rem);
+  }
+}
+
+/* ============================================
    Bottom Sheet Animations
    ============================================ */
 
