@@ -322,12 +322,21 @@ export default function PublicCompMatchView() {
                 const isHome = event.teamId === match.homeTeamId;
                 const teamName = isHome ? match.homeTeamName : match.awayTeamName;
                 const isSub = event.type === "substitution";
+                // A goal the VAR is looking at, or took away. The disallowed
+                // one stays in the feed — the crowd saw it, and the timeline
+                // is what explains why the score did not move.
+                const checking = event.type === "goal" && event.varStatus === "checking";
+                const cancelled = event.type === "goal" && event.varStatus === "cancelled";
                 return (
                   <div key={event.id} className="group flex items-start gap-3 sm:gap-5">
                     {/* Minute badge */}
                     <div
                       className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${
-                        event.type === "goal"
+                        cancelled
+                          ? "border-gray-100 bg-gray-50 text-gray-300"
+                          : checking
+                            ? "border-amber-100 bg-amber-50 text-amber-600"
+                            : event.type === "goal"
                           ? "border-emerald-100 bg-emerald-50 text-emerald-600"
                           : event.type === "yellow_card"
                             ? "border-amber-100 bg-amber-50 text-amber-500"
@@ -346,7 +355,12 @@ export default function PublicCompMatchView() {
                     <div className="min-w-0 flex-1 pt-0.5">
                       <div className="flex items-center gap-1.5">
                         {/* Type marker */}
-                        {event.type === "goal" && <Goal size={15} className="shrink-0 text-emerald-600" />}
+                        {event.type === "goal" && (
+                          <Goal
+                            size={15}
+                            className={`shrink-0 ${cancelled ? "text-gray-300" : "text-emerald-600"}`}
+                          />
+                        )}
                         {event.type === "yellow_card" && (
                           <span className="h-3.5 w-2.5 shrink-0 rounded-[3px] bg-amber-400" />
                         )}
@@ -354,7 +368,11 @@ export default function PublicCompMatchView() {
                           <span className="h-3.5 w-2.5 shrink-0 rounded-[3px] bg-red-500" />
                         )}
                         {isSub && <ArrowRightLeft size={14} className="shrink-0 text-blue-500" />}
-                        <span className="truncate text-xs font-black uppercase tracking-wide text-gray-900 sm:text-sm">
+                        <span
+                          className={`truncate text-xs font-black uppercase tracking-wide sm:text-sm ${
+                            cancelled ? "text-gray-400 line-through" : "text-gray-900"
+                          }`}
+                        >
                           {event.type === "goal"
                             ? event.detail === OWN_GOAL_DETAIL ? "But contre son camp" : "But"
                             : event.type === "yellow_card"
@@ -365,6 +383,17 @@ export default function PublicCompMatchView() {
                                   ? "Changement"
                                   : "Événement"}
                         </span>
+                        {checking && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                            VAR
+                          </span>
+                        )}
+                        {cancelled && (
+                          <span className="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-red-700">
+                            Refusé
+                          </span>
+                        )}
                         <span className="ml-auto shrink-0 truncate text-[10px] font-black uppercase tracking-wide text-gray-300 max-w-[35%]">
                           {teamName}
                         </span>

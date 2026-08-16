@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   onSnapshot,
   writeBatch,
+  runTransaction,
   arrayUnion,
   arrayRemove,
   increment,
@@ -27,7 +28,7 @@ import type {
   CompMatchRound, CompMatchStage,
   CompetitionFormat, CompetitionType,
   CompPlayer, LineupEntry, FirestoreLineupEntry,
-  BracketSlotSource,
+  BracketSlotSource, GoalVarStatus,
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
@@ -1061,6 +1062,8 @@ type StoredCompEvent = {
   player_id: string | null;
   player_name: string | null;
   detail: string | null;
+  /** Goals only — see `setCompGoalVarStatus`. Absent on an unreviewed goal. */
+  var_status?: GoalVarStatus | null;
   created_at: string;
 };
 
@@ -1166,6 +1169,64 @@ export async function addCompEvent(
   }
 
   await updateDoc(compMatchRef(cid, mid), updates);
+}
+
+/**
+ * Put a goal under video review, uphold it, or disallow it.
+ *
+ * The scoreboard follows the verdict — a disallowed goal comes off, a restored
+ * one goes back on — while the event itself never leaves the timeline, because
+ * "but refusé" is part of the story of the match and the crowd saw it happen.
+ * "checking" changes nothing on the score: on a real pitch the goal stands
+ * until the referee says otherwise.
+ *
+ * Runs in a transaction: the console keeps appending goals and cards while a
+ * review is open, and the score is a read-modify-write here (an increment
+ * could take a corrected score below zero).
+ */
+export async function setCompGoalVarStatus(
+  cid: string,
+  mid: string,
+  eventId: string,
+  status: GoalVarStatus,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = compMatchRef(cid, mid);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
+    const d = snap.data() as FirestoreCompMatch;
+
+    const events = d.live_state?.events ?? [];
+    const index = events.findIndex((e) => e.id === eventId);
+    if (index === -1) throw new Error("Événement introuvable");
+    const event = events[index];
+    if (event.type !== "goal") throw new Error("Seul un but passe par la VAR");
+
+    const before = event.var_status ?? null;
+    if (before === status) return;
+
+    const updates: Record<string, unknown> = {
+      "live_state.events": events.map((e, i) =>
+        i === index ? { ...e, var_status: status } : e,
+      ),
+      updated_at: serverTimestamp(),
+    };
+
+    // Only crossing in or out of "cancelled" moves the score — flipping
+    // between "checking" and "confirmed" leaves it alone.
+    const wasCancelled = before === "cancelled";
+    const nowCancelled = status === "cancelled";
+    if (wasCancelled !== nowCancelled) {
+      const isHome = event.team_id === d.home_team_id;
+      const current = (isHome ? d.score_home : d.score_away) ?? 0;
+      updates[isHome ? "score_home" : "score_away"] = Math.max(
+        0,
+        current + (nowCancelled ? -1 : 1),
+      );
+    }
+
+    tx.update(ref, updates);
+  });
 }
 
 /**
@@ -1547,6 +1608,9 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
     const events = match.liveState?.events ?? [];
     for (const event of events) {
       if (event.type !== "goal") continue;
+      // A goal the VAR took away never happened, for the scoreboard and for
+      // the golden boot alike.
+      if (event.varStatus === "cancelled") continue;
       // An own goal counts on the scoreboard for `teamId`, but the player who
       // scored it plays for the other side — crediting them here would rank
       // them under an opponent's colours. Not a scorer.

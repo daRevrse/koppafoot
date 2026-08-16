@@ -123,6 +123,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
         detail: e.detail,
         contestedByManagerId: e.contested_by_manager_id,
         contestationReason: e.contestation_reason,
+        varStatus: e.var_status ?? null,
         createdAt: e.created_at,
       })),
     } : null,

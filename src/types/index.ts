@@ -246,6 +246,13 @@ export interface Team {
 export type MatchStatus = "challenge" | "pending" | "draft" | "upcoming" | "live" | "completed" | "cancelled" | "delayed";
 export type MatchResult = "win" | "loss" | "draw" | null;
 
+/**
+ * Fate of a goal once the video assistant gets involved. A goal carries no
+ * status at all until someone reviews it — only a reviewed goal is flagged,
+ * and only a "cancelled" one leaves the scoreboard.
+ */
+export type GoalVarStatus = "checking" | "confirmed" | "cancelled";
+
 export interface MatchModificationRequest {
   date: string;
   time: string;
@@ -302,6 +309,13 @@ export interface FirestoreMatch {
       detail?: string;
       contested_by_manager_id?: string | null;
       contestation_reason?: string | null;
+      /**
+       * Goals only. Absent = a goal nobody reviewed, which is most of them.
+       *  - "checking"  : under VAR review, still on the scoreboard
+       *  - "confirmed" : reviewed and upheld
+       *  - "cancelled" : disallowed — off the scoreboard, kept in the timeline
+       */
+      var_status?: GoalVarStatus | null;
       created_at: string;
     }[];
   } | null;
@@ -377,6 +391,8 @@ export interface Match {
       detail?: string;
       contestedByManagerId?: string | null;
       contestationReason?: string | null;
+      /** See `FirestoreMatch.live_state.events[].var_status`. */
+      varStatus?: GoalVarStatus | null;
       createdAt: string;
     }[];
   } | null;

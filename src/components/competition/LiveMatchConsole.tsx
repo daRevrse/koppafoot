@@ -7,6 +7,7 @@ import {
   Play, Pause, ChevronLeft, ChevronRight, History, Clock,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
+  MonitorPlay, Ban, Undo2, Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -19,12 +20,16 @@ import {
   pauseCompTimer,
   updateCompPeriod,
   addCompEvent,
+  setCompGoalVarStatus,
   finishCompMatch,
   updateCompMatch,
 } from "@/lib/competition-firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
-import type { CompMatch, CompPlayer, LineupEntry, Competition } from "@/types";
+import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
+
+/** One entry of the live feed. */
+type LiveEvent = NonNullable<CompMatch["liveState"]>["events"][number];
 
 // Football rule constants.
 const STARTERS_MAX = 11;
@@ -354,6 +359,56 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const handleQuit = useCallback(() => {
     router.push(returnHref);
   }, [router, returnHref]);
+
+  // ----- VAR: review a goal already on the board -----
+  //
+  // A goal stands until the referee says otherwise, so "checking" leaves the
+  // score alone and only announces the review. The scoreboard is moved by
+  // `setCompGoalVarStatus`; here we tell the crowd what was decided.
+
+  const [varPendingId, setVarPendingId] = useState<string | null>(null);
+
+  const handleVarVerdict = async (event: LiveEvent, status: GoalVarStatus) => {
+    if (!match) return;
+    const teamName = event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName;
+    const who = event.playerName ? `${event.playerName} (${teamName})` : teamName;
+    const matchLink = competition ? `/c/${competition.slug}/matches/${mid}` : "/";
+
+    setVarPendingId(event.id);
+    try {
+      await setCompGoalVarStatus(cid, mid, event.id, status);
+      if (status === "checking") {
+        toast("But en cours de vérification");
+        notifyCompetitionFollowers({
+          cid,
+          title: "📺 VAR en cours",
+          body: `Le but de ${who} est en cours de vérification`,
+          link: matchLink,
+        });
+      } else if (status === "cancelled") {
+        toast.success("But refusé");
+        notifyCompetitionFollowers({
+          cid,
+          title: "❌ But refusé",
+          body: `Le but de ${who} est annulé`,
+          link: matchLink,
+        });
+      } else {
+        toast.success("But accordé");
+        notifyCompetitionFollowers({
+          cid,
+          title: "✅ But accordé",
+          body: `Le but de ${who} est validé`,
+          link: matchLink,
+        });
+      }
+    } catch (err) {
+      console.error("VAR verdict error:", err);
+      toast.error(err instanceof Error ? err.message : "Impossible d'enregistrer la décision");
+    } finally {
+      setVarPendingId(null);
+    }
+  };
 
   // ----- Live scoring (player picker) -----
 
@@ -1034,7 +1089,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 {events.length} Total
               </div>
             </div>
-            <EventTimeline events={events} homeTeamId={match.homeTeamId} homeTeamName={match.homeTeamName} awayTeamName={match.awayTeamName} />
+            <EventTimeline
+              events={events}
+              homeTeamId={match.homeTeamId}
+              homeTeamName={match.homeTeamName}
+              awayTeamName={match.awayTeamName}
+              onVarVerdict={handleVarVerdict}
+              varPendingId={varPendingId}
+            />
           </div>
         </>
       )}
@@ -1077,7 +1139,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       {/* Penalty entry modal (knockout draw) */}
       <AnimatePresence>
         {showPenaltyModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1392,7 +1454,7 @@ function PlayerPickerModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -1492,7 +1554,7 @@ function SubstitutionModal({
   const substitutes = inEntries;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -1579,11 +1641,16 @@ function EventTimeline({
   homeTeamId,
   homeTeamName,
   awayTeamName,
+  onVarVerdict,
+  varPendingId,
 }: {
   events: NonNullable<CompMatch["liveState"]>["events"];
   homeTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
+  /** Omitted on a finished match: the feed is then read-only. */
+  onVarVerdict?: (event: LiveEvent, status: GoalVarStatus) => void;
+  varPendingId?: string | null;
 }) {
   if (events.length === 0) {
     return (
@@ -1603,6 +1670,11 @@ function EventTimeline({
       {[...events].reverse().map((event) => {
         const isHome = event.teamId === homeTeamId;
         const isSub = event.type === "substitution";
+        const isGoal = event.type === "goal";
+        const checking = isGoal && event.varStatus === "checking";
+        const cancelled = isGoal && event.varStatus === "cancelled";
+        const confirmed = isGoal && event.varStatus === "confirmed";
+        const varBusy = varPendingId === event.id;
         return (
           <motion.div
             key={event.id}
@@ -1610,13 +1682,23 @@ function EventTimeline({
             animate={{ opacity: 1, x: 0 }}
             className="group flex items-center gap-3.5 sm:gap-5"
           >
-            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-xs font-black shadow-sm">
+            <div
+              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-black shadow-sm ${
+                cancelled
+                  ? "border-gray-100 bg-gray-50 text-gray-300"
+                  : checking
+                    ? "border-amber-200 bg-amber-50 text-amber-600"
+                    : "border-gray-100 bg-gray-50"
+              }`}
+            >
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
               {event.minute ? `${event.minute}'` : "—"}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                {event.type === "goal" && <Goal size={16} className="text-amber-500" />}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {isGoal && (
+                  <Goal size={16} className={cancelled ? "text-gray-300" : "text-amber-500"} />
+                )}
                 {event.type === "yellow_card" && (
                   <span className="h-5 w-3.5 rounded-sm border border-amber-500/20 bg-amber-400 shadow-sm" />
                 )}
@@ -1624,8 +1706,12 @@ function EventTimeline({
                   <span className="h-5 w-3.5 rounded-sm border border-red-700/20 bg-red-600 shadow-sm" />
                 )}
                 {isSub && <ArrowRightLeft size={16} className="text-sky-500" />}
-                <span className="text-sm font-black uppercase tracking-tight text-gray-900">
-                  {event.type === "goal"
+                <span
+                  className={`text-sm font-black uppercase tracking-tight ${
+                    cancelled ? "text-gray-400 line-through" : "text-gray-900"
+                  }`}
+                >
+                  {isGoal
                     ? "BUT !"
                     : event.type === "yellow_card"
                       ? "Carton Jaune"
@@ -1633,6 +1719,25 @@ function EventTimeline({
                         ? "Carton Rouge"
                         : "Changement"}
                 </span>
+
+                {checking && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                    VAR en cours
+                  </span>
+                )}
+                {cancelled && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-700">
+                    <Ban size={10} />
+                    But refusé
+                  </span>
+                )}
+                {confirmed && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                    <Check size={10} />
+                    Accordé VAR
+                  </span>
+                )}
               </div>
               <p className="mt-0.5 text-xs font-bold uppercase tracking-tighter text-gray-400">
                 {isSub && event.detail ? (
@@ -1644,6 +1749,57 @@ function EventTimeline({
                   </>
                 )}
               </p>
+
+              {/* VAR controls — goals only, while the match is still running */}
+              {isGoal && onVarVerdict && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {varBusy && <Loader2 size={13} className="animate-spin text-gray-300" />}
+                  {!checking && !cancelled && (
+                    <button
+                      type="button"
+                      disabled={varBusy}
+                      onClick={() => onVarVerdict(event, "checking")}
+                      className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                    >
+                      <MonitorPlay size={12} />
+                      Vérifier (VAR)
+                    </button>
+                  )}
+                  {checking && (
+                    <button
+                      type="button"
+                      disabled={varBusy}
+                      onClick={() => onVarVerdict(event, "confirmed")}
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                    >
+                      <Check size={12} />
+                      But accordé
+                    </button>
+                  )}
+                  {!cancelled && (
+                    <button
+                      type="button"
+                      disabled={varBusy}
+                      onClick={() => onVarVerdict(event, "cancelled")}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                    >
+                      <Ban size={12} />
+                      Refuser le but
+                    </button>
+                  )}
+                  {cancelled && (
+                    <button
+                      type="button"
+                      disabled={varBusy}
+                      onClick={() => onVarVerdict(event, "confirmed")}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <Undo2 size={12} />
+                      Rétablir le but
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         );

@@ -59,6 +59,9 @@ export function computePlayerStats(
 
     for (const event of match.liveState?.events ?? []) {
       if (event.playerId !== playerId) continue;
+      // A goal disallowed by the VAR is off the scoreboard — it must not sit
+      // in a player's tally either.
+      if (event.type === "goal" && event.varStatus === "cancelled") continue;
       if (event.type === "goal") stats.goals += 1;
       else if (event.type === "yellow_card") stats.yellowCards += 1;
       else if (event.type === "red_card") stats.redCards += 1;
@@ -104,7 +107,7 @@ export function computeAppearances(
     out.push({
       match,
       role: entry.role,
-      goals: events.filter((e) => e.type === "goal").length,
+      goals: events.filter((e) => e.type === "goal" && e.varStatus !== "cancelled").length,
       yellowCards: events.filter((e) => e.type === "yellow_card").length,
       redCards: events.filter((e) => e.type === "red_card").length,
     });

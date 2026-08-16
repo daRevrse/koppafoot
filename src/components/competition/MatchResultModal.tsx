@@ -101,7 +101,8 @@ export default function MatchResultModal({
       const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
       const opponentId = side === "home" ? match.awayTeamId : match.homeTeamId;
       const rows: GoalRow[] = (match.liveState?.events ?? [])
-        .filter((e) => e.type === "goal" && e.teamId === teamId)
+        // A goal the VAR disallowed is not part of the score being corrected.
+        .filter((e) => e.type === "goal" && e.teamId === teamId && e.varStatus !== "cancelled")
         .map((e) => {
           const ownGoal = e.detail === OWN_GOAL_DETAIL;
           const name = (e.playerName ?? "").trim();
@@ -311,12 +312,12 @@ export default function MatchResultModal({
   return (
     <AnimatePresence>
       {match && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+        <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            className="max-h-[92vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold text-gray-900">
