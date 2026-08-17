@@ -433,12 +433,11 @@ export async function removeTeamMember(teamId: string, playerId: string): Promis
   });
 }
 
-export async function addTeamMember(teamId: string, playerId: string): Promise<void> {
-  await updateDoc(doc(db, "teams", teamId), {
-    member_ids: arrayUnion(playerId),
-    updated_at: serverTimestamp(),
-  });
-}
+// addTeamMember() lived here: a bare arrayUnion onto any team's member_ids,
+// with no caller anywhere in the app. It was the unguarded self-join primitive
+// the old teams rule existed to permit. Joining now happens through an
+// invitation (/api/team-invitations/respond) or a manager accepting a join
+// request.
 
 export async function getUsersByIds(uids: string[]): Promise<UserProfile[]> {
   if (uids.length === 0) return [];
@@ -1336,25 +1335,38 @@ export function onInvitationsByManager(managerId: string, callback: (data: Invit
   );
 }
 
-export async function respondToInvitation(invitationId: string, accepted: boolean, teamId?: string, playerId?: string): Promise<void> {
-  const batch = writeBatch(db);
-  const invRef = doc(db, "invitations", invitationId);
-
-  batch.update(invRef, {
-    status: accepted ? "accepted" : "declined",
-    updated_at: serverTimestamp(),
+/**
+ * Answer an invitation to join a team.
+ *
+ * Goes through /api/team-invitations/respond: accepting writes `member_ids` on
+ * a team the player does not own, and the rule that used to permit that could
+ * only inspect the shape of the write, never whether an invitation existed —
+ * so it let anyone add themselves to any team. The server checks the invitation
+ * instead.
+ *
+ * `teamId` and `playerId` are ignored: both are read from the invitation, and
+ * the player is the token's owner. The parameters stay for the call sites.
+ */
+export async function respondToInvitation(
+  invitationId: string,
+  accepted: boolean,
+  _teamId?: string,
+  _playerId?: string,
+): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/team-invitations/respond", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify({ invitationId, accepted }),
   });
-
-  // If accepted, add player to team
-  if (accepted && teamId && playerId) {
-    const teamRef = doc(db, "teams", teamId);
-    batch.update(teamRef, {
-      member_ids: arrayUnion(playerId),
-      updated_at: serverTimestamp(),
-    });
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({ error: null }));
+    throw new Error(error ?? "Opération impossible");
   }
-
-  await batch.commit();
 }
 
 export async function cancelInvitation(invitationId: string): Promise<void> {

@@ -135,7 +135,16 @@ service cloud.firestore {
     // Users collection
     // ============================================
     match /users/{uid} {
-      allow read: if true;
+      // Was `if true`. A user document carries the account's email and phone
+      // number, so world-readable meant anyone, signed in or not, could walk
+      // the collection and harvest every contact detail on the platform.
+      //
+      // No public route reads profiles — the login-free pages (accueil,
+      // /competitions, /c/**, /staff/rejoindre, /invitations) work off
+      // competitions, comp_teams and comp_matches, and posts carry their
+      // author's name and avatar denormalized. Requiring an account matches how
+      // /teams is already gated.
+      allow read: if isAuthenticated();
       allow create: if isOwner(uid);
       
       // Only the owner writes their own profile.
@@ -186,12 +195,15 @@ service cloud.firestore {
         && (
           resource.data.manager_id == request.auth.uid
           || isSuperAdmin()
-          || (
-            request.resource.data.member_ids.hasAll(resource.data.member_ids)
-            && request.auth.uid in request.resource.data.member_ids
-            && request.resource.data.manager_id == resource.data.manager_id
-            && request.resource.data.name == resource.data.name
-          )
+
+          // A third branch used to let any signed-in user add themselves to
+          // member_ids, as long as they kept the existing members, the manager
+          // and the name. It could check the shape of the write but never its
+          // reason, so no invitation was actually required: anyone could join
+          // any team. Accepting an invitation now goes through
+          // /api/team-invitations/respond, which verifies one exists and names
+          // the caller; a manager accepting a join request is already covered
+          // by the manager_id branch above.
           // The club record (matches_played/wins/losses/draws/goals_for/
           // goals_against/last_match_id) and followers_count used to be writable
           // by any signed-in user here, so that the browser could run the
