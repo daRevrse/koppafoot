@@ -2,23 +2,32 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
+import { getWorldCompetitions } from "@/lib/football-data";
 import CompetitionDirectorySearch from "@/components/competition/CompetitionDirectorySearch";
 import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
 
 // Public, login-free directory of all visible competitions, rendered inside
 // the general app shell (the (app) layout treats /competitions as public).
 // Server Component: fetches via the firebase-admin lib (getPublicCompetitions)
-// and hands the data to a small client search island as props — the admin lib
-// never enters the client bundle.
+// and the server-only football-data lib, then hands the data to a small client
+// search island as props — neither lib enters the client bundle.
+//
+// The directory carries both families: the Koppafoot competitions you can join,
+// and the world game you can only follow. The second is what keeps the page
+// worth opening on a day when no local competition is running.
 export const revalidate = 60;
 
 export const metadata = {
   title: "Compétitions — Koppafoot",
-  description: "Découvre et suis les compétitions de football amateur en direct sur Koppafoot.",
+  description:
+    "Suis les compétitions de football amateur du Togo et les grands championnats du monde : classements, résultats et calendriers en direct sur Koppafoot.",
 };
 
 export default async function CompetitionsPage() {
-  const competitions = await getPublicCompetitions();
+  const [competitions, worldCompetitions] = await Promise.all([
+    getPublicCompetitions(),
+    getWorldCompetitions(),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -29,12 +38,12 @@ export default async function CompetitionsPage() {
           </h1>
           <p className="mt-1 text-sm font-bold text-gray-400">
             {competitions.length === 0
-              ? "Le football amateur en direct sur Koppafoot."
+              ? "Le football amateur et les grands championnats, en direct sur Koppafoot."
               : `${competitions.length} compétition${competitions.length > 1 ? "s" : ""} à suivre en direct.`}
           </p>
         </div>
 
-        {competitions.length === 0 ? (
+        {competitions.length === 0 && worldCompetitions.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-5 rounded-[2.5rem] border border-gray-100 bg-white py-20 text-center shadow-sm">
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-400">
               <Trophy size={32} />
@@ -59,7 +68,10 @@ export default async function CompetitionsPage() {
           // Suspense: the search island reads ?q= via useSearchParams (the
           // header search bar lands here) — required on a static page.
           <Suspense fallback={null}>
-            <CompetitionDirectorySearch competitions={competitions} />
+            <CompetitionDirectorySearch
+              competitions={competitions}
+              worldCompetitions={worldCompetitions}
+            />
           </Suspense>
         )}
         {/* Discreet, and at the bottom: this screen is first about finding a
