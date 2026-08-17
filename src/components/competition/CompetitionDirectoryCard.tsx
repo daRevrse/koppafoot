@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Trophy, CalendarDays, MapPin } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
+import FollowCompetitionButton from "./FollowCompetitionButton";
 import type { Competition, CompetitionStatus } from "@/types";
 
 // ============================================
@@ -41,7 +42,8 @@ function formatDateRange(start: string | null, end: string | null): string | nul
 // Component
 // ============================================
 
-// A single directory tile. Presentational + server-safe (no client hooks).
+// A single directory tile. Presentational + server-safe (no client hooks) —
+// sauf le bouton Suivre, une île cliente posée par-dessus.
 // Banners/logos are organizer-entered arbitrary URLs → plain <img>, not
 // next/image. The whole tile links to the public competition home.
 export default function CompetitionDirectoryCard({ competition }: { competition: Competition }) {
@@ -50,52 +52,61 @@ export default function CompetitionDirectoryCard({ competition }: { competition:
   const cover = competition.bannerUrl ?? competition.logoUrl;
 
   return (
-    <Link
-      href={`/c/${competition.slug}`}
-      className="group flex flex-col overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg"
-    >
-      {/* Cover: banner/logo when present, else a branded gradient with a trophy. */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-900">
-        {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cover}
-            alt={competition.name}
-            className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-700 via-gray-900 to-black">
-            <Trophy size={36} className="text-emerald-400" />
-          </div>
-        )}
-        <span
-          className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${badge.bg} ${badge.color}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
-          {badge.label}
-        </span>
+    <div className="group relative flex flex-col overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg">
+      {/* Hors du lien : un bouton imbriqué dans une ancre navigue au clic. */}
+      <div className="absolute right-3 top-3 z-10">
+        <FollowCompetitionButton cid={competition.id} variant="icon" />
       </div>
 
-      {/* Body */}
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="font-display text-base font-black leading-tight tracking-tight text-gray-900">
-          {competition.name}
-        </h3>
-        <div className="mt-auto flex flex-col gap-1 text-[11px] font-bold text-gray-400">
-          {dateRange && (
-            <span className="flex items-center gap-1.5">
-              <CalendarDays size={13} className="shrink-0 text-gray-300" />
-              <span className="truncate">{dateRange}</span>
-            </span>
+      <Link href={`/c/${competition.slug}`} className="flex flex-1 flex-col">
+        {/* Cover: banner/logo when present, else a branded gradient with a trophy. */}
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-900">
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={cover}
+              alt={competition.name}
+              className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-700 via-gray-900 to-black">
+              <Trophy size={36} className="text-emerald-400" />
+            </div>
           )}
-          {competition.venueCity && (
-            <span className="flex items-center gap-1.5">
-              <MapPin size={13} className="shrink-0 text-gray-300" />
-              <span className="truncate">{competition.venueCity}</span>
-            </span>
-          )}
+          <span
+            className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${badge.bg} ${badge.color}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
+            {badge.label}
+          </span>
         </div>
-      </div>
-    </Link>
+
+        {/* Body */}
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <h3 className="font-display text-base font-black leading-tight tracking-tight text-gray-900">
+            {competition.name}
+          </h3>
+          {competition.organizerName && (
+            <p className="-mt-1 truncate text-[11px] font-bold text-gray-400">
+              Par {competition.organizerName}
+            </p>
+          )}
+          <div className="mt-auto flex flex-col gap-1 text-[11px] font-bold text-gray-400">
+            {dateRange && (
+              <span className="flex items-center gap-1.5">
+                <CalendarDays size={13} className="shrink-0 text-gray-300" />
+                <span className="truncate">{dateRange}</span>
+              </span>
+            )}
+            {competition.venueCity && (
+              <span className="flex items-center gap-1.5">
+                <MapPin size={13} className="shrink-0 text-gray-300" />
+                <span className="truncate">{competition.venueCity}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    </div>
   );
 }

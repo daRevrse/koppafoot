@@ -56,8 +56,15 @@ export async function PATCH(
     });
 
     if (approved) {
+      // Le nom d'organisateur passe de la candidature au profil : c'est lui
+      // qui sera estampillé sur chaque compétition créée ensuite. Les
+      // candidatures antérieures au champ n'en ont pas — le profil reste
+      // alors vide et « Organisé par » ne s'affiche simplement pas.
       await adminDb.collection("users").doc(application.uid).update({
         user_type: "organizer",
+        ...(application.organizer_name
+          ? { organizer_name: application.organizer_name }
+          : {}),
         updated_at: FieldValue.serverTimestamp(),
       });
     }

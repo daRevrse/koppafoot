@@ -16,6 +16,8 @@ interface Application {
   id: string;
   uid: string;
   name: string;
+  /** Nom public sous lequel le candidat organisera. Absent avant le champ. */
+  organizerName: string | null;
   email: string | null;
   phone: string | null;
   city: string | null;
@@ -146,6 +148,13 @@ export default function AdminOrganizersPage() {
                         {st.label}
                       </span>
                     </div>
+                    {/* Le nom public demandé : c'est ce qui s'affichera sur
+                        ses compétitions, donc ce qui s'approuve avec elle. */}
+                    {a.organizerName && (
+                      <p className="mt-0.5 truncate text-xs font-bold text-emerald-600">
+                        Organisera sous : {a.organizerName}
+                      </p>
+                    )}
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-400">
                       {a.email && <span className="flex items-center gap-1"><Mail size={11} />{a.email}</span>}
                       {a.phone && <span className="flex items-center gap-1"><Phone size={11} />{a.phone}</span>}

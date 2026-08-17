@@ -66,6 +66,13 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   updateProfile: (data: Partial<FirestoreUser>) => Promise<void>;
+  /**
+   * Re-read the profile document into the context. For writes that happen
+   * outside updateProfile() — le suivi d'une compétition, par exemple, qui
+   * passe par arrayUnion — sans quoi le reste de l'app (l'étoile du sidebar)
+   * garde l'ancienne liste jusqu'au prochain rechargement.
+   */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -113,6 +120,7 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     // Évolution
     evolutionRole: data.evolution_role ?? null,
     followedCompetitionIds: data.followed_competition_ids ?? [],
+    organizerName: data.organizer_name ?? null,
     // Gallery
     galleryPhotos: data.gallery_photos ?? [],
     // Trophies
@@ -381,6 +389,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendEmailVerification(auth.currentUser);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!auth.currentUser) return;
+    const profile = await fetchUserProfile(auth.currentUser.uid);
+    if (profile && firebaseUser) {
+      profile.emailVerified = firebaseUser.emailVerified;
+    }
+    setUser(profile);
+  }, [firebaseUser]);
+
   const updateProfileFn = useCallback(
     async (data: Partial<FirestoreUser>) => {
       if (!auth.currentUser) throw new Error("Non connecté");
@@ -418,6 +435,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         sendVerificationEmail,
         updateProfile: updateProfileFn,
+        refreshUser,
       }}
     >
       {children}

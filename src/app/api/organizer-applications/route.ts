@@ -34,12 +34,22 @@ export async function POST(req: NextRequest) {
     const uid = await verifyBearer(req);
     if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const { motivation, competitionName, city, phone } = (await req.json()) as {
-      motivation?: string; competitionName?: string; city?: string; phone?: string;
+    const { motivation, organizerName, competitionName, city, phone } = (await req.json()) as {
+      motivation?: string; organizerName?: string;
+      competitionName?: string; city?: string; phone?: string;
     };
     if (!motivation?.trim() || motivation.trim().length < 20) {
       return NextResponse.json(
         { error: "Décris ton projet en quelques phrases (20 caractères minimum)." },
+        { status: 400 },
+      );
+    }
+    // Le nom public de l'organisateur : repris sur le profil à l'approbation,
+    // puis sur chaque compétition créée.
+    const organizer = organizerName?.trim().slice(0, 80) ?? "";
+    if (organizer.length < 2) {
+      return NextResponse.json(
+        { error: "Indique le nom sous lequel tu organises." },
         { status: 400 },
       );
     }
@@ -71,6 +81,7 @@ export async function POST(req: NextRequest) {
     const doc = await adminDb.collection("organizer_applications").add({
       uid,
       name: applicantName,
+      organizer_name: organizer,
       email: u.email ?? null,
       phone: phone?.trim() || u.phone || null,
       city: city?.trim() || u.location_city || null,
@@ -116,6 +127,7 @@ export async function POST(req: NextRequest) {
                   u.email ?? "—",
                   city?.trim() || u.location_city || "",
                   motivation.trim(),
+                  organizer,
                 ),
               ),
             ),
@@ -152,6 +164,7 @@ export async function GET(req: NextRequest) {
         id: d.id,
         uid: x.uid,
         name: x.name ?? "",
+        organizerName: x.organizer_name ?? null,
         email: x.email ?? null,
         phone: x.phone ?? null,
         city: x.city ?? null,

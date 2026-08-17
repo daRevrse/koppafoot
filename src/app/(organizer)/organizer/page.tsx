@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Trophy, Plus, Loader2, Calendar, ChevronRight,
+  Trophy, Plus, Loader2, Calendar, ChevronRight, Pencil, Check, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listCompetitionsByOrganizer } from "@/lib/competition-firestore";
@@ -26,6 +26,96 @@ function formatDateRange(start: string | null, end: string | null): string | nul
     new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
   if (start && end) return `${fmt(start)} — ${fmt(end)}`;
   return fmt((start ?? end) as string);
+}
+
+/**
+ * Le nom public de l'organisateur, saisi à la candidature et modifiable ici.
+ * Il est recopié sur chaque compétition à sa création : le changer ici ne
+ * réécrit donc pas celles qui existent déjà — c'est dit explicitement.
+ */
+function OrganizerNameField() {
+  const { user, updateProfile } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  if (!user) return null;
+  const current = user.organizerName ?? "";
+
+  const save = async () => {
+    const next = value.trim().slice(0, 80);
+    if (next.length < 2) {
+      toast.error("Indique le nom sous lequel tu organises.");
+      return;
+    }
+    if (next === current) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProfile({ organizer_name: next });
+      toast.success("Nom mis à jour — les compétitions déjà créées gardent l'ancien.");
+      setEditing(false);
+    } catch {
+      toast.error("Impossible d'enregistrer.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          maxLength={80}
+          placeholder="Association, ligue, collectif…"
+          className="w-56 rounded-lg border border-gray-200 px-2.5 py-1 text-sm text-gray-900 focus:border-primary-400 focus:outline-none"
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          aria-label="Enregistrer"
+          className="rounded-lg bg-primary-600 p-1.5 text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          aria-label="Annuler"
+          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => {
+        setValue(current);
+        setEditing(true);
+      }}
+      className="group mt-1 flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900"
+    >
+      {current ? (
+        <span>
+          Organisé par <span className="font-bold text-gray-700">{current}</span>
+        </span>
+      ) : (
+        <span className="font-semibold text-primary-600">Ajouter un nom d&apos;organisateur</span>
+      )}
+      <Pencil size={12} className="text-gray-300 group-hover:text-gray-500" />
+    </button>
+  );
 }
 
 export default function OrganizerHomePage() {
@@ -72,6 +162,7 @@ export default function OrganizerHomePage() {
           >
             {competitions.length} compétition{competitions.length !== 1 ? "s" : ""} au total
           </motion.p>
+          <OrganizerNameField />
         </div>
         <Link
           href="/organizer/competitions/new"

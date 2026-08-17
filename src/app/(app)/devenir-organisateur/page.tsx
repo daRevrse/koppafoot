@@ -22,6 +22,7 @@ export default function BecomeOrganizerPage() {
   const [existing, setExisting] = useState<MyApplication | null>(null);
   const [checking, setChecking] = useState(true);
   const [motivation, setMotivation] = useState("");
+  const [organizerName, setOrganizerName] = useState("");
   const [competitionName, setCompetitionName] = useState("");
   const [city, setCity] = useState("");
   const [phone, setPhone] = useState("");
@@ -53,12 +54,20 @@ export default function BecomeOrganizerPage() {
     if (user) {
       setCity((c) => c || user.locationCity || "");
       setPhone((p) => p || user.phone || "");
+      // Beaucoup organisent en leur nom propre : le nom du profil est le
+      // point de départ le plus probable, à remplacer par celui de la
+      // structure quand il y en a une.
+      setOrganizerName((n) => n || `${user.firstName} ${user.lastName}`.trim());
     }
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firebaseUser) return;
+    if (organizerName.trim().length < 2) {
+      toast.error("Indique le nom sous lequel tu organises.");
+      return;
+    }
     if (motivation.trim().length < 20) {
       toast.error("Décris ton projet en quelques phrases (20 caractères minimum).");
       return;
@@ -69,7 +78,7 @@ export default function BecomeOrganizerPage() {
       const res = await fetch("/api/organizer-applications", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ motivation, competitionName, city, phone }),
+        body: JSON.stringify({ motivation, organizerName, competitionName, city, phone }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -169,6 +178,26 @@ export default function BecomeOrganizerPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {/* Le nom public de l'organisateur : il apparaîtra sur chaque
+              compétition créée, d'où sa place en tête du formulaire. */}
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-gray-600">
+              Nom de l&apos;organisateur
+            </label>
+            <input
+              value={organizerName}
+              onChange={(e) => setOrganizerName(e.target.value)}
+              className={inputClass}
+              placeholder="Ex. Association Miabé, Ligue de Lomé…"
+              maxLength={80}
+              required
+            />
+            <p className="mt-1 text-[11px] text-gray-400">
+              Association, ligue, école, collectif — ou ton propre nom. C&apos;est
+              lui qui s&apos;affichera en « Organisé par » sur tes compétitions.
+            </p>
+          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-bold text-gray-600">
               Ton projet de compétition

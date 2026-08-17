@@ -52,9 +52,15 @@ export default function NewCompetitionPage() {
 
   // Switching type resets the format: the fields that matter are different
   // per shape, and carrying stale numbers over produces nonsense defaults.
+  // Le NvN et la durée des matchs sont l'exception : ils décrivent le jeu et
+  // pas la forme du tournoi, donc ils suivent le changement de type.
   const changeType = (next: CompetitionType) => {
     setType(next);
-    setFormat(defaultFormat(next));
+    setFormat((prev) => ({
+      ...defaultFormat(next),
+      team_size: prev.team_size,
+      half_duration: prev.half_duration,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,6 +86,10 @@ export default function NewCompetitionPage() {
         endDate: form.endDate || null,
         venueCity: venueCity || null,
         createdBy: user.uid,
+        // Recopié ici, pas résolu à la lecture : les pages publiques n'ont
+        // pas accès aux profils. Renommer sa structure plus tard ne touche
+        // pas les compétitions déjà créées.
+        organizerName: user.organizerName ?? null,
       });
 
       // Uploaded files win over the URL fields.

@@ -85,6 +85,8 @@ export async function createCompetition(input: {
   endDate?: string | null;
   venueCity?: string | null;
   createdBy: string;
+  /** Nom de la structure organisatrice, recopié du profil — voir le type. */
+  organizerName?: string | null;
 }): Promise<string> {
   // Ensure slug uniqueness: slug, slug-2, slug-3, ...
   // Fallback when the name has no slug-able chars, so we never write an empty slug.
@@ -109,6 +111,7 @@ export async function createCompetition(input: {
     created_by: input.createdBy,
     status: "draft",
     competition_type: input.competitionType,
+    organizer_name: input.organizerName ?? null,
     format: input.format,
     start_date: input.startDate ?? null,
     end_date: input.endDate ?? null,
@@ -295,6 +298,7 @@ export async function duplicateCompetition(
     endDate: null,
     venueCity: source.venueCity,
     createdBy,
+    organizerName: source.organizerName,
   });
 
   const teams = await listCompTeams(cid);

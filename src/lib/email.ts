@@ -202,6 +202,8 @@ export function organizerApplicationAdminHtml(
   applicantEmail: string,
   city: string,
   motivation: string,
+  /** Nom public sous lequel le candidat organisera. */
+  organizerName?: string,
 ): string {
   return emailLayout(`
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e293b;">
@@ -211,6 +213,7 @@ export function organizerApplicationAdminHtml(
       <strong>${applicantName}</strong> (${applicantEmail}${city ? ` · ${city}` : ""})
       souhaite devenir organisateur de compétition.
     </p>
+    ${organizerName ? `<p style="margin:0 0 8px;color:#475569;">Organisera sous le nom : <strong>${organizerName}</strong></p>` : ""}
     ${divider()}
     <p style="margin:0 0 8px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Motivation</p>
     <p style="margin:0;color:#475569;white-space:pre-line;">${motivation}</p>

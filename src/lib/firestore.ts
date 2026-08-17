@@ -220,6 +220,7 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,
     followedCompetitionIds: data.followed_competition_ids ?? [],
+    organizerName: data.organizer_name ?? null,
     galleryPhotos: data.gallery_photos ?? [],
     trophies: data.trophies ?? [],
   };

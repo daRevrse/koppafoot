@@ -7,12 +7,14 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   Loader2, SearchX, Trophy, CalendarDays, ClipboardList,
-  MapPin,
+  MapPin, Users, Timer,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
 import { getCompetitionBySlug, onCompMatches } from "@/lib/competition-firestore";
+import { gameTypeLabel, matchDurationLabel } from "@/lib/competition-format";
 import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
+import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import type { Competition, CompMatch, CompMatchRound, CompetitionStatus } from "@/types";
 
 // ============================================
@@ -339,22 +341,42 @@ export default function PublicCompetitionHome() {
 
           <h1 className="font-display text-3xl font-black tracking-tight">{competition.name}</h1>
 
-          {(dateRange || competition.venueCity) && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-bold text-white/70">
-              {dateRange && (
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays size={13} />
-                  {dateRange}
-                </span>
-              )}
-              {competition.venueCity && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={13} />
-                  {competition.venueCity}
-                </span>
-              )}
-            </div>
+          {competition.organizerName && (
+            <p className="mt-1.5 text-xs font-bold text-white/60">
+              Organisé par {competition.organizerName}
+            </p>
           )}
+
+          {/* Dates, lieu, et les règles du jeu : une équipe doit savoir à
+              combien et combien de temps elle joue avant de s'inscrire. */}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-bold text-white/70">
+            {dateRange && (
+              <span className="flex items-center gap-1.5">
+                <CalendarDays size={13} />
+                {dateRange}
+              </span>
+            )}
+            {competition.venueCity && (
+              <span className="flex items-center gap-1.5">
+                <MapPin size={13} />
+                {competition.venueCity}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5">
+              <Users size={13} />
+              {gameTypeLabel(competition.format)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Timer size={13} />
+              {matchDurationLabel(competition.format)}
+            </span>
+          </div>
+
+          {/* Suivre : la compétition entre dans « Mes compétitions » du menu
+              et ses buts arrivent en notification. */}
+          <div className="mt-5">
+            <FollowCompetitionButton cid={competition.id} />
+          </div>
         </div>
       </motion.section>
 
