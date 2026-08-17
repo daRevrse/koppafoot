@@ -138,13 +138,18 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isOwner(uid);
       
+      // Only the owner writes their own profile.
+      //
+      // Two branches used to sit here letting ANY signed-in user write
+      // `followers_count`, or `matches_played`/`goals`/`assists`, on ANY user —
+      // the only way to express "the follow button" and "the end-of-match
+      // rollup" in rules, since both write counters on someone else's document.
+      // In practice they meant anyone could rewrite anyone's career stats or
+      // follower count. Both operations moved to the admin SDK
+      // (/api/follows, /api/matches/complete), which bypasses these rules, so
+      // the branches are gone rather than narrowed.
       allow update: if (isOwner(uid) && noProtectedFields())
-                   || (isOwner(uid) && isRoleEvolution())
-                   || (isAuthenticated() &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers_count', 'updated_at']))
-                   || (isAuthenticated() && 
-                       request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['matches_played', 'goals', 'assists', 'last_match_id', 'updated_at']));
+                   || (isOwner(uid) && isRoleEvolution());
 
       allow delete: if isSuperAdmin();
     }
@@ -187,11 +192,12 @@ service cloud.firestore {
             && request.resource.data.manager_id == resource.data.manager_id
             && request.resource.data.name == resource.data.name
           )
-          || (
-            // Referee or System updating stats
-            request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['matches_played', 'wins', 'losses', 'draws', 'goals_for', 'goals_against', 'last_match_id', 'updated_at'])
-          )
+          // The club record (matches_played/wins/losses/draws/goals_for/
+          // goals_against/last_match_id) and followers_count used to be writable
+          // by any signed-in user here, so that the browser could run the
+          // end-of-match rollup and the follow button. That let anyone rewrite
+          // any club's record. Both now go through the admin SDK
+          // (/api/matches/complete, /api/follows).
         );
       allow delete: if isAuthenticated() && (resource.data.manager_id == request.auth.uid || isSuperAdmin());
     }
@@ -286,7 +292,9 @@ service cloud.firestore {
              get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.away_manager_id == request.auth.uid ||
              get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.referee_id == request.auth.uid)
           )
-          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals', 'assists', 'matches_played', 'updated_at']))
+          // The third leg of the same rollup: a branch letting any signed-in
+          // user write goals/assists/matches_played on any match sheet. Removed
+          // with the other two — /api/matches/complete writes these now.
         );
       allow delete: if isAuthenticated() && (resource.data.player_id == request.auth.uid || (exists(/databases/$(database)/documents/matches/$(resource.data.match_id)) && get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.manager_id == request.auth.uid));
     }
@@ -355,10 +363,12 @@ service cloud.firestore {
       }
     }
 
+    // Written only by /api/follows (admin SDK), which creates the follow and
+    // moves both counters in one transaction. A client-side write could do the
+    // first half and not the second, so it is refused outright.
     match /follows/{followId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.follower_id == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.follower_id == request.auth.uid;
+      allow write: if false;
     }
 
     match /notifications/{notificationId} {
@@ -389,9 +399,10 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated() && (request.resource.data.rated_by == request.auth.uid || resource.data.rated_by == request.auth.uid);
     }
 
+    // Same as /follows: /api/follows owns the write, counter included.
     match /team_follows/{followId} {
       allow read: if isAuthenticated();
-      allow create, delete: if isAuthenticated() && (request.resource.data.follower_id == request.auth.uid || resource.data.follower_id == request.auth.uid);
+      allow write: if false;
     }
 
     match /teams/{teamId}/ghost_players/{ghostId} {

@@ -729,6 +729,11 @@ export default function TeamDetailPage() {
         setIsFollowing(true);
         setTeam((t) => t ? { ...t, followersCount: (t.followersCount ?? 0) + 1 } : t);
       }
+    } catch (err) {
+      // The follow now round-trips to /api/follows, so it can fail on the
+      // network as well as on permissions. Say so instead of leaving the
+      // button silently unchanged.
+      toast.error(err instanceof Error ? err.message : "Opération impossible");
     } finally { setFollowLoading(false); }
   };
 

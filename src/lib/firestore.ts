@@ -19,7 +19,6 @@ import {
   increment,
   writeBatch,
   runTransaction,
-  setDoc,
   type Transaction,
   type Unsubscribe,
   type QueryConstraint,
@@ -1222,114 +1221,45 @@ export async function forceCompleteMatch(matchId: string): Promise<void> {
   });
 }
 
+/**
+ * Completing a match rolls its stats onto both clubs and every player who took
+ * part — writes that no longer happen from the browser. See
+ * /api/matches/complete: the counters live on documents the caller does not own,
+ * so the only rule that could permit a client-side rollup was "anyone signed in
+ * may rewrite these fields on anyone", which is exactly what it sounds like.
+ *
+ * Every other status transition only touches the match document itself and stays
+ * here, gated by the match rules.
+ */
 export async function updateMatchStatus(matchId: string, status: Match["status"]): Promise<void> {
+  if (status === "completed") {
+    const current = auth.currentUser;
+    if (!current) throw new Error("Connexion requise");
+    const res = await fetch("/api/matches/complete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${await current.getIdToken()}`,
+      },
+      body: JSON.stringify({ matchId }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: null }));
+      throw new Error(error ?? "Impossible de terminer le match");
+    }
+    return;
+  }
+
+  // A plain transition (pending -> upcoming, etc.): only the match document is
+  // touched, so it stays client-side under the match rules.
   const matchRef = doc(db, "matches", matchId);
   const matchSnap = await getDoc(matchRef);
   if (!matchSnap.exists()) return;
-  const matchData = matchSnap.data() as FirestoreMatch;
 
-  const updates: any = {
+  await updateDoc(matchRef, {
     status,
     updated_at: serverTimestamp(),
-  };
-
-  // Adversaire hors plateforme : aucun manager en face pour contresigner le
-  // résultat. Un seul témoin, donc des stats auto-déclarées — elles comptent
-  // pour l'historique des clubs mais restent hors des compteurs de joueurs.
-  const isGhostMatch = !matchData.away_manager_id;
-
-  if (status === "completed") {
-    updates.validation_status = isGhostMatch ? "unverified" : "pending";
-    updates.completed_at = serverTimestamp();
-  }
-
-  // 1. Calculate Result & Final Stats Rollup
-  if (status === "completed") {
-    const sh = matchData.score_home ?? 0;
-    const sa = matchData.score_away ?? 0;
-    let matchResult: "win" | "loss" | "draw";
-    
-    if (sh > sa) matchResult = "win";
-    else if (sh < sa) matchResult = "loss";
-    else matchResult = "draw";
-    
-    updates.result = matchResult;
-
-    // Start a batch for all rollups
-    const batch = writeBatch(db);
-
-    // A. Team Rollups
-    if (matchData.home_team_id && matchData.home_team_id !== "") {
-      const homeTeamRef = doc(db, "teams", matchData.home_team_id);
-      batch.update(homeTeamRef, {
-        matches_played: increment(1),
-        wins: increment(matchResult === "win" ? 1 : 0),
-        losses: increment(matchResult === "loss" ? 1 : 0),
-        draws: increment(matchResult === "draw" ? 1 : 0),
-        updated_at: serverTimestamp(),
-      });
-    }
-    if (matchData.away_team_id && matchData.away_team_id !== "") {
-      const awayTeamRef = doc(db, "teams", matchData.away_team_id);
-      const awayResult = matchResult === "win" ? "loss" : (matchResult === "loss" ? "win" : "draw");
-      batch.update(awayTeamRef, {
-        matches_played: increment(1),
-        wins: increment(awayResult === "win" ? 1 : 0),
-        losses: increment(awayResult === "loss" ? 1 : 0),
-        draws: increment(awayResult === "draw" ? 1 : 0),
-        updated_at: serverTimestamp(),
-      });
-    }
-
-    // B. Player Rollups
-    // Query all participations for this match and filter in-memory to avoid index requirements
-    const partsQuery = query(collection(db, "participations"), where("match_id", "==", matchId));
-    const partsSnap = await getDocs(partsQuery);
-    
-    const goalsPerPlayer: Record<string, number> = {};
-    if (matchData.live_state?.events) {
-      matchData.live_state.events.forEach(ev => {
-        if (ev.type === "goal" && ev.player_id) {
-          goalsPerPlayer[ev.player_id] = (goalsPerPlayer[ev.player_id] || 0) + 1;
-        }
-      });
-    }
-
-    for (const pDoc of partsSnap.docs) {
-      const pData = pDoc.data() as FirestoreParticipation;
-      if (pData.status !== "confirmed") continue;
-      
-      const playerId = pData.player_id;
-      if (!playerId) continue;
-
-      const playerGoals = goalsPerPlayer[playerId] || 0;
-      const playerAssists = pData.assists || 0;
-
-      // La feuille de match reste juste dans les deux cas : c'est le compteur
-      // global du profil qu'on protège.
-      batch.update(pDoc.ref, {
-        goals: playerGoals,
-        updated_at: serverTimestamp(),
-      });
-
-      if (isGhostMatch) continue;
-
-      const userRef = doc(db, "users", playerId);
-      batch.update(userRef, {
-        matches_played: increment(1),
-        goals: increment(playerGoals),
-        assists: increment(playerAssists),
-        updated_at: serverTimestamp(),
-      });
-    }
-
-    // C. Update Match with result
-    batch.update(matchRef, updates);
-    await batch.commit();
-  } else {
-    // Normal status update (pending -> upcoming, etc.)
-    await updateDoc(matchRef, updates);
-  }
+  });
 }
 
 export async function cancelMatchParticipations(matchId: string): Promise<void> {
@@ -1884,51 +1814,45 @@ export async function submitMatchReport(matchId: string, scoreHome: number, scor
 
 // ============================================
 // Follow System
+//
+// Follows are written through /api/follows, not from here. The follow document
+// is one half of the operation; the other half is a counter on the *followed*
+// document, and letting the browser write that meant firestore.rules had to
+// allow any signed-in user to set any user's followers_count. The route does
+// both halves in one transaction under the admin SDK.
+//
+// The `followerId` parameters are kept so the call sites read the same, but the
+// server takes the follower from the caller's token and ignores anything the
+// body claims.
 // ============================================
 
-export async function followUser(followerId: string, followingId: string): Promise<void> {
-  const followId = `${followerId}_${followingId}`;
-  const batch = writeBatch(db);
-
-  // Create follow document with deterministic ID
-  const followRef = doc(db, "follows", followId);
-  batch.set(followRef, {
-    follower_id: followerId,
-    following_id: followingId,
-    created_at: serverTimestamp(),
+async function callFollowApi(
+  action: "follow" | "unfollow",
+  targetType: "user" | "team",
+  targetId: string,
+): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/follows", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify({ action, targetType, targetId }),
   });
-
-  // Increment counters
-  batch.update(doc(db, "users", followerId), {
-    following_count: increment(1),
-    updated_at: serverTimestamp(),
-  });
-  batch.update(doc(db, "users", followingId), {
-    followers_count: increment(1),
-    updated_at: serverTimestamp(),
-  });
-
-  await batch.commit();
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({ error: null }));
+    throw new Error(error ?? "Opération impossible");
+  }
 }
 
-export async function unfollowUser(followerId: string, followingId: string): Promise<void> {
-  const followId = `${followerId}_${followingId}`;
-  const batch = writeBatch(db);
+export async function followUser(_followerId: string, followingId: string): Promise<void> {
+  await callFollowApi("follow", "user", followingId);
+}
 
-  // Delete follow document
-  batch.delete(doc(db, "follows", followId));
-
-  // Decrement counters
-  batch.update(doc(db, "users", followerId), {
-    following_count: increment(-1),
-    updated_at: serverTimestamp(),
-  });
-  batch.update(doc(db, "users", followingId), {
-    followers_count: increment(-1),
-    updated_at: serverTimestamp(),
-  });
-
-  await batch.commit();
+export async function unfollowUser(_followerId: string, followingId: string): Promise<void> {
+  await callFollowApi("unfollow", "user", followingId);
 }
 
 
@@ -2018,26 +1942,12 @@ export async function updateTeamLineup(teamId: string, lineupIds: string[]): Pro
 // Team Follows
 // ============================================
 
-export async function followTeam(followerId: string, teamId: string): Promise<void> {
-  const followId = `${followerId}_team_${teamId}`;
-  await setDoc(doc(db, "team_follows", followId), {
-    follower_id: followerId,
-    team_id: teamId,
-    created_at: serverTimestamp(),
-  });
-  await updateDoc(doc(db, "teams", teamId), {
-    followers_count: increment(1),
-    updated_at: serverTimestamp(),
-  });
+export async function followTeam(_followerId: string, teamId: string): Promise<void> {
+  await callFollowApi("follow", "team", teamId);
 }
 
-export async function unfollowTeam(followerId: string, teamId: string): Promise<void> {
-  const followId = `${followerId}_team_${teamId}`;
-  await deleteDoc(doc(db, "team_follows", followId));
-  await updateDoc(doc(db, "teams", teamId), {
-    followers_count: increment(-1),
-    updated_at: serverTimestamp(),
-  });
+export async function unfollowTeam(_followerId: string, teamId: string): Promise<void> {
+  await callFollowApi("unfollow", "team", teamId);
 }
 
 export async function isFollowingTeam(followerId: string, teamId: string): Promise<boolean> {
