@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Globe } from "lucide-react";
+import { Globe, Search } from "lucide-react";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import HeaderSearch from "./HeaderSearch";
+import MobileSearchOverlay from "./MobileSearchOverlay";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -20,6 +22,7 @@ export default function AppHeader() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const onTribune = pathname.startsWith("/feed");
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <header className="flex min-h-14 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 lg:min-h-16 lg:px-6 pt-safe">
@@ -45,6 +48,18 @@ export default function AppHeader() {
 
       {/* Right side — privileges depend on auth state */}
       <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-3">
+        {/* Search — mobile only, since the bar above is lg:. Without it a phone
+            has no way to search anything at all. */}
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          aria-label="Rechercher"
+          title="Rechercher"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden"
+        >
+          <Search size={20} />
+        </button>
+
         {/* La Tribune — mobile only. It left the bottom tab bar for this spot
             next to the bell; on desktop it stays in the sidebar and the rail. */}
         <Link
@@ -82,6 +97,8 @@ export default function AppHeader() {
           </>
         )}
       </div>
+
+      {searchOpen && <MobileSearchOverlay onClose={() => setSearchOpen(false)} />}
     </header>
   );
 }
