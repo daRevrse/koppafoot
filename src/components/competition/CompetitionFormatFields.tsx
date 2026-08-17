@@ -1,6 +1,9 @@
 "use client";
 
-import { hasGroupStage, hasKnockout, isSingleGroup } from "@/lib/competition-format";
+import {
+  hasGroupStage, hasKnockout, isSingleGroup,
+  halfDuration, matchDuration, teamSize, TEAM_SIZE_OPTIONS,
+} from "@/lib/competition-format";
 import type { CompetitionFormat, CompetitionType } from "@/types";
 
 // ============================================
@@ -74,9 +77,57 @@ export default function CompetitionFormatFields({
   const groups = hasGroupStage(type);
   const knockout = hasKnockout(type);
   const single = isSingleGroup(type);
+  const size = teamSize(format);
+  const half = halfDuration(format);
 
   return (
     <div className="space-y-5">
+      {/* Règles du jeu — vraies pour toutes les formes de tournoi. Le NvN
+          plafonne les titulaires de la feuille de match et la durée cale
+          l'horloge de la console live. */}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Type de jeu</label>
+          <select
+            className={numberClass}
+            value={size}
+            onChange={(e) => onChange({ team_size: parseInt(e.target.value, 10) })}
+          >
+            {TEAM_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n} contre {n} ({n}v{n})
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-400">
+            Joueurs par équipe sur le terrain, gardien compris
+          </p>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Durée d&apos;une mi-temps
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              min={1}
+              max={60}
+              className={`${numberClass} pr-12`}
+              value={half}
+              onChange={(e) => onChange({ half_duration: parseInt(e.target.value, 10) || 0 })}
+            />
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+              min
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-gray-400">
+            Match de 2 × {half} min, soit {matchDuration(format)} min de jeu
+          </p>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100" />
+
       {/* Group / league stage */}
       {groups && (
         <div className="grid gap-5 sm:grid-cols-3">

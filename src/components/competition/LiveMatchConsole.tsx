@@ -26,16 +26,17 @@ import {
 } from "@/lib/competition-firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
+import {
+  DEFAULT_HALF_DURATION, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
+} from "@/lib/competition-format";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 
 /** One entry of the live feed. */
 type LiveEvent = NonNullable<CompMatch["liveState"]>["events"][number];
 
-// Football rule constants.
-const STARTERS_MAX = 11;
+// Football rule constants. Le nombre de titulaires et la durée des mi-temps
+// viennent du format de la compétition (NvN, durée) — voir plus bas.
 const SUBS_MAX = 5;
-const HALF_MS = 2_700_000;
-const FULL_MS = 5_400_000;
 
 // ============================================
 // Helpers
@@ -127,6 +128,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   }, [cid]);
 
   const isOrganizer = !!(user && competition && competition.organizerIds.includes(user.uid));
+
+  // Règles de jeu de la compétition : le NvN plafonne les titulaires, la durée
+  // d'une mi-temps cale l'horloge (pause, puis coup de sifflet final à 2×).
+  // La compétition arrive une frame après le match, d'où les valeurs par défaut.
+  const startersMax = competition ? teamSize(competition.format) : DEFAULT_TEAM_SIZE;
+  const halfMinutes = competition ? halfDuration(competition.format) : DEFAULT_HALF_DURATION;
+  const halfMs = halfMinutes * 60_000;
+  const fullMs = halfMs * 2;
 
   // Goal cooldown: after a goal, both goal buttons are disabled for 60s.
   const [goalCooldown, setGoalCooldown] = useState(0);
@@ -241,10 +250,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
-  // Period 1 → half-time: snap clock to 45:00, stop, move to break (period 2).
+  // Period 1 → half-time: snap the clock to the end of the first half, stop,
+  // move to break (period 2).
   const handleHalfTime = async () => {
     try {
-      await pauseCompTimer(cid, mid, HALF_MS);
+      await pauseCompTimer(cid, mid, halfMs);
       await updateCompPeriod(cid, mid, 2);
       if (match) {
         notifyCompetitionFollowers({
@@ -260,7 +270,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
-  // Period 2 (break) → resume from 45:00, move to second half (period 3).
+  // Period 2 (break) → resume where the first half stopped, move to second
+  // half (period 3).
   const handleResume = async () => {
     try {
       await startCompTimer(cid, mid);
@@ -287,15 +298,16 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const current = sheet[playerId] ?? "out";
     let next: SheetRole =
       current === "out" ? "starter" : current === "starter" ? "substitute" : "out";
-    // Hard cap: at most 11 titulaires per side. A 12th starter falls back to substitute.
+    // Hard cap: at most `startersMax` titulaires per side (le NvN du format).
+    // Un titulaire de trop bascule en remplaçant.
     // Compute + toast OUTSIDE the state updater (no side effects during render).
     if (next === "starter") {
       const starters = Object.entries(sheet).filter(
         ([id, role]) => role === "starter" && id !== playerId,
       ).length;
-      if (starters >= STARTERS_MAX) {
+      if (starters >= startersMax) {
         next = "substitute";
-        toast(`11 titulaires maximum — le reste = remplaçants`, { icon: "⚠️" });
+        toast(`${startersMax} titulaires maximum — le reste = remplaçants`, { icon: "⚠️" });
       }
     }
     setter((prev) => ({ ...prev, [playerId]: next }));
@@ -321,8 +333,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       toast.error("Ajoute au moins un titulaire à la feuille");
       return;
     }
-    if (starters > STARTERS_MAX) {
-      toast.error("11 titulaires maximum");
+    if (starters > startersMax) {
+      toast.error(`${startersMax} titulaires maximum`);
       return;
     }
 
@@ -594,12 +606,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
-  // Whistle for full time: snap the clock to 90:00 and stop, then finish.
-  // On a knockout draw, collect penalties first.
+  // Whistle for full time: snap the clock to the end of the second half and
+  // stop, then finish. On a knockout draw, collect penalties first.
   const handleFinishClick = async () => {
     if (!match) return;
     try {
-      await pauseCompTimer(cid, mid, FULL_MS);
+      await pauseCompTimer(cid, mid, fullMs);
     } catch {
       // Best-effort clock snap; the finish flow still freezes the clock.
     }
@@ -699,6 +711,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             <h1 className="truncate font-display text-base font-extrabold tracking-tight text-gray-900 sm:text-xl">
               {match.homeTeamName} <span className="mx-1 text-gray-300">vs</span> {match.awayTeamName}
             </h1>
+            {/* Les règles du match, là où l'opérateur compose la feuille. */}
+            <p className="mt-0.5 text-[11px] font-bold text-gray-400">
+              {startersMax}v{startersMax} · 2 × {halfMinutes} min
+            </p>
           </div>
           <div className="h-10 w-10 shrink-0" />
         </div>
@@ -739,6 +755,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 accent="primary"
                 roster={homeRoster ?? []}
                 sheet={homeSheet}
+                startersMax={startersMax}
                 ready={match.homeLineupReady}
                 saving={savingSide === "home"}
                 onToggle={(pid) => toggleSheetRole("home", pid)}
@@ -752,6 +769,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 accent="amber"
                 roster={awayRoster ?? []}
                 sheet={awaySheet}
+                startersMax={startersMax}
                 ready={match.awayLineupReady}
                 saving={savingSide === "away"}
                 onToggle={(pid) => toggleSheetRole("away", pid)}
@@ -1221,6 +1239,7 @@ function LineupBuilder({
   accent,
   roster,
   sheet,
+  startersMax,
   ready,
   saving,
   onToggle,
@@ -1231,6 +1250,8 @@ function LineupBuilder({
   accent: "primary" | "amber";
   roster: CompPlayer[];
   sheet: Record<string, SheetRole>;
+  /** Titulaires autorisés — le NvN de la compétition. */
+  startersMax: number;
   ready: boolean;
   saving: boolean;
   onToggle: (playerId: string) => void;
@@ -1271,8 +1292,8 @@ function LineupBuilder({
         <>
           <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-400">
             Titulaires{" "}
-            <span className={starters > STARTERS_MAX ? "text-red-500" : accentText}>
-              {starters}/{STARTERS_MAX}
+            <span className={starters > startersMax ? "text-red-500" : accentText}>
+              {starters}/{startersMax}
             </span>{" "}
             · <span className={accentText}>{subs}</span> remplaçant{subs > 1 ? "s" : ""}
           </p>

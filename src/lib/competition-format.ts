@@ -81,9 +81,57 @@ export function isSingleGroup(type: CompetitionType): boolean {
 
 export const SINGLE_GROUP_LETTER = "A";
 
+// ============================================
+// Règles du jeu — le NvN et la durée. Deux réglages qui n'ont rien à voir
+// avec la forme du tournoi : une coupe comme un championnat peut se jouer à
+// 5 contre 5 en 2×20. Absents des compétitions créées avant ces champs, d'où
+// les accesseurs plutôt que des lectures directes.
+// ============================================
+
+export const DEFAULT_TEAM_SIZE = 11;
+export const DEFAULT_HALF_DURATION = 45;
+
+/** Formats de jeu proposés à l'organisateur, gardien compris. */
+export const TEAM_SIZE_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 11];
+
+// Absent, zéro ou négatif retombent tous sur la valeur par défaut : un champ
+// vidé dans le formulaire ne doit jamais produire une équipe de 0 joueur ni
+// une mi-temps de 0 minute côté console.
+const positiveOr = (v: number | undefined, fallback: number) =>
+  typeof v === "number" && v > 0 ? v : fallback;
+
+/** Joueurs de champ par équipe (NvN) — 11 par défaut. */
+export function teamSize(format: CompetitionFormat): number {
+  return positiveOr(format.team_size, DEFAULT_TEAM_SIZE);
+}
+
+/** Durée d'une mi-temps en minutes — 45 par défaut. */
+export function halfDuration(format: CompetitionFormat): number {
+  return positiveOr(format.half_duration, DEFAULT_HALF_DURATION);
+}
+
+/** Durée totale d'un match, en minutes (deux mi-temps). */
+export function matchDuration(format: CompetitionFormat): number {
+  return halfDuration(format) * 2;
+}
+
+/** "11v11" — la même écriture que les matchs amicaux et les terrains. */
+export function gameTypeLabel(format: CompetitionFormat): string {
+  const n = teamSize(format);
+  return `${n}v${n}`;
+}
+
+/** "2 × 45 min" */
+export function matchDurationLabel(format: CompetitionFormat): string {
+  return `2 × ${halfDuration(format)} min`;
+}
+
 /** Sensible starting format for each type, used to seed the creation form. */
 export function defaultFormat(type: CompetitionType): CompetitionFormat {
   const points = { win: 3, draw: 1, loss: 0 };
+  // Le NvN et la durée survivent au changement de type : ils décrivent le jeu,
+  // pas la forme du tournoi.
+  const play = { team_size: DEFAULT_TEAM_SIZE, half_duration: DEFAULT_HALF_DURATION };
   switch (type) {
     case "cup":
       return {
@@ -94,6 +142,7 @@ export function defaultFormat(type: CompetitionType): CompetitionFormat {
         double_round: false,
         knockout_teams: 8,
         points,
+        ...play,
       };
     case "league":
       return {
@@ -104,6 +153,7 @@ export function defaultFormat(type: CompetitionType): CompetitionFormat {
         double_round: true,
         knockout_teams: 0,
         points,
+        ...play,
       };
     case "league_playoffs":
       return {
@@ -114,6 +164,7 @@ export function defaultFormat(type: CompetitionType): CompetitionFormat {
         double_round: true,
         knockout_teams: 4,
         points,
+        ...play,
       };
     case "groups_knockout":
     default:
@@ -125,6 +176,7 @@ export function defaultFormat(type: CompetitionType): CompetitionFormat {
         double_round: false,
         knockout_teams: 0,
         points,
+        ...play,
       };
   }
 }

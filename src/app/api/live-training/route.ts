@@ -108,6 +108,8 @@ export async function POST(req: NextRequest) {
         double_round: false,
         knockout_teams: 2,
         points: { win: 3, draw: 1, loss: 0 },
+        team_size: 11,
+        half_duration: 45,
       },
       start_date: null,
       end_date: null,

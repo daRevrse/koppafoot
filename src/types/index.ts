@@ -52,6 +52,13 @@ export interface UserProfile {
   evolutionRole?: EvolutionRole | null;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
+  /**
+   * Nom public de la structure organisatrice (association, ligue, école,
+   * collectif). Saisi à la candidature organisateur, repris à l'approbation,
+   * puis estampillé sur chaque compétition créée. Null tant que l'utilisateur
+   * n'est pas organisateur.
+   */
+  organizerName?: string | null;
   // Gallery
   galleryPhotos?: string[];
   // Palmarès / Trophies
@@ -131,6 +138,8 @@ export interface FirestoreUser {
   evolution_role?: EvolutionRole | null;
   // Competitions followed (push notifications on kickoff/goal/final)
   followed_competition_ids?: string[];
+  /** Nom public de la structure organisatrice — voir UserProfile. */
+  organizer_name?: string | null;
   // Gallery
   gallery_photos?: string[];
   // Palmarès
@@ -908,6 +917,17 @@ export interface CompetitionFormat {
   /** Aller-retour: every group pairing is played twice, home and away. */
   double_round?: boolean;
   /**
+   * Jeu à N contre N — joueurs de champ par équipe. Plafonne les titulaires
+   * sur la feuille de match. Absent sur les compétitions créées avant le
+   * champ → 11 (voir teamSize() dans lib/competition-format).
+   */
+  team_size?: number;
+  /**
+   * Durée d'une mi-temps, en minutes. La console cale l'horloge dessus : pause
+   * à `half_duration`, coup de sifflet final à 2×. Absent → 45.
+   */
+  half_duration?: number;
+  /**
    * Size of the bracket, in teams. Only read for the types whose final stage
    * is not fed by group qualifiers:
    *  - cup             : how many teams enter round 1
@@ -935,6 +955,14 @@ export interface FirestoreCompetition {
    * organizer listing; only /live-ops surfaces it.
    */
   is_sandbox?: boolean;
+  /**
+   * Nom de la structure organisatrice, recopié depuis le profil du créateur au
+   * moment de la création. Dénormalisé exprès : les pages publiques
+   * (/competitions, /c/**) sont sans connexion, et la collection `users` n'est
+   * plus lisible sans compte — on ne peut donc pas résoudre le nom par l'uid.
+   * Renommer sa structure ne réécrit pas les compétitions déjà créées.
+   */
+  organizer_name?: string | null;
   format: CompetitionFormat;
   start_date: string | null;
   end_date: string | null;
@@ -970,6 +998,8 @@ export interface Competition {
   competitionType: CompetitionType;
   /** Training sandbox — see FirestoreCompetition.is_sandbox. */
   isSandbox: boolean;
+  /** Nom de la structure organisatrice — see FirestoreCompetition. */
+  organizerName: string | null;
   format: CompetitionFormat;
   startDate: string | null;
   endDate: string | null;
