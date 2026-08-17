@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
-import { usePathname, useRouter } from "next/navigation";
+import HeaderSearch from "./HeaderSearch";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
@@ -18,15 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function AppHeader() {
   const { user, loading } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
-  const [term, setTerm] = useState("");
   const onTribune = pathname.startsWith("/feed");
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    router.push(term.trim() ? `/competitions?q=${encodeURIComponent(term.trim())}` : "/competitions");
-  };
 
   return (
     <header className="flex min-h-14 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 lg:min-h-16 lg:px-6 pt-safe">
@@ -44,21 +37,10 @@ export default function AppHeader() {
         </span>
       </Link>
 
-      {/* Desktop: search */}
+      {/* Desktop: search. Teams resolve in its own dropdown, competitions are
+          handed to /competitions?q= — see HeaderSearch. */}
       <div className="hidden min-w-0 flex-1 items-center lg:flex">
-        <form onSubmit={handleSearch} className="relative w-full max-w-xs">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
-          {/* Placeholder lists exactly what the directory matches: competition
-              name, team name, city, country. Teams are only searchable once
-              signed in (firestore.rules), but the bar lives in the app shell,
-              where that is the common case. */}
-          <input
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            placeholder="Compétition, équipe, ville…"
-            className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs font-semibold text-gray-700 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-colors"
-          />
-        </form>
+        <HeaderSearch />
       </div>
 
       {/* Right side — privileges depend on auth state */}
