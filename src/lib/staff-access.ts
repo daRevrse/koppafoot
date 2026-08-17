@@ -58,6 +58,11 @@ export async function getStaffGrant(cid: string, uid: string): Promise<StaffGran
  * Ids of the competitions where the user holds a grant. A collection-group
  * query, so a volunteer who never became a `moderator_id` still finds their
  * competition in the live space.
+ *
+ * Needs the `staff_grants.uid` field override in firestore.indexes.json:
+ * single-field indexes are COLLECTION-scoped by default, so querying the field
+ * across every competition throws until COLLECTION_GROUP scope is granted too.
+ * Deploy with `firebase deploy --only firestore:indexes` after changing it.
  */
 export async function listGrantedCompetitionIds(uid: string): Promise<string[]> {
   try {

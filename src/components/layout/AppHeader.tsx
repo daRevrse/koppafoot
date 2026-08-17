@@ -48,10 +48,14 @@ export default function AppHeader() {
       <div className="hidden min-w-0 flex-1 items-center lg:flex">
         <form onSubmit={handleSearch} className="relative w-full max-w-xs">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+          {/* Placeholder lists exactly what the directory matches: competition
+              name, team name, city, country. Teams are only searchable once
+              signed in (firestore.rules), but the bar lives in the app shell,
+              where that is the common case. */}
           <input
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Rechercher une compétition, une équipe…"
+            placeholder="Compétition, équipe, ville…"
             className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs font-semibold text-gray-700 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-colors"
           />
         </form>

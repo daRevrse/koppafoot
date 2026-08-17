@@ -315,18 +315,17 @@ export default function TeamsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          {isManager ? (
+          {/* Players get no button here: finding a team is the header search's
+              job now (Équipes tab on /competitions). The old "Trouver une
+              équipe — bientôt" teaser pointed at the shelved mercato and did
+              nothing when clicked. */}
+          {isManager && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
             >
               <Plus size={16} /> Créer une équipe
             </button>
-          ) : (
-            // Mercato is still shelved — teaser until that vertical is unfrozen.
-            <span className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-400">
-              <Search size={16} /> Trouver une équipe — bientôt
-            </span>
           )}
         </motion.div>
       </div>

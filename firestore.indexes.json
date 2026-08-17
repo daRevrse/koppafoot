@@ -175,6 +175,20 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "staff_grants",
+      "fieldPath": "uid",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
       "collectionGroup": "comp_teams",
       "fieldPath": "claimed_by_manager_id",
       "indexes": [

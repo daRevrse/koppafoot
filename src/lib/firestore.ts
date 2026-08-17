@@ -468,6 +468,34 @@ export async function getParticipationsForMatch(matchId: string): Promise<Partic
   return snap.docs.map((d) => toParticipation(d.id, d.data() as FirestoreParticipation));
 }
 
+/** Accent- and case-insensitive folding, so "lome" finds "Lomé". */
+const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/**
+ * Free-text team lookup for the directory, matching on name OR city.
+ *
+ * Distinct from searchTeams below, which exists for the mercato and only ever
+ * returns teams that are recruiting. This one answers "where is my friend's
+ * team?" as well as "who is taking players?", so it does not filter on
+ * is_recruiting — the card badges that instead.
+ *
+ * Firestore has no substring index, so the match is done client-side; ghost
+ * teams (off-platform opponents, no account and no members) are dropped since
+ * they are not something a player can join or follow.
+ */
+export async function findTeams(term: string, max = 24): Promise<Team[]> {
+  const needle = fold(term.trim());
+  if (!needle) return [];
+  const snap = await getDocs(collection(db, "teams"));
+  return snap.docs
+    .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
+    .filter((t) => !t.isGhost && fold(`${t.name} ${t.city}`).includes(needle))
+    // Recruiting teams first — a search for a team is most often a search for
+    // one that will have you.
+    .sort((a, b) => Number(b.isRecruiting) - Number(a.isRecruiting) || a.name.localeCompare(b.name))
+    .slice(0, max);
+}
+
 export async function searchTeams(filters: { city?: string; level?: string; query?: string }): Promise<Team[]> {
   const constraints: QueryConstraint[] = [where("is_recruiting", "==", true)];
   if (filters.city) constraints.push(where("city", "==", filters.city));
