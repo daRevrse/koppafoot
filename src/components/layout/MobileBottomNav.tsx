@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
-  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight,
+  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight, Plus,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -191,6 +191,15 @@ function SpacesSheet({
       label: "Espace organisateur",
       hint: "Tes compétitions, calendriers et équipes",
       Icon: ClipboardList,
+    });
+  } else {
+    // Le pendant mobile du bouton du menu latéral : sans lui, la candidature
+    // organisateur n'a plus aucune porte d'entrée depuis un téléphone.
+    spaces.push({
+      href: "/devenir-organisateur",
+      label: "Organiser ma compétition",
+      hint: "Crée et gère tes propres compétitions",
+      Icon: Plus,
     });
   }
   if (moderates) {

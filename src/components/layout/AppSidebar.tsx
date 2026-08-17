@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  Home, Activity, Trophy, Star, Settings,
+  Home, Activity, Trophy, Star, Settings, ChevronRight,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
   Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
+import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
 import type { Competition } from "@/types";
 
 // ============================================
@@ -86,6 +88,101 @@ const LIVE_ITEMS: SpaceItem[] = [
 function isActive(pathname: string, path: string, exact?: boolean): boolean {
   if (exact) return pathname === path;
   return pathname.startsWith(path);
+}
+
+/**
+ * Un espace et ses destinations, repliables. L'en-tête reste un lien — c'est
+ * une vraie page — donc le chevron est un bouton à part : cliquer le libellé
+ * navigue, cliquer le chevron déplie.
+ *
+ * L'ouverture est DÉRIVÉE de la route : l'espace où l'on se trouve est
+ * déplié, les autres sont repliés. Un clic sur le chevron pose une préférence
+ * qui prend le dessus jusqu'au prochain rechargement — le menu reste monté
+ * pendant toute la navigation, donc le choix tient. Pas d'effet qui
+ * resynchronise un état sur un autre, pas d'écart d'hydratation.
+ */
+function SpaceNav({ space, pathname }: { space: Space; pathname: string }) {
+  const SpaceIcon = space.icon;
+  const spaceActive = isActive(pathname, space.path);
+  const hasItems = space.items.length > 0;
+
+  const [override, setOverride] = useState<boolean | null>(null);
+  const open = override ?? spaceActive;
+
+  const toggle = () => setOverride(!open);
+
+  return (
+    <div className="space-y-0.5">
+      <div className="relative">
+        <Link
+          href={space.path}
+          className={`relative flex items-center gap-3 rounded-lg py-2.5 pl-3 text-sm font-bold transition-colors ${
+            hasItems ? "pr-10" : "pr-3"
+          } ${
+            spaceActive
+              ? "bg-emerald-50 text-emerald-700"
+              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          {spaceActive && (
+            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+          )}
+          <SpaceIcon size={18} className={spaceActive ? "text-emerald-600" : "text-gray-400"} />
+          {space.label}
+        </Link>
+        {hasItems && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-label={open ? `Replier ${space.label}` : `Déplier ${space.label}`}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-300 transition-colors hover:bg-white/60 hover:text-gray-600"
+          >
+            <motion.span
+              className="block"
+              animate={{ rotate: open ? 90 : 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <ChevronRight size={14} />
+            </motion.span>
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {hasItems && open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-0.5 pt-0.5">
+              {space.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(pathname, item.path, item.exact);
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className={`relative ml-3 flex items-center gap-3 rounded-lg border-l border-gray-100 py-2 pl-5 pr-3 text-sm font-semibold transition-colors ${
+                      active
+                        ? "border-emerald-200 bg-emerald-50/60 text-emerald-700"
+                        : "text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+                    }`}
+                  >
+                    <Icon size={15} className={active ? "text-emerald-600" : "text-gray-300"} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function CompetitionLogo({ competition, size = 26 }: { competition: Competition; size?: number }) {
@@ -292,47 +389,10 @@ export default function AppSidebar() {
               );
             })}
             {/* Privileged spaces — same shell, one app. Each renders its
-                header entry plus its destinations, indented. */}
-            {spaces.map((space) => {
-              const SpaceIcon = space.icon;
-              const spaceActive = isActive(pathname, space.path);
-              return (
-                <div key={space.path} className="space-y-0.5">
-                  <Link
-                    href={space.path}
-                    className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${
-                      spaceActive
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    {spaceActive && (
-                      <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-                    )}
-                    <SpaceIcon size={18} className={spaceActive ? "text-emerald-600" : "text-gray-400"} />
-                    {space.label}
-                  </Link>
-                  {space.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(pathname, item.path, item.exact);
-                    return (
-                      <Link
-                        key={item.path}
-                        href={item.path}
-                        className={`relative ml-3 flex items-center gap-3 rounded-lg border-l border-gray-100 py-2 pl-5 pr-3 text-sm font-semibold transition-colors ${
-                          active
-                            ? "border-emerald-200 bg-emerald-50/60 text-emerald-700"
-                            : "text-gray-400 hover:bg-gray-50 hover:text-gray-700"
-                        }`}
-                      >
-                        <Icon size={15} className={active ? "text-emerald-600" : "text-gray-300"} />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                header entry plus its destinations, dépliables. */}
+            {spaces.map((space) => (
+              <SpaceNav key={space.path} space={space} pathname={pathname} />
+            ))}
           </div>
 
           {/* Followed competitions (favorite leagues slot) */}
@@ -375,7 +435,12 @@ export default function AppSidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-100 px-4 py-3">
+        <div className="space-y-2 border-t border-gray-100 px-4 py-3">
+          {/* Organiser sa compétition : le geste qui fait vivre la plateforme,
+              donc traité comme « Inviter un ami » plutôt que comme un lien en
+              bas du répertoire. Ne s'affiche pas aux organisateurs — ils ont
+              déjà leur espace au-dessus. */}
+          <OrganizeCompetitionCta />
           <button
             type="button"
             onClick={handleInvite}

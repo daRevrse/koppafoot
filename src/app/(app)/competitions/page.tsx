@@ -4,7 +4,6 @@ import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import { getWorldCompetitions } from "@/lib/football-data";
 import CompetitionDirectorySearch from "@/components/competition/CompetitionDirectorySearch";
-import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
 
 // Public, login-free directory of all visible competitions, rendered inside
 // the general app shell (the (app) layout treats /competitions as public).
@@ -31,16 +30,12 @@ export default async function CompetitionsPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-        {/* Hero strip */}
+        {/* Hero strip — le titre seul : les onglets du répertoire annoncent
+            déjà ce que la page contient, et leurs compteurs le chiffrent. */}
         <div className="mb-8">
           <h1 className="font-display text-3xl font-black tracking-tight text-gray-900">
             Compétitions
           </h1>
-          <p className="mt-1 text-sm font-bold text-gray-400">
-            {competitions.length === 0
-              ? "Le football amateur et les grands championnats, en direct sur Koppafoot."
-              : `${competitions.length} compétition${competitions.length > 1 ? "s" : ""} à suivre en direct.`}
-          </p>
         </div>
 
         {competitions.length === 0 && worldCompetitions.length === 0 ? (
@@ -74,11 +69,6 @@ export default async function CompetitionsPage() {
             />
           </Suspense>
         )}
-        {/* Discreet, and at the bottom: this screen is first about finding a
-            competition to follow. But /devenir-organisateur had no way in at
-            all, so the link comes back here rather than as a button competing
-            with the directory. */}
-        <OrganizeCompetitionCta variant="link" />
     </div>
   );
 }

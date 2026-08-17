@@ -34,13 +34,13 @@ export default function PWAInstallPrompt() {
 
   const handleInstall = async () => {
     if (!installPrompt) return;
-    
+
     // Show the install prompt
     installPrompt.prompt();
-    
+
     // Wait for the user to respond to the prompt
     const { outcome } = await installPrompt.userChoice;
-    
+
     if (outcome === "accepted") {
       setInstallPrompt(null);
       setIsVisible(false);
@@ -58,7 +58,7 @@ export default function PWAInstallPrompt() {
         className="mt-8 overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-md relative group"
       >
         {/* Subtle pulsed glow */}
-        <motion.div 
+        <motion.div
           animate={{ opacity: [0.1, 0.3, 0.1] }}
           transition={{ duration: 3, repeat: Infinity }}
           className="absolute inset-0 bg-emerald-500/5"
@@ -68,10 +68,10 @@ export default function PWAInstallPrompt() {
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
             <Download size={20} />
           </div>
-          
+
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-bold text-white truncate">Installer KoppaFoot</h4>
-            <p className="text-[10px] sm:text-xs text-white/40 leading-tight">Ajoutez l'app à votre écran d'accueil pour un accès direct.</p>
+            <h4 className="text-sm font-bold truncate">Installer KoppaFoot</h4>
+            <p className="text-[10px] sm:text-xs text-black/40 leading-tight">Ajoutez l'app à votre écran d'accueil pour un accès direct.</p>
           </div>
 
           <div className="flex items-center gap-1.5">
