@@ -1,7 +1,7 @@
 // "Inviter un ami" — share (or copy) the public app link. Client-only:
 // only ever called from click handlers, so navigator is always defined.
 
-const APP_URL = "https://koppafoot.com";
+const APP_URL = "https://www.koppafoot.com";
 
 export async function shareInviteLink(firstName?: string): Promise<"shared" | "copied" | "failed"> {
   const text = firstName

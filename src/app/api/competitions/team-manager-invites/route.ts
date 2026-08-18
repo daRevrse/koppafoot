@@ -4,7 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { sendNotificationEmail, teamManagerInviteHtml } from "@/lib/email";
 import type { FirestoreCompetition } from "@/types";
 
-const APP_URL = "https://koppafoot.com";
+const APP_URL = "https://www.koppafoot.com";
 
 /**
  * Team-manager invitations — an organizer hands the management of one of

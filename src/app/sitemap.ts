@@ -7,7 +7,7 @@ import { getWorldCompetitions } from "@/lib/football-data";
 // Koppafoot competition with its tabs, and each world competition page.
 //
 // Same canonical origin the transactional links use (lib/email, lib/invite-link).
-const APP_URL = "https://koppafoot.com";
+const APP_URL = "https://www.koppafoot.com";
 
 // Tabs every public competition has. /bracket is added only for the ones
 // actually in a knockout phase — an empty bracket is not worth indexing.
