@@ -6,11 +6,13 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import {
   History, Loader2, Activity, MapPin, Calendar, Clock, SearchX, Users,
-  Goal, ArrowRightLeft,
+  Goal, ArrowRightLeft, BarChart3,
 } from "lucide-react";
 import type { LineupEntry } from "@/types";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale/fr";
 import { getCompetitionBySlug, onCompMatch, OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
-import type { CompMatch } from "@/types";
+import type { CompMatch, CompMatchRound } from "@/types";
 
 // ============================================
 // Helpers
@@ -24,6 +26,24 @@ const formatTime = (ms: number) => {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
 
+// Knockout round -> French label, for the context line under the status.
+const ROUND_LABELS: Record<CompMatchRound, string> = {
+  round_of_16: "8es de finale",
+  quarter: "Quart de finale",
+  semi: "Demi-finale",
+  final: "Finale",
+  third_place: "Petite finale",
+};
+
+/** "2026-08-16" -> "16 août 2026". Falls back to the raw string. */
+function matchDay(date: string): string {
+  try {
+    return format(parseISO(date), "d MMMM yyyy", { locale: fr });
+  } catch {
+    return date;
+  }
+}
+
 const PERIODS = [
   { id: 1, label: "1ère Mi-temps" },
   { id: 2, label: "Mi-temps" },
@@ -34,7 +54,7 @@ const PERIODS = [
 // Team crest: real logo when present, otherwise a first-letter avatar.
 function TeamCrest({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl sm:mb-4 sm:h-20 sm:w-20 sm:rounded-[2rem]">
+    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl sm:mb-4 sm:h-20 sm:w-20">
       {logo ? (
         <Image src={logo} alt={name} width={80} height={80} className="h-full w-full object-cover" />
       ) : (
@@ -87,7 +107,8 @@ export default function PublicCompMatchView() {
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [cid, setCid] = useState<string | null>(null);
   const [compBanner, setCompBanner] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"feed" | "lineups">("feed");
+  const [compName, setCompName] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"feed" | "stats" | "lineups">("feed");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [displayTime, setDisplayTime] = useState(0);
@@ -109,6 +130,7 @@ export default function PublicCompMatchView() {
       }
       setCid(competition.id);
       setCompBanner(competition.bannerUrl);
+      setCompName(competition.name);
       unsub = onCompMatch(competition.id, mid, (m) => {
         if (cancelled) return;
         if (!m) setNotFound(true);
@@ -153,7 +175,7 @@ export default function PublicCompMatchView() {
   if (notFound || !match) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-gray-300">
           <SearchX size={32} />
         </div>
         <div>
@@ -171,6 +193,13 @@ export default function PublicCompMatchView() {
     PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label ||
     (match.status === "completed" ? "Terminé" : "À venir");
   const hasMeta = Boolean(match.venueName || match.date || match.time);
+  // Competition name plus the round (or poule) this match belongs to.
+  const contextLabel = [
+    compName,
+    match.round ? ROUND_LABELS[match.round] : match.group ? `Poule ${match.group}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   // While the clock runs, show the ticking value; otherwise the frozen offset.
   const shownTime =
     match.liveState?.isTimerRunning && match.liveState.timerStartAt
@@ -179,22 +208,31 @@ export default function PublicCompMatchView() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-20">
-      {/* Status pill */}
-      <div className="text-center">
-        <div className="mb-1 flex items-center justify-center gap-2">
-          {isLive && <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
-            {isLive ? "En direct" : "Rapport de match"}
-          </span>
-        </div>
-        <h1 className="font-display text-xl font-black text-gray-900">Centre de Match</h1>
+      {/* Where this match sits: the competition, and its round or group. The
+          generic "Centre de Match" title said nothing the page did not already
+          show, and "Rapport de match" named the document rather than the game. */}
+      <div className="flex items-center justify-center gap-2 text-center">
+        {isLive && (
+          <>
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 italic">
+              En direct
+            </span>
+            {contextLabel && <span className="text-gray-200">·</span>}
+          </>
+        )}
+        {contextLabel && (
+          <h1 className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
+            {contextLabel}
+          </h1>
+        )}
       </div>
 
       {/* Main Scoreboard */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 text-white shadow-2xl sm:rounded-[3rem] sm:p-10"
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 text-white shadow-xl sm:p-8"
       >
         {/* Banner background: per-match → competition → none. A dark overlay
             keeps the scoreboard legible. */}
@@ -209,10 +247,6 @@ export default function PublicCompMatchView() {
             <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 via-gray-900/70 to-black/80" />
           </>
         )}
-        <div className="absolute top-0 right-0 p-8 opacity-10">
-          <Activity size={120} />
-        </div>
-
         <div className="relative z-10 grid grid-cols-3 items-center gap-2 sm:gap-6">
           {/* Home */}
           <div className="text-center">
@@ -226,14 +260,15 @@ export default function PublicCompMatchView() {
             <div className="mb-3 whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-400 sm:mb-4 sm:px-4 sm:text-[10px] sm:tracking-widest">
               {periodLabel}
             </div>
-            {match.liveState ? (
+{/* The clock runs only for a match in progress. A finished one kept
+                showing its frozen final time, which read like a live chrono
+                stopped mid-second; one still to come showed 00:00. */}
+            {isLive ? (
               <div className="font-mono text-2xl font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)] sm:text-5xl">
                 {formatTime(shownTime)}
               </div>
-            ) : (
-              <div className="text-lg font-black text-white/50 italic">
-                {match.status === "completed" ? "Terminé" : "VS"}
-              </div>
+            ) : match.status === "completed" ? null : (
+              <div className="text-lg font-black text-white/50 italic">VS</div>
             )}
           </div>
 
@@ -244,34 +279,55 @@ export default function PublicCompMatchView() {
             <div className="text-5xl font-black tracking-tighter sm:text-7xl">{match.scoreAway || 0}</div>
           </div>
         </div>
-      </motion.div>
 
-      {/* Match Details Bar */}
-      {hasMeta && (
-        <div className="grid grid-cols-3 gap-2 rounded-3xl border border-gray-100 bg-white p-2 shadow-sm">
-          <div className="flex flex-col items-center justify-center border-r border-gray-50 p-4">
-            <MapPin size={16} className="mb-1 text-gray-400" />
-            <span className="w-full truncate text-center text-[10px] font-bold text-gray-900">
-              {match.venueName || "—"}
-            </span>
+        {/* Where and when — inside the frame rather than in a card of its own
+            below it: these belong to the fixture, not beside it. */}
+        {hasMeta && (
+          <div className="relative z-10 mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-t border-white/10 pt-4 text-[11px] font-bold text-white/50">
+            {match.venueName && (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <MapPin size={12} className="shrink-0" />
+                <span className="truncate">{match.venueName}</span>
+              </span>
+            )}
+            {match.date && (
+              <span className="flex items-center gap-1.5">
+                <Calendar size={12} className="shrink-0" />
+                {matchDay(match.date)}
+              </span>
+            )}
+            {match.time && (
+              <span className="flex items-center gap-1.5">
+                <Clock size={12} className="shrink-0" />
+                {match.time}
+              </span>
+            )}
           </div>
-          <div className="flex flex-col items-center justify-center border-r border-gray-50 p-4">
-            <Calendar size={16} className="mb-1 text-gray-400" />
-            <span className="text-[10px] font-bold text-gray-900">{match.date || "—"}</span>
-          </div>
-          <div className="flex flex-col items-center justify-center p-4">
-            <Clock size={16} className="mb-1 text-gray-400" />
-            <span className="text-[10px] font-bold text-gray-900">{match.time || "—"}</span>
-          </div>
-        </div>
-      )}
+        )}
+      </motion.div>
 
       {/* Tabs: match feed / lineups */}
       {(() => {
         const hasLineups = match.homeLineup.length > 0 || match.awayLineup.length > 0;
-        const activeTab = detailTab === "lineups" && !hasLineups ? "feed" : detailTab;
+        const events = match.liveState?.events ?? [];
+        const hasStats = events.length > 0;
+        // Goals come from the scoreboard, not the timeline: an own goal is
+        // recorded against the team that conceded it, so counting goal events
+        // per team would credit the wrong side.
+        const countBy = (type: string, teamId: string | null) =>
+          events.filter((e) => e.type === type && e.teamId === teamId).length;
+        const statRows = [
+          { label: "Buts", home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
+          { label: "Cartons jaunes", home: countBy("yellow_card", match.homeTeamId), away: countBy("yellow_card", match.awayTeamId) },
+          { label: "Cartons rouges", home: countBy("red_card", match.homeTeamId), away: countBy("red_card", match.awayTeamId) },
+          { label: "Changements", home: countBy("substitution", match.homeTeamId), away: countBy("substitution", match.awayTeamId) },
+        ];
+        const activeTab =
+          (detailTab === "lineups" && !hasLineups) || (detailTab === "stats" && !hasStats)
+            ? "feed"
+            : detailTab;
         return (
-          <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
             {/* Tab bar */}
             <div className="mb-8 flex gap-6 border-b border-gray-100">
               <button
@@ -286,6 +342,20 @@ export default function PublicCompMatchView() {
                   <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
                 )}
               </button>
+              {hasStats && (
+                <button
+                  onClick={() => setDetailTab("stats")}
+                  className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
+                    activeTab === "stats" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  <BarChart3 size={16} />
+                  Statistiques
+                  {activeTab === "stats" && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+                  )}
+                </button>
+              )}
               {hasLineups && (
                 <button
                   onClick={() => setDetailTab("lineups")}
@@ -301,6 +371,52 @@ export default function PublicCompMatchView() {
                 </button>
               )}
             </div>
+
+            {/* Stats panel: one row per metric, the two teams facing each
+                other, with a bar showing each side's share. */}
+            {activeTab === "stats" && hasStats && (
+              <div className="space-y-5">
+                {statRows.map((row) => {
+                  const total = row.home + row.away;
+                  const homePct = total === 0 ? 50 : (row.home / total) * 100;
+                  return (
+                    <div key={row.label}>
+                      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                        <span className="w-8 text-left text-base font-black tabular-nums text-gray-900">
+                          {row.home}
+                        </span>
+                        <span className="truncate text-[11px] font-black uppercase tracking-wide text-gray-400">
+                          {row.label}
+                        </span>
+                        <span className="w-8 text-right text-base font-black tabular-nums text-gray-900">
+                          {row.away}
+                        </span>
+                      </div>
+                      <div className="flex h-1.5 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className="bg-emerald-500 transition-all"
+                          style={{ width: `${homePct}%` }}
+                        />
+                        <div
+                          className="bg-gray-300 transition-all"
+                          style={{ width: `${100 - homePct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between gap-3 pt-1 text-[10px] font-black uppercase tracking-wide">
+                  <span className="flex min-w-0 items-center gap-1.5 text-gray-500">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                    <span className="truncate">{match.homeTeamName}</span>
+                  </span>
+                  <span className="flex min-w-0 items-center gap-1.5 text-gray-500">
+                    <span className="truncate">{match.awayTeamName}</span>
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-gray-300" />
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Lineups panel */}
             {activeTab === "lineups" && hasLineups && (
@@ -331,7 +447,7 @@ export default function PublicCompMatchView() {
                   <div key={event.id} className="group flex items-start gap-3 sm:gap-5">
                     {/* Minute badge */}
                     <div
-                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${
+                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 shadow-sm sm:h-11 sm:w-11 ${
                         cancelled
                           ? "border-gray-100 bg-gray-50 text-gray-300"
                           : checking
@@ -407,7 +523,7 @@ export default function PublicCompMatchView() {
               })
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-50 text-gray-200">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-gray-200">
                   <Activity size={32} />
                 </div>
                 <p className="text-sm font-bold text-gray-400 italic">Le match n&apos;a pas encore commencé...</p>
