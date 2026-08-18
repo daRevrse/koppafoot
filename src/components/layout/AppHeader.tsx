@@ -76,21 +76,24 @@ export default function AppHeader() {
           <Globe size={20} />
         </Link>
 
+        {/* Guest CTAs are desktop-only: the mobile header is already carrying
+            the search, the Tribune and the logo, and the bottom nav has its own
+            "Connexion" tab for visitors. */}
         {user ? (
           <NotificationDropdown />
         ) : loading ? (
-          <div className="h-8 w-28 lg:w-40" />
+          <div className="hidden lg:block lg:h-8 lg:w-40" />
         ) : (
           <>
             <Link
               href="/login"
-              className="rounded-full px-3 py-2 text-xs font-bold text-gray-500 transition-colors hover:text-gray-900 lg:px-4 lg:text-sm"
+              className="hidden rounded-full px-3 py-2 text-xs font-bold text-gray-500 transition-colors hover:text-gray-900 lg:inline-flex lg:px-4 lg:text-sm"
             >
               Se connecter
             </Link>
             <Link
               href="/signup"
-              className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600 lg:px-5 lg:text-sm"
+              className="hidden rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600 lg:inline-flex lg:px-5 lg:text-sm"
             >
               Rejoindre
             </Link>
