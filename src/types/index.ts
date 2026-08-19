@@ -316,6 +316,12 @@ export interface FirestoreMatch {
       player_id?: string;
       player_name?: string;
       detail?: string;
+      /**
+       * Goals only. The player who laid the goal on, when the console was
+       * told — a goal recorded before the assist existed simply has none.
+       */
+      assist_player_id?: string | null;
+      assist_player_name?: string | null;
       contested_by_manager_id?: string | null;
       contestation_reason?: string | null;
       /**
@@ -398,6 +404,9 @@ export interface Match {
       playerId?: string;
       playerName?: string;
       detail?: string;
+      /** See `FirestoreMatch.live_state.events[].assist_player_id`. */
+      assistPlayerId?: string | null;
+      assistPlayerName?: string | null;
       contestedByManagerId?: string | null;
       contestationReason?: string | null;
       /** See `FirestoreMatch.live_state.events[].var_status`. */
@@ -479,6 +488,11 @@ export interface FirestoreInvitation {
   sender_name: string;
   receiver_id: string;
   receiver_name: string;
+  /** Dénormalisés à l'envoi — le mercato affiche l'invitation sans relire
+   *  ni le profil du joueur ni le doc de l'équipe. Absents sur les
+   *  invitations créées avant le champ : la page les réhydrate. */
+  receiver_photo?: string | null;
+  team_logo?: string | null;
   receiver_city: string;
   receiver_position: string;
   receiver_level: string;
@@ -496,6 +510,9 @@ export interface Invitation {
   senderName: string;
   receiverId: string;
   receiverName: string;
+  /** See FirestoreInvitation — null when the doc predates the field. */
+  receiverPhoto: string | null;
+  teamLogo: string | null;
   receiverCity: string;
   receiverPosition: string;
   receiverLevel: string;
@@ -644,6 +661,8 @@ export interface FirestoreShortlistEntry {
   manager_id: string;
   player_id: string;
   player_name: string;
+  /** Photo de profil recopiée à l'ajout — voir FirestoreInvitation. */
+  player_photo?: string | null;
   player_city: string;
   player_position: string;
   player_level: string;
@@ -656,6 +675,7 @@ export interface ShortlistEntry {
   managerId: string;
   playerId: string;
   playerName: string;
+  playerPhoto: string | null;
   playerCity: string;
   playerPosition: string;
   playerLevel: string;
@@ -672,6 +692,10 @@ export type JoinRequestStatus = "pending" | "accepted" | "rejected";
 export interface FirestoreJoinRequest {
   player_id: string;
   player_name: string;
+  /** Photo joueur / logo équipe recopiés à la candidature — voir
+   *  FirestoreInvitation pour le pourquoi et la réhydratation. */
+  player_photo?: string | null;
+  team_logo?: string | null;
   player_city: string;
   player_position: string;
   player_level: string;
@@ -688,6 +712,8 @@ export interface JoinRequest {
   id: string;
   playerId: string;
   playerName: string;
+  playerPhoto: string | null;
+  teamLogo: string | null;
   playerCity: string;
   playerPosition: string;
   playerLevel: string;
@@ -866,7 +892,13 @@ export type NotificationType =
   | "join_request"
   | "match_challenge"
   | "participation_request"
-  | "admin_message";
+  | "admin_message"
+  /** Vie d'une équipe dont on est membre : arrivée, départ, inscription
+   *  en compétition. Envoyée à l'effectif. */
+  | "team_activity"
+  /** Même événement, mais reçu parce qu'on suit l'équipe ou le joueur —
+   *  pas parce qu'on en fait partie. */
+  | "follow_activity";
 
 export interface FirestoreNotification {
   user_id: string;

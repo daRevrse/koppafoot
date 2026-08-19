@@ -111,7 +111,8 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/login");
+    // Home is public — no reason to send anyone to a login screen.
+    router.push("/");
   };
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<TabType>("info");
@@ -154,6 +155,13 @@ export default function ProfilePage() {
           height: user.height ?? null,
           weight: user.weight ?? null,
           dateOfBirth: user.dateOfBirth ?? "",
+          // Sans ces valeurs, ouvrir "Modifier" affichait des selects vides
+          // et enregistrer effaçait le poste et le niveau déjà renseignés.
+          position: user.position ?? "",
+          skillLevel: user.skillLevel ?? "",
+          licenseNumber: user.licenseNumber ?? "",
+          licenseLevel: user.licenseLevel ?? "",
+          experienceYears: user.experienceYears ?? null,
         }
       : undefined,
   });
@@ -170,6 +178,18 @@ export default function ProfilePage() {
   }, [tab, user]);
 
   if (!user) return null;
+
+  // Le rôle effectif prime sur `user_type`. Depuis le pivot tout compte est
+  // créé en "player" et le rôle réel vient de /evolution, mais l'inverse
+  // existe aussi : un ancien compte "manager" qui a activé l'espace joueur.
+  // Se fier au seul user_type cachait le bloc physique aux deux.
+  const effectiveRole: string = user.evolutionRole ?? user.userType;
+  const isPlayerRole = effectiveRole === "player";
+  // Taille, poids, pied fort, date de naissance : tout le monde qui descend
+  // sur la pelouse les renseigne — joueur, manager qui joue, arbitre. Seuls
+  // les espaces qui n'y descendent jamais en sont dispensés.
+  const showPhysical = !["organizer", "venue_owner", "superadmin"].includes(effectiveRole);
+  const physicalComplete = Boolean(user.strongFoot && user.height && user.weight && user.dateOfBirth);
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const memberSince = user.createdAt
@@ -279,7 +299,7 @@ export default function ProfilePage() {
         height: data.height ?? undefined,
         weight: data.weight ?? undefined,
         date_of_birth: data.dateOfBirth || undefined,
-        ...(user.userType === "player" && {
+        ...((user.evolutionRole ?? user.userType) === "player" && {
           position: data.position || undefined,
           skill_level: data.skillLevel || undefined,
         }),
@@ -311,7 +331,7 @@ export default function ProfilePage() {
     { key: "palmares", label: "Palmarès", icon: Trophy },
     { key: "posts", label: "Posts", icon: FileText },
     { key: "galerie", label: "Galerie", icon: ImageIcon },
-    ...(user.userType === "player"
+    ...((user.evolutionRole ?? user.userType) === "player"
       ? [{ key: "carte" as TabType, label: "Carte FUT", icon: CreditCard }]
       : []),
   ];
@@ -432,12 +452,21 @@ export default function ProfilePage() {
               </div>
             </div>
             {/* Physical Info Card */}
-            {(user.userType === "player" || user.userType === "referee") && (
+            {showPhysical && (
               <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-3">
-                <h3 className="mb-3 text-sm font-semibold text-gray-900 flex items-center gap-2">
-                  <Ruler size={16} className="text-emerald-600" />
-                  Informations physiques
-                </h3>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <Ruler size={16} className="text-emerald-600" />
+                    Informations physiques
+                  </h3>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    <Edit3 size={13} />
+                    {physicalComplete ? "Modifier" : "Compléter"}
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
                     <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
@@ -503,7 +532,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Physical info */}
-              {(user.userType === "player" || user.userType === "referee") && (
+              {showPhysical && (
                 <div className="md:col-span-2">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
                     <Ruler size={16} className="text-emerald-600" /> Informations physiques
@@ -535,7 +564,7 @@ export default function ProfilePage() {
               )}
 
               {/* Player-specific */}
-              {user.userType === "player" && (
+              {isPlayerRole && (
                 <>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Poste</label>

@@ -26,6 +26,7 @@ import {
 } from "@/lib/firestore";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
+import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot } from "@/types";
 
 // ============================================
@@ -642,6 +643,10 @@ export default function TeamDetailPage() {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Photos des candidats. `player_photo` n'existe que sur les candidatures
+  // récentes ; les anciennes sont relues ici pour qu'un manager voie toujours
+  // le visage qu'il accepte ou refuse.
+  const [candidatePhotos, setCandidatePhotos] = useState<Record<string, string | null>>({});
 
   const isTeamManager = team?.managerId === user?.uid;
   const isTeamMember = team?.memberIds.includes(user?.uid ?? "") ?? false;
@@ -841,6 +846,28 @@ export default function TeamDetailPage() {
     }
   };
 
+  const candidateIdsKey = joinRequests
+    .filter((r) => !r.playerPhoto)
+    .map((r) => r.playerId)
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    const ids = candidateIdsKey ? candidateIdsKey.split(",").filter(Boolean) : [];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    getUsersByIds(ids)
+      .then((users) => {
+        if (cancelled) return;
+        const found = new Map(users.map((u) => [u.uid, u.profilePictureUrl]));
+        setCandidatePhotos(
+          Object.fromEntries(ids.map((id) => [id, found.get(id) ?? null])),
+        );
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [candidateIdsKey]);
+
   const handleAccept = async (request: JoinRequest) => {
     if (!team || !user) return;
     setRespondingId(request.id);
@@ -852,6 +879,8 @@ export default function TeamDetailPage() {
         senderName: `${user.firstName} ${user.lastName}`,
         receiverId: request.playerId,
         receiverName: request.playerName,
+        receiverPhoto: request.playerPhoto ?? candidatePhotos[request.playerId] ?? null,
+        teamLogo: team.logoUrl ?? null,
         receiverCity: request.playerCity,
         receiverPosition: request.playerPosition,
         receiverLevel: request.playerLevel,
@@ -1352,10 +1381,16 @@ export default function TeamDetailPage() {
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <Plus size={16} /> Ajouter un joueur
               </button>
-              {/* Recruitment vertical still shelved — teaser until unfrozen. */}
-              <span className="flex flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 py-4 text-sm font-medium text-gray-400">
-                <UserPlus size={16} /> Recruter — bientôt
-              </span>
+              {/* Recruter ouvre le mercato côté manager, sur l'onglet joueurs.
+                  Une équipe hors plateforme n'a personne pour recruter. */}
+              {!isGhostTeam && (
+                <Link
+                  href="/mercato?tab=players"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+                >
+                  <UserPlus size={16} /> Recruter
+                </Link>
+              )}
             </div>
           )}
         </motion.div>
@@ -1613,7 +1648,13 @@ export default function TeamDetailPage() {
                 className="rounded-xl border border-gray-200 bg-white p-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <PlayerAvatar
+                      name={request.playerName}
+                      photo={request.playerPhoto ?? candidatePhotos[request.playerId] ?? null}
+                      size={44}
+                    />
+                    <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-gray-900">{request.playerName}</span>
                       <span className="text-gray-400">—</span>
@@ -1636,6 +1677,7 @@ export default function TeamDetailPage() {
                         &ldquo;{request.message}&rdquo;
                       </p>
                     )}
+                    </div>
                   </div>
 
                   {/* Status badge or action buttons */}

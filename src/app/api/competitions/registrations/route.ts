@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { importClubRoster } from "@/lib/club-import-server";
 import { announceCompetitionEvent } from "@/lib/tribune-server";
+import { notifyTeamActivity } from "@/lib/activity-notify-server";
 import type { FirestoreCompetition } from "@/types";
 
 /**
@@ -430,6 +431,18 @@ export async function PATCH(req: NextRequest) {
       read: false,
       created_at: FieldValue.serverTimestamp(),
     });
+
+    // Le manager savait qu'il avait candidaté ; son effectif, lui, découvrait
+    // la compétition le jour de la convocation. Le bac à sable ne sort pas.
+    if (!competition.is_sandbox) {
+      await notifyTeamActivity({
+        teamId: reg.club_id,
+        event: "competition_entered",
+        actorId: reg.manager_id,
+        competitionName: competition.name,
+        link: `/c/${competition.slug}`,
+      }).catch((e) => console.error("[registrations] notify failed", e));
+    }
 
     return NextResponse.json({ ok: true, teamId: teamRef.id, ...imported });
   } catch (err) {

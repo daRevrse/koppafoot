@@ -3,6 +3,7 @@ import { Outfit, DM_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthModalProvider } from "@/components/auth/AuthModal";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import TopLoadingBar from "@/components/ui/TopLoadingBar";
 import "./globals.css";
@@ -89,10 +90,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>
-          <Suspense fallback={null}>
-            <TopLoadingBar />
-          </Suspense>
-          {children}
+          <AuthModalProvider>
+            <Suspense fallback={null}>
+              <TopLoadingBar />
+            </Suspense>
+            {children}
+          </AuthModalProvider>
           <Toaster
             position="top-right"
             toastOptions={{

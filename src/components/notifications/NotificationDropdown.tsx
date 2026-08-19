@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import Link from "next/link";
+import { Bell, CheckCheck, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useRouter } from "next/navigation";
@@ -10,15 +11,20 @@ import type { Notification } from "@/types";
 function NotificationItem({
   n,
   onRead,
+  onNavigate,
 }: {
   n: Notification;
   onRead: (id: string) => void;
+  onNavigate: () => void;
 }) {
   const router = useRouter();
 
   const handleClick = () => {
     onRead(n.id);
-    if (n.link) router.push(n.link);
+    onNavigate();
+    // Sans lien propre, la notification menait dans le vide. Elle ouvre
+    // maintenant l'écran qui affiche son contenu en entier.
+    router.push(n.link ?? "/notifications");
   };
 
   return (
@@ -101,10 +107,26 @@ export default function NotificationDropdown() {
                 </p>
               ) : (
                 notifications.map((n) => (
-                  <NotificationItem key={n.id} n={n} onRead={markRead} />
+                  <NotificationItem
+                    key={n.id}
+                    n={n}
+                    onRead={markRead}
+                    onNavigate={() => setOpen(false)}
+                  />
                 ))
               )}
             </div>
+
+            {/* La cloche n'est qu'un aperçu : trois lignes par message et les
+                50 dernières. L'historique complet vit sur /notifications. */}
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1 border-t border-gray-100 bg-gray-50/70 px-4 py-2.5 text-xs font-black text-emerald-600 transition-colors hover:bg-gray-100"
+            >
+              Voir toutes les notifications
+              <ChevronRight size={13} />
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

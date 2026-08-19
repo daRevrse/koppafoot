@@ -20,6 +20,7 @@ import {
   pauseCompTimer,
   updateCompPeriod,
   addCompEvent,
+  setCompGoalAssist,
   setCompGoalVarStatus,
   finishCompMatch,
   updateCompMatch,
@@ -68,6 +69,15 @@ interface PickerState {
   teamName: string;
 }
 
+// Follow-up modal: the passer on a goal that is already recorded.
+interface AssistPickerState {
+  eventId: string;
+  side: Side;
+  teamName: string;
+  scorerId: string;
+  scorerName: string;
+}
+
 // ============================================
 // Component
 // ============================================
@@ -99,6 +109,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   // Player-picker modal (goal / card)
   const [picker, setPicker] = useState<PickerState | null>(null);
+  // Second question, asked only after a goal: who laid it on. Optional by
+  // design — the scoreboard is already right, this only enriches it.
+  const [assistPicker, setAssistPicker] = useState<AssistPickerState | null>(null);
 
   // Substitution modal
   const [subModal, setSubModal] = useState<{ side: Side; teamName: string } | null>(null);
@@ -448,7 +461,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     setIsSubmitting(true);
     try {
       if (type === "goal") {
-        await addCompEvent(cid, mid, {
+        const goalId = await addCompEvent(cid, mid, {
           type: "goal",
           side,
           team_id: teamId,
@@ -467,6 +480,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         });
         toast.success("BUT !");
         setGoalCooldown(60);
+        // The goal is on the board; now the optional question.
+        setAssistPicker({
+          eventId: goalId,
+          side,
+          teamName,
+          scorerId: entry.playerId,
+          scorerName: entry.name,
+        });
       } else if (type === "yellow_card") {
         const priorYellows = events.filter(
           (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
@@ -536,6 +557,28 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       setPicker(null);
     } catch {
       toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Hang the passer on the goal just recorded. Never blocks the console: if
+   * the write fails the goal itself is already safe on the board, so the
+   * error is worth a toast and nothing more.
+   */
+  const recordAssist = async (entry: LineupEntry) => {
+    if (!assistPicker) return;
+    setIsSubmitting(true);
+    try {
+      await setCompGoalAssist(cid, mid, assistPicker.eventId, {
+        playerId: entry.playerId,
+        playerName: entry.name,
+      });
+      toast.success(`Passe décisive — ${entry.name}`);
+      setAssistPicker(null);
+    } catch {
+      toast.error("Passe non enregistrée");
     } finally {
       setIsSubmitting(false);
     }
@@ -1136,6 +1179,24 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         )}
       </AnimatePresence>
 
+      {/* Passer on the goal just scored — skippable, and the scorer is out. */}
+      <AnimatePresence>
+        {assistPicker && (
+          <PlayerPickerModal
+            picker={{ type: "goal", side: assistPicker.side, teamName: assistPicker.teamName }}
+            entries={onPitchEntries(assistPicker.side).filter(
+              (e) => e.playerId !== assistPicker.scorerId,
+            )}
+            yellowSet={yellowCardedIds}
+            minute={Math.floor(displayTime / 60000) + 1}
+            isSubmitting={isSubmitting}
+            onPick={recordAssist}
+            onClose={() => setAssistPicker(null)}
+            assist={{ scorerName: assistPicker.scorerName }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Substitution modal */}
       <AnimatePresence>
         {subModal && (
@@ -1456,6 +1517,7 @@ function PlayerPickerModal({
   isSubmitting,
   onPick,
   onClose,
+  assist,
 }: {
   picker: PickerState;
   entries: LineupEntry[];
@@ -1464,9 +1526,12 @@ function PlayerPickerModal({
   isSubmitting: boolean;
   onPick: (entry: LineupEntry) => void;
   onClose: () => void;
+  /** Present when the modal is asking for the passer instead of the actor. */
+  assist?: { scorerName: string };
 }) {
-  const title =
-    picker.type === "goal" ? "But" : picker.type === "yellow_card" ? "Carton jaune" : "Carton rouge";
+  const title = assist
+    ? "Passe décisive"
+    : picker.type === "goal" ? "But" : picker.type === "yellow_card" ? "Carton jaune" : "Carton rouge";
 
   // Starters first, then substitutes, for a natural reading order.
   const ordered = [...entries].sort((a, b) => {
@@ -1499,7 +1564,9 @@ function PlayerPickerModal({
           {title} — {picker.teamName}
         </h2>
         <p className="mb-6 mt-1 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
-          {minute}&apos; · Choisis le joueur
+          {assist
+            ? `${minute}' · Qui a servi ${assist.scorerName} ?`
+            : `${minute}' · Choisis le joueur`}
         </p>
 
         <div className="custom-scrollbar grid max-h-[55vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -1527,6 +1594,19 @@ function PlayerPickerModal({
             </button>
           ))}
         </div>
+
+        {/* A goal often has no assist, and the console must never hold the
+            scorer hostage over a detail. */}
+        {assist && (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={onClose}
+            className="mt-3 w-full rounded-xl border-2 border-gray-100 py-2.5 text-sm font-bold text-gray-400 transition-colors hover:border-gray-200 hover:text-gray-600 disabled:opacity-50"
+          >
+            Aucune passe décisive
+          </button>
+        )}
 
         <style jsx global>{`
           .custom-scrollbar::-webkit-scrollbar {

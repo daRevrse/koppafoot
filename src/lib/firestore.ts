@@ -262,6 +262,7 @@ export function toInvitation(id: string, d: FirestoreInvitation): Invitation {
   return {
     id, senderId: d.sender_id, senderName: d.sender_name,
     receiverId: d.receiver_id, receiverName: d.receiver_name,
+    receiverPhoto: d.receiver_photo ?? null, teamLogo: d.team_logo ?? null,
     receiverCity: d.receiver_city, receiverPosition: d.receiver_position,
     receiverLevel: d.receiver_level, teamId: d.team_id, teamName: d.team_name,
     message: d.message, status: d.status,
@@ -317,7 +318,8 @@ function toComment(id: string, d: FirestoreComment): Comment {
 function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntry {
   return {
     id, managerId: d.manager_id, playerId: d.player_id,
-    playerName: d.player_name, playerCity: d.player_city,
+    playerName: d.player_name, playerPhoto: d.player_photo ?? null,
+    playerCity: d.player_city,
     playerPosition: d.player_position, playerLevel: d.player_level,
     playerBio: d.player_bio ?? "", createdAt: d.created_at,
   };
@@ -326,6 +328,7 @@ function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntr
 function toJoinRequest(id: string, d: FirestoreJoinRequest): JoinRequest {
   return {
     id, playerId: d.player_id, playerName: d.player_name,
+    playerPhoto: d.player_photo ?? null, teamLogo: d.team_logo ?? null,
     playerCity: d.player_city, playerPosition: d.player_position,
     playerLevel: d.player_level, teamId: d.team_id, teamName: d.team_name,
     managerId: d.manager_id, message: d.message, status: d.status,
@@ -427,11 +430,46 @@ export async function deleteTeam(teamId: string): Promise<void> {
   await deleteDoc(doc(db, "teams", teamId));
 }
 
+/**
+ * Diffuse un mouvement d'effectif à l'équipe et à ses abonnés.
+ *
+ * Fire-and-forget par principe : la notification est un bonus, l'adhésion ou
+ * le retrait a déjà abouti quand on arrive ici. La liste des destinataires se
+ * lit côté serveur (voir /api/notifications/team-activity).
+ */
+export function notifyTeamActivity(input: {
+  teamId: string;
+  event: "member_joined" | "member_left" | "competition_entered";
+  playerId?: string;
+  competitionName?: string;
+  link?: string;
+}): void {
+  void (async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await fetch("/api/notifications/team-activity", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(input),
+      });
+    } catch {
+      // Best-effort only.
+    }
+  })();
+}
+
 export async function removeTeamMember(teamId: string, playerId: string): Promise<void> {
   await updateDoc(doc(db, "teams", teamId), {
     member_ids: arrayRemove(playerId),
     updated_at: serverTimestamp(),
   });
+  // Le reste de l'effectif doit apprendre le départ autrement qu'en
+  // recomptant la liste des joueurs.
+  notifyTeamActivity({ teamId, event: "member_left", playerId });
 }
 
 // addTeamMember() lived here: a bare arrayUnion onto any team's member_ids,
@@ -451,6 +489,26 @@ export async function getUsersByIds(uids: string[]): Promise<UserProfile[]> {
     for (const d of snap.docs) {
       results.push(toUserProfile(d.id, d.data() as FirestoreUser));
     }
+  }
+  return results;
+}
+
+/**
+ * Teams by id, batched like getUsersByIds.
+ *
+ * Le mercato en a besoin pour réhydrater les logos des candidatures et des
+ * invitations créées avant que le logo ne soit recopié dans le document :
+ * une carte par requête aurait fait une lecture par ligne de liste.
+ */
+export async function getTeamsByIds(teamIds: string[]): Promise<Team[]> {
+  if (teamIds.length === 0) return [];
+  const results: Team[] = [];
+  for (let i = 0; i < teamIds.length; i += 30) {
+    const chunk = teamIds.slice(i, i + 30);
+    const snap = await getDocs(
+      query(collection(db, "teams"), where("__name__", "in", chunk)),
+    );
+    for (const d of snap.docs) results.push(toTeam(d.id, d.data() as FirestoreTeam));
   }
   return results;
 }
@@ -520,7 +578,7 @@ export async function getShortlistByManager(managerId: string): Promise<Shortlis
 }
 
 export async function addToShortlist(data: {
-  managerId: string; playerId: string; playerName: string;
+  managerId: string; playerId: string; playerName: string; playerPhoto?: string | null;
   playerCity: string; playerPosition: string; playerLevel: string; playerBio: string;
 }): Promise<string> {
   const q = query(collection(db, "shortlists"),
@@ -531,7 +589,8 @@ export async function addToShortlist(data: {
 
   const ref = await addDoc(collection(db, "shortlists"), {
     manager_id: data.managerId, player_id: data.playerId,
-    player_name: data.playerName, player_city: data.playerCity,
+    player_name: data.playerName, player_photo: data.playerPhoto ?? null,
+    player_city: data.playerCity,
     player_position: data.playerPosition, player_level: data.playerLevel,
     player_bio: data.playerBio, created_at: serverTimestamp(),
   });
@@ -555,9 +614,10 @@ export async function isInShortlist(managerId: string, playerId: string): Promis
 // ============================================
 
 export async function createJoinRequest(data: {
-  playerId: string; playerName: string; playerCity: string;
+  playerId: string; playerName: string; playerPhoto?: string | null; playerCity: string;
   playerPosition: string; playerLevel: string;
-  teamId: string; teamName: string; managerId: string; message: string;
+  teamId: string; teamName: string; teamLogo?: string | null;
+  managerId: string; message: string;
 }): Promise<string> {
   const q = query(collection(db, "join_requests"),
     where("player_id", "==", data.playerId),
@@ -568,6 +628,7 @@ export async function createJoinRequest(data: {
 
   const ref = await addDoc(collection(db, "join_requests"), {
     player_id: data.playerId, player_name: data.playerName,
+    player_photo: data.playerPhoto ?? null, team_logo: data.teamLogo ?? null,
     player_city: data.playerCity, player_position: data.playerPosition,
     player_level: data.playerLevel, team_id: data.teamId,
     team_name: data.teamName, manager_id: data.managerId,
@@ -636,6 +697,10 @@ export async function respondToJoinRequest(requestId: string, accepted: boolean,
   }
 
   await batch.commit();
+
+  if (accepted && teamId && playerId) {
+    notifyTeamActivity({ teamId, event: "member_joined", playerId });
+  }
 }
 
 // ============================================
@@ -1290,12 +1355,14 @@ export function onParticipationsForPlayer(playerId: string, callback: (data: Par
 
 export async function sendInvitation(data: {
   senderId: string; senderName: string; receiverId: string; receiverName: string;
+  receiverPhoto?: string | null; teamLogo?: string | null;
   receiverCity: string; receiverPosition: string; receiverLevel: string;
   teamId: string; teamName: string; message: string;
 }): Promise<string> {
   const ref = await addDoc(collection(db, "invitations"), {
     sender_id: data.senderId, sender_name: data.senderName,
     receiver_id: data.receiverId, receiver_name: data.receiverName,
+    receiver_photo: data.receiverPhoto ?? null, team_logo: data.teamLogo ?? null,
     receiver_city: data.receiverCity, receiver_position: data.receiverPosition,
     receiver_level: data.receiverLevel, team_id: data.teamId,
     team_name: data.teamName, message: data.message,
@@ -2416,13 +2483,16 @@ export async function createNotification(data: {
 
 export function onNotifications(
   userId: string,
-  callback: (data: Notification[]) => void
+  callback: (data: Notification[]) => void,
+  // La cloche n'affiche qu'un aperçu ; l'écran /notifications remonte plus
+  // loin dans l'historique.
+  max = 50,
 ): Unsubscribe {
   const q = query(
     collection(db, "notifications"),
     where("user_id", "==", userId),
     orderBy("created_at", "desc"),
-    firestoreLimit(50)
+    firestoreLimit(max)
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => toNotification(d.id, d.data() as FirestoreNotification)));

@@ -207,7 +207,13 @@ export default function FeedPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6">
+    // The rail that used to sit on the right of this page is gone; the shell
+    // still holds its column open there. This mirrors it on the left so the
+    // Tribune reads centred instead of pinned to one side.
+    <div className="flex">
+      <div className="hidden w-80 flex-shrink-0 xl:block" aria-hidden />
+
+      <div className="min-w-0 flex-1 space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -336,6 +342,7 @@ export default function FeedPage() {
           )}
         </div>
 
+      </div>
       </div>
     </div>
   );

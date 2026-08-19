@@ -8,8 +8,10 @@ export default function PublicCompetitionLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="mx-auto max-w-5xl">
+      {/* Flat rule instead of a floating card: the tab bar is a divider of
+          the page, not an object sitting on top of it. */}
+      <div className="mb-5 overflow-hidden border-b border-gray-200/70 bg-white">
         <CompetitionPublicNav />
       </div>
       {children}

@@ -4,17 +4,18 @@ import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
+  Flame, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
   Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight, Plus,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
+import { useAuthModal } from "@/components/auth/AuthModal";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Activity, Trophy, MessageCircle, User,
+  Flame, Trophy, MessageCircle, User,
 };
 
 function isActive(pathname: string, item: BottomNavItem): boolean {
@@ -37,7 +38,8 @@ function AvatarBottomSheet({
   const handleLogout = useCallback(async () => {
     onClose();
     await logout();
-    router.push("/login");
+    // Home is public — no reason to send anyone to a login screen.
+    router.push("/");
   }, [logout, router, onClose]);
 
   const handleInvite = useCallback(async () => {
@@ -196,7 +198,7 @@ function SpacesSheet({
     // Le pendant mobile du bouton du menu latéral : sans lui, la candidature
     // organisateur n'a plus aucune porte d'entrée depuis un téléphone.
     spaces.push({
-      href: "/devenir-organisateur",
+      href: "/organisateurs",
       label: "Organiser ma compétition",
       hint: "Crée et gère tes propres compétitions",
       Icon: Plus,
@@ -284,6 +286,7 @@ function SpacesSheet({
 // ─── Main Component ──────────────────────────────────────────
 export default function MobileBottomNav() {
   const { user } = useAuth();
+  const authModal = useAuthModal();
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [spacesOpen, setSpacesOpen] = useState(false);
@@ -306,7 +309,7 @@ export default function MobileBottomNav() {
           <div className="flex items-end justify-around px-1 pt-1.5 pb-safe">
             {/* Regular nav items (4 tabs) */}
             {items.map((item) => {
-              const Icon = ICONS[item.icon] ?? Activity;
+              const Icon = ICONS[item.icon] ?? Flame;
               const active = isActive(pathname, item);
               const count = badgeCounts[item.path] ?? 0;
 
@@ -428,15 +431,16 @@ export default function MobileBottomNav() {
                 </span>
               </button>
             ) : (
-              <Link
-                href="/login"
+              <button
+                type="button"
+                onClick={() => authModal.open()}
                 className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
               >
                 <User size={22} className="text-white/50 group-hover:text-white/80" />
                 <span className="text-[10px] font-semibold leading-tight text-white/40 group-hover:text-white/70">
                   Connexion
                 </span>
-              </Link>
+              </button>
             )}
           </div>
         </div>

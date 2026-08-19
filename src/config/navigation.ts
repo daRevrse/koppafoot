@@ -34,7 +34,7 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 // verticals come back from _shelved.
 
 export const MEMBER_NAV: NavEntry[] = [
-  { path: "/", icon: "Activity", label: "Direct", exact: true },
+  { path: "/", icon: "Flame", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
@@ -120,7 +120,7 @@ export interface BottomNavItem {
 // spaces (organisateur / live / évolution) that used to be buried in the
 // profile sheet.
 export const MEMBER_BOTTOM: BottomNavItem[] = [
-  { path: "/", icon: "Activity", label: "Direct", exact: true },
+  { path: "/", icon: "Flame", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
 ];
 

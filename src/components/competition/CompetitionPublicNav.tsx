@@ -35,6 +35,11 @@ export default function CompetitionPublicNav() {
 
   if (!slug) return null;
 
+  // The join page is a conversion page: it argues for entering the
+  // competition, and a tab bar offering four ways to wander off before the
+  // CTA works against that. It carries its own link to the scores instead.
+  if (pathname.endsWith("/rejoindre")) return null;
+
   // Until the type is known, show everything — hiding then re-adding tabs
   // would make the bar jump on every page load.
   const showStandings = type === null || hasGroupStage(type);

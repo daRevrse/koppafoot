@@ -1066,6 +1066,9 @@ type StoredCompEvent = {
   player_id: string | null;
   player_name: string | null;
   detail: string | null;
+  /** Goals only — the passer, when the console was told. See `setCompGoalAssist`. */
+  assist_player_id?: string | null;
+  assist_player_name?: string | null;
   /** Goals only — see `setCompGoalVarStatus`. Absent on an unreviewed goal. */
   var_status?: GoalVarStatus | null;
   created_at: string;
@@ -1150,7 +1153,7 @@ export async function addCompEvent(
     player_name?: string | null;
     detail?: string | null;
   },
-): Promise<void> {
+): Promise<string> {
   const newEvent: StoredCompEvent = {
     id: Math.random().toString(36).substring(2, 11),
     type: event.type,
@@ -1173,6 +1176,53 @@ export async function addCompEvent(
   }
 
   await updateDoc(compMatchRef(cid, mid), updates);
+  // The id goes back to the caller so the console can hang an assist on this
+  // exact goal a moment later — see `setCompGoalAssist`.
+  return newEvent.id;
+}
+
+/**
+ * Attach (or clear) the passer on a goal already in the timeline.
+ *
+ * The goal is written the instant it is scored — the scoreboard must not wait
+ * on a second question — so the assist lands afterwards, which means editing
+ * one entry of `live_state.events`. That array is append-only through
+ * arrayUnion everywhere else, so this is a read-modify-write and runs in a
+ * transaction: the console keeps recording cards and goals while the scorer
+ * is still being asked who laid it on.
+ *
+ * Passing `null` clears a mistake. The score is never touched.
+ */
+export async function setCompGoalAssist(
+  cid: string,
+  mid: string,
+  eventId: string,
+  assist: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = compMatchRef(cid, mid);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
+    const d = snap.data() as FirestoreCompMatch;
+
+    const events = d.live_state?.events ?? [];
+    const index = events.findIndex((e) => e.id === eventId);
+    if (index === -1) throw new Error("Événement introuvable");
+    if (events[index].type !== "goal") throw new Error("Seul un but a un passeur");
+
+    tx.update(ref, {
+      "live_state.events": events.map((e, i) =>
+        i === index
+          ? {
+              ...e,
+              assist_player_id: assist?.playerId ?? null,
+              assist_player_name: assist?.playerName ?? null,
+            }
+          : e,
+      ),
+      updated_at: serverTimestamp(),
+    });
+  });
 }
 
 /**
@@ -1638,6 +1688,89 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
 
   return Array.from(byKey.values()).sort(
     (a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName),
+  );
+}
+
+export interface PlayerContribution {
+  playerName: string;
+  teamId: string;
+  goals: number;
+  assists: number;
+  /** Goals + assists — what the ranking is actually on. */
+  total: number;
+}
+
+/**
+ * Offensive contributions per player: goals AND assists, from the same events.
+ *
+ * Same rules as `computeTopScorers` for the goal side (a VAR-cancelled goal
+ * never happened; an own goal credits nobody). The passer rides on the goal
+ * event itself, so an assist can only exist where a goal does — and a goal
+ * that was disallowed takes its assist down with it.
+ *
+ * Keyed like the golden boot: `playerId` when the roster line is linked,
+ * lowercased name otherwise, always scoped to the team, so the same name on
+ * two teams stays two players.
+ */
+export function computePlayerContributions(matches: CompMatch[]): PlayerContribution[] {
+  const byKey = new Map<string, PlayerContribution>();
+
+  const keyFor = (teamId: string, id: string | null | undefined, name: string): string | null => {
+    if (id) return `${teamId}::id:${id}`;
+    if (name !== "") return `${teamId}::name:${name.toLowerCase()}`;
+    return null;   // anonymous — nothing to rank
+  };
+
+  const credit = (
+    key: string,
+    teamId: string,
+    name: string,
+    field: "goals" | "assists",
+  ) => {
+    const row = byKey.get(key);
+    if (row) {
+      row[field] += 1;
+      row.total += 1;
+      // First non-empty spelling wins, same as the golden boot.
+      if (row.playerName === "" && name !== "") row.playerName = name;
+    } else {
+      byKey.set(key, {
+        playerName: name,
+        teamId,
+        goals: field === "goals" ? 1 : 0,
+        assists: field === "assists" ? 1 : 0,
+        total: 1,
+      });
+    }
+  };
+
+  for (const match of matches) {
+    for (const event of match.liveState?.events ?? []) {
+      if (event.type !== "goal") continue;
+      if (event.varStatus === "cancelled") continue;
+
+      // The own goal still carries a real assist for nobody, and its scorer
+      // plays for the other side — skip the pair entirely.
+      if (event.detail === OWN_GOAL_DETAIL) continue;
+
+      const scorerName = (event.playerName ?? "").trim();
+      const scorerKey = keyFor(event.teamId, event.playerId, scorerName);
+      if (scorerKey) credit(scorerKey, event.teamId, scorerName, "goals");
+
+      const passerName = (event.assistPlayerName ?? "").trim();
+      const passerKey = keyFor(event.teamId, event.assistPlayerId, passerName);
+      // A player cannot assist their own goal.
+      if (passerKey && passerKey !== scorerKey) {
+        credit(passerKey, event.teamId, passerName, "assists");
+      }
+    }
+  }
+
+  return Array.from(byKey.values()).sort(
+    (a, b) =>
+      b.total - a.total ||
+      b.goals - a.goals ||
+      a.playerName.localeCompare(b.playerName),
   );
 }
 

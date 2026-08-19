@@ -4,11 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
-import {
-  Loader2, SearchX, Trophy, CalendarDays, ClipboardList,
-  MapPin, Users, Timer,
-} from "lucide-react";
+import { Loader2, SearchX, Trophy, CalendarDays, ClipboardList } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
 import { getCompetitionBySlug, onCompMatches } from "@/lib/competition-firestore";
@@ -74,9 +70,9 @@ function formatDateRange(start: string | null, end: string | null): string | nul
 // the crest treatment used across the public competition pages.
 function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-xs font-black text-gray-500">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200/70 bg-gray-50 text-sm font-black text-gray-500">
       {logo ? (
-        <Image src={logo} alt={name} width={32} height={32} className="h-full w-full object-cover" />
+        <Image src={logo} alt={name} width={40} height={40} className="h-full w-full object-cover" />
       ) : (
         <span>{name?.[0]?.toUpperCase() || "?"}</span>
       )}
@@ -91,45 +87,45 @@ function ScoreCard({ match, slug }: { match: CompMatch; slug: string }) {
   return (
     <Link
       href={`/c/${slug}/matches/${match.id}`}
-      className={`group block overflow-hidden rounded-[1.75rem] border bg-white shadow-sm transition-all hover:shadow-lg ${
-        isLive ? "border-red-100 hover:border-red-200" : "border-gray-100 hover:border-emerald-200"
+      className={`group block bg-white transition-colors hover:bg-gray-50 ${
+        isLive ? "border-l-2 border-l-red-500" : ""
       }`}
     >
       {/* Top row: tag + status */}
-      <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 px-5 pt-4">
         {tag ? (
-          <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+          <span className="truncate text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
             {tag}
           </span>
         ) : (
           <span />
         )}
         {isLive ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-red-600">
+          <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-red-600">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
             En direct
           </span>
         ) : (
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+          <span className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
             Terminé
           </span>
         )}
       </div>
 
       {/* Scoreboard row */}
-      <div className="flex items-center gap-3 px-4 py-3.5">
+      <div className="flex items-center gap-4 px-5 pb-5 pt-3">
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
-          <span className="truncate text-sm font-bold text-gray-900">{match.homeTeamName}</span>
+          <span className="truncate text-base font-bold text-gray-900">{match.homeTeamName}</span>
           <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5 px-1">
-          <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
-          <span className="text-sm font-black text-gray-300">-</span>
-          <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
+          <span className="font-display text-3xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
+          <span className="text-lg font-black text-gray-300">-</span>
+          <span className="font-display text-3xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} />
-          <span className="truncate text-sm font-bold text-gray-900">{match.awayTeamName}</span>
+          <span className="truncate text-base font-bold text-gray-900">{match.awayTeamName}</span>
         </div>
       </div>
     </Link>
@@ -142,24 +138,24 @@ function FixtureCard({ match, slug }: { match: CompMatch; slug: string }) {
   return (
     <Link
       href={`/c/${slug}/matches/${match.id}`}
-      className="group block overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg"
+      className="group block bg-white transition-colors hover:bg-gray-50"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 px-5 pt-4">
         {tag ? (
-          <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+          <span className="truncate text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
             {tag}
           </span>
         ) : (
           <span />
         )}
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">
+        <span className="text-[11px] font-black uppercase tracking-[0.15em] text-emerald-600">
           À venir
         </span>
       </div>
 
-      <div className="flex items-center gap-3 px-4 py-3.5">
+      <div className="flex items-center gap-4 px-5 pb-5 pt-3">
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
-          <span className="truncate text-sm font-bold text-gray-900">{match.homeTeamName}</span>
+          <span className="truncate text-base font-bold text-gray-900">{match.homeTeamName}</span>
           <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} />
         </div>
         <div className="flex shrink-0 flex-col items-center justify-center px-1">
@@ -178,7 +174,7 @@ function FixtureCard({ match, slug }: { match: CompMatch; slug: string }) {
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} />
-          <span className="truncate text-sm font-bold text-gray-900">{match.awayTeamName}</span>
+          <span className="truncate text-base font-bold text-gray-900">{match.awayTeamName}</span>
         </div>
       </div>
     </Link>
@@ -294,100 +290,82 @@ export default function PublicCompetitionHome() {
   const dateRange = formatDateRange(competition.startDate, competition.endDate);
 
   return (
-    <div className="space-y-8 pb-20">
-      {/* Hero */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[2.5rem] border border-gray-100 bg-gray-900 text-white shadow-xl"
-      >
-        {/* Banner or gradient backdrop */}
+    <div className="space-y-10 pb-24">
+      {/* Hero — full bleed to the shell edges, left aligned, the name at
+          poster size. The metadata reads as caps micro-labels rather than
+          icon rows: a competition page is a front page, not a form. */}
+      <section className="relative -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
         {competition.bannerUrl ? (
           <>
             <Image
               src={competition.bannerUrl}
-              alt={competition.name}
-              width={1024}
-              height={420}
-              className="absolute inset-0 h-full w-full object-cover opacity-40"
+              alt=""
+              width={1600}
+              height={600}
+              priority
+              className="absolute inset-0 h-full w-full object-cover opacity-45"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/70 to-gray-900/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/75 to-gray-900/40" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-700 via-gray-900 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
         )}
 
-        <div className="relative z-10 flex flex-col items-center px-6 py-12 text-center">
-          {/* Logo or trophy */}
-          <div className="mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl">
-            {competition.logoUrl ? (
-              <Image
-                src={competition.logoUrl}
-                alt={competition.name}
-                width={96}
-                height={96}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <Trophy size={44} className="text-emerald-400" />
-            )}
+        <div className="relative mx-auto flex max-w-5xl flex-col gap-7 px-5 py-14 sm:px-8 sm:py-20">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-white/15 bg-white/5">
+              {competition.logoUrl ? (
+                <Image
+                  src={competition.logoUrl}
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Trophy size={30} strokeWidth={1.2} className="text-emerald-400" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                {statusCfg.label}
+              </p>
+              {competition.organizerName && (
+                <p className="mt-1 truncate text-sm font-bold text-white/60">
+                  {competition.organizerName}
+                </p>
+              )}
+            </div>
           </div>
 
-          <span
-            className={`mb-3 inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${statusCfg.bg} ${statusCfg.color}`}
-          >
-            {statusCfg.label}
-          </span>
+          <h1 className="font-display text-4xl font-black uppercase leading-[0.92] tracking-tight sm:text-6xl lg:text-7xl">
+            {competition.name}
+          </h1>
 
-          <h1 className="font-display text-3xl font-black tracking-tight">{competition.name}</h1>
-
-          {competition.organizerName && (
-            <p className="mt-1.5 text-xs font-bold text-white/60">
-              Organisé par {competition.organizerName}
-            </p>
-          )}
-
-          {/* Dates, lieu, et les règles du jeu : une équipe doit savoir à
-              combien et combien de temps elle joue avant de s'inscrire. */}
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-bold text-white/70">
-            {dateRange && (
-              <span className="flex items-center gap-1.5">
-                <CalendarDays size={13} />
-                {dateRange}
-              </span>
-            )}
-            {competition.venueCity && (
-              <span className="flex items-center gap-1.5">
-                <MapPin size={13} />
-                {competition.venueCity}
-              </span>
-            )}
-            <span className="flex items-center gap-1.5">
-              <Users size={13} />
-              {gameTypeLabel(competition.format)}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Timer size={13} />
-              {matchDurationLabel(competition.format)}
-            </span>
+          <div className="flex flex-wrap gap-x-8 gap-y-3 text-[11px] font-black uppercase tracking-[0.15em] text-white/55">
+            {dateRange && <span>{dateRange}</span>}
+            {competition.venueCity && <span>{competition.venueCity}</span>}
+            <span>{gameTypeLabel(competition.format)}</span>
+            <span>{matchDurationLabel(competition.format)}</span>
           </div>
 
           {/* Suivre : la compétition entre dans « Mes compétitions » du menu
-              et ses buts arrivent en notification. */}
-          <div className="mt-5">
+              et ses buts arrivent en notification. Mis à l'échelle du hero
+              ici plutôt que dans le composant, qui sert ailleurs. */}
+          <div className="[&_button]:gap-2 [&_button]:px-6 [&_button]:py-3 [&_button]:text-sm [&_svg]:h-[18px] [&_svg]:w-[18px]">
             <FollowCompetitionButton cid={competition.id} />
           </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* Entries are open — and a manager can register from right here
           rather than being sent to another screen to do it. The button
           renders nothing for anyone without a club. */}
       {competition.status === "registration" && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <ClipboardList size={18} className="shrink-0 text-emerald-600" />
+        <div className="flex items-center gap-4 rounded-lg border border-emerald-200/70 bg-emerald-50/60 px-5 py-4">
+          <ClipboardList size={26} strokeWidth={1.3} className="shrink-0 text-emerald-600" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-emerald-900">Inscriptions ouvertes</p>
+            <p className="font-display text-lg font-black tracking-tight text-emerald-900">Inscriptions ouvertes</p>
             <p className="mt-0.5 text-xs font-semibold text-emerald-800">
               Tu diriges une équipe ? Inscris-la à cette compétition.
             </p>
@@ -398,28 +376,28 @@ export default function PublicCompetitionHome() {
 
       {/* En direct maintenant — or — Prochains matchs */}
       {liveMatches.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
+        <section className="space-y-4">
+          <div className="flex items-center gap-2.5">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-            <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
+            <h2 className="font-display text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
               En direct maintenant
             </h2>
           </div>
-          <div className="space-y-2.5">
+          <div className="divide-y divide-gray-200/70 overflow-hidden rounded-lg border border-gray-200/70">
             {liveMatches.map((match) => (
               <ScoreCard key={match.id} match={match} slug={slug} />
             ))}
           </div>
         </section>
       ) : upcomingMatches.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <CalendarDays size={15} className="text-emerald-500" />
-            <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
+        <section className="space-y-4">
+          <div className="flex items-center gap-2.5">
+            <CalendarDays size={20} strokeWidth={1.4} className="text-gray-400" />
+            <h2 className="font-display text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
               Prochains matchs
             </h2>
           </div>
-          <div className="space-y-2.5">
+          <div className="divide-y divide-gray-200/70 overflow-hidden rounded-lg border border-gray-200/70">
             {upcomingMatches.map((match) => (
               <FixtureCard key={match.id} match={match} slug={slug} />
             ))}
@@ -429,14 +407,14 @@ export default function PublicCompetitionHome() {
 
       {/* Derniers résultats */}
       {recentResults.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <Trophy size={15} className="text-emerald-500" />
-            <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
+        <section className="space-y-4">
+          <div className="flex items-center gap-2.5">
+            <Trophy size={20} strokeWidth={1.4} className="text-gray-400" />
+            <h2 className="font-display text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
               Derniers résultats
             </h2>
           </div>
-          <div className="space-y-2.5">
+          <div className="divide-y divide-gray-200/70 overflow-hidden rounded-lg border border-gray-200/70">
             {recentResults.map((match) => (
               <ScoreCard key={match.id} match={match} slug={slug} />
             ))}

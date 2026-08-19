@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import AppShell from "@/components/layout/AppShell";
+import ScoreShell from "@/components/layout/v2/ScoreShell";
+import AuthRequired from "@/components/auth/AuthRequired";
 
 // Routes in this group that render for guests. Everything else requires
 // an authenticated profile. The shell (sidebar/header/bottom nav) renders
@@ -13,6 +14,10 @@ function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/" ||
     pathname.startsWith("/competitions") ||
+    pathname === "/actus" ||
+    // The market shows its confirmed moves to anybody; the tools inside it
+    // still ask for an account (see MercatoPublic).
+    pathname === "/mercato" ||
     pathname.startsWith("/c/") ||
     // Invitation links arrive by email — guests must see them to sign in/up.
     pathname.startsWith("/invitations/") ||
@@ -29,23 +34,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isPublic = isPublicPath(pathname);
 
+  // Signing in no longer costs a navigation: a guest on a protected page is
+  // shown the sign-in dialog in place (see AuthRequired below). Onboarding
+  // keeps its redirect — a Firebase account with no Firestore profile has a
+  // form to fill, and that does not fit in a dialog.
   useEffect(() => {
     if (loading || isPublic) return;
-
-    // 1. Not authenticated -> go to login
-    if (!firebaseUser) {
-      if (pathname !== "/login") {
-        router.replace("/login");
-      }
-      return;
-    }
-
-    // 2. Authenticated but no Firestore profile -> go to onboarding
-    if (!user) {
-      if (pathname !== "/get-started") {
-        router.replace("/get-started");
-      }
-      return;
+    if (!firebaseUser) return;
+    if (!user && pathname !== "/get-started") {
+      router.replace("/get-started");
     }
   }, [user, firebaseUser, loading, router, pathname, isPublic]);
 
@@ -60,8 +57,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       );
     }
+    // Guest: keep the address, ask for the account over the top of it.
+    if (!firebaseUser) {
+      return (
+        <ScoreShell>
+          <AuthRequired />
+        </ScoreShell>
+      );
+    }
+    // Authenticated without a profile: the effect above is sending them to
+    // onboarding, so render nothing for the one frame it takes.
     if (!user) return null;
   }
 
-  return <AppShell>{children}</AppShell>;
+  return <ScoreShell>{children}</ScoreShell>;
 }

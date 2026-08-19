@@ -81,6 +81,19 @@ type Tab = "email" | "phone";
  */
 const PHONE_LOGIN_ENABLED = false;
 
+/**
+ * Idem pour l'email + mot de passe : masqué, pas supprimé.
+ *
+ * L'authentification passe désormais par une modale (voir AuthModal) qui ne
+ * propose que Google — un tap, aucun mot de passe à retrouver, et surtout
+ * aucune redirection : on se connecte sans quitter la page qu'on lisait.
+ * Cette page reste l'adresse de repli, alignée sur la même offre.
+ *
+ * Le formulaire entier (validation, erreurs, mot de passe oublié) est
+ * conservé et reste compilé : repasser à `true` suffit à le remettre.
+ */
+const EMAIL_LOGIN_ENABLED = false;
+
 export default function LoginPage() {
   const [tab, setTab] = useState<Tab>("email");
   const [showPassword, setShowPassword] = useState(false);
@@ -257,6 +270,8 @@ export default function LoginPage() {
         Continuer avec Google
       </button>
 
+      {EMAIL_LOGIN_ENABLED && (
+      <>
       {/* Divider */}
       <div className="my-6 flex items-center gap-3">
         <div className="h-px flex-1 bg-gray-100" />
@@ -479,6 +494,8 @@ export default function LoginPage() {
           </motion.form>
         )}
       </AnimatePresence>
+      </>
+      )}
 
       {/* Links */}
       <div className="mt-8 space-y-2 text-center text-sm">

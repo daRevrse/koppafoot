@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ClipboardList, CheckCircle2, Clock, XCircle, Loader2, Trophy } from "lucide-react";
+import { ClipboardList, CheckCircle2, Clock, XCircle, Loader2, Trophy, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/components/auth/AuthModal";
 
 // ============================================
 // Devenir organisateur — application form (the "Organiser" button).
@@ -17,8 +18,23 @@ interface MyApplication {
   createdAt: string | null;
 }
 
+/** Back to the argument — this page is reached from it, and rejecting the
+ *  form should not mean leaving the site. */
+function BackToPitch() {
+  return (
+    <Link
+      href="/organisateurs"
+      className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-400 transition-colors hover:text-emerald-600"
+    >
+      <ArrowLeft size={13} />
+      Espace organisateur
+    </Link>
+  );
+}
+
 export default function BecomeOrganizerPage() {
-  const { user, firebaseUser } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
+  const authModal = useAuthModal();
   const [existing, setExisting] = useState<MyApplication | null>(null);
   const [checking, setChecking] = useState(true);
   const [motivation, setMotivation] = useState("");
@@ -30,7 +46,12 @@ export default function BecomeOrganizerPage() {
   const [sent, setSent] = useState(false);
 
   const loadMine = useCallback(async () => {
-    if (!firebaseUser) return;
+    // A visitor has no application to look up — without this the page span
+    // its loader forever now that guests can reach it.
+    if (!firebaseUser) {
+      setChecking(false);
+      return;
+    }
     try {
       const token = await firebaseUser.getIdToken();
       const res = await fetch("/api/organizer-applications", {
@@ -99,7 +120,7 @@ export default function BecomeOrganizerPage() {
   // Already an organizer
   if (user && (user.userType === "organizer" || user.userType === "superadmin")) {
     return (
-      <div className="mx-auto max-w-lg rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+      <div className="mx-auto my-10 max-w-lg border border-gray-200/70 bg-white p-8 text-center sm:p-12">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
           <Trophy size={26} className="text-emerald-500" />
         </div>
@@ -109,7 +130,7 @@ export default function BecomeOrganizerPage() {
         <p className="mt-1 text-sm text-gray-400">Ton espace t&apos;attend.</p>
         <Link
           href="/organizer"
-          className="mt-5 inline-flex rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+          className="mt-5 inline-flex rounded-none bg-gray-900 px-8 py-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
         >
           Ouvrir mon espace organisateur
         </Link>
@@ -117,7 +138,36 @@ export default function BecomeOrganizerPage() {
     );
   }
 
-  if (checking) {
+  // Visitor: the whole case for saying yes, then the one thing that is
+  // actually required of them — an account. The form comes after that.
+  if (!loading && !firebaseUser) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 px-5 py-10">
+        <BackToPitch />
+        <div
+          id="candidature"
+          className="scroll-mt-20 border border-gray-200/70 bg-white p-8 text-center sm:p-12"
+        >
+          <h2 className="font-display text-xl font-black text-gray-900">
+            Prêt à lancer ta compétition ?
+          </h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">
+            Il faut d&apos;abord un compte KoppaFoot — Google suffit, et tu
+            reviens ici pour déposer ta candidature.
+          </p>
+          <button
+            type="button"
+            onClick={() => authModal.open("Connecte-toi pour déposer ta candidature d'organisateur.")}
+            className="mt-5 rounded-none bg-gray-900 px-8 py-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-emerald-700"
+          >
+            Créer mon compte
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (checking || loading) {
     return (
       <div className="flex justify-center py-16">
         <Loader2 size={28} className="animate-spin text-emerald-500" />
@@ -128,7 +178,7 @@ export default function BecomeOrganizerPage() {
   // Submitted just now, or a pending application exists
   if (sent || existing?.status === "pending") {
     return (
-      <div className="mx-auto max-w-lg rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+      <div className="mx-auto my-10 max-w-lg border border-gray-200/70 bg-white p-8 text-center sm:p-12">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
           <Clock size={26} className="text-amber-500" />
         </div>
@@ -141,7 +191,7 @@ export default function BecomeOrganizerPage() {
         </p>
         <Link
           href="/"
-          className="mt-5 inline-flex rounded-xl border border-gray-200 px-6 py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+          className="mt-5 inline-flex border border-gray-300 px-8 py-4 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
         >
           Retour au Direct
         </Link>
@@ -150,10 +200,12 @@ export default function BecomeOrganizerPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-2xl space-y-4 px-5 py-10">
+      <BackToPitch />
+
       {/* Rejected notice above the (re-application) form */}
       {existing?.status === "rejected" && (
-        <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-start gap-2.5 border border-gray-200/70 bg-white p-4">
           <XCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
           <p className="text-xs leading-relaxed text-gray-500">
             Ta précédente candidature n&apos;a pas été retenue. Tu peux repostuler
@@ -162,17 +214,19 @@ export default function BecomeOrganizerPage() {
         </div>
       )}
 
-      <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
+      <div id="candidature" className="scroll-mt-20 border border-gray-200/70 bg-white p-8 sm:p-12">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50">
             <ClipboardList size={20} className="text-emerald-500" />
           </div>
           <div>
-            <h1 className="font-display text-xl font-black text-gray-900">
-              Devenir organisateur
-            </h1>
+            {/* The page title now lives in the pitch above — this one names
+                the form it sits on. */}
+            <h2 className="font-display text-xl font-black text-gray-900">
+              Ta candidature
+            </h2>
             <p className="text-xs font-semibold text-gray-400">
-              Crée et gère tes compétitions sur Koppafoot.
+              Parle-nous de la compétition que tu veux lancer.
             </p>
           </div>
         </div>

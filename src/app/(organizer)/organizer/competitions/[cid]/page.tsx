@@ -5,22 +5,24 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Trophy, ArrowLeft, Loader2, Users, LayoutGrid, Calendar, GitBranch, ChevronRight, ShieldCheck,
-  Pencil, Save, X, Copy, Trash2, AlertTriangle,
+  Trophy, ArrowLeft, Loader2, Pencil, Save, X, Copy, Trash2, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   onCompetition, updateCompetition, deleteCompetition, duplicateCompetition,
+  onCompTeams, onCompMatches,
 } from "@/lib/competition-firestore";
-import {
-  COMPETITION_TYPE_LABELS, hasGroupStage, hasKnockout, isSingleGroup, statusFlow,
-} from "@/lib/competition-format";
+import { COMPETITION_TYPE_LABELS, statusFlow } from "@/lib/competition-format";
 import { announce } from "@/lib/tribune-client";
 import { uploadCompetitionLogo, uploadCompetitionBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import CompetitionFormatFields from "@/components/competition/CompetitionFormatFields";
+import CompetitionShareCard from "@/components/competition/CompetitionShareCard";
+import OrganizerProgress from "@/components/competition/OrganizerProgress";
 import toast from "react-hot-toast";
-import type { Competition, CompetitionFormat, CompetitionStatus } from "@/types";
+import type {
+  Competition, CompetitionFormat, CompetitionStatus, CompTeam, CompMatch,
+} from "@/types";
 
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
   draft: { label: "Brouillon", color: "text-gray-600", bg: "bg-gray-100" },
@@ -30,21 +32,17 @@ const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; b
   completed: { label: "Terminée", color: "text-emerald-700", bg: "bg-emerald-50" },
 };
 
-interface NavCard {
-  label: string;
-  description: string;
-  href: string;
-  icon: typeof Users;
-  iconColor: string;
-  iconBg: string;
-}
-
 export default function CompetitionDashboardPage() {
   const params = useParams<{ cid: string }>();
   const cid = params.cid;
   const { user } = useAuth();
   const router = useRouter();
   const [competition, setCompetition] = useState<Competition | null>(null);
+  // Teams and fixtures drive the progression below — every step reads its
+  // state from the real documents rather than from a stored checklist.
+  const [teams, setTeams] = useState<CompTeam[]>([]);
+  const [matches, setMatches] = useState<CompMatch[]>([]);
+  const [progressLoading, setProgressLoading] = useState(true);
 
   // Settings modal
   const [editOpen, setEditOpen] = useState(false);
@@ -74,6 +72,28 @@ export default function CompetitionDashboardPage() {
     if (!cid) return;
     const unsubscribe = onCompetition(cid, setCompetition);
     return unsubscribe;
+  }, [cid]);
+
+  // Live, like the rest of the console: a team added from another screen
+  // ticks the step here without a reload.
+  useEffect(() => {
+    if (!cid) return;
+    let seenTeams = false;
+    let seenMatches = false;
+    const settle = () => {
+      if (seenTeams && seenMatches) setProgressLoading(false);
+    };
+    const stopTeams = onCompTeams(cid, (rows) => {
+      setTeams(rows);
+      seenTeams = true;
+      settle();
+    });
+    const stopMatches = onCompMatches(cid, (rows) => {
+      setMatches(rows);
+      seenMatches = true;
+      settle();
+    });
+    return () => { stopTeams(); stopMatches(); };
   }, [cid]);
 
   const openEdit = () => {
@@ -208,56 +228,6 @@ export default function CompetitionDashboardPage() {
 
   const type = competition.competitionType;
 
-  // Each type only exposes the stages it actually plays: a cup has no poules,
-  // a championnat has no bracket, and a single-group competition composes
-  // itself so its "Poules" screen would be an empty formality.
-  const cards: NavCard[] = [
-    {
-      label: "Équipes",
-      description: "Gérer les équipes participantes",
-      href: `/organizer/competitions/${cid}/teams`,
-      icon: Users,
-      iconColor: "text-primary-600",
-      iconBg: "bg-primary-50",
-    },
-    ...(hasGroupStage(type) && !isSingleGroup(type)
-      ? [{
-          label: "Poules",
-          description: "Composer les groupes",
-          href: `/organizer/competitions/${cid}/groups`,
-          icon: LayoutGrid,
-          iconColor: "text-amber-600",
-          iconBg: "bg-amber-50",
-        }]
-      : []),
-    {
-      label: "Calendrier",
-      description: "Planifier les rencontres",
-      href: `/organizer/competitions/${cid}/schedule`,
-      icon: Calendar,
-      iconColor: "text-blue-600",
-      iconBg: "bg-blue-50",
-    },
-    ...(hasKnockout(type)
-      ? [{
-          label: type === "league_playoffs" ? "Play-offs" : "Phase finale",
-          description: "Tableau à élimination directe",
-          href: `/organizer/competitions/${cid}/knockout`,
-          icon: GitBranch,
-          iconColor: "text-purple-600",
-          iconBg: "bg-purple-50",
-        }]
-      : []),
-    {
-      label: "Staff",
-      description: "Inviter des modérateurs live",
-      href: `/organizer/competitions/${cid}/staff`,
-      icon: ShieldCheck,
-      iconColor: "text-emerald-600",
-      iconBg: "bg-emerald-50",
-    },
-  ];
-
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Back link */}
@@ -307,37 +277,17 @@ export default function CompetitionDashboardPage() {
         </button>
       </motion.div>
 
-      {/* Navigation cards */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {cards.map((card, i) => {
-          const Icon = card.icon;
-          return (
-            <motion.div
-              key={card.href}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 + i * 0.04 }}
-            >
-              <Link
-                href={card.href}
-                className="group flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
-              >
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${card.iconBg}`}>
-                  <Icon size={22} className={card.iconColor} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-gray-900">{card.label}</p>
-                  <p className="mt-0.5 truncate text-xs text-gray-500">{card.description}</p>
-                </div>
-                <ChevronRight
-                  size={18}
-                  className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
-                />
-              </Link>
-            </motion.div>
-          );
-        })}
-      </div>
+      {/* The payoff first: a competition here produces a public page, and
+          that page is what fills the competition. */}
+      <CompetitionShareCard competition={competition} teamCount={teams.length} />
+
+      {/* Then the sequence — what is done, what is next. */}
+      <OrganizerProgress
+        competition={competition}
+        teams={teams}
+        matches={matches}
+        loading={progressLoading}
+      />
 
       {/* Status control — a draft competition is invisible to the public, so
           publishing has to be an explicit act, not a side effect of

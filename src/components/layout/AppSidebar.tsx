@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Home, Activity, Trophy, Star, Settings, ChevronRight,
+  Home, Flame, Trophy, Star, Settings, ChevronRight,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
   Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
 } from "lucide-react";
@@ -24,9 +24,10 @@ import type { Competition } from "@/types";
 
 // La Tribune lives in the right sidebar (and the mobile tab) — not here.
 const MENU = [
-  // "Direct" is a live-score board, not a home page — a pulse reads truer
-  // than a house, and leaves Radio free for the live-ops space.
-  { path: "/", icon: Activity, label: "Direct", exact: true },
+  // "Direct" is a live-score board, not a home page — la flamme dit « ce qui
+  // chauffe maintenant » là où le pouls disait seulement « ça bouge », et
+  // laisse Radio à l'espace live-ops.
+  { path: "/", icon: Flame, label: "Direct", exact: true },
   { path: "/competitions", icon: Trophy, label: "Compétitions" },
 ];
 

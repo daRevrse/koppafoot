@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Search, MapPin, Filter, X, UserPlus,
+  Search, MapPin, Filter, X,
   Bookmark, BookmarkCheck, Send, Clock,
   Inbox, ChevronRight, Loader2, Users, Shield,
 } from "lucide-react";
@@ -17,8 +17,12 @@ import {
   onInvitationsByManager, cancelInvitation,
   // Player actions
   searchTeams, createJoinRequest, getJoinRequestsByPlayer,
-  onInvitationsForPlayer, respondToInvitation
+  onInvitationsForPlayer, respondToInvitation,
+  // Réhydratation des avatars/logos absents des vieux documents
+  getUsersByIds, getTeamsByIds,
 } from "@/lib/firestore";
+import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
+import MercatoPublic from "@/components/mercato/MercatoPublic";
 import type { UserProfile, ShortlistEntry, JoinRequest, Invitation, Team } from "@/types";
 
 // ============================================
@@ -114,6 +118,8 @@ function InviteModal({ entry, teams, senderName, onClose, onSent }: {
         senderName,
         receiverId: entry.playerId,
         receiverName: entry.playerName,
+        receiverPhoto: entry.playerPhoto,
+        teamLogo: team?.logoUrl ?? null,
         receiverCity: entry.playerCity,
         receiverPosition: entry.playerPosition,
         receiverLevel: entry.playerLevel,
@@ -134,9 +140,12 @@ function InviteModal({ entry, teams, senderName, onClose, onSent }: {
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900 font-display">Inviter {entry.playerName}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <PlayerAvatar name={entry.playerName} photo={entry.playerPhoto} size={40} />
+            <h3 className="truncate text-lg font-bold text-gray-900 font-display">Inviter {entry.playerName}</h3>
+          </div>
+          <button onClick={onClose} className="shrink-0 text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
         <div className="mt-4 space-y-4">
           <div>
@@ -187,9 +196,12 @@ function CandidatureModal({ team, onClose, onSubmit, submitting }: {
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
-          <h2 className="text-lg font-bold text-gray-900 font-display">Candidater à {team.name}</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 transition-colors">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-100 p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <TeamCrest name={team.name} logo={team.logoUrl} size={40} />
+            <h2 className="truncate text-lg font-bold text-gray-900 font-display">Candidater à {team.name}</h2>
+          </div>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -236,6 +248,17 @@ export default function MercatoPage() {
   // ---- Tabs ----
   const [mainTab, setMainTab] = useState<string>(isManager ? "players" : "teams");
 
+  // Deep link (« Recruter » depuis la page équipe → /mercato?tab=players).
+  // Lu sur window plutôt que via useSearchParams, comme /feed?post= : pas de
+  // frontière Suspense à poser pour un paramètre facultatif.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    const allowed = isManager
+      ? ["players", "shortlist", "applications", "invitations"]
+      : ["teams", "applications", "invitations"];
+    if (wanted && allowed.includes(wanted)) setMainTab(wanted);
+  }, [isManager]);
+
   // ---- Common state ----
   const [loading, setLoading] = useState(true);
   const [cityFilter, setCityFilter] = useState("Toutes");
@@ -267,6 +290,15 @@ export default function MercatoPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [appSubTab, setAppSubTab] = useState<string>("pending");
   const [invSubTab, setInvSubTab] = useState<string>("pending");
+
+  // ---- Avatars & logos manquants ----
+  // Les candidatures, invitations et sélections créées avant que la photo et
+  // le blason ne soient recopiés dans le document n'en portent pas. On relit
+  // les profils et les équipes concernés en une passe : sans ça la moitié du
+  // marché resterait en initiales et en icônes génériques.
+  const [photoById, setPhotoById] = useState<Record<string, string | null>>({});
+  const [logoById, setLogoById] = useState<Record<string, string | null>>({});
+  const askedRef = useRef<Set<string>>(new Set());
 
   // ---- Initialization ----
   useEffect(() => {
@@ -331,6 +363,62 @@ export default function MercatoPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [performSearch, nameQuery]);
 
+  // Clés stables : les listes temps réel changent d'identité à chaque
+  // snapshot, les garder en dépendance relancerait la lecture sans arrêt.
+  const missingPlayerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of shortlist) if (!e.playerPhoto) ids.add(e.playerId);
+    for (const r of joinRequests) if (!r.playerPhoto) ids.add(r.playerId);
+    for (const i of invitations) if (!i.receiverPhoto) ids.add(i.receiverId);
+    return [...ids].sort().join(",");
+  }, [shortlist, joinRequests, invitations]);
+
+  const missingTeamIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of joinRequests) if (!r.teamLogo) ids.add(r.teamId);
+    for (const i of invitations) if (!i.teamLogo) ids.add(i.teamId);
+    return [...ids].sort().join(",");
+  }, [joinRequests, invitations]);
+
+  useEffect(() => {
+    const ids = (missingPlayerIds ? missingPlayerIds.split(",") : [])
+      .filter((id) => id && !askedRef.current.has(`u:${id}`));
+    if (ids.length === 0) return;
+    ids.forEach((id) => askedRef.current.add(`u:${id}`));
+    getUsersByIds(ids)
+      .then((users) => {
+        const found = new Map(users.map((u) => [u.uid, u.profilePictureUrl]));
+        // Les introuvables sont mémorisés à null, sinon la requête repartirait
+        // à chaque rendu pour un compte supprimé.
+        setPhotoById((prev) => ({
+          ...prev,
+          ...Object.fromEntries(ids.map((id) => [id, found.get(id) ?? null])),
+        }));
+      })
+      .catch(() => {});
+  }, [missingPlayerIds]);
+
+  useEffect(() => {
+    const ids = (missingTeamIds ? missingTeamIds.split(",") : [])
+      .filter((id) => id && !askedRef.current.has(`t:${id}`));
+    if (ids.length === 0) return;
+    ids.forEach((id) => askedRef.current.add(`t:${id}`));
+    getTeamsByIds(ids)
+      .then((found) => {
+        const byId = new Map(found.map((t) => [t.id, t.logoUrl ?? null]));
+        setLogoById((prev) => ({
+          ...prev,
+          ...Object.fromEntries(ids.map((id) => [id, byId.get(id) ?? null])),
+        }));
+      })
+      .catch(() => {});
+  }, [missingTeamIds]);
+
+  const photoOf = (id: string, denormalized?: string | null) =>
+    denormalized ?? photoById[id] ?? null;
+  const logoOf = (id: string, denormalized?: string | null) =>
+    denormalized ?? logoById[id] ?? null;
+
   // ---- Actions: Manager ----
   const handleAddToShortlist = async (player: UserProfile) => {
     if (!user) return;
@@ -339,6 +427,7 @@ export default function MercatoPage() {
       const id = await addToShortlist({
         managerId: user.uid, playerId: player.uid,
         playerName: `${player.firstName} ${player.lastName}`,
+        playerPhoto: player.profilePictureUrl,
         playerCity: player.locationCity, playerPosition: player.position ?? "",
         playerLevel: player.skillLevel ?? "", playerBio: player.bio ?? "",
       });
@@ -358,6 +447,9 @@ export default function MercatoPage() {
         await sendInvitation({
           senderId: user.uid, senderName: `${user.firstName} ${user.lastName}`,
           receiverId: req.playerId, receiverName: req.playerName,
+          receiverPhoto: photoOf(req.playerId, req.playerPhoto),
+          teamLogo: logoOf(req.teamId, req.teamLogo)
+            ?? myTeams.find((t) => t.id === req.teamId)?.logoUrl ?? null,
           receiverCity: req.playerCity, receiverPosition: req.playerPosition,
           receiverLevel: req.playerLevel, teamId: req.teamId, teamName: req.teamName,
           message: "Suite à votre candidature, nous vous invitons à rejoindre l'équipe.",
@@ -375,9 +467,11 @@ export default function MercatoPage() {
     try {
       await createJoinRequest({
         playerId: user.uid, playerName: `${user.firstName} ${user.lastName}`,
+        playerPhoto: user.profilePictureUrl,
         playerCity: user.locationCity, playerPosition: user.position ?? "",
         playerLevel: user.skillLevel ?? "", teamId: candidatureTeam.id,
-        teamName: candidatureTeam.name, managerId: candidatureTeam.managerId, message,
+        teamName: candidatureTeam.name, teamLogo: candidatureTeam.logoUrl ?? null,
+        managerId: candidatureTeam.managerId, message,
       });
       setSentRequestIds(prev => new Set([...prev, candidatureTeam.id]));
       setJoinRequests(await getJoinRequestsByPlayer(user.uid));
@@ -413,7 +507,9 @@ export default function MercatoPage() {
     }
   };
 
-  if (!user) return null;
+  // A visitor gets the public side of the market rather than a blank page:
+  // confirmed arrivals are information, the tools below are actions.
+  if (!user) return <MercatoPublic />;
 
   // The market has two sides and no neutral one: without an activated role
   // every tab below is gated off and the page would render empty.
@@ -733,13 +829,11 @@ export default function MercatoPage() {
            <motion.div key="shortlist" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
              {shortlist.length > 0 ? shortlist.map(e => (
                <div key={e.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl bg-white">
-                  <div className="flex items-center gap-3">
-                     <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
-                       {e.playerName[0]}
-                     </div>
-                     <div>
-                        <h4 className="font-bold text-sm text-gray-900">{e.playerName}</h4>
-                        <p className="text-[10px] text-gray-500">{e.playerCity} • {POSITION_LABELS[e.playerPosition] || e.playerPosition}</p>
+                  <div className="flex min-w-0 items-center gap-3">
+                     <PlayerAvatar name={e.playerName} photo={photoOf(e.playerId, e.playerPhoto)} size={40} />
+                     <div className="min-w-0">
+                        <h4 className="truncate font-bold text-sm text-gray-900">{e.playerName}</h4>
+                        <p className="truncate text-[10px] text-gray-500">{e.playerCity} • {POSITION_LABELS[e.playerPosition] || e.playerPosition}</p>
                      </div>
                   </div>
                   <div className="flex gap-2">
@@ -775,13 +869,15 @@ export default function MercatoPage() {
                {joinRequests.filter(r => r.status === appSubTab).map(req => (
                   <div key={req.id} className="p-4 border border-gray-200 rounded-xl bg-white">
                     <div className="flex items-start justify-between">
-                       <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500">
-                            {isManager ? <UserPlus size={20}/> : <Shield size={20}/>}
-                          </div>
-                          <div>
-                             <h4 className="font-bold text-gray-900">{isManager ? req.playerName : req.teamName}</h4>
-                             <p className="text-[10px] text-gray-500">{isManager ? req.playerCity : "Manager : " + req.managerId.slice(0,8)}</p>
+                       <div className="flex min-w-0 items-center gap-3">
+                          {isManager ? (
+                            <PlayerAvatar name={req.playerName} photo={photoOf(req.playerId, req.playerPhoto)} size={40} />
+                          ) : (
+                            <TeamCrest name={req.teamName} logo={logoOf(req.teamId, req.teamLogo)} size={40} />
+                          )}
+                          <div className="min-w-0">
+                             <h4 className="truncate font-bold text-gray-900">{isManager ? req.playerName : req.teamName}</h4>
+                             <p className="truncate text-[10px] text-gray-500">{isManager ? req.playerCity : "Manager : " + req.managerId.slice(0,8)}</p>
                           </div>
                        </div>
                        {!isManager && <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${req.status === "pending" ? "bg-amber-100 text-amber-700" : req.status === "accepted" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{req.status}</span>}
@@ -840,13 +936,21 @@ export default function MercatoPage() {
                   <div key={inv.id} className="relative overflow-hidden p-5 border border-gray-200 rounded-xl bg-white pl-6">
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.stripe}`} />
                     <div className="flex items-start justify-between">
-                       <div className="flex items-center gap-3">
-                          <div className={`h-10 w-10 rounded-lg ${colors.bg} flex items-center justify-center ${colors.icon}`}>
-                            <Shield size={20}/>
-                          </div>
-                          <div>
-                             <h4 className="font-bold text-gray-900">{isManager ? inv.receiverName : inv.teamName}</h4>
-                             <p className="text-[10px] text-gray-500">
+                       <div className="flex min-w-0 items-center gap-3">
+                          {isManager ? (
+                            <PlayerAvatar name={inv.receiverName} photo={photoOf(inv.receiverId, inv.receiverPhoto)} size={40} />
+                          ) : (
+                            <TeamCrest
+                              name={inv.teamName}
+                              logo={logoOf(inv.teamId, inv.teamLogo)}
+                              size={40}
+                              bg={colors.bg}
+                              fg={colors.icon}
+                            />
+                          )}
+                          <div className="min-w-0">
+                             <h4 className="truncate font-bold text-gray-900">{isManager ? inv.receiverName : inv.teamName}</h4>
+                             <p className="truncate text-[10px] text-gray-500">
                                {isManager ? inv.receiverCity : "Invité par " + inv.senderName} • <Clock size={8} className="inline"/> {timeAgo(inv.createdAt)}
                              </p>
                           </div>

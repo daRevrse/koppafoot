@@ -1,51 +1,65 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Routes that require authentication ("/" is public — the shell shows
-// auth privileges based on session state)
-const PROTECTED_ROUTES = [
-  "/profile", "/feed", "/devenir-organisateur", "/stats", "/mon-equipe", "/mercato",
-];
-const ORGANIZER_ROUTES = ["/organizer"];
-const LIVE_OPS_ROUTES = ["/live-ops"];
-const ADMIN_ROUTES = ["/admin"];
+// ============================================
+// Edge gating — deliberately almost nothing.
+//
+// This used to bounce every signed-out visitor on a protected route to
+// /login?redirect=..., before React ran. Signing in now happens in a dialog
+// on the page itself (see AuthModal / AuthRequired), so that bounce threw
+// away the address the visitor had asked for and lost whatever they were
+// doing. The layouts ask for the account in place, and firestore.rules
+// remains the thing that actually enforces access — this file never was a
+// security boundary, only a UX one.
+//
+// Two redirects are left, and both are about pages that cannot show anything
+// useful to the visitor in question.
+// ============================================
 
-// Routes that require authentication BUT don't redirect logged-in users away
+/** An account exists but has no profile yet: /get-started is a form. */
 const ONBOARDING_ROUTES = ["/get-started"];
 
-// Public auth routes (redirect logged-in users to dashboard)
+/** Signed in already — the login and signup screens have nothing to offer. */
 const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/verify-email"];
+
+/**
+ * Addresses that moved. /devenir-organisateur was handed out in messages and
+ * printed on posters before the organizer site existed — it has to keep
+ * landing somewhere sensible.
+ */
+const MOVED: Record<string, string> = {
+  "/devenir-organisateur": "/organisateurs",
+};
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check for Firebase session cookie (set by client after login)
+  const moved = MOVED[pathname];
+  if (moved) return NextResponse.redirect(new URL(moved, request.url));
+
+  // Session cookie, set by the client after login.
   const session = request.cookies.get("__session")?.value;
 
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
   const isOnboardingRoute = ONBOARDING_ROUTES.some((r) => pathname.startsWith(r));
-  const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
-  const isOrganizerRoute = ORGANIZER_ROUTES.some((r) => pathname.startsWith(r));
-  const isLiveOpsRoute = LIVE_OPS_ROUTES.some((r) => pathname.startsWith(r));
-  const isAdminRoute = ADMIN_ROUTES.some((r) => pathname.startsWith(r));
-  const isProtected = isProtectedRoute || isOrganizerRoute || isLiveOpsRoute || isAdminRoute || isOnboardingRoute;
 
-  // Not logged in → redirect to login for protected routes (including onboarding)
-  if (!session && isProtected) {
+  // No session on the onboarding form → there is no account to onboard.
+  if (!session && isOnboardingRoute) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Logged in → redirect away from auth pages (but NOT onboarding)
+  // Signed in → away from the auth pages (but never from onboarding).
   if (session && isAuthRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  // Note: Role-based route protection (e.g., only venue_owner can access /venue-owner)
-  // is handled client-side in layouts because the proxy cannot read Firestore user profiles.
-  // The proxy only does coarse "authenticated vs not" gating.
-
+  // Everything else keeps its address, signed in or not. A guest on a
+  // protected page gets "Connexion requise" and the sign-in dialog over it;
+  // once the account lands, the page below renders itself. Role checks
+  // (organizer, live-ops, admin) stay client-side in the layouts, which can
+  // read the Firestore profile — the edge cannot.
   return NextResponse.next();
 }
 
