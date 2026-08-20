@@ -62,7 +62,19 @@ export default function StatsPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
 
-  const links = useMemo(() => user?.linkedCompPlayers ?? [], [user]);
+  // Dedoublonnage a la source. Deux liens identiques — meme competition,
+  // meme equipe, meme joueur — ne peuvent venir que d'une anomalie de donnees,
+  // mais ils compteraient alors ses buts DEUX FOIS dans le total. Une clé
+  // React unique aurait masque le doublon sans corriger le chiffre.
+  const links = useMemo(() => {
+    const vus = new Set<string>();
+    return (user?.linkedCompPlayers ?? []).filter((l) => {
+      const cle = `${l.competition_id}::${l.team_id}::${l.player_id}`;
+      if (vus.has(cle)) return false;
+      vus.add(cle);
+      return true;
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -199,7 +211,12 @@ export default function StatsPage() {
               const noMinutes = row.stats.matchesPlayed === 0;
               return (
                 <motion.div
-                  key={`${row.link.competition_id}-${row.link.player_id}`}
+                  // L'equipe fait partie de la cle : un joueur transfere en
+                  // cours de tournoi a DEUX lignes dans la meme competition,
+                  // une par club, et le code plus haut les construit
+                  // deliberement. Sans `team_id` les deux portaient la meme
+                  // cle, et React en omettait une.
+                  key={`${row.link.competition_id}-${row.link.team_id}-${row.link.player_id}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
