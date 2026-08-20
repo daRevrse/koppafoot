@@ -291,9 +291,9 @@ export default function OrganizersLandingPage() {
                 />
               </Link>
 
-              <p className="mt-5 text-sm font-bold text-gray-400">
+              {/* <p className="mt-5 text-sm font-bold text-gray-400">
                 Deux minutes · Réponse par email
-              </p>
+              </p> */}
             </div>
           </div>
         </div>

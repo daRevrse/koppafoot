@@ -143,14 +143,14 @@ export default function StatsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
+        {/* <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
           <BarChart3 size={26} />
-        </div>
+        </div> */}
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Mes statistiques</h1>
-          <p className="mt-0.5 text-sm font-bold text-gray-400">
+          {/* <p className="mt-0.5 text-sm font-bold text-gray-400">
             Ton bilan sur toutes les compétitions KoppaFoot.
-          </p>
+          </p> */}
         </div>
       </div>
 
@@ -289,9 +289,8 @@ export default function StatsPage() {
                         {matchDate(m.date)}
                       </span>
                       <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center text-[11px] font-black text-white ${
-                          drew ? "bg-gray-400" : won ? "bg-emerald-500" : "bg-red-400"
-                        }`}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center text-[11px] font-black text-white ${drew ? "bg-gray-400" : won ? "bg-emerald-500" : "bg-red-400"
+                          }`}
                       >
                         {drew ? "N" : won ? "V" : "D"}
                       </span>
