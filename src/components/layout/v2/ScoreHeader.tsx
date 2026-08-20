@@ -6,10 +6,9 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, Newspaper, ArrowLeftRight, Globe, Search, ChevronDown, User, Briefcase,
-  Link2 as LinkIcon, ArrowUpRight, Flag, X,
+  Link2 as LinkIcon, ArrowUpRight, Flag, X, LayoutGrid,
   Rocket, ClipboardList, Plus, Radio, Shield, LogOut, Share2, Check, Sparkles, MapPin,
-  Users, ClipboardCheck, CalendarDays, BarChart3,
-  type LucideIcon,
+  CalendarDays, type LucideIcon,
 } from "lucide-react";
 import type { EvolutionRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -127,6 +126,172 @@ function useDropdown() {
   }, [open]);
 
   return { open, setOpen, boxRef };
+}
+
+/**
+ * « Espace [role] » — tout ce que CE compte peut faire, en un seul menu.
+ *
+ * Ces destinations vivaient dans le menu avatar, derriere une photo de
+ * profil. On y cherchait « Mes equipes » ou « Mercato » dans un endroit qui
+ * annonce un compte, pas un espace de travail — et le Mercato, lui, occupait
+ * une place de la barre alors qu'il ne concerne qu'un role.
+ *
+ * Le menu porte le nom du role parce que c'est ainsi qu'on se pense en
+ * l'ouvrant : on va « dans son espace joueur », pas « dans son profil ».
+ *
+ * Deux familles, separees par un filet : ce que le ROLE donne (equipes,
+ * convocations, mercato) et ce que les CASQUETTES donnent (organisateur,
+ * console live, terrains). Un compte peut cumuler les deux, et la separation
+ * dit visuellement que ce ne sont pas des choses de meme nature.
+ */
+/**
+ * Ce que ce compte peut ouvrir : son role d'un cote, ses casquettes de
+ * l'autre.
+ *
+ * Le calcul vivait dans le menu avatar. La barre en a besoin maintenant, et
+ * dupliquer la liste aurait garanti qu'elle diverge — c'est exactement ce
+ * qui etait arrive entre le header et la barre du bas mobile.
+ */
+function useEspaces() {
+  const { user } = useAuth();
+  const [moderates, setModerates] = useState(false);
+
+  // Une lecture de collection : on ne la lance qu'une fois, au montage du
+  // header, plutot qu'a chaque ouverture de menu.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    listModeratedCompetitions(user.uid)
+      .then((comps) => { if (!cancelled) setModerates(comps.length > 0); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (!user) return null;
+
+  const roleItems: NavEntry[] = user.evolutionRole
+    ? [...(ROLE_DESTINATIONS[user.evolutionRole] ?? [])]
+    : [];
+
+  // Le mercato quitte la barre : il ne concerne que les joueurs et les
+  // managers, et une place de la rangee principale se merite par l'usage de
+  // tous. Il rejoint donc l'espace de ceux qu'il concerne.
+  if (user.evolutionRole === "player" || user.evolutionRole === "manager") {
+    roleItems.push(MERCATO);
+  }
+
+  const hatItems: NavEntry[] = [];
+  if (isOrganizer(user)) {
+    hatItems.push({ href: "/organizer", label: "Espace organisateur", Icon: ClipboardList });
+    hatItems.push({ href: "/organizer/competitions/new", label: "Nouvelle compétition", Icon: Plus });
+  }
+  if (moderates) {
+    hatItems.push({ href: "/live-ops", label: "Console live", Icon: Radio });
+  }
+  if (isVenueOwner(user)) {
+    hatItems.push({ href: "/mes-terrains", label: "Mes terrains", Icon: MapPin });
+    hatItems.push({ href: "/mes-reservations", label: "Mes réservations", Icon: CalendarDays });
+  }
+  if (user.userType === "superadmin") {
+    hatItems.push({ href: "/admin", label: "Administration", Icon: Shield });
+  }
+
+  const meta = user.evolutionRole ? EVOLUTION_LABEL[user.evolutionRole] : null;
+  return {
+    // Sans role mais avec des casquettes — un organisateur qui n'a pas encore
+    // choisi ce qu'il est sur le terrain — le menu s'appelle « Mes espaces ».
+    label: meta?.label ?? "Mes espaces",
+    Icon: meta?.Icon ?? LayoutGrid,
+    roleItems,
+    hatItems,
+  };
+}
+
+/**
+ * Un bloc du megamenu, en grille d'icones.
+ *
+ * Une grille plutot qu'une liste : ces entrees sont des DESTINATIONS de meme
+ * rang, pas les etapes d'une lecture. Une colonne de lignes suggere un ordre
+ * de parcours qui n'existe pas, et fait descendre la derniere entree bien
+ * plus bas que la premiere alors qu'aucune ne prime.
+ *
+ * `gap-px` sur un fond gris : les filets entre cellules sont les interstices
+ * de la grille, pas des bordures a compter cellule par cellule.
+ *
+ * Hors du rendu de son parent : defini a l'interieur, React le recreerait a
+ * chaque passage et remonterait tous ses enfants.
+ */
+function EspaceGroupe({ items, onPick }: { items: NavEntry[]; onPick: () => void }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-3 gap-px bg-gray-200/70">
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onPick}
+          className="group flex flex-col items-center gap-2 bg-white px-2 py-5 text-center transition-colors hover:bg-gray-50"
+        >
+          <item.Icon
+            size={22}
+            strokeWidth={1.5}
+            className="text-gray-300 transition-colors group-hover:text-emerald-600"
+          />
+          <span className="text-[10px] font-black uppercase leading-tight tracking-[0.08em] text-gray-700">
+            {item.label}
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function EspaceMenu({
+  label, Icon, roleItems, hatItems,
+}: {
+  label: string;
+  Icon: LucideIcon;
+  roleItems: NavEntry[];
+  hatItems: NavEntry[];
+}) {
+  const { open, setOpen, boxRef } = useDropdown();
+
+  if (roleItems.length === 0 && hatItems.length === 0) return null;
+
+  return (
+    <div ref={boxRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
+          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+        }`}
+      >
+        <Icon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
+        {label}
+        <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-[21rem] overflow-hidden border border-gray-200/70 bg-white shadow-xl">
+          <EspaceGroupe items={roleItems} onPick={() => setOpen(false)} />
+
+          {/* Deux familles : ce que le ROLE donne, et ce que les CASQUETTES
+              donnent. Le libelle dit pourquoi elles ne se melangent pas. */}
+          {roleItems.length > 0 && hatItems.length > 0 && (
+            <p className="border-y border-gray-200/70 bg-gray-50 px-4 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+              Mes casquettes
+            </p>
+          )}
+
+          <EspaceGroupe items={hatItems} onPick={() => setOpen(false)} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -263,22 +428,6 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
-function MenuLink({
-  href, label, Icon, onClick,
-}: {
-  href: string; label: string; Icon: LucideIcon; onClick: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-gray-50"
-    >
-      <Icon size={15} className="shrink-0 text-emerald-500" />
-      <span className="truncate text-[13px] font-bold text-gray-700">{label}</span>
-    </Link>
-  );
-}
 
 // ---- Account: the one menu on the right --------------------------------------
 
@@ -289,26 +438,6 @@ function AccountMenu() {
   const authModal = useAuthModal();
   const { open, setOpen, boxRef } = useDropdown();
   const [copied, setCopied] = useState(false);
-  const [moderates, setModerates] = useState(false);
-
-  // Les casquettes passent par le predicat partage : il lit le drapeau ET
-  // l'ancien `user_type`, sans quoi tous les organisateurs d'avant auraient
-  // perdu leur espace du jour au lendemain.
-  const organizes = isOrganizer(user);
-  const ownsVenues = isVenueOwner(user);
-
-  // Meme signal que la barre laterale : sans lui /live-ops est injoignable, et
-  // un moderateur n'a aucune porte vers la console dont on lui a donne le
-  // code. Resolu seulement a l'ouverture — c'est une lecture de collection.
-  useEffect(() => {
-    if (!open || !user) return;
-    let cancelled = false;
-    listModeratedCompetitions(user.uid)
-      .then((comps) => { if (!cancelled) setModerates(comps.length > 0); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [open, user]);
-
   const handleInvite = async () => {
     const result = await shareInviteLink(user?.firstName);
     // La feuille de partage parle d'elle-meme ; une copie silencieuse non.
@@ -339,39 +468,6 @@ function AccountMenu() {
   // leur degel, et retombaient sur le libelle « Évolution » comme si leur
   // titulaire n'avait rien choisi.
   // Le repli n'est pas de la prudence decorative : le type dit trois roles,
-  // la BASE peut en contenir d'autres. « venue_owner » y a ete un role
-  // Evolution pendant une journee, et un compte l'a garde — la recherche
-  // renvoyait alors `undefined`, dont le spread produisait une entree de menu
-  // sans icone, et le rendu plantait. TypeScript ne voit pas les donnees.
-  const evolution =
-    (user.evolutionRole ? EVOLUTION_LABEL[user.evolutionRole] : null)
-    ?? { label: "Évolution", Icon: Rocket };
-
-  const roleItems = user.evolutionRole ? ROLE_DESTINATIONS[user.evolutionRole] ?? [] : [];
-
-  // Les consoles reviennent ici avec la disparition du menu Extra. Elles y
-  // sont a leur place : ce sont des espaces qui n'existent que pour CE
-  // compte — on ne les voit que si on y a droit — a la difference des trois
-  // pages d'entree, qui s'adressent a tout le monde et vivent dans la barre.
-  const spaces: NavEntry[] = [];
-  if (organizes) {
-    spaces.push({ href: "/organizer", label: "Espace organisateur", Icon: ClipboardList });
-    spaces.push({ href: "/organizer/competitions/new", label: "Nouvelle compétition", Icon: Plus });
-  }
-  if (moderates) {
-    spaces.push({ href: "/live-ops", label: "Espace live", Icon: Radio });
-  }
-  // Casquette terrain : elle se cumule avec le role Evolution, elle ne le
-  // remplace pas. Un arbitre proprietaire voit les deux.
-  if (ownsVenues) {
-    spaces.push({ href: "/mes-terrains", label: "Mes terrains", Icon: MapPin });
-    spaces.push({ href: "/mes-reservations", label: "Mes réservations", Icon: CalendarDays });
-  }
-  spaces.push({ href: "/evolution", ...evolution });
-  if (user.userType === "superadmin") {
-    spaces.push({ href: "/admin", label: "Administration", Icon: Shield });
-  }
-
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?";
 
   return (
@@ -413,19 +509,10 @@ function AccountMenu() {
             </span>
           </Link>
 
-          {roleItems.length > 0 && (
-            <div className="border-b border-gray-50 py-1">
-              {roleItems.map((item) => (
-                <MenuLink key={item.href} {...item} onClick={() => setOpen(false)} />
-              ))}
-            </div>
-          )}
-
-          <div className="py-1">
-            {spaces.map((item) => (
-              <MenuLink key={item.href} {...item} onClick={() => setOpen(false)} />
-            ))}
-          </div>
+          {/* Ni destinations de role ni casquettes ici : elles sont dans
+              « Espace [role] », dans la barre. Une photo de profil annonce un
+              compte — on n'y cherche pas « Mes equipes ». Ce menu ne garde
+              que ce qui touche vraiment au compte. */}
 
           {/* Inviter quelqu'un est un geste qu'on fait depuis son compte :
               c'est SON lien de parrainage qui part. */}
@@ -522,6 +609,7 @@ export default function ScoreHeader() {
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
+  const espaces = useEspaces();
 
   return (
     // Colle en haut : sur un tableau de scores on defile beaucoup, et
@@ -539,10 +627,7 @@ export default function ScoreHeader() {
         {/* Sections. Hidden on a phone: the bottom tab bar owns navigation
             there, and the mobile band stays light. */}
         <nav className="ml-auto hidden min-w-0 items-center gap-0.5 lg:flex">
-          {(user
-            ? [...PRIMARY, MERCATO, TRIBUNE]
-            : PRIMARY
-          ).map((item) => {
+          {(user ? [...PRIMARY, TRIBUNE] : PRIMARY).map((item) => {
             const active = item.exact
               ? pathname === item.href
               : pathname.startsWith(item.href);
@@ -577,6 +662,18 @@ export default function ScoreHeader() {
               <Rocket size={16} />
               Evolution
             </Link>
+          )}
+
+          {/* L'espace du compte : son role et ses casquettes. Il remplace le
+              Mercato, qui ne concernait qu'une partie des comptes et occupait
+              pourtant une place de la rangee principale. */}
+          {espaces && (
+            <EspaceMenu
+              label={espaces.label}
+              Icon={espaces.Icon}
+              roleItems={espaces.roleItems}
+              hatItems={espaces.hatItems}
+            />
           )}
 
           {/* Les trois portes, repliees — la barre garde la navigation

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
-  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight, Plus, Newspaper,
+  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, Plus, Newspaper,
   Flag, MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -285,21 +285,28 @@ function SpacesSheet({
           {/* Divider */}
           <div className="mx-5 h-px bg-white/10" />
 
-          {/* Spaces */}
-          <div className="p-2 pb-safe">
-            {spaces.map(({ href, label, hint, Icon }) => (
+          {/* Grille d'icones, comme le megamenu du desktop.
+              
+              Ces entrees sont des destinations de meme rang : une colonne de
+              lignes suggerait un ordre de parcours qui n'existe pas, et
+              poussait la derniere bien plus bas que la premiere. En grille,
+              elles se valent et se touchent du pouce sans defiler.
+
+              La phrase d'aide de chaque entree disparait avec la ligne : sur
+              trois colonnes il n'y a pas la place, et « Les equipes dont tu
+              fais partie » sous « Mes equipes » ne disait rien de plus. */}
+          <div className="grid grid-cols-3 gap-px bg-white/10 pb-safe">
+            {spaces.map(({ href, label, Icon }) => (
               <Link
                 key={href}
                 href={href}
                 onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+                className="flex flex-col items-center gap-2 bg-emerald-950 px-2 py-5 text-center transition-colors active:bg-emerald-900"
               >
-                <Icon size={18} className="flex-shrink-0 text-emerald-400" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{label}</span>
-                  <span className="block truncate text-xs font-normal text-white/40">{hint}</span>
+                <Icon size={22} strokeWidth={1.5} className="text-emerald-400" />
+                <span className="text-[10px] font-black uppercase leading-tight tracking-[0.08em] text-white/80">
+                  {label}
                 </span>
-                <ChevronRight size={16} className="flex-shrink-0 text-white/25" />
               </Link>
             ))}
           </div>
