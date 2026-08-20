@@ -4,10 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Trophy, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
-import {
-  castPrediction, fetchCounts, getMyPrediction,
-  EMPTY_COUNTS, type Pick, type PredictionCounts,
-} from "@/lib/predictions";
+import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, type PredictionCounts, pourcentages } from "@/lib/predictions";
 
 // ============================================
 // « Qui va gagner ? », le pronostic du rail.
@@ -76,12 +73,14 @@ export default function PredictionPoll({
   // pronostiquer, le match ayant commencé.
   const showResult = mine !== null || closed;
 
-  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  // Une voix d'office par issue : sans elle, le premier votant envoie son
+  // camp a 100% et les deux autres a 0%. Voir lib/predictions.
+  const parts = pourcentages(counts ?? EMPTY_COUNTS);
 
-  const OPTIONS: { key: Pick; label: string; logo: string | null; value: number }[] = [
-    { key: "home", label: home.label, logo: home.logo, value: counts?.home ?? 0 },
-    { key: "draw", label: "Match nul", logo: null, value: counts?.draw ?? 0 },
-    { key: "away", label: away.label, logo: away.logo, value: counts?.away ?? 0 },
+  const OPTIONS: { key: Pick; label: string; logo: string | null; pct: number }[] = [
+    { key: "home", label: home.label, logo: home.logo, pct: parts.home },
+    { key: "draw", label: "Match nul", logo: null, pct: parts.draw },
+    { key: "away", label: away.label, logo: away.logo, pct: parts.away },
   ];
 
   return (
@@ -105,7 +104,7 @@ export default function PredictionPoll({
       ) : showResult ? (
         <ul className="mt-5 space-y-3">
           {OPTIONS.map((o) => {
-            const p = pct(o.value);
+            const p = o.pct;
             const isMine = mine === o.key;
             return (
               <li key={o.key}>

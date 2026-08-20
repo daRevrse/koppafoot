@@ -1,6 +1,6 @@
 "use client";
 
-import { isVenueOwner as ownsVenue } from "@/lib/hats";
+import { isOrganizer, isVenueOwner as ownsVenue } from "@/lib/hats";
 import Link from "next/link";
 import { MapPin, Users } from "lucide-react";
 import { ROLE_LABELS } from "@/types";
@@ -13,7 +13,18 @@ interface UserProfileWidgetProps {
 
 export function UserProfileWidget({ user }: UserProfileWidgetProps) {
   const initials = `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
-  const roleLabel = ROLE_LABELS[user.userType] ?? "Joueur";
+  // Le role, et lui seul, dans la pastille.
+  const roleLabel = user.evolutionRole
+    ? ROLE_LABELS[user.evolutionRole]
+    : ROLE_LABELS[user.userType] ?? "Joueur";
+
+  // Les casquettes se disent en toutes lettres, sous le nom : ce sont des
+  // fonctions cumulables, pas une identite unique qu'une pastille pourrait
+  // porter. Un compte peut avoir les deux.
+  const casquettes = [
+    isOrganizer(user) ? "Organisateur de compétition" : null,
+    ownsVenue(user) ? "Propriétaire de terrain" : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className=" border border-gray-200/70 bg-white p-4">
@@ -39,6 +50,11 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
           <span className="inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 mt-0.5">
             {roleLabel}
           </span>
+          {casquettes.length > 0 && (
+            <p className="mt-1 text-[11px] font-semibold leading-snug text-gray-500">
+              {casquettes.join(" · ")}
+            </p>
+          )}
         </div>
       </div>
 

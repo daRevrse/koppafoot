@@ -119,10 +119,13 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   // l'auteur, elles ne decrivent jamais l'auteur du post affiche. Sans
   // compte il n'y a rien a estampiller, et le bouton correspondant est
   // masque plus bas.
+  // L'estampille porte le ROLE, ce qu'on est sur le terrain. Organiser une
+  // competition ou gerer un terrain sont des casquettes : elles se cumulent
+  // avec le role et ne peuvent donc pas prendre sa place dans une pastille
+  // qui n'en affiche qu'une.
   const authorRole =
-    currentUser?.userType === "manager" ? "Manager"
-    : currentUser?.userType === "referee" ? "Arbitre"
-    : isVenueOwner ? "Partenaire"
+    currentUser?.evolutionRole === "manager" ? "Manager"
+    : currentUser?.evolutionRole === "referee" ? "Arbitre"
     : "Joueur";
 
   // Le nom se construit champ par champ : un profil incomplet en base a un
@@ -321,9 +324,15 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                 >
                   <BadgeCheck size={11} />
                 </span>
-              ) : (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{post.authorRole}</span>
-              )}
+              ) : ["Joueur", "Manager", "Arbitre"].includes(post.authorRole) ? (
+                /* Seuls les trois roles s'affichent. Les publications d'avant
+                   portent parfois « Partenaire » ou « Organisateur » en
+                   `author_role` : ce sont des casquettes, pas des roles, et on
+                   ne les repeint pas en pastille. */
+                <span className="border border-gray-200/70 bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">
+                  {post.authorRole}
+                </span>
+              ) : null}
             </div>
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <Clock size={12} /> {timeAgo(post.createdAt)}
