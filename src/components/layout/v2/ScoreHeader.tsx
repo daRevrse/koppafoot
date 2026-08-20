@@ -5,16 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, ArrowLeftRight, Globe, Search, ChevronDown, User, Briefcase,
-  Link2 as LinkIcon, ArrowUpRight, Flag, X, LayoutGrid,
-  Rocket, ClipboardList, Plus, Radio, Shield, LogOut, Share2, Check, Sparkles, MapPin,
-  CalendarDays, type LucideIcon,
+  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, Share2, Check, Sparkles, MapPin,
+  type LucideIcon,
 } from "lucide-react";
-import type { EvolutionRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { isOrganizer, isVenueOwner } from "@/lib/hats";
-import { ROLE_DESTINATIONS } from "@/config/role-destinations";
-import { listModeratedCompetitions } from "@/lib/competition-firestore";
+import { useEspaces } from "@/hooks/useEspaces";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
@@ -83,15 +78,6 @@ const ENTRIES: NavEntry[] = [
   },
 ];
 
-/**
- * Le mercato ne s'affiche qu'une fois connecte. Sans compte, la page ne
- * propose que des arrivees deja confirmees — et ces memes arrivees sont
- * desormais dans le rail du Direct, ou un visiteur les croise sans avoir a
- * pousser une porte qui ne s'ouvre pas pour lui.
- *
- * Fleches de transfert, pas devanture : l'icone boutique se lisait « shop ».
- */
-const MERCATO: NavEntry = { href: "/mercato", label: "Mercato", Icon: ArrowLeftRight };
 
 /**
  * La Tribune does not exist for a visitor: its posts are gated behind
@@ -102,11 +88,6 @@ const MERCATO: NavEntry = { href: "/mercato", label: "Mercato", Icon: ArrowLeftR
 const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: Globe };
 
 // The sidebar's role destinations, now reached from the avatar menu.
-const EVOLUTION_LABEL: Record<EvolutionRole, { label: string; Icon: LucideIcon }> = {
-  player: { label: "Espace joueur", Icon: User },
-  manager: { label: "Espace manager", Icon: Briefcase },
-  referee: { label: "Espace arbitre", Icon: Flag },
-};
 
 const MENU_CLASS =
   "absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1 shadow-lg";
@@ -144,69 +125,6 @@ function useDropdown() {
  * console live, terrains). Un compte peut cumuler les deux, et la separation
  * dit visuellement que ce ne sont pas des choses de meme nature.
  */
-/**
- * Ce que ce compte peut ouvrir : son role d'un cote, ses casquettes de
- * l'autre.
- *
- * Le calcul vivait dans le menu avatar. La barre en a besoin maintenant, et
- * dupliquer la liste aurait garanti qu'elle diverge — c'est exactement ce
- * qui etait arrive entre le header et la barre du bas mobile.
- */
-function useEspaces() {
-  const { user } = useAuth();
-  const [moderates, setModerates] = useState(false);
-
-  // Une lecture de collection : on ne la lance qu'une fois, au montage du
-  // header, plutot qu'a chaque ouverture de menu.
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    listModeratedCompetitions(user.uid)
-      .then((comps) => { if (!cancelled) setModerates(comps.length > 0); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [user]);
-
-  if (!user) return null;
-
-  const roleItems: NavEntry[] = user.evolutionRole
-    ? [...(ROLE_DESTINATIONS[user.evolutionRole] ?? [])]
-    : [];
-
-  // Le mercato quitte la barre : il ne concerne que les joueurs et les
-  // managers, et une place de la rangee principale se merite par l'usage de
-  // tous. Il rejoint donc l'espace de ceux qu'il concerne.
-  if (user.evolutionRole === "player" || user.evolutionRole === "manager") {
-    roleItems.push(MERCATO);
-  }
-
-  const hatItems: NavEntry[] = [];
-  if (isOrganizer(user)) {
-    hatItems.push({ href: "/organizer", label: "Espace organisateur", Icon: ClipboardList });
-    hatItems.push({ href: "/organizer/competitions/new", label: "Nouvelle compétition", Icon: Plus });
-  }
-  if (moderates) {
-    hatItems.push({ href: "/live-ops", label: "Console live", Icon: Radio });
-  }
-  if (isVenueOwner(user)) {
-    hatItems.push({ href: "/mes-terrains", label: "Mes terrains", Icon: MapPin });
-    hatItems.push({ href: "/mes-reservations", label: "Mes réservations", Icon: CalendarDays });
-  }
-  if (user.userType === "superadmin") {
-    hatItems.push({ href: "/admin", label: "Administration", Icon: Shield });
-  }
-
-  const meta = user.evolutionRole ? EVOLUTION_LABEL[user.evolutionRole] : null;
-  return {
-    // Sans role mais avec des casquettes — un organisateur qui n'a pas encore
-    // choisi ce qu'il est sur le terrain — le menu s'appelle « Mes espaces ».
-    label: meta?.label ?? "Mes espaces",
-    Icon: meta?.Icon ?? LayoutGrid,
-    roleItems,
-    hatItems,
-  };
-}
-
 /**
  * Un bloc du megamenu, en grille d'icones.
  *

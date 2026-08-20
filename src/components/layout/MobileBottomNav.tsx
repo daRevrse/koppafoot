@@ -1,17 +1,13 @@
 "use client";
 
-import { isOrganizer, isVenueOwner } from "@/lib/hats";
-import { ROLE_DESTINATIONS } from "@/config/role-destinations";
+import { useEspaces } from "@/hooks/useEspaces";
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
-  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, Plus, Newspaper,
-  Flag, MapPin,
-} from "lucide-react";
+  Flame, Trophy, MessageCircle, User, LogOut, X, Rocket, UserPlus, Check, LayoutGrid, Newspaper,
+  } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
@@ -164,88 +160,18 @@ function SpacesSheet({
   const { user } = useAuth();
   // Same signal as the desktop sidebar: without it /live-ops was unreachable
   // on mobile, so a moderator had to switch to a laptop to cover a match.
-  const [moderates, setModerates] = useState(false);
+  // La MEME source que le megamenu du desktop. Ce calcul existait ici en
+  // double, et les deux avaient deja diverge : le mercato manquait de ce
+  // cote, et une entree « Espace joueur » repetant le titre de la feuille
+  // s'y etait ajoutee. Une seule source, plus d'ecart possible.
+  const espaces = useEspaces();
 
-  useEffect(() => {
-    if (!open || !user) return;
-    let cancelled = false;
-    listModeratedCompetitions(user.uid)
-      .then((comps) => {
-        if (!cancelled) setModerates(comps.length > 0);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [open, user]);
+  if (!open || !user || !espaces) return null;
 
-  if (!open || !user) return null;
-
-  // Évolution entry: label follows the activated role.
-  // Quatre roles, pas deux : arbitre et terrain manquaient ici comme ils
-  // manquaient dans le header. Le repli couvre un role stocke que le type ne
-  // connait plus.
-  const ESPACES: Record<string, { label: string; hint: string; Icon: typeof User }> = {
-    player: { label: "Espace joueur", hint: "Ton profil sportif et tes stats", Icon: User },
-    manager: { label: "Espace manager", hint: "Ton équipe et tes joueurs", Icon: Briefcase },
-    referee: { label: "Espace arbitre", hint: "Ta licence et ta visibilité", Icon: Flag },
-  };
-  const evolution =
-    (user.evolutionRole ? ESPACES[user.evolutionRole] : null)
-    ?? { label: "Évolution", hint: "Choisis ton rôle sur KoppaFoot", Icon: Rocket };
-
-  const spaces: { href: string; label: string; hint: string; Icon: typeof User }[] = [
-    { href: "/evolution", ...evolution },
-  ];
-
-  // Les destinations du role — « Mes equipes », « Mes convocations »… Elles
-  // ne vivaient que dans le menu avatar du header, donc nulle part depuis un
-  // telephone une fois ce menu retire. Elles descendent ici, ou on vient
-  // deja chercher son espace.
-  for (const d of (user.evolutionRole ? ROLE_DESTINATIONS[user.evolutionRole] ?? [] : [])) {
-    spaces.push(d);
-  }
-
-  // Casquette terrain : elle se cumule avec le role, elle ne le remplace pas.
-  if (isVenueOwner(user)) {
-    spaces.push({
-      href: "/mes-terrains",
-      label: "Mes terrains",
-      hint: "Tes fiches et les demandes de créneau",
-      Icon: MapPin,
-    });
-  }
-  if (isOrganizer(user)) {
-    spaces.push({
-      href: "/organizer",
-      label: "Espace organisateur",
-      hint: "Tes compétitions, calendriers et équipes",
-      Icon: ClipboardList,
-    });
-  } else {
-    // Le pendant mobile du bouton du menu latéral : sans lui, la candidature
-    // organisateur n'a plus aucune porte d'entrée depuis un téléphone.
-    spaces.push({
-      href: "/organisateurs",
-      label: "Organiser ma compétition",
-      hint: "Crée et gère tes propres compétitions",
-      Icon: Plus,
-    });
-  }
-  if (moderates) {
-    spaces.push({
-      href: "/live-ops",
-      label: "Espace live",
-      hint: "Saisir les matchs en direct",
-      Icon: Radio,
-    });
-  }
-  if (user.userType === "superadmin") {
-    spaces.push({
-      href: "/admin",
-      label: "Administration",
-      hint: "Utilisateurs, contenu et système",
-      Icon: Shield,
-    });
-  }
+  // La porte vers la candidature organisateur vivait ici pour les comptes qui
+  // ne le sont pas encore. Koppa Links la porte desormais, avec les deux
+  // autres portes du produit — la garder en double n'apprend rien.
+  const spaces = [...espaces.roleItems, ...espaces.hatItems];
 
   return (
     <>
