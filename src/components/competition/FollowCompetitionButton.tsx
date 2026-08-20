@@ -91,7 +91,7 @@ export default function FollowCompetitionButton({
         disabled={busy}
         aria-label={isFollowing ? "Ne plus suivre cette compétition" : "Suivre cette compétition"}
         title={isFollowing ? "Suivie" : "Suivre"}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm backdrop-blur transition-colors disabled:opacity-60 ${
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full backdrop-blur transition-colors disabled:opacity-60 ${
           isFollowing
             ? "bg-emerald-500 text-white hover:bg-emerald-600"
             : "bg-white/90 text-gray-500 hover:bg-white hover:text-emerald-600"

@@ -100,7 +100,7 @@ export default function FeaturesSection() {
                   delay: i * 0.08,
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                className="group relative overflow-hidden rounded-[32px] bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] p-8 transition-all duration-500 hover:bg-white/[0.1] hover:border-white/[0.15]"
+                className="group relative overflow-hidden bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] p-8 transition-all duration-500 hover:bg-white/[0.1] hover:border-white/[0.15]"
               >
                 {/* Badge */}
                 <span

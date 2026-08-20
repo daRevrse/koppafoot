@@ -74,7 +74,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       {/* ---- Affiche ---- */}
-      <div className="relative overflow-hidden rounded-2xl">
+      <div className="relative overflow-hidden">
         {competition.bannerUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={competition.bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -124,7 +124,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
       <CompetitionJoinCta competition={competition} />
 
       {/* ---- What being in it gets you ---- */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className=" border border-gray-200/70 bg-white p-5">
         <p className="font-display text-base font-black text-gray-900">
           Ce que ça change pour ton équipe
         </p>
@@ -147,7 +147,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
             },
           ].map(({ Icon, title, body }) => (
             <li key={title} className="flex gap-3">
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center bg-emerald-50">
                 <Icon size={16} className="text-emerald-600" />
               </span>
               <span className="min-w-0">
@@ -161,7 +161,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
 
       {/* ---- Entry file: only what the organizer actually filled in ---- */}
       {(fee != null || competition.rulesText || competition.rulesUrl) && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className=" border border-gray-200/70 bg-white p-5">
           <p className="font-display text-base font-black text-gray-900">Dossier d&apos;inscription</p>
           {fee != null && (
             <p className="mt-2 flex items-center gap-2 text-sm font-bold text-gray-700">
@@ -190,7 +190,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
 
       {/* ---- Social proof: who is already in ---- */}
       {teams.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className=" border border-gray-200/70 bg-white p-5">
           <p className="font-display text-base font-black text-gray-900">Déjà engagées</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {teams.map((team) => (
@@ -216,7 +216,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
       {/* ---- The scores page, for whoever came only to watch ---- */}
       <Link
         href={`/c/${competition.slug}`}
-        className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors hover:border-gray-200"
+        className="flex items-center justify-between gap-3 border border-gray-200/70 bg-white p-4 transition-colors hover:border-gray-200/70"
       >
         <span className="min-w-0">
           <span className="block text-sm font-bold text-gray-900">Voir la compétition</span>

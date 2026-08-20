@@ -71,7 +71,7 @@ export default function CompetitionShareCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+    <div className="overflow-hidden border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
       <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-wide text-emerald-600">
@@ -85,7 +85,7 @@ export default function CompetitionShareCard({
             type="button"
             onClick={copyUrl}
             title="Copier l'adresse"
-            className="group mt-2 flex max-w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left ring-1 ring-emerald-100 transition-colors hover:ring-emerald-300"
+            className="group mt-2 flex max-w-full items-center gap-2 bg-white px-3 py-2 text-left ring-1 ring-emerald-100 transition-colors hover:ring-emerald-300"
           >
             <span className="truncate font-mono text-xs font-bold text-gray-600">
               koppafoot.com{path}
@@ -97,7 +97,7 @@ export default function CompetitionShareCard({
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href={path}
-            className="flex items-center gap-1.5 rounded-xl border-2 border-emerald-100 bg-white px-3 py-2.5 text-sm font-bold text-emerald-700 transition-colors hover:border-emerald-300"
+            className="flex items-center gap-1.5 border-2 border-emerald-100 bg-white px-3 py-2.5 text-sm font-bold text-emerald-700 transition-colors hover:border-emerald-300"
           >
             <ExternalLink size={15} />
             Voir
@@ -105,7 +105,7 @@ export default function CompetitionShareCard({
           <button
             type="button"
             onClick={share}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition-colors hover:bg-emerald-700"
+            className="flex items-center gap-1.5 bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-emerald-700"
           >
             {feedback === "copied" ? <Check size={15} /> : <Share2 size={15} />}
             {feedback === "copied" ? "Lien copié" : "Partager"}

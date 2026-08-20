@@ -12,7 +12,7 @@ export default function CTASection() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative overflow-hidden rounded-[40px] mx-auto max-w-6xl"
+        className="relative overflow-hidden mx-auto max-w-6xl"
       >
         {/* Gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 to-black" />

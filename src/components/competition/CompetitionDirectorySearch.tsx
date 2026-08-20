@@ -101,7 +101,7 @@ export default function CompetitionDirectorySearch({
       {/* An active search comes from the header and is otherwise invisible on
           this page, say what is being filtered, and offer the way out. */}
       {query.trim() && (
-        <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-2.5">
+        <div className="flex items-center gap-2 border border-emerald-100 bg-emerald-50/60 px-4 py-2.5">
           <Search size={14} className="shrink-0 text-emerald-500" />
           <p className="min-w-0 flex-1 truncate text-xs font-bold text-emerald-800">
             Résultats pour «&nbsp;{query.trim()}&nbsp;»
@@ -116,7 +116,7 @@ export default function CompetitionDirectorySearch({
       )}
 
       {/* Tabs */}
-      <div className="flex gap-5 border-b border-gray-200">
+      <div className="flex gap-5 border-b border-gray-200/70">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -142,8 +142,8 @@ export default function CompetitionDirectorySearch({
       </div>
 
       {activeCount === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-[2rem] border border-gray-100 bg-white py-16 text-center shadow-sm">
-          <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gray-50 text-gray-300">
+        <div className="flex flex-col items-center justify-center gap-3 border border-gray-200/70 bg-white py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center bg-gray-50 text-gray-300">
             <SearchX size={28} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">

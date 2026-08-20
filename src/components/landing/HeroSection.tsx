@@ -60,7 +60,7 @@ export default function HeroSection() {
         >
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-10 py-4.5 text-base font-bold text-white transition-all hover:shadow-2xl hover:shadow-[#1A1715]/20 hover:scale-[1.03] active:scale-[0.97]"
+            className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-10 py-4.5 text-base font-bold text-white transition-all hover:shadow-2xl/20 hover:scale-[1.03] active:scale-[0.97]"
           >
             Rejoindre KOPPAFOOT
           </Link>

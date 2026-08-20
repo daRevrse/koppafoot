@@ -19,7 +19,7 @@ export default function CompetitionJoinCta({ competition }: { competition: Compe
   const open = competition.status === "registration";
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className=" border border-gray-200/70 bg-white p-5">
       {open ? (
         <>
           <p className="flex items-center gap-2 font-display text-base font-black text-gray-900">
@@ -33,7 +33,7 @@ export default function CompetitionJoinCta({ competition }: { competition: Compe
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <RegisterTeamButton
               competition={competition}
-              className="w-full justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-emerald-700 sm:w-auto"
+              className="w-full justify-center bg-emerald-600 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-700 sm:w-auto"
             />
             <FollowCompetitionButton cid={competition.id} />
           </div>

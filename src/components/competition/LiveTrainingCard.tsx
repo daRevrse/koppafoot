@@ -57,9 +57,9 @@ export default function LiveTrainingCard() {
   };
 
   return (
-    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5">
+    <div className=" border border-emerald-100 bg-emerald-50/60 p-5">
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-emerald-500 text-white">
           <GraduationCap size={22} />
         </div>
         <div className="min-w-0 flex-1">
@@ -74,7 +74,7 @@ export default function LiveTrainingCard() {
               type="button"
               onClick={open}
               disabled={busy !== null}
-              className="flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+              className="flex items-center gap-2 bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
             >
               {busy === "open" ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -87,7 +87,7 @@ export default function LiveTrainingCard() {
               type="button"
               onClick={reset}
               disabled={busy !== null}
-              className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+              className="flex items-center gap-2 border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
             >
               {busy === "reset" ? (
                 <Loader2 size={15} className="animate-spin" />

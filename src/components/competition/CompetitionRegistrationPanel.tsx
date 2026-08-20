@@ -92,7 +92,7 @@ export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] 
   const available = open.filter((c) => !claimed.has(c.id));
 
   if (loading) {
-    return <div className="h-24 animate-pulse rounded-2xl bg-gray-100" />;
+    return <div className="h-24 animate-pulse bg-gray-100" />;
   }
 
   if (clubs.length === 0) return null;
@@ -100,13 +100,13 @@ export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] 
   return (
     <div className="space-y-3">
       {pending.length > 0 && (
-        <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+        <div className=" border border-amber-100 bg-amber-50/60 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-amber-800">
             Demandes en attente
           </p>
           <div className="mt-2 space-y-2">
             {pending.map((r) => (
-              <div key={r.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
+              <div key={r.id} className="flex items-center gap-3 bg-white p-3">
                 <Clock3 size={15} className="shrink-0 text-amber-500" />
                 <p className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">
                   {r.clubName}
@@ -116,7 +116,7 @@ export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] 
                   type="button"
                   onClick={() => withdraw(r)}
                   disabled={busy}
-                  className="shrink-0 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-bold text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  className="shrink-0 border border-gray-200/70 px-2.5 py-1.5 text-xs font-bold text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -127,7 +127,7 @@ export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] 
       )}
 
       {available.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className=" border border-gray-200/70 bg-white p-4">
           <p className="text-sm font-bold text-gray-900">Inscrire mon équipe</p>
           <p className="mt-0.5 text-xs font-semibold text-gray-500">
             Ces compétitions acceptent les inscriptions. Une fois validée, ton effectif
@@ -137,9 +137,9 @@ export default function CompetitionRegistrationPanel({ clubs }: { clubs: Team[] 
             {available.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center gap-3 rounded-xl border border-gray-100 p-3"
+                className="flex items-center gap-3 border border-gray-200/70 p-3"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-amber-50">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-amber-50">
                   {c.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={c.logoUrl} alt="" className="h-full w-full object-cover" />

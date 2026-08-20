@@ -323,7 +323,7 @@ export default function MobileBottomNav() {
                 >
                   {/* Active indicator pill */}
                   {active && (
-                    <span className="absolute -top-1.5 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                    <span className="absolute -top-1.5 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-emerald-400" />
                   )}
 
                   {/* Icon container */}

@@ -98,7 +98,7 @@ function BrandHero() {
         >
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-10 py-4.5 text-base font-bold text-white transition-all hover:shadow-2xl hover:shadow-[#1A1715]/20 hover:scale-[1.03] active:scale-[0.97]"
+            className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-10 py-4.5 text-base font-bold text-white transition-all hover:shadow-2xl/20 hover:scale-[1.03] active:scale-[0.97]"
           >
             Rejoindre KOPPAFOOT
           </Link>
@@ -216,7 +216,7 @@ export default function HeroSpotlight({
         transition={{ duration: 0.7, ease: EASE }}
         className="relative z-10 mx-auto w-full max-w-lg px-6 py-32"
       >
-        <div className="rounded-[2.5rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
+        <div className=" border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
           {/* Competition identity */}
           <div className="mb-6 flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/10">

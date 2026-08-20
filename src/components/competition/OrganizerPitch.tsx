@@ -49,7 +49,7 @@ export default function OrganizerPitch() {
   return (
     <div className="space-y-4">
       {/* ---- The promise ---- */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 p-6 sm:p-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-800 to-emerald-950 p-6 sm:p-8">
         <span className="flex w-fit items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-950">
           <Trophy size={12} />
           Espace organisateur
@@ -65,7 +65,7 @@ export default function OrganizerPitch() {
 
         <a
           href="#candidature"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-emerald-950 transition-colors hover:bg-amber-300"
+          className="mt-6 inline-flex items-center gap-2 bg-amber-400 px-5 py-3 text-sm font-black text-emerald-950 transition-colors hover:bg-amber-300"
         >
           Devenir organisateur
           <ArrowDown size={15} />
@@ -75,8 +75,8 @@ export default function OrganizerPitch() {
       {/* ---- What you actually get ---- */}
       <div className="grid gap-3 sm:grid-cols-2">
         {PROMISES.map(({ Icon, title, body }) => (
-          <div key={title} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
+          <div key={title} className=" border border-gray-200/70 bg-white p-5">
+            <span className="flex h-9 w-9 items-center justify-center bg-emerald-50">
               <Icon size={18} className="text-emerald-600" />
             </span>
             <p className="mt-3 text-sm font-black text-gray-900">{title}</p>
@@ -86,7 +86,7 @@ export default function OrganizerPitch() {
       </div>
 
       {/* ---- How it goes ---- */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className=" border border-gray-200/70 bg-white p-5">
         <p className="font-display text-base font-black text-gray-900">Comment ça se passe</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {STEPS.map(({ n, label, body }) => (

@@ -113,11 +113,11 @@ export default function RegisterTeamButton({
 
   if (here) {
     return here.status === "accepted" ? (
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-emerald-700">
+      <span className="inline-flex shrink-0 items-center gap-1.5 bg-white px-3 py-2 text-xs font-black text-emerald-700">
         <BadgeCheck size={14} /> Inscrite
       </span>
     ) : (
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-amber-600">
+      <span className="inline-flex shrink-0 items-center gap-1.5 bg-white px-3 py-2 text-xs font-black text-amber-600">
         <Clock3 size={14} /> En attente
       </span>
     );
@@ -130,7 +130,7 @@ export default function RegisterTeamButton({
         onClick={() => setOpen(true)}
         className={
           className ??
-          "shrink-0 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600"
+          "shrink-0 bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600"
         }
       >
         {label}
@@ -138,7 +138,7 @@ export default function RegisterTeamButton({
 
       {open && (
         <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl">
+          <div className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -150,7 +150,7 @@ export default function RegisterTeamButton({
               </div>
               <button
                 onClick={() => !busy && setOpen(false)}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                className=" p-1.5 text-gray-400 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
@@ -160,7 +160,7 @@ export default function RegisterTeamButton({
             <select
               value={clubId}
               onChange={(e) => setClubId(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none"
+              className="w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none"
             >
               {clubs.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -175,11 +175,11 @@ export default function RegisterTeamButton({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Un mot pour l'organisateur…"
-              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none"
+              className="w-full resize-none border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none"
             />
 
             {hasFee && (
-              <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+              <div className="mt-4 border border-amber-100 bg-amber-50/70 px-4 py-3">
                 <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
                   <Receipt size={14} />
                   Frais d&apos;inscription : {competition.entryFee?.toLocaleString("fr-FR")}{" "}
@@ -196,7 +196,7 @@ export default function RegisterTeamButton({
               <div className="mt-4">
                 <p className="mb-1.5 text-xs font-bold text-gray-600">Règlement</p>
                 {competition.rulesText && (
-                  <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs leading-relaxed whitespace-pre-line text-gray-600">
+                  <div className="max-h-40 overflow-y-auto border border-gray-200/70 bg-gray-50 px-4 py-3 text-xs leading-relaxed whitespace-pre-line text-gray-600">
                     {competition.rulesText}
                   </div>
                 )}
@@ -215,7 +215,7 @@ export default function RegisterTeamButton({
                     type="checkbox"
                     checked={rulesAccepted}
                     onChange={(e) => setRulesAccepted(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-200/70"
                   />
                   <span>
                     J&apos;ai lu et j&apos;accepte le règlement
@@ -236,7 +236,7 @@ export default function RegisterTeamButton({
               <button
                 type="button"
                 onClick={() => !busy && setOpen(false)}
-                className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
               >
                 Annuler
               </button>
@@ -244,7 +244,7 @@ export default function RegisterTeamButton({
                 type="button"
                 onClick={submit}
                 disabled={busy || !clubId || rulesBlocking}
-                className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                className="flex items-center gap-2 bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
               >
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                 Envoyer

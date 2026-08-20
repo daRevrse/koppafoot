@@ -328,7 +328,7 @@ export default function MatchDetailPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[2rem] sm:rounded-[3.5rem] bg-gradient-to-br from-gray-950 via-gray-900 to-black p-5 sm:p-12 text-white shadow-2xl"
+        className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-black p-5 sm:p-12 text-white shadow-2xl"
       >
         {/* Background Accents */}
         <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-[100px]" />
@@ -373,7 +373,7 @@ export default function MatchDetailPage() {
         <div className="relative z-10 grid grid-cols-3 items-center gap-4 sm:gap-8">
           {/* Home Team */}
           <div className="text-center group">
-            <div className="relative mx-auto mb-6 flex h-16 w-16 sm:h-24 sm:w-24 items-center justify-center rounded-[2.5rem] bg-white/5 backdrop-blur-2xl border border-white/10 shadow-inner transition-transform group-hover:scale-105">
+            <div className="relative mx-auto mb-6 flex h-16 w-16 sm:h-24 sm:w-24 items-center justify-center bg-white/5 backdrop-blur-2xl border border-white/10 shadow-inner transition-transform group-hover:scale-105">
                <span className="text-2xl sm:text-4xl font-black">{match.homeTeamName?.[0] || "?"}</span>
                {match.status === "live" && <Activity className="absolute -right-2 -top-2 text-emerald-500 animate-pulse" size={16} />}
             </div>
@@ -387,7 +387,7 @@ export default function MatchDetailPage() {
                {PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label || "Prép."}
             </div>
             {match.liveState ? (
-              <div className="text-3xl sm:text-6xl font-mono font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+              <div className="text-3xl sm:text-6xl font-mono font-black text-emerald-500 drop-">
                 {formatTime(displayTime)}
               </div>
             ) : (
@@ -403,7 +403,7 @@ export default function MatchDetailPage() {
 
           {/* Away Team */}
           <div className="text-center group">
-            <div className="relative mx-auto mb-6 flex h-16 w-16 sm:h-24 sm:w-24 items-center justify-center rounded-[2.5rem] bg-white/5 backdrop-blur-2xl border border-white/10 shadow-inner transition-transform group-hover:scale-105">
+            <div className="relative mx-auto mb-6 flex h-16 w-16 sm:h-24 sm:w-24 items-center justify-center bg-white/5 backdrop-blur-2xl border border-white/10 shadow-inner transition-transform group-hover:scale-105">
                <span className="text-2xl sm:text-4xl font-black">{match.awayTeamName?.[0] || "?"}</span>
             </div>
             <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider mb-2 text-white/90 line-clamp-1">{match.awayTeamName}</h2>
@@ -413,7 +413,7 @@ export default function MatchDetailPage() {
       </motion.div>
 
       {/* Tabs Control */}
-      <div className="flex p-1.5 gap-1 rounded-[2rem] bg-white shadow-gray-100/50 border border-gray-200/70">
+      <div className="flex p-1.5 gap-1 bg-white shadow-gray-100/50 border border-gray-200/70">
         {[
           { id: "center", label: "Match Center", icon: Activity },
           { id: "squad", label: "Feuille de Match", icon: ClipboardList },
@@ -442,7 +442,7 @@ export default function MatchDetailPage() {
                 return !isReady ? (
                   <span className="relative z-20 flex h-2.5 w-2.5 ml-1.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                   </span>
                 ) : (
                   <CheckCircle2 size={12} className="relative z-20 text-emerald-500 ml-1.5 bg-white rounded-full" />
@@ -469,7 +469,7 @@ export default function MatchDetailPage() {
             >
               {/* Manager LINEUP Validation Banner */}
               {isManager && (match.status === "upcoming" || match.status === "delayed") && !isMyTeamReady && (
-                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-amber-50 border border-amber-200 p-4 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                <div className=" bg-amber-50 border border-amber-200 p-4 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                    <div className="h-14 w-14 bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
                       <ClipboardList size={28} />
                    </div>
@@ -488,7 +488,7 @@ export default function MatchDetailPage() {
 
               {/* Post-Match Validation Banner */}
               {isManager && match.status === "completed" && (!match.postMatchFeedback || !match.postMatchFeedback[user?.uid!]) && (
-                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-primary-50 border border-primary-200 p-4 sm:p-8">
+                <div className=" bg-primary-50 border border-primary-200 p-4 sm:p-8">
                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-4 sm:mb-6">
                       <div className="h-14 w-14 bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
                          <Star size={28} />
@@ -532,7 +532,7 @@ export default function MatchDetailPage() {
 
               {/* Match Validated State */}
               {match.status === "completed" && match.validationStatus === "validated" && (
-                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-emerald-50 border border-emerald-100 p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
+                <div className=" bg-emerald-50 border border-emerald-100 p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
                   <div className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center">
                     <CheckCircle2 size={20} />
                   </div>
@@ -541,7 +541,7 @@ export default function MatchDetailPage() {
               )}
 
               {/* Event Timeline */}
-              <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70 p-4 sm:p-8">
+              <div className=" bg-white border border-gray-200/70 p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-4 sm:mb-8">
                   <h3 className="text-lg font-black text-gray-900 font-display">Timeline</h3>
                   <History className="text-gray-200" size={24} />
@@ -644,13 +644,13 @@ export default function MatchDetailPage() {
                   if (match.status !== 'upcoming' && match.status !== 'live' && match.status !== 'pending') return null;
                   
                   return (
-                    <div className={`mx-0 sm:mx-4 mb-4 sm:mb-8 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border transition-all ${
+                    <div className={`mx-0 sm:mx-4 mb-4 sm:mb-8 p-4 sm:p-8 border transition-all ${
                       isReady 
                         ? 'bg-emerald-50/50 border-emerald-100/50 text-emerald-900 group' 
                         : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 shadow-amber-200/20'
                     }`}>
                       <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                        <div className={`p-4 rounded-[1.5rem] transition-transform ${
+                        <div className={`p-4 transition-transform ${
                           isReady ? 'bg-emerald-500 text-white group-hover:scale-110' : 'bg-white text-amber-500'
                         }`}>
                           {isReady ? <CheckCircle2 size={28} /> : <ClipboardList size={28} />}
@@ -697,7 +697,7 @@ export default function MatchDetailPage() {
               )}
 
               {isManager && lineupMode && (
-                <div className="mx-0 sm:mx-4 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-gray-900 text-white shadow-2xl space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                <div className="mx-0 sm:mx-4 p-4 sm:p-8 bg-gray-900 text-white shadow-2xl space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg sm:text-xl font-black italic tracking-tight">Configuration Tactique</h3>
@@ -1063,7 +1063,7 @@ export default function MatchDetailPage() {
 
               {/* Recruitment CTA if not full */}
               {!myParticipation && myTeamId && (
-                <div className="mt-6 sm:mt-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-emerald-600 p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
+                <div className="mt-6 sm:mt-8 bg-emerald-600 p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-10 group-hover:scale-110 transition-transform">
                     <Trophy size={72} className="sm:hidden" />
                     <Trophy size={100} className="hidden sm:block" />
@@ -1133,7 +1133,7 @@ export default function MatchDetailPage() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70 flex flex-col items-center text-center">
+                <div className="p-5 sm:p-8 bg-white border border-gray-200/70 flex flex-col items-center text-center">
                   <div className="h-14 w-14 bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
                     <MapPin size={24} />
                   </div>
@@ -1142,7 +1142,7 @@ export default function MatchDetailPage() {
                   <p className="text-xs font-bold text-gray-400">{match.venueCity}</p>
                 </div>
 
-                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70 flex flex-col items-center text-center">
+                <div className="p-5 sm:p-8 bg-white border border-gray-200/70 flex flex-col items-center text-center">
                   <div className="h-14 w-14 bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
                     <Shield size={24} />
                   </div>
@@ -1153,9 +1153,9 @@ export default function MatchDetailPage() {
               </div>
 
               {/* Match Calendar Entry */}
-              <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70">
+              <div className="p-5 sm:p-8 bg-white border border-gray-200/70">
                 <div className="flex items-center gap-4 sm:gap-6">
-                  <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 sm:rounded-[2rem] bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{match.date.split('-')[1]}</span>
                     <span className="text-xl sm:text-2xl font-black text-emerald-700">{match.date.split('-')[2]}</span>
                   </div>
@@ -1184,7 +1184,7 @@ export default function MatchDetailPage() {
         <motion.div
            initial={{ opacity: 0, y: 20 }}
            animate={{ opacity: 1, y: 0 }}
-           className="relative overflow-hidden rounded-[1.5rem] sm:rounded-[3.5rem] bg-white border-2 border-emerald-500/20 p-5 sm:p-12 shadow-2xl mb-6 mt-6 sm:mt-8"
+           className="relative overflow-hidden bg-white border-2 border-emerald-500/20 p-5 sm:p-12 shadow-2xl mb-6 mt-6 sm:mt-8"
         >
           <div className="mb-6 sm:mb-8">
              <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-200/70 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
@@ -1305,14 +1305,14 @@ export default function MatchDetailPage() {
         <div className="fixed bottom-20 sm:bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-3 sm:px-4 flex gap-2 z-40">
             <button
               onClick={() => setActiveTab("squad")}
-              className="flex-1 flex items-center justify-center gap-2 h-14 sm:h-16 rounded-[1.5rem] sm:rounded-[2rem] bg-gray-900 text-white font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95"
+              className="flex-1 flex items-center justify-center gap-2 h-14 sm:h-16 bg-gray-900 text-white font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95"
             >
               <UserPlus size={18} />
               Gérer l'effectif
             </button>
             <button
               onClick={() => router.push(`/matches/${id}/manage`)}
-              className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-[1.5rem] sm:rounded-[2rem] bg-emerald-500 text-white shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-90"
+              className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center bg-emerald-500 text-white shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-90"
             >
               <Activity size={24} />
             </button>
@@ -1334,7 +1334,7 @@ export default function MatchDetailPage() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] bg-white p-6 sm:p-8 shadow-2xl"
+              className="relative w-full max-w-md overflow-hidden bg-white p-6 sm:p-8 shadow-2xl"
             >
               <button
                 onClick={() => setContestingEventId(null)}

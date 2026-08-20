@@ -324,7 +324,7 @@ export default function TeamsPage() {
           {isManager && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+              className="inline-flex items-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all"
             >
               <Plus size={16} /> Créer une équipe
             </button>

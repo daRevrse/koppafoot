@@ -59,7 +59,7 @@ const PERIODS = [
 // Team crest: real logo when present, otherwise a first-letter avatar.
 function TeamCrest({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl sm:mb-4 sm:h-20 sm:w-20">
+    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl sm:mb-4 sm:h-20 sm:w-20">
       {logo ? (
         <Image src={logo} alt={name} width={80} height={80} className="h-full w-full object-cover" />
       ) : (
@@ -77,7 +77,7 @@ function LineupColumn({ title, entries }: { title: string; entries: LineupEntry[
 
   const renderRow = (entry: LineupEntry) => (
     <div key={entry.playerId || `${entry.number}-${entry.name}`} className="flex items-center gap-2.5 py-1.5">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-50 text-[10px] font-black tabular-nums text-gray-500">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center bg-gray-50 text-[10px] font-black tabular-nums text-gray-500">
         {entry.number || ","}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">{entry.name}</span>
@@ -199,7 +199,7 @@ export default function PublicCompMatchView() {
   if (notFound || !match) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-gray-300">
+        <div className="flex h-16 w-16 items-center justify-center bg-gray-100 text-gray-300">
           <SearchX size={32} />
         </div>
         <div>
@@ -285,7 +285,7 @@ export default function PublicCompMatchView() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 text-white shadow-xl sm:p-8"
+        className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 text-white sm:p-8"
       >
         {/* Banner background: per-match → competition → none. A dark overlay
             keeps the scoreboard legible. */}
@@ -317,7 +317,7 @@ export default function PublicCompMatchView() {
                 showing its frozen final time, which read like a live chrono
                 stopped mid-second; one still to come showed 00:00. */}
             {isLive ? (
-              <div className="font-mono text-2xl font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)] sm:text-5xl">
+              <div className="font-mono text-2xl font-black text-emerald-500 drop- sm:text-5xl">
                 {formatTime(shownTime)}
               </div>
             ) : match.status === "completed" ? null : (
@@ -405,7 +405,7 @@ export default function PublicCompMatchView() {
         // ne doit pas laisser la page sur un panneau muet.
         const activeTab = TABS.some((t) => t.id === detailTab) ? detailTab : "feed";
         return (
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className=" border border-gray-200/70 bg-white p-5 sm:p-6">
             {/* Barre d'onglets. Pilotee par TABS : un onglet sans donnee
                 derriere ne s'affiche pas du tout, plutot que de s'ouvrir sur
                 un panneau vide. */}
@@ -599,9 +599,9 @@ export default function PublicCompMatchView() {
                   <div key={event.id} className="group flex items-start gap-3 sm:gap-5">
                     {/* Minute badge */}
                     <div
-                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 shadow-sm sm:h-11 sm:w-11 ${
+                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center border-2 sm:h-11 sm:w-11 ${
                         cancelled
-                          ? "border-gray-100 bg-gray-50 text-gray-300"
+                          ? "border-gray-200/70 bg-gray-50 text-gray-300"
                           : checking
                             ? "border-amber-100 bg-amber-50 text-amber-600"
                             : event.type === "goal"
@@ -610,7 +610,7 @@ export default function PublicCompMatchView() {
                             ? "border-amber-100 bg-amber-50 text-amber-500"
                             : event.type === "red_card"
                               ? "border-red-100 bg-red-50 text-red-500"
-                              : "border-gray-100 bg-gray-50 text-gray-400"
+                              : "border-gray-200/70 bg-gray-50 text-gray-400"
                       }`}
                     >
                       {/* A result entered after the fact may carry no minute
@@ -630,10 +630,10 @@ export default function PublicCompMatchView() {
                           />
                         )}
                         {event.type === "yellow_card" && (
-                          <span className="h-3.5 w-2.5 shrink-0 rounded-[3px] bg-amber-400" />
+                          <span className="h-3.5 w-2.5 shrink-0 bg-amber-400" />
                         )}
                         {event.type === "red_card" && (
-                          <span className="h-3.5 w-2.5 shrink-0 rounded-[3px] bg-red-500" />
+                          <span className="h-3.5 w-2.5 shrink-0 bg-red-500" />
                         )}
                         {isSub && <ArrowRightLeft size={14} className="shrink-0 text-blue-500" />}
                         <span
@@ -652,13 +652,13 @@ export default function PublicCompMatchView() {
                                   : "Événement"}
                         </span>
                         {checking && (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700">
+                          <span className="inline-flex shrink-0 items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
                             VAR
                           </span>
                         )}
                         {cancelled && (
-                          <span className="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-red-700">
+                          <span className="shrink-0 bg-red-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-red-700">
                             Refusé
                           </span>
                         )}
@@ -675,7 +675,7 @@ export default function PublicCompMatchView() {
               })
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-gray-200">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center bg-gray-50 text-gray-200">
                   <Activity size={32} />
                 </div>
                 <p className="text-sm font-bold text-gray-400 italic">Le match n&apos;a pas encore commencé...</p>
