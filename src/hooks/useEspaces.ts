@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  ClipboardList, Plus, Radio, MapPin, CalendarDays, Shield, Store,
+  ClipboardList, Radio, MapPin, CalendarDays, Shield, Store,
   User, Briefcase, Flag, LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -29,14 +29,24 @@ export interface Espace {
   Icon: LucideIcon;
 }
 
-const ROLE_META: Record<EvolutionRole, { label: string; Icon: LucideIcon }> = {
-  player: { label: "Espace joueur", Icon: User },
-  manager: { label: "Espace manager", Icon: Briefcase },
-  referee: { label: "Espace arbitre", Icon: Flag },
+/**
+ * L'icone suit le role ; le NOM du menu, non.
+ *
+ * Il s'appelle « MySpace » pour tout le monde : un compte cumule un role et
+ * des casquettes, et « Espace joueur » mentait des qu'un joueur organisait
+ * aussi une competition — le menu contenait alors deux familles dont une
+ * seule etait nommee.
+ */
+const ROLE_ICONS: Record<EvolutionRole, LucideIcon> = {
+  player: User,
+  manager: Briefcase,
+  referee: Flag,
 };
 
+const NOM_DU_MENU = "MySpace";
+
 export interface Espaces {
-  /** Le nom du menu lui-même : « Espace joueur », « Mes espaces »… */
+  /** Le nom du menu, le même pour tous : « MySpace ». */
   label: string;
   Icon: LucideIcon;
   /** Ce que le rôle donne. */
@@ -77,8 +87,10 @@ export function useEspaces(): Espaces | null {
   // le mot et une seule fois l'information.
   const hatItems: Espace[] = [];
   if (isOrganizer(user)) {
+    // « Nouvelle competition » n'est pas ici : c'est une ACTION, pas une
+    // destination, et elle vit deja en tete de l'espace organisateur. Un menu
+    // de navigation qui propose de creer quelque chose melange deux gestes.
     hatItems.push({ href: "/organizer", label: "Compétitions organisées", Icon: ClipboardList });
-    hatItems.push({ href: "/organizer/competitions/new", label: "Nouvelle compétition", Icon: Plus });
   }
   if (moderates) {
     hatItems.push({ href: "/live-ops", label: "Console live", Icon: Radio });
@@ -91,12 +103,11 @@ export function useEspaces(): Espaces | null {
     hatItems.push({ href: "/admin", label: "Administration", Icon: Shield });
   }
 
-  const meta = user.evolutionRole ? ROLE_META[user.evolutionRole] : null;
   return {
-    // Sans rôle mais avec des casquettes — un organisateur qui n'a pas encore
-    // choisi ce qu'il est sur le terrain — le menu s'appelle « Mes espaces ».
-    label: meta?.label ?? "Mes espaces",
-    Icon: meta?.Icon ?? LayoutGrid,
+    label: NOM_DU_MENU,
+    // L'icone, elle, dit le role — c'est le seul endroit ou il se lit d'un
+    // coup d'oeil dans la barre.
+    Icon: (user.evolutionRole ? ROLE_ICONS[user.evolutionRole] : null) ?? LayoutGrid,
     roleItems,
     hatItems,
   };

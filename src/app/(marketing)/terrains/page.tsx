@@ -47,43 +47,48 @@ const STEPS: { n: string; title: string; body: string }[] = [
 export default function TerrainsPage() {
   return (
     <>
-      <section className="border-b border-gray-200/70 py-24 sm:py-36">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">
-                MyFields
-              </p>
-              <p className="mt-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-                Propriétaires de terrain
-              </p>
-              <h1 className="mt-6 font-display text-5xl font-black uppercase leading-[0.9] tracking-[-0.02em] text-gray-900 sm:text-7xl">
-                Sans pelouse, pas de match
-              </h1>
-              <p className="mt-8 max-w-xl text-lg leading-relaxed text-gray-600">
-                Les équipes et les compétitions cherchent des lieux où jouer. Un
-                terrain qui n&apos;est référencé nulle part reste vide les jours où
-                quelqu&apos;un le cherchait.
-              </p>
-            </div>
+      {/* Meme hero que Koppafoot Organize. */}
+      <section className="relative flex min-h-[88vh] items-end overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/branding/fan_terrain.png')" }}
+        />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
-            {/* Le proprietaire devant son installation : c'est a lui que la
-                page parle, et le montrer vaut mieux que le nommer. */}
-            <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
-              <Image
-                src="/branding/role_proprietaire.png"
-                alt=""
-                fill
-                priority
-                sizes="(min-width: 1024px) 45vw, 100vw"
-                className="object-cover"
-              />
-            </div>
-          </div>
+        <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
+          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+            MyFields
+          </p>
+          <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
+            Sans pelouse,
+            <br />
+            pas de match
+          </h1>
+
+          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
+            Les équipes et les compétitions cherchent des lieux où jouer. Un
+            terrain qui n&apos;est référencé nulle part reste vide les jours où
+            quelqu&apos;un le cherchait.
+          </p>
+
+          <Link
+            href="/terrains/candidature"
+            className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-amber-400 sm:px-12 sm:py-9"
+          >
+            <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
+              Référencer mon terrain
+            </span>
+            <ArrowRight
+              size={32}
+              strokeWidth={1.5}
+              className="shrink-0 transition-transform group-hover:translate-x-2"
+            />
+          </Link>
         </div>
       </section>
 
-      <section className="py-20 sm:py-28">
+      <section id="etapes" className="scroll-mt-24 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
           <div className="grid gap-px bg-gray-200/70 lg:grid-cols-3">
             {STEPS.map((s) => (
@@ -101,7 +106,7 @@ export default function TerrainsPage() {
 
       {/* Ce que ça ne fait pas. Une vitrine qui laisse croire à une
           réservation en ligne fabrique des déçus le jour de l'inscription. */}
-      <section className="border-y border-gray-200/70 bg-gray-50 py-20 sm:py-28">
+      <section id="limites" className="scroll-mt-24 border-y border-gray-200/70 bg-gray-50 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
           <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
             Ce que la plateforme ne fait pas encore

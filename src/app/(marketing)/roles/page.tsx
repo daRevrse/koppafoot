@@ -128,38 +128,72 @@ function RoleCard({ role }: { role: Role }) {
 export default function RolesPage() {
   return (
     <>
-      <section className="border-b border-gray-200/70 py-24 sm:py-36">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">
+      {/* Meme hero que Koppafoot Organize : image pleine page, texte pose
+          en bas, titre a la taille de l'ecran. Les trois vitrines sont trois
+          portes du meme produit — elles doivent s'ouvrir de la meme facon. */}
+      <section className="relative flex min-h-[88vh] items-end overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/branding/role_joueur.png')" }}
+        />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
+
+        <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
+          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
             Koppafoot Evolution
           </p>
-          <p className="mt-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-            Un compte, plusieurs façons d&apos;être là
-          </p>
-          <h1 className="mt-6 max-w-4xl font-display text-5xl font-black uppercase leading-[0.9] tracking-[-0.02em] text-gray-900 sm:text-7xl lg:text-8xl">
-            Ce que tu deviens ici
+          <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
+            Ce que tu
+            <br />
+            deviens ici
           </h1>
-          <p className="mt-8 max-w-xl text-lg leading-relaxed text-gray-600">
-            Le football amateur ne se joue pas qu&apos;avec des joueurs. Il faut
-            quelqu&apos;un pour tenir l&apos;effectif, quelqu&apos;un pour monter la
-            compétition, quelqu&apos;un pour siffler, et un terrain pour tout ça.
-            Chaque rôle ouvre un espace différent.
+
+          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
+            Un compte, cinq façons d&apos;être là. Tu choisis ce que tu es sur le
+            terrain ; le reste s&apos;ajoute par-dessus, sans rien effacer.
           </p>
+
+          <Link
+            href="/evolution"
+            className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-amber-400 sm:px-12 sm:py-9"
+          >
+            <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
+              Choisir mon rôle
+            </span>
+            <ArrowRight
+              size={32}
+              strokeWidth={1.5}
+              className="shrink-0 transition-transform group-hover:translate-x-2"
+            />
+          </Link>
         </div>
       </section>
 
-      <section className="py-20 sm:py-28">
+      <section id="ouverts" className="scroll-mt-24 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-            Ouverts aujourd&apos;hui
+          {/* Ce que le hero promet, deploye : ce que chaque role donne, et ce
+              qu'il demande. La liste EST le contenu de cette page. */}
+          <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
+            Cinq façons d&apos;être là
           </h2>
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
+            Trois rôles se choisissent — joueur, manager, arbitre — et un seul à
+            la fois : c&apos;est ce que tu es sur le terrain. Deux casquettes
+            s&apos;ajoutent par-dessus, cumulables, et ne remplacent rien :
+            organiser une compétition, gérer un terrain.
+          </p>
+
+          <h3 className="mt-14 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
+            Ce que tu es sur le terrain
+          </h3>
           <div className="mt-8 grid gap-px bg-gray-200/70 lg:grid-cols-3">
             {OPEN.map((r) => <RoleCard key={r.name} role={r} />)}
           </div>
         </div>
       </section>
 
-      <section className="border-t border-gray-200/70 py-24 sm:py-32">
+      <section id="choisir" className="scroll-mt-24 border-t border-gray-200/70 py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
           <h2 className="max-w-3xl font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-6xl">
             Le rôle se choisit après, pas avant

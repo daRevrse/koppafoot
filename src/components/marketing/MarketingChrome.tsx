@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Menu, X, ArrowRight } from "lucide-react";
 
 // ============================================
@@ -18,14 +19,52 @@ import { Menu, X, ArrowRight } from "lucide-react";
 // tracking, and the footer carries the name at poster size.
 // ============================================
 
-const SECTIONS = [
-  { href: "#methode", label: "La méthode" },
-  { href: "#tutoriel", label: "Tutoriel" },
-  { href: "#questions", label: "Questions" },
-];
+/**
+ * Chaque vitrine a ses sections et son action.
+ *
+ * Le chrome portait celles de la page organisateur, en dur, pour les trois
+ * vitrines : sur Evolution et MyFields, « La méthode » et « Tutoriel »
+ * pointaient vers des ancres inexistantes — un clic qui ne fait rien — et
+ * « Candidater » envoyait vers la candidature ORGANISATEUR depuis la page
+ * des terrains.
+ */
+interface Vitrine {
+  sections: { href: string; label: string }[];
+  action: { href: string; label: string } | null;
+}
+
+const VITRINES: Record<string, Vitrine> = {
+  "/organisateurs": {
+    sections: [
+      { href: "#methode", label: "La méthode" },
+      { href: "#tutoriel", label: "Tutoriel" },
+      { href: "#questions", label: "Questions" },
+    ],
+    action: { href: "/organisateurs/candidature", label: "Candidater" },
+  },
+  "/roles": {
+    sections: [
+      { href: "#ouverts", label: "Les rôles" },
+      { href: "#choisir", label: "Choisir" },
+    ],
+    action: { href: "/evolution", label: "Choisir mon rôle" },
+  },
+  "/terrains": {
+    sections: [
+      { href: "#etapes", label: "Comment ça marche" },
+      { href: "#limites", label: "Ce qu'on ne fait pas" },
+    ],
+    action: { href: "/terrains/candidature", label: "Référencer" },
+  },
+};
+
+/** Une page inconnue garde le logo et le retour au direct, rien d'invente. */
+const VITRINE_NEUTRE: Vitrine = { sections: [], action: null };
 
 export function MarketingHeader() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const { sections, action } = VITRINES[pathname] ?? VITRINE_NEUTRE;
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/95 backdrop-blur-md">
@@ -39,7 +78,7 @@ export function MarketingHeader() {
         </Link>
 
         <nav className="ml-auto hidden items-center gap-9 md:flex">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <a
               key={s.href}
               href={s.href}
@@ -51,13 +90,15 @@ export function MarketingHeader() {
         </nav>
 
         {/* A link, dressed as a link. The wide CTAs live in the page. */}
-        <Link
-          href="/organisateurs/candidature"
-          className="group ml-auto hidden shrink-0 items-center gap-2 border-b-2 border-gray-900 pb-1 text-[11px] font-black uppercase tracking-[0.2em] text-gray-900 transition-colors hover:border-emerald-600 hover:text-emerald-700 sm:flex md:ml-0"
-        >
-          Candidater
-          <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-        </Link>
+        {action && (
+          <Link
+            href={action.href}
+            className="group ml-auto hidden shrink-0 items-center gap-2 border-b-2 border-gray-900 pb-1 text-[11px] font-black uppercase tracking-[0.2em] text-gray-900 transition-colors hover:border-emerald-600 hover:text-emerald-700 sm:flex md:ml-0"
+          >
+            {action.label}
+            <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        )}
 
         <button
           type="button"
@@ -72,7 +113,7 @@ export function MarketingHeader() {
 
       {open && (
         <nav className="border-t border-gray-200/70 px-6 py-3 md:hidden">
-          {[...SECTIONS, { href: "/organisateurs/candidature", label: "Candidater" }].map((s) => (
+          {[...sections, ...(action ? [action] : [])].map((s) => (
             <a
               key={s.href}
               href={s.href}
@@ -90,31 +131,67 @@ export function MarketingHeader() {
 
 export function MarketingFooter() {
   return (
-    <footer className="relative overflow-hidden border-t border-gray-200/70 bg-white">
+    // Inverse : fond sombre, texte clair. Le pied ferme la page au lieu de
+    // la laisser se dissoudre dans le blanc — et les trois vitrines
+    // partagent la meme assise, quel que soit le fond de leur contenu.
+    <footer className="relative overflow-hidden bg-gray-900 text-white">
       <div className="mx-auto max-w-7xl px-6 pb-0 pt-20 sm:px-10 sm:pt-28">
-        <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
-          <p className="max-w-sm font-display text-2xl font-black leading-tight tracking-tight text-gray-900 sm:text-3xl">
+        <div className="flex flex-col gap-12 sm:flex-row sm:justify-between">
+          <p className="max-w-sm font-display text-2xl font-black leading-tight tracking-tight sm:text-3xl">
             Le football amateur, tenu comme il le mérite.
           </p>
 
-          <div className="flex flex-col gap-3 text-sm font-bold text-gray-500">
-            <Link href="/" className="transition-colors hover:text-emerald-700">
-              Voir le direct
-            </Link>
-            <Link href="/competitions" className="transition-colors hover:text-emerald-700">
-              Les compétitions
-            </Link>
-            <Link href="/organisateurs/candidature" className="transition-colors hover:text-emerald-700">
-              Devenir organisateur
-            </Link>
+          {/* Les trois portes du produit d'un cote, l'application de l'autre.
+              Le pied ne portait que « Devenir organisateur » : depuis la page
+              des terrains, c'etait la seule sortie proposee, et elle menait
+              ailleurs. */}
+          <div className="grid gap-x-16 gap-y-8 sm:grid-cols-2">
+            <div className="flex flex-col gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+                Les espaces
+              </p>
+              {[
+                { href: "/organisateurs", label: "Koppafoot Organize" },
+                { href: "/roles", label: "Koppafoot Evolution" },
+                { href: "/terrains", label: "MyFields" },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="text-sm font-bold text-white/60 transition-colors hover:text-white"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+                L&apos;application
+              </p>
+              {[
+                { href: "/", label: "Le direct" },
+                { href: "/competitions", label: "Les compétitions" },
+                { href: "/actus", label: "Les actus" },
+                { href: "/login", label: "Se connecter" },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="text-sm font-bold text-white/60 transition-colors hover:text-white"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* The name at poster size, cropped by the fold — the wordmark IS the
-            bottom of the page rather than a line of small print in it. */}
+        {/* Le nom en taille d'affiche, coupe par le pli — la signature EST le
+            bas de la page, pas une ligne de mentions legales dedans. */}
         <p
           aria-hidden
-          className="pointer-events-none mt-14 translate-y-[18%] select-none font-display text-[19vw] font-black leading-[0.78] tracking-[-0.03em] text-gray-900/[0.07]"
+          className="pointer-events-none mt-16 translate-y-[18%] select-none font-display text-[19vw] font-black leading-[0.78] tracking-[-0.03em] text-white/[0.06]"
         >
           KOPPAFOOT
         </p>
