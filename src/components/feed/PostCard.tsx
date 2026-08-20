@@ -1,5 +1,6 @@
 "use client";
 
+import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
@@ -112,7 +113,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const isOwn = currentUser != null && post.authorId === currentUser.uid;
   const isSystem = post.authorId === SYSTEM_AUTHOR_ID;
 
-  const isVenueOwner = currentUser?.userType === "venue_owner";
+  const isVenueOwner = ownsVenue(currentUser);
 
   // Ces deux valeurs estampillent un repost, dont le lecteur devient
   // l'auteur — elles ne decrivent jamais l'auteur du post affiche. Sans

@@ -10,6 +10,7 @@ import {
   onBookingsByOwner, updateBookingStatus,
 } from "@/lib/firestore";
 import type { Venue, Booking } from "@/types";
+import { isVenueOwner } from "@/lib/hats";
 
 // ============================================
 // Mes terrains — la gestion, côté propriétaire.
@@ -220,6 +221,32 @@ export default function MyVenuesPage() {
   }
 
   if (!user) return null;
+
+  // La casquette s'obtient par candidature. Sans elle, cette page n'a rien a
+  // gerer — on renvoie la ou on peut la demander plutot que d'afficher un
+  // espace vide qui laisse croire a une panne.
+  if (!isVenueOwner(user)) {
+    return (
+      <div className="mx-auto max-w-2xl py-16">
+        <div className="border border-gray-200/70 bg-white p-8 text-center sm:p-12">
+          <MapPin size={30} className="mx-auto text-gray-300" strokeWidth={1.5} />
+          <h1 className="mt-4 font-display text-xl font-black uppercase tracking-tight text-gray-900">
+            Pas encore de terrain
+          </h1>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">
+            Referencer un terrain passe par une candidature : on relit la fiche
+            avant de la publier. Ca ne change rien a votre role sur le terrain.
+          </p>
+          <Link
+            href="/terrains/candidature"
+            className="mt-6 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
+          >
+            Referencer mon terrain
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Le passe ne demande plus rien : une demande pour hier n'a pas a occuper
   // la boite de reception.

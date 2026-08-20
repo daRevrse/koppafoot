@@ -62,7 +62,7 @@ export default function OnboardingChecklist({
   const toggle = () => storeCollapsed(!collapsed);
 
   return (
-    <div className="rounded-2xl bg-gray-50 p-5">
+    <div className=" bg-gray-50 p-5">
       <button
         type="button"
         onClick={toggle}
@@ -126,7 +126,7 @@ export default function OnboardingChecklist({
                         </p>
                         <Link
                           href={step.href}
-                          className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600"
+                          className="mt-2.5 inline-flex items-center gap-1.5 bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600"
                         >
                           {step.cta}
                           <ArrowRight size={13} />

@@ -7,14 +7,13 @@ import {
   Rocket, User, Briefcase, ArrowLeft, ArrowRight, Loader2,
   Check, Trophy, RefreshCw, Mail,
   Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Lock,
-  Search, FileText, Flag, MapPin,
+  Search, FileText, Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoleOnboarding } from "@/hooks/useRoleOnboarding";
 import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
-import type { EvolutionRole, FirestoreUser, Venue } from "@/types";
-import { createVenue } from "@/lib/firestore";
+import type { EvolutionRole, FirestoreUser } from "@/types";
 
 // ============================================
 // Évolution — role onboarding. Proposes the available roles (Joueur,
@@ -51,17 +50,6 @@ const ROLES: {
       "Deviens propriétaire d'une équipe de compétition",
       "Réponds aux invitations des organisateurs",
       "Gère ton effectif et tes compositions",
-    ],
-  },
-  {
-    role: "venue_owner",
-    title: "Propriétaire de terrain",
-    Icon: MapPin,
-    tagline: "Tu as la pelouse.",
-    perks: [
-      "Référence ton terrain : surface, format, ville",
-      "Les équipes et organisateurs le trouvent dans la recherche",
-      "Sa fiche publique porte tes informations de contact",
     ],
   },
   {
@@ -104,14 +92,6 @@ const ROLE_FEATURES: Record<EvolutionRole, {
   // aujourd'hui, ses ecrans propres (designations, rapports) sont encore au
   // placard — d'ou l'absence de `href`, qui les affiche en « Bientot » plutot
   // que de promettre une page qui n'ouvre pas.
-  venue_owner: [
-    { label: "Mes terrains", desc: "Ajoute, modifie ou retire un terrain", Icon: MapPin, href: "/mes-terrains" },
-    { label: "Être trouvé", desc: "Tes terrains apparaissent dans la recherche", Icon: Search, href: "/" },
-    // La reservation en ligne n'existe pas et la page /terrains le dit
-    // franchement : pas de `href`, donc « Bientot » plutot qu'une promesse.
-    { label: "Réservations", desc: "Recevoir et gérer les demandes de créneau", Icon: CalendarDays },
-    { label: "Calendrier d'occupation", desc: "Voir qui joue chez toi et quand", Icon: ClipboardCheck },
-  ],
   referee: [
     { label: "Ma fiche d'arbitre", desc: "Licence, niveau et coordonnées visibles par les organisateurs", Icon: User, href: "/profile" },
     { label: "Être trouvé", desc: "Tu apparais dans la recherche, catégorie Arbitres", Icon: Search, href: "/" },
@@ -126,22 +106,9 @@ const ROLE_META: Record<EvolutionRole, { space: string; profile: string; tagline
   player: { space: "Espace joueur", profile: "Ton profil joueur", tagline: "Ton profil sportif est actif.", Icon: User },
   manager: { space: "Espace manager", profile: "Ton profil manager", tagline: "Ton profil manager est actif.", Icon: Briefcase },
   referee: { space: "Espace arbitre", profile: "Ton profil arbitre", tagline: "Ton profil d'arbitre est actif.", Icon: Flag },
-  venue_owner: { space: "Espace terrain", profile: "Ton terrain", tagline: "Ton terrain est référencé.", Icon: MapPin },
 };
 
-const FIELD_SIZES = [
-  { value: "5v5", label: "5 contre 5" },
-  { value: "7v7", label: "7 contre 7" },
-  { value: "11v11", label: "11 contre 11" },
-  { value: "futsal", label: "Futsal" },
-];
 
-const FIELD_SURFACES = [
-  { value: "natural_grass", label: "Pelouse" },
-  { value: "synthetic", label: "Synthétique" },
-  { value: "hybrid", label: "Hybride" },
-  { value: "indoor", label: "Intérieur" },
-];
 
 const LICENSE_LEVELS = [
   { value: "trainee", label: "Stagiaire" },
@@ -164,7 +131,7 @@ const FEET = [
 ];
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 placeholder:font-medium placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-colors";
+  "w-full border border-gray-200/70 bg-white px-4 py-3 text-sm font-semibold text-gray-900 placeholder:font-medium placeholder:text-gray-300 focus:border-gray-900 focus:outline-none transition-colors";
 
 function ChoicePills({
   options,
@@ -182,10 +149,10 @@ function ChoicePills({
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`rounded-full px-4 py-2 text-xs font-bold transition-colors ${
+          className={`border px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${
             value === opt.value
-              ? "bg-emerald-500 text-white"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              ? "border-gray-900 bg-gray-900 text-white"
+              : "border-gray-200/70 text-gray-500 hover:border-gray-900 hover:text-gray-900"
           }`}
         >
           {opt.label}
@@ -210,10 +177,6 @@ export default function EvolutionPage() {
   const [teamName, setTeamName] = useState(user?.teamName ?? "");
   const [licenseLevel, setLicenseLevel] = useState(user?.licenseLevel ?? "");
   const [licenseNumber, setLicenseNumber] = useState(user?.licenseNumber ?? "");
-  const [venueName, setVenueName] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
-  const [fieldSize, setFieldSize] = useState("11v11");
-  const [fieldSurface, setFieldSurface] = useState("synthetic");
   const [city, setCity] = useState(user?.locationCity ?? "");
 
   if (!user) return null;
@@ -239,33 +202,10 @@ export default function EvolutionPage() {
       } else if (role === "referee") {
         if (licenseLevel) patch.license_level = licenseLevel;
         if (licenseNumber.trim()) patch.license_number = licenseNumber.trim();
-      } else if (role === "venue_owner") {
-        // Rien a poser sur le compte : le terrain est un document a part,
-        // cree juste apres. Un proprietaire peut en avoir plusieurs, ce qu'un
-        // champ `venue_name` sur son profil n'aurait jamais su representer.
       } else {
         if (teamName.trim()) patch.team_name = teamName.trim();
       }
       await updateProfile(patch);
-
-      // Le premier terrain part avec l'activation : un espace terrain sans
-      // terrain n'aurait rien a montrer, et on tient la saisie tant que la
-      // personne est dans le geste.
-      if (role === "venue_owner" && venueName.trim()) {
-        await createVenue({
-          name: venueName.trim(),
-          address: venueAddress.trim(),
-          city: city.trim() || user.locationCity || "",
-          ownerId: user.uid,
-          fieldType: fieldSurface === "indoor" ? "indoor" : "outdoor",
-          fieldSurface: fieldSurface as Venue["fieldSurface"],
-          fieldSize: fieldSize as Venue["fieldSize"],
-          pricePerHour: 0,
-          amenities: [],
-          available: true,
-          photoUrl: null,
-        });
-      }
 
       toast.success(`${ROLE_META[role].space} activé !`);
       setPicking(null);
@@ -287,9 +227,9 @@ export default function EvolutionPage() {
 
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+        <div className="rounded-[2rem] border border-gray-200/70 bg-white p-6 sm:p-8">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
               <meta.Icon size={26} />
             </div>
             <div className="min-w-0">
@@ -306,7 +246,7 @@ export default function EvolutionPage() {
             {onboarding ? (
               <OnboardingChecklist progress={onboarding} />
             ) : (
-              <div className="h-32 animate-pulse rounded-2xl bg-gray-50" />
+              <div className="h-32 animate-pulse bg-gray-50" />
             )}
           </div>
 
@@ -314,7 +254,7 @@ export default function EvolutionPage() {
               here; it duplicated the sidebar entry and pushed the real
               features down. */}
           {activated === "manager" && (
-            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+            <div className="mt-6 flex items-start gap-3 border border-amber-100 bg-amber-50 p-4">
               <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
               <p className="text-sm font-semibold leading-relaxed text-amber-800">
                 Un organisateur peut t&apos;inviter à prendre la gestion d&apos;une équipe
@@ -338,9 +278,9 @@ export default function EvolutionPage() {
                   <Link
                     key={label}
                     href={href}
-                    className="flex items-center gap-4 rounded-2xl border border-gray-100 p-4 transition-colors hover:bg-gray-50"
+                    className="flex items-center gap-4 border border-gray-200/70 p-4 transition-colors hover:bg-gray-50"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
                       <Icon size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -352,16 +292,16 @@ export default function EvolutionPage() {
                 ) : (
                   <div
                     key={label}
-                    className="flex items-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-4"
+                    className="flex items-center gap-4 border border-dashed border-gray-200/70 bg-gray-50/60 p-4"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-100 text-gray-400">
                       <Icon size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-black text-gray-500">{label}</p>
                       <p className="mt-0.5 text-xs font-semibold text-gray-400">{desc}</p>
                     </div>
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-200/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-gray-500">
+                    <span className="inline-flex shrink-0 items-center gap-1 border border-gray-200/70 bg-gray-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500">
                       <Lock size={10} />
                       Bientôt
                     </span>
@@ -399,7 +339,7 @@ export default function EvolutionPage() {
           </button>
         )}
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-emerald-50 text-emerald-500">
             <Rocket size={26} />
           </div>
           <h1 className="mt-4 font-display text-3xl font-black tracking-tight text-gray-900">
@@ -420,18 +360,18 @@ export default function EvolutionPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
               onClick={() => setPicking(role)}
-              className={`group rounded-[2rem] border-2 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              className={`group rounded-[2rem] border-2 bg-white p-6 text-left transition-all hover:-translate-y-0.5 ${
                 activated === role
                   ? "border-emerald-400"
                   : "border-transparent hover:border-emerald-200"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
+                <div className="flex h-12 w-12 items-center justify-center bg-emerald-50 text-emerald-500 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
                   <Icon size={22} />
                 </div>
                 {activated === role && (
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-600">
+                  <span className="border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
                     Actif
                   </span>
                 )}
@@ -477,10 +417,10 @@ export default function EvolutionPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -12 }}
-          className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
+          className="rounded-[2rem] border border-gray-200/70 bg-white p-6 sm:p-8"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
               {formMeta && <formMeta.Icon size={20} />}
             </div>
             <div>
@@ -513,45 +453,6 @@ export default function EvolutionPage() {
                     Pied fort
                   </label>
                   <ChoicePills options={FEET} value={strongFoot} onChange={setStrongFoot} />
-                </div>
-              </>
-            ) : picking === "venue_owner" ? (
-              <>
-                <div>
-                  <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-400">
-                    Nom du terrain
-                  </label>
-                  <input
-                    type="text"
-                    value={venueName}
-                    onChange={(e) => setVenueName(e.target.value)}
-                    placeholder="ex: Terrain municipal de Bè"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-400">
-                    Adresse <span className="font-bold normal-case text-gray-300">(optionnel)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={venueAddress}
-                    onChange={(e) => setVenueAddress(e.target.value)}
-                    placeholder="ex: Rue des Palmiers, quartier Bè"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-400">
-                    Format
-                  </label>
-                  <ChoicePills options={FIELD_SIZES} value={fieldSize} onChange={setFieldSize} />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-400">
-                    Surface
-                  </label>
-                  <ChoicePills options={FIELD_SURFACES} value={fieldSurface} onChange={setFieldSurface} />
                 </div>
               </>
             ) : picking === "referee" ? (
@@ -614,7 +515,7 @@ export default function EvolutionPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
               Activer mon {formMeta?.space.toLowerCase()}

@@ -1,5 +1,6 @@
 "use client";
 
+import { isOrganizer } from "@/lib/hats";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ClipboardList, CheckCircle2, Clock, XCircle, Loader2, Trophy, ArrowLeft } from "lucide-react";
@@ -118,7 +119,7 @@ export default function BecomeOrganizerPage() {
     "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 
   // Already an organizer
-  if (user && (user.userType === "organizer" || user.userType === "superadmin")) {
+  if (isOrganizer(user)) {
     return (
       <div className="mx-auto my-10 max-w-lg border border-gray-200/70 bg-white p-8 text-center sm:p-12">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">

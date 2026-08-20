@@ -65,6 +65,7 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     items: [
       { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
       { path: "/admin/organizers", icon: "ClipboardList", label: "Organisateurs" },
+      { path: "/admin/terrains", icon: "MapPin", label: "Terrains" },
     ],
   },
   {

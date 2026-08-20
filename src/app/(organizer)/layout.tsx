@@ -1,5 +1,6 @@
 "use client";
 
+import { isOrganizer } from "@/lib/hats";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -23,7 +24,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
 
   // Superadmins run the organizer screens too — the sidebar offers them the
   // entry, so the guard has to agree or the link dead-ends.
-  const allowed = user?.userType === "organizer" || user?.userType === "superadmin";
+  const allowed = isOrganizer(user);
 
   useEffect(() => {
     if (loading) return;

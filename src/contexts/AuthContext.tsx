@@ -119,6 +119,11 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     followingCount: data.following_count ?? 0,
     // Évolution
     evolutionRole: data.evolution_role ?? null,
+    // Les casquettes. `?? undefined` et non `?? false` : un compte d'avant
+    // n'a pas de drapeau, et le predicat de `lib/hats` doit pouvoir se
+    // rabattre sur `user_type` sans qu'un `false` explicite le contredise.
+    ...(data.is_organizer !== undefined && { isOrganizer: data.is_organizer }),
+    ...(data.is_venue_owner !== undefined && { isVenueOwner: data.is_venue_owner }),
     followedCompetitionIds: data.followed_competition_ids ?? [],
     organizerName: data.organizer_name ?? null,
     // Gallery

@@ -224,6 +224,11 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     // connecte le perdait, et toute section conditionnee dessus disparaissait
     // sous les yeux du lecteur.
     ...(data.evolution_role !== undefined && { evolutionRole: data.evolution_role }),
+    // Les casquettes. `?? undefined` et non `?? false` : un compte d'avant
+    // n'a pas de drapeau, et le predicat de `lib/hats` doit pouvoir se
+    // rabattre sur `user_type` sans qu'un `false` explicite le contredise.
+    ...(data.is_organizer !== undefined && { isOrganizer: data.is_organizer }),
+    ...(data.is_venue_owner !== undefined && { isVenueOwner: data.is_venue_owner }),
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,
     followedCompetitionIds: data.followed_competition_ids ?? [],

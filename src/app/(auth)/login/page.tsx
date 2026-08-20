@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Mail, Phone, Loader2, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -58,9 +58,9 @@ type CodeForm = yup.InferType<typeof codeSchema>;
 // ============================================
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 const inputClassPassword =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-11 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 
 // ============================================
 // Tabs
@@ -94,7 +94,33 @@ const PHONE_LOGIN_ENABLED = false;
  */
 const EMAIL_LOGIN_ENABLED = false;
 
+/**
+ * De quelle fonction vient-on, et que lui promet-on.
+ *
+ * Une même page de connexion, un en-tête qui change : arriver ici depuis
+ * « référencer mon terrain » et lire « Connecte-toi pour accéder à ton
+ * espace » fait douter d'avoir cliqué au bon endroit. Le `?for=` porte cette
+ * provenance, le `?next=` ramène au bon endroit après coup.
+ */
+const CONTEXTES: Record<string, { titre: string; phrase: string }> = {
+  organisateur: {
+    titre: "Organiser une compétition",
+    phrase: "Un compte d'abord — ta candidature d'organisateur se dépose ensuite.",
+  },
+  terrain: {
+    titre: "Référencer un terrain",
+    phrase: "Un compte d'abord — la fiche de ton terrain se saisit ensuite.",
+  },
+};
+
+const CONTEXTE_DEFAUT = {
+  titre: "Connexion",
+  phrase: "Connecte-toi pour accéder à ton espace",
+};
+
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const contexte = CONTEXTES[searchParams.get("for") ?? ""] ?? CONTEXTE_DEFAUT;
   const [tab, setTab] = useState<Tab>("email");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -250,8 +276,10 @@ export default function LoginPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
     >
-      <h2 className="mb-1 text-2xl font-black text-gray-900 font-display">Connexion</h2>
-      <p className="mb-6 text-sm text-gray-400">Connecte-toi pour accéder à ton espace</p>
+      <h2 className="mb-1 font-display text-2xl font-black uppercase tracking-tight text-gray-900">
+        {contexte.titre}
+      </h2>
+      <p className="mb-6 text-sm text-gray-400">{contexte.phrase}</p>
 
       {/* Google en tête : c'est le chemin le plus court (un tap, pas de mot de
           passe à retrouver), donc il passe avant le formulaire email. */}
@@ -259,7 +287,7 @@ export default function LoginPage() {
         type="button"
         onClick={handleGoogle}
         disabled={submitting}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
+        className="flex w-full items-center justify-center gap-3 border border-gray-200/70 bg-white px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
       >
         <svg viewBox="0 0 24 24" width="16" height="16">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -282,13 +310,13 @@ export default function LoginPage() {
       {/* Tabs — un seul onglet ne se dessine pas : sans le téléphone, le
           formulaire email prend toute la place. */}
       {PHONE_LOGIN_ENABLED && (
-      <div className="mb-6 flex rounded-xl bg-gray-100 p-1">
+      <div className="mb-6 flex bg-gray-100 p-1">
         <button
           type="button"
           onClick={() => { setTab("email"); setPhoneStep("number"); }}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
             tab === "email"
-              ? "bg-white text-emerald-600 shadow-sm"
+              ? "bg-white text-emerald-600"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -297,9 +325,9 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => setTab("phone")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
             tab === "phone"
-              ? "bg-white text-emerald-600 shadow-sm"
+              ? "bg-white text-emerald-600"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -372,7 +400,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Se connecter
@@ -398,7 +426,7 @@ export default function LoginPage() {
                   aria-label="Indicatif pays"
                   value={dialCode}
                   onChange={(e) => setDialCode(e.target.value)}
-                  className="w-[7.5rem] shrink-0 rounded-xl border border-gray-200 bg-gray-50 py-3 pl-3 pr-2 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all"
+                  className="w-[7.5rem] shrink-0 border border-gray-200/70 bg-gray-50 py-3 pl-3 pr-2 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all"
                 >
                   {COUNTRY_CODES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -427,7 +455,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Envoyer le code
@@ -457,7 +485,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 maxLength={6}
                 {...codeForm.register("code")}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
+                className="w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
                 placeholder="000000"
               />
               {codeForm.formState.errors.code && (
@@ -468,7 +496,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Vérifier

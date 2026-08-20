@@ -6,7 +6,15 @@ export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organ
 
 // Role picked in the Évolution onboarding (null/absent = not activated yet;
 // everyone starts as a plain spectator account).
-export type EvolutionRole = "player" | "manager" | "referee" | "venue_owner";
+/**
+ * Ce qu'on EST sur le terrain — un à la fois.
+ *
+ * Ne pas confondre avec les casquettes (organisateur, propriétaire de
+ * terrain) : celles-là sont ce qu'on FAIT en plus, elles se cumulent, et
+ * elles vivent dans des drapeaux séparés. Un arbitre peut être organisateur
+ * et propriétaire sans cesser d'être arbitre.
+ */
+export type EvolutionRole = "player" | "manager" | "referee";
 
 export type AuthProvider = "email" | "phone" | "google";
 
@@ -50,6 +58,16 @@ export interface UserProfile {
   followingCount?: number;
   // Évolution onboarding — role activated by the user (Espace joueur/manager)
   evolutionRole?: EvolutionRole | null;
+  /**
+   * Les casquettes, cumulables et indépendantes du rôle Evolution.
+   *
+   * Elles existent parce que `user_type` ne peut porter qu'une valeur :
+   * approuver une candidature d'organisateur ÉCRASAIT le type de compte, et
+   * un organisateur qui joue disparaissait donc de tout ce qui filtrait sur
+   * les joueurs. Un drapeau à côté, comme `is_superadmin`, ne détruit rien.
+   */
+  isOrganizer?: boolean;
+  isVenueOwner?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
   /**
@@ -136,6 +154,8 @@ export interface FirestoreUser {
   following_count?: number;
   // Évolution onboarding — role activated by the user (Espace joueur/manager)
   evolution_role?: EvolutionRole | null;
+  is_organizer?: boolean;
+  is_venue_owner?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followed_competition_ids?: string[];
   /** Nom public de la structure organisatrice — voir UserProfile. */

@@ -1,5 +1,6 @@
 "use client";
 
+import { isOrganizer } from "@/lib/hats";
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -187,7 +188,7 @@ function SpacesSheet({
   const spaces: { href: string; label: string; hint: string; Icon: typeof User }[] = [
     { href: "/evolution", ...evolution },
   ];
-  if (user.userType === "organizer" || user.userType === "superadmin") {
+  if (isOrganizer(user)) {
     spaces.push({
       href: "/organizer",
       label: "Espace organisateur",

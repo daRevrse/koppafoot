@@ -1,5 +1,6 @@
 "use client";
 
+import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -780,7 +781,7 @@ export default function PublicProfilePage() {
               {isPlayer && <PlayerSection profile={profile} teams={teams} />}
               {isManager && <ManagerSection profile={profile} teams={teams} />}
               {isReferee && <RefereeSection profile={profile} />}
-              {profile.userType === "venue_owner" && <VenueOwnerSection profile={profile} />}
+              {ownsVenue(profile) && <VenueOwnerSection profile={profile} />}
             </div>
           )}
 

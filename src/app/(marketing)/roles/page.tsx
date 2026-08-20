@@ -76,7 +76,7 @@ const OPEN: Role[] = [
     line: "Tu as la pelouse",
     body:
       "Un terrain se référence sur la plateforme et se trouve dans la recherche. Tout ce qui touche à la réservation et au calendrier d'occupation n'existe pas encore.",
-    cta: { label: "Référencer mon terrain", href: "/evolution" },
+    cta: { label: "Référencer mon terrain", href: "/terrains/candidature" },
   },
 ];
 

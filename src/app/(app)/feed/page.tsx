@@ -1,5 +1,6 @@
 "use client";
 
+import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MessageCircle, Send, Image as ImageIcon, X } from "lucide-react";
@@ -154,7 +155,7 @@ export default function FeedPage() {
     if (!newPost.trim() || !user) return;
     setPosting(true);
     try {
-      const isVenueOwner = user.userType === "venue_owner";
+      const isVenueOwner = ownsVenue(user);
       
       const authorRole =
         user.userType === "manager" ? "Manager"

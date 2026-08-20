@@ -1,5 +1,6 @@
 "use client";
 
+import { isOrganizer } from "@/lib/hats";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 // (les visiteurs sont renvoyés vers la connexion par le layout).
 export default function OrganizeCompetitionCta() {
   const { user } = useAuth();
-  if (user && (user.userType === "organizer" || user.userType === "superadmin")) {
+  if (isOrganizer(user)) {
     return null;
   }
 

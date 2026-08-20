@@ -60,10 +60,25 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) ? get(p).data : null;
     }
 
-    /** Le role choisi sur /evolution, independant du type de compte. */
-    function isEvolutionRole(role) {
+    // Les casquettes : ce qu'un compte FAIT, cumulable, par opposition au
+    // rôle Evolution qui dit ce qu'il EST sur le terrain.
+    //
+    // Deux signaux lus ensemble. Le drapeau est le modèle actuel ; le
+    // `user_type` hérité couvre les comptes approuvés avant le changement,
+    // qui n'ont jamais reçu de drapeau. Ne lire que le premier aurait coupé
+    // l'accès à tous les organisateurs existants.
+    function hasHat(flag, legacyType) {
       let profile = getProfile();
-      return profile != null && profile.get('evolution_role', null) == role;
+      return profile != null
+        && (profile.get(flag, false) == true || profile.user_type == legacyType);
+    }
+
+    function isOrganizerHat() {
+      return hasHat('is_organizer', 'organizer') || isSuperAdmin();
+    }
+
+    function isVenueOwnerHat() {
+      return hasHat('is_venue_owner', 'venue_owner');
     }
 
     function grantIsLive(g) {
@@ -146,7 +161,7 @@ service cloud.firestore {
         // rôle sans pouvoir le redevenir. Organisateur et superadmin restent
         // hors de ce chemin, des deux côtés : ces transitions passent par le
         // SDK admin.
-        && request.resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner']
+        && request.resource.data.user_type in ['player', 'manager', 'referee']
         && resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner'];
     }
 
@@ -192,14 +207,13 @@ service cloud.firestore {
       // du proprietaire restent dans `users`, ferme.
       allow read: if true;
 
-      // Creation : le TYPE DE COMPTE ne suffit plus. Depuis que le terrain est
-      // un role Evolution activable, un organisateur qui reference son terrain
-      // garde `user_type: "organizer"` — `isRole('venue_owner')` seul lui
-      // aurait refuse la creation. Le role Evolution vaut donc autorisation,
-      // au meme titre.
+      // Créer un terrain demande la casquette « propriétaire », qui s'obtient
+      // par candidature. Elle se cumule avec le rôle Evolution : un arbitre
+      // ou un organisateur peut posséder un terrain sans cesser d'être l'un
+      // ou l'autre.
       allow create: if isAuthenticated()
                     && request.resource.data.owner_id == request.auth.uid
-                    && (isRole('venue_owner') || isEvolutionRole('venue_owner'));
+                    && isVenueOwnerHat();
       allow update: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
       allow delete: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
     }
@@ -512,7 +526,7 @@ service cloud.firestore {
     // ============================================
     match /competitions/{cid} {
       allow read: if true;
-      allow create: if isRole('organizer')
+      allow create: if isOrganizerHat()
                     && request.auth.uid in request.resource.data.organizer_ids;
       allow update, delete: if isOrganizerOf(cid) || isSuperAdmin();
 

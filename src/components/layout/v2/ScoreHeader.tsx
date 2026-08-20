@@ -6,12 +6,14 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, Newspaper, ArrowLeftRight, Globe, Search, ChevronDown, User, Briefcase,
-  Link2 as LinkIcon, ArrowUpRight,
+  Link2 as LinkIcon, ArrowUpRight, Flag,
   Rocket, ClipboardList, Plus, Radio, Shield, LogOut, Share2, Check, Sparkles, MapPin,
   Users, ClipboardCheck, CalendarDays, BarChart3,
   type LucideIcon,
 } from "lucide-react";
+import type { EvolutionRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { isOrganizer, isVenueOwner } from "@/lib/hats";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useAuthModal } from "@/components/auth/AuthModal";
@@ -100,7 +102,13 @@ const MERCATO: NavEntry = { href: "/mercato", label: "Mercato", Icon: ArrowLeftR
 const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: Globe };
 
 // The sidebar's role destinations, now reached from the avatar menu.
-const ROLE_ITEMS: Record<"player" | "manager", NavEntry[]> = {
+const EVOLUTION_LABEL: Record<EvolutionRole, { label: string; Icon: LucideIcon }> = {
+  player: { label: "Espace joueur", Icon: User },
+  manager: { label: "Espace manager", Icon: Briefcase },
+  referee: { label: "Espace arbitre", Icon: Flag },
+};
+
+const ROLE_ITEMS: Partial<Record<EvolutionRole, NavEntry[]>> = {
   player: [
     { href: "/teams", label: "Mes équipes", Icon: Users },
     { href: "/participations", label: "Mes convocations", Icon: ClipboardCheck },
@@ -113,6 +121,8 @@ const ROLE_ITEMS: Record<"player" | "manager", NavEntry[]> = {
     { href: "/calendar", label: "Calendrier", Icon: CalendarDays },
     { href: "/mon-equipe", label: "Mes compétitions", Icon: Trophy },
   ],
+  // L'arbitre n'a pas encore d'ecran a lui : ses designations et ses rapports
+  // sont au placard. Son espace suffit tant que c'est le cas.
 };
 
 const MENU_CLASS =
@@ -234,7 +244,11 @@ function AccountMenu() {
   const [copied, setCopied] = useState(false);
   const [moderates, setModerates] = useState(false);
 
-  const organizes = user?.userType === "organizer" || user?.userType === "superadmin";
+  // Les casquettes passent par le predicat partage : il lit le drapeau ET
+  // l'ancien `user_type`, sans quoi tous les organisateurs d'avant auraient
+  // perdu leur espace du jour au lendemain.
+  const organizes = isOrganizer(user);
+  const ownsVenues = isVenueOwner(user);
 
   // Meme signal que la barre laterale : sans lui /live-ops est injoignable, et
   // un moderateur n'a aucune porte vers la console dont on lui a donne le
@@ -274,19 +288,14 @@ function AccountMenu() {
     );
   }
 
-  const evolution =
-    user.evolutionRole === "player"
-      ? { label: "Espace joueur", Icon: User }
-      : user.evolutionRole === "manager"
-        ? { label: "Espace manager", Icon: Briefcase }
-        : { label: "Évolution", Icon: Rocket };
+  // Quatre roles activables, pas deux : arbitre et terrain manquaient depuis
+  // leur degel, et retombaient sur le libelle « Évolution » comme si leur
+  // titulaire n'avait rien choisi.
+  const evolution = user.evolutionRole
+    ? EVOLUTION_LABEL[user.evolutionRole]
+    : { label: "Évolution", Icon: Rocket };
 
-  const roleItems =
-    user.evolutionRole === "manager"
-      ? ROLE_ITEMS.manager
-      : user.evolutionRole === "player"
-        ? ROLE_ITEMS.player
-        : [];
+  const roleItems = user.evolutionRole ? ROLE_ITEMS[user.evolutionRole] ?? [] : [];
 
   // Les consoles reviennent ici avec la disparition du menu Extra. Elles y
   // sont a leur place : ce sont des espaces qui n'existent que pour CE
@@ -299,6 +308,12 @@ function AccountMenu() {
   }
   if (moderates) {
     spaces.push({ href: "/live-ops", label: "Espace live", Icon: Radio });
+  }
+  // Casquette terrain : elle se cumule avec le role Evolution, elle ne le
+  // remplace pas. Un arbitre proprietaire voit les deux.
+  if (ownsVenues) {
+    spaces.push({ href: "/mes-terrains", label: "Mes terrains", Icon: MapPin });
+    spaces.push({ href: "/mes-reservations", label: "Mes réservations", Icon: CalendarDays });
   }
   spaces.push({ href: "/evolution", ...evolution });
   if (user.userType === "superadmin") {
@@ -445,6 +460,21 @@ export default function ScoreHeader() {
               </Link>
             );
           })}
+
+          {/* Un compte sans role choisi : l'invitation passe devant, en
+              plein contraste. Elle vivait jusqu'ici au fond du menu avatar —
+              c'est-a-dire nulle part pour qui ne l'ouvre jamais, alors que
+              c'est le geste qui donne acces a tout le reste du produit.
+              Elle disparait d'elle-meme des qu'un role est actif. */}
+          {user && !user.evolutionRole && (
+            <Link
+              href="/evolution"
+              className="flex shrink-0 items-center gap-2 border border-amber-300 bg-amber-300 px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-gray-900 transition-colors hover:border-white hover:bg-white"
+            >
+              <Rocket size={16} />
+              Evolution
+            </Link>
+          )}
 
           {/* Les trois portes, repliees — la barre garde la navigation
               interne, le megamenu porte ce qui sort de l'application. */}

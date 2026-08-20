@@ -60,8 +60,15 @@ export async function PATCH(
       // qui sera estampillé sur chaque compétition créée ensuite. Les
       // candidatures antérieures au champ n'en ont pas — le profil reste
       // alors vide et « Organisé par » ne s'affiche simplement pas.
+      // `is_organizer` et NON `user_type: "organizer"`.
+      //
+      // Écraser le type de compte effaçait ce que la personne était par
+      // ailleurs : un joueur approuvé organisateur sortait de la recherche
+      // joueurs, perdait ses informations physiques sur sa fiche et ses
+      // équipes. Organiser est une casquette qui s'ajoute, pas une identité
+      // qui remplace.
       await adminDb.collection("users").doc(application.uid).update({
-        user_type: "organizer",
+        is_organizer: true,
         ...(application.organizer_name
           ? { organizer_name: application.organizer_name }
           : {}),

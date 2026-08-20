@@ -82,14 +82,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </Link>
 
       {/* Centered card */}
-      <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-sm lg:p-10">
+      {/* Carte plate, comme partout ailleurs depuis la V2 : le cadre net
+          remplace l'angle arrondi et l'ombre. C'est le premier ecran qu'on
+          voit du produit, il ne peut pas etre le seul a parler une autre
+          langue que les pages qui suivent. */}
+      <div className="w-full max-w-md border border-gray-200/70 bg-white p-8 lg:p-10">
         {children}
       </div>
 
       {/* Bottom link to home */}
       <Link
         href="/"
-        className="mt-6 text-xs font-semibold text-gray-400 transition-colors hover:text-gray-600"
+        className="mt-6 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-emerald-700"
       >
         Retour à l&apos;accueil
       </Link>

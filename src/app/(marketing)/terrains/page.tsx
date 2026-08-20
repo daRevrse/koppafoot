@@ -135,16 +135,16 @@ export default function TerrainsPage() {
             Référencer un terrain
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
-            Créez un compte, activez l&apos;espace terrain et saisissez votre
-            fiche : nom, ville, format, surface. Elle entre aussitôt dans la
-            recherche, là où les équipes cherchent où jouer.
+            Déposez la fiche de votre terrain : nom, ville, format, surface.
+            On la relit, puis elle entre dans la recherche — là où les équipes
+            cherchent où jouer.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <Link
-              href="/login"
+              href="/terrains/candidature"
               className="inline-flex items-center gap-2 border border-white bg-white px-8 py-5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-400 hover:bg-emerald-400"
             >
-              Créer mon compte
+              Référencer mon terrain
               <ArrowRight size={16} />
             </Link>
             <Link

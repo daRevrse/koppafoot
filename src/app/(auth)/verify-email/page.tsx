@@ -46,7 +46,7 @@ export default function VerifyEmailPage() {
         <p className="mb-6 text-sm text-gray-400">Votre adresse email est vérifiée.</p>
         <Link
           href="/"
-          className="inline-flex rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition-all"
+          className="inline-flex bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition-all"
         >
           Accéder à mon espace
         </Link>
@@ -83,7 +83,7 @@ export default function VerifyEmailPage() {
         <button
           onClick={handleResend}
           disabled={resending}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+          className="inline-flex items-center gap-2 bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
         >
           {resending ? (
             <Loader2 size={16} className="animate-spin" />

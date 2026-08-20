@@ -1,5 +1,6 @@
 "use client";
 
+import { isOrganizer as organizes } from "@/lib/hats";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -235,7 +236,7 @@ export default function AppSidebar() {
         : { label: "Évolution", Icon: Rocket }
     : null;
 
-  const isOrganizer = user?.userType === "organizer" || user?.userType === "superadmin";
+  const isOrganizer = organizes(user);
   const moderatesAny = !!user && moderatesUid === user.uid;
 
   // Order matters: what the user does most often comes first.
