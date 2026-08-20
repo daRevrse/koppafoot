@@ -207,12 +207,37 @@ service cloud.firestore {
     // ============================================
     // Bookings collection
     // ============================================
+    // Demandes de créneau.
+    //
+    // Lecture réservée aux deux parties : une demande dit qui joue où et
+    // quand, ça ne regarde que le demandeur et le propriétaire. Les créneaux
+    // OCCUPÉS sont publiés séparément par /api/public/venue/[id]/slots, qui
+    // ne sort que la date et l'heure — jamais le nom du demandeur.
     match /bookings/{bookingId} {
-      allow read: if isAuthenticated() 
+      allow read: if isAuthenticated()
         && (resource.data.owner_id == request.auth.uid || resource.data.user_id == request.auth.uid || isSuperAdmin());
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() 
-        && (resource.data.owner_id == request.auth.uid || resource.data.user_id == request.auth.uid || isSuperAdmin());
+
+      // `create` était ouvert à tout compte connecté, sans contrainte sur le
+      // contenu : on pouvait donc déposer une demande au nom de quelqu'un
+      // d'autre, ou l'écrire déjà confirmée. Le demandeur est désormais
+      // forcément l'auteur, et toute demande naît en attente.
+      allow create: if isAuthenticated()
+                    && request.resource.data.user_id == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.venue_id is string
+                    && request.resource.data.owner_id is string;
+
+      // Confirmer est le geste du PROPRIÉTAIRE. L'ancienne règle laissait les
+      // deux parties écrire n'importe quel statut : un demandeur pouvait
+      // confirmer sa propre réservation, ce qui vidait l'accord de son sens.
+      // Il lui reste l'annulation, qui est légitimement la sienne.
+      allow update: if isAuthenticated() && (
+        resource.data.owner_id == request.auth.uid
+        || (resource.data.user_id == request.auth.uid
+            && request.resource.data.status == 'cancelled')
+        || isSuperAdmin()
+      );
+
       allow delete: if isSuperAdmin();
     }
 

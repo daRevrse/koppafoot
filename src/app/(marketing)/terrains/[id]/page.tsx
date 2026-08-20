@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin, ArrowRight } from "lucide-react";
 import { adminDb } from "@/lib/firebase-admin";
+import BookingRequest from "@/components/venue/BookingRequest";
 
 // ============================================
 // La fiche publique d'un terrain.
@@ -30,6 +31,7 @@ const SURFACES: Record<string, string> = {
 };
 
 interface VenueView {
+  ownerId: string | null;
   name: string;
   address: string | null;
   city: string | null;
@@ -58,6 +60,7 @@ async function readVenue(id: string): Promise<VenueView | null> {
   }
 
   return {
+    ownerId,
     name: s(v.name) ?? "Terrain",
     address: s(v.address),
     city: s(v.city),
@@ -128,6 +131,15 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           {facts.map((f) => <Fact key={f.label} {...f} />)}
         </div>
 
+        {venue.ownerId && (
+          <BookingRequest
+            venueId={id}
+            venueName={venue.name}
+            ownerId={venue.ownerId}
+            available={venue.available}
+          />
+        )}
+
         {venue.owner && (
           <div className="mt-10 border border-gray-200/70 bg-white p-6">
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
@@ -137,8 +149,8 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               {venue.owner.name}
             </p>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-500">
-              La réservation ne se fait pas encore sur KoppaFoot : passez par sa
-              fiche pour le contacter et convenir d&apos;un créneau.
+              La demande de créneau passe par le formulaire ci-dessus. Sa fiche
+              reste là si vous préférez le contacter directement.
             </p>
             <Link
               href={`/profile/${venue.owner.uid}`}

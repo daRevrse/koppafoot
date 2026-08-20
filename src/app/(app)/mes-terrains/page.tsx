@@ -5,8 +5,11 @@ import Link from "next/link";
 import { MapPin, Plus, Trash2, Loader2, Pencil, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { onVenuesByOwner, createVenue, updateVenue, deleteVenue } from "@/lib/firestore";
-import type { Venue } from "@/types";
+import {
+  onVenuesByOwner, createVenue, updateVenue, deleteVenue,
+  onBookingsByOwner, updateBookingStatus,
+} from "@/lib/firestore";
+import type { Venue, Booking } from "@/types";
 
 // ============================================
 // Mes terrains — la gestion, côté propriétaire.
@@ -34,6 +37,13 @@ const SURFACES = [
   { value: "hybrid", label: "Hybride" },
   { value: "indoor", label: "Intérieur" },
 ];
+
+/** « samedi 23 août » — la date d'un créneau, telle qu'on la dit. */
+function longDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+}
 
 const label = (list: { value: string; label: string }[], v: string) =>
   list.find((x) => x.value === v)?.label ?? v;
@@ -187,10 +197,17 @@ export default function MyVenuesPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft(""));
   const [busy, setBusy] = useState(false);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
   useEffect(() => {
     if (!user) return;
     const unsub = onVenuesByOwner(user.uid, setVenues);
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onBookingsByOwner(user.uid, setBookings);
     return unsub;
   }, [user]);
 
@@ -203,6 +220,15 @@ export default function MyVenuesPage() {
   }
 
   if (!user) return null;
+
+  // Le passe ne demande plus rien : une demande pour hier n'a pas a occuper
+  // la boite de reception.
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = bookings.filter((b) => b.date >= today);
+  const pending = upcoming.filter((b) => b.status === "pending");
+  const confirmed = upcoming
+    .filter((b) => b.status === "confirmed")
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
   const startAdd = () => {
     setDraft(emptyDraft(user.locationCity ?? ""));
@@ -248,6 +274,16 @@ export default function MyVenuesPage() {
     }
   };
 
+  const answer = async (b: Booking, status: "confirmed" | "cancelled") => {
+    try {
+      await updateBookingStatus(b.id, status);
+      toast.success(status === "confirmed" ? "Créneau confirmé" : "Demande refusée");
+    } catch (err) {
+      console.error("Booking answer failed:", err);
+      toast.error("L'enregistrement a échoué");
+    }
+  };
+
   const remove = async (v: Venue) => {
     if (!confirm(`Retirer « ${v.name} » de la plateforme ? Les équipes ne le trouveront plus.`)) return;
     try {
@@ -289,7 +325,70 @@ export default function MyVenuesPage() {
         </div>
       </section>
 
-      <div className="mt-6 space-y-4">
+      {/* Les demandes d'abord : c'est ce qui attend une reponse. La liste des
+          terrains, elle, ne bouge pas d'un jour a l'autre. */}
+      {pending.length > 0 && (
+        <section className="mt-6">
+          <h2 className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+            Demandes en attente ({pending.length})
+          </h2>
+          <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
+            {pending.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900">{b.userName || "Un joueur"}</p>
+                  <p className="mt-1 text-[11px] font-bold text-gray-500">
+                    {b.venueName} · {longDate(b.date)} à {b.time} · {b.duration} h
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => answer(b, "confirmed")}
+                    className="flex items-center gap-1.5 border border-gray-900 bg-gray-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
+                  >
+                    <Check size={13} /> Confirmer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => answer(b, "cancelled")}
+                    className="flex items-center gap-1.5 border border-gray-200/70 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:border-red-500 hover:text-red-500"
+                  >
+                    <X size={13} /> Refuser
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {confirmed.length > 0 && (
+        <section className="mt-8">
+          <h2 className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+            Créneaux confirmés
+          </h2>
+          <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
+            {confirmed.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
+                <p className="text-[11px] font-bold text-gray-600">
+                  <span className="text-gray-900">{b.userName || "Un joueur"}</span>
+                  {" · "}{b.venueName} · {longDate(b.date)} à {b.time} · {b.duration} h
+                </p>
+                <button
+                  type="button"
+                  onClick={() => answer(b, "cancelled")}
+                  className="shrink-0 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500"
+                >
+                  Annuler
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="mt-8 space-y-4">
         {!adding && !editing && (
           <button
             type="button"

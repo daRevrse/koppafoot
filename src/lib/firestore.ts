@@ -2300,6 +2300,51 @@ export async function deleteVenue(venueId: string): Promise<void> {
   await deleteDoc(doc(db, "venues", venueId));
 }
 
+/**
+ * Dépose une demande de créneau.
+ *
+ * Toujours en `pending` : la confirmation appartient au propriétaire, et les
+ * règles refusent d'ailleurs qu'une demande naisse dans un autre état.
+ *
+ * `total_price` reste à zéro — la plateforme n'encaisse rien et ne connaît
+ * pas les tarifs. Le champ existe dans le modèle, on ne lui fait pas dire ce
+ * qu'on ne sait pas.
+ */
+export async function createBooking(data: {
+  venueId: string;
+  venueName: string;
+  ownerId: string;
+  userId: string;
+  userName: string;
+  date: string;
+  time: string;
+  duration: number;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "bookings"), {
+    venue_id: data.venueId,
+    venue_name: data.venueName,
+    owner_id: data.ownerId,
+    user_id: data.userId,
+    user_name: data.userName,
+    date: data.date,
+    time: data.time,
+    duration: data.duration,
+    total_price: 0,
+    status: "pending",
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Les demandes déposées par ce compte, la plus récente d'abord. */
+export function onBookingsByUser(userId: string, callback: (data: Booking[]) => void): Unsubscribe {
+  const q = query(collection(db, "bookings"), where("user_id", "==", userId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toBooking(d.id, d.data() as FirestoreBooking)));
+  });
+}
+
 export function onBookingsByOwner(ownerId: string, callback: (data: Booking[]) => void): Unsubscribe {
   const q = query(collection(db, "bookings"), where("owner_id", "==", ownerId), orderBy("created_at", "desc"));
   return onSnapshot(q, (snap) => {
