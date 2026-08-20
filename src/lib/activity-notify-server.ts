@@ -4,13 +4,13 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { NotificationType } from "@/types";
 
 // ============================================
-// activity-notify-server — la vie d'une équipe, poussée à ceux qu'elle
+// activity-notify-server, la vie d'une équipe, poussée à ceux qu'elle
 // concerne.
 //
 // Jusqu'ici une notification n'existait que pour ce qui vous était adressé
 // personnellement (invitation, convocation, défi). Un joueur ne savait donc
 // jamais qu'un coéquipier était arrivé ou parti, ni que son équipe venait
-// d'être inscrite quelque part — l'information vivait uniquement dans la page
+// d'être inscrite quelque part, l'information vivait uniquement dans la page
 // de l'équipe, qu'il faut penser à ouvrir.
 //
 // Deux audiences distinctes pour le même événement :
@@ -23,7 +23,7 @@ import type { NotificationType } from "@/types";
 // l'onglet se ferme au milieu.
 // ============================================
 
-/** Plafond par diffusion — une équipe très suivie ne doit pas faire exploser
+/** Plafond par diffusion, une équipe très suivie ne doit pas faire exploser
  *  un accept de candidature. Au-delà, seuls les premiers sont notifiés. */
 const MAX_FOLLOWERS = 300;
 
@@ -92,7 +92,7 @@ async function followersOfUser(userId: string): Promise<string[]> {
 /**
  * Diffuse un événement d'équipe.
  *
- * @param actorId  Celui qui a provoqué l'événement — il ne se le fait pas
+ * @param actorId  Celui qui a provoqué l'événement, il ne se le fait pas
  *                 raconter à lui-même.
  * @returns le nombre de destinataires réellement écrits.
  */
@@ -100,7 +100,7 @@ export async function notifyTeamActivity(input: {
   teamId: string;
   event: TeamActivityEvent;
   actorId?: string | null;
-  /** member_joined / member_left — le joueur concerné. */
+  /** member_joined / member_left, le joueur concerné. */
   playerId?: string | null;
   playerName?: string;
   /** competition_entered. */
@@ -136,7 +136,7 @@ export async function notifyTeamActivity(input: {
   const recipients = new Map<string, Recipient>();
   for (const uid of insiders) recipients.set(uid, { userId: uid, type: "team_activity" });
 
-  // Puis les abonnés — équipe, et joueur quand il en est le sujet. Un membre
+  // Puis les abonnés, équipe, et joueur quand il en est le sujet. Un membre
   // qui suit aussi l'équipe garde sa notification d'effectif : le premier
   // enregistrement gagne.
   const [teamFollowers, playerFollowers] = await Promise.all([

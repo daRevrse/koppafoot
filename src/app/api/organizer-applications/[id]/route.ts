@@ -5,7 +5,7 @@ import { sendNotificationEmail, organizerApplicationDecisionHtml } from "@/lib/e
 import { sendPushToUser } from "@/lib/fcm-server";
 
 /**
- * PATCH /api/organizer-applications/[id] — superadmin decision.
+ * PATCH /api/organizer-applications/[id], superadmin decision.
  * Body: { action: "approve" | "reject" }
  * Approve promotes the applicant to user_type "organizer"; both branches
  * notify the applicant (email + push, best-effort).
@@ -58,7 +58,7 @@ export async function PATCH(
     if (approved) {
       // Le nom d'organisateur passe de la candidature au profil : c'est lui
       // qui sera estampillé sur chaque compétition créée ensuite. Les
-      // candidatures antérieures au champ n'en ont pas — le profil reste
+      // candidatures antérieures au champ n'en ont pas, le profil reste
       // alors vide et « Organisé par » ne s'affiche simplement pas.
       // `is_organizer` et NON `user_type: "organizer"`.
       //
@@ -78,15 +78,15 @@ export async function PATCH(
 
     // Awaited: serverless instances freeze once the response is returned, so
     // an un-awaited email or push is simply lost. `allSettled` keeps both
-    // best-effort — the decision is already written.
+    // best-effort, the decision is already written.
     const firstName = (application.name as string)?.split(" ")[0] ?? "toi";
     await Promise.allSettled([
       application.email
         ? sendNotificationEmail(
             application.email,
             approved
-              ? "Candidature acceptée — bienvenue parmi les organisateurs !"
-              : "Ta candidature organisateur — KoppaFoot",
+              ? "Candidature acceptée, bienvenue parmi les organisateurs !"
+              : "Ta candidature organisateur, KoppaFoot",
             organizerApplicationDecisionHtml(firstName, approved),
           ).catch((e) => {
             console.warn("[organizer-applications PATCH] email failed:", e?.message);

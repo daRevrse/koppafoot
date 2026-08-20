@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
-// Team-manager invitation — accept page (link sent by email).
+// Team-manager invitation, accept page (link sent by email).
 // Public path: guests see the invite and get login/signup CTAs that
 // bounce back here; logged-in users accept in one tap (the API checks
 // that their email matches the invited one).

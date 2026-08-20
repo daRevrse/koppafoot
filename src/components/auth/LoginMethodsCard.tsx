@@ -16,7 +16,7 @@ import {
 } from "@/lib/phone";
 
 // ============================================
-// Méthodes de connexion — lists the providers already attached to the
+// Méthodes de connexion, lists the providers already attached to the
 // Firebase account and lets the user add the missing one. Without this a
 // user who signed up by email and later signs in by phone lands on a
 // second, empty account.
@@ -77,7 +77,7 @@ export default function LoginMethodsCard() {
     recaptchaVerifier.current = null;
   };
 
-  // Fresh verifier AND fresh container on every attempt — see lib/recaptcha.
+  // Fresh verifier AND fresh container on every attempt, see lib/recaptcha.
   const requestCode = async (e164: string) => {
     if (!recaptchaRef.current) throw new Error("reCAPTCHA indisponible");
     recaptchaVerifier.current = createRecaptchaVerifier(
@@ -130,7 +130,7 @@ export default function LoginMethodsCard() {
     setSubmitting(true);
     try {
       await linkEmail(email.trim(), password);
-      toast.success("Email ajouté — vérifie ta boîte mail");
+      toast.success("Email ajouté, vérifie ta boîte mail");
       closePanel();
     } catch (err) {
       toast.error(getAuthErrorMessage(err));
@@ -203,7 +203,7 @@ export default function LoginMethodsCard() {
           )}
         </div>
 
-        {/* Google — linking is a popup flow we don't expose yet */}
+        {/* Google, linking is a popup flow we don't expose yet */}
         {hasGoogle && (
           <div className="flex items-center justify-between gap-3 py-3">
             <div className="flex min-w-0 items-center gap-3">

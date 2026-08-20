@@ -5,8 +5,8 @@ import { getConfirmedMovements } from "@/lib/mercato-admin";
 //
 // No auth check, deliberately: a signed move is public information, and the
 // point of this route is that a visitor with no account can see the market
-// is alive. Pending requests never come through here — getConfirmedMovements
-// filters on status == "accepted" — so nothing private leaks.
+// is alive. Pending requests never come through here, getConfirmedMovements
+// filters on status == "accepted", so nothing private leaks.
 
 export const revalidate = 300;
 

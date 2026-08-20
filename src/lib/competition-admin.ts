@@ -1,6 +1,6 @@
 // Server-only lib for public competition discovery (landing + /competitions).
 // Uses firebase-admin (adminDb) and the SDK-agnostic mappers. MUST NOT be
-// imported into any client component — it would leak server credentials.
+// imported into any client component, it would leak server credentials.
 // Every function degrades gracefully (returns [] / null) so public pages never
 // crash if Firestore is unreachable at prerender/request time.
 
@@ -83,7 +83,7 @@ export interface CompetitionHeroSlide {
  * competition (the whole comp_matches collection), derived in memory. Degrades
  * to [] on error.
  */
-/** One competition with ALL its fixtures — the Direct feed reads across them. */
+/** One competition with ALL its fixtures, the Direct feed reads across them. */
 export interface CompetitionFeed {
   competition: Competition;
   matches: CompMatch[];
@@ -157,7 +157,7 @@ export async function getHeroCompetitions(maxComps = 5): Promise<CompetitionHero
 /** Everything the public join page needs, in one server round-trip. */
 export interface CompetitionLanding {
   competition: Competition;
-  /** Teams already in — the social proof of the page. */
+  /** Teams already in, the social proof of the page. */
   teams: { id: string; name: string; logoUrl: string | null }[];
   matchCount: number;
 }
@@ -170,7 +170,7 @@ export interface CompetitionLanding {
  * gets a title, a description and a thumbnail in the preview if the HTML
  * carries them before any JavaScript runs.
  *
- * Returns null for an unknown slug AND for a draft competition — a draft is
+ * Returns null for an unknown slug AND for a draft competition, a draft is
  * not public, and handing out its address would leak an unannounced event.
  */
 export async function getCompetitionLanding(slug: string): Promise<CompetitionLanding | null> {

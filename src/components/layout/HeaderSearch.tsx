@@ -12,7 +12,7 @@ import type { Team } from "@/types";
 // HeaderSearch
 //
 // One bar, two destinations. Teams resolve here, in a dropdown that goes
-// straight to the club — a team is a single thing you are looking for, not a
+// straight to the club, a team is a single thing you are looking for, not a
 // list you browse, so sending it through a directory page was a detour.
 // Competitions still go to /competitions?q=, which is a directory worth
 // landing on.
@@ -72,7 +72,7 @@ export default function HeaderSearch() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // Results belong to the term they were fetched for — anything else is stale,
+  // Results belong to the term they were fetched for, anything else is stale,
   // which is also how "loading" is derived rather than tracked separately.
   const resolved = hits?.term === trimmed;
   const teams = useMemo(() => (resolved ? (hits?.items ?? []) : []), [resolved, hits]);

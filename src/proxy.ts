@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // ============================================
-// Edge gating — deliberately almost nothing.
+// Edge gating, deliberately almost nothing.
 //
 // This used to bounce every signed-out visitor on a protected route to
 // /login?redirect=..., before React ran. Signing in now happens in a dialog
 // on the page itself (see AuthModal / AuthRequired), so that bounce threw
 // away the address the visitor had asked for and lost whatever they were
 // doing. The layouts ask for the account in place, and firestore.rules
-// remains the thing that actually enforces access — this file never was a
+// remains the thing that actually enforces access, this file never was a
 // security boundary, only a UX one.
 //
 // Two redirects are left, and both are about pages that cannot show anything
@@ -19,12 +19,12 @@ import type { NextRequest } from "next/server";
 /** An account exists but has no profile yet: /get-started is a form. */
 const ONBOARDING_ROUTES = ["/get-started"];
 
-/** Signed in already — the login and signup screens have nothing to offer. */
+/** Signed in already, the login and signup screens have nothing to offer. */
 const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/verify-email"];
 
 /**
  * Addresses that moved. /devenir-organisateur was handed out in messages and
- * printed on posters before the organizer site existed — it has to keep
+ * printed on posters before the organizer site existed, it has to keep
  * landing somewhere sensible.
  */
 const MOVED: Record<string, string> = {
@@ -59,7 +59,7 @@ export function proxy(request: NextRequest) {
   // protected page gets "Connexion requise" and the sign-in dialog over it;
   // once the account lands, the page below renders itself. Role checks
   // (organizer, live-ops, admin) stay client-side in the layouts, which can
-  // read the Firestore profile — the edge cannot.
+  // read the Firestore profile, the edge cannot.
   return NextResponse.next();
 }
 

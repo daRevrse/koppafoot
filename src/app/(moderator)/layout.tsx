@@ -11,7 +11,7 @@ import AuthRequired from "@/components/auth/AuthRequired";
 
 // "Live ops" space for moderators. Access is CONTROLLED: besides
 // authentication, the user must moderate at least one competition (or be
-// a superadmin) — everyone else is sent home. Per-competition membership
+// a superadmin), everyone else is sent home. Per-competition membership
 // stays enforced on the pages + by Firestore rules.
 //
 // The list screens render inside the SHARED app shell (they used to have
@@ -29,7 +29,7 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
   const [moderatesOk, setModeratesOk] = useState(false);
   const [checked, setChecked] = useState(false);
 
-  // Superadmin access is a property of the profile, not a lookup — derive it
+  // Superadmin access is a property of the profile, not a lookup, derive it
   // rather than writing it into state from inside the effect.
   const isSuperadmin = user?.userType === "superadmin";
   const allowed = isSuperadmin || moderatesOk;

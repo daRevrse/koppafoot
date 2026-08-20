@@ -14,7 +14,7 @@ import type { SignupData } from "@/types";
 // ============================================
 // Schema
 // ============================================
-// Post-pivot: single account type — everyone completes a simple member
+// Post-pivot: single account type, everyone completes a simple member
 // profile (stored as "player"). Organizer / live-ops / superadmin are
 // granted by promotion.
 
@@ -26,7 +26,7 @@ const schema = yup.object({
 
 type FormData = yup.InferType<typeof schema>;
 
-// Same field styling as the (auth) pages — this screen is the tail of the
+// Same field styling as the (auth) pages, this screen is the tail of the
 // same funnel and must not read as a different product.
 const inputClass =
   "w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";

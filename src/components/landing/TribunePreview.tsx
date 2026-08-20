@@ -9,7 +9,7 @@ import type { PublicPost } from "@/lib/posts-admin";
 // TribunePreview
 // ============================================
 // Preview of recent public feed posts. Receives a PLAIN PublicPost[] from the
-// page Server Component (page.tsx fetches via @/lib/posts-admin) — never imports
+// page Server Component (page.tsx fetches via @/lib/posts-admin), never imports
 // the server-only lib.
 //
 // Author avatars are arbitrary URLs → plain <img> (initials fallback).
@@ -50,7 +50,7 @@ function ScoreLine({ post }: { post: PublicPost }) {
   return (
     <div className="mt-3 flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
       <span className="flex-1 truncate text-right text-sm font-bold text-gray-900">
-        {m.homeTeam ?? "—"}
+        {m.homeTeam ?? ","}
       </span>
       <span className="shrink-0 rounded-lg bg-gray-900 px-3 py-1 font-display text-sm font-black tabular-nums text-white">
         {m.scoreHome}
@@ -58,7 +58,7 @@ function ScoreLine({ post }: { post: PublicPost }) {
         {m.scoreAway}
       </span>
       <span className="flex-1 truncate text-left text-sm font-bold text-gray-900">
-        {m.awayTeam ?? "—"}
+        {m.awayTeam ?? ","}
       </span>
     </div>
   );

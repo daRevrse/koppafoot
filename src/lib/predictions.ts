@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 // ============================================
 // Pronostics « qui va gagner ? ».
 //
-// Un compte, un match, un pronostic — et c'est l'identifiant du document qui
+// Un compte, un match, un pronostic, et c'est l'identifiant du document qui
 // le garantit : `${matchId}__${uid}`. Pas de requête de vérification, pas de
 // course entre deux onglets ouverts, et la règle Firestore n'a qu'une égalité
 // à contrôler.

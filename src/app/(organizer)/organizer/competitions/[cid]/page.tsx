@@ -38,7 +38,7 @@ export default function CompetitionDashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [competition, setCompetition] = useState<Competition | null>(null);
-  // Teams and fixtures drive the progression below — every step reads its
+  // Teams and fixtures drive the progression below, every step reads its
   // state from the real documents rather than from a stored checklist.
   const [teams, setTeams] = useState<CompTeam[]>([]);
   const [matches, setMatches] = useState<CompMatch[]>([]);
@@ -54,7 +54,7 @@ export default function CompetitionDashboardPage() {
   const [fBannerUrl, setFBannerUrl] = useState("");
   const [fBannerFile, setFBannerFile] = useState<File | null>(null);
   const [fFormat, setFFormat] = useState<CompetitionFormat | null>(null);
-  // Entry file — règlement and fee. Off unless the organizer fills them in.
+  // Entry file, règlement and fee. Off unless the organizer fills them in.
   const [fRulesText, setFRulesText] = useState("");
   const [fRulesUrl, setFRulesUrl] = useState("");
   const [fRequireRules, setFRequireRules] = useState(false);
@@ -185,7 +185,7 @@ export default function CompetitionDashboardPage() {
         `${competition.name} (copie)`,
         user.uid,
       );
-      toast.success("Compétition dupliquée — équipes reprises, calendrier vierge");
+      toast.success("Compétition dupliquée, équipes reprises, calendrier vierge");
       router.push(`/organizer/competitions/${newId}`);
     } catch (err) {
       console.error("Error duplicating competition:", err);
@@ -281,7 +281,7 @@ export default function CompetitionDashboardPage() {
           that page is what fills the competition. */}
       <CompetitionShareCard competition={competition} teamCount={teams.length} />
 
-      {/* Then the sequence — what is done, what is next. */}
+      {/* Then the sequence, what is done, what is next. */}
       <OrganizerProgress
         competition={competition}
         teams={teams}
@@ -289,7 +289,7 @@ export default function CompetitionDashboardPage() {
         loading={progressLoading}
       />
 
-      {/* Status control — a draft competition is invisible to the public, so
+      {/* Status control, a draft competition is invisible to the public, so
           publishing has to be an explicit act, not a side effect of
           generating fixtures. */}
       <div className=" border border-gray-200/70 bg-white p-5">
@@ -345,7 +345,7 @@ export default function CompetitionDashboardPage() {
           </button>
         </div>
         <p className="mt-2 text-xs text-gray-400">
-          La duplication reprend le type, le format et les équipes — sans le calendrier ni les résultats.
+          La duplication reprend le type, le format et les équipes, sans le calendrier ni les résultats.
         </p>
       </div>
 
@@ -474,7 +474,7 @@ export default function CompetitionDashboardPage() {
                 {fFormat && (
                   <div className="border-t border-gray-200/70 pt-4">
                     <p className="mb-1 text-sm font-semibold text-gray-900">
-                      Format — {COMPETITION_TYPE_LABELS[type]}
+                      Format, {COMPETITION_TYPE_LABELS[type]}
                     </p>
                     <p className="mb-4 text-xs text-gray-400">
                       Le type ne peut pas changer après la création. Les modifications de
@@ -493,7 +493,7 @@ export default function CompetitionDashboardPage() {
                     Dossier d&apos;inscription
                   </p>
                   <p className="mb-4 text-xs text-gray-400">
-                    Tout est facultatif. Laissé vide, l&apos;inscription reste en un clic —
+                    Tout est facultatif. Laissé vide, l&apos;inscription reste en un clic,
                     chaque exigence ajoutée fait tomber des inscriptions.
                   </p>
 

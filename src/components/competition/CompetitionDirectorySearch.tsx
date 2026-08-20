@@ -24,7 +24,7 @@ const SECTIONS: { title: string; statuses: Competition["status"][] }[] = [
 type Tab = "local" | "world";
 
 // Client directory island. Receives already-fetched competitions as props so the
-// firebase-admin lib (competition-admin) stays out of the client bundle — and,
+// firebase-admin lib (competition-admin) stays out of the client bundle, and,
 // for the world game, so does the server-only football-data lib (the
 // FootballCompetition import here is a type, erased at compile time).
 //
@@ -42,13 +42,13 @@ export default function CompetitionDirectorySearch({
   competitions: Competition[];
   worldCompetitions?: FootballCompetition[];
 }) {
-  // The header search bar navigates to /competitions?q=… — this page follows
+  // The header search bar navigates to /competitions?q=…, this page follows
   // that param (the header can push a new q while the page is already mounted).
   // Requires a <Suspense> boundary upstream.
   const query = useSearchParams().get("q") ?? "";
 
   // The chosen tab is remembered against the query it was chosen for. That way
-  // an explicit click always wins, but changing the search starts fresh — no
+  // an explicit click always wins, but changing the search starts fresh, no
   // effect syncing state to state.
   const [choice, setChoice] = useState<{ query: string; tab: Tab } | null>(null);
 
@@ -60,7 +60,7 @@ export default function CompetitionDirectorySearch({
     return competitions.filter((c) => fold(`${c.name} ${c.venueCity ?? ""}`).includes(q));
   }, [query, competitions]);
 
-  // Same query drives the world game — searching "espagne" or "ligue 1" has to
+  // Same query drives the world game, searching "espagne" or "ligue 1" has to
   // reach it too, so it matches on name + country + code.
   const filteredWorld = useMemo(() => {
     const q = fold(query.trim());
@@ -99,7 +99,7 @@ export default function CompetitionDirectorySearch({
   return (
     <div className="space-y-6">
       {/* An active search comes from the header and is otherwise invisible on
-          this page — say what is being filtered, and offer the way out. */}
+          this page, say what is being filtered, and offer the way out. */}
       {query.trim() && (
         <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-2.5">
           <Search size={14} className="shrink-0 text-emerald-500" />

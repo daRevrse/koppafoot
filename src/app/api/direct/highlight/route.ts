@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { getDirectFeed } from "@/lib/competition-admin";
 
 /**
- * GET /api/direct/highlight — un match à pronostiquer par compétition locale.
+ * GET /api/direct/highlight, un match à pronostiquer par compétition locale.
  *
  * Uniquement les compétitions de la plateforme : `getDirectFeed` ne lit que
  * Firestore, donc rien de ce qui vient du fournisseur externe n'entre ici.
- * C'est voulu — on ne pronostique que les matchs qu'on gère, et un match de
+ * C'est voulu, on ne pronostique que les matchs qu'on gère, et un match de
  * football-data.org n'a même pas de page chez nous.
  *
  * Pour chaque compétition : le match en cours, sinon le prochain programmé,

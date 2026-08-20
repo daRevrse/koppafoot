@@ -98,7 +98,7 @@ export default function CompetitionStaffPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [revokingCode, setRevokingCode] = useState<string | null>(null);
   const [revokingGrant, setRevokingGrant] = useState<string | null>(null);
-  /** The code that was just minted — shown once, big, ready to be shared. */
+  /** The code that was just minted, shown once, big, ready to be shared. */
   const [freshCode, setFreshCode] = useState<CodeRow | null>(null);
 
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function CompetitionStaffPage() {
     };
   }, [competition?.moderatorIds]);
 
-  // Codes never reach the browser through Firestore — they are secrets, so
+  // Codes never reach the browser through Firestore, they are secrets, so
   // the API is the only way to see them, and only as an organizer.
   const loadCodes = useCallback(async () => {
     if (!firebaseUser || !cid) return;
@@ -204,12 +204,12 @@ export default function CompetitionStaffPage() {
       setTimeout(() => setCopiedCode(null), 2000);
       toast.success(what === "code" ? "Code copié" : "Lien copié");
     } catch {
-      toast.error("Copie impossible — sélectionne le code à la main");
+      toast.error("Copie impossible, sélectionne le code à la main");
     }
   };
 
   const handleShare = async (row: CodeRow) => {
-    const text = `Accès staff « ${row.label} » — ${describeStaffScope(row.scope)}\nCode : ${formatStaffCode(row.code)}\n${linkFor(row.code)}`;
+    const text = `Accès staff « ${row.label} », ${describeStaffScope(row.scope)}\nCode : ${formatStaffCode(row.code)}\n${linkFor(row.code)}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: "Accès staff KoppaFoot", text });
@@ -228,7 +228,7 @@ export default function CompetitionStaffPage() {
     }
     const label = form.label.trim();
     if (!label) {
-      toast.error("Donne un nom à ce code (ex : « Kodjo — poule A »)");
+      toast.error("Donne un nom à ce code (ex : « Kodjo, poule A »)");
       return;
     }
     const scope = keyToScope(form.scopeKey, matches);
@@ -485,7 +485,7 @@ export default function CompetitionStaffPage() {
             </div>
             <p className="mt-3 text-sm font-bold text-gray-900">Aucun code actif</p>
             <p className="mx-auto mt-1 max-w-sm text-xs text-gray-500">
-              Crée un code pour le bénévole qui tiendra la feuille de match — tu peux le
+              Crée un code pour le bénévole qui tiendra la feuille de match, tu peux le
               limiter à une poule, une phase, ou un seul match.
             </p>
           </div>
@@ -757,7 +757,7 @@ export default function CompetitionStaffPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Kodjo — poule A"
+                    placeholder="Kodjo, poule A"
                     value={form.label}
                     onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
                     className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"

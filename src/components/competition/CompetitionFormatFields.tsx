@@ -7,7 +7,7 @@ import {
 import type { CompetitionFormat, CompetitionType } from "@/types";
 
 // ============================================
-// Format fields — the inputs that make sense for the picked type. Shared by
+// Format fields, the inputs that make sense for the picked type. Shared by
 // the creation page and the organizer's format editor so the two can never
 // drift apart.
 // ============================================
@@ -82,7 +82,7 @@ export default function CompetitionFormatFields({
 
   return (
     <div className="space-y-5">
-      {/* Règles du jeu — vraies pour toutes les formes de tournoi. Le NvN
+      {/* Règles du jeu, vraies pour toutes les formes de tournoi. Le NvN
           plafonne les titulaires de la feuille de match et la durée cale
           l'horloge de la console live. */}
       <div className="grid gap-5 sm:grid-cols-2">
@@ -195,7 +195,7 @@ export default function CompetitionFormatFields({
         )}
       </div>
 
-      {/* Points — only meaningful when a table is computed */}
+      {/* Points, only meaningful when a table is computed */}
       {groups && (
         <div>
           <p className="mb-2 text-sm font-medium text-gray-700">Points</p>

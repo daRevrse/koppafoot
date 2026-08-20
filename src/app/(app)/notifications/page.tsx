@@ -13,7 +13,7 @@ import type { Notification, NotificationType } from "@/types";
 import NotificationModal from "@/components/notifications/NotificationModal";
 
 // ============================================
-// /notifications — l'écran qui manquait derrière la cloche.
+// /notifications, l'écran qui manquait derrière la cloche.
 //
 // Le dropdown du header coupe le corps du message à deux lignes et ne garde
 // que les plus récentes : rien ne permettait de relire une notification, ni
@@ -53,7 +53,7 @@ const TEAM_TYPES: NotificationType[] = [
 
 function dayKey(iso: string): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return ",";
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 

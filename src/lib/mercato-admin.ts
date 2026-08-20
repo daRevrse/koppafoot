@@ -2,7 +2,7 @@
 // (adminDb), so it must never be imported into a client component.
 //
 // Why it exists: join requests and invitations live behind isAuthenticated()
-// in firestore.rules, and that rule is right — a pending request is private
+// in firestore.rules, and that rule is right, a pending request is private
 // business between a player and a manager. But a CONFIRMED move is news: the
 // club has a new player, and that is exactly the kind of thing the public
 // board should carry. Reading it here with admin credentials publishes the
@@ -22,7 +22,7 @@ export interface Movement {
   teamName: string;
   teamLogo: string | null;
   teamId: string;
-  /** How the move happened — a club called, or a player knocked. */
+  /** How the move happened, a club called, or a player knocked. */
   kind: "invitation" | "candidature";
   /** ISO date of the confirmation. */
   at: string;
@@ -49,7 +49,7 @@ const str = (v: unknown): string | null =>
 
 /**
  * These documents store `created_at` / `updated_at` as Firestore Timestamps,
- * not ISO strings — reading them as text yields nothing, which is exactly how
+ * not ISO strings, reading them as text yields nothing, which is exactly how
  * this page first shipped showing no movements at all despite eighteen of
  * them sitting in the database.
  */
@@ -116,7 +116,7 @@ export async function getConfirmedMovements(max = 20): Promise<Movement[]> {
     });
 
     // A player can be invited AND apply to the same club, and both get
-    // accepted — that is one arrival, not two. Keep the most recent record
+    // accepted, that is one arrival, not two. Keep the most recent record
     // of each (player, club) pair.
     const seen = new Set<string>();
     const merged = [...fromInvites, ...fromRequests]
@@ -145,8 +145,8 @@ export async function getConfirmedMovements(max = 20): Promise<Movement[]> {
  * totalite des dossiers existants : ils n'ont jamais ete remplis a l'ecriture.
  * Le rail affichait donc douze jeux d'initiales et douze ecussons par defaut.
  *
- * Plutot que de reparer l'ecriture retroactivement — ce qui demanderait une
- * migration et ne reglerait rien pour les dossiers deja passes — on relit la
+ * Plutot que de reparer l'ecriture retroactivement, ce qui demanderait une
+ * migration et ne reglerait rien pour les dossiers deja passes, on relit la
  * source de verite : `users` et `teams`. C'est ce que fait deja la page
  * mercato cote client, ici en une passe et avec le SDK admin.
  *

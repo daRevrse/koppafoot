@@ -8,12 +8,12 @@ import {
 import type { Competition } from "@/types";
 
 // ============================================
-// CompetitionShareCard — the payoff, shown to the organizer.
+// CompetitionShareCard, the payoff, shown to the organizer.
 //
 // A competition on KoppaFoot produces a public page, and that page is the
 // organizer's recruiting tool: it is what they send to a club president on
 // WhatsApp to get a team signed up, and what a supporter opens to follow the
-// scores. The organizer space never said so — it opened on a list of admin
+// scores. The organizer space never said so, it opened on a list of admin
 // screens (teams, poules, calendrier), so the one asset worth sharing stayed
 // invisible.
 //
@@ -39,7 +39,7 @@ export default function CompetitionShareCard({
 
   const share = async () => {
     const text = open
-      ? `${competition.name} — les inscriptions sont ouvertes. Inscris ton équipe :`
+      ? `${competition.name}, les inscriptions sont ouvertes. Inscris ton équipe :`
       : `Suis ${competition.name} en direct sur KoppaFoot :`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -56,7 +56,7 @@ export default function CompetitionShareCard({
       setFeedback("copied");
       setTimeout(() => setFeedback(null), 2500);
     } catch {
-      /* nothing more to offer — the address is on screen to copy by hand */
+      /* nothing more to offer, the address is on screen to copy by hand */
     }
   };
 

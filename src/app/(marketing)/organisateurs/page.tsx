@@ -17,11 +17,11 @@ import {
 //
 // Every claim is something the product does today. No invented numbers, no
 // testimonials, no logos of clubs that never said yes. Pricing is absent
-// because nobody has decided it yet — better a gap than a guess.
+// because nobody has decided it yet, better a gap than a guess.
 // ============================================
 
 export const metadata = {
-  title: "Organiser une compétition — KoppaFoot",
+  title: "Organiser une compétition, KoppaFoot",
   description:
     "Calendrier, poules, classements et scores en direct : KoppaFoot tient ta compétition et la met devant les supporters. Candidature en deux minutes.",
   openGraph: {
@@ -89,7 +89,7 @@ const QUESTIONS = [
   },
   {
     q: "Et quand l'édition est finie ?",
-    a: "Elle reste en ligne — résultats, classement final, statistiques. C'est l'archive de cette édition, et l'argument pour la suivante.",
+    a: "Elle reste en ligne, résultats, classement final, statistiques. C'est l'archive de cette édition, et l'argument pour la suivante.",
   },
 ];
 
@@ -157,7 +157,7 @@ export default function OrganizersLandingPage() {
 
             <div className="lg:pt-4">
               <p className="text-2xl font-bold leading-snug text-gray-900 sm:text-3xl">
-                Tu saisis les matchs. Tout le reste en découle — classements,
+                Tu saisis les matchs. Tout le reste en découle, classements,
                 statistiques, page publique, notifications aux supporters.
               </p>
               <p className="mt-8 text-base leading-relaxed text-gray-500">
@@ -214,7 +214,7 @@ export default function OrganizersLandingPage() {
           <p className="mt-10 max-w-xl text-lg leading-relaxed text-emerald-100/70">
             Une compétition créée ici n&apos;est pas rangée dans un coin
             d&apos;administration. Elle apparaît sur la page d&apos;accueil, dans
-            le tableau du direct, avec les autres — devant des supporters qui ne
+            le tableau du direct, avec les autres, devant des supporters qui ne
             connaissaient ni ton tournoi ni tes équipes.
           </p>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white">

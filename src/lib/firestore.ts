@@ -217,7 +217,7 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
-    // Le role Evolution — ce qu'on est sur le terrain, par opposition a
+    // Le role Evolution, ce qu'on est sur le terrain, par opposition a
     // `user_type` qui dit ce qu'est le compte. Il manquait ici alors que
     // AuthContext et la projection publique le portent tous les deux : une
     // fiche lue par un visiteur l'avait donc, la meme fiche relue une fois
@@ -406,7 +406,7 @@ export async function createTeam(data: {
  * match incrémente `teams/{away_team_id}` et un update sur un doc absent fait
  * échouer tout le batch. Le doc appartient à son créateur (`manager_id`), ce
  * qui lui donne au passage le droit d'écriture sur la sous-collection
- * `ghost_players` — l'effectif de l'adversaire.
+ * `ghost_players`, l'effectif de l'adversaire.
  *
  * `is_recruiting: false` la tient hors de `searchTeams`, donc hors du mercato
  * et hors du sélecteur d'adversaire, où seules les vraies équipes ont leur place.
@@ -546,7 +546,7 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
  * Distinct from searchTeams below, which exists for the mercato and only ever
  * returns teams that are recruiting. This one answers "where is my friend's
  * team?" as well as "who is taking players?", so it does not filter on
- * is_recruiting — the card badges that instead.
+ * is_recruiting, the card badges that instead.
  *
  * Firestore has no substring index, so the match is done client-side; ghost
  * teams (off-platform opponents, no account and no members) are dropped since
@@ -559,7 +559,7 @@ export async function findTeams(term: string, max = 24): Promise<Team[]> {
   return snap.docs
     .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
     .filter((t) => !t.isGhost && fold(`${t.name} ${t.city}`).includes(needle))
-    // Recruiting teams first — a search for a team is most often a search for
+    // Recruiting teams first, a search for a team is most often a search for
     // one that will have you.
     .sort((a, b) => Number(b.isRecruiting) - Number(a.isRecruiting) || a.name.localeCompare(b.name))
     .slice(0, max);
@@ -799,7 +799,7 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
  *
  * Le flux normal naît en `challenge` : le manager adverse accepte, et c'est
  * son acceptation (`respondToMatchChallenge`) qui crée les convocations des
- * deux camps. Face à un fantôme il n'y a personne pour accepter — le match
+ * deux camps. Face à un fantôme il n'y a personne pour accepter, le match
  * partirait donc dans une boîte de réception que personne ne lit, et aucun
  * joueur ne serait convoqué. On planifie donc directement, et on convoque
  * l'équipe réelle ici même.
@@ -907,7 +907,7 @@ export async function updateMatchLineup(
  * fantôme n'en a pas, ses assignations y étaient donc silencieusement perdues.
  * On dénormalise la compo sur le match, comme le fait déjà le côté compétition.
  *
- * `ghostIsHome` dit de quel côté joue le fantôme — c'est lui qui décide quel
+ * `ghostIsHome` dit de quel côté joue le fantôme, c'est lui qui décide quel
  * drapeau `*_lineup_ready` est levé.
  */
 export async function setGhostLineup(
@@ -1061,7 +1061,7 @@ export async function respondToMatchChallenge(
         author_role: "system",
         author_avatar: "",
         type: "match_announcement",
-        content: `⚽ Match confirmé ! ${matchLabel} le ${matchDate} à ${matchTime} — ${venueName}`,
+        content: `⚽ Match confirmé ! ${matchLabel} le ${matchDate} à ${matchTime}, ${venueName}`,
         metadata: { home_team: homeTeamId, away_team: awayTeamId },
         likes: [], comment_count: 0,
         created_at: serverTimestamp(), updated_at: serverTimestamp(),
@@ -1281,7 +1281,7 @@ export async function respondToParticipation(
         author_role: "system",
         author_avatar: "",
         type: "match_announcement",
-        content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${matchData.date} à ${matchData.time} — ${matchData.venue_name}`,
+        content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${matchData.date} à ${matchData.time}, ${matchData.venue_name}`,
         metadata: { home_team: matchData.home_team_name, away_team: matchData.away_team_name },
         likes: [], comment_count: 0,
         created_at: serverTimestamp(), updated_at: serverTimestamp(),
@@ -1300,7 +1300,7 @@ export async function forceCompleteMatch(matchId: string): Promise<void> {
 
 /**
  * Completing a match rolls its stats onto both clubs and every player who took
- * part — writes that no longer happen from the browser. See
+ * part, writes that no longer happen from the browser. See
  * /api/matches/complete: the counters live on documents the caller does not own,
  * so the only rule that could permit a client-side rollup was "anyone signed in
  * may rewrite these fields on anyone", which is exactly what it sounds like.
@@ -1420,7 +1420,7 @@ export function onInvitationsByManager(managerId: string, callback: (data: Invit
  *
  * Goes through /api/team-invitations/respond: accepting writes `member_ids` on
  * a team the player does not own, and the rule that used to permit that could
- * only inspect the shape of the write, never whether an invitation existed —
+ * only inspect the shape of the write, never whether an invitation existed,
  * so it let anyone add themselves to any team. The server checks the invitation
  * instead.
  *
@@ -1462,7 +1462,7 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
  *
  * Filters on the ACTIVATED role, not on `user_type`: since the pivot every
  * account is created with `user_type: "player"`, so that field would put
- * every spectator who never opened the player space into the mercato —
+ * every spectator who never opened the player space into the mercato,
  * which is why managers were seeing profiles with no position. Docs without
  * `evolution_role` are excluded by the equality filter, which is the point.
  */
@@ -1499,7 +1499,7 @@ export async function searchPlayers(filters: { city?: string; position?: string;
  *
  * Firestore ne sait pas faire un OU sur deux champs : on lance donc les deux
  * requêtes et on fusionne. Filtrer sur un seul des deux aurait rendu invisible
- * la moitié des arbitres — et laquelle dépend de leur ancienneté.
+ * la moitié des arbitres, et laquelle dépend de leur ancienneté.
  */
 export async function searchReferees(filters: { city?: string; licenseLevel?: string; query?: string }): Promise<UserProfile[]> {
   const common: QueryConstraint[] = [where("is_active", "==", true)];
@@ -1566,7 +1566,7 @@ async function hydratePostAuthors(
     ...new Set(
       posts
         .map((p) => p.authorId)
-        // The official account has no users document — its identity comes
+        // The official account has no users document, its identity comes
         // from the Tribune settings, resolved at render time.
         .filter((id) => id && id !== SYSTEM_AUTHOR_ID && !cache.has(id)),
     ),
@@ -1590,7 +1590,7 @@ async function hydratePostAuthors(
   }
 
   // The official account's identity lives in settings/tribune and is editable
-  // from the admin panel, so it is resolved the same way — renaming it or
+  // from the admin panel, so it is resolved the same way, renaming it or
   // changing its picture must update everything it ever posted.
   if (posts.some((p) => p.authorId === SYSTEM_AUTHOR_ID) && !cache.has(SYSTEM_AUTHOR_ID)) {
     try {
@@ -1623,7 +1623,7 @@ export function onPosts(maxResults: number, currentUserId: string, callback: (da
     (snap) => {
       const seq = ++latest;
       const posts = snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
-      // Render immediately with the stored values, then correct them — the
+      // Render immediately with the stored values, then correct them, the
       // feed must not wait on a second round trip to appear.
       callback(posts);
       hydratePostAuthors(posts, authorCache).then(() => {
@@ -2311,7 +2311,7 @@ export async function deleteVenue(venueId: string): Promise<void> {
  * Toujours en `pending` : la confirmation appartient au propriétaire, et les
  * règles refusent d'ailleurs qu'une demande naisse dans un autre état.
  *
- * `total_price` reste à zéro — la plateforme n'encaisse rien et ne connaît
+ * `total_price` reste à zéro, la plateforme n'encaisse rien et ne connaît
  * pas les tarifs. Le champ existe dans le modèle, on ne lui fait pas dire ce
  * qu'on ne sait pas.
  */
@@ -2539,7 +2539,7 @@ export async function createNotification(data: {
     created_at: serverTimestamp(),
   });
 
-  // Best-effort push — fire and forget
+  // Best-effort push, fire and forget
   const currentUser = auth.currentUser;
   if (currentUser) {
     currentUser.getIdToken().then((token) => {

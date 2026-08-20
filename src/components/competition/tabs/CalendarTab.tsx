@@ -130,7 +130,7 @@ export default function CalendarTab({ competition, matches }: {
 
   // Group matches by day. Dated buckets sort chronologically ascending; the
   // undated bucket (date == null) is forced last. Within a day, matches sort by
-  // time with nulls last. Pure derivation — recomputed only when matches change.
+  // time with nulls last. Pure derivation, recomputed only when matches change.
   const days = useMemo(() => {
     const byDay = new Map<string, CompMatch[]>();
     for (const match of filteredMatches) {
@@ -251,7 +251,7 @@ return (
                                 <span className="text-sm font-black text-gray-300">-</span>
                                 <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
                               </div>
-                              {/* An awarded score is not a played one — say so. */}
+                              {/* An awarded score is not a played one, say so. */}
                               {match.forfeitByTeamId && (
                                 <span className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-red-500">
                                   Forfait
@@ -263,7 +263,7 @@ return (
                               {match.time}
                             </span>
                           ) : (
-                            <span className="text-sm font-black text-gray-300">—</span>
+                            <span className="text-sm font-black text-gray-300">,</span>
                           )}
                         </div>
 

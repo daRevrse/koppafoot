@@ -8,15 +8,15 @@ import type { FootballCompetition } from "@/lib/football-data";
 // WorldCompetitionCard
 //
 // Directory tile for a football-data.org competition, sitting in the same grid
-// as the Koppafoot ones. Deliberately a different silhouette — emblem on a dark
-// panel rather than a banner photo — so the two families never read as the same
+// as the Koppafoot ones. Deliberately a different silhouette, emblem on a dark
+// panel rather than a banner photo, so the two families never read as the same
 // thing: one you can join, one you only follow.
 //
 // Emblems and flags are provider URLs → plain <img>, matching the other
 // football-data components.
 // ============================================
 
-/** Season window, e.g. "août 2026 — mai 2027". Guards invalid/absent ISO. */
+/** Season window, e.g. "août 2026, mai 2027". Guards invalid/absent ISO. */
 function seasonLabel(start: string | null, end: string | null): string | null {
   const fmt = (d: string) => {
     try {
@@ -25,7 +25,7 @@ function seasonLabel(start: string | null, end: string | null): string | null {
       return d;
     }
   };
-  if (start && end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
   if (start) return `À partir de ${fmt(start)}`;
   if (end) return `Jusqu'à ${fmt(end)}`;
   return null;

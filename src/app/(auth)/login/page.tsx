@@ -31,7 +31,7 @@ const emailSchema = yup.object({
   password: yup.string().required("Mot de passe requis"),
 });
 
-// The national part only — the country code comes from the picker and the
+// The national part only, the country code comes from the picker and the
 // two are joined into E.164 before hitting Firebase. Users type their number
 // the way they say it ("90 12 34 56"), spaces and leading 0 included.
 const phoneSchema = yup.object({
@@ -69,7 +69,7 @@ const inputClassPassword =
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée — temporairement.
+ * Connexion par SMS masquée, temporairement.
  *
  * L'envoi de SMS réels est toujours refusé côté Firebase, donc l'onglet ne
  * menait qu'à une erreur. Tout le circuit (schéma, formulaires, reCAPTCHA,
@@ -85,7 +85,7 @@ const PHONE_LOGIN_ENABLED = false;
  * Idem pour l'email + mot de passe : masqué, pas supprimé.
  *
  * L'authentification passe désormais par une modale (voir AuthModal) qui ne
- * propose que Google — un tap, aucun mot de passe à retrouver, et surtout
+ * propose que Google, un tap, aucun mot de passe à retrouver, et surtout
  * aucune redirection : on se connecte sans quitter la page qu'on lisait.
  * Cette page reste l'adresse de repli, alignée sur la même offre.
  *
@@ -105,11 +105,11 @@ const EMAIL_LOGIN_ENABLED = false;
 const CONTEXTES: Record<string, { titre: string; phrase: string }> = {
   organisateur: {
     titre: "Organiser une compétition",
-    phrase: "Un compte d'abord — ta candidature d'organisateur se dépose ensuite.",
+    phrase: "Un compte d'abord, ta candidature d'organisateur se dépose ensuite.",
   },
   terrain: {
     titre: "Référencer un terrain",
-    phrase: "Un compte d'abord — la fiche de ton terrain se saisit ensuite.",
+    phrase: "Un compte d'abord, la fiche de ton terrain se saisit ensuite.",
   },
 };
 
@@ -134,7 +134,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { loginWithEmail, sendPhoneCode, confirmPhoneCode, loginWithGoogle } = useAuth();
 
-  // Fresh verifier AND fresh container on every attempt — see lib/recaptcha.
+  // Fresh verifier AND fresh container on every attempt, see lib/recaptcha.
   const buildRecaptcha = (): RecaptchaVerifier => {
     if (!recaptchaRef.current) throw new Error("reCAPTCHA indisponible");
     const verifier = createRecaptchaVerifier(recaptchaRef.current, recaptchaVerifier.current);
@@ -143,7 +143,7 @@ export default function LoginPage() {
   };
 
   // The verifier is built on demand by requestCode (Firebase consumes it on
-  // every attempt), so here we only tear it down — on unmount and whenever
+  // every attempt), so here we only tear it down, on unmount and whenever
   // the user leaves the phone tab.
   useEffect(() => {
     return () => {
@@ -188,7 +188,7 @@ export default function LoginPage() {
   });
 
   // Sends (or resends) the SMS. Firebase consumes the verifier on every
-  // attempt — successful or not — so a fresh one is built each time.
+  // attempt, successful or not, so a fresh one is built each time.
   const requestCode = async (e164: string) => {
     const result = await sendPhoneCode(e164, buildRecaptcha());
     setConfirmation(result);
@@ -240,7 +240,7 @@ export default function LoginPage() {
       if (!confirmation) throw new Error("Pas de confirmation en cours");
       const { isNewUser } = await confirmPhoneCode(confirmation, data.code);
       if (isNewUser) {
-        // Authenticated but no Firestore profile yet — same path as Google.
+        // Authenticated but no Firestore profile yet, same path as Google.
         router.push("/get-started");
         return;
       }
@@ -307,7 +307,7 @@ export default function LoginPage() {
         <div className="h-px flex-1 bg-gray-100" />
       </div>
 
-      {/* Tabs — un seul onglet ne se dessine pas : sans le téléphone, le
+      {/* Tabs, un seul onglet ne se dessine pas : sans le téléphone, le
           formulaire email prend toute la place. */}
       {PHONE_LOGIN_ENABLED && (
       <div className="mb-6 flex bg-gray-100 p-1">
@@ -537,7 +537,7 @@ export default function LoginPage() {
 
       <PWAInstallPrompt />
 
-      {/* reCAPTCHA container — seul le SMS s'en sert */}
+      {/* reCAPTCHA container, seul le SMS s'en sert */}
       {PHONE_LOGIN_ENABLED && <div ref={recaptchaRef} />}
     </motion.div>
   );

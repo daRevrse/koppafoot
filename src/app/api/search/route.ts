@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 // ============================================
-// Public search — one server-side query for every kind.
+// Public search, one server-side query for every kind.
 //
 // Why a route and not client Firestore: `teams` and `users` sit behind
 // isAuthenticated() in firestore.rules, so a signed-out visitor searching
@@ -11,7 +11,7 @@ import { adminDb } from "@/lib/firebase-admin";
 // account; asking for the account first has it backwards. Reading here with
 // admin credentials opens the search without opening the collections.
 //
-// Only public-facing fields are returned — no email, no phone, no tokens.
+// Only public-facing fields are returned, no email, no phone, no tokens.
 // That list is explicit below and must stay that way.
 //
 // Scale note: this reads whole collections and filters in memory. At the
@@ -122,7 +122,7 @@ export async function GET(req: Request) {
           image: s(x.logo_url) || null,
           badge: x.is_recruiting === true ? "Recrute" : undefined,
         },
-        // Followers first, then squad size — a club with people in it is a
+        // Followers first, then squad size, a club with people in it is a
         // better suggestion than an empty shell created five minutes ago.
         rank: followers * 100 + members,
         haystack: fold(`${s(x.name)} ${s(x.city)}`),
@@ -132,7 +132,7 @@ export async function GET(req: Request) {
     // Les terrains referencés, lus dans `venues`.
     //
     // La categorie « terrains » ne montrait jusqu'ici que des COMPTES de
-    // proprietaires, avec leurs champs `venue_name`/`venue_city` — un compte
+    // proprietaires, avec leurs champs `venue_name`/`venue_city`, un compte
     // ne pouvait donc porter qu'un seul terrain, et la collection `venues`,
     // pourtant complete, n'etait lue nulle part. Les deux sources coexistent
     // le temps que les anciens comptes soient repris : un terrain saisi
@@ -164,7 +164,7 @@ export async function GET(req: Request) {
       const x = d.data() as Row;
       if (x.is_active === false) return;
       // Le role Evolution passe AVANT le type de compte. `user_type` dit ce
-      // qu'est le compte — un organisateur reste `organizer` meme quand il
+      // qu'est le compte, un organisateur reste `organizer` meme quand il
       // active l'espace arbitre, parce que l'activation preserve les types
       // privilegies. Classer sur lui seul rendait invisible tout arbitre qui
       // est aussi autre chose, et la recherche est justement l'endroit ou un

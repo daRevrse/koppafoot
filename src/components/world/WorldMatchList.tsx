@@ -4,8 +4,8 @@ import type { FootballMatch } from "@/lib/football-data";
 // ============================================
 // WorldMatchList
 //
-// The provider's fixtures, bucketed by day. Server-rendered on purpose — this
-// and the standings are what a search engine indexes — which forces one choice:
+// The provider's fixtures, bucketed by day. Server-rendered on purpose, this
+// and the standings are what a search engine indexes, which forces one choice:
 // the API gives real UTC instants, so a server render has to commit to a
 // timezone rather than the visitor's. It commits to Lomé (GMT), the audience's
 // own clock, and says so under the list. Change TZ here and the whole page

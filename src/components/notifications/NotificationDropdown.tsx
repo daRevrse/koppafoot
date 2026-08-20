@@ -28,7 +28,7 @@ function NotificationItem({
     // Un lien mene a sa destination. Sans lien, la notification EST le
     // message : elle s'ouvre en modal, ou le corps se lit en entier. Elle
     // renvoyait jusqu'ici sur /notifications, a charge de la retrouver dans
-    // la liste — ce qui n'est pas une lecture, c'est une recherche.
+    // la liste, ce qui n'est pas une lecture, c'est une recherche.
     if (n.link) {
       onNavigate();
       router.push(n.link);

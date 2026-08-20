@@ -11,8 +11,8 @@ interface CommentSectionProps {
   postId: string;
   commentCount: number;
   /**
-   * Le lecteur, ou `null` sans compte. Les commentaires restent lisibles —
-   * c'est une page publique — mais on ne peut pas en ecrire.
+   * Le lecteur, ou `null` sans compte. Les commentaires restent lisibles,
+   * c'est une page publique, mais on ne peut pas en ecrire.
    */
   currentUser: { uid: string; name: string } | null;
 }

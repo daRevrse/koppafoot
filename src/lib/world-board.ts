@@ -17,7 +17,7 @@ import { WORLD_COMP_PREFIX } from "@/lib/world-board-shared";
 /** Une compétition mondiale telle que le tableau la regroupe. */
 function worldCompetition(name: string, code: string | null, emblem: string | null): Competition {
   return {
-    // Le code quand on l'a — il permet le lien vers la page de la
+    // Le code quand on l'a, il permet le lien vers la page de la
     // compétition. Sinon le nom, qui suffit à regrouper.
     id: `${WORLD_COMP_PREFIX}${code ?? name}`,
     name,

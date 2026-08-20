@@ -14,7 +14,7 @@ import { getPublicFriendlies } from "@/lib/friendlies-admin";
  *
  * Compétitions de la plateforme uniquement : le fournisseur externe ne donne
  * pas le détail des buteurs par match, et un amical n'a pas de console de
- * score — ni l'un ni l'autre ne peut nourrir ce classement.
+ * score, ni l'un ni l'autre ne peut nourrir ce classement.
  */
 
 export const revalidate = 300;
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
       // Les amicaux comptent ici, contrairement au classement des buteurs :
       // un résultat est un résultat, et beaucoup de clubs jouent surtout des
       // amicaux. Ce qu'un amical ne peut pas donner, c'est le détail des
-      // buteurs — d'où son absence côté joueur, juste en dessous.
+      // buteurs, d'où son absence côté joueur, juste en dessous.
       const friendlies = await getPublicFriendlies();
       const games = [
         ...feed.flatMap((f) => f.matches.map((m) => ({ m, competition: f.competition.name }))),
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
           id: m.id,
           date: m.date,
           competition,
-          opponent: `${m.homeTeamName} — ${m.awayTeamName}`,
+          opponent: `${m.homeTeamName}, ${m.awayTeamName}`,
           goals,
           assists,
         };

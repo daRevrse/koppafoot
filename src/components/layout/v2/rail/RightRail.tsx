@@ -7,12 +7,12 @@ import TodayMatchesRail from "./TodayMatchesRail";
 import PerformanceRail from "./PerformanceRail";
 
 // ============================================
-// RightRail — ce qui occupe la colonne de droite, selon la page.
+// RightRail, ce qui occupe la colonne de droite, selon la page.
 //
 // La colonne de 320px était tenue ouverte et vide depuis le retrait du rail
 // Tribune (voir ScoreShell) : la garder évitait de re-flower tout le produit,
 // mais une gouttière vide n'est pas une décision, c'est une dette. Elle
-// devient ici un emplacement contextuel — chaque page peut y poser ce qui
+// devient ici un emplacement contextuel, chaque page peut y poser ce qui
 // l'accompagne sans encombrer sa propre colonne de lecture.
 //
 // Le choix se fait sur le chemin plutôt que par une prop passée depuis la
@@ -47,7 +47,7 @@ export default function RightRail() {
   const pathname = usePathname();
 
   // Le Direct porte ce qui se lit a cote d'un tableau de scores : ce que la
-  // presse ecrit, et qui a signe ou. Pas de pronostic ici — il appartient a
+  // presse ecrit, et qui a signe ou. Pas de pronostic ici, il appartient a
   // la page d'un match, la ou on sait de quelle rencontre on parle.
   if (pathname === "/") {
     return (
@@ -63,7 +63,7 @@ export default function RightRail() {
   if (pathname === "/actus") return <TodayMatchesRail />;
 
   // Les fiches publiques : ce que cette equipe, ce joueur, a fait recemment.
-  // L'identifiant se lit dans le chemin — le rail est monte par le shell, il
+  // L'identifiant se lit dans le chemin, le rail est monte par le shell, il
   // n'a pas acces aux donnees de la page.
   const team = pathname.match(/^\/teams\/([^/]+)$/);
   if (team) return <PerformanceRail team={team[1]} />;

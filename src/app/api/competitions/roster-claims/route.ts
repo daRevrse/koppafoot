@@ -4,7 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
 
 /**
- * Roster claims — a player says "this line of the roster is me", and the
+ * Roster claims, a player says "this line of the roster is me", and the
  * competition's organizer (or the team's manager) validates it. Once accepted
  * the link is written both ways: `user_id` on the roster entry, and a
  * denormalized `linked_comp_players` row on the user so /stats resolves in a
@@ -13,11 +13,11 @@ import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types
  * The `roster_claims` collection is admin-SDK only: clients always go through
  * this route, so no Firestore rules are needed.
  *
- * POST   { cid, teamId, playerId }     — a player claims a roster line.
- * GET    ?cid=...                      — pending claims to validate (staff).
- * GET    ?mine=1                       — the caller's own claims.
- * PATCH  { id, action: accept|reject } — staff decision.
- * DELETE { id }                        — the claimant cancels their request.
+ * POST   { cid, teamId, playerId }    , a player claims a roster line.
+ * GET    ?cid=...                     , pending claims to validate (staff).
+ * GET    ?mine=1                      , the caller's own claims.
+ * PATCH  { id, action: accept|reject }, staff decision.
+ * DELETE { id }                       , the claimant cancels their request.
  */
 
 async function callerUidOf(req: NextRequest): Promise<string | null> {
@@ -197,7 +197,7 @@ export async function GET(req: NextRequest) {
       .where("status", "==", "pending")
       .get();
 
-    // Filter to the teams this caller may actually validate — a manager only
+    // Filter to the teams this caller may actually validate, a manager only
     // sees their own team's claims, an organizer sees them all.
     const claims = [];
     for (const d of snap.docs) {
@@ -256,7 +256,7 @@ export async function PATCH(req: NextRequest) {
       .collection("comp_teams").doc(claim.team_id);
 
     // The roster is a single array field, so read-modify-write in a
-    // transaction — two validators accepting at once must not clobber
+    // transaction, two validators accepting at once must not clobber
     // each other's link.
     await adminDb.runTransaction(async (tx) => {
       const teamSnap = await tx.get(teamRef);

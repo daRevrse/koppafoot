@@ -3,13 +3,13 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
 /**
- * PATCH /api/venue-applications/[id] — décision de l'administrateur.
+ * PATCH /api/venue-applications/[id], décision de l'administrateur.
  *
  * À l'approbation, deux écritures : la casquette sur le compte, et le terrain
  * lui-même, créé à partir de ce que la candidature portait déjà.
  *
  * La casquette est un DRAPEAU, jamais un `user_type`. Écraser le type de
- * compte effacerait ce que la personne est par ailleurs — c'est exactement ce
+ * compte effacerait ce que la personne est par ailleurs, c'est exactement ce
  * que faisait l'approbation d'organisateur, et ce qui rendait invisible un
  * organisateur qui joue.
  */

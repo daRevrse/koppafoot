@@ -258,19 +258,19 @@ export default function AdminProfilePage() {
             <h3 className="mb-4 text-sm font-semibold text-gray-900">Statistiques système</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                <p className="text-xl font-bold text-blue-600">—</p>
+                <p className="text-xl font-bold text-blue-600">,</p>
                 <p className="mt-0.5 text-xs text-gray-500">Utilisateurs</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                <p className="text-xl font-bold text-green-600">—</p>
+                <p className="text-xl font-bold text-green-600">,</p>
                 <p className="mt-0.5 text-xs text-gray-500">Équipes</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                <p className="text-xl font-bold text-purple-600">—</p>
+                <p className="text-xl font-bold text-purple-600">,</p>
                 <p className="mt-0.5 text-xs text-gray-500">Terrains</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                <p className="text-xl font-bold text-orange-600">—</p>
+                <p className="text-xl font-bold text-orange-600">,</p>
                 <p className="mt-0.5 text-xs text-gray-500">Matchs</p>
               </div>
             </div>

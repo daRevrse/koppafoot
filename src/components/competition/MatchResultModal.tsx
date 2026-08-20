@@ -23,7 +23,7 @@ const NEW_PLAYER = "__new__";
  */
 const MAX_GOAL_LINES = 20;
 
-/** One scorer line of the result form — one line per goal typed. */
+/** One scorer line of the result form, one line per goal typed. */
 interface GoalRow {
   /** "" = unknown scorer, NEW_PLAYER = create from `newName`, else a roster id. */
   playerId: string;
@@ -45,7 +45,7 @@ function resizeGoalRows(rows: GoalRow[], score: number): GoalRow[] {
 
 /**
  * Enter (or correct) a played match's result after the fact: score, scorers,
- * and — on a knockout tie — the shootout that decides who goes through.
+ * and, on a knockout tie, the shootout that decides who goes through.
  *
  * Shared by the calendar (group matches) and the bracket (knockout), because
  * both catch up on matches the live console never ran.
@@ -60,11 +60,11 @@ export default function MatchResultModal({
   cid: string;
   /** The match being edited; `null` closes the modal. */
   match: CompMatch | null;
-  /** Competition teams — the source of both rosters. */
+  /** Competition teams, the source of both rosters. */
   teams: CompTeam[];
   /**
    * The competition, when the caller has it loaded. Only used to notify its
-   * followers of a result the live console never announced — without it the
+   * followers of a result the live console never announced, without it the
    * score still saves, it just goes out unlinked.
    */
   competition?: Competition | null;
@@ -113,7 +113,7 @@ export default function MatchResultModal({
             )?.id ??
             "";
           return {
-            // A name we could not match stays editable as a "new player" line —
+            // A name we could not match stays editable as a "new player" line,
             // saving it resolves to the same roster entry, never a duplicate.
             playerId: known || (name ? NEW_PLAYER : ""),
             newName: known ? "" : name,
@@ -191,8 +191,8 @@ export default function MatchResultModal({
       }
     }
 
-    // Each line carries the team the SCORER plays for — the opponent's, on an
-    // own goal — which is both the roster the name is created in and the roster
+    // Each line carries the team the SCORER plays for, the opponent's, on an
+    // own goal, which is both the roster the name is created in and the roster
     // the picker offered.
     const lines = [
       ...homeGoalRows.map((row) => ({
@@ -226,7 +226,7 @@ export default function MatchResultModal({
 
     setSaving(true);
     try {
-      // Create the missing roster lines first — one write per team, so two
+      // Create the missing roster lines first, one write per team, so two
       // new scorers in the same squad never race each other.
       const namesByTeam = new Map<string, string[]>();
       for (const { row, scorerTeamId } of lines) {
@@ -260,7 +260,7 @@ export default function MatchResultModal({
         }
         const minute = row.minute.trim() ? parseInt(row.minute, 10) : null;
         // A line with neither a scorer nor a minute says nothing the score does
-        // not already say — don't write an empty event for it.
+        // not already say, don't write an empty event for it.
         if (!playerName && minute == null) continue;
         goals.push({ side, playerId, playerName, minute, ownGoal: row.ownGoal });
       }
@@ -273,7 +273,7 @@ export default function MatchResultModal({
         penaltyAway: pa,
       });
 
-      // Announce the result to the competition's followers — this is the match
+      // Announce the result to the competition's followers, this is the match
       // the live console never ran, so nobody has heard about it yet. Only on
       // the first save: reopening to fix a typo or add a scorer must not ring
       // every phone again. A sandbox competition is filtered server-side.
@@ -290,8 +290,8 @@ export default function MatchResultModal({
 
       toast.success(
         createdCount > 0
-          ? `Score enregistré — ${createdCount} joueur${createdCount > 1 ? "s ajoutés" : " ajouté"} à l'effectif`
-          : "Score enregistré — match terminé",
+          ? `Score enregistré, ${createdCount} joueur${createdCount > 1 ? "s ajoutés" : " ajouté"} à l'effectif`
+          : "Score enregistré, match terminé",
       );
       onClose();
     } catch (err) {
@@ -354,7 +354,7 @@ export default function MatchResultModal({
                   placeholder="0"
                 />
               </div>
-              <span className="mt-5 text-xl font-bold text-gray-300">—</span>
+              <span className="mt-5 text-xl font-bold text-gray-300">,</span>
               <div className="flex flex-col items-center gap-1">
                 <span className="text-xs font-bold text-gray-600">{match.awayTeamName}</span>
                 <input
@@ -368,11 +368,11 @@ export default function MatchResultModal({
               </div>
             </div>
 
-            {/* Shootout — a knockout tie has to send someone through */}
+            {/* Shootout, a knockout tie has to send someone through */}
             {shootoutVisible && (
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <p className="mb-2 text-xs font-bold text-amber-800">
-                  Score de parité — tirs au but
+                  Score de parité, tirs au but
                   <span className="ml-1 font-medium text-amber-600">
                     (laissez vide si le match n&apos;a pas été départagé)
                   </span>
@@ -401,7 +401,7 @@ export default function MatchResultModal({
               </div>
             )}
 
-            {/* Scorers — one line per goal, all fields optional */}
+            {/* Scorers, one line per goal, all fields optional */}
             {(homeGoalRows.length > 0 || awayGoalRows.length > 0) && (
               <div className="mt-6 space-y-4 border-t border-gray-100 pt-5">
                 <div className="flex items-center gap-2">
@@ -533,7 +533,7 @@ function ScorerLines({
                   className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
                 Contre son camp
-                {row.ownGoal && <span className="text-gray-400">— joueur de {opponentName}</span>}
+                {row.ownGoal && <span className="text-gray-400">, joueur de {opponentName}</span>}
               </label>
             </div>
           );

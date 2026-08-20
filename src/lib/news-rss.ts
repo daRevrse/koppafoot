@@ -2,13 +2,13 @@
 //
 // Pourquoi Google Actualités plutôt que les sites eux-mêmes : sur huit flux
 // candidats testés (RFI, BBC Sport Afrique, L'Équipe, Foot Mercato, RMC,
-// CAF, Republic of Togo, Afrikfoot), un seul répondait encore — les autres
+// CAF, Republic of Togo, Afrikfoot), un seul répondait encore, les autres
 // rendent 404, 406 ou une page d'atterrissage. Un agrégateur reste joignable
 // et, surtout, il est fait pour ça.
 //
 // Ce qu'on affiche et pourquoi c'est limité à ça : le titre, l'éditeur, la
-// date, le lien. Le flux ne porte pas de corps d'article — sa `description`
-// n'est qu'une ancre HTML vers la source — et c'est très bien ainsi : on
+// date, le lien. Le flux ne porte pas de corps d'article, sa `description`
+// n'est qu'une ancre HTML vers la source, et c'est très bien ainsi : on
 // renvoie le lecteur chez celui qui a écrit, on ne recopie pas son travail.
 //
 // Dégrade en silence (renvoie []) : la page ne doit pas casser parce qu'un
@@ -17,7 +17,7 @@
 export interface Article {
   id: string;
   title: string;
-  /** Le média qui publie — affiché, et c'est la moindre des choses. */
+  /** Le média qui publie, affiché, et c'est la moindre des choses. */
   source: string;
   url: string;
   /** ISO, ou "" si le flux n'a pas donné de date lisible. */
@@ -27,7 +27,7 @@ export interface Article {
    * pour le jour où une source en fournira.
    *
    * Ce qui a été essayé : gratter la balise og:image de la page Google
-   * Actualités. Ça rend bien une image — mais LA MÊME pour tous les articles,
+   * Actualités. Ça rend bien une image, mais LA MÊME pour tous les articles,
    * parce que la page intermédiaire sert une vignette générique et non celle
    * du sujet. Et elle ne s'affichait pas une fois posée dans la page. Aucun
    * des flux atteignables ne porte media:content, enclosure ni <img>.
@@ -75,7 +75,7 @@ function toIso(rfc822: string): string {
 /**
  * Google Actualités suffixe le titre du nom du média : « Titre - Le Monde ».
  * On préfère la balise <source>, et on ne retombe sur la découpe que si elle
- * manque — un titre peut légitimement contenir un tiret.
+ * manque, un titre peut légitimement contenir un tiret.
  */
 function splitTitle(rawTitle: string, sourceTag: string): { title: string; source: string } {
   if (sourceTag) {
@@ -127,8 +127,8 @@ async function readFeed(q: string): Promise<Article[]> {
 /**
  * Le fil, plus récent d'abord.
  *
- * Les requêtes se recoupent volontiers — un match des Éperviers sort dans les
- * trois — donc on dédoublonne sur le titre normalisé plutôt que sur le lien :
+ * Les requêtes se recoupent volontiers, un match des Éperviers sort dans les
+ * trois, donc on dédoublonne sur le titre normalisé plutôt que sur le lien :
  * deux médias reprenant la même dépêche ont des URL différentes, mais le même
  * titre à la casse près.
  */

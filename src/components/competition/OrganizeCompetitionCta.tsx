@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-// "Organiser ma compétition" — vit dans le pied du menu latéral, à côté
+// "Organiser ma compétition", vit dans le pied du menu latéral, à côté
 // d'« Inviter un ami ». Il était auparavant un lien discret en bas du
 // répertoire /competitions : cette page sert à trouver une compétition, pas
 // à en créer une, et le lien y passait inaperçu.

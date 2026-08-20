@@ -111,7 +111,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await logout();
-    // Home is public — no reason to send anyone to a login screen.
+    // Home is public, no reason to send anyone to a login screen.
     router.push("/");
   };
   const [editing, setEditing] = useState(false);
@@ -186,7 +186,7 @@ export default function ProfilePage() {
   const effectiveRole: string = user.evolutionRole ?? user.userType;
   const isPlayerRole = effectiveRole === "player";
   // Taille, poids, pied fort, date de naissance : tout le monde qui descend
-  // sur la pelouse les renseigne — joueur, manager qui joue, arbitre. Seuls
+  // sur la pelouse les renseigne, joueur, manager qui joue, arbitre. Seuls
   // les espaces qui n'y descendent jamais en sont dispensés.
   const showPhysical = !["organizer", "venue_owner", "superadmin"].includes(effectiveRole);
   const physicalComplete = Boolean(user.strongFoot && user.height && user.weight && user.dateOfBirth);
@@ -340,7 +340,7 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-6xl pb-24">
       {/* Le meme hero que la fiche publique : la photo de couverture devient
           le fond au lieu d'un bandeau de 200px, et l'identite se lit d'un
-          coup. On garde ici ce que la fiche publique n'a pas — le bouton
+          coup. On garde ici ce que la fiche publique n'a pas, le bouton
           d'appareil photo sur l'avatar, et l'entree en edition. */}
       <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
         {user.coverPhotoUrl ? (
@@ -470,28 +470,28 @@ export default function ProfilePage() {
                     <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Pied fort</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : "—"}
+                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : ","}
                     </p>
                   </div>
                   <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Ruler size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Taille</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {user.height ? `${user.height} cm` : "—"}
+                      {user.height ? `${user.height} cm` : ","}
                     </p>
                   </div>
                   <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Weight size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Poids</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {user.weight ? `${user.weight} kg` : "—"}
+                      {user.weight ? `${user.weight} kg` : ","}
                     </p>
                   </div>
                   <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Cake size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Âge</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {age !== null ? `${age} ans` : "—"}
+                      {age !== null ? `${age} ans` : ","}
                     </p>
                   </div>
                 </div>
@@ -788,7 +788,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Logout — the only sign-out entry point in the shell */}
+      {/* Logout, the only sign-out entry point in the shell */}
       <div className="mt-6 flex justify-end">
         <button
           onClick={handleLogout}

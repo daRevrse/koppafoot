@@ -1,5 +1,5 @@
 // ============================================
-// KOPPAFOOT Admin — Firestore Queries
+// KOPPAFOOT Admin, Firestore Queries
 // Global platform monitoring (superadmin only)
 // ============================================
 

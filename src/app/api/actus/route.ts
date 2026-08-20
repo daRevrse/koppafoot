@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSportsArticles } from "@/lib/news-rss";
 
 /**
- * GET /api/actus — les derniers titres, pour le rail du Direct.
+ * GET /api/actus, les derniers titres, pour le rail du Direct.
  *
  * La page /actus lit `getSportsArticles` directement, cote serveur. Le rail,
  * lui, est un composant client monte dans le shell : il ne peut pas appeler

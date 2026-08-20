@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 /* ──────────────────────────────────────
-   Mock feed posts — preview only
+   Mock feed posts, preview only
    ────────────────────────────────────── */
 const MOCK_POSTS = [
   {

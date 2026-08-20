@@ -17,7 +17,7 @@ export default function LiveOpsCompetition() {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  // Access-code holders reach this screen too — with a grant that may cover
+  // Access-code holders reach this screen too, with a grant that may cover
   // one poule or one match, which is what filters the list below.
   const [grant, setGrant] = useState<StaffGrant | null>(null);
   const [grantChecked, setGrantChecked] = useState(false);
@@ -53,7 +53,7 @@ export default function LiveOpsCompetition() {
     if (!member) router.replace("/live-ops");
   }, [user, competition, grant, grantChecked, router]);
 
-  // A scoped holder is shown only the matches they may actually write to —
+  // A scoped holder is shown only the matches they may actually write to,
   // opening a console that refuses every save would be a trap.
   const visibleMatches =
     grant && competition && !competition.organizerIds.includes(user?.uid ?? "")

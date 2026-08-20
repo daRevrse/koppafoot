@@ -72,7 +72,7 @@ function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
 
 export default function PublicTeamPage() {
   // Deux onglets seulement : l'effectif et ce que l'equipe a fait. Le
-  // prochain match reste hors carte, au-dessus — c'est la seule chose de
+  // prochain match reste hors carte, au-dessus, c'est la seule chose de
   // cette page qui perime.
   const [tab, setTab] = useState<"roster" | "results">("roster");
 
@@ -189,7 +189,7 @@ export default function PublicTeamPage() {
       });
   }, [teamMatches]);
 
-  // Roster, sorted numeric-aware by dossard (NaN — blank/non-numeric — last).
+  // Roster, sorted numeric-aware by dossard (NaN, blank/non-numeric, last).
   const roster = useMemo(() => {
     const players = team?.players ?? [];
     return [...players].sort((a, b) => {
@@ -393,7 +393,7 @@ export default function PublicTeamPage() {
         )}
       </section>
 
-      {/* Une seule carte, dont les onglets changent le contenu — la meme
+      {/* Une seule carte, dont les onglets changent le contenu, la meme
           structure que la page d'une competition. */}
       <div className="mt-6 border border-gray-200/70 bg-white">
         <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">

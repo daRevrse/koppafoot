@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 /**
- * GET /api/public/team/[id] — la fiche publique d'une équipe.
+ * GET /api/public/team/[id], la fiche publique d'une équipe.
  *
  * Même raison que pour les profils : `teams/{id}` est fermé aux visiteurs
  * dans firestore.rules. Plutôt que d'ouvrir la règle, on lit ici avec le SDK
@@ -11,7 +11,7 @@ import { adminDb } from "@/lib/firebase-admin";
  * Ce qui n'en fait PAS partie : `member_ids` et `manager_id`. Un effectif est
  * une liste d'identifiants de comptes, et la publier permettrait de relier
  * des personnes entre elles sans qu'elles l'aient demandé. On publie ce qui
- * décrit l'équipe, pas qui la compose — le nombre de membres suffit à dire
+ * décrit l'équipe, pas qui la compose, le nombre de membres suffit à dire
  * si elle est complète.
  */
 

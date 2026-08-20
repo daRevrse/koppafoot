@@ -8,7 +8,7 @@ import type { Movement } from "@/lib/mercato-admin";
 // ============================================
 // The mercato as a visitor sees it.
 //
-// Before, a guest landing on /mercato got `return null` — a blank page,
+// Before, a guest landing on /mercato got `return null`, a blank page,
 // which reads as a broken site rather than as a closed door. The market has
 // something to show without an account: who actually moved. The rest of the
 // page (searching, shortlisting, sending offers) stays behind the account,

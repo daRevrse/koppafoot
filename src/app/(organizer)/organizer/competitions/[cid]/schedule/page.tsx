@@ -33,7 +33,7 @@ interface RowState {
   venueCity: string;
 }
 
-// Display order of the final-phase rounds. `third_place` closes the list — it
+// Display order of the final-phase rounds. `third_place` closes the list, it
 // is not part of the elimination tree but it is a match to schedule all the same.
 const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final", "third_place"];
 
@@ -179,13 +179,13 @@ export default function CompetitionSchedulePage() {
 
   // Every schedulable block, in order: the groups first, then the final phase
   // round by round. A knockout match is scheduled before its two teams are
-  // known — the calendar is fixed first, the qualifiers arrive later.
+  // known, the calendar is fixed first, the qualifiers arrive later.
   const sections = useMemo<Section[]>(() => {
     const out: Section[] = [];
 
     const byGroup = new Map<string, CompMatch[]>();
     for (const m of groupMatches) {
-      const key = m.group ?? "—";
+      const key = m.group ?? ",";
       const bucket = byGroup.get(key);
       if (bucket) bucket.push(m);
       else byGroup.set(key, [m]);
@@ -208,7 +208,7 @@ export default function CompetitionSchedulePage() {
       });
     }
 
-    // Knockout matches added by hand carry no round — keep them visible.
+    // Knockout matches added by hand carry no round, keep them visible.
     const looseKnockout = knockoutMatches.filter((m) => !m.round);
     if (looseKnockout.length > 0) {
       out.push({
@@ -272,7 +272,7 @@ export default function CompetitionSchedulePage() {
 
   // Double-booking detection: two matches sharing the same venue + date + time.
   // Recomputed live as the organizer edits, so warnings appear immediately.
-  // A clash does not care about the stage — a quarter-final and a group match
+  // A clash does not care about the stage, a quarter-final and a group match
   // cannot share a pitch at the same hour either.
   const conflictIds = useMemo(() => {
     const seen = new Map<string, string>();
@@ -323,7 +323,7 @@ export default function CompetitionSchedulePage() {
   };
 
   const openAdd = () => {
-    // A cup has no poule — default such a competition to the final phase.
+    // A cup has no poule, default such a competition to the final phase.
     const stage: "group" | "knockout" =
       competition && !hasGroupStage(competition.competitionType) ? "knockout" : "group";
     setAddForm({
@@ -481,7 +481,7 @@ export default function CompetitionSchedulePage() {
   };
 
   /**
-   * Name of one side. A bracket slot is often still empty — it then shows where
+   * Name of one side. A bracket slot is often still empty, it then shows where
    * the place comes from ("1er poule A"), so the organizer knows what they are
    * scheduling before the qualifiers are known.
    */
@@ -527,7 +527,7 @@ export default function CompetitionSchedulePage() {
             )}
             {past && (
               <span
-                title="Date dépassée — ajoutez un score ou reportez le match"
+                title="Date dépassée, ajoutez un score ou reportez le match"
                 className="inline-flex items-center gap-1 bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
               >
                 <Clock size={11} />
@@ -545,7 +545,7 @@ export default function CompetitionSchedulePage() {
             )}
           </p>
           <div className="flex shrink-0 items-center gap-1">
-            {/* Saved results stay editable — a wrong score or a
+            {/* Saved results stay editable, a wrong score or a
                 forgotten scorer is corrected from the same modal. */}
             {completed && canEnterResult && (
               <button
@@ -769,7 +769,7 @@ export default function CompetitionSchedulePage() {
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucun match</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Importez votre calendrier de matchs — ou générez automatiquement un round-robin de poule.
+            Importez votre calendrier de matchs, ou générez automatiquement un round-robin de poule.
             Les matchs de phase finale apparaîtront ici dès que le tableau sera dessiné.
           </p>
           <Link
@@ -779,7 +779,7 @@ export default function CompetitionSchedulePage() {
             <Upload size={16} />
             Importer des matchs
           </Link>
-          {/* A cup has no group stage — its matches come from the bracket. */}
+          {/* A cup has no group stage, its matches come from the bracket. */}
           {competition && hasGroupStage(competition.competitionType) && (
             <button
               type="button"
@@ -934,7 +934,7 @@ export default function CompetitionSchedulePage() {
               </div>
 
               <div className="space-y-4">
-                {/* Phase — a poule match or a final-phase one */}
+                {/* Phase, a poule match or a final-phase one */}
                 <div className="flex items-center gap-2">
                   {(["group", "knockout"] as const).map((stage) => (
                     <button
@@ -963,7 +963,7 @@ export default function CompetitionSchedulePage() {
                       onChange={(e) => setAdd("homeTeamId", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">— Équipe —</option>
+                      <option value="">, Équipe,</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.awayTeamId}>
                           {t.name}{t.group ? ` (${t.group})` : ""}
@@ -978,7 +978,7 @@ export default function CompetitionSchedulePage() {
                       onChange={(e) => setAdd("awayTeamId", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">— Équipe —</option>
+                      <option value="">, Équipe,</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.homeTeamId}>
                           {t.name}{t.group ? ` (${t.group})` : ""}
@@ -1187,7 +1187,7 @@ export default function CompetitionSchedulePage() {
         )}
       </AnimatePresence>
 
-      {/* Score + scorers modal — shared with the knockout bracket */}
+      {/* Score + scorers modal, shared with the knockout bracket */}
       <MatchResultModal
         cid={cid}
         match={scoreMatch}

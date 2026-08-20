@@ -8,15 +8,15 @@ import PullToRefresh from "@/components/layout/PullToRefresh";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
 
 // ============================================
-// ScoreShell — the chrome of the product, everywhere.
+// ScoreShell, the chrome of the product, everywhere.
 //
 // One band, and that is the whole point: where the old shell spent a column
 // on the left, this spends a single row on top. The trending ticker and the
-// role sub-nav that briefly sat above and below it are gone — three stacked
+// role sub-nav that briefly sat above and below it are gone, three stacked
 // bands ate the fold on a phone for navigation nobody used twice. What they
 // carried now lives in the nav row and the account menu (see ScoreHeader).
 //
-// It wraps every group — public app, organizer and moderator — so entering
+// It wraps every group, public app, organizer and moderator, so entering
 // one does not change the furniture.
 //
 // Kept from that shell: the mobile tab bar (the habit already learned on a
@@ -55,14 +55,14 @@ export default function ScoreShell({
       <div className="flex min-w-0 flex-1">
         {/* `overflow-x-clip` et non `hidden` : `hidden` fait de <main> un
             conteneur de defilement, ce qui empeche tout `position: sticky`
-            a l'interieur de se caler sur la fenetre — le hero d'une page
+            a l'interieur de se caler sur la fenetre, le hero d'une page
             competition passait sous le header au lieu de s'y arreter.
             `clip` coupe le debordement sans creer ce conteneur. */}
         <main className="main-content-app min-w-0 flex-1 overflow-x-clip bg-[#F4F6FA] p-3 lg:p-5">
           <PullToRefresh>{children}</PullToRefresh>
         </main>
-        {/* `empty:hidden` : un module de rail qui rend `null` — rien a montrer
-            sur cette page — laissait sinon une colonne blanche de 320px. Le
+        {/* `empty:hidden` : un module de rail qui rend `null`, rien a montrer
+            sur cette page, laissait sinon une colonne blanche de 320px. Le
             shell ne peut pas savoir a l'avance si RightRail produira quelque
             chose, mais le CSS le voit apres coup. */}
         {gutter && (

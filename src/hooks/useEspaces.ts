@@ -15,8 +15,8 @@ import type { EvolutionRole } from "@/types";
 // ============================================
 // Ce qu'un compte peut ouvrir : son rôle d'un côté, ses casquettes de l'autre.
 //
-// Ce calcul a existé en DEUX exemplaires — un dans le header, un dans la
-// barre du bas — et ils avaient déjà divergé : le mercato n'était que dans le
+// Ce calcul a existé en DEUX exemplaires, un dans le header, un dans la
+// barre du bas, et ils avaient déjà divergé : le mercato n'était que dans le
 // premier, une entrée redondante « Espace joueur » que dans le second. C'est
 // le genre d'écart qu'on ne voit jamais en relisant un seul des deux fichiers.
 //
@@ -34,7 +34,7 @@ export interface Espace {
  *
  * Il s'appelle « MySpace » pour tout le monde : un compte cumule un role et
  * des casquettes, et « Espace joueur » mentait des qu'un joueur organisait
- * aussi une competition — le menu contenait alors deux familles dont une
+ * aussi une competition, le menu contenait alors deux familles dont une
  * seule etait nommee.
  */
 const ROLE_ICONS: Record<EvolutionRole, LucideIcon> = {
@@ -51,7 +51,7 @@ export interface Espaces {
   Icon: LucideIcon;
   /** Ce que le rôle donne. */
   roleItems: Espace[];
-  /** Ce que les casquettes donnent — cumulables, indépendantes du rôle. */
+  /** Ce que les casquettes donnent, cumulables, indépendantes du rôle. */
   hatItems: Espace[];
 }
 
@@ -105,7 +105,7 @@ export function useEspaces(): Espaces | null {
 
   return {
     label: NOM_DU_MENU,
-    // L'icone, elle, dit le role — c'est le seul endroit ou il se lit d'un
+    // L'icone, elle, dit le role, c'est le seul endroit ou il se lit d'un
     // coup d'oeil dans la barre.
     Icon: (user.evolutionRole ? ROLE_ICONS[user.evolutionRole] : null) ?? LayoutGrid,
     roleItems,

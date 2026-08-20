@@ -1,5 +1,5 @@
 // ============================================
-// Firestore date normalisation — shared, pure, SDK-agnostic (no web SDK and
+// Firestore date normalisation, shared, pure, SDK-agnostic (no web SDK and
 // no admin SDK import) so client mappers, server mappers and the auth
 // context can all use it.
 //

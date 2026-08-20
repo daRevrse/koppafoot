@@ -16,10 +16,10 @@ import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
 import type { EvolutionRole, FirestoreUser } from "@/types";
 
 // ============================================
-// Évolution — role onboarding. Proposes the available roles (Joueur,
+// Évolution, role onboarding. Proposes the available roles (Joueur,
 // Manager), walks the user through activating one and completing the
 // matching profile fields. Once activated the same route becomes the
-// role home ("Espace joueur" / "Espace manager") — the sidebar entry
+// role home ("Espace joueur" / "Espace manager"), the sidebar entry
 // re-labels itself accordingly.
 // ============================================
 
@@ -65,7 +65,7 @@ const ROLES: {
   },
 ];
 
-// Feature map of each espace — mirrors the shelved verticals (src/app/_shelved)
+// Feature map of each espace, mirrors the shelved verticals (src/app/_shelved)
 // that come back one by one: set `href` when a vertical is unfrozen and the
 // row flips from a "Bientôt" teaser to a real link.
 const ROLE_FEATURES: Record<EvolutionRole, {
@@ -90,7 +90,7 @@ const ROLE_FEATURES: Record<EvolutionRole, {
   ],
   // L'arbitre vient d'etre degele : sa fiche et sa visibilite existent
   // aujourd'hui, ses ecrans propres (designations, rapports) sont encore au
-  // placard — d'ou l'absence de `href`, qui les affiche en « Bientot » plutot
+  // placard, d'ou l'absence de `href`, qui les affiche en « Bientot » plutot
   // que de promettre une page qui n'ouvre pas.
   referee: [
     { label: "Ma fiche d'arbitre", desc: "Licence, niveau et coordonnées visibles par les organisateurs", Icon: User, href: "/profile" },
@@ -259,7 +259,7 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          {/* Guided onboarding — steps come from lib/onboarding.ts and are
+          {/* Guided onboarding, steps come from lib/onboarding.ts and are
               derived from live data, so the list can't drift from reality. */}
           <div className="mt-6">
             {onboarding ? (
@@ -277,13 +277,13 @@ export default function EvolutionPage() {
               <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
               <p className="text-sm font-semibold leading-relaxed text-amber-800">
                 Un organisateur peut t&apos;inviter à prendre la gestion d&apos;une équipe
-                de sa compétition — tu recevras l&apos;invitation par email et dans tes
+                de sa compétition, tu recevras l&apos;invitation par email et dans tes
                 notifications.
               </p>
             </div>
           )}
 
-          {/* The role's features — unfrozen one by one */}
+          {/* The role's features, unfrozen one by one */}
           <div className="mt-8">
             <p className="px-1 text-xs font-black uppercase tracking-widest text-gray-400">
               {meta.space}

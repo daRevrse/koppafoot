@@ -36,7 +36,7 @@ import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } f
 type LiveEvent = NonNullable<CompMatch["liveState"]>["events"][number];
 
 // Football rule constants. Le nombre de titulaires et la durée des mi-temps
-// viennent du format de la compétition (NvN, durée) — voir plus bas.
+// viennent du format de la compétition (NvN, durée), voir plus bas.
 const SUBS_MAX = 5;
 
 // ============================================
@@ -110,7 +110,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // Player-picker modal (goal / card)
   const [picker, setPicker] = useState<PickerState | null>(null);
   // Second question, asked only after a goal: who laid it on. Optional by
-  // design — the scoreboard is already right, this only enriches it.
+  // design, the scoreboard is already right, this only enriches it.
   const [assistPicker, setAssistPicker] = useState<AssistPickerState | null>(null);
 
   // Substitution modal
@@ -225,11 +225,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   }, [cid, mid, displayTime]);
 
-  // Timer logic — copied verbatim from the referee console. The live_state
+  // Timer logic, copied verbatim from the referee console. The live_state
   // shapes are identical (timerStartAt / timerOffset / isTimerRunning), so the
   // server-clock computation works unchanged; only the pause writer is
   // retargeted to pauseCompTimer. The `match.status === "live"` guard is a
-  // shipped bug fix (freeze the clock at full time) — do NOT regress it.
+  // shipped bug fix (freeze the clock at full time), do NOT regress it.
   useEffect(() => {
     if (!match?.liveState) return;
 
@@ -293,7 +293,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         notifyCompetitionFollowers({
           cid,
           title: "▶️ Reprise du match",
-          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName} — 2e mi-temps`,
+          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps`,
           link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
         });
       }
@@ -320,7 +320,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       ).length;
       if (starters >= startersMax) {
         next = "substitute";
-        toast(`${startersMax} titulaires maximum — le reste = remplaçants`, { icon: "⚠️" });
+        toast(`${startersMax} titulaires maximum, le reste = remplaçants`, { icon: "⚠️" });
       }
     }
     setter((prev) => ({ ...prev, [playerId]: next }));
@@ -519,7 +519,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           notifyCompetitionFollowers({
             cid,
             title: `🟥 Expulsion (${minute}')`,
-            body: `${entry.name} (${teamName}) — 2e carton jaune`,
+            body: `${entry.name} (${teamName}), 2e carton jaune`,
             link: matchLink,
           });
           toast("2e jaune → exclusion", { icon: "🟥" });
@@ -575,7 +575,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         playerId: entry.playerId,
         playerName: entry.name,
       });
-      toast.success(`Passe décisive — ${entry.name}`);
+      toast.success(`Passe décisive, ${entry.name}`);
       setAssistPicker(null);
     } catch {
       toast.error("Passe non enregistrée");
@@ -732,7 +732,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const lineupsReady = match.homeLineupReady && match.awayLineupReady;
 
     // Full-height column: header and kickoff bar are pinned, only the roster
-    // scrolls. `pt-safe` keeps the header clear of the status bar — the
+    // scrolls. `pt-safe` keeps the header clear of the status bar, the
     // console renders without the app shell, so nothing else provides it.
     return (
       <div
@@ -762,7 +762,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <div className="h-10 w-10 shrink-0" />
         </div>
 
-        {/* Team switch — mobile only. Carries each side's validation state,
+        {/* Team switch, mobile only. Carries each side's validation state,
             since only one sheet is visible at a time. */}
         {!rostersLoading && (
           <div className="mx-2 mt-3 flex shrink-0 gap-1 rounded-xl bg-gray-200/70 p-1 md:hidden">
@@ -822,7 +822,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           </div>
         )}
 
-        {/* Launch gate — pinned, so kickoff is always one tap away instead of
+        {/* Launch gate, pinned, so kickoff is always one tap away instead of
             two rosters further down. */}
         <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200 bg-white/95 px-3 py-3 pb-safe backdrop-blur">
           {!lineupsReady && !rostersLoading && (
@@ -884,7 +884,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   return (
     <div ref={containerRef} className="mx-auto max-w-5xl space-y-4 overflow-y-auto bg-gray-50 pb-28 pt-safe sm:space-y-7 lg:max-w-7xl">
-      {/* Sandbox banner — the console is otherwise indistinguishable from the
+      {/* Sandbox banner, the console is otherwise indistinguishable from the
           real thing, and a trainee must never wonder whether it counts. */}
       {competition?.isSandbox && (
         <div className="mx-2 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
@@ -893,7 +893,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             <p className="text-sm font-black text-emerald-900">Mode entraînement</p>
             <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-800">
               Ce match est fictif. Rien n&apos;est publié, aucune notification n&apos;est
-              envoyée, aucune statistique n&apos;est comptée — essaie tout ce que tu
+              envoyée, aucune statistique n&apos;est comptée, essaie tout ce que tu
               veux. Tu peux le remettre à zéro depuis l&apos;espace live.
             </p>
           </div>
@@ -1164,7 +1164,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       </div>
       </div>
 
-      {/* Player-picker modal (goal / card — only players currently on the pitch) */}
+      {/* Player-picker modal (goal / card, only players currently on the pitch) */}
       <AnimatePresence>
         {picker && (
           <PlayerPickerModal
@@ -1179,7 +1179,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         )}
       </AnimatePresence>
 
-      {/* Passer on the goal just scored — skippable, and the scorer is out. */}
+      {/* Passer on the goal just scored, skippable, and the scorer is out. */}
       <AnimatePresence>
         {assistPicker && (
           <PlayerPickerModal
@@ -1238,7 +1238,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-gray-900">Tirs au but</h2>
-                  <p className="text-xs font-medium text-gray-400">Match nul — départage requis</p>
+                  <p className="text-xs font-medium text-gray-400">Match nul, départage requis</p>
                 </div>
               </div>
 
@@ -1311,7 +1311,7 @@ function LineupBuilder({
   accent: "primary" | "amber";
   roster: CompPlayer[];
   sheet: Record<string, SheetRole>;
-  /** Titulaires autorisés — le NvN de la compétition. */
+  /** Titulaires autorisés, le NvN de la compétition. */
   startersMax: number;
   ready: boolean;
   saving: boolean;
@@ -1347,7 +1347,7 @@ function LineupBuilder({
 
       {roster.length === 0 ? (
         <div className="mt-4 rounded-xl border-2 border-dashed border-gray-200 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
-          Effectif vide — ajoute les joueurs dans la config de l&apos;équipe
+          Effectif vide, ajoute les joueurs dans la config de l&apos;équipe
         </div>
       ) : (
         <>
@@ -1561,7 +1561,7 @@ function PlayerPickerModal({
           <X size={18} />
         </button>
         <h2 className="text-xl font-black text-gray-900">
-          {title} — {picker.teamName}
+          {title}, {picker.teamName}
         </h2>
         <p className="mb-6 mt-1 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
           {assist
@@ -1766,7 +1766,7 @@ function EventTimeline({
     );
   }
 
-  // The VAR is called on the goal that just happened — and play is stopped
+  // The VAR is called on the goal that just happened, and play is stopped
   // while it runs, so no other goal can come in and push the review down the
   // feed. The controls therefore hang off the last goal alone, and disappear
   // once it has been ruled on: a verdict is final.
@@ -1801,7 +1801,7 @@ function EventTimeline({
               }`}
             >
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
-              {event.minute ? `${event.minute}'` : "—"}
+              {event.minute ? `${event.minute}'` : ","}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -1859,7 +1859,7 @@ function EventTimeline({
                 )}
               </p>
 
-              {/* VAR controls — last goal only, while the match is running */}
+              {/* VAR controls, last goal only, while the match is running */}
               {reviewable && onVarVerdict && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {varBusy && <Loader2 size={13} className="animate-spin text-gray-300" />}

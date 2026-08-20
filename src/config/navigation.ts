@@ -26,10 +26,10 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 }
 
 // ============================================
-// Member — unified nav (competition-first scope)
+// Member, unified nav (competition-first scope)
 // ============================================
 // Post-pivot: the same simple navigation for everyone, including guests
-// (the home shell is public — auth only unlocks privileges). Legacy roles
+// (the home shell is public, auth only unlocks privileges). Legacy roles
 // (manager/referee/venue_owner) map to the member nav until their
 // verticals come back from _shelved.
 
@@ -53,7 +53,7 @@ export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
 // shell, so its entries are declared with the other spaces in AppSidebar.
 
 // ============================================
-// Admin — Grouped
+// Admin, Grouped
 // ============================================
 
 export const ADMIN_GROUPED_NAV: NavEntry[] = [
@@ -125,7 +125,7 @@ export interface BottomNavItem {
  *
  * « Compétitions » en est sortie : l'annuaire s'atteint depuis le Direct,
  * qui les liste déjà, alors qu'Actus n'était atteignable de nulle part en
- * mobile — la rangée du header qui la porte est masquée sous `lg`.
+ * mobile, la rangée du header qui la porte est masquée sous `lg`.
  *
  * Les deux places suivantes ne sont pas des liens fixes : l'espace du compte
  * (ou Evolution s'il n'a pas encore de rôle) et le bouton « Moi ». Voir

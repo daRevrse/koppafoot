@@ -3,16 +3,16 @@ import ArticleHero from "@/components/actus/ArticleHero";
 import { getSportsArticles, type Article } from "@/lib/news-rss";
 
 // ============================================
-// Actus — le fil d'articles de sport.
+// Actus, le fil d'articles de sport.
 //
 // Ce que cette page n'est pas : un deuxième tableau de scores. Elle en a été
-// un — résultats, buteurs, mouvements journée par journée — et c'était un
+// un, résultats, buteurs, mouvements journée par journée, et c'était un
 // doublon de Direct sous un autre titre. Les scores vivent sur Direct, les
 // mouvements dans le rail ; ici on lit ce que la presse écrit.
 //
 // La forme suit la lecture : ce qui est tombé aujourd'hui passe en grand dans
 // un hero qu'on fait défiler, le reste s'empile par jour en grilles de six.
-// Une journée chargée ne pousse pas la suivante hors de l'écran — sa grille
+// Une journée chargée ne pousse pas la suivante hors de l'écran, sa grille
 // défile sur elle-même.
 //
 // On affiche le titre, le média et l'heure, et le lien part chez l'éditeur.
@@ -22,7 +22,7 @@ import { getSportsArticles, type Article } from "@/lib/news-rss";
 export const revalidate = 900;
 
 export const metadata = {
-  title: "Actus — KoppaFoot",
+  title: "Actus, KoppaFoot",
   description:
     "L'actualité du football : ce que la presse publie, rassemblé en un fil.",
 };
@@ -43,7 +43,7 @@ function dayHeading(iso: string): string {
   return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 }
 
-/** « 14:05 » — l'heure, dans la journée déjà annoncée par le titre. */
+/** « 14:05 », l'heure, dans la journée déjà annoncée par le titre. */
 function hour(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";

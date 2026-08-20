@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { RosterClaim } from "@/types";
 
 // ============================================
-// Pending roster claims for one team — players who clicked "C'est moi" on
+// Pending roster claims for one team, players who clicked "C'est moi" on
 // the public roster. Validating writes `user_id` on the roster line and
 // unlocks that player's personal statistics.
 // Renders nothing when there is nothing to decide.
@@ -37,7 +37,7 @@ export default function RosterClaimsPanel({
       const data = (await res.json()) as { claims: RosterClaim[] };
       setClaims((data.claims ?? []).filter((c) => c.teamId === teamId));
     } catch {
-      // Non-blocking — the roster below still renders.
+      // Non-blocking, the roster below still renders.
     }
   }, [firebaseUser, cid, teamId]);
 

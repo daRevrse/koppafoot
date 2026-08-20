@@ -339,7 +339,7 @@ function VenueOwnerSection({ profile }: { profile: UserProfile }) {
 /**
  * La fiche publique, telle que la sert /api/public/profile/[uid] : une
  * projection en liste blanche, sans email ni telephone. Les champs absents
- * restent indefinis — la page les traite deja comme optionnels.
+ * restent indefinis, la page les traite deja comme optionnels.
  */
 async function fetchPublicProfile(
   uid: string,
@@ -369,7 +369,7 @@ async function fetchPublicProfile(
       galleryUrls: profile.gallery_urls ?? [],
       // Le cast passe par `unknown` a dessein : UserProfile exige email,
       // phone et quelques champs de compte que cette projection ne porte pas
-      // — c'est tout l'interet de la projection. La page ne lit aucun d'eux.
+      //, c'est tout l'interet de la projection. La page ne lit aucun d'eux.
     } as unknown as UserProfile;
 
     // Les equipes arrivent deja au format de la page : l'endpoint les projette
@@ -416,7 +416,7 @@ export default function PublicProfilePage() {
   // On attend que l'authentification soit TRANCHEE avant de lire. Sans cette
   // attente, `currentUser` vaut null au premier rendu : la fiche se chargeait
   // par la projection publique, s'affichait, puis l'auth arrivait, l'effet
-  // rejouait par getUserById et remplacait tout — les informations physiques
+  // rejouait par getUserById et remplacait tout, les informations physiques
   // apparaissaient et disparaissaient dans le meme souffle.
   //
   // Attendre coute quelques dizaines de millisecondes et economise une
@@ -430,7 +430,7 @@ export default function PublicProfilePage() {
       try {
         // Connecte : lecture directe. Visiteur : `users` lui est ferme par les
         // regles (le document porte email et telephone), donc on passe par la
-        // projection publique — voir /api/public/profile/[uid].
+        // projection publique, voir /api/public/profile/[uid].
         // La projection publique sert TOUT LE MONDE pour les equipes, y
         // compris un lecteur connecte. Deux raisons :
         //
@@ -442,7 +442,7 @@ export default function PublicProfilePage() {
         //   aucune des deux branches, et voyait « Equipes (0) » alors meme
         //   qu'il etait dans un effectif.
         //
-        // L'endpoint interroge les deux appartenances — effectif et manager —
+        // L'endpoint interroge les deux appartenances, effectif et manager,
         // sans rien supposer du role.
         const pub = await fetchPublicProfile(uid);
 
@@ -629,7 +629,7 @@ export default function PublicProfilePage() {
   ];
 
   // Ce qu'on EST sur le terrain n'est pas ce qu'est son COMPTE. `user_type`
-  // dit organizer, manager ou superadmin — c'est un type de compte. Le role
+  // dit organizer, manager ou superadmin, c'est un type de compte. Le role
   // Evolution dit joueur. Un organisateur qui joue avait donc une fiche vide :
   // ses informations physiques etaient bien en base, mais la section qui les
   // porte ne s'affichait que pour user_type === "player".

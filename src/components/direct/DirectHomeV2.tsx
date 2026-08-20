@@ -20,16 +20,16 @@ import type { FootballCompetition } from "@/lib/football-data";
 import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
 
 // ============================================
-// DirectHomeV2 — the live-score home, a scores board rather than a timeline.
+// DirectHomeV2, the live-score home, a scores board rather than a timeline.
 //
 // Reading order, top to bottom:
 //   1. the competition filter, then a day-driven fixture list grouped by
 //      competition and collapsible;
-//   2. a rail beside it carrying the affiche — the featured match with its
+//   2. a rail beside it carrying the affiche, the featured match with its
 //      pronostic, cycling on its own until someone votes or pages, then the
 //      week's top offensive contributions.
 //
-// On a phone the affiche comes first, then the board, then the rankings —
+// On a phone the affiche comes first, then the board, then the rankings,
 // which is why the board sits between the two rail cards rather than after
 // both.
 // ============================================
@@ -54,7 +54,7 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
 };
 
 // Local-only preferences: a favourite and a pronostic are a device thing,
-// not account data — no rules, no writes, and they work signed out.
+// not account data, no rules, no writes, and they work signed out.
 const FAV_KEY = "kf:direct:favs";
 const COMP_FAV_KEY = "kf:direct:compfavs";
 const PICK_KEY = "kf:direct:picks";
@@ -107,7 +107,7 @@ function logoFor(
   return (teamId ? teamsById.get(teamId)?.logoUrl : null) ?? fallback;
 }
 
-/** Second line of a competition header — the "country" line of the model. */
+/** Second line of a competition header, the "country" line of the model. */
 function competitionSubtitle(c: Competition): string {
   return c.venueCity ?? c.organizerName ?? "";
 }
@@ -128,7 +128,7 @@ function matchHref(e: Entry): string {
   // Un amical n'appartient a aucune competition : sa page est /matches/[id].
   // Le fanion vient de FRIENDLY_COMP_ID (voir friendlies-admin).
   if (e.competition.id === FRIENDLY_COMP_ID) return `/matches/${e.match.id}`;
-  // Un match du fournisseur externe n'a pas de page detail chez nous — et il
+  // Un match du fournisseur externe n'a pas de page detail chez nous, et il
   // ne doit pas en avoir : c'est la que vivrait le pronostic, qui ne
   // s'applique qu'aux matchs qu'on gere. On renvoie vers sa competition.
   if (isWorldComp(e.competition.id)) return competitionHref(e.competition);
@@ -139,7 +139,7 @@ function entryKey(e: Entry): string {
   return `${e.competition.id}:${e.match.id}`;
 }
 
-/** Kickoff sort key — undated fixtures land last. */
+/** Kickoff sort key, undated fixtures land last. */
 function kickoff(e: Entry): string {
   return `${e.match.date ?? "9999-99-99"}T${e.match.time ?? "99:99"}`;
 }
@@ -228,7 +228,7 @@ function createLocalStore<T>(
           const raw = localStorage.getItem(key);
           if (raw) cache = revive(raw);
         } catch {
-          /* private mode / corrupted value — the store just stays empty */
+          /* private mode / corrupted value, the store just stays empty */
         }
       }
       listeners.add(listener);
@@ -315,8 +315,8 @@ function usePicks() {
 /**
  * The "Compétitions" tab: a directory rather than a list.
  *
- * Starred competitions come first as tiles — the ones a supporter actually
- * follows — then everything else grouped by city and folded away, because a
+ * Starred competitions come first as tiles, the ones a supporter actually
+ * follows, then everything else grouped by city and folded away, because a
  * flat alphabetical list of every tournament in the country is a phone book,
  * not a shortcut.
  *
@@ -555,7 +555,7 @@ function MatchRow({
   const away = match.scoreAway ?? 0;
   const hasPens = match.penaltyHome != null && match.penaltyAway != null;
 
-  // The beaten side greys out — the standard scoreboard reading.
+  // The beaten side greys out, the standard scoreboard reading.
   const sideClass = (mine: number, theirs: number) =>
     finished && !hideScores && mine < theirs ? "text-gray-400" : "text-gray-900";
 
@@ -574,7 +574,7 @@ function MatchRow({
           ) : (
             <>
               <span className="text-[11px] font-black tabular-nums text-gray-500">
-                {finished ? "Fin" : (match.time ?? "—")}
+                {finished ? "Fin" : (match.time ?? ",")}
               </span>
               {!finished && <span className="text-[10px] font-bold text-gray-300">-</span>}
             </>
@@ -639,7 +639,7 @@ function MatchRow({
   );
 }
 
-/** A competition and its fixtures for the selected day — collapsible. */
+/** A competition and its fixtures for the selected day, collapsible. */
 function CompetitionGroup({
   competition, entries, teamsById, favs, onStar, hideScores,
 }: {
@@ -653,7 +653,7 @@ function CompetitionGroup({
   const [open, setOpen] = useState(true);
   const stage = stageLabel(competition.competitionType, competition.status);
   // A knockout day reads better by round than by the competition's running
-  // stage — "Quart de finale" beats "Phase finale" when the two agree.
+  // stage, "Quart de finale" beats "Phase finale" when the two agree.
   const firstRound = entries[0]?.match.round;
   const heading = firstRound ? ROUND_LABELS[firstRound] : stage;
 
@@ -757,7 +757,7 @@ function Spotlight({
   onPick: (id: string, p: Pick) => void;
 }) {
   const [index, setIndex] = useState(0);
-  // Auto-advance stops for good the moment this rail is used — voting on a
+  // Auto-advance stops for good the moment this rail is used, voting on a
   // match, or paging to one, means that match is the one being looked at.
   // Sliding it away a few seconds later would move the pronostic out from
   // under the tap.
@@ -852,7 +852,7 @@ function Spotlight({
                 ) : (
                   <>
                     <span className="font-display text-2xl font-black tabular-nums text-gray-900">
-                      {match.time ?? "—"}
+                      {match.time ?? ","}
                     </span>
                     <span className="mt-0.5 block text-[11px] font-black text-gray-400">
                       {match.date ? dayLabel(match.date) : "À programmer"}
@@ -876,7 +876,7 @@ function Spotlight({
         </motion.div>
       </AnimatePresence>
 
-      {/* Pronostic — device-local, no account needed */}
+      {/* Pronostic, device-local, no account needed */}
       <div className="px-4 pb-3 pt-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -1000,7 +1000,7 @@ export interface PerformanceRow {
  * Best offensive contributions of the week, every competition mixed: goals
  * plus assists, ranked on the sum. The passer rides on the goal event (see
  * `setCompGoalAssist`), so a goal scored before the console started asking
- * simply carries none — those players still rank on their goals.
+ * simply carries none, those players still rank on their goals.
  */
 function TopPerformancesCard({
   rows, scope, teamsById,
@@ -1108,7 +1108,7 @@ export default function DirectHomeV2({
   // so keying the effects on it would tear the listeners down on every score.
   const competitionIds = useMemo(() => competitions.map((c) => c.id).join(","), [competitions]);
 
-  // One real-time listener per competition — the board is a live scoreboard,
+  // One real-time listener per competition, the board is a live scoreboard,
   // so every fixture on screen has to move on its own.
   useEffect(() => {
     const ids = competitionIds ? competitionIds.split(",") : [];
@@ -1155,7 +1155,7 @@ export default function DirectHomeV2({
   const liveEntries = useMemo(() => scoped.filter((e) => e.match.status === "live"), [scoped]);
 
   // Spotlight: live first, then the soonest kickoff, then the freshest result
-  // — a short highlight reel, not a second fixture list.
+  //, a short highlight reel, not a second fixture list.
   // L'affiche et son pronostic : uniquement les competitions de la
   // plateforme. Un match du fournisseur externe n'a pas de page chez nous et
   // ne se pronostique pas ; un amical n'a pas de console de score.
@@ -1199,7 +1199,7 @@ export default function DirectHomeV2({
       .slice(0, 5);
   }, [scoped]);
 
-  // The list is day-driven, except Favoris — a followed match is worth seeing
+  // The list is day-driven, except Favoris, a followed match is worth seeing
   // whatever day it falls on, and day-scoping it would show an empty tab.
   const listEntries = useMemo(() => {
     // Favoris = the matches you starred, plus every match of a competition
@@ -1207,7 +1207,7 @@ export default function DirectHomeV2({
     // match stays possible for the one fixture you care about in it.
     // Le jour affiche filtre automatiquement : c'est un tableau de scores,
     // il repond d'abord a « qu'est-ce qui se joue ». Les favoris echappent au
-    // filtre — on les suit quelle que soit la date.
+    // filtre, on les suit quelle que soit la date.
     let list = tab === "favs"
       ? scoped.filter((e) => favs.has(entryKey(e)) || compFavs.has(e.competition.id))
       : scoped.filter((e) => e.match.date === day);
@@ -1233,7 +1233,7 @@ export default function DirectHomeV2({
     });
   }, [listEntries]);
 
-  // When the chosen day is empty, point at the nearest day that is not — an
+  // When the chosen day is empty, point at the nearest day that is not, an
   // amateur calendar has holes, and a blank board looks broken. The next
   // fixture day wins over the last one played: the board answers "what is
   // coming" first, and results stay one tap behind.
@@ -1243,7 +1243,7 @@ export default function DirectHomeV2({
   }, [scoped, day]);
 
   // Top performances : les cinq derniers matchs de chaque joueur, toutes
-  // competitions LOCALES confondues — le fournisseur externe ne donne pas le
+  // competitions LOCALES confondues, le fournisseur externe ne donne pas le
   // detail des buteurs par match, et les amicaux n'ont pas de console de
   // score, donc ni l'un ni l'autre n'a de contribution a apporter ici.
   //
@@ -1327,7 +1327,7 @@ export default function DirectHomeV2({
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-3">
-      {/* Competition switcher — the board's own filter, under the chrome. */}
+      {/* Competition switcher, the board's own filter, under the chrome. */}
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button

@@ -8,9 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { setCompetitionFollow } from "@/lib/competition-firestore";
 
 // ============================================
-// FollowCompetitionButton — follow/unfollow a competition. Followers
+// FollowCompetitionButton, follow/unfollow a competition. Followers
 // receive push notifications (kickoff, goals, final score). Guests are
-// sent to signup — this is the conversion sur-valeur.
+// sent to signup, this is the conversion sur-valeur.
 //
 // Trois habillages :
 //  - "pill" : la pastille avec son libellé, pour une page compétition.
@@ -54,7 +54,7 @@ export default function FollowCompetitionButton({
       // rafraîchissement, l'étoile du sidebar et les autres cartes gardent
       // l'ancienne liste jusqu'au prochain chargement.
       await refreshUser();
-      toast.success(next ? "Compétition suivie — tu recevras les buts en direct." : "Compétition retirée.");
+      toast.success(next ? "Compétition suivie, tu recevras les buts en direct." : "Compétition retirée.");
     } catch {
       setFollowing(!next);
       toast.error("Impossible de mettre à jour. Réessaie.");

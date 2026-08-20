@@ -67,7 +67,7 @@ export default function StandingsTab({ competition, matches, teams }: {
             <ListOrdered size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
-            Classement vide — aucun groupe ou résultat pour l&apos;instant.
+            Classement vide, aucun groupe ou résultat pour l&apos;instant.
           </p>
         </div>
       ) : (

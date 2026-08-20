@@ -37,7 +37,7 @@ export function useRoleOnboarding(): OnboardingProgress | null {
           getTeamsByManager(user.uid),
           listCompTeamsByManager(user.uid),
         ]);
-        // Ghost players live in a subcollection — a squad made only of
+        // Ghost players live in a subcollection, a squad made only of
         // players without smartphones still counts as a squad.
         const ghostCounts = await Promise.all(
           teams.map((t) => getGhostPlayersByTeam(t.id).then((g) => g.length).catch(() => 0)),

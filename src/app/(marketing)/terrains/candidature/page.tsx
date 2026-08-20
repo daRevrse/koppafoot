@@ -12,7 +12,7 @@ import { isVenueOwner } from "@/lib/hats";
 //
 // Référencer un terrain, c'est publier une adresse et se présenter comme son
 // gestionnaire. Rien n'empêche techniquement de le faire pour le terrain du
-// voisin — d'où une relecture humaine, comme pour l'organisateur.
+// voisin, d'où une relecture humaine, comme pour l'organisateur.
 //
 // La casquette qui en découle S'AJOUTE au compte : on reste joueur, manager
 // ou arbitre en devenant propriétaire. C'est tout l'objet de la séparation
@@ -173,7 +173,7 @@ export default function VenueApplicationPage() {
           </h1>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">
             On relit la fiche et on vous répond. À l&apos;approbation, le terrain
-            est publié et votre espace s&apos;ouvre — sans rien resaisir.
+            est publié et votre espace s&apos;ouvre, sans rien resaisir.
           </p>
           <Link
             href="/"
@@ -216,7 +216,7 @@ export default function VenueApplicationPage() {
       </h1>
       <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-600">
         On relit chaque fiche avant publication : un terrain référencé engage
-        celui qui le gère. Ça ne change rien à votre rôle sur le terrain — on
+        celui qui le gère. Ça ne change rien à votre rôle sur le terrain, on
         reste joueur, manager ou arbitre en devenant propriétaire.
       </p>
 

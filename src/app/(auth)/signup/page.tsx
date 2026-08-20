@@ -13,9 +13,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 // ============================================
-// Signup — onboarded wizard, limited to the essentials.
+// Signup, onboarded wizard, limited to the essentials.
 // Step 1 (required): identity + credentials. Step 2 (skippable):
-// city/phone — everything optional can be completed later in the
+// city/phone, everything optional can be completed later in the
 // profile. Single account type ("player" as the technical default);
 // organizer / live-ops / superadmin are granted by promotion.
 // ============================================
@@ -251,7 +251,7 @@ export default function SignupPage() {
             className="space-y-4"
           >
             <p className="text-xs leading-relaxed text-gray-400">
-              Ces informations sont optionnelles — tu pourras les compléter à tout
+              Ces informations sont optionnelles, tu pourras les compléter à tout
               moment dans ton profil.
             </p>
 

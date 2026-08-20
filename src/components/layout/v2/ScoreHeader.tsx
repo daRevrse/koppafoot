@@ -16,20 +16,20 @@ import NotificationDropdown from "@/components/notifications/NotificationDropdow
 import SearchModal from "./SearchModal";
 
 // ============================================
-// ScoreHeader — the one band of the shell.
+// ScoreHeader, the one band of the shell.
 //
 // Everything the sidebar used to carry is horizontal now: the sections as
-// tabs next to the logo, and everything else behind ONE menu on the right —
+// tabs next to the logo, and everything else behind ONE menu on the right,
 // the avatar, or a User icon when signed out. The role destinations that
 // briefly lived on a third band went in there too: a second row of links was
 // a lot of chrome for pages visited once a week.
 //
 // Shared bits (search, notifications) are reused as-is and re-toned for the
-// dark band through descendant selectors, rather than forked — those files
+// dark band through descendant selectors, rather than forked, those files
 // belong to the current shell and must keep working there unchanged.
 // ============================================
 
-/** The Direct board — the home. */
+/** The Direct board, the home. */
 export const HOME = "/";
 
 interface NavEntry {
@@ -55,12 +55,12 @@ const PRIMARY: NavEntry[] = [
 /**
  * Les portes d'entree du produit, autrefois repliees dans un menu « Extra ».
  *
- * Le repli partait d'une bonne intention — ce sont des actions, pas des
- * sections — mais il enterrait trois pages faites pour etre trouvees par
+ * Le repli partait d'une bonne intention, ce sont des actions, pas des
+ * sections, mais il enterrait trois pages faites pour etre trouvees par
  * quelqu'un qui ne connait pas encore le produit. Une page d'acquisition
  * derriere un menu deroulant est une page qu'on ne lit pas.
  *
- * Les libelles portent le nom de produit complet — c'est ainsi que ces trois
+ * Les libelles portent le nom de produit complet, c'est ainsi que ces trois
  * espaces s'appellent, et la rangee est le seul endroit ou ils sont nommes.
  */
 const ENTRIES: NavEntry[] = [
@@ -82,7 +82,7 @@ const ENTRIES: NavEntry[] = [
 /**
  * La Tribune does not exist for a visitor: its posts are gated behind
  * `isAuthenticated()` in firestore.rules, so a guest was being offered a
- * door onto an empty room — and the rail behind it spent every page load
+ * door onto an empty room, and the rail behind it spent every page load
  * failing to read authors. Signed in, it takes its place in the menu.
  */
 const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: Globe };
@@ -110,11 +110,11 @@ function useDropdown() {
 }
 
 /**
- * « Espace [role] » — tout ce que CE compte peut faire, en un seul menu.
+ * « Espace [role] », tout ce que CE compte peut faire, en un seul menu.
  *
  * Ces destinations vivaient dans le menu avatar, derriere une photo de
  * profil. On y cherchait « Mes equipes » ou « Mercato » dans un endroit qui
- * annonce un compte, pas un espace de travail — et le Mercato, lui, occupait
+ * annonce un compte, pas un espace de travail, et le Mercato, lui, occupait
  * une place de la barre alors qu'il ne concerne qu'un role.
  *
  * Le menu porte le nom du role parce que c'est ainsi qu'on se pense en
@@ -213,11 +213,11 @@ function EspaceMenu({
 }
 
 /**
- * « Koppa Links » — les portes du produit, repliees dans un megamenu.
+ * « Koppa Links », les portes du produit, repliees dans un megamenu.
  *
  * Une fois connecte, la barre portait sept entrees : Direct, Actus, Mercato,
  * la Tribune et les trois portes. Les trois portes sont celles qui QUITTENT
- * l'application — nouvel onglet, site de presentation. Les replier laisse
+ * l'application, nouvel onglet, site de presentation. Les replier laisse
  * dans la barre ce qui est vraiment de la navigation interne.
  *
  * Typographie large a dessein : ce ne sont pas des lignes de menu mais trois
@@ -286,7 +286,7 @@ function KoppaLinksMenu() {
 /**
  * « Koppa Links » en mobile : une feuille, meme contenu que le megamenu.
  *
- * Les trois portes vivaient dans la rangee du header, masquee sous `lg` —
+ * Les trois portes vivaient dans la rangee du header, masquee sous `lg`,
  * donc invisibles sur telephone. On avait nomme et dessine trois espaces
  * d'acquisition que la moitie des visiteurs ne pouvait pas atteindre.
  *
@@ -301,7 +301,7 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* `bottom-[var(--bottomnav-h)]` : la feuille s'arrete AU-DESSUS de la
-          barre du bas, qui est fixee et flottait par-dessus — le dernier lien,
+          barre du bas, qui est fixee et flottait par-dessus, le dernier lien,
           MyFields, passait dessous et devenait illisible et intouchable.
           `max-h` + defilement pour le cas ou trois portes ne tiendraient pas
           sur un petit ecran. */}
@@ -365,7 +365,7 @@ function AccountMenu() {
     }
   };
 
-  // Signed out: the same slot becomes the way in — and the way in is a
+  // Signed out: the same slot becomes the way in, and the way in is a
   // dialog, not a page, so nobody loses the match they were reading.
   if (!user) {
     return (
@@ -429,7 +429,7 @@ function AccountMenu() {
 
           {/* Ni destinations de role ni casquettes ici : elles sont dans
               « Espace [role] », dans la barre. Une photo de profil annonce un
-              compte — on n'y cherche pas « Mes equipes ». Ce menu ne garde
+              compte, on n'y cherche pas « Mes equipes ». Ce menu ne garde
               que ce qui touche vraiment au compte. */}
 
           {/* Inviter quelqu'un est un geste qu'on fait depuis son compte :
@@ -456,7 +456,7 @@ function AccountMenu() {
             onClick={async () => {
               setOpen(false);
               await logout();
-              // Home is public — no reason to send anyone to a login screen.
+              // Home is public, no reason to send anyone to a login screen.
               router.push("/");
             }}
             className="flex w-full items-center gap-2.5 border-t border-gray-50 px-3 py-2 text-left transition-colors hover:bg-gray-50"
@@ -476,7 +476,7 @@ function AccountMenu() {
  * Le header publie sa hauteur reelle dans `--header-h`.
  *
  * Les heros collants des pages s'y epinglent. Ils portaient jusqu'ici un
- * offset devine — `top-16` puis `lg:top-[72px]` — qui tombait juste en
+ * offset devine, `top-16` puis `lg:top-[72px]`, qui tombait juste en
  * desktop et faux en mobile : le header y mesure 78px a cause de `pt-safe`
  * et de la rangee plus haute, si bien que chaque hero glissait 14px SOUS le
  * header en defilant. Un chiffre ecrit a la main dans sept fichiers ne peut
@@ -501,7 +501,7 @@ function useHeaderHeight() {
 
     // `border-box` explicitement : la hauteur du header change par son
     // PADDING (`py-3` en mobile, `lg:py-4` au-dessus). La boite de contenu,
-    // elle, ne bouge pas d'un pixel — et `ResizeObserver` l'observe par
+    // elle, ne bouge pas d'un pixel, et `ResizeObserver` l'observe par
     // defaut, donc il ne se declenchait jamais au passage d'un point de
     // rupture. La variable restait figee sur la valeur du premier rendu.
     const ro = new ResizeObserver(publier);
@@ -568,7 +568,7 @@ export default function ScoreHeader() {
           })}
 
           {/* Un compte sans role choisi : l'invitation passe devant, en
-              plein contraste. Elle vivait jusqu'ici au fond du menu avatar —
+              plein contraste. Elle vivait jusqu'ici au fond du menu avatar,
               c'est-a-dire nulle part pour qui ne l'ouvre jamais, alors que
               c'est le geste qui donne acces a tout le reste du produit.
               Elle disparait d'elle-meme des qu'un role est actif. */}
@@ -594,12 +594,12 @@ export default function ScoreHeader() {
             />
           )}
 
-          {/* Les trois portes, repliees — la barre garde la navigation
+          {/* Les trois portes, repliees, la barre garde la navigation
               interne, le megamenu porte ce qui sort de l'application. */}
           <KoppaLinksMenu />
         </nav>
 
-        {/* A field on a pointer, an icon on a phone — both open the same
+        {/* A field on a pointer, an icon on a phone, both open the same
             modal, so there is one search surface to maintain and one place
             the filters live. It travels with the menu, on the right: the
             logo holds the left on its own. */}

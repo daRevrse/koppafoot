@@ -6,12 +6,12 @@ import { Lock, ArrowLeft } from "lucide-react";
 import { useAuthModal } from "./AuthModal";
 
 // ============================================
-// AuthRequired — what a protected page shows instead of bouncing.
+// AuthRequired, what a protected page shows instead of bouncing.
 //
 // The old guard replaced the URL with /login, which lost the destination and
 // made "back" go in circles. The page now stays on its own address, says
 // what it needs, and opens the sign-in dialog on top. Once the account
-// lands, the page below renders itself — no redirect, no lost URL.
+// lands, the page below renders itself, no redirect, no lost URL.
 // ============================================
 
 export default function AuthRequired({

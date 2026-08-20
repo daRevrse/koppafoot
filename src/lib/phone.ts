@@ -1,5 +1,5 @@
 // ============================================
-// Phone number helpers — shared by the login phone tab and the profile's
+// Phone number helpers, shared by the login phone tab and the profile's
 // "Méthodes de connexion" card. Firebase wants E.164; users type their
 // number the way they say it, so the country code comes from a picker and
 // the national part is normalised here.

@@ -16,14 +16,14 @@ import {
 import type { LinkedCompPlayer } from "@/types";
 
 // ============================================
-// Mes statistiques — the player's own record, aggregated over every
+// Mes statistiques, the player's own record, aggregated over every
 // competition roster line linked to their account.
 //
 // Links are now created automatically: when a manager registers their club
 // in a competition (or imports it into an existing team), every member's
 // roster line carries their user_id and a row lands on their user doc. So a
 // player with a linked line but no minutes yet is the NORMAL case, not an
-// edge one — competitions are listed with zeros rather than hidden, because
+// edge one, competitions are listed with zeros rather than hidden, because
 // seeing the competition is how the player knows the link worked.
 // ============================================
 
@@ -62,8 +62,8 @@ export default function StatsPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
 
-  // Dedoublonnage a la source. Deux liens identiques — meme competition,
-  // meme equipe, meme joueur — ne peuvent venir que d'une anomalie de donnees,
+  // Dedoublonnage a la source. Deux liens identiques, meme competition,
+  // meme equipe, meme joueur, ne peuvent venir que d'une anomalie de donnees,
   // mais ils compteraient alors ses buts DEUX FOIS dans le total. Une clé
   // React unique aurait masque le doublon sans corriger le chiffre.
   const links = useMemo(() => {
@@ -239,7 +239,7 @@ export default function StatsPage() {
                         // Zeros on purpose: this is what tells the player the
                         // link worked and they are on the squad sheet.
                         <p className="mt-1.5 text-xs font-bold text-gray-400">
-                          Inscrit — aucun match joué pour l&apos;instant
+                          Inscrit, aucun match joué pour l&apos;instant
                         </p>
                       ) : (
                         <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-gray-600">
@@ -264,7 +264,7 @@ export default function StatsPage() {
             })}
           </div>
 
-          {/* Match by match — the question a player actually opens with */}
+          {/* Match by match, the question a player actually opens with */}
           {recent.length > 0 && (
             <div className="space-y-3">
               <p className="px-1 text-xs font-black uppercase tracking-widest text-gray-400">

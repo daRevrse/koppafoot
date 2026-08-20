@@ -6,7 +6,7 @@ import { CheckCircle2, Circle, ArrowRight, PartyPopper, ChevronDown } from "luci
 import type { OnboardingProgress } from "@/lib/onboarding";
 
 // ============================================
-// Guided onboarding checklist — the same widget for every role. Unlike the
+// Guided onboarding checklist, the same widget for every role. Unlike the
 // passive list it replaces, it names the *next* action and gives it a
 // button; finished steps collapse to a line.
 //
@@ -33,7 +33,7 @@ function getCollapsed(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === "1";
   } catch {
-    return false; // Private mode / storage disabled — stay expanded.
+    return false; // Private mode / storage disabled, stay expanded.
   }
 }
 
@@ -45,7 +45,7 @@ function storeCollapsed(value: boolean): void {
   try {
     localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
   } catch {
-    // Nothing to persist — the toggle still works for this render.
+    // Nothing to persist, the toggle still works for this render.
   }
   listeners.forEach((l) => l());
 }

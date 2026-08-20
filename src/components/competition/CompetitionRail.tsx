@@ -9,7 +9,7 @@ import type { CompMatch, CompTeam } from "@/types";
 //
 // Trois lectures qui ne se répètent pas : qui marque, qui fait marquer, et
 // quelles équipes tiennent la forme. Les deux premières parlent de joueurs,
-// la troisième d'équipes — d'où le choix de la forme plutôt qu'un troisième
+// la troisième d'équipes, d'où le choix de la forme plutôt qu'un troisième
 // classement individuel, qui aurait redit la même chose une fois de plus.
 //
 // Tout se calcule à partir des matchs déjà chargés par la page : aucune
@@ -30,7 +30,7 @@ interface Assister {
  * Les passeurs, comptés sur les mêmes événements que les buteurs.
  *
  * Réserve honnête : la passe décisive est une donnée récente de la console.
- * Un but saisi avant qu'elle existe n'en porte pas — ce classement est donc
+ * Un but saisi avant qu'elle existe n'en porte pas, ce classement est donc
  * partiel par construction, et le restera pour les compétitions passées.
  */
 function computeTopAssisters(matches: CompMatch[]): Assister[] {

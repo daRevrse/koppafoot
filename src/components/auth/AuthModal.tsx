@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 // ============================================
-// AuthModal — signing in without leaving the page.
+// AuthModal, signing in without leaving the page.
 //
 // Sending someone to /login threw away what they were doing: the match they
 // were reading, the competition they were about to follow, the search they
@@ -20,7 +20,7 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 // Firestore profile yet, and /get-started is a form, not a dialog.
 //
 // Only Google is offered here. Email/password and phone still exist on
-// /login — this dialog is deliberately one button, because every extra field
+// /login, this dialog is deliberately one button, because every extra field
 // is a reason to give up.
 // ============================================
 

@@ -57,7 +57,7 @@ export default function FanSection() {
           </p>
         </motion.div>
 
-        {/* Fan features — large portrait cards in a row */}
+        {/* Fan features, large portrait cards in a row */}
         <div className="grid gap-6 sm:grid-cols-3">
           {FAN_FEATURES.map((feature, i) => {
             // const Icon = feature.icon;

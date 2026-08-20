@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
 
 // ============================================
-// Devenir organisateur — application form (the "Organiser" button).
+// Devenir organisateur, application form (the "Organiser" button).
 // Applications are reviewed by the system admin in /admin/organizers.
 // ============================================
 
@@ -19,7 +19,7 @@ interface MyApplication {
   createdAt: string | null;
 }
 
-/** Back to the argument — this page is reached from it, and rejecting the
+/** Back to the argument, this page is reached from it, and rejecting the
  *  form should not mean leaving the site. */
 function BackToPitch() {
   return (
@@ -47,7 +47,7 @@ export default function BecomeOrganizerPage() {
   const [sent, setSent] = useState(false);
 
   const loadMine = useCallback(async () => {
-    // A visitor has no application to look up — without this the page span
+    // A visitor has no application to look up, without this the page span
     // its loader forever now that guests can reach it.
     if (!firebaseUser) {
       setChecking(false);
@@ -140,7 +140,7 @@ export default function BecomeOrganizerPage() {
   }
 
   // Visitor: the whole case for saying yes, then the one thing that is
-  // actually required of them — an account. The form comes after that.
+  // actually required of them, an account. The form comes after that.
   if (!loading && !firebaseUser) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 px-5 py-10">
@@ -153,7 +153,7 @@ export default function BecomeOrganizerPage() {
             Prêt à lancer ta compétition ?
           </h2>
           <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">
-            Il faut d&apos;abord un compte KoppaFoot — Google suffit, et tu
+            Il faut d&apos;abord un compte KoppaFoot, Google suffit, et tu
             reviens ici pour déposer ta candidature.
           </p>
           <button
@@ -221,7 +221,7 @@ export default function BecomeOrganizerPage() {
             <ClipboardList size={20} className="text-emerald-500" />
           </div>
           <div>
-            {/* The page title now lives in the pitch above — this one names
+            {/* The page title now lives in the pitch above, this one names
                 the form it sits on. */}
             <h2 className="font-display text-xl font-black text-gray-900">
               Ta candidature
@@ -248,7 +248,7 @@ export default function BecomeOrganizerPage() {
               required
             />
             <p className="mt-1 text-[11px] text-gray-400">
-              Association, ligue, école, collectif — ou ton propre nom. C&apos;est
+              Association, ligue, école, collectif, ou ton propre nom. C&apos;est
               lui qui s&apos;affichera en « Organisé par » sur tes compétitions.
             </p>
           </div>

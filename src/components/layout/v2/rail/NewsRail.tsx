@@ -9,7 +9,7 @@ import type { Article } from "@/lib/news-rss";
 // Les actus dans le rail du Direct.
 //
 // Le fil le plus recent, coupe court : cinq titres. Le rail accompagne le
-// tableau des scores, il ne rivalise pas avec la page Actus — d'ou le lien
+// tableau des scores, il ne rivalise pas avec la page Actus, d'ou le lien
 // vers elle en pied de bloc plutot qu'une liste qui descend sans fin.
 //
 // Titre, media, et le lien part chez l'editeur : rien n'est recopie.

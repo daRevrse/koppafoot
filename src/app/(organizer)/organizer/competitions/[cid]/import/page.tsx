@@ -364,12 +364,12 @@ export default function CompetitionImportPage() {
                         <td className="px-3 py-1.5">
                           <span className="inline-flex items-center gap-1.5">
                             {!t.valid && <AlertTriangle size={13} className="shrink-0" />}
-                            {t.row.name || "—"}
+                            {t.row.name || ","}
                           </span>
                         </td>
-                        <td className="px-3 py-1.5 text-gray-500">{t.row.shortName ?? "—"}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{t.row.group ?? "—"}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{t.row.color ?? "—"}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{t.row.shortName ?? ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{t.row.group ?? ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{t.row.color ?? ","}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -411,7 +411,7 @@ export default function CompetitionImportPage() {
                 onChange={(e) => setRosterTeamId(e.target.value)}
                 className="w-full border border-gray-200/70 px-4 py-2.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
               >
-                <option value="">— Choisir une équipe —</option>
+                <option value="">, Choisir une équipe,</option>
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -476,11 +476,11 @@ export default function CompetitionImportPage() {
                         <td className="px-3 py-1.5">
                           <span className="inline-flex items-center gap-1.5">
                             {!p.valid && <AlertTriangle size={13} className="shrink-0" />}
-                            {p.row.name || "—"}
+                            {p.row.name || ","}
                           </span>
                         </td>
-                        <td className="px-3 py-1.5">{p.row.number || "—"}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{p.row.position ?? "—"}</td>
+                        <td className="px-3 py-1.5">{p.row.number || ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{p.row.position ?? ","}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -583,7 +583,7 @@ export default function CompetitionImportPage() {
                               {(!m.valid || m.unknownHome) && (
                                 <AlertTriangle size={13} className="shrink-0" />
                               )}
-                              {m.row.home || "—"}
+                              {m.row.home || ","}
                             </span>
                           </td>
                           <td className="px-3 py-1.5">
@@ -591,13 +591,13 @@ export default function CompetitionImportPage() {
                               {m.valid && m.unknownAway && (
                                 <AlertTriangle size={13} className="shrink-0" />
                               )}
-                              {m.row.away || "—"}
+                              {m.row.away || ","}
                             </span>
                           </td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.date ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.time ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.venue ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.group ?? "—"}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.date ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.time ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.venue ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.group ?? ","}</td>
                         </tr>
                       );
                     })}

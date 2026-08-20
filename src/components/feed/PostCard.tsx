@@ -84,7 +84,7 @@ function useDropdown() {
 interface PostCardProps {
   post: Post;
   /**
-   * Le lecteur, ou `null` s'il n'est pas connecte — une fiche publique se lit
+   * Le lecteur, ou `null` s'il n'est pas connecte, une fiche publique se lit
    * sans compte. Ne sert PAS a nommer l'auteur du post (c'est `post.author*`)
    * mais a savoir ce que ce lecteur-ci a le droit de faire, et a estampiller
    * un repost dont il devient l'auteur.
@@ -116,7 +116,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const isVenueOwner = ownsVenue(currentUser);
 
   // Ces deux valeurs estampillent un repost, dont le lecteur devient
-  // l'auteur — elles ne decrivent jamais l'auteur du post affiche. Sans
+  // l'auteur, elles ne decrivent jamais l'auteur du post affiche. Sans
   // compte il n'y a rien a estampiller, et le bouton correspondant est
   // masque plus bas.
   const authorRole =
@@ -146,7 +146,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     }
   };
 
-  // This used to pop a toast and send nothing at all — a reported post
+  // This used to pop a toast and send nothing at all, a reported post
   // reached nobody. It now lands in the moderation queue.
   const handleReport = async () => {
     setReporting(true);
@@ -221,7 +221,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         url: postUrl(),
       });
     } catch (err) {
-      // Cancelling the sheet rejects with AbortError — not a failure.
+      // Cancelling the sheet rejects with AbortError, not a failure.
       if ((err as Error)?.name !== "AbortError") {
         toast.error("Le partage a échoué.");
       }
@@ -276,7 +276,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
       {/* Header */}
       <div className="flex items-start justify-between p-4 pb-0">
         <div className="flex items-center gap-3">
-          {/* The official account has no profile page to visit — its name and
+          {/* The official account has no profile page to visit, its name and
               avatar are deliberately not links. */}
           {isSystem ? (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-gray-100">
@@ -420,7 +420,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         ) : (
           <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
         )}
-        {/* Official posts point somewhere — an announcement you cannot act on
+        {/* Official posts point somewhere, an announcement you cannot act on
             is just noise. */}
         {!editing && post.link && (
           <Link

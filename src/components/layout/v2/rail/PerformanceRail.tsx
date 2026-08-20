@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 // CETTE personne a fait récemment, ce qui est la question qu'on se pose en
 // ouvrant sa fiche.
 //
-// Ne rend rien quand il n'y a rien à montrer — un joueur qui n'a pas encore
+// Ne rend rien quand il n'y a rien à montrer, un joueur qui n'a pas encore
 // marqué en compétition, une équipe qui n'a pas encore joué. Une carte
 // « aucune performance » n'apprend rien et occupe une colonne.
 // ============================================
@@ -40,7 +40,7 @@ const RESULT_STYLE: Record<TeamGame["result"], string> = {
   L: "bg-red-500 text-white",
 };
 
-/** « 16 août » — la date d'un match, sans l'année qui n'apprend rien ici. */
+/** « 16 août », la date d'un match, sans l'année qui n'apprend rien ici. */
 function shortDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(`${iso}T00:00:00`);
@@ -56,7 +56,7 @@ export default function PerformanceRail({ player, team }: {
 
   useEffect(() => {
     const q = player ? `player=${encodeURIComponent(player)}` : team ? `team=${encodeURIComponent(team)}` : null;
-    // Ni joueur ni equipe : rien a demander. On sort sans toucher a l'etat —
+    // Ni joueur ni equipe : rien a demander. On sort sans toucher a l'etat,
     // un setState synchrone au montage relance un rendu pour rien.
     if (!q) return;
 

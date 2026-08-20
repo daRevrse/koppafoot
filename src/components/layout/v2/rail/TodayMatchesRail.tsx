@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 // Les matchs du jour, dans le rail de la page Actus.
 //
 // On y lit ce que la presse écrit ; savoir ce qui se joue pendant qu'on lit
-// est le complément exact — et évite l'aller-retour vers le Direct pour
+// est le complément exact, et évite l'aller-retour vers le Direct pour
 // vérifier une heure de coup d'envoi.
 //
 // Les trois familles y sont (plateforme, amicaux, football mondial), les
@@ -94,7 +94,7 @@ export default function TodayMatchesRail() {
                 <div className="flex items-center gap-2">
                   <Side name={m.home} logo={m.homeLogo} />
                   <span className="shrink-0 font-display text-sm font-black tabular-nums text-gray-900">
-                    {played ? `${m.scoreHome} – ${m.scoreAway}` : (m.time ?? "—")}
+                    {played ? `${m.scoreHome} – ${m.scoreAway}` : (m.time ?? ",")}
                   </span>
                   <Side name={m.away} logo={m.awayLogo} />
                 </div>

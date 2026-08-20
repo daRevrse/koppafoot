@@ -10,14 +10,14 @@ import {
 } from "@/lib/predictions";
 
 // ============================================
-// « Qui va gagner ? » — le pronostic du rail.
+// « Qui va gagner ? », le pronostic du rail.
 //
 // Deux états et un seul geste : tant qu'on n'a pas voté on voit trois choix,
 // une fois voté on voit le résultat. Les totaux restent cachés avant le vote,
 // sinon le premier chiffre affiché décide pour tout le monde.
 //
-// Un compte est nécessaire pour voter — sans quoi le sondage se remplit de
-// rechargements de page — mais le RÉSULTAT est visible de tous, y compris
+// Un compte est nécessaire pour voter, sans quoi le sondage se remplit de
+// rechargements de page, mais le RÉSULTAT est visible de tous, y compris
 // sans compte : c'est une information publique, comme le score.
 // ============================================
 
@@ -72,7 +72,7 @@ export default function PredictionPoll({
   };
 
   const total = counts?.total ?? 0;
-  // Le résultat s'ouvre une fois qu'on a voté — ou quand il n'y a plus rien à
+  // Le résultat s'ouvre une fois qu'on a voté, ou quand il n'y a plus rien à
   // pronostiquer, le match ayant commencé.
   const showResult = mine !== null || closed;
 

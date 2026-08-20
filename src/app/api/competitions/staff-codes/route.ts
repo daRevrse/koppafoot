@@ -11,7 +11,7 @@ import {
 import type { FirestoreStaffCode } from "@/types";
 
 // ============================================
-// Staff access codes — organizer side
+// Staff access codes, organizer side
 //
 // Codes live in a top-level `staff_codes/{CODE}` collection that Firestore
 // rules make unreadable to every client: a code is a secret, and the only way
@@ -20,7 +20,7 @@ import type { FirestoreStaffCode } from "@/types";
 
 const MAX_CODES_PER_COMPETITION = 50;
 
-/** GET /api/competitions/staff-codes?cid=… — every code of the competition. */
+/** GET /api/competitions/staff-codes?cid=…, every code of the competition. */
 export async function GET(req: NextRequest) {
   try {
     const cid = req.nextUrl.searchParams.get("cid");
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST — mint a code. Body: { cid, label, scope, expiresAt? }. */
+/** POST, mint a code. Body: { cid, label, scope, expiresAt? }. */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       .get();
     if (existing.data().count >= MAX_CODES_PER_COMPETITION) {
       return NextResponse.json(
-        { error: `Maximum ${MAX_CODES_PER_COMPETITION} codes par compétition — révoque les anciens` },
+        { error: `Maximum ${MAX_CODES_PER_COMPETITION} codes par compétition, révoque les anciens` },
         { status: 400 },
       );
     }
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
         code = candidate;
         break;
       } catch {
-        // Taken — try another one.
+        // Taken, try another one.
       }
     }
     if (!code) {
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * DELETE — revoke a code. Body: { cid, code }.
+ * DELETE, revoke a code. Body: { cid, code }.
  *
  * Revoking also cuts every access already redeemed from it: an organizer who
  * kills a code that leaked expects the people holding it to lose the console,

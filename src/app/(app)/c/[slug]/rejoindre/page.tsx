@@ -8,7 +8,7 @@ import { COMPETITION_TYPE_LABELS } from "@/lib/competition-format";
 import CompetitionJoinCta from "@/components/competition/CompetitionJoinCta";
 
 // ============================================
-// The join page — the link an organizer sends to fill a competition.
+// The join page, the link an organizer sends to fill a competition.
 //
 // Separate from /c/[slug] on purpose: that page answers "what is the score",
 // with fixtures, standings and scorers, and it is the right page for someone
@@ -17,7 +17,7 @@ import CompetitionJoinCta from "@/components/competition/CompetitionJoinCta";
 //
 // Server-rendered with the admin SDK so the link carries a title, a
 // description and a thumbnail in the chat preview before any JavaScript
-// runs — for a page whose whole job is to be pasted into a conversation,
+// runs, for a page whose whole job is to be pasted into a conversation,
 // that preview IS the first impression.
 // ============================================
 
@@ -47,11 +47,11 @@ export async function generateMetadata({ params }: PageProps<"/c/[slug]/rejoindr
   const where = competition.venueCity ? ` à ${competition.venueCity}` : "";
   const description =
     competition.status === "registration"
-      ? `Les inscriptions sont ouvertes${where}. ${teams.length} équipe${teams.length > 1 ? "s" : ""} déjà engagée${teams.length > 1 ? "s" : ""} — inscris la tienne sur KoppaFoot.`
+      ? `Les inscriptions sont ouvertes${where}. ${teams.length} équipe${teams.length > 1 ? "s" : ""} déjà engagée${teams.length > 1 ? "s" : ""}, inscris la tienne sur KoppaFoot.`
       : `Suis ${competition.name}${where} en direct sur KoppaFoot : calendrier, scores et classements.`;
 
   return {
-    title: `${competition.name} — rejoindre la compétition`,
+    title: `${competition.name}, rejoindre la compétition`,
     description,
     openGraph: {
       title: competition.name,
@@ -133,7 +133,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
             {
               Icon: Radio,
               title: "Tes matchs en direct",
-              body: "Score minute par minute, buteurs et cartons — suivis par tes supporters depuis leur téléphone.",
+              body: "Score minute par minute, buteurs et cartons, suivis par tes supporters depuis leur téléphone.",
             },
             {
               Icon: Trophy,
@@ -143,7 +143,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
             {
               Icon: Users,
               title: "Une page publique pour ton club",
-              body: "Effectif, calendrier, résultats — une adresse à partager, pas une capture d'écran.",
+              body: "Effectif, calendrier, résultats, une adresse à partager, pas une capture d'écran.",
             },
           ].map(({ Icon, title, body }) => (
             <li key={title} className="flex gap-3">
@@ -222,7 +222,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
           <span className="block text-sm font-bold text-gray-900">Voir la compétition</span>
           <span className="block text-xs text-gray-500">
             {matchCount > 0
-              ? `Calendrier, scores et classements — ${matchCount} rencontre${matchCount > 1 ? "s" : ""}`
+              ? `Calendrier, scores et classements, ${matchCount} rencontre${matchCount > 1 ? "s" : ""}`
               : "Calendrier, scores et classements"}
           </span>
         </span>

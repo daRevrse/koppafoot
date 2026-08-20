@@ -9,7 +9,7 @@ import AuthRequired from "@/components/auth/AuthRequired";
 
 // Routes in this group that render for guests. Everything else requires
 // an authenticated profile. The shell (sidebar/header/bottom nav) renders
-// for everyone — auth only changes which privileges it shows.
+// for everyone, auth only changes which privileges it shows.
 function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/" ||
@@ -20,13 +20,13 @@ function isPublicPath(pathname: string): boolean {
     pathname === "/mercato" ||
     pathname.startsWith("/c/") ||
     // Les fiches publiques d'une entite : un joueur, une equipe. Ce sont des
-    // pages qu'on partage — un lien vers un joueur qui demande un compte pour
+    // pages qu'on partage, un lien vers un joueur qui demande un compte pour
     // etre lu ne se partage pas. Rien de prive n'y figure : ce que la fiche
     // montre est deja lisible sans compte dans les regles Firestore, et les
     // actions (suivre, ajouter au mercato) ouvrent la modale d'elles-memes.
     /^\/profile\/[^/]+$/.test(pathname) ||
     /^\/teams\/[^/]+$/.test(pathname) ||
-    // Invitation links arrive by email — guests must see them to sign in/up.
+    // Invitation links arrive by email, guests must see them to sign in/up.
     pathname.startsWith("/invitations/") ||
     // Staff access codes arrive by WhatsApp: the volunteer must reach the
     // screen to be told what to do, rather than be bounced to a bare login.
@@ -43,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Signing in no longer costs a navigation: a guest on a protected page is
   // shown the sign-in dialog in place (see AuthRequired below). Onboarding
-  // keeps its redirect — a Firebase account with no Firestore profile has a
+  // keeps its redirect, a Firebase account with no Firestore profile has a
   // form to fill, and that does not fit in a dialog.
   useEffect(() => {
     if (loading || isPublic) return;
@@ -54,7 +54,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user, firebaseUser, loading, router, pathname, isPublic]);
 
   // Protected routes gate on auth; the public home renders immediately
-  // (its content is server-rendered — blanking it while auth resolves
+  // (its content is server-rendered, blanking it while auth resolves
   // would flash the page away).
   if (!isPublic) {
     if (loading) {

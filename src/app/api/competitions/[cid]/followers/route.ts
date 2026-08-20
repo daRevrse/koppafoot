@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 /**
- * GET /api/competitions/[cid]/followers — combien de personnes la suivent.
+ * GET /api/competitions/[cid]/followers, combien de personnes la suivent.
  *
  * Aucune competition ne stocke ce nombre : le suivi vit dans un tableau sur
  * chaque profil (`users.followed_competition_ids`). Mais ce tableau est
  * interrogeable en `array-contains`, deja utilise par les notifications, donc
- * on compte cote serveur avec une agregation `count()` — on ne rapatrie aucun
+ * on compte cote serveur avec une agregation `count()`, on ne rapatrie aucun
  * document, seulement le total.
  *
  * Publique : le nombre d'abonnes est une information de vitrine, comme sur

@@ -293,7 +293,7 @@ export default function AdminUsersPage() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-gray-900">{u.firstName} {u.lastName}</p>
-                            <p className="text-xs text-gray-500 truncate max-w-[180px]">{u.email || u.phone || "—"}</p>
+                            <p className="text-xs text-gray-500 truncate max-w-[180px]">{u.email || u.phone || ","}</p>
                           </div>
                         </div>
                       </td>
@@ -309,7 +309,7 @@ export default function AdminUsersPage() {
                         </button>
                       </td>
                       <td className="px-5 py-3">
-                        <span className="text-sm text-gray-600">{u.locationCity || "—"}</span>
+                        <span className="text-sm text-gray-600">{u.locationCity || ","}</span>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
@@ -395,7 +395,7 @@ export default function AdminUsersPage() {
                 <span className="font-medium text-gray-700">
                   {(ROLE_CONFIG[roleTarget.userType] ?? ROLE_CONFIG.player).label}
                 </span>
-                {" — "}
+                {", "}
                 {roleTarget.email || roleTarget.phone || "sans contact"}
               </p>
 

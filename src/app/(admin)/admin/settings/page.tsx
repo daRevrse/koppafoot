@@ -297,7 +297,7 @@ export default function AdminSettingsPage() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500 truncate">
-                      {a.email || "—"}
+                      {a.email || ","}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

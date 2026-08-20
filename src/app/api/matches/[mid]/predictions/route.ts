@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 /**
- * GET /api/matches/[mid]/predictions — les totaux du pronostic.
+ * GET /api/matches/[mid]/predictions, les totaux du pronostic.
  *
  * Pourquoi compter ici plutôt que dans le navigateur : les règles ferment
  * `match_predictions` à son auteur, donc un client ne peut pas parcourir la
- * collection pour additionner. C'est voulu — le rail publie un résultat, pas
+ * collection pour additionner. C'est voulu, le rail publie un résultat, pas
  * la liste de qui a voté quoi. Le SDK admin compte, et ne renvoie que trois
  * nombres.
  *

@@ -13,7 +13,7 @@ import type { Venue, Booking } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
 
 // ============================================
-// Mes terrains — la gestion, côté propriétaire.
+// Mes terrains, la gestion, côté propriétaire.
 //
 // Un propriétaire peut en avoir plusieurs : c'est pour ça que le terrain est
 // un document à part et non trois champs sur son compte, comme la recherche
@@ -21,7 +21,7 @@ import { isVenueOwner } from "@/lib/hats";
 //
 // Ce que cette page NE fait pas, et la page publique /terrains le dit dans
 // les mêmes termes : pas de réservation, pas de calendrier d'occupation, pas
-// d'encaissement. Référencer et être trouvé, c'est tout — promettre le reste
+// d'encaissement. Référencer et être trouvé, c'est tout, promettre le reste
 // fabriquerait des déçus le jour de la première demande de créneau.
 // ============================================
 
@@ -39,7 +39,7 @@ const SURFACES = [
   { value: "indoor", label: "Intérieur" },
 ];
 
-/** « samedi 23 août » — la date d'un créneau, telle qu'on la dit. */
+/** « samedi 23 août », la date d'un créneau, telle qu'on la dit. */
 function longDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
@@ -164,7 +164,7 @@ function VenueForm({ draft, setDraft, onSubmit, onCancel, busy, submitLabel }: {
           className="h-4 w-4 accent-emerald-600"
         />
         <span className="text-[11px] font-bold text-gray-600">
-          Disponible — décoche si le terrain est fermé pour le moment
+          Disponible, décoche si le terrain est fermé pour le moment
         </span>
       </label>
 
@@ -223,7 +223,7 @@ export default function MyVenuesPage() {
   if (!user) return null;
 
   // La casquette s'obtient par candidature. Sans elle, cette page n'a rien a
-  // gerer — on renvoie la ou on peut la demander plutot que d'afficher un
+  // gerer, on renvoie la ou on peut la demander plutot que d'afficher un
   // espace vide qui laisse croire a une panne.
   if (!isVenueOwner(user)) {
     return (

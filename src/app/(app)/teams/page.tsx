@@ -319,7 +319,7 @@ export default function TeamsPage() {
         >
           {/* Players get no button here: finding a team is the header search's
               job now (Équipes tab on /competitions). The old "Trouver une
-              équipe — bientôt" teaser pointed at the shelved mercato and did
+              équipe, bientôt" teaser pointed at the shelved mercato and did
               nothing when clicked. */}
           {isManager && (
             <button
@@ -453,7 +453,7 @@ export default function TeamsPage() {
         </motion.div>
       )}
 
-      {/* Adversaires hors plateforme — même docs `teams`, mais sans compte en
+      {/* Adversaires hors plateforme, même docs `teams`, mais sans compte en
           face. Section à part : ce ne sont pas les équipes du manager, il n'en
           est que le dépositaire (et l'éditeur de leur effectif fantôme). */}
       {isManager && ghostTeams.length > 0 && (

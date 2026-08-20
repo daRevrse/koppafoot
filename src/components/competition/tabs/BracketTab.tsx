@@ -13,7 +13,7 @@ import type { Competition, CompMatch, CompMatchRound } from "@/types";
 // Helpers
 // ============================================
 
-// Bracket columns, left → right. `third_place` is excluded — it's shown
+// Bracket columns, left → right. `third_place` is excluded, it's shown
 // separately below the tree (it isn't a tree node).
 const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final"];
 

@@ -5,10 +5,10 @@ import { FieldValue } from "firebase-admin/firestore";
 /**
  * Invitee side of the team-manager invitation.
  *
- * GET  — public: what the accept page needs to render (team/competition
+ * GET , public: what the accept page needs to render (team/competition
  *        names, inviter, status). The doc id is the unguessable token;
  *        the invited email is only returned masked.
- * POST — accept (Bearer token). The caller's verified email must match
+ * POST, accept (Bearer token). The caller's verified email must match
  *        the invited email; the team must still be unclaimed. On success
  *        the caller becomes owner+manager of the team and their account
  *        flips to the manager role.
@@ -83,7 +83,7 @@ export async function POST(
     }
     if (!callerEmail || callerEmail !== invite.email) {
       return NextResponse.json(
-        { error: `Cette invitation est réservée à ${maskEmail(invite.email)} — connecte-toi avec cette adresse.` },
+        { error: `Cette invitation est réservée à ${maskEmail(invite.email)}, connecte-toi avec cette adresse.` },
         { status: 403 },
       );
     }
@@ -125,7 +125,7 @@ export async function POST(
       await userRef.update(patch);
     }
 
-    // Tell the organizer — best-effort.
+    // Tell the organizer, best-effort.
     const managerName = userSnap.exists
       ? `${userSnap.data()?.first_name ?? ""} ${userSnap.data()?.last_name ?? ""}`.trim()
       : callerEmail;

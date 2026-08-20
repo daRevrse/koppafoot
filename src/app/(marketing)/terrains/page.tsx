@@ -3,13 +3,13 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 // ============================================
-// Les terrains — la page des propriétaires de terrain.
+// Les terrains, la page des propriétaires de terrain.
 //
 // Ce que la plateforme sait faire aujourd'hui pour un terrain : le référencer
 // et le rendre trouvable dans la recherche (il y est une catégorie à part
 // entière, au même titre que les équipes et les arbitres). Ce qu'elle ne sait
 // PAS faire : réserver un créneau, tenir un calendrier d'occupation,
-// encaisser. La page le dit au lieu de le laisser supposer — une vitrine qui
+// encaisser. La page le dit au lieu de le laisser supposer, une vitrine qui
 // promet une réservation inexistante fabrique des déçus, pas des inscrits.
 //
 // Le formulaire d'inscription d'un terrain n'existe pas encore : le seul
@@ -18,7 +18,7 @@ import { ArrowRight } from "lucide-react";
 // ============================================
 
 export const metadata = {
-  title: "Les terrains — KoppaFoot",
+  title: "Les terrains, KoppaFoot",
   description:
     "Référencez votre terrain sur KoppaFoot : être trouvé par les équipes et les organisateurs qui cherchent où jouer.",
 };
@@ -114,7 +114,7 @@ export default function TerrainsPage() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
             Pas de réservation en ligne, pas de calendrier d&apos;occupation, pas
             d&apos;encaissement. Aujourd&apos;hui, KoppaFoot vous rend{" "}
-            <strong className="font-black text-gray-900">trouvable</strong> — la suite
+            <strong className="font-black text-gray-900">trouvable</strong>, la suite
             se règle entre vous et l&apos;équipe, comme aujourd&apos;hui, mais avec
             l&apos;équipe qui sait que vous existez.
           </p>
@@ -122,7 +122,7 @@ export default function TerrainsPage() {
       </section>
 
       {/* Un terrain eclaire un soir de semaine : l'image de ce que la page
-          vend — des creneaux remplis plutot qu'une pelouse vide. */}
+          vend, des creneaux remplis plutot qu'une pelouse vide. */}
       <section className="relative overflow-hidden py-24 sm:py-32">
         <div aria-hidden className="absolute inset-0">
           <Image
@@ -141,7 +141,7 @@ export default function TerrainsPage() {
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
             Déposez la fiche de votre terrain : nom, ville, format, surface.
-            On la relit, puis elle entre dans la recherche — là où les équipes
+            On la relit, puis elle entre dans la recherche, là où les équipes
             cherchent où jouer.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">

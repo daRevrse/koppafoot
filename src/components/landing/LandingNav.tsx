@@ -23,7 +23,7 @@ export default function LandingNav() {
         }`}
     >
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-6 lg:px-8">
-        {/* Logo — normal, no filters */}
+        {/* Logo, normal, no filters */}
         <Link href="/" className="relative h-10 w-44">
           <Image
             src="/branding/logo_full_name.png"

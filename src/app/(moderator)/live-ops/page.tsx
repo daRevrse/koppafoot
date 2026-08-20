@@ -41,7 +41,7 @@ export default function LiveOpsHome() {
         </p>
       </div>
 
-      {/* Practice before the real thing — always available, first-timers
+      {/* Practice before the real thing, always available, first-timers
           especially need it when the list below is empty. */}
       <LiveTrainingCard />
 

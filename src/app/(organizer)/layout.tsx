@@ -9,7 +9,7 @@ import { ROLE_REDIRECTS } from "@/types";
 import ScoreShell from "@/components/layout/v2/ScoreShell";
 import AuthRequired from "@/components/auth/AuthRequired";
 
-// Organizer space. It renders inside the SHARED app shell — it used to have
+// Organizer space. It renders inside the SHARED app shell, it used to have
 // its own sidebar and header, which made entering it feel like leaving the
 // product. Only the live match console breaks out: covering a match wants
 // the full screen, not a navigation rail.
@@ -22,7 +22,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
-  // Superadmins run the organizer screens too — the sidebar offers them the
+  // Superadmins run the organizer screens too, the sidebar offers them the
   // entry, so the guard has to agree or the link dead-ends.
   const allowed = isOrganizer(user);
 

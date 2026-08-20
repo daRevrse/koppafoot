@@ -17,7 +17,7 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/missing-phone-number": "Veuillez entrer un numéro de téléphone.",
   "auth/provider-already-linked": "Ce compte est déjà lié.",
   "auth/credential-already-in-use": "Ces identifiants sont déjà utilisés par un autre compte.",
-  // SMS / reCAPTCHA specifics — without these every failure of the phone
+  // SMS / reCAPTCHA specifics, without these every failure of the phone
   // flow surfaced as the generic message, which makes it undebuggable.
   "auth/operation-not-allowed":
     "La connexion par téléphone n'est pas activée sur ce projet. Contactez l'administrateur.",
@@ -34,7 +34,7 @@ const AUTH_ERRORS: Record<string, string> = {
   // code straight through, hence the odd shape.
   //
   // STILL BLOCKING PRODUCTION as of 2026-08-07: every real number is refused
-  // while test numbers go through. Ruled out by test — per-number throttle
+  // while test numbers go through. Ruled out by test, per-number throttle
   // (reproduced on a fresh number, first attempt), browser extensions and
   // third-party cookies (reproduced in a clean private window), SMS region
   // policy (TG allowed), billing (Blaze active), authorized domain.
@@ -45,17 +45,17 @@ const AUTH_ERRORS: Record<string, string> = {
   // Toolkit project config to `recaptchaConfig.phoneEnforcementState = AUDIT`
   // with `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
   //
-  // The message stays neutral — the user can do nothing about it either way,
+  // The message stays neutral, the user can do nothing about it either way,
   // and we do not yet know the cause for THIS project.
   "auth/error-code:-39":
-    "L'envoi du SMS a échoué. Réessayez dans quelques minutes — si le problème persiste, prévenez-nous.",
+    "L'envoi du SMS a échoué. Réessayez dans quelques minutes, si le problème persiste, prévenez-nous.",
 };
 
 /**
  * Identity Toolkit failures the SDK does not give a distinct code for: the
  * real reason sits in the raw server body, so we match on that body.
  *
- * Kept as an extension point — "Error code: 39" is handled by its own SDK
+ * Kept as an extension point, "Error code: 39" is handled by its own SDK
  * code above, since in practice `customData.serverResponse` was not
  * populated when it fired.
  */
@@ -79,7 +79,7 @@ export function getAuthErrorMessage(error: unknown): string {
     if (fromServer) return fromServer;
     // An unmapped code used to vanish behind the generic message, which made
     // every auth failure look identical in support. Log the raw error so the
-    // next one is one glance away — Firebase nests the server's reason under
+    // next one is one glance away, Firebase nests the server's reason under
     // `customData.serverResponse`.
     console.error("[auth] unmapped Firebase error:", code, error);
     return "Une erreur est survenue. Veuillez réessayer.";

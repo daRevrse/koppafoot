@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 // gestionnaire. Quelqu'un relit avant publication.
 //
 // À l'approbation, l'API pose la casquette ET crée le terrain à partir de la
-// fiche déjà saisie — rien n'est redemandé au candidat.
+// fiche déjà saisie, rien n'est redemandé au candidat.
 // ============================================
 
 interface Application {
@@ -91,7 +91,7 @@ export default function AdminVenueApplicationsPage() {
       if (!res.ok) { toast.error(data.error ?? "Erreur."); return; }
       toast.success(
         action === "approve"
-          ? "Candidature acceptée — le terrain est publié."
+          ? "Candidature acceptée, le terrain est publié."
           : "Candidature refusée.",
       );
       setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status: data.status } : a)));

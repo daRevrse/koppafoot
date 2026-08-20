@@ -8,14 +8,14 @@ import { Loader2, ArrowDown } from "lucide-react";
 // Pull-to-refresh for the app shell.
 //
 // Why this exists rather than leaning on the browser: installed to the home
-// screen, iOS gives a standalone PWA no pull-to-refresh at all — there is no
+// screen, iOS gives a standalone PWA no pull-to-refresh at all, there is no
 // address bar to pull against, and Safari exposes no equivalent gesture. So
 // the app has to own it. `overscroll-behavior-y: contain` on the body (see
 // globals.css) stops Android's native version from firing on top of this one,
 // which keeps the gesture identical on both platforms.
 //
 // Touch only. Desktop never fires these events, so the component is inert
-// there — no mouse fallback is wanted, a browser reload already exists.
+// there, no mouse fallback is wanted, a browser reload already exists.
 // ============================================
 
 /** Finger travel, in px, that commits to a refresh on release. */
@@ -70,7 +70,7 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
       if (!active.current || startY.current === null) return;
       const delta = e.touches[0].clientY - startY.current;
       if (delta <= 0) {
-        // Pulling back up — hand the gesture to normal scrolling.
+        // Pulling back up, hand the gesture to normal scrolling.
         pullRef.current = 0;
         setPull(0);
         active.current = false;
@@ -110,7 +110,7 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
       }, MIN_SPIN_MS);
     };
 
-    // passive: false on move only — preventDefault is what stops the page
+    // passive: false on move only, preventDefault is what stops the page
     // from scrolling underneath the gesture.
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false });

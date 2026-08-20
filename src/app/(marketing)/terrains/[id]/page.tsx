@@ -11,7 +11,7 @@ import BookingRequest from "@/components/venue/BookingRequest";
 // promesse, vue de l'autre bout. La page vitrine dit « faites-vous
 // référencer », celle-ci est ce qu'on obtient une fois référencé.
 //
-// Lue côté serveur avec le SDK admin, donc visible sans compte — un terrain
+// Lue côté serveur avec le SDK admin, donc visible sans compte, un terrain
 // qu'il faut un compte pour voir n'est pas référencé, il est caché.
 //
 // Ce qui n'y est PAS, volontairement : le téléphone et l'email du
@@ -74,10 +74,10 @@ async function readVenue(id: string): Promise<VenueView | null> {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const venue = await readVenue(id).catch(() => null);
-  if (!venue) return { title: "Terrain introuvable — KoppaFoot" };
+  if (!venue) return { title: "Terrain introuvable, KoppaFoot" };
   const where = venue.city ? ` à ${venue.city}` : "";
   return {
-    title: `${venue.name}${where} — KoppaFoot`,
+    title: `${venue.name}${where}, KoppaFoot`,
     description: `${venue.name}${where} : format, surface et disponibilité du terrain sur KoppaFoot.`,
   };
 }

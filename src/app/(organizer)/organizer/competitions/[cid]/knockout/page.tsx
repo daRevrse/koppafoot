@@ -40,10 +40,10 @@ import toast from "react-hot-toast";
 // ============================================
 
 // Display order of the bracket rounds. `third_place` is intentionally excluded
-// here — it is rendered separately (it isn't part of the elimination tree).
+// here, it is rendered separately (it isn't part of the elimination tree).
 const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final"];
 
-/** "Quarts, demies, finale" — the rounds a bracket of that size implies. */
+/** "Quarts, demies, finale", the rounds a bracket of that size implies. */
 function roundsPlanLabel(size: number): string {
   const names: string[] = [];
   for (let teams = size; teams >= 2; teams = teams / 2) {
@@ -62,7 +62,7 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
   third_place: "Petite finale",
 };
 
-/** "sam. 11 août · 16:00 · Stade X" — empty string when nothing is scheduled. */
+/** "sam. 11 août · 16:00 · Stade X", empty string when nothing is scheduled. */
 function formatSlot(match: CompMatch): string {
   const parts: string[] = [];
   if (match.date) {
@@ -179,7 +179,7 @@ function SlotEditor({
 /**
  * Where a first-round slot comes from, as a menu of group positions and
  * repêchage places. Picking a source is what lets the bracket be drawn before
- * the group stage is over — the slot says "1er poule A" until a team earns it.
+ * the group stage is over, the slot says "1er poule A" until a team earns it.
  */
 function SourcePicker({
   groups,
@@ -190,7 +190,7 @@ function SourcePicker({
   disabled,
 }: {
   groups: string[];
-  /** Highest finishing position worth offering — the size of a group. */
+  /** Highest finishing position worth offering, the size of a group. */
   maxRank: number;
   groupCount: number;
   value: BracketSlotSource | null;
@@ -209,7 +209,7 @@ function SourcePicker({
       onChange={(e) => onChange(e.target.value ? parseBracketSlotSourceKey(e.target.value) : null)}
       className="w-full border border-gray-200/70 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 focus:border-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
     >
-      <option value="">— Provenance —</option>
+      <option value="">, Provenance,</option>
       {groups.map((g) => (
         <optgroup key={g} label={`Poule ${g}`}>
           {ranks.map((rank) => {
@@ -265,8 +265,8 @@ export default function CompetitionKnockoutPage() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
   // Date / heure / lieu of one bracket match. A knockout match is scheduled
-  // before its two teams are known — the tournament calendar is fixed first,
-  // the qualifiers arrive later — so this never waits on a seated team.
+  // before its two teams are known, the tournament calendar is fixed first,
+  // the qualifiers arrive later, so this never waits on a seated team.
   const [scheduleMatch, setScheduleMatch] = useState<CompMatch | null>(null);
   const [slotForm, setSlotForm] = useState({ date: "", time: "", venueName: "", venueCity: "" });
   const [savingSchedule, setSavingSchedule] = useState(false);
@@ -292,7 +292,7 @@ export default function CompetitionKnockoutPage() {
   }, [cid]);
 
   // Live projection of every source, so the organizer sees who a slot currently
-  // points at while drawing — provisional until the group stage is over.
+  // points at while drawing, provisional until the group stage is over.
   const standings = useMemo(
     () => (competition ? computeStandings(groupMatches, teams, competition.format) : []),
     [groupMatches, teams, competition],
@@ -326,13 +326,13 @@ export default function CompetitionKnockoutPage() {
 
   const hasKnockout = matches.length > 0;
 
-  /** Knockout matches that already carry a result — what a redraw would erase. */
+  /** Knockout matches that already carry a result, what a redraw would erase. */
   const playedKnockoutCount = useMemo(
     () => matches.filter((m) => m.status === "live" || m.status === "completed").length,
     [matches],
   );
 
-  /** The bracket's opening round — the only one whose slots carry a source. */
+  /** The bracket's opening round, the only one whose slots carry a source. */
   const firstRound = rounds[0]?.round ?? null;
 
   const firstRoundMatches = useMemo(
@@ -377,7 +377,7 @@ export default function CompetitionKnockoutPage() {
       );
     }
     // Two teams out of the same group meeting straight away is the exact
-    // mistake the automatic seeding made — worth naming explicitly.
+    // mistake the automatic seeding made, worth naming explicitly.
     const sameGroup = firstRoundMatches.filter(
       (m) =>
         m.homeSource?.kind === "group_rank" &&
@@ -396,7 +396,7 @@ export default function CompetitionKnockoutPage() {
     setCreating(true);
     try {
       await createKnockoutBracket(cid, size);
-      toast.success(`Tableau à ${size} équipes créé — placez les provenances`);
+      toast.success(`Tableau à ${size} équipes créé, placez les provenances`);
     } catch (err) {
       console.error("Error creating bracket:", err);
       toast.error(err instanceof Error ? err.message : "Impossible de créer le tableau");
@@ -609,7 +609,7 @@ export default function CompetitionKnockoutPage() {
       const source = side === "home" ? match.homeSource : match.awaySource;
       const score = side === "home" ? match.scoreHome : match.scoreAway;
       const penalty = side === "home" ? match.penaltyHome : match.penaltyAway;
-      // Who the source points at right now — provisional until the tables are
+      // Who the source points at right now, provisional until the tables are
       // final, and only shown while no team has actually been seated.
       const projected = source && !teamId ? resolveBracketSlot(source, standings) : null;
 
@@ -690,7 +690,7 @@ export default function CompetitionKnockoutPage() {
           {renderSlot("away")}
         </div>
 
-        {/* Date, heure, lieu — settable before the two teams are known */}
+        {/* Date, heure, lieu, settable before the two teams are known */}
         {(() => {
           const slot = formatSlot(match);
           const clash = hasSlotClash(match);
@@ -750,7 +750,7 @@ export default function CompetitionKnockoutPage() {
             )}
           </span>
           <div className="flex shrink-0 items-center gap-1">
-            {/* Result entered after the fact — for a match the live console
+            {/* Result entered after the fact, for a match the live console
                 never ran, and to correct one it did. */}
             {canEnterResult && (
               <button
@@ -821,7 +821,7 @@ export default function CompetitionKnockoutPage() {
               title={
                 groupStageDone
                   ? "Placer les équipes selon les classements"
-                  : "Les poules ne sont pas terminées — le placement sera provisoire"
+                  : "Les poules ne sont pas terminées, le placement sera provisoire"
               }
               className="flex items-center gap-2 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-emerald-200 transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -883,7 +883,7 @@ export default function CompetitionKnockoutPage() {
           <p className="mt-4 text-base font-bold text-gray-900">Pas encore de phase finale</p>
           <p className="mt-1 max-w-md text-sm text-gray-500">
             Choisissez la taille du tableau : l&apos;arbre est créé vide, et vous décidez
-            vous-même d&apos;où vient chaque place — «&nbsp;1<sup>er</sup> poule A&nbsp;»,
+            vous-même d&apos;où vient chaque place, «&nbsp;1<sup>er</sup> poule A&nbsp;»,
             «&nbsp;2<sup>e</sup> meilleur 3<sup>e</sup>&nbsp;». Pas besoin d&apos;attendre la fin
             des poules.
           </p>
@@ -982,7 +982,7 @@ export default function CompetitionKnockoutPage() {
         </div>
       )}
 
-      {/* Redraw confirmation — this throws away played results, so it says so */}
+      {/* Redraw confirmation, this throws away played results, so it says so */}
       {confirmClear && (
         <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
           <motion.div
@@ -1146,7 +1146,7 @@ export default function CompetitionKnockoutPage() {
         );
       })()}
 
-      {/* Score + scorers modal — shared with the calendar */}
+      {/* Score + scorers modal, shared with the calendar */}
       <MatchResultModal
         cid={cid}
         match={resultMatch}

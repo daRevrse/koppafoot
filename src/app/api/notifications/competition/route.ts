@@ -13,7 +13,7 @@ import type { FirestoreCompetition, FirestoreStaffGrant } from "@/types";
  *
  * Authorization: Bearer id token; the caller must be an organizer OR a
  * moderator of THAT competition, hold a live staff grant on it, or be a
- * superadmin — the same people allowed to operate the live console. Checked
+ * superadmin, the same people allowed to operate the live console. Checked
  * against the server-loaded documents, never trusting the client.
  *
  * Fire-and-forget from the console: failures here must never block the
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       (competition.organizer_ids ?? []).includes(callerUid) ||
       (competition.moderator_ids ?? []).includes(callerUid);
     if (!isStaff) {
-      // Access-code holders run the console too — without this, every goal
+      // Access-code holders run the console too, without this, every goal
       // they enter would reach the scoreboard but never the followers' phones.
       const grantSnap = await adminDb
         .collection("competitions")

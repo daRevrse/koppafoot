@@ -74,7 +74,7 @@ return (
             <Goal size={32} />
           </div>
           <p className="max-w-xs text-sm font-bold text-gray-400 italic">
-            Aucun buteur enregistré pour l&apos;instant — les buts nommés apparaîtront ici.
+            Aucun buteur enregistré pour l&apos;instant, les buts nommés apparaîtront ici.
           </p>
         </div>
       ) : (

@@ -13,7 +13,7 @@ import WorldScorersTable from "@/components/world/WorldScorersTable";
 // header, une grande carte dont les onglets changent le contenu, une carte
 // de performances à côté.
 //
-// Comme côté local, les onglets ne sont plus des routes — « Accueil » a
+// Comme côté local, les onglets ne sont plus des routes, « Accueil » a
 // disparu avec elles. Il ne portait que les têtes des trois autres, ce qui
 // obligeait à choisir entre lire un extrait et lire la chose.
 //
@@ -51,7 +51,7 @@ export default async function WorldCompetitionPage({
   const summary = await getWorldCompetitionSummary(code);
 
   // Le fournisseur est injoignable, hors quota, ou le jeton manque. Un 404
-  // serait faux — la compétition existe — donc on dit ce qui se passe.
+  // serait faux, la compétition existe, donc on dit ce qui se passe.
   if (!summary) {
     return (
       <div className="mx-auto max-w-6xl pb-20">
@@ -71,7 +71,7 @@ export default async function WorldCompetitionPage({
 
   const { competition, standings, recent, upcoming, scorers } = summary;
 
-  // Un onglet sans rien derrière ne s'affiche pas — mêmes règles qu'en local.
+  // Un onglet sans rien derrière ne s'affiche pas, mêmes règles qu'en local.
   const available = TABS.filter((t) =>
     t.id === "classement" ? standings.length > 0
       : t.id === "calendrier" ? recent.length + upcoming.length > 0

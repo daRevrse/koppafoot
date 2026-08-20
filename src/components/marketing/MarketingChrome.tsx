@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X, ArrowRight } from "lucide-react";
 
 // ============================================
-// MarketingChrome — the header and footer of the organizer site.
+// MarketingChrome, the header and footer of the organizer site.
 //
 // Deliberately NOT the app shell. Someone who opens this link has not signed
 // in and has no competition: Direct / Compétitions / Mercato would be
@@ -24,7 +24,7 @@ import { Menu, X, ArrowRight } from "lucide-react";
  *
  * Le chrome portait celles de la page organisateur, en dur, pour les trois
  * vitrines : sur Evolution et MyFields, « La méthode » et « Tutoriel »
- * pointaient vers des ancres inexistantes — un clic qui ne fait rien — et
+ * pointaient vers des ancres inexistantes, un clic qui ne fait rien, et
  * « Candidater » envoyait vers la candidature ORGANISATEUR depuis la page
  * des terrains.
  */
@@ -69,7 +69,7 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-5 sm:px-10 sm:py-7">
-        {/* Back into the app proper — this page is a door, not a dead end. */}
+        {/* Back into the app proper, this page is a door, not a dead end. */}
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image src="/branding/logo_symbol.png" alt="KoppaFoot" width={34} height={34} />
           <span className="font-display text-xl font-black uppercase tracking-[0.18em] text-gray-900 sm:text-2xl">
@@ -132,7 +132,7 @@ export function MarketingHeader() {
 export function MarketingFooter() {
   return (
     // Inverse : fond sombre, texte clair. Le pied ferme la page au lieu de
-    // la laisser se dissoudre dans le blanc — et les trois vitrines
+    // la laisser se dissoudre dans le blanc, et les trois vitrines
     // partagent la meme assise, quel que soit le fond de leur contenu.
     <footer className="relative overflow-hidden bg-gray-900 text-white">
       <div className="mx-auto max-w-7xl px-6 pb-0 pt-20 sm:px-10 sm:pt-28">
@@ -187,7 +187,7 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        {/* Le nom en taille d'affiche, coupe par le pli — la signature EST le
+        {/* Le nom en taille d'affiche, coupe par le pli, la signature EST le
             bas de la page, pas une ligne de mentions legales dedans. */}
         <p
           aria-hidden

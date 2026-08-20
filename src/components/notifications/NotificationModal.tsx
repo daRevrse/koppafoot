@@ -7,13 +7,13 @@ import type { Notification } from "@/types";
 // ============================================
 // Lire une notification en entier.
 //
-// La cloche tronque à deux lignes — il le faut, elle en montre plusieurs à la
+// La cloche tronque à deux lignes, il le faut, elle en montre plusieurs à la
 // fois. Mais un message sans lien n'avait alors nulle part où être lu : le
 // clic renvoyait sur /notifications, à charge de le retrouver dans la liste.
 //
 // Ce modal est cette destination manquante. Il sert les notifications qui
 // sont un TEXTE à lire ; celles qui pointent vers un match, une équipe ou une
-// candidature continuent d'y mener directement — ouvrir une fenêtre pour
+// candidature continuent d'y mener directement, ouvrir une fenêtre pour
 // faire cliquer une deuxième fois serait un pas de plus, pas un de moins.
 // ============================================
 

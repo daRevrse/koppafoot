@@ -175,19 +175,19 @@ export default function VenueOwnerProfilePage() {
               <h3 className="mb-4 text-sm font-semibold text-gray-900">Statistiques</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-lg bg-gray-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-primary-600">—</p>
+                  <p className="text-2xl font-bold text-primary-600">,</p>
                   <p className="mt-1 text-xs text-gray-500">Terrains</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-primary-600">—</p>
+                  <p className="text-2xl font-bold text-primary-600">,</p>
                   <p className="mt-1 text-xs text-gray-500">Réservations</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-primary-600">—</p>
+                  <p className="text-2xl font-bold text-primary-600">,</p>
                   <p className="mt-1 text-xs text-gray-500">Ce mois</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-primary-600">—</p>
+                  <p className="text-2xl font-bold text-primary-600">,</p>
                   <p className="mt-1 text-xs text-gray-500">Revenus</p>
                 </div>
               </div>

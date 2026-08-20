@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
-// Admin — organizer applications review. Approve promotes the user to
+// Admin, organizer applications review. Approve promotes the user to
 // "organizer" (handled server-side by /api/organizer-applications/[id]).
 // ============================================
 
@@ -80,7 +80,7 @@ export default function AdminOrganizersPage() {
         toast.error(data.error ?? "Erreur.");
         return;
       }
-      toast.success(action === "approve" ? "Candidature acceptée — utilisateur promu organisateur." : "Candidature refusée.");
+      toast.success(action === "approve" ? "Candidature acceptée, utilisateur promu organisateur." : "Candidature refusée.");
       setApplications((prev) =>
         prev.map((a) => (a.id === id ? { ...a, status: data.status } : a)),
       );

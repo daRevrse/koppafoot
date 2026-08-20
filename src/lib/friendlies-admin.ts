@@ -3,7 +3,7 @@
 // Pourquoi ici et pas via le SDK client : le Direct est rendu côté serveur
 // pour le premier affichage et le partage. Les amicaux sont déjà en lecture
 // publique dans firestore.rules (`match /matches/{matchId} { allow read: if
-// true }`), donc les publier ne change rien à ce qui est visible — on change
+// true }`), donc les publier ne change rien à ce qui est visible, on change
 // seulement l'endroit d'où on les lit.
 //
 // Ils sont rendus dans la forme d'un `CompMatch` et rattachés à une

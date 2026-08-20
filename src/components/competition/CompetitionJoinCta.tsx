@@ -6,7 +6,7 @@ import FollowCompetitionButton from "./FollowCompetitionButton";
 import type { Competition } from "@/types";
 
 // ============================================
-// CompetitionJoinCta — the ask, on the join page.
+// CompetitionJoinCta, the ask, on the join page.
 //
 // Two audiences land on the same link: a club president who could enter a
 // team, and a supporter who just wants the scores. Registration leads while

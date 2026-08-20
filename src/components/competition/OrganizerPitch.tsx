@@ -3,13 +3,13 @@
 import { Radio, Trophy, Share2, ListChecks, ArrowDown } from "lucide-react";
 
 // ============================================
-// OrganizerPitch — the argument, above the application form.
+// OrganizerPitch, the argument, above the application form.
 //
 // /devenir-organisateur opened straight onto five form fields. Someone who
 // arrives cold from a WhatsApp message met paperwork before a single reason
 // to say yes, and the one real argument was nowhere on the page: a
 // competition run here lands on the KoppaFoot home, where people already
-// come for the scores. That is the whole trade — you keep the calendar up
+// come for the scores. That is the whole trade, you keep the calendar up
 // to date, the platform gives you an audience.
 //
 // No invented proof: no counts, no testimonials, no logos. Everything
@@ -42,7 +42,7 @@ const PROMISES = [
 const STEPS = [
   { n: 1, label: "Tu candidates", body: "Le formulaire ci-dessous, deux minutes." },
   { n: 2, label: "On valide", body: "Réponse par email et notification." },
-  { n: 3, label: "Tu crées", body: "Équipes, poules, calendrier — guidé étape par étape." },
+  { n: 3, label: "Tu crées", body: "Équipes, poules, calendrier, guidé étape par étape." },
 ];
 
 export default function OrganizerPitch() {
@@ -60,7 +60,7 @@ export default function OrganizerPitch() {
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-emerald-100/80 sm:text-base">
           Tu gères déjà les équipes, le calendrier et les résultats. KoppaFoot
-          s&apos;occupe du reste — et met tes matchs devant du monde.
+          s&apos;occupe du reste, et met tes matchs devant du monde.
         </p>
 
         <a

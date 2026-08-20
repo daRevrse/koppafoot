@@ -16,7 +16,7 @@ import type { CompetitionFeed } from "@/lib/competition-admin";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
-// DirectHome — the live-score home, served publicly at "/".
+// DirectHome, the live-score home, served publicly at "/".
 //
 // It answers one question: what is on right now, everywhere. It reads ACROSS
 // every public competition: a banner carousel of the matches that matter,
@@ -41,10 +41,10 @@ import type { Competition, CompMatch, CompTeam } from "@/types";
 // diffuse pas de cotes.
 // ============================================
 
-/** Un match et la compétition dont il relève — le tableau mélange les deux. */
+/** Un match et la compétition dont il relève, le tableau mélange les deux. */
 type Entry = { match: CompMatch; competition: Competition };
 
-/** Portée de la liste — l'ensemble, ce que l'utilisateur suit, ou les
+/** Portée de la liste, l'ensemble, ce que l'utilisateur suit, ou les
  *  compétitions elles-mêmes. */
 type Scope = "all" | "favorites" | "competitions";
 
@@ -285,7 +285,7 @@ function MatchRow({
       href={`/c/${competition.slug}/matches/${match.id}`}
       className="flex items-center gap-3 border-b border-gray-50 px-3 py-2.5 transition-colors last:border-0 hover:bg-gray-50/70 sm:px-4"
     >
-      {/* Colonne horaire — l'état du match, pas seulement l'heure */}
+      {/* Colonne horaire, l'état du match, pas seulement l'heure */}
       <div className="w-12 shrink-0 text-center sm:w-14">
         {isLive ? (
           <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-black text-red-500">
@@ -299,7 +299,7 @@ function MatchRow({
         ) : (
           <>
             <p className="text-xs font-black tabular-nums text-gray-900">
-              {match.time ?? "—"}
+              {match.time ?? ","}
             </p>
             {!match.date && (
               <p className="text-[10px] font-bold text-gray-300">à programmer</p>
@@ -338,7 +338,7 @@ function MatchRow({
         </div>
       </div>
 
-      {/* Poule / lieu — l'info qui distingue deux affiches du même jour */}
+      {/* Poule / lieu, l'info qui distingue deux affiches du même jour */}
       <span className="hidden w-24 shrink-0 truncate text-right text-[10px] font-bold text-gray-300 md:block">
         {match.group ? `Poule ${match.group}` : match.venueName ?? ""}
       </span>
@@ -709,7 +709,7 @@ export default function DirectHome({ initialFeed }: { initialFeed: CompetitionFe
     [feed],
   );
 
-  // Banner: live first, then soonest upcoming, then most recent results —
+  // Banner: live first, then soonest upcoming, then most recent results,
   // capped so the carousel stays a highlight reel, not a second fixture list.
   const heroSlides = useMemo(() => {
     const live = allMatches.filter((x) => x.match.status === "live");

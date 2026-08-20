@@ -7,7 +7,7 @@ import type { FirestoreInvitation } from "@/types";
 /**
  * A player answers an invitation to join a team.
  *
- * Accepting adds the player to `teams/{id}.member_ids` — a document the player
+ * Accepting adds the player to `teams/{id}.member_ids`, a document the player
  * does not own. The rule that allowed it could only check the shape of the write
  * (members preserved, manager and name untouched, caller present in the new
  * list), never *why* it was happening, so anyone signed in could add themselves

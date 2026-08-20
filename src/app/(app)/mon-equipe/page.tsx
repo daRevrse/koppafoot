@@ -12,7 +12,7 @@ import CompetitionRegistrationPanel from "@/components/competition/CompetitionRe
 import type { Competition, CompTeam, CompetitionStatus, Team } from "@/types";
 
 // ============================================
-// Mes compétitions — the competitions this manager's teams are entered in.
+// Mes compétitions, the competitions this manager's teams are entered in.
 // Two ways in: an organizer invites them onto an existing team
 // (/invitations/equipe/[id]), or they register one of their own clubs from
 // the panel below.
@@ -48,7 +48,7 @@ export default function MyTeamsPage() {
       try {
         const teams = await listCompTeamsByManager(user.uid);
         // The team doc only carries an id, and the card is built around the
-        // competition — so resolve each one. Managers hold few teams.
+        // competition, so resolve each one. Managers hold few teams.
         const withComps = await Promise.all(
           teams.map(async (team) => ({
             team,

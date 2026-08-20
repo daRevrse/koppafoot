@@ -102,7 +102,7 @@ async function getTargetIds(type: CampaignType): Promise<string[]> {
   return [];
 }
 
-// ── GET — stats ─────────────────────────────────────────────
+// ── GET, stats ─────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   if (!(await verifySuperadmin(req))) {
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(results);
 }
 
-// ── POST — send campaign ────────────────────────────────────
+// ── POST, send campaign ────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   if (!(await verifySuperadmin(req))) {
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     await batch.commit();
   }
 
-  // Push + personalized email — best effort, parallel
+  // Push + personalized email, best effort, parallel
   await Promise.allSettled(
     userIds.map(async (uid) => {
       const userSnap = await adminDb.collection("users").doc(uid).get();

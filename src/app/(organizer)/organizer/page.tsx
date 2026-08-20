@@ -24,14 +24,14 @@ function formatDateRange(start: string | null, end: string | null): string | nul
   if (!start && !end) return null;
   const fmt = (d: string) =>
     new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
-  if (start && end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
   return fmt((start ?? end) as string);
 }
 
 /**
  * Le nom public de l'organisateur, saisi à la candidature et modifiable ici.
  * Il est recopié sur chaque compétition à sa création : le changer ici ne
- * réécrit donc pas celles qui existent déjà — c'est dit explicitement.
+ * réécrit donc pas celles qui existent déjà, c'est dit explicitement.
  */
 function OrganizerNameField() {
   const { user, updateProfile } = useAuth();
@@ -55,7 +55,7 @@ function OrganizerNameField() {
     setSaving(true);
     try {
       await updateProfile({ organizer_name: next });
-      toast.success("Nom mis à jour — les compétitions déjà créées gardent l'ancien.");
+      toast.success("Nom mis à jour, les compétitions déjà créées gardent l'ancien.");
       setEditing(false);
     } catch {
       toast.error("Impossible d'enregistrer.");

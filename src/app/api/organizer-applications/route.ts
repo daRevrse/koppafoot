@@ -8,14 +8,14 @@ import {
 } from "@/lib/email";
 
 /**
- * Organizer applications — the "Organiser" button is an application form,
+ * Organizer applications, the "Organiser" button is an application form,
  * reviewed by the system admin (see /admin/organizers + the PATCH route).
  *
  * Everything goes through the Admin SDK: the `organizer_applications`
  * collection needs no Firestore rules (clients never touch it directly).
  *
- * POST  — submit an application (any authenticated non-organizer).
- * GET   — superadmin: all applications; others: their own only.
+ * POST , submit an application (any authenticated non-organizer).
+ * GET  , superadmin: all applications; others: their own only.
  */
 
 async function verifyBearer(req: NextRequest): Promise<string | null> {
@@ -95,13 +95,13 @@ export async function POST(req: NextRequest) {
 
     // Emails must be awaited: this is a serverless function, and anything
     // still in flight when the response returns is dropped when the instance
-    // freezes. `allSettled` keeps them best-effort — the application is
+    // freezes. `allSettled` keeps them best-effort, the application is
     // already stored, so a dead mailer must not fail the submission.
     await Promise.allSettled([
       u.email
         ? sendNotificationEmail(
             u.email,
-            "Candidature organisateur reçue — KoppaFoot",
+            "Candidature organisateur reçue, KoppaFoot",
             organizerApplicationReceivedHtml(u.first_name ?? "toi"),
           ).catch((e) => {
             console.warn("[organizer-applications] applicant email failed:", e?.message);
@@ -121,10 +121,10 @@ export async function POST(req: NextRequest) {
             .map((email: string) =>
               sendNotificationEmail(
                 email,
-                `Nouvelle candidature organisateur — ${applicantName}`,
+                `Nouvelle candidature organisateur, ${applicantName}`,
                 organizerApplicationAdminHtml(
                   applicantName,
-                  u.email ?? "—",
+                  u.email ?? ",",
                   city?.trim() || u.location_city || "",
                   motivation.trim(),
                   organizer,

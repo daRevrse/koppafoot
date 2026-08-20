@@ -71,7 +71,7 @@ export default function MatchLiveView() {
   // clock runs we tick from timerStartAt + timerOffset; when it is paused the
   // displayed value is the frozen timerOffset, derived at render below. Setting
   // that frozen value from inside the effect was a synchronous setState in an
-  // effect body — a cascading render for a number already known at render time.
+  // effect body, a cascading render for a number already known at render time.
   useEffect(() => {
     const ls = match?.liveState;
     if (match?.status !== "live" || !ls || !ls.isTimerRunning || !ls.timerStartAt) return;

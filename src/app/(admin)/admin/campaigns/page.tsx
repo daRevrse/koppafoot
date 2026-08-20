@@ -120,7 +120,7 @@ export default function AdminCampaignsPage() {
           animate={{ opacity: 1 }}
           className="text-sm text-gray-500 mt-0.5"
         >
-          Emails de relance ciblés — in-app + push + email personnalisé
+          Emails de relance ciblés, in-app + push + email personnalisé
         </motion.p>
       </div>
 

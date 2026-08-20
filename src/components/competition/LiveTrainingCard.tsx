@@ -67,7 +67,7 @@ export default function LiveTrainingCard() {
           <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-800">
             Un match fictif, rien que pour toi : compose les feuilles, lance le
             chrono, marque des buts, distribue des cartons. Rien n&apos;est publié et
-            personne ne le voit — tu peux tout recommencer autant de fois que tu veux.
+            personne ne le voit, tu peux tout recommencer autant de fois que tu veux.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button

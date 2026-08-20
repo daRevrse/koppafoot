@@ -227,7 +227,7 @@ export default function FeedPage() {
               
               Il defile avec le fil, puis se cale sous le header et y reste :
               on tombe rarement sur l'envie de publier au moment precis ou on
-              ouvre la page — elle vient en lisant, et il fallait alors
+              ouvre la page, elle vient en lisant, et il fallait alors
               remonter tout le fil pour la saisir.
 
               `--header-h` plutot qu'un offset ecrit a la main : la hauteur du

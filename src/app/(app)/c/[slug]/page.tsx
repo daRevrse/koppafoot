@@ -54,7 +54,7 @@ function formatDateRange(start: string | null, end: string | null): string | nul
       return d;
     }
   };
-  if (start && end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
   if (start) return `À partir du ${fmt(start)}`;
   if (end) return `Jusqu'au ${fmt(end)}`;
   return null;
@@ -113,7 +113,7 @@ export default function PublicCompetitionHome() {
       });
 
       // Le nombre d'abonnes : compte cote serveur, aucune competition ne le
-      // stocke. Volontairement apres l'affichage — c'est un ornement du hero,
+      // stocke. Volontairement apres l'affichage, c'est un ornement du hero,
       // pas une raison de retarder la page.
       fetch(`/api/competitions/${comp.id}/followers`)
         .then((r) => (r.ok ? r.json() : { count: 0 }))

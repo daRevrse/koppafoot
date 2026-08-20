@@ -11,7 +11,7 @@ import type {
 // ============================================
 // Redeem a staff access code
 //
-// The volunteer must be signed in — the grant hangs off a uid, and that is
+// The volunteer must be signed in, the grant hangs off a uid, and that is
 // what keeps live actions attributable to a person. What they do NOT need is
 // an invitation, an e-mail known to the organizer, or any role on the
 // platform.
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const competition = compSnap.data() as FirestoreCompetition;
 
     // Organizers and moderators already hold strictly more than any code
-    // grants — writing a scoped grant would only narrow the staff screen's
+    // grants, writing a scoped grant would only narrow the staff screen's
     // reading of who they are.
     if (
       (competition.organizer_ids ?? []).includes(uid) ||

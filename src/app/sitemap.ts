@@ -46,8 +46,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   // World competitions are listed by their hub only, not tab by tab. Which
-  // tabs a competition has depends on live provider data — a league before
-  // kickoff has no table, a dormant cup no scorers — and answering that here
+  // tabs a competition has depends on live provider data, a league before
+  // kickoff has no table, a dormant cup no scorers, and answering that here
   // would cost 39 API calls on a plan capped at ten a minute. The hub's tab bar
   // is server-rendered and links only the tabs that have content, so crawlers
   // reach exactly those and never a thin page.

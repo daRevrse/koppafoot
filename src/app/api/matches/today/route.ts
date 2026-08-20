@@ -4,13 +4,13 @@ import { getWorldBoard } from "@/lib/world-board";
 import { getPublicFriendlies } from "@/lib/friendlies-admin";
 
 /**
- * GET /api/matches/today — ce qui se joue aujourd'hui, toutes familles.
+ * GET /api/matches/today, ce qui se joue aujourd'hui, toutes familles.
  *
  * Sert le rail de la page Actus : on y lit ce que la presse écrit, et savoir
  * ce qui se joue pendant qu'on lit est exactement le complément utile.
  *
- * Les trois sources du tableau du Direct sont reprises telles quelles —
- * compétitions de la plateforme, amicaux, football mondial — puis filtrées
+ * Les trois sources du tableau du Direct sont reprises telles quelles,
+ * compétitions de la plateforme, amicaux, football mondial, puis filtrées
  * sur la date du jour. Dégrade en liste vide plutôt que d'échouer.
  */
 

@@ -13,9 +13,9 @@ import PredictionPoll from "./PredictionPoll";
 // (voir routeOwnsItsRail) pour qu'on n'ait pas deux colonnes vides côte à
 // côte.
 //
-// Ce qui n'y figure pas, et pourquoi : pas d'arbitre — aucun champ ne relie
+// Ce qui n'y figure pas, et pourquoi : pas d'arbitre, aucun champ ne relie
 // un match à un officiel, et la plateforme ne compte qu'un arbitre référencé ;
-// pas de diffuseur — personne ne diffuse ces matchs. Mieux vaut trois blocs
+// pas de diffuseur, personne ne diffuse ces matchs. Mieux vaut trois blocs
 // pleins que cinq dont deux mentent.
 // ============================================
 

@@ -123,7 +123,7 @@ export default function VenueOwnerSidebar() {
 
   return (
     <>
-      {/* Desktop sidebar only — mobile uses MobileBottomNav */}
+      {/* Desktop sidebar only, mobile uses MobileBottomNav */}
       <aside className="hidden w-64 flex-shrink-0 border-r border-gray-200 bg-white lg:block">
         {sidebar}
       </aside>

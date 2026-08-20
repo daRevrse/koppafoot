@@ -1,5 +1,5 @@
 // ============================================
-// KOPPAFOOT — Core Types
+// KOPPAFOOT, Core Types
 // ============================================
 
 export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organizer" | "superadmin";
@@ -7,7 +7,7 @@ export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organ
 // Role picked in the Évolution onboarding (null/absent = not activated yet;
 // everyone starts as a plain spectator account).
 /**
- * Ce qu'on EST sur le terrain — un à la fois.
+ * Ce qu'on EST sur le terrain, un à la fois.
  *
  * Ne pas confondre avec les casquettes (organisateur, propriétaire de
  * terrain) : celles-là sont ce qu'on FAIT en plus, elles se cumulent, et
@@ -56,7 +56,7 @@ export interface UserProfile {
   // Social
   followersCount?: number;
   followingCount?: number;
-  // Évolution onboarding — role activated by the user (Espace joueur/manager)
+  // Évolution onboarding, role activated by the user (Espace joueur/manager)
   evolutionRole?: EvolutionRole | null;
   /**
    * Les casquettes, cumulables et indépendantes du rôle Evolution.
@@ -152,19 +152,19 @@ export interface FirestoreUser {
   // Social
   followers_count?: number;
   following_count?: number;
-  // Évolution onboarding — role activated by the user (Espace joueur/manager)
+  // Évolution onboarding, role activated by the user (Espace joueur/manager)
   evolution_role?: EvolutionRole | null;
   is_organizer?: boolean;
   is_venue_owner?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followed_competition_ids?: string[];
-  /** Nom public de la structure organisatrice — voir UserProfile. */
+  /** Nom public de la structure organisatrice, voir UserProfile. */
   organizer_name?: string | null;
   // Gallery
   gallery_photos?: string[];
   // Palmarès
   trophies?: { title: string; year: number; description?: string }[];
-  // Validated roster claims — written by the roster-claims API only.
+  // Validated roster claims, written by the roster-claims API only.
   linked_comp_players?: LinkedCompPlayer[];
   // FCM push tokens
   fcm_tokens?: string[];
@@ -277,7 +277,7 @@ export type MatchResult = "win" | "loss" | "draw" | null;
 
 /**
  * Fate of a goal once the video assistant gets involved. A goal carries no
- * status at all until someone reviews it — only a reviewed goal is flagged,
+ * status at all until someone reviews it, only a reviewed goal is flagged,
  * and only a "cancelled" one leaves the scoreboard.
  */
 export type GoalVarStatus = "checking" | "confirmed" | "cancelled";
@@ -338,7 +338,7 @@ export interface FirestoreMatch {
       detail?: string;
       /**
        * Goals only. The player who laid the goal on, when the console was
-       * told — a goal recorded before the assist existed simply has none.
+       * told, a goal recorded before the assist existed simply has none.
        */
       assist_player_id?: string | null;
       assist_player_name?: string | null;
@@ -348,7 +348,7 @@ export interface FirestoreMatch {
        * Goals only. Absent = a goal nobody reviewed, which is most of them.
        *  - "checking"  : under VAR review, still on the scoreboard
        *  - "confirmed" : reviewed and upheld
-       *  - "cancelled" : disallowed — off the scoreboard, kept in the timeline
+       *  - "cancelled" : disallowed, off the scoreboard, kept in the timeline
        */
       var_status?: GoalVarStatus | null;
       created_at: string;
@@ -508,7 +508,7 @@ export interface FirestoreInvitation {
   sender_name: string;
   receiver_id: string;
   receiver_name: string;
-  /** Dénormalisés à l'envoi — le mercato affiche l'invitation sans relire
+  /** Dénormalisés à l'envoi, le mercato affiche l'invitation sans relire
    *  ni le profil du joueur ni le doc de l'équipe. Absents sur les
    *  invitations créées avant le champ : la page les réhydrate. */
   receiver_photo?: string | null;
@@ -530,7 +530,7 @@ export interface Invitation {
   senderName: string;
   receiverId: string;
   receiverName: string;
-  /** See FirestoreInvitation — null when the doc predates the field. */
+  /** See FirestoreInvitation, null when the doc predates the field. */
   receiverPhoto: string | null;
   teamLogo: string | null;
   receiverCity: string;
@@ -626,7 +626,7 @@ export interface FirestorePost {
   media_urls?: string[];
   /** Official posts a superadmin has stuck to the top of the Tribune. */
   pinned?: boolean;
-  /** Where the post points — a competition page, a match. Official posts only. */
+  /** Where the post points, a competition page, a match. Official posts only. */
   link?: string | null;
   created_at: string;
   updated_at: string;
@@ -681,7 +681,7 @@ export interface FirestoreShortlistEntry {
   manager_id: string;
   player_id: string;
   player_name: string;
-  /** Photo de profil recopiée à l'ajout — voir FirestoreInvitation. */
+  /** Photo de profil recopiée à l'ajout, voir FirestoreInvitation. */
   player_photo?: string | null;
   player_city: string;
   player_position: string;
@@ -712,7 +712,7 @@ export type JoinRequestStatus = "pending" | "accepted" | "rejected";
 export interface FirestoreJoinRequest {
   player_id: string;
   player_name: string;
-  /** Photo joueur / logo équipe recopiés à la candidature — voir
+  /** Photo joueur / logo équipe recopiés à la candidature, voir
    *  FirestoreInvitation pour le pourquoi et la réhydratation. */
   player_photo?: string | null;
   team_logo?: string | null;
@@ -916,7 +916,7 @@ export type NotificationType =
   /** Vie d'une équipe dont on est membre : arrivée, départ, inscription
    *  en compétition. Envoyée à l'effectif. */
   | "team_activity"
-  /** Même événement, mais reçu parce qu'on suit l'équipe ou le joueur —
+  /** Même événement, mais reçu parce qu'on suit l'équipe ou le joueur,
    *  pas parce qu'on en fait partie. */
   | "follow_activity";
 
@@ -969,7 +969,7 @@ export interface CompetitionFormat {
   /** Aller-retour: every group pairing is played twice, home and away. */
   double_round?: boolean;
   /**
-   * Jeu à N contre N — joueurs de champ par équipe. Plafonne les titulaires
+   * Jeu à N contre N, joueurs de champ par équipe. Plafonne les titulaires
    * sur la feuille de match. Absent sur les compétitions créées avant le
    * champ → 11 (voir teamSize() dans lib/competition-format).
    */
@@ -1011,7 +1011,7 @@ export interface FirestoreCompetition {
    * Nom de la structure organisatrice, recopié depuis le profil du créateur au
    * moment de la création. Dénormalisé exprès : les pages publiques
    * (/competitions, /c/**) sont sans connexion, et la collection `users` n'est
-   * plus lisible sans compte — on ne peut donc pas résoudre le nom par l'uid.
+   * plus lisible sans compte, on ne peut donc pas résoudre le nom par l'uid.
    * Renommer sa structure ne réécrit pas les compétitions déjà créées.
    */
   organizer_name?: string | null;
@@ -1020,7 +1020,7 @@ export interface FirestoreCompetition {
   end_date: string | null;
   venue_city: string | null;
   /**
-   * Entry file — what a manager agrees to and owes to enter. Every field is
+   * Entry file, what a manager agrees to and owes to enter. Every field is
    * optional and nothing is on by default: a neighbourhood tournament asks
    * for none of this, a real competition asks for all of it. The organizer
    * decides, not the platform.
@@ -1048,15 +1048,15 @@ export interface Competition {
   createdBy: string;
   status: CompetitionStatus;
   competitionType: CompetitionType;
-  /** Training sandbox — see FirestoreCompetition.is_sandbox. */
+  /** Training sandbox, see FirestoreCompetition.is_sandbox. */
   isSandbox: boolean;
-  /** Nom de la structure organisatrice — see FirestoreCompetition. */
+  /** Nom de la structure organisatrice, see FirestoreCompetition. */
   organizerName: string | null;
   format: CompetitionFormat;
   startDate: string | null;
   endDate: string | null;
   venueCity: string | null;
-  /** Entry file — see FirestoreCompetition. */
+  /** Entry file, see FirestoreCompetition. */
   rulesText: string | null;
   rulesUrl: string | null;
   requireRulesAcceptance: boolean;
@@ -1080,7 +1080,7 @@ export interface CompPlayer {
 }
 
 // ============================================
-// Roster claims — a player says "this line is me"; the organizer or the
+// Roster claims, a player says "this line is me"; the organizer or the
 // team's manager validates. The `roster_claims` collection is admin-SDK only
 // (clients go through /api/competitions/roster-claims), so it needs no rules.
 // ============================================
@@ -1136,7 +1136,7 @@ export interface FirestoreCompTeam {
   claimed_by_manager_id?: string | null;
   claimed_by_team_id?: string | null;
   /**
-   * A team that has already played is never removed — its results would
+   * A team that has already played is never removed, its results would
    * vanish from tables its opponents earned. It is disqualified instead:
    * played matches stand, every remaining one is forfeited to the opponent.
    */
@@ -1159,7 +1159,7 @@ export interface CompTeam {
   claimedByManagerId: string | null;
   /** The manager's club (`teams` collection) this competition entry stands for. */
   claimedByTeamId: string | null;
-  /** Disqualification — see FirestoreCompTeam. */
+  /** Disqualification, see FirestoreCompTeam. */
   disqualified: boolean;
   disqualifiedAt: string | null;
   disqualifiedReason: string | null;
@@ -1168,7 +1168,7 @@ export interface CompTeam {
 }
 
 // Team-manager invitation, as returned by the API routes (the Firestore
-// `team_manager_invites` collection is admin-SDK only — no client rules).
+// `team_manager_invites` collection is admin-SDK only, no client rules).
 export type TeamManagerInviteStatus = "pending" | "accepted" | "revoked";
 
 export interface TeamManagerInvite {
@@ -1184,7 +1184,7 @@ export interface TeamManagerInvite {
 }
 
 // ============================================
-// Competition registrations — a manager applies to enter their club in a
+// Competition registrations, a manager applies to enter their club in a
 // competition open for entries. The mirror of team_manager_invites, which
 // runs the other way (an organizer hands an existing team to a manager).
 // The `competition_registrations` collection is admin-SDK only.
@@ -1193,12 +1193,12 @@ export interface TeamManagerInvite {
 /**
  * `removed` is not a decision the organizer takes on the entry itself: it is
  * what an accepted entry becomes when its competition team is deleted. Kept
- * distinct from `rejected` so the history stays honest — the club was in,
- * then taken out — and so the manager is free to enter again.
+ * distinct from `rejected` so the history stays honest, the club was in,
+ * then taken out, and so the manager is free to enter again.
  */
 export type RegistrationStatus = "pending" | "accepted" | "rejected" | "removed";
 
-/** Entry fees are tracked by hand — the platform takes no money. */
+/** Entry fees are tracked by hand, the platform takes no money. */
 export type RegistrationFeeStatus = "unpaid" | "paid";
 
 export interface CompetitionRegistration {
@@ -1228,7 +1228,7 @@ export interface CompetitionRegistration {
 
 /**
  * Where a first-round bracket slot takes its team from, expressed in terms of
- * the group stage rather than a team id — so an organizer can draw the whole
+ * the group stage rather than a team id, so an organizer can draw the whole
  * bracket before a single group match is played, and the slots fill themselves
  * once the tables are final.
  *
@@ -1236,7 +1236,7 @@ export interface CompetitionRegistration {
  * round before, which already says "the winner of that match".
  *
  *  - `group_rank` : a finishing position in one named group ("1er poule A").
- *  - `best_rank`  : the repêchage — the `index`-th best team across every group
+ *  - `best_rank`  : the repêchage, the `index`-th best team across every group
  *    among those that finished `rank`-th ("2e meilleur 3e"). Needed whenever the
  *    group count does not divide the bracket, which is exactly the case an
  *    automatic seed cannot resolve on its own.
@@ -1251,7 +1251,7 @@ export interface FirestoreCompMatch {
   group: string | null;
   round: CompMatchRound | null;
   bracket_slot: number | null;
-  /** Provenance of each slot — first knockout round only. See BracketSlotSource. */
+  /** Provenance of each slot, first knockout round only. See BracketSlotSource. */
   home_source?: BracketSlotSource | null;
   away_source?: BracketSlotSource | null;
   home_team_id: string | null;
@@ -1272,7 +1272,7 @@ export interface FirestoreCompMatch {
   penalty_away: number | null;
   winner_team_id: string | null;
   /**
-   * Set when the score was awarded rather than played — the id of the side
+   * Set when the score was awarded rather than played, the id of the side
    * that forfeited. Keeps a 3-0 walkover distinguishable from a real 3-0.
    */
   forfeit_by_team_id?: string | null;
@@ -1296,7 +1296,7 @@ export interface CompMatch {
   group: string | null;
   round: CompMatchRound | null;
   bracketSlot: number | null;
-  /** Provenance of each slot — first knockout round only. See BracketSlotSource. */
+  /** Provenance of each slot, first knockout round only. See BracketSlotSource. */
   homeSource: BracketSlotSource | null;
   awaySource: BracketSlotSource | null;
   homeTeamId: string | null;
@@ -1337,7 +1337,7 @@ export interface CompMatch {
 // An organizer hands a volunteer a short code instead of an e-mail invite:
 // the volunteer may not have a KoppaFoot account, and often only covers one
 // poule or one match. Redeeming a code writes a GRANT under the competition,
-// and that grant is what Firestore rules check on every live write — so the
+// and that grant is what Firestore rules check on every live write, so the
 // access is scoped, expirable and revocable, unlike `moderator_ids` which is
 // all-or-nothing for the whole competition.
 // ============================================
@@ -1363,7 +1363,7 @@ export type FirestoreStaffScope =
 export interface FirestoreStaffCode {
   competition_id: string;
   competition_name: string;
-  /** Who the organizer wrote it for — "Kodjo (poule A)". */
+  /** Who the organizer wrote it for, "Kodjo (poule A)". */
   label: string;
   scope: FirestoreStaffScope;
   created_by: string;
@@ -1379,7 +1379,7 @@ export interface StaffCode extends Omit<
   FirestoreStaffCode,
   "competition_id" | "competition_name" | "created_by" | "created_at" | "expires_at" | "used_count" | "last_used_at" | "scope"
 > {
-  /** The code itself — the document id. */
+  /** The code itself, the document id. */
   code: string;
   competitionId: string;
   competitionName: string;

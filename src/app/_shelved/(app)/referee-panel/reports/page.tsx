@@ -196,7 +196,7 @@ function ReportForm() {
             <div className="p-6 space-y-4">
               <div className="space-y-1 border-b border-gray-50 pb-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Date & Heure</span>
-                <p className="text-sm font-bold text-gray-900">{match?.date} — {match?.time}</p>
+                <p className="text-sm font-bold text-gray-900">{match?.date}, {match?.time}</p>
               </div>
               <div className="space-y-1 border-b border-gray-50 pb-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Lieu</span>

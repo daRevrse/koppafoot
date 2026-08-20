@@ -7,7 +7,7 @@ import { GraduationCap, Loader2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
-// /live-ops/entrainement — a linkable door to the training sandbox.
+// /live-ops/entrainement, a linkable door to the training sandbox.
 //
 // The sandbox is provisioned by an API call, not a URL, so the sidebar had
 // nothing to point at. This page does the provisioning and forwards to the
@@ -18,7 +18,7 @@ export default function LiveTrainingEntry() {
   const { firebaseUser, loading } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  // Provisioning is create-or-get, but React 18 mounts effects twice in dev —
+  // Provisioning is create-or-get, but React 18 mounts effects twice in dev,
   // guard so a single visit doesn't fire two POSTs.
   const started = useRef(false);
 

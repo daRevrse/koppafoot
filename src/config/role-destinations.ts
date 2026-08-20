@@ -5,7 +5,7 @@ import type { EvolutionRole } from "@/types";
 // ============================================
 // Où va un compte, selon ce qu'il EST sur le terrain.
 //
-// Cette liste vivait dans ScoreHeader, donc dans le menu avatar — et le menu
+// Cette liste vivait dans ScoreHeader, donc dans le menu avatar, et le menu
 // avatar n'existe plus sur téléphone, où la barre du bas fait le même travail
 // en mieux. « Mes équipes » et « Mes convocations » seraient devenues
 // inatteignables au doigt en retirant ce menu.
@@ -14,7 +14,7 @@ import type { EvolutionRole } from "@/types";
 // feuille mobile, qui a la place d'expliquer ; le header l'ignore.
 //
 // Ne pas confondre avec les casquettes (organisateur, propriétaire) : celles-
-// là ne dépendent pas du rôle et se cumulent — voir lib/hats.
+// là ne dépendent pas du rôle et se cumulent, voir lib/hats.
 // ============================================
 
 export interface RoleDestination {

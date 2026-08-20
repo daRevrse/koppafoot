@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
-// Admin — the official account's voice, and the moderation queue.
+// Admin, the official account's voice, and the moderation queue.
 //
 // Publishing as KoppaFoot is impossible from a browser by design (the rules
 // require a post's author_id to match the caller), so both halves of this
@@ -39,7 +39,7 @@ interface Report {
   createdAt: string | null;
 }
 
-/** Strips the `data:<type>;base64,` prefix — the route wants the payload. */
+/** Strips the `data:<type>;base64,` prefix, the route wants the payload. */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -119,7 +119,7 @@ export default function AdminTribunePage() {
       setIdentityAvatar(data.identity?.avatarUrl ?? null);
       setAvatarFile(null);
       setAvatarPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-      toast.success("Compte officiel mis à jour — tous ses posts suivent.");
+      toast.success("Compte officiel mis à jour, tous ses posts suivent.");
     } catch (err) {
       console.error("Tribune identity save failed:", err);
       toast.error("Enregistrement impossible.");
@@ -523,7 +523,7 @@ export default function AdminTribunePage() {
                     Voir <ExternalLink size={11} />
                   </a>
                 </div>
-                {/* Snapshot taken when reported — the live post may have
+                {/* Snapshot taken when reported, the live post may have
                     been edited since, or deleted outright. */}
                 <p className="mt-2 border-l-2 border-gray-100 pl-3 text-xs italic leading-relaxed text-gray-600">
                   {r.postContent || "(sans texte)"}

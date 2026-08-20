@@ -5,14 +5,14 @@ import { notifyTeamActivity, type TeamActivityEvent } from "@/lib/activity-notif
 /**
  * POST /api/notifications/team-activity
  *
- * Prévient l'effectif d'une équipe — et ceux qui la suivent — d'un mouvement
+ * Prévient l'effectif d'une équipe, et ceux qui la suivent, d'un mouvement
  * la concernant : arrivée, départ, inscription en compétition.
  *
  * Body: { teamId, event, playerId?, playerName?, competitionName?, link? }
  *
  * Autorisation : le jeton porte l'auteur, jamais le corps de la requête.
  * Selon l'événement, l'auteur doit être le manager de l'équipe ou le joueur
- * concerné — sinon n'importe qui pourrait diffuser « X quitte Y » à tout un
+ * concerné, sinon n'importe qui pourrait diffuser « X quitte Y » à tout un
  * effectif. Le nom du joueur est relu depuis son profil pour la même raison.
  *
  * Diffusion best-effort côté appelant : un échec ici ne doit jamais annuler

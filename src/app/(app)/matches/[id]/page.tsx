@@ -301,7 +301,7 @@ export default function MatchDetailPage() {
         <Link href="/matches" className="transition-colors hover:text-emerald-700">Matchs amicaux</Link>
         <span aria-hidden className="text-gray-300">›</span>
         <span className="truncate text-gray-600">
-          {match.homeTeamName} — {match.awayTeamName}
+          {match.homeTeamName}, {match.awayTeamName}
         </span>
       </nav>
 
@@ -804,7 +804,7 @@ export default function MatchDetailPage() {
 
               {/* Feuille de match de l'adversaire hors plateforme : personne en
                   face pour la poser, et ses joueurs n'ont pas de participation
-                  — la compo est donc écrite sur le match. Sans elle, aucun but
+                 , la compo est donc écrite sur le match. Sans elle, aucun but
                   adverse ne peut être attribué à un joueur dans la console. */}
               {ghostOpponentTeamId && (
                 <div className="mb-8 border border-gray-200/70 bg-white p-5">
@@ -824,7 +824,7 @@ export default function MatchDetailPage() {
                       href={`/teams/${ghostOpponentTeamId}`}
                       className="flex items-center justify-center gap-2 border border-dashed border-gray-200/70 px-4 py-6 text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50"
                     >
-                      <UserPlus size={14} /> Aucun joueur — composer l&apos;effectif
+                      <UserPlus size={14} /> Aucun joueur, composer l&apos;effectif
                     </Link>
                   ) : (
                     <div className="space-y-2">
@@ -1395,7 +1395,7 @@ export default function MatchDetailPage() {
         {/* Meme rail que sur un match de competition, moins ce qu'un amical
             n'a pas : pas de ligne competition, et aucun classement a montrer
             puisqu'il n'y a rien a classer. Les equipes d'un amical n'ont pas
-            de logo dans le modele de donnees — le sondage retombe alors sur
+            de logo dans le modele de donnees, le sondage retombe alors sur
             les initiales. */}
         <aside className="mt-6 px-3 sm:px-6 lg:sticky lg:top-6 lg:mt-0 lg:px-0">
           <MatchRail

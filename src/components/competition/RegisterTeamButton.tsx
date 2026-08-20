@@ -14,7 +14,7 @@ import type { Competition, CompetitionRegistration, Team } from "@/types";
 // manager's own screen open the same modal instead of one of them bouncing
 // the user somewhere else to do it.
 //
-// Renders nothing when the viewer has no club to enter — a spectator has no
+// Renders nothing when the viewer has no club to enter, a spectator has no
 // business seeing an entry form.
 // ============================================
 
@@ -88,7 +88,7 @@ export default function RegisterTeamButton({
         toast.error(data.error ?? "L'inscription a échoué");
         return;
       }
-      toast.success("Demande envoyée — en attente de l'organisateur");
+      toast.success("Demande envoyée, en attente de l'organisateur");
       setOpen(false);
       setMessage("");
       setRulesAccepted(false);
@@ -103,7 +103,7 @@ export default function RegisterTeamButton({
   if (!ready || clubs.length === 0) return null;
 
   // A rejected entry, or one whose team was pulled out of the competition,
-  // leaves the manager free to enter again — so neither counts as "here".
+  // leaves the manager free to enter again, so neither counts as "here".
   const here = mine.find(
     (r) =>
       r.competitionId === competition.id &&
@@ -229,7 +229,7 @@ export default function RegisterTeamButton({
 
             <p className="mt-3 text-xs font-semibold leading-relaxed text-gray-400">
               Une fois validée par l&apos;organisateur, ton effectif est repris
-              automatiquement — tu n&apos;as rien à ressaisir.
+              automatiquement, tu n&apos;as rien à ressaisir.
             </p>
 
             <div className="mt-5 flex justify-end gap-3">

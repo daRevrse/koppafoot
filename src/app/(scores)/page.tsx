@@ -14,7 +14,7 @@ export const revalidate = 60;
 export default async function Home() {
   // Les deux familles arrivent ensemble : celles de la plateforme, qu'on peut
   // rejoindre, et le football mondial, qu'on ne fait que suivre. Elles vivent
-  // desormais dans le meme annuaire — il n'y a pas de raison qu'un supporter
+  // desormais dans le meme annuaire, il n'y a pas de raison qu'un supporter
   // aille les chercher sur deux ecrans differents.
   //
   // Les deux lectures sont independantes, donc lancees de front. Chacune
@@ -31,8 +31,8 @@ export default async function Home() {
   // arrivent en fin de liste : un tournoi qui se joue passe avant un match
   // entre deux clubs, et le tri par heure du tableau fait le reste.
   // Le tableau porte les trois familles : les competitions de la plateforme,
-  // les amicaux, et le football mondial du jour. Les locales d'abord — c'est
-  // le sujet du produit — le reste derriere, le tri par heure faisant foi a
+  // les amicaux, et le football mondial du jour. Les locales d'abord, c'est
+  // le sujet du produit, le reste derriere, le tri par heure faisant foi a
   // l'interieur de chaque groupe.
   const board = [
     ...feed,

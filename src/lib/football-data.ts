@@ -12,7 +12,7 @@ const FEATURED_CODES = ["CL", "PL", "FL1", "BL1", "SA", "PD"];
 
 // Every competition the free plan exposes, in the order we want them listed in
 // the public directory (the ones a francophone audience looks for first). The
-// plan returns exactly these 13 codes — anything else 403s, so this doubles as
+// plan returns exactly these 13 codes, anything else 403s, so this doubles as
 // the allow-list for /competitions/monde/[code].
 const WORLD_CODES = [
   "CL", "FL1", "PL", "PD", "SA", "BL1",
@@ -40,7 +40,7 @@ export interface FootballCompetition {
   name: string;
   emblem: string | null;
   area: string | null;
-  /** LEAGUE or CUP — drives the "Championnat"/"Coupe" badge. */
+  /** LEAGUE or CUP, drives the "Championnat"/"Coupe" badge. */
   type: string | null;
   areaFlag: string | null;
   seasonStart: string | null;
@@ -83,7 +83,7 @@ export interface WorldScorer {
 /**
  * Everything the /competitions/monde/[code] tabs render, in three cached calls.
  * The layout needs the whole thing to know which tabs have content, and each
- * tab page re-requests it — Next dedupes the fetches, so it stays three calls.
+ * tab page re-requests it, Next dedupes the fetches, so it stays three calls.
  */
 export interface WorldCompetitionSummary {
   competition: FootballCompetition;
@@ -167,7 +167,7 @@ async function fdFetch<T>(path: string, revalidate: number): Promise<T | null> {
     const remaining = res.headers.get("X-RequestsAvailable");
     const reset = res.headers.get("X-RequestCounter-Reset");
     if (remaining != null && Number(remaining) <= 0) {
-      console.warn(`football-data: quota exhausted (reset in ${reset}s) — skipping ${path}`);
+      console.warn(`football-data: quota exhausted (reset in ${reset}s), skipping ${path}`);
       return null;
     }
     if (!res.ok) {
@@ -187,8 +187,8 @@ function toMatch(m: ApiMatch): FootballMatch {
     utcDate: m.utcDate,
     status: m.status,
     competition: { name: m.competition?.name ?? "", emblem: m.competition?.emblem ?? null, code: m.competition?.code ?? null },
-    home: { name: m.homeTeam?.shortName || m.homeTeam?.name || "—", crest: m.homeTeam?.crest ?? null },
-    away: { name: m.awayTeam?.shortName || m.awayTeam?.name || "—", crest: m.awayTeam?.crest ?? null },
+    home: { name: m.homeTeam?.shortName || m.homeTeam?.name || ",", crest: m.homeTeam?.crest ?? null },
+    away: { name: m.awayTeam?.shortName || m.awayTeam?.name || ",", crest: m.awayTeam?.crest ?? null },
     scoreHome: m.score?.fullTime?.home ?? null,
     scoreAway: m.score?.fullTime?.away ?? null,
   };
@@ -237,7 +237,7 @@ type MatchPhase = "live" | "played" | "upcoming" | "void";
  * and the kick-off time decide, and `status` is only consulted for the live
  * flag and for fixtures that never happened.
  *
- * "void" = kicked off long ago with no score — postponed, cancelled or
+ * "void" = kicked off long ago with no score, postponed, cancelled or
  * abandoned. Showing it as a result or as an upcoming match both lie, so it is
  * dropped.
  */
@@ -290,7 +290,7 @@ export async function getFeaturedCompetitions(): Promise<FootballCompetition[]> 
 }
 
 /**
- * Every competition on the plan, in curated order — the "Le foot mondial"
+ * Every competition on the plan, in curated order, the "Le foot mondial"
  * section of the public directory. Cached ~1 day.
  */
 export async function getWorldCompetitions(): Promise<FootballCompetition[]> {
@@ -308,7 +308,7 @@ function ymd(d: Date): string {
 }
 
 /**
- * Standings, a window of fixtures and the scoring chart for one competition —
+ * Standings, a window of fixtures and the scoring chart for one competition,
  * everything the /competitions/monde/[code] tabs need, in three cached calls.
  *
  * Standings carry the competition/season metadata, so there is no extra call
@@ -337,7 +337,7 @@ export async function getWorldCompetitionSummary(
       `/competitions/${upper}/matches?dateFrom=${ymd(from)}&dateTo=${ymd(to)}`,
       600,
     ),
-    // The chart barely moves between matchdays — cache it for an hour.
+    // The chart barely moves between matchdays, cache it for an hour.
     fdFetch<{ scorers?: ApiScorer[] }>(`/competitions/${upper}/scorers?limit=20`, 3600),
   ]);
 
@@ -347,7 +347,7 @@ export async function getWorldCompetitionSummary(
   let matches = windowRes?.matches ?? [];
   if (matches.length === 0) {
     // Season over (or not yet started): fall back to the whole calendar. Cached
-    // for a day — a dormant competition does not move.
+    // for a day, a dormant competition does not move.
     const all = await fdFetch<{ matches?: ApiMatch[] }>(`/competitions/${upper}/matches`, 86400);
     matches = all?.matches ?? [];
   }
@@ -360,7 +360,7 @@ export async function getWorldCompetitionSummary(
     const scored = fm.scoreHome != null && fm.scoreAway != null;
     switch (classify(m, scored, nowMs)) {
       // A match in progress belongs at the top of the results, not among the
-      // fixtures still to come — the list badges it LIVE.
+      // fixtures still to come, the list badges it LIVE.
       case "live":
       case "played": recent.push(fm); break;
       case "upcoming": upcoming.push(fm); break;
@@ -375,14 +375,14 @@ export async function getWorldCompetitionSummary(
   const standings: WorldStandingsGroup[] = (standingsRes.standings ?? [])
     .filter((s) => s.type === "TOTAL")
     .map((s) => ({
-      // A straight league table comes back labelled "Matchday" — that is not a
+      // A straight league table comes back labelled "Matchday", that is not a
       // group name, so it must not become a section heading.
       group: !s.group || /^matchday$/i.test(s.group) ? null : s.group,
       rows: (s.table ?? []).map((r) => ({
         position: r.position ?? 0,
         team: {
           id: r.team?.id ?? 0,
-          name: r.team?.shortName || r.team?.name || "—",
+          name: r.team?.shortName || r.team?.name || ",",
           crest: r.team?.crest ?? null,
         },
         played: r.playedGames ?? 0,
@@ -396,20 +396,20 @@ export async function getWorldCompetitionSummary(
       })),
     }))
     // Before a ball is kicked the provider still ships a full table, every team
-    // ranked 1st on zero points. That is not a standing — drop it and let the
+    // ranked 1st on zero points. That is not a standing, drop it and let the
     // page say the season has not started.
     .filter((g) => g.rows.length > 0 && g.rows.some((r) => r.played > 0));
 
-  // A player with no goals is not a scorer — the chart is empty until the
+  // A player with no goals is not a scorer, the chart is empty until the
   // season produces one, and the Buteurs tab hides itself accordingly.
   const scorers: WorldScorer[] = (scorersRes?.scorers ?? [])
     .filter((s) => (s.goals ?? 0) > 0)
     .map((s) => ({
       playerId: s.player?.id ?? 0,
-      playerName: s.player?.name ?? "—",
+      playerName: s.player?.name ?? ",",
       nationality: s.player?.nationality ?? null,
       team: {
-        name: s.team?.shortName || s.team?.name || "—",
+        name: s.team?.shortName || s.team?.name || ",",
         crest: s.team?.crest ?? null,
       },
       goals: s.goals ?? 0,

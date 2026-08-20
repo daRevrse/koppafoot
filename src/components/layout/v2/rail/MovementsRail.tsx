@@ -6,21 +6,21 @@ import { Loader2, Shield } from "lucide-react";
 import type { Movement } from "@/lib/mercato-admin";
 
 // ============================================
-// Mouvements confirmés — module de rail.
+// Mouvements confirmés, module de rail.
 //
 // Un transfert entre clubs n'existe pas encore dans le produit : il n'y a pas
 // de collection qui dise « ce joueur quitte A pour B ». Ce qu'on sait dire,
 // c'est qu'un joueur a REJOINT un club. D'où la flèche à sens unique plutôt
 // qu'un aller-retour qui laisserait croire à un marché entre clubs.
 //
-// Les deux visages sont montrés — celui qui arrive et celui qui accueille —
+// Les deux visages sont montrés, celui qui arrive et celui qui accueille,
 // parce que c'est ça, l'information : qui, chez qui. Le détour par lequel
 // l'accord s'est fait (le club a appelé / le joueur a candidaté) a été
 // retiré : dans une colonne de 320px il pesait une ligne par entrée pour un
 // détail de procédure, alors que les visages se lisent d'un coup d'œil.
 //
 // Lit /api/mercato/mouvements : lecture serveur avec le SDK admin, donc rien
-// de privé ne transite — seuls les dossiers acceptés sortent.
+// de privé ne transite, seuls les dossiers acceptés sortent.
 // ============================================
 
 export default function MovementsRail({ max = 8 }: { max?: number }) {

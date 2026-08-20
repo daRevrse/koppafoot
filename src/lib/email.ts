@@ -4,7 +4,7 @@ const FROM_NAME = "KoppaFoot";
 const FROM_EMAIL = "notifications@koppafoot.com";
 const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 // Canonical host. The apex 307-redirects here, so links built on it made
-// every recipient take an extra hop — and the sitemap advertised URLs that
+// every recipient take an extra hop, and the sitemap advertised URLs that
 // were all redirects.
 const APP_URL = "https://www.koppafoot.com";
 
@@ -51,7 +51,7 @@ export async function sendNotificationEmail(
     await sendViaResend(to, subject, html);
     return;
   }
-  console.warn(`[email] no provider configured (BREVO_API_KEY / RESEND_API_KEY) — skipped "${subject}" to ${to}`);
+  console.warn(`[email] no provider configured (BREVO_API_KEY / RESEND_API_KEY), skipped "${subject}" to ${to}`);
 }
 
 // ── Shared layout ──────────────────────────────────────────
@@ -330,7 +330,7 @@ export function campaignPlayerNoTeamHtml(firstName: string): string {
     ${ctaButton("Trouver une équipe", `${APP_URL}/mercato`)}
     ${divider()}
     <p style="margin:0;font-size:13px;color:#94a3b8;">
-      Vous pouvez aussi attendre qu'une équipe vous contacte — mais les meilleurs joueurs vont chercher eux-mêmes.
+      Vous pouvez aussi attendre qu'une équipe vous contacte, mais les meilleurs joueurs vont chercher eux-mêmes.
     </p>
   `);
 }

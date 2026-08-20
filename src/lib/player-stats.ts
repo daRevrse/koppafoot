@@ -1,5 +1,5 @@
 // ============================================
-// Player statistics — aggregated from what the live console actually
+// Player statistics, aggregated from what the live console actually
 // records: lineups and match events. Pure and SDK-agnostic so the player's
 // own page and the manager's squad view share one definition.
 //
@@ -34,7 +34,7 @@ export const EMPTY_STATS: PlayerStats = {
  * Stats of one roster line across a competition's matches.
  *
  * A match counts as played when it is completed and the player appears in
- * their team's submitted lineup — a squad member who never made the sheet
+ * their team's submitted lineup, a squad member who never made the sheet
  * shouldn't inflate the count. Events are matched on `playerId`, so a goal
  * typed as free text (no player picked in the console) is not attributed.
  */
@@ -59,7 +59,7 @@ export function computePlayerStats(
 
     for (const event of match.liveState?.events ?? []) {
       if (event.playerId !== playerId) continue;
-      // A goal disallowed by the VAR is off the scoreboard — it must not sit
+      // A goal disallowed by the VAR is off the scoreboard, it must not sit
       // in a player's tally either.
       if (event.type === "goal" && event.varStatus === "cancelled") continue;
       if (event.type === "goal") stats.goals += 1;
@@ -83,7 +83,7 @@ export interface PlayerAppearance {
  * Match-by-match record for one roster line, most recent first.
  *
  * Totals answer "how good a season", this answers "what did I do last
- * Saturday" — which is the question a player actually opens the app with.
+ * Saturday", which is the question a player actually opens the app with.
  * Only completed matches the player was on the sheet for are returned.
  */
 export function computeAppearances(

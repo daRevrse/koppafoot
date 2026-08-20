@@ -700,7 +700,7 @@ export default function TeamDetailPage() {
     setLoading(true);
     try {
       // Connecte : lecture directe. Visiteur : `teams` lui est ferme par les
-      // regles, donc on sert la projection publique — voir
+      // regles, donc on sert la projection publique, voir
       // /api/public/team/[id]. Elle ne porte ni effectif ni manager, donc la
       // page rend sa fiche sans les blocs qui en dependent.
       const data = user ? await getTeamById(teamId) : await fetchPublicTeam(teamId);
@@ -736,7 +736,7 @@ export default function TeamDetailPage() {
 
   // Entrainements : reserves aux comptes (regle Firestore `trainings`).
   // Sans cette garde, un visiteur non connecte ouvrait un listener que les
-  // regles refusent — d'ou un permission-denied dans la console a chaque
+  // regles refusent, d'ou un permission-denied dans la console a chaque
   // affichage public de la page.
   useEffect(() => {
     if (!teamId || !user) return;
@@ -1056,7 +1056,7 @@ export default function TeamDetailPage() {
   // membre. Le fil dit ou l'on est ; on n'a plus a deviner d'ou l'on vient.
   //
   // Le seul cas ou une origine reste utile est le mercato, qui marque son
-  // passage avec ?from=mercato — et un membre, pour qui « Mes equipes » est
+  // passage avec ?from=mercato, et un membre, pour qui « Mes equipes » est
   // reellement le rayon dont cette equipe fait partie.
   const trail: { href: string; label: string }[] =
     origin === "mercato" ? [{ href: "/mercato", label: "Mercato" }]
@@ -1069,12 +1069,12 @@ export default function TeamDetailPage() {
   const completedMatches = matches.filter((m) => m.status === "completed");
   const pendingCount = joinRequests.filter((r) => r.status === "pending").length;
   // Squad size = accounts on the roster + ghost players. The manager is not
-  // in member_ids (createTeam starts it empty), so this is the real count —
+  // in member_ids (createTeam starts it empty), so this is the real count,
   // memberIds alone silently dropped every player without a smartphone.
   const squadCount = team.memberIds.length + ghostPlayers.length;
   // Adversaire hors plateforme : un doc `teams` sans compte derrière. Tout ce
   // qui est social (suivre, recruter, candidatures, entraînements, palmarès)
-  // n'a pas de sens sur une équipe qui n'existe pas ici — et laisser le
+  // n'a pas de sens sur une équipe qui n'existe pas ici, et laisser le
   // recrutement joignable la ferait entrer dans searchTeams, donc au mercato.
   const isGhostTeam = !!team.isGhost;
 
@@ -1362,7 +1362,7 @@ export default function TeamDetailPage() {
                               className="h-8 w-11 border border-gray-200/70 bg-gray-50/50 text-center text-sm font-black text-gray-900 focus:border-gray-900 focus:bg-white focus:ring-0 transition-all sm:h-9 sm:w-12"
                               value={teamSquadNumbers[member.uid] || ""}
                               onChange={(e) => handleSquadNumberChange(member.uid, e.target.value)}
-                              placeholder="—"
+                              placeholder=","
                             />
                           </div>
                           <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
@@ -1539,7 +1539,7 @@ export default function TeamDetailPage() {
               <p className="mt-3 text-sm text-gray-500">Aucun match programme</p>
               {isTeamManager && (
                 <span className="mt-4 inline-flex cursor-not-allowed items-center gap-2 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400">
-                  <Calendar size={14} /> Programmer un match — bientôt
+                  <Calendar size={14} /> Programmer un match, bientôt
                 </span>
               )}
             </div>
@@ -1548,7 +1548,7 @@ export default function TeamDetailPage() {
           {/* CTA for manager */}
           {isTeamManager && matches.length > 0 && (
             <span className="flex cursor-not-allowed items-center justify-center gap-2 border border-gray-200/70 bg-gray-50 py-4 text-sm font-medium text-gray-400">
-              <Calendar size={16} /> Programmer un match — bientôt
+              <Calendar size={16} /> Programmer un match, bientôt
             </span>
           )}
         </motion.div>
@@ -1582,7 +1582,7 @@ export default function TeamDetailPage() {
             <div className="bg-white p-5">
               <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ratio de victoires</p>
               <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">
-                {team.matchesPlayed > 0 ? `${winRate}%` : "—"}
+                {team.matchesPlayed > 0 ? `${winRate}%` : ","}
               </p>
             </div>
           </div>
@@ -1591,7 +1591,7 @@ export default function TeamDetailPage() {
               equipe qui perd tout. Mieux vaut le dire. */}
           {team.matchesPlayed === 0 && (
             <p className="border border-gray-200/70 bg-white px-6 py-12 text-center text-base font-bold text-gray-400">
-              Aucun match joué pour l&apos;instant — le bilan viendra avec.
+              Aucun match joué pour l&apos;instant, le bilan viendra avec.
             </p>
           )}
         </motion.div>
@@ -1759,17 +1759,17 @@ export default function TeamDetailPage() {
                     <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-gray-900">{request.playerName}</span>
-                      <span className="text-gray-400">—</span>
+                      <span className="text-gray-400">,</span>
                       <span className="text-sm text-gray-600">{request.playerCity}</span>
                       {request.playerPosition && (
                         <>
-                          <span className="text-gray-400">—</span>
+                          <span className="text-gray-400">,</span>
                           <span className="text-sm text-gray-600">{request.playerPosition}</span>
                         </>
                       )}
                       {request.playerLevel && (
                         <>
-                          <span className="text-gray-400">—</span>
+                          <span className="text-gray-400">,</span>
                           <span className="text-sm text-gray-600">{LEVEL_LABELS[request.playerLevel] ?? request.playerLevel}</span>
                         </>
                       )}
@@ -1857,7 +1857,7 @@ export default function TeamDetailPage() {
             </div>
           )}
 
-          {/* Recruiting toggle — masqué sur un fantôme : l'activer le ferait
+          {/* Recruiting toggle, masqué sur un fantôme : l'activer le ferait
               entrer dans searchTeams, donc dans le mercato. */}
           {!isGhostTeam && (
           <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">

@@ -3,14 +3,14 @@ import type { UserProfile } from "@/types";
 // ============================================
 // Les casquettes : ce qu'un compte FAIT, par opposition à ce qu'il EST.
 //
-// Le rôle Evolution — joueur, manager, arbitre — dit ce qu'on est sur le
+// Le rôle Evolution, joueur, manager, arbitre, dit ce qu'on est sur le
 // terrain, et on n'en a qu'un. Les casquettes se cumulent : le même compte
 // peut être arbitre, organiser une compétition et posséder un terrain.
 //
 // Pourquoi ce module existe plutôt qu'un simple `user.userType === ...`
 // écrit à quatorze endroits : `user_type` ne porte qu'UNE valeur. Approuver
 // une candidature d'organisateur écrasait donc le type de compte, et un
-// organisateur qui joue tombait hors de tout ce qui filtre sur les joueurs —
+// organisateur qui joue tombait hors de tout ce qui filtre sur les joueurs,
 // ses informations physiques, ses équipes, sa présence dans la recherche.
 // La correction est un drapeau à côté, sur le modèle de `is_superadmin`.
 //

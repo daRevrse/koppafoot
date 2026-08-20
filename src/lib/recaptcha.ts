@@ -6,12 +6,12 @@ import { auth } from "@/lib/firebase";
 //
 // Firebase consumes the reCAPTCHA token on EVERY sendVerificationCode call,
 // successful or not, so each attempt needs a brand new verifier. That much
-// is well known — what bites is the container:
+// is well known, what bites is the container:
 //
 // `verifier.clear()` releases the verifier on Firebase's side but leaves the
 // rendered widget in the DOM node. Constructing the next verifier on that
 // same dirty node yields a token the backend rejects with
-// INVALID_APP_CREDENTIAL — intermittently, which makes it look like a
+// INVALID_APP_CREDENTIAL, intermittently, which makes it look like a
 // backend flake rather than a client bug.
 //
 // So: fresh verifier AND fresh container, every time.

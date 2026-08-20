@@ -37,7 +37,7 @@ function AvatarBottomSheet({
   const handleLogout = useCallback(async () => {
     onClose();
     await logout();
-    // Home is public — no reason to send anyone to a login screen.
+    // Home is public, no reason to send anyone to a login screen.
     router.push("/");
   }, [logout, router, onClose]);
 
@@ -148,8 +148,8 @@ function AvatarBottomSheet({
 
 // ─── Spaces Bottom Sheet ─────────────────────────────────────
 // The role spaces used to hang at the bottom of the profile sheet, three taps
-// deep. They now have their own tab — the one the Tribune freed when it moved
-// up to the header — and the same sheet styling as the profile button.
+// deep. They now have their own tab, the one the Tribune freed when it moved
+// up to the header, and the same sheet styling as the profile button.
 function SpacesSheet({
   open,
   onClose,
@@ -170,7 +170,7 @@ function SpacesSheet({
 
   // La porte vers la candidature organisateur vivait ici pour les comptes qui
   // ne le sont pas encore. Koppa Links la porte desormais, avec les deux
-  // autres portes du produit — la garder en double n'apprend rien.
+  // autres portes du produit, la garder en double n'apprend rien.
   const spaces = [...espaces.roleItems, ...espaces.hatItems];
 
   return (
@@ -248,7 +248,7 @@ function SpacesSheet({
  *
  * Elle est fixee, donc elle flotte au-dessus de tout : sans cette mesure,
  * une feuille montante se glissait dessous et son dernier lien devenait
- * illisible et intouchable. Meme raison que `--header-h` en haut — la
+ * illisible et intouchable. Meme raison que `--header-h` en haut, la
  * hauteur depend du terminal (`pb-safe` sur un iPhone a encoche), donc on la
  * mesure au lieu de la deviner.
  */
@@ -370,7 +370,7 @@ export default function MobileBottomNav() {
             {/* Troisieme place : l'espace du compte.
                 
                 Sans role Evolution, elle devient l'invitation a en choisir un,
-                en jaune plein contraste — le meme geste que la barre desktop,
+                en jaune plein contraste, le meme geste que la barre desktop,
                 qui n'existait pas ici. C'est la porte vers tout le reste du
                 produit : la laisser au fond d'une feuille revenait a la
                 cacher a qui ne l'ouvre jamais. */}

@@ -1,6 +1,6 @@
 import type { WorldScorer } from "@/lib/football-data";
 
-// The provider's scoring chart. Server-safe (no client hooks) — like the
+// The provider's scoring chart. Server-safe (no client hooks), like the
 // standings, this is indexable content and belongs in the initial HTML.
 // Assists and appearances are absent on some competitions, so both columns
 // fall back to a dash rather than a misleading zero.
@@ -42,10 +42,10 @@ export default function WorldScorersTable({ scorers }: { scorers: WorldScorer[] 
                   </div>
                 </td>
                 <td className="px-2 py-3 text-center font-bold text-gray-500">
-                  {scorer.playedMatches ?? "—"}
+                  {scorer.playedMatches ?? ","}
                 </td>
                 <td className="px-2 py-3 text-center font-bold text-gray-500">
-                  {scorer.assists ?? "—"}
+                  {scorer.assists ?? ","}
                 </td>
                 <td className="px-3 py-3 text-center text-base font-black text-gray-900">
                   {scorer.goals}

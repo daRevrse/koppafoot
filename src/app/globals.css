@@ -18,7 +18,7 @@
   --color-primary-900: #064e3b;
   --color-primary-950: #022c22;
 
-  /* Accent Colors (Gold/Amber — trophées, énergie) */
+  /* Accent Colors (Gold/Amber, trophées, énergie) */
   --color-accent-50: #FFFBEB;
   --color-accent-100: #FEF3C7;
   --color-accent-200: #FDE68A;
@@ -89,7 +89,7 @@
 body {
   background: var(--color-bg);
   color: var(--color-text-primary);
-  /* The app owns pull-to-refresh (see PullToRefresh.tsx) — iOS gives a
+  /* The app owns pull-to-refresh (see PullToRefresh.tsx), iOS gives a
      standalone PWA none, so leaving Android's native one enabled would mean
      two different gestures depending on the phone. */
   overscroll-behavior-y: contain;
@@ -212,7 +212,7 @@ body {
    Modals & bottom sheets
    ============================================ */
 
-/* Every modal layer — backdrop and panel — sits above the mobile bottom nav.
+/* Every modal layer, backdrop and panel, sits above the mobile bottom nav.
    At the same z-index the nav wins (it comes later in the DOM), which left a
    sheet's action row buttons hidden behind the tab bar on phones. */
 .modal-layer {

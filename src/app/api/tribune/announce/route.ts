@@ -8,10 +8,10 @@ import type { FirestoreCompetition } from "@/types";
  *
  * Most milestones happen in the browser (an organizer flips a status,
  * disqualifies a team, finishes a match), but the post itself must be written
- * server-side — the rules forbid a client from publishing as "system". So the
+ * server-side, the rules forbid a client from publishing as "system". So the
  * client does its own write, then calls this to have the announcement made.
  *
- * POST { cid, event }  — event is the milestone minus the competition fields,
+ * POST { cid, event } , event is the milestone minus the competition fields,
  *                        which are read from the competition itself so a
  *                        caller cannot announce something about someone
  *                        else's competition under a name of their choosing.
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // A sandbox is one user practising on fake data — it has no business
+    // A sandbox is one user practising on fake data, it has no business
     // showing up in everyone's feed.
     if (competition.is_sandbox) return NextResponse.json({ ok: true, skipped: "sandbox" });
 

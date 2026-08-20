@@ -7,7 +7,7 @@ import { FieldValue } from "firebase-admin/firestore";
  *
  * Même circuit que les candidatures d'organisateur : un formulaire, une
  * décision d'administrateur, et la casquette qui s'ajoute au compte à
- * l'approbation. Elle s'AJOUTE — le rôle Evolution de la personne, joueur ou
+ * l'approbation. Elle s'AJOUTE, le rôle Evolution de la personne, joueur ou
  * arbitre, reste intact.
  *
  * Pourquoi une candidature plutôt qu'une activation libre : référencer un
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     const u = userSnap.data()!;
     if (u.is_venue_owner === true || u.user_type === "venue_owner") {
       return NextResponse.json(
-        { error: "Tu gères déjà des terrains — ajoute le suivant depuis Mes terrains." },
+        { error: "Tu gères déjà des terrains, ajoute le suivant depuis Mes terrains." },
         { status: 409 },
       );
     }

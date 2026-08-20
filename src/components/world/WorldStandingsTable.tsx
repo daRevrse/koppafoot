@@ -9,7 +9,7 @@ import type { WorldStandingsGroup } from "@/lib/football-data";
 // from match documents). One section per group for cups, a single unlabelled
 // table for leagues.
 //
-// Server-safe: no client hooks, no motion — this is the page's SEO payload and
+// Server-safe: no client hooks, no motion, this is the page's SEO payload and
 // must be in the initial HTML.
 // ============================================
 

@@ -6,7 +6,7 @@ import { Search, X, Loader2, Trophy, User, Shield, MapPin, Flag } from "lucide-r
 import type { SearchHit, SearchPayload } from "@/app/api/search/route";
 
 // ============================================
-// SearchModal — one search surface for the whole app.
+// SearchModal, one search surface for the whole app.
 //
 // Two things changed the shape of this file.
 //
@@ -18,7 +18,7 @@ import type { SearchHit, SearchPayload } from "@/app/api/search/route";
 // visitor uses search for.
 //
 // And an empty box now offers something. Instead of "type at least two
-// letters" it shows what is popular — most-followed competitions, clubs with
+// letters" it shows what is popular, most-followed competitions, clubs with
 // people in them, players with a following. A search field that answers
 // before you type teaches what is in here.
 // ============================================
@@ -135,7 +135,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
         {/* ---- Filters ---- */}
         {/* `shrink-0` : dans une colonne flex a hauteur contrainte, cette
             rangee se faisait comprimer des que les resultats remplissaient la
-            modale — les pastilles etaient rognees par le haut. */}
+            modale, les pastilles etaient rognees par le haut. */}
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200/70 px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((f) => (
             <button

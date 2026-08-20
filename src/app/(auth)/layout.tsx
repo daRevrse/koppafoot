@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { ROLE_REDIRECTS } from "@/types";
 
 // ============================================
-// AuthLayout — centered card on the light dashboard background,
+// AuthLayout, centered card on the light dashboard background,
 // consistent with the app shell (no more split screen).
 // ============================================
 
@@ -17,7 +17,7 @@ import { ROLE_REDIRECTS } from "@/types";
  * Ouvrir l'app installée et ouvrir /login donnent alors la même image.
  *
  * Deux couches de fond : le motif dessous, un voile de la couleur de fond
- * par-dessus. C'est le seul moyen d'atténuer une image de fond en CSS —
+ * par-dessus. C'est le seul moyen d'atténuer une image de fond en CSS,
  * `opacity` toucherait aussi la carte et le logo. Le voile est dosé pour que
  * le motif se devine sans concurrencer le formulaire.
  *
@@ -37,7 +37,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect authenticated users to their space — or to a same-site ?next=
+  // Redirect authenticated users to their space, or to a same-site ?next=
   // target (invitation links bounce through login and come back here).
   useEffect(() => {
     if (!loading && user) {

@@ -263,7 +263,7 @@ export default function MatchesPage() {
   const selectAwayTeam = (team: Team) => {
     setAwayTeamId(team.id);
     setAwayTeamName(team.name);
-    // Une équipe fantôme porte le manager_id de son créateur — le laisser
+    // Une équipe fantôme porte le manager_id de son créateur, le laisser
     // passer ferait de lui le manager des DEUX camps.
     setAwayManagerId(team.isGhost ? "" : team.managerId);
     setAwayIsGhost(!!team.isGhost);
@@ -746,7 +746,7 @@ export default function MatchesPage() {
                     className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   />
                 </div>
-                {/* Venue — terrain référencé si la collection en contient,
+                {/* Venue, terrain référencé si la collection en contient,
                     saisie libre sinon (ou via « Autre terrain »). */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Terrain</label>
@@ -758,7 +758,7 @@ export default function MatchesPage() {
                     >
                       <option value="">Autre terrain (saisie libre)</option>
                       {venues.map((v) => (
-                        <option key={v.id} value={v.id}>{v.name} — {v.city}</option>
+                        <option key={v.id} value={v.id}>{v.name}, {v.city}</option>
                       ))}
                     </select>
                   )}

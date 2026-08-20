@@ -9,13 +9,13 @@ import { onBookingsByUser, updateBookingStatus } from "@/lib/firestore";
 import type { Booking } from "@/types";
 
 // ============================================
-// Mes réservations — le côté demandeur.
+// Mes réservations, le côté demandeur.
 //
 // Sans cette page, une demande partait dans le vide : le propriétaire la
 // voyait, le demandeur non. Il devait retourner sur la fiche du terrain pour
 // deviner si son samedi soir tenait.
 //
-// Annuler reste possible des deux côtés, et c'est délibéré — un match qui
+// Annuler reste possible des deux côtés, et c'est délibéré, un match qui
 // tombe à l'eau se dit tout de suite. Confirmer, en revanche, n'appartient
 // qu'au propriétaire : les règles Firestore le tiennent, pas seulement
 // l'absence de bouton.
@@ -28,7 +28,7 @@ const STATUS: Record<string, { label: string; className: string }> = {
   completed: { label: "Passé", className: "border-gray-200/70 bg-gray-50 text-gray-500" },
 };
 
-/** « samedi 23 août » — la date d'un créneau, telle qu'on la dit. */
+/** « samedi 23 août », la date d'un créneau, telle qu'on la dit. */
 function longDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;

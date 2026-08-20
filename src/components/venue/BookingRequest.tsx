@@ -11,7 +11,7 @@ import { createBooking } from "@/lib/firestore";
 // Demander un créneau sur un terrain.
 //
 // Le geste est volontairement pauvre : une date, une heure, une durée. Pas
-// de paiement, pas de contrat — la plateforme met les deux parties d'accord
+// de paiement, pas de contrat, la plateforme met les deux parties d'accord
 // sur un moment, le reste se règle entre elles, comme aujourd'hui.
 //
 // Une demande naît toujours « en attente ». C'est le propriétaire qui
@@ -19,8 +19,8 @@ import { createBooking } from "@/lib/firestore";
 // écrire une réservation déjà confirmée.
 //
 // Les créneaux déjà pris sont affichés au-dessus du formulaire. On ne les
-// bloque pas techniquement — deux personnes peuvent demander le même samedi,
-// c'est au propriétaire d'arbitrer — mais les cacher aurait fabriqué des
+// bloque pas techniquement, deux personnes peuvent demander le même samedi,
+// c'est au propriétaire d'arbitrer, mais les cacher aurait fabriqué des
 // demandes vouées au refus.
 // ============================================
 
@@ -37,7 +37,7 @@ const DURATIONS = [
   { value: 3, label: "3 h" },
 ];
 
-/** « samedi 23 août » — la date d'un créneau, telle qu'on la dit. */
+/** « samedi 23 août », la date d'un créneau, telle qu'on la dit. */
 function longDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
@@ -147,7 +147,7 @@ export default function BookingRequest({ venueId, venueName, ownerId, available 
           <Check size={17} className="mt-0.5 shrink-0 text-emerald-600" />
           <p className="text-sm font-semibold leading-relaxed text-emerald-900">
             Demande envoyée pour le {longDate(date)} à {time}. Le propriétaire
-            la confirme ou la refuse — vous la suivrez dans{" "}
+            la confirme ou la refuse, vous la suivrez dans{" "}
             <Link href="/mes-reservations" className="underline">mes réservations</Link>.
           </p>
         </div>

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 // ============================================
-// Les rôles — la page qui explique ce qu'on peut devenir ici.
+// Les rôles, la page qui explique ce qu'on peut devenir ici.
 //
 // Dans le groupe (marketing), donc avec la peau du site vitrine et sans le
 // shell de l'app : quelqu'un qui arrive ici n'a pas de compte, et lui servir
@@ -12,19 +12,23 @@ import { ArrowRight } from "lucide-react";
 //
 // La route est /roles et non /evolution : ce dernier chemin est déjà celui du
 // sélecteur de rôle, côté connecté. Deux groupes de routes ne peuvent pas
-// servir la même URL, et c'est tant mieux — la vitrine et l'outil ne sont pas
+// servir la même URL, et c'est tant mieux, la vitrine et l'outil ne sont pas
 // la même page.
 //
-// Règle d'honnêteté tenue ici : seuls Joueur et Manager ont aujourd'hui un
-// parcours d'activation. Organisateur passe par une candidature. Arbitre et
-// propriétaire de terrain existent dans les données sans onboarding — ils
-// sont annoncés comme tels, pas comme des boutons qui n'existent pas.
+// Cette page ne parle que des ROLES : ce qu'on est sur le terrain, un seul a
+// la fois. Joueur, manager, arbitre.
+//
+// Les casquettes, organiser une competition et gerer un terrain, n'y figurent
+// pas et c'est deliberе : ce sont des fonctions qui s'ajoutent a un role sans
+// le remplacer, elles ont leurs propres vitrines (Koppafoot Organize et
+// MyFields) et leurs propres candidatures. Les melanger ici reintroduirait la
+// confusion que le modele vient justement de defaire.
 // ============================================
 
 export const metadata = {
-  title: "Les rôles — KoppaFoot",
+  title: "Les rôles, KoppaFoot",
   description:
-    "Joueur, manager, organisateur, arbitre, propriétaire de terrain : ce que chacun fait sur KoppaFoot.",
+    "Joueur, manager, arbitre : ce que chacun fait sur KoppaFoot, et comment choisir son rôle.",
 };
 
 interface Role {
@@ -43,7 +47,7 @@ const OPEN: Role[] = [
     image: "/branding/role_joueur.png",
     line: "Tu joues, on tient le compte",
     body:
-      "Ta fiche, tes équipes, tes convocations. Tes buts et tes cartons en compétition sont comptés à ta place, match après match — et le mercato te met en face des équipes qui recrutent près de chez toi.",
+      "Ta fiche, tes équipes, tes convocations. Tes buts et tes cartons en compétition sont comptés à ta place, match après match, et le mercato te met en face des équipes qui recrutent près de chez toi.",
     cta: { label: "Devenir joueur", href: "/evolution" },
   },
   {
@@ -55,28 +59,12 @@ const OPEN: Role[] = [
     cta: { label: "Devenir manager", href: "/evolution" },
   },
   {
-    name: "Organisateur",
-    image: "/branding/hero_stadium.png",
-    line: "Tu montes la compétition",
-    body:
-      "Poules, calendrier, tableau final, inscriptions des équipes et console de score en direct. C'est le rôle le plus lourd du produit, et il passe par une candidature plutôt que par un bouton.",
-    cta: { label: "Organiser ma compétition", href: "/organisateurs" },
-  },
-  {
     name: "Arbitre",
     image: "/branding/role_arbitre.png",
     line: "Tu tiens le sifflet",
     body:
-      "Ta fiche d'arbitre avec ton niveau de licence, et ta place dans la recherche : les organisateurs qui cherchent quelqu'un pour siffler te trouvent. L'activation est libre — personne ne vérifie la licence aujourd'hui, elle sert à te présenter, pas à te valider.",
+      "Ta fiche d'arbitre avec ton niveau de licence, et ta place dans la recherche : ceux qui cherchent quelqu'un pour siffler te trouvent. L'activation est libre, personne ne vérifie la licence aujourd'hui, elle sert à te présenter, pas à te valider.",
     cta: { label: "Devenir arbitre", href: "/evolution" },
-  },
-  {
-    name: "Propriétaire de terrain",
-    image: "/branding/role_proprietaire.png",
-    line: "Tu as la pelouse",
-    body:
-      "Un terrain se référence sur la plateforme et se trouve dans la recherche. Tout ce qui touche à la réservation et au calendrier d'occupation n'existe pas encore.",
-    cta: { label: "Référencer mon terrain", href: "/terrains/candidature" },
   },
 ];
 
@@ -130,7 +118,7 @@ export default function RolesPage() {
     <>
       {/* Meme hero que Koppafoot Organize : image pleine page, texte pose
           en bas, titre a la taille de l'ecran. Les trois vitrines sont trois
-          portes du meme produit — elles doivent s'ouvrir de la meme facon. */}
+          portes du meme produit, elles doivent s'ouvrir de la meme facon. */}
       <section className="relative flex min-h-[88vh] items-end overflow-hidden">
         <div
           aria-hidden
@@ -150,8 +138,8 @@ export default function RolesPage() {
           </h1>
 
           <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
-            Un compte, cinq façons d&apos;être là. Tu choisis ce que tu es sur le
-            terrain ; le reste s&apos;ajoute par-dessus, sans rien effacer.
+            Un compte, trois façons d&apos;être là. Tu choisis ce que tu es sur le
+            terrain, et tu peux en changer sans rien perdre.
           </p>
 
           <Link
@@ -175,18 +163,12 @@ export default function RolesPage() {
           {/* Ce que le hero promet, deploye : ce que chaque role donne, et ce
               qu'il demande. La liste EST le contenu de cette page. */}
           <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
-            Cinq façons d&apos;être là
+            Trois façons d&apos;être là
           </h2>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
-            Trois rôles se choisissent — joueur, manager, arbitre — et un seul à
-            la fois : c&apos;est ce que tu es sur le terrain. Deux casquettes
-            s&apos;ajoutent par-dessus, cumulables, et ne remplacent rien :
-            organiser une compétition, gérer un terrain.
+            Joueur, manager, arbitre. Un seul à la fois : c&apos;est ce que tu es
+            sur le terrain, et ça se change quand ça change dans la vraie vie.
           </p>
-
-          <h3 className="mt-14 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-            Ce que tu es sur le terrain
-          </h3>
           <div className="mt-8 grid gap-px bg-gray-200/70 lg:grid-cols-3">
             {OPEN.map((r) => <RoleCard key={r.name} role={r} />)}
           </div>
@@ -199,7 +181,7 @@ export default function RolesPage() {
             Le rôle se choisit après, pas avant
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600">
-            On crée le compte d&apos;abord, on choisit ensuite — et on peut en
+            On crée le compte d&apos;abord, on choisit ensuite, et on peut en
             activer un second sans en perdre un.
           </p>
           <Link

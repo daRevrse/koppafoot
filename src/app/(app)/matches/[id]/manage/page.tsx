@@ -86,7 +86,7 @@ export default function LiveMatchManage() {
   }, [id]);
 
   // Only the two managers and a confirmed referee may operate the match. The
-  // console had no guard at all while it lived in the shelved referee panel —
+  // console had no guard at all while it lived in the shelved referee panel,
   // reachable by URL alone. Server-side enforcement is the Firestore rules'
   // job (lot 2); this just keeps the wrong people out of the controls.
   useEffect(() => {

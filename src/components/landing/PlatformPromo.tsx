@@ -8,7 +8,7 @@ import { ArrowRight, Radio, BarChart3, Bell, ClipboardList } from "lucide-react"
 // PlatformPromo
 // ============================================
 // Light acquisition band. Competition-first value props + a join CTA.
-// Pure presentational — always renders (it's the acquisition pitch,
+// Pure presentational, always renders (it's the acquisition pitch,
 // not real-data driven).
 
 const EASE = [0.22, 1, 0.36, 1] as const;

@@ -7,15 +7,15 @@ import type { CompPlayer } from "@/types";
  * Training sandbox for the live console.
  *
  * New reporters and moderators need somewhere to make mistakes. This route
- * hands each user their OWN throwaway competition — they are its sole
+ * hands each user their OWN throwaway competition, they are its sole
  * organizer, so every existing Firestore rule already grants them the writes
  * the console performs. No rules change, and no two trainees can collide.
  *
  * The competition is `status: "draft"` and `is_sandbox: true`, so it is
  * filtered out of every public and organizer listing; only /live-ops shows it.
  *
- * POST  — create the sandbox, or return the existing one (idempotent).
- * PATCH — reset the match: score, events and timer back to kickoff.
+ * POST , create the sandbox, or return the existing one (idempotent).
+ * PATCH, reset the match: score, events and timer back to kickoff.
  */
 
 const SANDBOX_NAME = "Match d'entraînement";
@@ -81,12 +81,12 @@ export async function POST(req: NextRequest) {
     if (existing) {
       const mid = await firstMatchId(existing.id);
       if (mid) return NextResponse.json({ ok: true, cid: existing.id, mid, created: false });
-      // Sandbox exists but its match is gone — fall through and rebuild it.
+      // Sandbox exists but its match is gone, fall through and rebuild it.
       await existing.ref.delete();
     }
 
     const compRef = adminDb.collection("competitions").doc();
-    // Slug stays unique and unguessable — sandboxes never surface publicly,
+    // Slug stays unique and unguessable, sandboxes never surface publicly,
     // but they share the slug namespace with real competitions.
     await compRef.set({
       name: SANDBOX_NAME,

@@ -89,7 +89,7 @@ export function CityMatchesWidget({ city }: CityMatchesWidgetProps) {
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-1.5 mb-3">
         <MapPin size={14} className="text-primary-600" />
-        <h3 className="text-sm font-bold text-gray-900">Matchs — {city}</h3>
+        <h3 className="text-sm font-bold text-gray-900">Matchs, {city}</h3>
       </div>
 
       {loading ? (

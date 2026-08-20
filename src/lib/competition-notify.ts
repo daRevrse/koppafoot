@@ -1,7 +1,7 @@
 import { auth } from "@/lib/firebase";
 
 // ============================================
-// competition-notify — fire-and-forget push to a competition's followers
+// competition-notify, fire-and-forget push to a competition's followers
 // via /api/notifications/competition (kickoff / goal / final score).
 // Called from the live console; a notification failure must NEVER block
 // or slow the live flow, so this swallows every error by design.

@@ -78,7 +78,7 @@ function LineupColumn({ title, entries }: { title: string; entries: LineupEntry[
   const renderRow = (entry: LineupEntry) => (
     <div key={entry.playerId || `${entry.number}-${entry.name}`} className="flex items-center gap-2.5 py-1.5">
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-50 text-[10px] font-black tabular-nums text-gray-500">
-        {entry.number || "—"}
+        {entry.number || ","}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">{entry.name}</span>
     </div>
@@ -172,7 +172,7 @@ export default function PublicCompMatchView() {
   // Server-clock timer. Same semantics as the spectator view: while the clock
   // runs we tick every 100ms from timerStartAt + timerOffset; when paused/stopped
   // the displayed value is the frozen timerOffset (derived at render below, so the
-  // effect only drives the running interval — no synchronous setState in its body).
+  // effect only drives the running interval, no synchronous setState in its body).
   useEffect(() => {
     const ls = match?.liveState;
     if (match?.status !== "live" || !ls || !ls.isTimerRunning || !ls.timerStartAt) return;
@@ -255,7 +255,7 @@ export default function PublicCompMatchView() {
         )}
         <span aria-hidden className="text-gray-300">›</span>
         <span className="truncate text-gray-600">
-          {match.homeTeamName} — {match.awayTeamName}
+          {match.homeTeamName}, {match.awayTeamName}
         </span>
       </nav>
 
@@ -333,7 +333,7 @@ export default function PublicCompMatchView() {
           </div>
         </div>
 
-        {/* Where and when — inside the frame rather than in a card of its own
+        {/* Where and when, inside the frame rather than in a card of its own
             below it: these belong to the fixture, not beside it. */}
         {hasMeta && (
           <div className="relative z-10 mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-t border-white/10 pt-4 text-[11px] font-bold text-white/50">
@@ -381,7 +381,7 @@ export default function PublicCompMatchView() {
         const hasStandings = standings.some((g) => g.rows.length > 0);
 
         // Face-a-face : les rencontres terminees entre ces deux equipes dans
-        // cette competition, celle-ci exclue. On ne remonte pas plus loin —
+        // cette competition, celle-ci exclue. On ne remonte pas plus loin,
         // rien ne relie deux equipes d'une competition a l'autre.
         const h2h = (match.homeTeamId && match.awayTeamId)
           ? compMatches.filter((m) =>
@@ -591,7 +591,7 @@ export default function PublicCompMatchView() {
                 const teamName = isHome ? match.homeTeamName : match.awayTeamName;
                 const isSub = event.type === "substitution";
                 // A goal the VAR is looking at, or took away. The disallowed
-                // one stays in the feed — the crowd saw it, and the timeline
+                // one stays in the feed, the crowd saw it, and the timeline
                 // is what explains why the score did not move.
                 const checking = event.type === "goal" && event.varStatus === "checking";
                 const cancelled = event.type === "goal" && event.varStatus === "cancelled";
@@ -614,9 +614,9 @@ export default function PublicCompMatchView() {
                       }`}
                     >
                       {/* A result entered after the fact may carry no minute
-                          (stored as 0) — no goal is ever scored at the 0th. */}
+                          (stored as 0), no goal is ever scored at the 0th. */}
                       <span className="text-[10px] font-black">
-                        {event.minute ? `${event.minute}'` : "—"}
+                        {event.minute ? `${event.minute}'` : ","}
                       </span>
                     </div>
 

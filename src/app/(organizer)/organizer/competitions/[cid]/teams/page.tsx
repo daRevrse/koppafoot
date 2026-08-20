@@ -97,7 +97,7 @@ export default function CompetitionTeamsPage() {
         if (cancelled) return;
         setInvites(Object.fromEntries(data.invites.map((inv) => [inv.teamId, inv])));
       } catch {
-        // silent — the invite chips just won't show
+        // silent, the invite chips just won't show
       }
     })();
     return () => { cancelled = true; };
@@ -286,7 +286,7 @@ export default function CompetitionTeamsPage() {
     try {
       // Free the entry FIRST. Deleting the team while its registration still
       // reads "accepted" is what used to leave the club shown as taking part
-      // in a competition it had been pulled out of — and barred from
+      // in a competition it had been pulled out of, and barred from
       // entering again. If this fails we stop, rather than create that state.
       const token = await firebaseUser.getIdToken();
       const res = await fetch("/api/competitions/registrations", {
@@ -304,7 +304,7 @@ export default function CompetitionTeamsPage() {
       setDeleting(null);
     } catch (err) {
       if (err instanceof TeamHasPlayedError) {
-        toast.error("Cette équipe a déjà joué — disqualifie-la plutôt que de la retirer.");
+        toast.error("Cette équipe a déjà joué, disqualifie-la plutôt que de la retirer.");
         setDeleting(null);
         setDisqualifying(deleting);
         setDqReason("");
@@ -325,7 +325,7 @@ export default function CompetitionTeamsPage() {
       announce(cid, { kind: "team_disqualified", teamName: disqualifying.name });
       toast.success(
         forfeited > 0
-          ? `${disqualifying.name} disqualifiée — ${forfeited} match${forfeited > 1 ? "s" : ""} perdu${forfeited > 1 ? "s" : ""} par forfait`
+          ? `${disqualifying.name} disqualifiée, ${forfeited} match${forfeited > 1 ? "s" : ""} perdu${forfeited > 1 ? "s" : ""} par forfait`
           : `${disqualifying.name} disqualifiée`,
       );
       setDisqualifying(null);
@@ -871,7 +871,7 @@ export default function CompetitionTeamsPage() {
                 <span className="font-semibold text-gray-700">{disqualifying.name}</span> garde
                 les résultats déjà joués. Tous ses matchs à venir sont perdus par forfait{" "}
                 <span className="font-semibold text-gray-700">0-{FORFEIT_SCORE}</span>, et
-                comptés comme des victoires pour ses adversaires — classement et tableau final
+                comptés comme des victoires pour ses adversaires, classement et tableau final
                 compris.
               </p>
               <p className="mt-2 text-xs font-semibold text-red-600">

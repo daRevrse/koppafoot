@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 /**
- * GET /api/public/venue/[id]/slots — les créneaux déjà pris.
+ * GET /api/public/venue/[id]/slots, les créneaux déjà pris.
  *
  * Pourquoi passer par le serveur : les règles réservent la lecture d'une
- * demande à ses deux parties, et c'est juste — une demande dit qui joue où
+ * demande à ses deux parties, et c'est juste, une demande dit qui joue où
  * et quand. Mais quelqu'un qui veut réserver a besoin de savoir ce qui est
  * libre, sans quoi il demande un créneau déjà pris et découvre le refus deux
  * jours plus tard.

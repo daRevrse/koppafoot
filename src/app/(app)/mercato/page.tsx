@@ -33,7 +33,7 @@ const POSITION_LABELS: Record<string, string> = {
   goalkeeper: "Gardien", defender: "Défenseur", midfielder: "Milieu", forward: "Attaquant",
 };
 // Le poste garde sa couleur : c'est l'axe sur lequel un manager balaie une
-// grille de trente joueurs. Le niveau, lui, est passe en gris — deux echelles
+// grille de trente joueurs. Le niveau, lui, est passe en gris, deux echelles
 // de couleur cote a cote se lisent moins bien qu'une seule.
 const POSITION_COLORS: Record<string, string> = {
   goalkeeper: "bg-orange-100 text-orange-700", defender: "bg-blue-100 text-blue-700",
@@ -78,8 +78,8 @@ const INV_STATUS_CONFIG = {
   declined: { label: "Déclinée",   color: "bg-gray-900 text-white" },
 };
 
-// Les gabarits affichaient jusqu'ici la valeur brute de la base — "pending",
-// "accepted" — a des lecteurs francophones.
+// Les gabarits affichaient jusqu'ici la valeur brute de la base, "pending",
+// "accepted", a des lecteurs francophones.
 const APP_STATUS_LABELS: Record<string, string> = {
   pending: "En attente", accepted: "Acceptée", rejected: "Refusée",
 };
@@ -568,7 +568,7 @@ export default function MercatoPage() {
       {/* Pas de titre : « Mercato » est deja dans la barre du haut, et un H1
           qui repete l'onglet actif ne fait que manger le haut de l'ecran.
           Ce qui attend une reponse, en revanche, ne se lit nulle part
-          ailleurs — et se dit en toutes lettres plutot qu'en pastille : le
+          ailleurs, et se dit en toutes lettres plutot qu'en pastille : le
           chiffre seul n'apprend pas ce qu'il compte. */}
       {waitingCount > 0 && (
         <p className="text-[11px] font-black uppercase tracking-[0.15em] text-emerald-700">
@@ -797,7 +797,7 @@ export default function MercatoPage() {
                         </p>
                       )}
 
-                      {/* Squad size and record — what tells a player whether
+                      {/* Squad size and record, what tells a player whether
                           there is room, and what they would be joining. */}
                       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
                         <span className={full ? "text-red-500" : "text-gray-600"}>

@@ -305,7 +305,7 @@ export default function CalendarPage() {
           </motion.div>
         )}
 
-        {/* Side panel — selected day details */}
+        {/* Side panel, selected day details */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

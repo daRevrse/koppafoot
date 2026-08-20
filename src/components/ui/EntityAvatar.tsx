@@ -3,7 +3,7 @@
 import { Shield } from "lucide-react";
 
 // ============================================
-// EntityAvatar — la photo d'un joueur et le logo d'une équipe, au même
+// EntityAvatar, la photo d'un joueur et le logo d'une équipe, au même
 // endroit. Le mercato affichait des initiales et des icônes génériques dans
 // la moitié de ses vues (sélection, candidatures, invitations) alors que la
 // photo et le blason sont exactement ce sur quoi on recrute. Un seul

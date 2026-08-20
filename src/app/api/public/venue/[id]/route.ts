@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 /**
- * GET /api/public/venue/[id] — la fiche publique d'un terrain.
+ * GET /api/public/venue/[id], la fiche publique d'un terrain.
  *
  * Le document `venues` est déjà en lecture publique dans les règles : il ne
  * porte que ce qu'on publie volontairement. Cette route existe pour une
- * autre raison — joindre au terrain le NOM de son propriétaire, qui vit dans
+ * autre raison, joindre au terrain le NOM de son propriétaire, qui vit dans
  * `users`, lui fermé.
  *
  * Seuls le prénom, le nom et la photo en sortent. L'email et le téléphone

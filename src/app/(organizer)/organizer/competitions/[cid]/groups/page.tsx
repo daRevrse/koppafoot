@@ -136,7 +136,7 @@ export default function CompetitionGroupsPage() {
     setValidating(true);
     try {
       await updateCompetition(cid, { status: "group_stage" });
-      toast.success("Poules validées — phase de groupes lancée");
+      toast.success("Poules validées, phase de groupes lancée");
     } catch (err) {
       console.error("Error validating groups:", err);
       toast.error("Impossible de valider les poules");

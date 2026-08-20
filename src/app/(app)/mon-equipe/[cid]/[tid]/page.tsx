@@ -19,7 +19,7 @@ import { computeSquadStats } from "@/lib/player-stats";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
 // ============================================
-// Mon équipe — one competition team. The manager runs the roster, validates
+// Mon équipe, one competition team. The manager runs the roster, validates
 // the players who claim their line, and reads the squad's stats. The team's
 // name, poule and ownership stay with the organizer (enforced in the rules).
 // ============================================
@@ -71,7 +71,7 @@ export default function MyTeamPage() {
       const data = (await res.json()) as { claims: RosterClaim[] };
       setClaims((data.claims ?? []).filter((c) => c.teamId === tid));
     } catch {
-      // Non-blocking — the rest of the page still works.
+      // Non-blocking, the rest of the page still works.
     }
   }, [firebaseUser, cid, tid]);
 
@@ -103,7 +103,7 @@ export default function MyTeamPage() {
     reloadClaims();
   }, [reloadClaims]);
 
-  // The manager's clubs — source of the roster import.
+  // The manager's clubs, source of the roster import.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -119,7 +119,7 @@ export default function MyTeamPage() {
 
   // Pulls the club squad into the competition roster. Runs server-side: the
   // import also writes a `linked_comp_players` row on each player's own user
-  // doc — only the admin SDK may do that — which is what makes their personal
+  // doc, only the admin SDK may do that, which is what makes their personal
   // statistics fill with no claim and no validation.
   const importClub = async (club: Team) => {
     if (!firebaseUser) return;
@@ -266,7 +266,7 @@ export default function MyTeamPage() {
     }
   };
 
-  // Unlinking is a plain roster write — the manager owns the players array.
+  // Unlinking is a plain roster write, the manager owns the players array.
   const unlink = async (player: CompPlayer) => {
     setSaving(true);
     try {
@@ -359,7 +359,7 @@ export default function MyTeamPage() {
       {/* ── Effectif ─────────────────────────────── */}
       {tab === "roster" && (
         <div className="space-y-3">
-          {/* Club link — avoids typing the same squad into two models. */}
+          {/* Club link, avoids typing the same squad into two models. */}
           {team.claimedByTeamId ? (
             (() => {
               const club = clubs.find((c) => c.id === team.claimedByTeamId);
@@ -392,7 +392,7 @@ export default function MyTeamPage() {
               <p className="text-sm font-bold text-gray-900">Importer ton effectif</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
                 Reprends les joueurs de ton club plutôt que de tout ressaisir. Ceux qui
-                ont un compte KoppaFoot sont rattachés directement — leurs stats se
+                ont un compte KoppaFoot sont rattachés directement, leurs stats se
                 remplissent sans qu&apos;ils aient à le demander.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -495,7 +495,7 @@ export default function MyTeamPage() {
               {roster.map((player) => (
                 <div key={player.id} className="flex items-center gap-3 px-4 py-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-                    {player.number || "—"}
+                    {player.number || ","}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>

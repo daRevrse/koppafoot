@@ -6,11 +6,11 @@ import { hasGroupStage, hasKnockout, isSingleGroup } from "@/lib/competition-for
 import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
-// OrganizerProgress — the competition hub as a sequence instead of a wall.
+// OrganizerProgress, the competition hub as a sequence instead of a wall.
 //
 // The hub used to show the same five cards side by side, all the same size,
 // in a fixed order that said nothing: Équipes, Poules, Calendrier, Phase
-// finale, Staff. But that IS an order — you cannot compose poules without
+// finale, Staff. But that IS an order, you cannot compose poules without
 // teams, or draw a bracket before the groups have played. A first-time
 // organizer had no way to see it, and no way to tell what was already done.
 //
@@ -25,7 +25,7 @@ interface Step {
   done: boolean;
   /** What the organizer has actually got so far. */
   hint: string;
-  /** Skippable — the competition runs without it. */
+  /** Skippable, the competition runs without it. */
   optional?: boolean;
 }
 
@@ -103,7 +103,7 @@ export default function OrganizerProgress({
   ];
 
   // The next thing to do is the first required step still open. Optional ones
-  // never claim the spotlight — they would keep the competition looking
+  // never claim the spotlight, they would keep the competition looking
   // unfinished forever.
   const currentIndex = steps.findIndex((s) => !s.done && !s.optional);
   const requiredDone = steps.filter((s) => !s.optional && s.done).length;
