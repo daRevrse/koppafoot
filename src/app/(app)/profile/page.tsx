@@ -342,7 +342,7 @@ export default function ProfilePage() {
           le fond au lieu d'un bandeau de 200px, et l'identite se lit d'un
           coup. On garde ici ce que la fiche publique n'a pas — le bouton
           d'appareil photo sur l'avatar, et l'entree en edition. */}
-      <section className="sticky top-16 z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:top-[72px]">
+      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
         {user.coverPhotoUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}

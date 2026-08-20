@@ -334,7 +334,7 @@ export default function MyVenuesPage() {
         <span className="text-gray-600">Mes terrains</span>
       </nav>
 
-      <section className="sticky top-16 z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:top-[72px]">
+      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
         <div className="relative mx-auto max-w-4xl px-5 py-6 sm:px-8 sm:py-8">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">

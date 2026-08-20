@@ -420,7 +420,57 @@ function AccountMenu() {
 
 // ---- The band ----------------------------------------------------------------
 
+/**
+ * Le header publie sa hauteur reelle dans `--header-h`.
+ *
+ * Les heros collants des pages s'y epinglent. Ils portaient jusqu'ici un
+ * offset devine — `top-16` puis `lg:top-[72px]` — qui tombait juste en
+ * desktop et faux en mobile : le header y mesure 78px a cause de `pt-safe`
+ * et de la rangee plus haute, si bien que chaque hero glissait 14px SOUS le
+ * header en defilant. Un chiffre ecrit a la main dans sept fichiers ne peut
+ * pas suivre une hauteur qui depend du terminal.
+ *
+ * `ResizeObserver` plutot qu'une mesure au montage : la hauteur change avec
+ * la rotation, l'encoche, et le passage d'un point de rupture a l'autre.
+ */
+function useHeaderHeight() {
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const publier = () => {
+      document.documentElement.style.setProperty(
+        "--header-h",
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    };
+    publier();
+
+    // `border-box` explicitement : la hauteur du header change par son
+    // PADDING (`py-3` en mobile, `lg:py-4` au-dessus). La boite de contenu,
+    // elle, ne bouge pas d'un pixel — et `ResizeObserver` l'observe par
+    // defaut, donc il ne se declenchait jamais au passage d'un point de
+    // rupture. La variable restait figee sur la valeur du premier rendu.
+    const ro = new ResizeObserver(publier);
+    ro.observe(el, { box: "border-box" });
+
+    // Ceinture et bretelles : une rotation de telephone change la hauteur
+    // sans forcement passer par l'observateur selon le navigateur.
+    window.addEventListener("resize", publier);
+    window.addEventListener("orientationchange", publier);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", publier);
+      window.removeEventListener("orientationchange", publier);
+    };
+  }, []);
+
+  return ref;
+}
+
 export default function ScoreHeader() {
+  const headerRef = useHeaderHeight();
   const { user } = useAuth();
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -429,7 +479,7 @@ export default function ScoreHeader() {
     // Colle en haut : sur un tableau de scores on defile beaucoup, et
     // remonter chercher la navigation a chaque fois est un aller-retour
     // inutile. z-40 passe au-dessus du contenu sans couvrir les modales.
-    <header className="sticky top-0 z-40 bg-emerald-900 pt-safe">
+    <header ref={headerRef} className="sticky top-0 z-40 bg-emerald-900 pt-safe">
       <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-5 lg:px-8 lg:py-4">
         <Link href={HOME} className="flex shrink-0 items-center gap-2">
           <Image src="/branding/logo_symbol.png" alt="KoppaFoot" width={34} height={34} priority />

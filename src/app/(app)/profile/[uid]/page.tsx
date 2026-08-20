@@ -663,7 +663,7 @@ export default function PublicProfilePage() {
         {/* Hero collant sous le header, comme sur une competition. La photo
             de couverture devient le fond : elle etait un bandeau decoratif de
             180px qui poussait le contenu sous la ligne de flottaison. */}
-        <section className="sticky top-16 z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:top-[72px]">
+        <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
           {profile.coverPhotoUrl ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -279,7 +279,7 @@ export default function PublicTeamPage() {
       </nav>
 
       {/* Meme hero que sur une competition : compact, colle sous le header. */}
-      <section className="sticky top-16 z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5 lg:top-[72px]">
+      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
 
         <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
