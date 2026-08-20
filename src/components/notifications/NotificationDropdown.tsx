@@ -7,24 +7,34 @@ import { motion, AnimatePresence } from "motion/react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useRouter } from "next/navigation";
 import type { Notification } from "@/types";
+import NotificationModal from "./NotificationModal";
 
 function NotificationItem({
   n,
   onRead,
   onNavigate,
+  onLire,
 }: {
   n: Notification;
   onRead: (id: string) => void;
   onNavigate: () => void;
+  onLire: (n: Notification) => void;
 }) {
   const router = useRouter();
 
   const handleClick = () => {
     onRead(n.id);
-    onNavigate();
-    // Sans lien propre, la notification menait dans le vide. Elle ouvre
-    // maintenant l'écran qui affiche son contenu en entier.
-    router.push(n.link ?? "/notifications");
+
+    // Un lien mene a sa destination. Sans lien, la notification EST le
+    // message : elle s'ouvre en modal, ou le corps se lit en entier. Elle
+    // renvoyait jusqu'ici sur /notifications, a charge de la retrouver dans
+    // la liste — ce qui n'est pas une lecture, c'est une recherche.
+    if (n.link) {
+      onNavigate();
+      router.push(n.link);
+      return;
+    }
+    onLire(n);
   };
 
   return (
@@ -54,6 +64,8 @@ function NotificationItem({
 export default function NotificationDropdown() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  // La notification en cours de lecture, quand elle n'a pas de lien propre.
+  const [lue, setLue] = useState<Notification | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,6 +124,7 @@ export default function NotificationDropdown() {
                     n={n}
                     onRead={markRead}
                     onNavigate={() => setOpen(false)}
+                    onLire={(notif) => { setOpen(false); setLue(notif); }}
                   />
                 ))
               )}
@@ -130,6 +143,8 @@ export default function NotificationDropdown() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <NotificationModal notification={lue} onClose={() => setLue(null)} />
     </div>
   );
 }

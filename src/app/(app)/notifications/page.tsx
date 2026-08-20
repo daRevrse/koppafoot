@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { Notification, NotificationType } from "@/types";
+import NotificationModal from "@/components/notifications/NotificationModal";
 
 // ============================================
 // /notifications — l'écran qui manquait derrière la cloche.
@@ -78,10 +79,11 @@ function hourLabel(iso: string): string {
 }
 
 function NotificationRow({
-  n, onRead,
+  n, onRead, onLire,
 }: {
   n: Notification;
   onRead: (id: string) => void;
+  onLire: (n: Notification, label: string) => void;
 }) {
   const router = useRouter();
   const meta = TYPE_META[n.type] ?? TYPE_META.admin_message;
@@ -89,7 +91,11 @@ function NotificationRow({
 
   const open = () => {
     if (!n.read) onRead(n.id);
-    if (n.link) router.push(n.link);
+    // Avec un lien, on y va. Sans lien, la ligne ne faisait RIEN : on la
+    // touchait, elle se marquait lue, et c'est tout. Elle ouvre maintenant le
+    // message, comme depuis la cloche.
+    if (n.link) { router.push(n.link); return; }
+    onLire(n, meta.label);
   };
 
   return (
@@ -125,6 +131,8 @@ export default function NotificationsPage() {
   const { notifications, unreadCount, loading, markRead, markAllRead } =
     useNotifications(HISTORY_SIZE);
   const [filter, setFilter] = useState<FilterKey>("all");
+  // Le message en cours de lecture, quand il n'a pas de lien propre.
+  const [lue, setLue] = useState<{ notif: Notification; label: string } | null>(null);
 
   const filtered = useMemo(() => {
     switch (filter) {
@@ -150,32 +158,28 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      {/* En-tête */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 font-display text-2xl font-black text-gray-900">
-            Notifications
-            {unreadCount > 0 && (
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-black text-white">
-                {unreadCount}
-              </span>
-            )}
-          </h1>
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <CheckCheck size={14} />
-              <span className="hidden sm:inline">Tout marquer lu</span>
-              <span className="sm:hidden">Tout lu</span>
-            </button>
-          )}
-        </div>
-        <p className="mt-1 text-sm text-gray-500">
-          Tout ce qui bouge sur tes équipes, tes compétitions et ton mercato.
-        </p>
-      </motion.div>
+      {/* Ni titre ni phrase d'accroche : on arrive ici par une entree qui
+          s'appelle deja « Notifications », et « tout ce qui bouge sur tes
+          equipes… » n'apprenait rien qu'on ne voie en lisant la liste.
+          Reste ce qui sert : combien restent a lire, et de quoi tout solder. */}
+      {unreadCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between gap-3"
+        >
+          <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+            {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
+          </p>
+          <button
+            onClick={markAllRead}
+            className="flex shrink-0 items-center gap-1.5 border border-gray-200/70 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+          >
+            <CheckCheck size={13} />
+            Tout marquer lu
+          </button>
+        </motion.div>
+      )}
 
       {/* Filtres */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -234,12 +238,22 @@ export default function NotificationsPage() {
                 </span>
               </div>
               {items.map((n) => (
-                <NotificationRow key={n.id} n={n} onRead={markRead} />
+                <NotificationRow
+                  key={n.id}
+                  n={n}
+                  onRead={markRead}
+                  onLire={(notif, label) => setLue({ notif, label })}
+                />
               ))}
             </div>
           ))}
         </div>
       )}
+      <NotificationModal
+        notification={lue?.notif ?? null}
+        label={lue?.label}
+        onClose={() => setLue(null)}
+      />
     </div>
   );
 }
