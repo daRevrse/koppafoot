@@ -223,7 +223,26 @@ export default function EvolutionPage() {
     // Un seul point de verite pour « quel espace suis-je en train de
     // montrer ». Douze conditions binaires joueur/manager vivaient ici : un
     // troisieme role les aurait toutes fait mentir.
+    // Meme precaution qu'ailleurs : un role stocke peut ne plus exister dans
+    // le type. Sans repli, la page entiere plante sur une valeur heritee.
     const meta = ROLE_META[activated];
+    if (!meta) {
+      return (
+        <div className="mx-auto max-w-2xl border border-gray-200/70 bg-white p-8 text-center">
+          <p className="font-display text-lg font-black text-gray-900">Rôle à réactiver</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Ton rôle n&apos;existe plus sous cette forme. Choisis-en un ci-dessous.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSwitching(true)}
+            className="mt-5 inline-flex border border-gray-900 bg-gray-900 px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
+          >
+            Choisir mon rôle
+          </button>
+        </div>
+      );
+    }
 
     return (
       <div className="mx-auto max-w-2xl space-y-6">
@@ -273,7 +292,7 @@ export default function EvolutionPage() {
               Ces fonctionnalités arrivent progressivement.
             </p>
             <div className="mt-3 space-y-2.5">
-              {ROLE_FEATURES[activated].map(({ label, desc, Icon, href }) =>
+              {(ROLE_FEATURES[activated] ?? []).map(({ label, desc, Icon, href }) =>
                 href ? (
                   <Link
                     key={label}

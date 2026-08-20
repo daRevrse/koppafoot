@@ -291,9 +291,14 @@ function AccountMenu() {
   // Quatre roles activables, pas deux : arbitre et terrain manquaient depuis
   // leur degel, et retombaient sur le libelle « Évolution » comme si leur
   // titulaire n'avait rien choisi.
-  const evolution = user.evolutionRole
-    ? EVOLUTION_LABEL[user.evolutionRole]
-    : { label: "Évolution", Icon: Rocket };
+  // Le repli n'est pas de la prudence decorative : le type dit trois roles,
+  // la BASE peut en contenir d'autres. « venue_owner » y a ete un role
+  // Evolution pendant une journee, et un compte l'a garde — la recherche
+  // renvoyait alors `undefined`, dont le spread produisait une entree de menu
+  // sans icone, et le rendu plantait. TypeScript ne voit pas les donnees.
+  const evolution =
+    (user.evolutionRole ? EVOLUTION_LABEL[user.evolutionRole] : null)
+    ?? { label: "Évolution", Icon: Rocket };
 
   const roleItems = user.evolutionRole ? ROLE_ITEMS[user.evolutionRole] ?? [] : [];
 
