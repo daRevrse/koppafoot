@@ -1,12 +1,14 @@
 "use client";
 
-import { isOrganizer } from "@/lib/hats";
-import { useState, useCallback, useEffect } from "react";
+import { isOrganizer, isVenueOwner } from "@/lib/hats";
+import { ROLE_DESTINATIONS } from "@/config/role-destinations";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
   Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight, Plus, Newspaper,
+  Flag, MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -178,16 +180,39 @@ function SpacesSheet({
   if (!open || !user) return null;
 
   // Évolution entry: label follows the activated role.
+  // Quatre roles, pas deux : arbitre et terrain manquaient ici comme ils
+  // manquaient dans le header. Le repli couvre un role stocke que le type ne
+  // connait plus.
+  const ESPACES: Record<string, { label: string; hint: string; Icon: typeof User }> = {
+    player: { label: "Espace joueur", hint: "Ton profil sportif et tes stats", Icon: User },
+    manager: { label: "Espace manager", hint: "Ton équipe et tes joueurs", Icon: Briefcase },
+    referee: { label: "Espace arbitre", hint: "Ta licence et ta visibilité", Icon: Flag },
+  };
   const evolution =
-    user.evolutionRole === "player"
-      ? { label: "Espace joueur", hint: "Ton profil sportif et tes stats", Icon: User }
-      : user.evolutionRole === "manager"
-        ? { label: "Espace manager", hint: "Ton équipe et tes joueurs", Icon: Briefcase }
-        : { label: "Évolution", hint: "Choisis ton rôle sur KoppaFoot", Icon: Rocket };
+    (user.evolutionRole ? ESPACES[user.evolutionRole] : null)
+    ?? { label: "Évolution", hint: "Choisis ton rôle sur KoppaFoot", Icon: Rocket };
 
   const spaces: { href: string; label: string; hint: string; Icon: typeof User }[] = [
     { href: "/evolution", ...evolution },
   ];
+
+  // Les destinations du role — « Mes equipes », « Mes convocations »… Elles
+  // ne vivaient que dans le menu avatar du header, donc nulle part depuis un
+  // telephone une fois ce menu retire. Elles descendent ici, ou on vient
+  // deja chercher son espace.
+  for (const d of (user.evolutionRole ? ROLE_DESTINATIONS[user.evolutionRole] ?? [] : [])) {
+    spaces.push(d);
+  }
+
+  // Casquette terrain : elle se cumule avec le role, elle ne le remplace pas.
+  if (isVenueOwner(user)) {
+    spaces.push({
+      href: "/mes-terrains",
+      label: "Mes terrains",
+      hint: "Tes fiches et les demandes de créneau",
+      Icon: MapPin,
+    });
+  }
   if (isOrganizer(user)) {
     spaces.push({
       href: "/organizer",
@@ -285,7 +310,47 @@ function SpacesSheet({
 }
 
 // ─── Main Component ──────────────────────────────────────────
+/**
+ * La barre publie sa hauteur dans `--bottomnav-h`.
+ *
+ * Elle est fixee, donc elle flotte au-dessus de tout : sans cette mesure,
+ * une feuille montante se glissait dessous et son dernier lien devenait
+ * illisible et intouchable. Meme raison que `--header-h` en haut — la
+ * hauteur depend du terminal (`pb-safe` sur un iPhone a encoche), donc on la
+ * mesure au lieu de la deviner.
+ */
+function useBottomNavHeight() {
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    const publier = () => {
+      document.documentElement.style.setProperty(
+        "--bottomnav-h",
+        el ? `${Math.round(el.getBoundingClientRect().height)}px` : "0px",
+      );
+    };
+    publier();
+    if (!el) return;
+    const ro = new ResizeObserver(publier);
+    ro.observe(el, { box: "border-box" });
+    window.addEventListener("resize", publier);
+    window.addEventListener("orientationchange", publier);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", publier);
+      window.removeEventListener("orientationchange", publier);
+      // La barre disparait au-dessus de `lg` : sa hauteur doit retomber a
+      // zero, sinon les feuilles garderaient un espace fantome en desktop.
+      document.documentElement.style.setProperty("--bottomnav-h", "0px");
+    };
+  }, []);
+
+  return ref;
+}
+
 export default function MobileBottomNav() {
+  const navRef = useBottomNavHeight();
   const { user } = useAuth();
   const authModal = useAuthModal();
   const pathname = usePathname();
@@ -302,6 +367,7 @@ export default function MobileBottomNav() {
   return (
     <>
       <nav
+        ref={navRef}
         id="mobile-bottom-nav"
         className="fixed inset-x-0 bottom-0 z-50 lg:hidden"
       >

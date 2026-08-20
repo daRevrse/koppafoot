@@ -111,7 +111,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
 
       <div className="relative mt-2 flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden border border-gray-200/70 bg-white shadow-xl sm:mt-10">
         {/* ---- Query ---- */}
-        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
+        <div className="flex shrink-0 items-center gap-2 border-b border-gray-200/70 px-4 py-3">
           <Search size={18} className="shrink-0 text-gray-300" />
           <input
             ref={inputRef}
@@ -133,7 +133,10 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* ---- Filters ---- */}
-        <div className="flex gap-1 overflow-x-auto border-b border-gray-100 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* `shrink-0` : dans une colonne flex a hauteur contrainte, cette
+            rangee se faisait comprimer des que les resultats remplissaient la
+            modale — les pastilles etaient rognees par le haut. */}
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200/70 px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((f) => (
             <button
               key={f.key}

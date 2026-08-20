@@ -14,6 +14,7 @@ import {
 import type { EvolutionRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { isOrganizer, isVenueOwner } from "@/lib/hats";
+import { ROLE_DESTINATIONS } from "@/config/role-destinations";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useAuthModal } from "@/components/auth/AuthModal";
@@ -106,23 +107,6 @@ const EVOLUTION_LABEL: Record<EvolutionRole, { label: string; Icon: LucideIcon }
   player: { label: "Espace joueur", Icon: User },
   manager: { label: "Espace manager", Icon: Briefcase },
   referee: { label: "Espace arbitre", Icon: Flag },
-};
-
-const ROLE_ITEMS: Partial<Record<EvolutionRole, NavEntry[]>> = {
-  player: [
-    { href: "/teams", label: "Mes équipes", Icon: Users },
-    { href: "/participations", label: "Mes convocations", Icon: ClipboardCheck },
-    { href: "/calendar", label: "Calendrier", Icon: CalendarDays },
-    { href: "/stats", label: "Mes statistiques", Icon: BarChart3 },
-  ],
-  manager: [
-    { href: "/teams", label: "Mon équipe", Icon: Users },
-    { href: "/matches", label: "Matchs amicaux", Icon: Users },
-    { href: "/calendar", label: "Calendrier", Icon: CalendarDays },
-    { href: "/mon-equipe", label: "Mes compétitions", Icon: Trophy },
-  ],
-  // L'arbitre n'a pas encore d'ecran a lui : ses designations et ses rapports
-  // sont au placard. Son espace suffit tant que c'est le cas.
 };
 
 const MENU_CLASS =
@@ -233,7 +217,12 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
     <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Koppa Links">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="absolute inset-x-0 bottom-0 border-t border-gray-200/70 bg-white pb-safe">
+      {/* `bottom-[var(--bottomnav-h)]` : la feuille s'arrete AU-DESSUS de la
+          barre du bas, qui est fixee et flottait par-dessus — le dernier lien,
+          MyFields, passait dessous et devenait illisible et intouchable.
+          `max-h` + defilement pour le cas ou trois portes ne tiendraient pas
+          sur un petit ecran. */}
+      <div className="absolute inset-x-0 bottom-[var(--bottomnav-h,0px)] max-h-[70vh] overflow-y-auto border-t border-gray-200/70 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200/70 px-5 py-4">
           <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
             Koppa Links
@@ -358,7 +347,7 @@ function AccountMenu() {
     (user.evolutionRole ? EVOLUTION_LABEL[user.evolutionRole] : null)
     ?? { label: "Évolution", Icon: Rocket };
 
-  const roleItems = user.evolutionRole ? ROLE_ITEMS[user.evolutionRole] ?? [] : [];
+  const roleItems = user.evolutionRole ? ROLE_DESTINATIONS[user.evolutionRole] ?? [] : [];
 
   // Les consoles reviennent ici avec la disparition du menu Extra. Elles y
   // sont a leur place : ce sont des espaces qui n'existent que pour CE
@@ -653,7 +642,13 @@ export default function ScoreHeader() {
               <NotificationDropdown />
             </div>
           )}
-          <AccountMenu />
+          {/* Le menu avatar disparait du telephone : la barre du bas porte
+              deja « Moi » et « Espace », et le doubler en haut encombrait un
+              header qui compte six commandes sur 375px. Ses entrees ont
+              rejoint les deux feuilles du bas. */}
+          <div className="hidden lg:block">
+            <AccountMenu />
+          </div>
         </div>
       </div>
 
