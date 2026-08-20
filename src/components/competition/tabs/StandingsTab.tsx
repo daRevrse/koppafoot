@@ -1,7 +1,4 @@
-"use client";
-
 import { useState, useEffect, useMemo } from "react";
-import { useParams } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { Loader2, SearchX, Trophy, ListOrdered } from "lucide-react";
@@ -24,7 +21,7 @@ import type { Competition, CompMatch, CompTeam } from "@/types";
 function TeamBadge({ team }: { team: CompTeam }) {
   return (
     <div
-      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-[11px] font-black text-gray-500"
+      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-[11px] font-black text-gray-500"
       style={!team.logoUrl && team.color ? { backgroundColor: team.color, color: "#fff" } : undefined}
     >
       {team.logoUrl ? (
@@ -43,93 +40,30 @@ const formatDiff = (diff: number) => (diff > 0 ? `+${diff}` : `${diff}`);
 // Component
 // ============================================
 
-export default function PublicStandingsPage() {
-  const { slug } = useParams() as { slug: string };
-  const [competition, setCompetition] = useState<Competition | null>(null);
-  const [matches, setMatches] = useState<CompMatch[]>([]);
-  const [teams, setTeams] = useState<CompTeam[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  // Resolve competition by slug, then subscribe to matches + teams in real time.
-  // Anonymous reads work because Firestore rules allow read on competitions/**.
-  useEffect(() => {
-    if (!slug) return;
-    let unsubMatches: (() => void) | undefined;
-    let unsubTeams: (() => void) | undefined;
-    let cancelled = false;
-
-    (async () => {
-      const comp = await getCompetitionBySlug(slug);
-      if (cancelled) return;
-      if (!comp) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      setCompetition(comp);
-      setLoading(false);
-      unsubMatches = onCompMatches(comp.id, (m) => {
-        if (!cancelled) setMatches(m);
-      });
-      unsubTeams = onCompTeams(comp.id, (t) => {
-        if (!cancelled) setTeams(t);
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      unsubMatches?.();
-      unsubTeams?.();
-    };
-  }, [slug]);
-
+export default function StandingsTab({ competition, matches, teams }: {
+  competition: Competition;
+  matches: CompMatch[];
+  teams: CompTeam[];
+}) {
   // Derive standings from the pure helper; never recompute inline.
   const groups = useMemo(
     () => (competition ? computeStandings(matches, teams, competition.format) : []),
     [matches, teams, competition],
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Chargement du classement...</p>
-      </div>
-    );
-  }
-
-  if (notFound || !competition) {
-    return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
-          <SearchX size={32} />
-        </div>
-        <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
-          <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const qualifiers = competition.format.qualifiers_per_group;
+
+  // Une poule a la fois. Empilees, quatre tableaux de six lignes donnaient
+  // une page a faire defiler ou l'on perdait de vue celle qu'on lisait ;
+  // et sur telephone la deuxieme poule commencait deja hors de l'ecran.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const active = groups.find((g) => g.group === openGroup) ?? groups[0] ?? null;
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div className="text-center">
-        <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
-          {competition.name}
-        </span>
-        <h1 className="font-display text-xl font-black text-gray-900">Classement</h1>
-      </div>
-
       {groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-gray-100 bg-white py-20 text-center shadow-sm">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-50 text-gray-200">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center bg-gray-50 text-gray-200">
             <ListOrdered size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
@@ -137,19 +71,33 @@ export default function PublicStandingsPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {groups.map((g, gi) => (
-            <motion.section
-              key={g.group}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: gi * 0.05 }}
-              className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm"
-            >
+        <div className="space-y-5">
+          {/* Selecteur de poule, quand il y en a plusieurs. */}
+          {groups.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {groups.map((g) => (
+                <button
+                  key={g.group}
+                  type="button"
+                  onClick={() => setOpenGroup(g.group)}
+                  className={`border px-4 py-2 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                    active?.group === g.group
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-200/70 text-gray-500 hover:border-gray-900 hover:text-gray-900"
+                  }`}
+                >
+                  Poule {g.group}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {active && (
+            <section key={active.group} className="overflow-hidden">
               <div className="flex items-center gap-2 border-b border-gray-50 px-5 py-4">
                 <Trophy size={16} className="text-emerald-500" />
                 <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-                  Groupe {g.group}
+                  Groupe {active.group}
                 </h2>
               </div>
 
@@ -171,7 +119,7 @@ export default function PublicStandingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {g.rows.map((row: StandingRow, idx) => {
+                    {active.rows.map((row: StandingRow, idx) => {
                       const rank = idx + 1;
                       const qualifies = rank <= qualifiers;
                       return (
@@ -183,7 +131,7 @@ export default function PublicStandingsPage() {
                         >
                           <td className="px-3 py-3 text-center">
                             <span
-                              className={`relative flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black ${
+                              className={`relative flex h-6 w-6 items-center justify-center text-xs font-black ${
                                 qualifies
                                   ? "bg-emerald-500 text-white"
                                   : "bg-gray-100 text-gray-500"
@@ -235,8 +183,8 @@ export default function PublicStandingsPage() {
                   </span>
                 </div>
               )}
-            </motion.section>
-          ))}
+            </section>
+          )}
         </div>
       )}
     </div>

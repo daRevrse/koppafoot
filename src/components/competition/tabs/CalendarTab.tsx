@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -44,7 +42,7 @@ function formatDayHeader(date: string): string {
 // the crest treatment in the standings table, sized for calendar rows.
 function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-xs font-black text-gray-500">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-xs font-black text-gray-500">
       {logo ? (
         <Image src={logo} alt={name} width={32} height={32} className="h-full w-full object-cover" />
       ) : (
@@ -96,42 +94,13 @@ function stageTag(match: CompMatch): string | null {
 // Component
 // ============================================
 
-export default function PublicCalendarPage() {
+export default function CalendarTab({ competition, matches }: {
+  competition: Competition;
+  matches: CompMatch[];
+}) {
   const { slug } = useParams() as { slug: string };
-  const [competition, setCompetition] = useState<Competition | null>(null);
-  const [matches, setMatches] = useState<CompMatch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  // Filtre de poule : etat d'interface propre a cet onglet, il reste ici.
   const [groupFilter, setGroupFilter] = useState<string>("all");
-
-  // Resolve competition by slug, then subscribe to matches in real time.
-  // Anonymous reads work because Firestore rules allow read on competitions/**.
-  useEffect(() => {
-    if (!slug) return;
-    let unsubMatches: (() => void) | undefined;
-    let cancelled = false;
-
-    (async () => {
-      const comp = await getCompetitionBySlug(slug);
-      if (cancelled) return;
-      if (!comp) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      setCompetition(comp);
-      setLoading(false);
-      unsubMatches = onCompMatches(comp.id, (m) => {
-        if (!cancelled) setMatches(m);
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      unsubMatches?.();
-    };
-  }, [slug]);
-
   // Available poule filters: distinct group letters (sorted) + a knockout
   // bucket when any knockout match exists.
   const filters = useMemo(() => {
@@ -189,41 +158,8 @@ export default function PublicCalendarPage() {
       }));
   }, [filteredMatches]);
 
-  if (loading) {
-    return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Chargement du calendrier...</p>
-      </div>
-    );
-  }
-
-  if (notFound || !competition) {
-    return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
-          <SearchX size={32} />
-        </div>
-        <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
-          <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
+return (
     <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div className="text-center">
-        <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
-          {competition.name}
-        </span>
-        <h1 className="font-display text-xl font-black text-gray-900">Calendrier</h1>
-      </div>
-
       {/* Poule filter */}
       {filters.length > 2 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:px-0">
@@ -231,10 +167,10 @@ export default function PublicCalendarPage() {
             <button
               key={f.key}
               onClick={() => setGroupFilter(f.key)}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-black transition-colors ${
+              className={`shrink-0 border px-4 py-2 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
                 groupFilter === f.key
-                  ? "bg-emerald-500 text-white"
-                  : "border border-gray-200 bg-white text-gray-500 hover:border-emerald-300"
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200/70 text-gray-500 hover:border-gray-900 hover:text-gray-900"
               }`}
             >
               {f.label}
@@ -244,8 +180,8 @@ export default function PublicCalendarPage() {
       )}
 
       {days.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-gray-100 bg-white py-20 text-center shadow-sm">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-50 text-gray-200">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center bg-gray-50 text-gray-200">
             <CalendarDays size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
@@ -270,8 +206,10 @@ export default function PublicCalendarPage() {
                 </h2>
               </div>
 
-              {/* Matches of the day */}
-              <div className="space-y-2.5">
+              {/* Les matchs du jour. Liste divisee et non pile de cartes :
+                  on est deja dans la grande carte de la page, empiler des
+                  cadres dans un cadre ne separe rien de plus. */}
+              <div className="divide-y divide-gray-200/70 border-y border-gray-200/70">
                 {day.matches.map((match) => {
                   const isLive = match.status === "live";
                   const hasScore = match.status === "live" || match.status === "completed";
@@ -280,15 +218,15 @@ export default function PublicCalendarPage() {
                     <Link
                       key={match.id}
                       href={`/c/${slug}/matches/${match.id}`}
-                      className={`group block overflow-hidden rounded-[1.75rem] border bg-white shadow-sm transition-all hover:shadow-lg ${
-                        isLive ? "border-red-100 hover:border-red-200" : "border-gray-100 hover:border-emerald-200"
+                      className={`group block transition-colors ${
+                        isLive ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-gray-50"
                       }`}
                     >
                       {/* Top row: tag + status */}
                       <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
                         <div className="flex min-w-0 items-center gap-2">
                           {tag && (
-                            <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                            <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
                               {tag}
                             </span>
                           )}
@@ -321,7 +259,7 @@ export default function PublicCalendarPage() {
                               )}
                             </>
                           ) : match.time ? (
-                            <span className="rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-black tabular-nums text-gray-500">
+                            <span className=" bg-gray-50 px-2.5 py-1 text-xs font-black tabular-nums text-gray-500">
                               {match.time}
                             </span>
                           ) : (

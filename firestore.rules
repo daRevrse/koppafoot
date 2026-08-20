@@ -125,9 +125,22 @@ service cloud.firestore {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasOnly([
           'user_type', 'evolution_role', 'position', 'skill_level',
-          'strong_foot', 'team_name', 'location_city', 'updated_at'
+          'strong_foot', 'team_name', 'location_city', 'updated_at',
+          // Le rôle arbitre est activable librement depuis /evolution : son
+          // formulaire écrit le niveau et le numéro de licence. Sans ces deux
+          // clés ici, `hasOnly` rejetait l'activation entière.
+          //
+          // Personne ne vérifie ce numéro : il sert à se présenter aux
+          // organisateurs, pas à valider quoi que ce soit. Le laisser écrire
+          // par son propriétaire n'accorde donc aucun pouvoir.
+          'license_level', 'license_number'
         ])
-        && request.resource.data.user_type in ['player', 'manager']
+        // « referee » rejoint les cibles possibles — il était déjà accepté en
+        // valeur de DÉPART, ce qui laissait un arbitre historique changer de
+        // rôle sans pouvoir le redevenir. Organisateur et superadmin restent
+        // hors de ce chemin, des deux côtés : ces transitions passent par le
+        // SDK admin.
+        && request.resource.data.user_type in ['player', 'manager', 'referee']
         && resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner'];
     }
 
@@ -409,6 +422,32 @@ service cloud.firestore {
     match /player_ratings/{ratingId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated() && (request.resource.data.rated_by == request.auth.uid || resource.data.rated_by == request.auth.uid);
+    }
+
+    // Pronostics « qui va gagner ? ».
+    //
+    // L'identifiant du document EST la contrainte : match__uid. Un compte ne
+    // peut donc physiquement pas déposer deux pronostics sur le même match,
+    // sans qu'aucune requête de comptage soit nécessaire pour le vérifier.
+    //
+    // Lecture réservée à l'auteur : le rail affiche des totaux, pas des noms.
+    // Ces totaux sont calculés par /api/matches/[mid]/predictions avec le SDK
+    // admin — c'est ce qui permet de garder les votes individuels fermés tout
+    // en publiant le résultat.
+    match /match_predictions/{predictionId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.uid == request.auth.uid
+                    && predictionId == request.resource.data.match_id + '__' + request.auth.uid
+                    && request.resource.data.pick in ['home', 'draw', 'away'];
+      allow update: if isAuthenticated()
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.match_id == resource.data.match_id
+                    && request.resource.data.pick in ['home', 'draw', 'away'];
+      // Un pronostic se change, il ne s'efface pas : sinon on pourrait voter,
+      // effacer, revoter pour gonfler un camp.
+      allow delete: if false;
     }
 
     // Same as /follows: /api/follows owns the write, counter included.

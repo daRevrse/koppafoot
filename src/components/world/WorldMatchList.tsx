@@ -47,7 +47,7 @@ export default function WorldMatchList({
 }) {
   if (matches.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center shadow-sm">
+      <div className=" border border-gray-200/70 bg-white py-12 text-center">
         <CalendarDays size={24} className="mx-auto text-gray-300" />
         <p className="mt-2 text-sm font-bold text-gray-400 italic">{emptyLabel}</p>
       </div>
@@ -68,9 +68,9 @@ export default function WorldMatchList({
       {days.map((day) => (
         <div
           key={day.key}
-          className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+          className="overflow-hidden"
         >
-          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-2.5">
+          <div className="flex items-center justify-between border-b border-gray-200/70 bg-gray-50/70 px-4 py-2.5">
             <p className="text-xs font-black uppercase tracking-wide text-gray-500">
               {dayLabelFmt.format(new Date(day.items[0].utcDate))}
             </p>
@@ -85,12 +85,12 @@ export default function WorldMatchList({
             return (
               <div
                 key={match.id}
-                className="flex items-center gap-3 border-b border-gray-50 px-4 py-3 last:border-0"
+                className="flex items-center gap-3 border-b border-gray-200/70 px-4 py-3 last:border-0"
               >
                 {/* Time */}
                 <div className="w-12 shrink-0 text-center">
                   {isLive ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-black text-red-500">
+                    <span className="inline-flex items-center gap-1 bg-red-50 px-1.5 py-0.5 text-[10px] font-black text-red-500">
                       <span className="h-1 w-1 rounded-full bg-red-500" />
                       LIVE
                     </span>
@@ -121,14 +121,14 @@ export default function WorldMatchList({
                 {/* Score / VS */}
                 {played ? (
                   <span
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-black tabular-nums text-white ${
+                    className={`shrink-0 px-2.5 py-1 text-sm font-black tabular-nums text-white ${
                       isLive ? "bg-red-500" : "bg-gray-900"
                     }`}
                   >
                     {match.scoreHome}:{match.scoreAway}
                   </span>
                 ) : (
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-[9px] font-black text-gray-400">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200/70 text-[9px] font-black text-gray-400">
                     VS
                   </span>
                 )}

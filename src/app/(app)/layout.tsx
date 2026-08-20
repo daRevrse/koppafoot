@@ -19,6 +19,13 @@ function isPublicPath(pathname: string): boolean {
     // still ask for an account (see MercatoPublic).
     pathname === "/mercato" ||
     pathname.startsWith("/c/") ||
+    // Les fiches publiques d'une entite : un joueur, une equipe. Ce sont des
+    // pages qu'on partage — un lien vers un joueur qui demande un compte pour
+    // etre lu ne se partage pas. Rien de prive n'y figure : ce que la fiche
+    // montre est deja lisible sans compte dans les regles Firestore, et les
+    // actions (suivre, ajouter au mercato) ouvrent la modale d'elles-memes.
+    /^\/profile\/[^/]+$/.test(pathname) ||
+    /^\/teams\/[^/]+$/.test(pathname) ||
     // Invitation links arrive by email — guests must see them to sign in/up.
     pathname.startsWith("/invitations/") ||
     // Staff access codes arrive by WhatsApp: the volunteer must reach the

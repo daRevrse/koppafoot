@@ -23,6 +23,7 @@ import {
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
+import MatchRail from "@/components/match/MatchRail";
 
 // ============================================
 // Helpers
@@ -288,7 +289,24 @@ export default function MatchDetailPage() {
   const isLive = match.status === "live";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6 pb-24 px-0 sm:px-6">
+    <div className="mx-auto max-w-[1400px] pb-24">
+      {/* Fil d'ariane. Un amical n'appartient a aucune competition : la
+          branche du milieu est donc la liste des amicaux, pas un tournoi. */}
+      <nav
+        aria-label="Fil d'ariane"
+        className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400 sm:px-0"
+      >
+        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        <Link href="/matches" className="transition-colors hover:text-emerald-700">Matchs amicaux</Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        <span className="truncate text-gray-600">
+          {match.homeTeamName} — {match.awayTeamName}
+        </span>
+      </nav>
+
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+        <div className="min-w-0 space-y-4 px-0 sm:space-y-6 sm:px-6 lg:px-0">
       {/* Back Button & Share */}
       <div className="flex items-center justify-between">
         <button 
@@ -1372,6 +1390,31 @@ export default function MatchDetailPage() {
           </div>
         )}
       </AnimatePresence>
+        </div>
+
+        {/* Meme rail que sur un match de competition, moins ce qu'un amical
+            n'a pas : pas de ligne competition, et aucun classement a montrer
+            puisqu'il n'y a rien a classer. Les equipes d'un amical n'ont pas
+            de logo dans le modele de donnees — le sondage retombe alors sur
+            les initiales. */}
+        <aside className="mt-6 px-3 sm:px-6 lg:sticky lg:top-6 lg:mt-0 lg:px-0">
+          <MatchRail
+            match={{
+              id,
+              homeTeamName: match.homeTeamName,
+              awayTeamName: match.awayTeamName,
+              homeTeamLogo: null,
+              awayTeamLogo: null,
+              date: match.date,
+              time: match.time,
+              venueName: match.venueName,
+              venueCity: match.venueCity,
+              started: match.effectiveStatus !== "upcoming",
+              competition: null,
+            }}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

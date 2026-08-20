@@ -19,23 +19,23 @@ import type { Post } from "@/types";
 
 function PostSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white">
+    <div className=" border border-gray-200/70 bg-white">
       <div className="flex items-start gap-3 p-4 pb-0">
         <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
         <div className="flex-1 space-y-2">
-          <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
-          <div className="h-3 w-20 animate-pulse rounded bg-gray-200" />
+          <div className="h-4 w-32 animate-pulse bg-gray-200" />
+          <div className="h-3 w-20 animate-pulse bg-gray-200" />
         </div>
       </div>
       <div className="space-y-2 px-4 pt-3 pb-4">
-        <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
-        <div className="h-3 w-4/5 animate-pulse rounded bg-gray-200" />
-        <div className="h-3 w-2/3 animate-pulse rounded bg-gray-200" />
+        <div className="h-3 w-full animate-pulse bg-gray-200" />
+        <div className="h-3 w-4/5 animate-pulse bg-gray-200" />
+        <div className="h-3 w-2/3 animate-pulse bg-gray-200" />
       </div>
-      <div className="flex border-t border-gray-100 px-2 py-2">
-        <div className="h-8 flex-1 animate-pulse rounded bg-gray-50" />
-        <div className="h-8 flex-1 animate-pulse rounded bg-gray-50" />
-        <div className="h-8 flex-1 animate-pulse rounded bg-gray-50" />
+      <div className="flex border-t border-gray-200/70 px-2 py-2">
+        <div className="h-8 flex-1 animate-pulse bg-gray-50" />
+        <div className="h-8 flex-1 animate-pulse bg-gray-50" />
+        <div className="h-8 flex-1 animate-pulse bg-gray-50" />
       </div>
     </div>
   );
@@ -78,9 +78,9 @@ export default function FeedPage() {
     const el = document.getElementById(`post-${target}`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("ring-2", "ring-primary-400", "rounded-xl");
+    el.classList.add("ring-2", "ring-emerald-600");
     const t = setTimeout(
-      () => el.classList.remove("ring-2", "ring-primary-400", "rounded-xl"),
+      () => el.classList.remove("ring-2", "ring-emerald-600"),
       2400,
     );
     return () => clearTimeout(t);
@@ -207,38 +207,27 @@ export default function FeedPage() {
   if (!user) return null;
 
   return (
-    // The rail that used to sit on the right of this page is gone; the shell
-    // still holds its column open there. This mirrors it on the left so the
-    // Tribune reads centred instead of pinned to one side.
-    <div className="flex">
-      <div className="hidden w-80 flex-shrink-0 xl:block" aria-hidden />
+    // Deux colonnes, centrees. Il y avait ici une fausse colonne de 320px a
+    // gauche, posee pour compenser la gouttiere que le shell gardait ouverte
+    // a droite ; cette gouttiere se replie desormais d'elle-meme quand elle
+    // n'a rien a montrer, et le faux espaceur ne faisait plus que decaler la
+    // page. Un empilement de trois flex imbriques disparait avec lui.
+    //
+    // Pas de titre : « La Tribune » est deja dans la barre du haut, et un fil
+    // d'ariane sur une page de premier niveau ne menerait nulle part.
+    <div className="mx-auto flex max-w-5xl items-start gap-6 pb-24">
+      {/* Qui je suis, pendant que je lis les autres. */}
+      <aside className="sticky top-24 hidden w-60 shrink-0 lg:block">
+        <UserProfileWidget user={user} />
+      </aside>
 
-      <div className="min-w-0 flex-1 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <h1 className="text-2xl font-bold text-gray-900 font-display">La Tribune</h1>
-        <p className="mt-1 text-sm text-gray-500">Actualités et discussions de la communauté</p>
-      </motion.div>
-
-      {/* 3-column layout */}
-      <div className="flex gap-5 items-start">
-        {/* Left sidebar — desktop only */}
-        <div className="hidden lg:block w-60 shrink-0 sticky top-6">
-          <UserProfileWidget user={user} />
-        </div>
-
-        {/* Feed center */}
-        <div className="flex-1 min-w-0 space-y-4">
+      <div className="min-w-0 flex-1 space-y-4">
           {/* New post form */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.08 }}
-            className="rounded-xl border border-gray-200 bg-white p-4"
+            className=" border border-gray-200/70 bg-white p-4"
           >
             <div className="flex gap-3">
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ${avatarColor(`${user.firstName} ${user.lastName}`)}`}>
@@ -259,13 +248,13 @@ export default function FeedPage() {
                   onChange={(e) => setNewPost(e.target.value)}
                   placeholder="Quoi de neuf sur le terrain ?"
                   rows={2}
-                  className="w-full resize-none rounded-lg border-0 bg-gray-50 px-3 py-2.5 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none transition-colors placeholder:text-gray-400"
+                  className="w-full resize-none border-0 bg-gray-50 px-3 py-2.5 text-sm focus:bg-white focus:ring-1 focus:ring-gray-900 focus:outline-none transition-colors placeholder:text-gray-400"
                 />
 
                 {/* Media preview */}
                 {mediaPreview && (
                   <div className="relative mt-2 inline-block">
-                    <img src={mediaPreview} alt="preview" className="max-h-40 rounded-lg object-cover" />
+                    <img src={mediaPreview} alt="preview" className="max-h-40 object-cover" />
                     <button
                       onClick={clearMedia}
                       className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-800 text-white hover:bg-gray-700"
@@ -286,7 +275,7 @@ export default function FeedPage() {
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
                     >
                       <ImageIcon size={14} /> Photo
                     </button>
@@ -294,7 +283,7 @@ export default function FeedPage() {
                   <button
                     onClick={handlePost}
                     disabled={!newPost.trim() || posting}
-                    className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40 transition-all"
+                    className="flex items-center gap-1.5 bg-gray-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40 transition-all"
                   >
                     <Send size={12} /> Publier
                   </button>
@@ -312,7 +301,7 @@ export default function FeedPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+              className="flex flex-col items-center border border-gray-200/70 bg-white py-16"
             >
               <MessageCircle size={32} className="text-gray-300" />
               <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucune publication</h3>
@@ -340,9 +329,6 @@ export default function FeedPage() {
               ))}
             </AnimatePresence>
           )}
-        </div>
-
-      </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Radio, Trophy, BarChart3, Users, ArrowRight,
 } from "lucide-react";
@@ -105,6 +106,9 @@ export default function OrganizersLandingPage() {
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
+          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+            Koppafoot Organize
+          </p>
           <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
             Ta compétition
             <br />
@@ -160,6 +164,19 @@ export default function OrganizersLandingPage() {
                 C&apos;est le seul travail que la plateforme te demande, et
                 c&apos;est un travail que tu fais déjà.
               </p>
+
+              {/* Le public au bord du terrain, telephone en main : c'est le
+                  bout de la chaine que la saisie alimente, et la raison pour
+                  laquelle elle vaut la peine. */}
+              <div className="relative mt-12 aspect-[4/3] w-full overflow-hidden bg-gray-100">
+                <Image
+                  src="/branding/fan_matchs.png"
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 45vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
             </div>
           </div>
         </div>

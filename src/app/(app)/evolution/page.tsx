@@ -7,6 +7,7 @@ import {
   Rocket, User, Briefcase, ArrowLeft, ArrowRight, Loader2,
   Check, Trophy, RefreshCw, Mail,
   Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Lock,
+  Search, FileText, Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,6 +52,17 @@ const ROLES: {
       "Gère ton effectif et tes compositions",
     ],
   },
+  {
+    role: "referee",
+    title: "Arbitre",
+    Icon: Flag,
+    tagline: "Tu tiens le sifflet.",
+    perks: [
+      "Ta fiche d'arbitre : licence, niveau, ville",
+      "Tu apparais dans la recherche, catégorie Arbitres",
+      "Les organisateurs te trouvent et te contactent",
+    ],
+  },
 ];
 
 // Feature map of each espace — mirrors the shelved verticals (src/app/_shelved)
@@ -76,7 +88,32 @@ const ROLE_FEATURES: Record<EvolutionRole, {
     { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords, href: "/matches" },
     { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays, href: "/calendar" },
   ],
+  // L'arbitre vient d'etre degele : sa fiche et sa visibilite existent
+  // aujourd'hui, ses ecrans propres (designations, rapports) sont encore au
+  // placard — d'ou l'absence de `href`, qui les affiche en « Bientot » plutot
+  // que de promettre une page qui n'ouvre pas.
+  referee: [
+    { label: "Ma fiche d'arbitre", desc: "Licence, niveau et coordonnées visibles par les organisateurs", Icon: User, href: "/profile" },
+    { label: "Être trouvé", desc: "Tu apparais dans la recherche, catégorie Arbitres", Icon: Search, href: "/" },
+    { label: "Mon calendrier", desc: "Tes matchs et rendez-vous en un coup d'œil", Icon: CalendarDays, href: "/calendar" },
+    { label: "Mes désignations", desc: "Les matchs sur lesquels on te désigne", Icon: ClipboardCheck },
+    { label: "Mes rapports de match", desc: "Feuille de match et rapport après rencontre", Icon: FileText },
+  ],
 };
+
+/** Ce qui distingue chaque espace : son nom, son icone, sa phrase. */
+const ROLE_META: Record<EvolutionRole, { space: string; profile: string; tagline: string; Icon: typeof User }> = {
+  player: { space: "Espace joueur", profile: "Ton profil joueur", tagline: "Ton profil sportif est actif.", Icon: User },
+  manager: { space: "Espace manager", profile: "Ton profil manager", tagline: "Ton profil manager est actif.", Icon: Briefcase },
+  referee: { space: "Espace arbitre", profile: "Ton profil arbitre", tagline: "Ton profil d'arbitre est actif.", Icon: Flag },
+};
+
+const LICENSE_LEVELS = [
+  { value: "trainee", label: "Stagiaire" },
+  { value: "regional", label: "Régional" },
+  { value: "national", label: "National" },
+  { value: "international", label: "International" },
+];
 
 const POSITIONS = [
   { value: "goalkeeper", label: "Gardien" },
@@ -136,6 +173,8 @@ export default function EvolutionPage() {
   const [position, setPosition] = useState(user?.position ?? "");
   const [strongFoot, setStrongFoot] = useState(user?.strongFoot ?? "");
   const [teamName, setTeamName] = useState(user?.teamName ?? "");
+  const [licenseLevel, setLicenseLevel] = useState(user?.licenseLevel ?? "");
+  const [licenseNumber, setLicenseNumber] = useState(user?.licenseNumber ?? "");
   const [city, setCity] = useState(user?.locationCity ?? "");
 
   if (!user) return null;
@@ -158,11 +197,14 @@ export default function EvolutionPage() {
       if (role === "player") {
         if (position) patch.position = position;
         if (strongFoot) patch.strong_foot = strongFoot as FirestoreUser["strong_foot"];
+      } else if (role === "referee") {
+        if (licenseLevel) patch.license_level = licenseLevel;
+        if (licenseNumber.trim()) patch.license_number = licenseNumber.trim();
       } else {
         if (teamName.trim()) patch.team_name = teamName.trim();
       }
       await updateProfile(patch);
-      toast.success(role === "player" ? "Espace joueur activé !" : "Espace manager activé !");
+      toast.success(`${ROLE_META[role].space} activé !`);
       setPicking(null);
       setSwitching(false);
     } catch (err) {
@@ -175,24 +217,23 @@ export default function EvolutionPage() {
 
   // ── Role home (activated) ──────────────────────────────────
   if (activated && !switching && !picking) {
-    const isPlayer = activated === "player";
+    // Un seul point de verite pour « quel espace suis-je en train de
+    // montrer ». Douze conditions binaires joueur/manager vivaient ici : un
+    // troisieme role les aurait toutes fait mentir.
+    const meta = ROLE_META[activated];
 
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
-              {isPlayer ? <User size={26} /> : <Briefcase size={26} />}
+              <meta.Icon size={26} />
             </div>
             <div className="min-w-0">
               <h1 className="font-display text-2xl font-black tracking-tight text-gray-900">
-                {isPlayer ? "Espace joueur" : "Espace manager"}
+                {meta.space}
               </h1>
-              <p className="mt-0.5 text-sm font-bold text-gray-400">
-                {isPlayer
-                  ? "Ton profil sportif est actif."
-                  : "Ton profil manager est actif."}
-              </p>
+              <p className="mt-0.5 text-sm font-bold text-gray-400">{meta.tagline}</p>
             </div>
           </div>
 
@@ -209,7 +250,7 @@ export default function EvolutionPage() {
           {/* Role-specific next steps. "Suivre les compétitions" used to sit
               here; it duplicated the sidebar entry and pushed the real
               features down. */}
-          {!isPlayer && (
+          {activated === "manager" && (
             <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
               <Mail size={17} className="mt-0.5 shrink-0 text-amber-500" />
               <p className="text-sm font-semibold leading-relaxed text-amber-800">
@@ -223,7 +264,7 @@ export default function EvolutionPage() {
           {/* The role's features — unfrozen one by one */}
           <div className="mt-8">
             <p className="px-1 text-xs font-black uppercase tracking-widest text-gray-400">
-              {isPlayer ? "Ton espace joueur" : "Ton espace manager"}
+              {meta.space}
             </p>
             <p className="mt-1 px-1 text-xs font-semibold text-gray-400">
               Ces fonctionnalités arrivent progressivement.
@@ -307,7 +348,7 @@ export default function EvolutionPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {ROLES.map(({ role, title, Icon, tagline, perks }, i) => (
             <motion.button
               key={role}
@@ -354,7 +395,8 @@ export default function EvolutionPage() {
   }
 
   // ── Onboarding form for the picked role ────────────────────
-  const isPlayerForm = picking === "player";
+  // Le formulaire suit le role choisi, sans supposer qu'il n'y en a que deux.
+  const formMeta = picking ? ROLE_META[picking] : null;
   return (
     <div className="mx-auto max-w-lg">
       <button
@@ -376,11 +418,11 @@ export default function EvolutionPage() {
         >
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
-              {isPlayerForm ? <User size={20} /> : <Briefcase size={20} />}
+              {formMeta && <formMeta.Icon size={20} />}
             </div>
             <div>
               <h2 className="font-display text-xl font-black text-gray-900">
-                {isPlayerForm ? "Ton profil joueur" : "Ton profil manager"}
+                {formMeta?.profile}
               </h2>
               <p className="text-xs font-bold text-gray-400">
                 Tout est modifiable plus tard dans ton profil.
@@ -395,7 +437,7 @@ export default function EvolutionPage() {
               if (picking) activate(picking);
             }}
           >
-            {isPlayerForm ? (
+            {picking === "player" ? (
               <>
                 <div>
                   <label className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-400">
@@ -408,6 +450,31 @@ export default function EvolutionPage() {
                     Pied fort
                   </label>
                   <ChoicePills options={FEET} value={strongFoot} onChange={setStrongFoot} />
+                </div>
+              </>
+            ) : picking === "referee" ? (
+              <>
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-400">
+                    Ton niveau de licence
+                  </label>
+                  <ChoicePills options={LICENSE_LEVELS} value={licenseLevel} onChange={setLicenseLevel} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-400">
+                    Numéro de licence <span className="font-bold normal-case text-gray-300">(optionnel)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    placeholder="ex: TG-2024-0182"
+                    className={inputClass}
+                  />
+                  <p className="mt-1.5 text-[11px] font-semibold leading-relaxed text-gray-400">
+                    Personne ne vérifie ce numéro aujourd&apos;hui : il sert aux
+                    organisateurs qui te contactent, pas à te valider.
+                  </p>
                 </div>
               </>
             ) : (
@@ -448,7 +515,7 @@ export default function EvolutionPage() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
-              {isPlayerForm ? "Activer mon espace joueur" : "Activer mon espace manager"}
+              Activer mon {formMeta?.space.toLowerCase()}
             </button>
           </form>
         </motion.div>

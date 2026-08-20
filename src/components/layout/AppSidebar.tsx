@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
 import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
-import type { Competition } from "@/types";
+import type { Competition, EvolutionRole } from "@/types";
 
 // ============================================
 // AppSidebar — light dashboard sidebar (ValueBet-style):
@@ -57,7 +57,10 @@ interface Space {
   items: SpaceItem[];
 }
 
-const ROLE_SPACE_ITEMS: Record<"player" | "manager", SpaceItem[]> = {
+// `Partial` : l'arbitre est un role activable mais ses destinations propres
+// (designations, rapports) sont encore au placard — il n'a donc pas d'entree
+// ici, et le `?? []` en aval rend la liste vide sans casser.
+const ROLE_SPACE_ITEMS: Partial<Record<EvolutionRole, SpaceItem[]>> = {
   player: [
     // /teams serves both sides: getTeamsByManager for a manager,
     // getTeamsByPlayer for a player. The player just had no way in.

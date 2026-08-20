@@ -14,6 +14,9 @@ import {
 } from "@/lib/competition-firestore";
 import { stageLabel } from "@/lib/competition-format";
 import type { CompetitionFeed } from "@/lib/competition-admin";
+import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
+import { isWorldComp } from "@/lib/world-board-shared";
+import type { FootballCompetition } from "@/lib/football-data";
 import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
 
 // ============================================
@@ -109,7 +112,26 @@ function competitionSubtitle(c: Competition): string {
   return c.venueCity ?? c.organizerName ?? "Togo";
 }
 
+/**
+ * Ou mene l'en-tete d'un groupe. Les amicaux n'ont pas de page de
+ * competition : on renvoie vers leur liste.
+ */
+function competitionHref(c: Competition): string {
+  if (c.id === FRIENDLY_COMP_ID) return "/matches";
+  // Une competition mondiale a sa propre page, quand le fournisseur nous a
+  // donne son code ; sinon on renvoie vers l'annuaire.
+  if (isWorldComp(c.id)) return c.slug ? `/competitions/monde/${c.slug}` : "/competitions";
+  return `/c/${c.slug}`;
+}
+
 function matchHref(e: Entry): string {
+  // Un amical n'appartient a aucune competition : sa page est /matches/[id].
+  // Le fanion vient de FRIENDLY_COMP_ID (voir friendlies-admin).
+  if (e.competition.id === FRIENDLY_COMP_ID) return `/matches/${e.match.id}`;
+  // Un match du fournisseur externe n'a pas de page detail chez nous — et il
+  // ne doit pas en avoir : c'est la que vivrait le pronostic, qui ne
+  // s'applique qu'aux matchs qu'on gere. On renvoie vers sa competition.
+  if (isWorldComp(e.competition.id)) return competitionHref(e.competition);
   return `/c/${e.competition.slug}/matches/${e.match.id}`;
 }
 
@@ -120,15 +142,6 @@ function entryKey(e: Entry): string {
 /** Kickoff sort key — undated fixtures land last. */
 function kickoff(e: Entry): string {
   return `${e.match.date ?? "9999-99-99"}T${e.match.time ?? "99:99"}`;
-}
-
-/** Monday of the current week — the football week runs Monday to Sunday. */
-function weekStart(): string {
-  const now = new Date();
-  const weekday = now.getDay();                    // 0 = dimanche
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + (weekday === 0 ? -6 : 1 - weekday));
-  return dayKey(monday);
 }
 
 /** Who actually won, once the match is over (penalties included). */
@@ -173,7 +186,7 @@ function CompCrest({ competition, size = 24 }: { competition: Competition; size?
       <img
         src={competition.logoUrl}
         alt=""
-        className="shrink-0 rounded-md object-cover"
+        className="shrink-0 object-cover"
         style={{ width: size, height: size }}
       />
     );
@@ -181,7 +194,7 @@ function CompCrest({ competition, size = 24 }: { competition: Competition; size?
   return (
     <span
       aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-md bg-amber-50"
+      className="flex shrink-0 items-center justify-center bg-amber-50"
       style={{ width: size, height: size }}
     >
       <Trophy size={Math.round(size * 0.55)} className="text-amber-500" />
@@ -311,9 +324,10 @@ function usePicks() {
  * whole competition into Favoris instead of one match at a time.
  */
 function CompetitionsDirectory({
-  competitions, compFavs, onStar,
+  competitions, worldCompetitions, compFavs, onStar,
 }: {
   competitions: Competition[];
+  worldCompetitions: FootballCompetition[];
   compFavs: Set<string>;
   onStar: (id: string) => void;
 }) {
@@ -342,7 +356,9 @@ function CompetitionsDirectory({
     });
   };
 
-  if (competitions.length === 0) {
+  // Un jour sans competition locale n'est plus une page vide : le football
+  // mondial, lui, joue toujours quelque part.
+  if (competitions.length === 0 && worldCompetitions.length === 0) {
     return (
       <div className="px-4 py-10 text-center">
         <Trophy size={24} className="mx-auto text-gray-300" />
@@ -366,7 +382,7 @@ function CompetitionsDirectory({
             return (
               <div
                 key={c.id}
-                className="relative rounded-lg border border-gray-200/70 bg-gray-50/60 transition-colors hover:bg-white"
+                className="relative border border-gray-200/70 bg-gray-50/60 transition-colors hover:bg-white"
               >
                 <button
                   type="button"
@@ -396,13 +412,13 @@ function CompetitionsDirectory({
       </div>
 
       {/* ---- Everything, by city ---- */}
-      <p className="border-t border-gray-100 px-3.5 pb-1.5 pt-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
+      <p className="border-t border-gray-200/70 px-3.5 pb-1.5 pt-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
         Toutes les compétitions
       </p>
       {byCity.map(([city, comps]) => {
         const open = openCities.has(city);
         return (
-          <div key={city} className="border-t border-gray-50">
+          <div key={city} className="border-t border-gray-200/70">
             <button
               type="button"
               onClick={() => toggleCity(city)}
@@ -425,7 +441,7 @@ function CompetitionsDirectory({
             {open && comps.map((c) => {
               const isFav = compFavs.has(c.id);
               return (
-                <div key={c.id} className="flex items-center gap-2.5 border-t border-gray-50 pl-9 pr-2">
+                <div key={c.id} className="flex items-center gap-2.5 border-t border-gray-200/70 pl-9 pr-2">
                   <Link href={`/c/${c.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5">
                     <CompCrest competition={c} size={26} />
                     <span className="min-w-0 flex-1">
@@ -453,6 +469,47 @@ function CompetitionsDirectory({
           </div>
         );
       })}
+
+      {/* ---- Le football mondial ----
+          Lu chez football-data.org, cote serveur. Ces competitions-la ne se
+          rejoignent pas et ne se mettent pas en favori : on ne fait que les
+          suivre, et le lien part vers leur propre espace. D'ou l'absence
+          d'etoile, qui n'aurait rien a accrocher. */}
+      {worldCompetitions.length > 0 && (
+        <>
+          <p className="border-t border-gray-200/70 px-3.5 pb-1.5 pt-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
+            Le football mondial
+          </p>
+          {worldCompetitions.map((c) => (
+            <Link
+              key={c.code}
+              href={`/competitions/monde/${c.code}`}
+              className="flex items-center gap-2.5 border-t border-gray-200/70 px-3.5 py-2.5 transition-colors hover:bg-gray-50/70"
+            >
+              {c.emblem ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.emblem} alt="" className="h-[26px] w-[26px] shrink-0 object-contain" />
+              ) : (
+                <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center bg-gray-100 text-gray-400">
+                  <Trophy size={14} />
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-bold text-gray-900">{c.name}</span>
+                <span className="block truncate text-[11px] font-bold text-gray-400">
+                  {[c.area, c.type === "CUP" ? "Coupe" : c.type === "LEAGUE" ? "Championnat" : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </span>
+              {c.areaFlag && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.areaFlag} alt="" className="h-4 w-6 shrink-0 object-contain" />
+              )}
+            </Link>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -471,7 +528,7 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
       {label}
       <span className={`relative h-4 w-7 rounded-full transition-colors ${on ? "bg-emerald-500" : "bg-gray-200"}`}>
         <span
-          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${
+          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
             on ? "left-3.5" : "left-0.5"
           }`}
         />
@@ -503,7 +560,7 @@ function MatchRow({
     finished && !hideScores && mine < theirs ? "text-gray-400" : "text-gray-900";
 
   return (
-    <div className="group flex items-stretch gap-1 border-b border-gray-50 pl-2 pr-1 transition-colors last:border-0 hover:bg-gray-50/70">
+    <div className="group flex items-stretch gap-1 border-b border-gray-200/70 pl-2 pr-1 transition-colors last:border-0 hover:bg-gray-50/70">
       <Link href={matchHref(entry)} className="flex min-w-0 flex-1 items-center gap-2 py-2">
         {/* Kickoff / live clock */}
         <div className="flex w-10 shrink-0 flex-col items-center justify-center gap-0.5">
@@ -601,9 +658,9 @@ function CompetitionGroup({
   const heading = firstRound ? ROUND_LABELS[firstRound] : stage;
 
   return (
-    <div className="border-b border-gray-100 last:border-0">
+    <div className="border-b border-gray-200/70 last:border-0">
       <div className="flex items-center gap-2.5 bg-gray-50/70 px-3 py-2">
-        <Link href={`/c/${competition.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5">
+        <Link href={competitionHref(competition)} className="flex min-w-0 flex-1 items-center gap-2.5">
           <CompCrest competition={competition} size={26} />
           <span className="min-w-0">
             <span className="block truncate text-[13px] font-black text-gray-900">
@@ -624,7 +681,7 @@ function CompetitionGroup({
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label={open ? "Replier" : "Déplier"}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-white hover:text-gray-700"
+          className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-400 transition-colors hover:bg-white hover:text-gray-700"
         >
           <ChevronDown size={16} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
         </button>
@@ -637,7 +694,7 @@ function CompetitionGroup({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="overflow-hidden"
+            className="overflow-hidden border border-gray-200/70 bg-white"
           >
             {entries.map((e) => (
               <MatchRow
@@ -675,7 +732,7 @@ function PickButton({
       ? "border-red-200 bg-red-50"
       : selected
         ? "border-emerald-500 bg-emerald-50"
-        : "border-gray-200 bg-white hover:border-gray-300";
+        : "border-gray-200/70 bg-white hover:border-gray-300";
 
   return (
     <button
@@ -735,7 +792,7 @@ function Spotlight({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden border border-gray-200/70 bg-white">
       {/* Competition header */}
       <div className="flex items-center gap-2.5 px-4 py-3">
         <CompCrest competition={competition} size={28} />
@@ -746,7 +803,7 @@ function Spotlight({
           </span>
         </span>
         <Link
-          href={`/c/${competition.slug}`}
+          href={competitionHref(competition)}
           aria-label="Voir la compétition"
           className="shrink-0 text-gray-300 transition-colors hover:text-gray-600"
         >
@@ -764,7 +821,7 @@ function Spotlight({
           transition={{ duration: 0.2 }}
         >
           <Link href={matchHref(entry)} className="block px-4">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 rounded-2xl bg-gray-50/70 p-4">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 bg-gray-50/70 p-4">
               <div className="flex flex-col items-center gap-2">
                 <Crest
                   name={match.homeTeamName}
@@ -885,7 +942,7 @@ function Spotlight({
 
       {/* Pager across the featured matches */}
       {count > 1 && (
-        <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
+        <div className="flex items-center justify-between border-t border-gray-200/70 px-3 py-2">
           <button
             type="button"
             onClick={() => go(safe - 1)}
@@ -949,20 +1006,20 @@ function TopPerformancesCard({
   rows, scope, teamsById,
 }: {
   rows: PerformanceRow[];
-  scope: "week" | "all";
+  scope: "week" | "all" | "last5";
   teamsById: Map<string, CompTeam>;
 }) {
   if (rows.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className=" border border-gray-200/70 bg-white">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <p className="flex items-center gap-1.5 font-display text-sm font-black text-gray-900">
           <Flame size={15} className="text-amber-500" />
           Top performances
         </p>
         <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-600">
-          {scope === "week" ? "Cette semaine" : "Depuis le début"}
+          {scope === "last5" ? "5 derniers matchs" : scope === "week" ? "Cette semaine" : "Depuis le début"}
         </span>
       </div>
 
@@ -972,7 +1029,7 @@ function TopPerformancesCard({
           return (
             <div
               key={`${row.competition.id}-${row.teamId}-${row.playerName}`}
-              className="flex items-center gap-2.5 border-t border-gray-50 py-2 first:border-0"
+              className="flex items-center gap-2.5 border-t border-gray-200/70 py-2 first:border-0"
             >
               <span
                 className={`w-4 shrink-0 text-center text-[11px] font-black tabular-nums ${
@@ -1010,8 +1067,8 @@ function TopPerformancesCard({
       </div>
 
       <Link
-        href={`/c/${rows[0].competition.slug}/scorers`}
-        className="flex items-center justify-center gap-1 border-t border-gray-50 py-2.5 text-[10px] font-black uppercase tracking-wide text-emerald-500 transition-colors hover:bg-gray-50 hover:text-emerald-600"
+        href={`/c/${rows[0].competition.slug}?tab=scorers`}
+        className="flex items-center justify-center gap-1 border-t border-gray-200/70 py-2.5 text-[10px] font-black uppercase tracking-wide text-emerald-500 transition-colors hover:bg-gray-50 hover:text-emerald-600"
       >
         Classement complet
         <ChevronRight size={12} />
@@ -1022,7 +1079,14 @@ function TopPerformancesCard({
 
 // ---- Page ---------------------------------------------------------------------------
 
-export default function DirectHomeV2({ initialFeed }: { initialFeed: CompetitionFeed[] }) {
+export default function DirectHomeV2({
+  initialFeed,
+  worldCompetitions = [],
+}: {
+  initialFeed: CompetitionFeed[];
+  /** Le football mondial, lu chez football-data.org cote serveur. */
+  worldCompetitions?: FootballCompetition[];
+}) {
   const [feed, setFeed] = useState<CompetitionFeed[]>(initialFeed);
   const [teams, setTeams] = useState<CompTeam[]>([]);
   const [tab, setTab] = useState<ListTab>("all");
@@ -1034,7 +1098,12 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
   const [compFavs, toggleCompFav] = useCompFavourites();
   const [picks, choosePick] = usePicks();
 
-  const competitions = useMemo(() => feed.map((f) => f.competition), [feed]);
+  // L'annuaire ne montre que de vraies competitions : celle des amicaux est
+  // un fanion de regroupement, pas un tournoi qu'on peut ouvrir ou suivre.
+  const competitions = useMemo(
+    () => feed.map((f) => f.competition).filter((c) => c.id !== FRIENDLY_COMP_ID && !isWorldComp(c.id)),
+    [feed],
+  );
   // Stable dependency: `competitions` is a fresh array on every feed update,
   // so keying the effects on it would tear the listeners down on every score.
   const competitionIds = useMemo(() => competitions.map((c) => c.id).join(","), [competitions]);
@@ -1087,15 +1156,48 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
 
   // Spotlight: live first, then the soonest kickoff, then the freshest result
   // — a short highlight reel, not a second fixture list.
+  // L'affiche et son pronostic : uniquement les competitions de la
+  // plateforme. Un match du fournisseur externe n'a pas de page chez nous et
+  // ne se pronostique pas ; un amical n'a pas de console de score.
+  //
+  // Une entree par competition, et non les cinq prochains matchs : la fleche
+  // fait alors passer d'une competition a l'autre, ce qui est la navigation
+  // utile quand plusieurs tournois tournent en meme temps. Dans chacune, le
+  // match en cours d'abord, sinon le prochain, sinon le dernier joue.
   const spotlightEntries = useMemo(() => {
-    const upcoming = scoped
-      .filter((e) => e.match.status === "scheduled" && e.match.date != null)
-      .sort((a, b) => kickoff(a).localeCompare(kickoff(b)));
-    const recent = scoped
-      .filter((e) => e.match.status === "completed")
-      .sort((a, b) => kickoff(b).localeCompare(kickoff(a)));
-    return [...liveEntries, ...upcoming, ...recent].slice(0, 5);
-  }, [scoped, liveEntries]);
+    const local = scoped.filter(
+      (e) => e.competition.id !== FRIENDLY_COMP_ID && !isWorldComp(e.competition.id),
+    );
+
+    const byComp = new Map<string, Entry[]>();
+    for (const e of local) {
+      const list = byComp.get(e.competition.id) ?? [];
+      list.push(e);
+      byComp.set(e.competition.id, list);
+    }
+
+    const pickOne = (list: Entry[]): Entry | null => {
+      const live = list.find((e) => e.match.status === "live");
+      if (live) return live;
+      const next = list
+        .filter((e) => e.match.status === "scheduled" && e.match.date != null)
+        .sort((a, b) => kickoff(a).localeCompare(kickoff(b)))[0];
+      if (next) return next;
+      return list
+        .filter((e) => e.match.status === "completed")
+        .sort((a, b) => kickoff(b).localeCompare(kickoff(a)))[0] ?? null;
+    };
+
+    return [...byComp.values()]
+      .map(pickOne)
+      .filter((e): e is Entry => e !== null)
+      // Les competitions qui jouent maintenant passent devant.
+      .sort((a, b) => {
+        const rank = (e: Entry) => (e.match.status === "live" ? 0 : e.match.status === "scheduled" ? 1 : 2);
+        return rank(a) - rank(b) || kickoff(a).localeCompare(kickoff(b));
+      })
+      .slice(0, 5);
+  }, [scoped]);
 
   // The list is day-driven, except Favoris — a followed match is worth seeing
   // whatever day it falls on, and day-scoping it would show an empty tab.
@@ -1103,6 +1205,9 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
     // Favoris = the matches you starred, plus every match of a competition
     // you starred. Starring the tournament is the shortcut; starring a single
     // match stays possible for the one fixture you care about in it.
+    // Le jour affiche filtre automatiquement : c'est un tableau de scores,
+    // il repond d'abord a « qu'est-ce qui se joue ». Les favoris echappent au
+    // filtre — on les suit quelle que soit la date.
     let list = tab === "favs"
       ? scoped.filter((e) => favs.has(entryKey(e)) || compFavs.has(e.competition.id))
       : scoped.filter((e) => e.match.date === day);
@@ -1137,31 +1242,68 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
     return dates.find((d) => d > day) ?? [...dates].reverse().find((d) => d < day) ?? null;
   }, [scoped, day]);
 
-  // Top performances: the current week first. An amateur calendar can go a
-  // full week without a goal, and an empty card says nothing — so when the
-  // week is blank the ranking widens to the whole competition and says so.
+  // Top performances : les cinq derniers matchs de chaque joueur, toutes
+  // competitions LOCALES confondues — le fournisseur externe ne donne pas le
+  // detail des buteurs par match, et les amicaux n'ont pas de console de
+  // score, donc ni l'un ni l'autre n'a de contribution a apporter ici.
+  //
+  // « Ses cinq derniers matchs » se lit sur les matchs ou il a marque ou fait
+  // marquer : c'est la seule trace qu'on ait de sa presence sur le terrain,
+  // faute de feuille de match systematique. Un joueur muet depuis six
+  // journees sort donc du classement, ce qui est le comportement voulu.
   const performances = useMemo(() => {
-    const source = compFilter ? feed.filter((f) => f.competition.id === compFilter) : feed;
-    const from = weekStart();
-    const to = addDays(from, 6);
+    const local = feed.filter(
+      (f) => f.competition.id !== FRIENDLY_COMP_ID && !isWorldComp(f.competition.id),
+    );
+    const source = compFilter ? local.filter((f) => f.competition.id === compFilter) : local;
 
-    const rank = (weekOnly: boolean): PerformanceRow[] =>
-      source
-        .flatMap((f) => {
-          const matches = weekOnly
-            ? f.matches.filter((m) => m.date != null && m.date >= from && m.date <= to)
-            : f.matches;
-          return computePlayerContributions(matches)
-            .map((row) => ({ ...row, competition: f.competition }));
-        })
+    // Par joueur : ses matchs, du plus recent au plus ancien.
+    const byPlayer = new Map<string, {
+      playerName: string;
+      teamId: string;
+      competition: Competition;
+      games: { date: string; goals: number; assists: number }[];
+    }>();
+
+    for (const f of source) {
+      for (const match of f.matches) {
+        if (!match.date) continue;
+        for (const row of computePlayerContributions([match])) {
+          const key = `${f.competition.id}::${row.teamId}::${row.playerName.toLowerCase()}`;
+          const entry = byPlayer.get(key) ?? {
+            playerName: row.playerName,
+            teamId: row.teamId,
+            competition: f.competition,
+            games: [],
+          };
+          entry.games.push({ date: match.date, goals: row.goals, assists: row.assists });
+          byPlayer.set(key, entry);
+        }
+      }
+    }
+
+    const rows: PerformanceRow[] = [...byPlayer.values()].map((p) => {
+      const last5 = [...p.games].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+      const goals = last5.reduce((n, g) => n + g.goals, 0);
+      const assists = last5.reduce((n, g) => n + g.assists, 0);
+      return {
+        playerName: p.playerName,
+        teamId: p.teamId,
+        competition: p.competition,
+        goals,
+        assists,
+        total: goals + assists,
+      };
+    });
+
+    return {
+      rows: rows
+        .filter((r) => r.total > 0)
         .sort((a, b) => b.total - a.total || b.goals - a.goals
           || a.playerName.localeCompare(b.playerName))
-        .slice(0, 5);
-
-    const week = rank(true);
-    return week.length > 0
-      ? { rows: week, scope: "week" as const }
-      : { rows: rank(false), scope: "all" as const };
+        .slice(0, 5),
+      scope: "last5" as const,
+    };
   }, [feed, compFilter]);
 
   const liveCount = liveEntries.length;
@@ -1170,7 +1312,7 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
   if (feed.length === 0) {
     return (
       <div className="mx-auto max-w-6xl">
-        <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-gray-200 bg-white py-16">
+        <div className="flex flex-col items-center border border-gray-200/70 bg-white py-16">
           <Trophy size={32} className="text-gray-300" />
           <h3 className="mt-4 font-display text-lg font-black text-gray-900">
             Aucune compétition en cours
@@ -1225,15 +1367,6 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
         </Link>
       </div>
 
-      {/* SEO/context line, like the model's "Football today - livescore …" */}
-      <p className="text-[11px] font-bold text-gray-400">
-        Football togolais en direct — scores, calendrier et résultats
-        {competitions.length > 0
-          ? ` de ${competitions.slice(0, 3).map((c) => c.name).join(", ")}`
-          : ""}
-        .
-      </p>
-
       {/* Three blocks, two shapes: stacked on a phone in reading order
           (affiche → tableau → buteurs), two columns from lg where the board
           runs full height on the left and the rail stacks on the right. */}
@@ -1249,9 +1382,9 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
         </div>
 
         {/* ---- The fixture board ---- */}
-        <div className="order-2 min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <div className="order-2 min-w-0 overflow-hidden border border-gray-200/70 bg-white lg:col-start-1 lg:row-span-2 lg:row-start-1">
           {/* Tabs + day pager */}
-          <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3">
+          <div className="flex items-center justify-between gap-2 border-b border-gray-200/70 px-3">
             <div className="flex min-w-0 gap-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {LIST_TABS.map((t) => (
                 <button
@@ -1271,7 +1404,8 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
             </div>
 
             {tab !== "comps" && (
-              <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-gray-200 p-0.5">
+              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-gray-200/70 p-0.5">
                 <button
                   type="button"
                   aria-label="Jour précédent"
@@ -1296,12 +1430,13 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
                   <ChevronRight size={14} />
                 </button>
               </div>
+              </div>
             )}
           </div>
 
           {/* Status chips + spoiler switch */}
           {tab !== "comps" && (
-            <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
+            <div className="flex items-center justify-between gap-2 border-b border-gray-200/70 px-3 py-2">
               <div className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   type="button"
@@ -1353,6 +1488,7 @@ export default function DirectHomeV2({ initialFeed }: { initialFeed: Competition
           {tab === "comps" ? (
             <CompetitionsDirectory
               competitions={competitions}
+              worldCompetitions={worldCompetitions}
               compFavs={compFavs}
               onStar={toggleCompFav}
             />

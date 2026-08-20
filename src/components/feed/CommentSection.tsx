@@ -10,7 +10,11 @@ import type { Comment } from "@/types";
 interface CommentSectionProps {
   postId: string;
   commentCount: number;
-  currentUser: { uid: string; name: string };
+  /**
+   * Le lecteur, ou `null` sans compte. Les commentaires restent lisibles —
+   * c'est une page publique — mais on ne peut pas en ecrire.
+   */
+  currentUser: { uid: string; name: string } | null;
 }
 
 export function CommentSection({ postId, currentUser }: CommentSectionProps) {
@@ -26,6 +30,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
   }, [postId]);
 
   const handleSubmit = async () => {
+    if (!currentUser) return;
     if (!newComment.trim()) return;
     setSubmitting(true);
     try {
@@ -49,12 +54,13 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
 
   return (
     <div className="px-4 py-3 space-y-3">
-      {/* Input */}
+      {/* Saisie : reservee a qui a un compte. Le fil, lui, reste lisible. */}
+      {currentUser && (
       <div className="flex gap-2 items-center">
         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(currentUser.name)}`}>
           {initials(currentUser.name)}
         </div>
-        <div className="flex flex-1 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5">
+        <div className="flex flex-1 items-center gap-2 rounded-full border border-gray-200/70 bg-gray-50 px-3 py-1.5">
           <input
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -71,6 +77,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
           </button>
         </div>
       </div>
+      )}
 
       {/* Comments list */}
       {loading ? (
@@ -79,8 +86,8 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
             <div key={i} className="flex gap-2">
               <div className="h-7 w-7 animate-pulse rounded-full bg-gray-200" />
               <div className="flex-1 space-y-1">
-                <div className="h-3 w-24 animate-pulse rounded bg-gray-200" />
-                <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                <div className="h-3 w-24 animate-pulse bg-gray-200" />
+                <div className="h-3 w-full animate-pulse bg-gray-200" />
               </div>
             </div>
           ))}
@@ -102,7 +109,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
                 {initials(c.authorName)}
               </div>
               <div className="flex-1">
-                <div className="inline-block rounded-2xl bg-gray-100 px-3 py-2 max-w-full">
+                <div className="inline-block bg-gray-100 px-3 py-2 max-w-full">
                   <p className="text-xs font-semibold text-gray-900">{c.authorName}</p>
                   <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{c.content}</p>
                 </div>

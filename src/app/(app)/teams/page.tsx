@@ -86,11 +86,11 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl"
+        className="w-full max-w-md border border-gray-200/70 bg-white shadow-xl"
       >
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
-          <h2 className="text-lg font-bold text-gray-900 font-display">Créer une équipe</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100">
+        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
+          <h2 className="font-display text-lg font-black tracking-tight text-gray-900">Créer une équipe</h2>
+          <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100">
             <X size={20} />
           </button>
         </div>
@@ -105,7 +105,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="FC Koppa"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             />
           </div>
 
@@ -118,7 +118,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
               value={form.city}
               onChange={(e) => setForm({ ...form, city: e.target.value })}
               placeholder="Paris"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             />
           </div>
 
@@ -130,7 +130,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
               placeholder="Décris ton équipe..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 resize-none"
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 resize-none"
             />
           </div>
 
@@ -141,7 +141,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
               <select
                 value={form.level}
                 onChange={(e) => setForm({ ...form, level: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
+                className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
               >
                 <option value="beginner">Débutant</option>
                 <option value="amateur">Amateur</option>
@@ -157,7 +157,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
                 max={25}
                 value={form.maxMembers}
                 onChange={(e) => setForm({ ...form, maxMembers: Number(e.target.value) })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
               />
             </div>
           </div>
@@ -173,7 +173,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
                   onClick={() => setForm({ ...form, color: c.value })}
                   className={`h-8 w-8 rounded-full ${c.class} transition-all ${
                     form.color === c.value
-                      ? "ring-2 ring-offset-2 ring-primary-600 scale-110"
+                      ? "ring-2 ring-offset-2 ring-gray-900 scale-110"
                       : "opacity-60 hover:opacity-100"
                   }`}
                   title={c.label}
@@ -186,7 +186,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
           <button
             type="submit"
             disabled={submitting || !form.name.trim() || !form.city.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <><Loader2 size={16} className="animate-spin" /> Création...</>
@@ -256,24 +256,24 @@ export default function TeamsPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="h-8 w-40 animate-pulse rounded-lg bg-gray-200" />
+            <div className="h-8 w-40 animate-pulse bg-gray-200" />
             <div className="mt-2 h-4 w-56 animate-pulse rounded bg-gray-100" />
           </div>
-          <div className="h-10 w-40 animate-pulse rounded-lg bg-gray-200" />
+          <div className="h-10 w-40 animate-pulse bg-gray-200" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {[1, 2].map((i) => (
-            <div key={i} className="rounded-xl border border-gray-200 bg-white">
+            <div key={i} className=" border border-gray-200/70 bg-white">
               <div className="h-1 animate-pulse bg-gray-200" />
               <div className="p-5 space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="h-12 w-12 animate-pulse rounded-xl bg-gray-200" />
+                  <div className="h-12 w-12 animate-pulse bg-gray-200" />
                   <div className="flex-1 space-y-2">
                     <div className="h-5 w-28 animate-pulse rounded bg-gray-200" />
                     <div className="h-3 w-20 animate-pulse rounded bg-gray-100" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 rounded-lg bg-gray-50 p-3">
+                <div className="grid grid-cols-3 gap-3 bg-gray-50 p-3">
                   {[1, 2, 3].map((j) => (
                     <div key={j} className="flex flex-col items-center gap-1">
                       <div className="h-6 w-8 animate-pulse rounded bg-gray-200" />
@@ -282,8 +282,8 @@ export default function TeamsPage() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <div className="h-9 flex-1 animate-pulse rounded-lg bg-gray-200" />
-                  <div className="h-9 w-24 animate-pulse rounded-lg bg-gray-100" />
+                  <div className="h-9 flex-1 animate-pulse bg-gray-200" />
+                  <div className="h-9 w-24 animate-pulse bg-gray-100" />
                 </div>
               </div>
             </div>
@@ -302,8 +302,10 @@ export default function TeamsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 font-display">Mes équipes</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="font-display text-3xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-4xl">
+            Mes équipes
+          </h1>
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
             {isManager
               ? `${teams.length} équipe${teams.length > 1 ? "s" : ""} gérée${teams.length > 1 ? "s" : ""}`
               : `${teams.length} équipe${teams.length > 1 ? "s" : ""} rejointe${teams.length > 1 ? "s" : ""}`}
@@ -322,7 +324,7 @@ export default function TeamsPage() {
           {isManager && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+              className="inline-flex items-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
             >
               <Plus size={16} /> Créer une équipe
             </button>
@@ -343,7 +345,7 @@ export default function TeamsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: i * 0.08 }}
                 whileHover={{ y: -2 }}
-                className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+                className="group relative overflow-hidden border border-gray-200/70 bg-white transition-shadow"
               >
                 {/* Color stripe top */}
                 <div className={`h-1 ${colors.stripe}`} />
@@ -352,7 +354,7 @@ export default function TeamsPage() {
                   {/* Team header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${colors.bg}`}>
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${colors.bg}`}>
                         {team.logoUrl
                           ? <img src={team.logoUrl} alt={team.name} className="h-full w-full object-cover" />
                           : <Shield size={24} className={colors.icon} />}
@@ -372,7 +374,7 @@ export default function TeamsPage() {
                   </div>
 
                   {/* Stats row */}
-                  <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 rounded-lg bg-gray-50 p-2.5 sm:p-3">
+                  <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 bg-gray-50 p-2.5 sm:p-3">
                     <div className="text-center">
                       <p className="text-base sm:text-lg font-bold text-gray-900 font-display">{team.memberIds.length + (ghostCounts.get(team.id) ?? 0)}</p>
                       <p className="text-xs text-gray-500">Joueurs</p>
@@ -403,14 +405,14 @@ export default function TeamsPage() {
                   <div className="mt-3 sm:mt-4 flex gap-2">
                     <Link
                       href={`/teams/${team.id}`}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="flex flex-1 items-center justify-center gap-1 border border-gray-200/70 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Voir l&apos;équipe <ChevronRight size={14} />
                     </Link>
                     {isManager && (
                       <Link
                         href={`/teams/${team.id}`}
-                        className="flex items-center justify-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-xs sm:text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="flex items-center justify-center gap-1 border border-blue-200 px-3 py-2 text-xs sm:text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
                       >
                         <Settings size={14} /> Gérer
                       </Link>
@@ -427,10 +429,10 @@ export default function TeamsPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+          className="flex flex-col items-center border border-gray-200/70 bg-white py-16"
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50">
-            <Users size={32} className="text-primary-400" />
+          <div className="flex h-16 w-16 items-center justify-center bg-emerald-50">
+            <Users size={30} strokeWidth={1.4} className="text-gray-300" />
           </div>
           <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucune équipe</h3>
           <p className="mt-1 text-sm text-gray-500">
@@ -439,12 +441,12 @@ export default function TeamsPage() {
           {isManager ? (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all"
+              className="mt-6 inline-flex items-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all"
             >
               <Plus size={16} /> Créer une équipe
             </button>
           ) : (
-            <span className="mt-6 inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-400">
+            <span className="mt-6 inline-flex cursor-not-allowed items-center gap-2 bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-400">
               <Search size={16} /> Le mercato arrive bientôt
             </span>
           )}
@@ -457,7 +459,7 @@ export default function TeamsPage() {
       {isManager && ghostTeams.length > 0 && (
         <div className="space-y-3">
           <div>
-            <h2 className="font-display text-lg font-bold text-gray-900">Adversaires hors plateforme</h2>
+            <h2 className="font-display text-lg font-black tracking-tight text-gray-900">Adversaires hors plateforme</h2>
             <p className="mt-0.5 text-sm text-gray-500">
               Les équipes que tu as créées pour planifier un match contre elles. Elles n&apos;apparaissent
               ni dans l&apos;annuaire ni dans le mercato.
@@ -467,10 +469,10 @@ export default function TeamsPage() {
             {ghostTeams.map((team) => (
               <div
                 key={team.id}
-                className="rounded-xl border border-dashed border-gray-300 bg-white p-4"
+                className=" border border-gray-200/70 bg-white p-4"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-100">
                     <Shield size={20} className="text-gray-400" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -482,7 +484,7 @@ export default function TeamsPage() {
                 </div>
                 <Link
                   href={`/teams/${team.id}`}
-                  className="mt-3 flex items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  className="mt-3 flex items-center justify-center gap-1 border border-gray-200/70 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
                 >
                   <Settings size={14} /> Composer l&apos;effectif
                 </Link>

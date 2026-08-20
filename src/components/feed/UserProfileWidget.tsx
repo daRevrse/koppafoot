@@ -15,7 +15,7 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
   const roleLabel = ROLE_LABELS[user.userType] ?? "Joueur";
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className=" border border-gray-200/70 bg-white p-4">
       {/* Avatar + name */}
       <div className="flex flex-col items-center text-center gap-2">
         <div className={`flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(`${user.firstName} ${user.lastName}`)}`}>
@@ -68,7 +68,7 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
 
       <Link
         href="/profile"
-        className="mt-4 flex w-full items-center justify-center rounded-xl border border-primary-200 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 transition-colors"
+        className="mt-4 flex w-full items-center justify-center border border-primary-200 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 transition-colors"
       >
         Voir mon profil
       </Link>

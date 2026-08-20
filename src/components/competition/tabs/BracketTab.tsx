@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -31,7 +29,7 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
 // the crest treatment used across the public competition pages.
 function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-[11px] font-black text-gray-500">
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-[11px] font-black text-gray-500">
       {logo ? (
         <Image src={logo} alt={name} width={28} height={28} className="h-full w-full object-cover" />
       ) : (
@@ -84,10 +82,10 @@ function BracketSide({
       ) : (
         <>
           <div
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] font-black ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center border border-dashed text-[11px] font-black ${
               placeholder
                 ? "border-emerald-200 bg-emerald-50 text-emerald-400"
-                : "border-gray-200 bg-gray-50 text-gray-300"
+                : "border-gray-200/70 bg-gray-50 text-gray-300"
             }`}
           >
             ?
@@ -127,8 +125,8 @@ function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
   return (
     <Link
       href={`/c/${slug}/matches/${match.id}`}
-      className={`group block w-60 overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-lg ${
-        isLive ? "border-red-100 hover:border-red-200" : "border-gray-100 hover:border-emerald-200"
+      className={`group block w-60 overflow-hidden border bg-white transition-all ${
+        isLive ? "border-red-100 hover:border-red-200" : "border-gray-200/70 hover:border-emerald-200"
       }`}
     >
       <div className="divide-y divide-gray-50">
@@ -167,42 +165,11 @@ function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
 // Component
 // ============================================
 
-export default function PublicBracketPage() {
+export default function BracketTab({ competition, matches }: {
+  competition: Competition;
+  matches: CompMatch[];
+}) {
   const { slug } = useParams() as { slug: string };
-  const [competition, setCompetition] = useState<Competition | null>(null);
-  const [matches, setMatches] = useState<CompMatch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  // Resolve competition by slug, then subscribe to knockout matches in real
-  // time. Anonymous reads work because Firestore rules allow read on
-  // competitions/**. Winners appear live as matches finish (onSnapshot data).
-  useEffect(() => {
-    if (!slug) return;
-    let unsubMatches: (() => void) | undefined;
-    let cancelled = false;
-
-    (async () => {
-      const comp = await getCompetitionBySlug(slug);
-      if (cancelled) return;
-      if (!comp) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      setCompetition(comp);
-      setLoading(false);
-      unsubMatches = onCompMatches(comp.id, (m) => {
-        if (!cancelled) setMatches(m.filter((x) => x.stage === "knockout"));
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      unsubMatches?.();
-    };
-  }, [slug]);
-
   // Bracket columns in display order; matches sorted by bracketSlot within each.
   const columns = useMemo(() => {
     return ROUND_ORDER.map((round) => ({
@@ -218,46 +185,13 @@ export default function PublicBracketPage() {
     [matches],
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Chargement du tableau...</p>
-      </div>
-    );
-  }
-
-  if (notFound || !competition) {
-    return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
-          <SearchX size={32} />
-        </div>
-        <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
-          <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const isEmpty = columns.length === 0 && !thirdPlace;
+const isEmpty = columns.length === 0 && !thirdPlace;
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div className="text-center">
-        <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
-          {competition.name}
-        </span>
-        <h1 className="font-display text-xl font-black text-gray-900">Tableau final</h1>
-      </div>
-
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-gray-100 bg-white py-20 text-center shadow-sm">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-50 text-gray-200">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center bg-gray-50 text-gray-200">
             <GitBranch size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">

@@ -27,7 +27,8 @@ export interface FootballMatch {
   id: number;
   utcDate: string;
   status: string;
-  competition: { name: string; emblem: string | null };
+  /** `code` sert a lier la ligne vers /competitions/monde/[code]. */
+  competition: { name: string; emblem: string | null; code: string | null };
   home: FootballTeamRef;
   away: FootballTeamRef;
   scoreHome: number | null;
@@ -109,7 +110,7 @@ interface ApiMatch {
   id: number;
   utcDate: string;
   status: string;
-  competition?: { name?: string; emblem?: string | null };
+  competition?: { name?: string; emblem?: string | null; code?: string | null };
   homeTeam?: ApiTeam;
   awayTeam?: ApiTeam;
   score?: { fullTime?: { home?: number | null; away?: number | null } };
@@ -185,7 +186,7 @@ function toMatch(m: ApiMatch): FootballMatch {
     id: m.id,
     utcDate: m.utcDate,
     status: m.status,
-    competition: { name: m.competition?.name ?? "", emblem: m.competition?.emblem ?? null },
+    competition: { name: m.competition?.name ?? "", emblem: m.competition?.emblem ?? null, code: m.competition?.code ?? null },
     home: { name: m.homeTeam?.shortName || m.homeTeam?.name || "—", crest: m.homeTeam?.crest ?? null },
     away: { name: m.awayTeam?.shortName || m.awayTeam?.name || "—", crest: m.awayTeam?.crest ?? null },
     scoreHome: m.score?.fullTime?.home ?? null,

@@ -10,8 +10,6 @@ import { getWorldCompetitions } from "@/lib/football-data";
 const APP_URL = "https://www.koppafoot.com";
 
 // Tabs every public competition has. /bracket is added only for the ones
-// actually in a knockout phase — an empty bracket is not worth indexing.
-const COMPETITION_TABS = ["", "/standings", "/calendar", "/scorers"];
 
 export const revalidate = 3600;
 
@@ -36,7 +34,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const competitionRoutes: MetadataRoute.Sitemap = competitions.flatMap((c) => {
-    const tabs = c.status === "knockout" ? [...COMPETITION_TABS, "/bracket"] : COMPETITION_TABS;
+    // Une seule URL par competition : les onglets sont desormais des etats
+    // de la meme page (?tab=), pas des routes a indexer separement.
+    const tabs = [""];
     return tabs.map((tab) => ({
       url: `${APP_URL}/c/${c.slug}${tab}`,
       lastModified: c.updatedAt ? new Date(c.updatedAt) : now,

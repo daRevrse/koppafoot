@@ -217,6 +217,13 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
+    // Le role Evolution — ce qu'on est sur le terrain, par opposition a
+    // `user_type` qui dit ce qu'est le compte. Il manquait ici alors que
+    // AuthContext et la projection publique le portent tous les deux : une
+    // fiche lue par un visiteur l'avait donc, la meme fiche relue une fois
+    // connecte le perdait, et toute section conditionnee dessus disparaissait
+    // sous les yeux du lecteur.
+    ...(data.evolution_role !== undefined && { evolutionRole: data.evolution_role }),
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,
     followedCompetitionIds: data.followed_competition_ids ?? [],
@@ -1473,13 +1480,38 @@ export async function searchPlayers(filters: { city?: string; position?: string;
 // Referees (for referee search)
 // ============================================
 
+/**
+ * Les arbitres, sur DEUX signaux réunis.
+ *
+ * Depuis que l'arbitre est un rôle Evolution activable librement, deux
+ * populations coexistent :
+ *
+ * - les comptes qui viennent de l'activer, marqués `evolution_role`. Un
+ *   organisateur qui arbitre garde son `user_type: "organizer"` (l'activation
+ *   préserve les types privilégiés), donc lui seul ce champ le désigne ;
+ * - les arbitres d'avant, désignés par `user_type: "referee"` et sans
+ *   `evolution_role`.
+ *
+ * Firestore ne sait pas faire un OU sur deux champs : on lance donc les deux
+ * requêtes et on fusionne. Filtrer sur un seul des deux aurait rendu invisible
+ * la moitié des arbitres — et laquelle dépend de leur ancienneté.
+ */
 export async function searchReferees(filters: { city?: string; licenseLevel?: string; query?: string }): Promise<UserProfile[]> {
-  const constraints: QueryConstraint[] = [where("user_type", "==", "referee"), where("is_active", "==", true)];
-  if (filters.city) constraints.push(where("location_city", "==", filters.city));
-  if (filters.licenseLevel) constraints.push(where("license_level", "==", filters.licenseLevel));
-  const q = query(collection(db, "users"), ...constraints);
-  const snap = await getDocs(q);
-  let results = snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
+  const common: QueryConstraint[] = [where("is_active", "==", true)];
+  if (filters.city) common.push(where("location_city", "==", filters.city));
+  if (filters.licenseLevel) common.push(where("license_level", "==", filters.licenseLevel));
+
+  const [parRole, parType] = await Promise.all([
+    getDocs(query(collection(db, "users"), where("evolution_role", "==", "referee"), ...common)),
+    getDocs(query(collection(db, "users"), where("user_type", "==", "referee"), ...common)),
+  ]);
+
+  const vus = new Set<string>();
+  let results = [...parRole.docs, ...parType.docs].flatMap((d) => {
+    if (vus.has(d.id)) return [];
+    vus.add(d.id);
+    return [toUserProfile(d.id, d.data() as FirestoreUser)];
+  });
   if (filters.query) {
     const search = filters.query.toLowerCase();
     results = results.filter((r) => `${r.firstName} ${r.lastName}`.toLowerCase().includes(search));

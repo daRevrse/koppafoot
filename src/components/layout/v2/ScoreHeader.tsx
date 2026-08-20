@@ -6,8 +6,8 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, Newspaper, ArrowLeftRight, Globe, Search, ChevronDown, User, Briefcase,
-  Rocket, ClipboardList, Plus, Radio, Shield, LogOut, Share2, Check, Sparkles,
-  ExternalLink,
+  Link2 as LinkIcon, ArrowUpRight,
+  Rocket, ClipboardList, Plus, Radio, Shield, LogOut, Share2, Check, Sparkles, MapPin,
   Users, ClipboardCheck, CalendarDays, BarChart3,
   type LucideIcon,
 } from "lucide-react";
@@ -40,15 +40,56 @@ interface NavEntry {
   label: string;
   Icon: LucideIcon;
   exact?: boolean;
+  /**
+   * Ouvre dans un nouvel onglet. Reserve aux pages vitrine : elles sortent du
+   * produit pour argumenter, et quelqu'un qui suit un match en direct ne doit
+   * pas perdre son ecran pour aller lire une presentation.
+   */
+  newTab?: boolean;
+  /** Ce qu'on trouve derriere, pour le megamenu. */
+  blurb?: string;
 }
 
 const PRIMARY: NavEntry[] = [
   { href: HOME, label: "Direct", Icon: Flame, exact: true },
   { href: "/actus", label: "Actus", Icon: Newspaper },
-  // Transfer arrows, not a shop front: the mercato is a market of movements
-  // between clubs, and the storefront icon read as "boutique".
-  { href: "/mercato", label: "Mercato", Icon: ArrowLeftRight },
 ];
+
+/**
+ * Les portes d'entree du produit, autrefois repliees dans un menu « Extra ».
+ *
+ * Le repli partait d'une bonne intention — ce sont des actions, pas des
+ * sections — mais il enterrait trois pages faites pour etre trouvees par
+ * quelqu'un qui ne connait pas encore le produit. Une page d'acquisition
+ * derriere un menu deroulant est une page qu'on ne lit pas.
+ *
+ * Les libelles portent le nom de produit complet — c'est ainsi que ces trois
+ * espaces s'appellent, et la rangee est le seul endroit ou ils sont nommes.
+ */
+const ENTRIES: NavEntry[] = [
+  {
+    href: "/organisateurs", label: "Koppafoot Organize", Icon: Trophy, newTab: true,
+    blurb: "Monter une compétition, tenir son calendrier et la diffuser en direct.",
+  },
+  {
+    href: "/roles", label: "Koppafoot Evolution", Icon: Sparkles, newTab: true,
+    blurb: "Choisir ce qu'on devient ici : joueur, manager, arbitre, organisateur.",
+  },
+  {
+    href: "/terrains", label: "MyFields", Icon: MapPin, newTab: true,
+    blurb: "Référencer un terrain et se rendre trouvable par les équipes.",
+  },
+];
+
+/**
+ * Le mercato ne s'affiche qu'une fois connecte. Sans compte, la page ne
+ * propose que des arrivees deja confirmees — et ces memes arrivees sont
+ * desormais dans le rail du Direct, ou un visiteur les croise sans avoir a
+ * pousser une porte qui ne s'ouvre pas pour lui.
+ *
+ * Fleches de transfert, pas devanture : l'icone boutique se lisait « shop ».
+ */
+const MERCATO: NavEntry = { href: "/mercato", label: "Mercato", Icon: ArrowLeftRight };
 
 /**
  * La Tribune does not exist for a visitor: its posts are gated behind
@@ -94,6 +135,77 @@ function useDropdown() {
   return { open, setOpen, boxRef };
 }
 
+/**
+ * « Koppa Links » — les portes du produit, repliees dans un megamenu.
+ *
+ * Une fois connecte, la barre portait sept entrees : Direct, Actus, Mercato,
+ * la Tribune et les trois portes. Les trois portes sont celles qui QUITTENT
+ * l'application — nouvel onglet, site de presentation. Les replier laisse
+ * dans la barre ce qui est vraiment de la navigation interne.
+ *
+ * Typographie large a dessein : ce ne sont pas des lignes de menu mais trois
+ * produits, et chacun a droit a son nom en grand et a une phrase qui dit ce
+ * qu'il y a derriere. Un megamenu qui ne ferait que grossir une liste de
+ * libelles n'aurait rien resolu.
+ */
+function KoppaLinksMenu() {
+  const { open, setOpen, boxRef } = useDropdown();
+
+  return (
+    <div ref={boxRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
+          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+        }`}
+      >
+        <LinkIcon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
+        Koppa Links
+        <ChevronDown
+          size={15}
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-[26rem] border border-gray-200/70 bg-white shadow-xl">
+          {ENTRIES.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="group flex items-start gap-4 border-b border-gray-200/70 px-6 py-5 transition-colors last:border-b-0 hover:bg-gray-50"
+            >
+              <item.Icon
+                size={26}
+                strokeWidth={1.5}
+                className="mt-1 shrink-0 text-gray-300 transition-colors group-hover:text-emerald-600"
+              />
+              <span className="min-w-0">
+                <span className="block font-display text-xl font-black uppercase leading-tight tracking-tight text-gray-900">
+                  {item.label}
+                </span>
+                <span className="mt-1.5 block text-[13px] font-medium leading-relaxed text-gray-500">
+                  {item.blurb}
+                </span>
+              </span>
+              <ArrowUpRight
+                size={17}
+                className="mt-1 shrink-0 text-gray-300 transition-colors group-hover:text-emerald-600"
+              />
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MenuLink({
   href, label, Icon, onClick,
 }: {
@@ -111,52 +223,22 @@ function MenuLink({
   );
 }
 
-/**
- * Same row, but leaving the app. The organizer site has its own chrome and
- * its own reading order — opening it in place would swap the furniture under
- * someone who was watching a match.
- */
-function MenuExternalLink({
-  href, label, Icon, onClick,
-}: {
-  href: string; label: string; Icon: LucideIcon; onClick: () => void;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={onClick}
-      className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-gray-50"
-    >
-      <Icon size={15} className="shrink-0 text-emerald-500" />
-      <span className="truncate text-[13px] font-bold text-gray-700">{label}</span>
-      <ExternalLink size={12} className="ml-auto shrink-0 text-gray-300" />
-    </a>
-  );
-}
-
 // ---- Account: the one menu on the right --------------------------------------
 
-/**
- * Extra — what the product offers you, as opposed to the sections above it.
- *
- * Organising a competition and inviting a friend are actions, not places, so
- * they sat awkwardly as tabs between Direct and La Tribune. Folded into one
- * dropdown they keep their place in the menu without competing with the
- * sections for the eye.
- */
-function ExtraMenu() {
-  const { user } = useAuth();
+
+function AccountMenu() {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const authModal = useAuthModal();
   const { open, setOpen, boxRef } = useDropdown();
   const [copied, setCopied] = useState(false);
   const [moderates, setModerates] = useState(false);
 
   const organizes = user?.userType === "organizer" || user?.userType === "superadmin";
 
-  // Same signal as the sidebar: without it /live-ops is unreachable, and a
-  // moderator has no way into the console they were handed a code for.
-  // Resolved only when the menu opens — it is a collection read.
+  // Meme signal que la barre laterale : sans lui /live-ops est injoignable, et
+  // un moderateur n'a aucune porte vers la console dont on lui a donne le
+  // code. Resolu seulement a l'ouverture — c'est une lecture de collection.
   useEffect(() => {
     if (!open || !user) return;
     let cancelled = false;
@@ -168,90 +250,12 @@ function ExtraMenu() {
 
   const handleInvite = async () => {
     const result = await shareInviteLink(user?.firstName);
-    // The share sheet speaks for itself; a silent clipboard copy does not.
+    // La feuille de partage parle d'elle-meme ; une copie silencieuse non.
     if (result === "copied") {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     }
   };
-
-  return (
-    <div ref={boxRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-        }`}
-      >
-        <Sparkles size={17} className="text-amber-300" />
-        Extra
-        <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1 shadow-lg">
-          {/* The consoles first: for the few who have them, this is why they
-              opened the menu. */}
-          {organizes && (
-            <MenuLink
-              href="/organizer"
-              label="Espace organisateur"
-              Icon={ClipboardList}
-              onClick={() => setOpen(false)}
-            />
-          )}
-          {moderates && (
-            <MenuLink
-              href="/live-ops"
-              label="Espace live"
-              Icon={Radio}
-              onClick={() => setOpen(false)}
-            />
-          )}
-          {(organizes || moderates) && <div className="my-1 border-t border-gray-100" />}
-
-          {organizes ? (
-            <MenuLink
-              href="/organizer/competitions/new"
-              label="Nouvelle compétition"
-              Icon={Plus}
-              onClick={() => setOpen(false)}
-            />
-          ) : (
-            <MenuExternalLink
-              href="/organisateurs"
-              label="Organiser ma compétition"
-              Icon={Trophy}
-              onClick={() => setOpen(false)}
-            />
-          )}
-          <button
-            type="button"
-            onClick={handleInvite}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-          >
-            {copied ? (
-              <Check size={15} className="shrink-0 text-emerald-500" />
-            ) : (
-              <Share2 size={15} className="shrink-0 text-emerald-500" />
-            )}
-            <span className="truncate text-[13px] font-bold text-gray-700">
-              {copied ? "Lien copié !" : "Inviter un ami"}
-            </span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AccountMenu() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
-  const authModal = useAuthModal();
-  const { open, setOpen, boxRef } = useDropdown();
 
   // Signed out: the same slot becomes the way in — and the way in is a
   // dialog, not a page, so nobody loses the match they were reading.
@@ -284,11 +288,19 @@ function AccountMenu() {
         ? ROLE_ITEMS.player
         : [];
 
-  // The organizer and live consoles moved to the Extra menu: they are rooms
-  // in the product, not settings on this account, and the avatar menu was
-  // becoming the place everything went when it fitted nowhere else. What
-  // stays here is what is about *you* — your role, and the admin console.
-  const spaces: NavEntry[] = [{ href: "/evolution", ...evolution }];
+  // Les consoles reviennent ici avec la disparition du menu Extra. Elles y
+  // sont a leur place : ce sont des espaces qui n'existent que pour CE
+  // compte — on ne les voit que si on y a droit — a la difference des trois
+  // pages d'entree, qui s'adressent a tout le monde et vivent dans la barre.
+  const spaces: NavEntry[] = [];
+  if (organizes) {
+    spaces.push({ href: "/organizer", label: "Espace organisateur", Icon: ClipboardList });
+    spaces.push({ href: "/organizer/competitions/new", label: "Nouvelle compétition", Icon: Plus });
+  }
+  if (moderates) {
+    spaces.push({ href: "/live-ops", label: "Espace live", Icon: Radio });
+  }
+  spaces.push({ href: "/evolution", ...evolution });
   if (user.userType === "superadmin") {
     spaces.push({ href: "/admin", label: "Administration", Icon: Shield });
   }
@@ -348,6 +360,25 @@ function AccountMenu() {
             ))}
           </div>
 
+          {/* Inviter quelqu'un est un geste qu'on fait depuis son compte :
+              c'est SON lien de parrainage qui part. */}
+          <div className="border-t border-gray-50 py-1">
+            <button
+              type="button"
+              onClick={handleInvite}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+            >
+              {copied ? (
+                <Check size={15} className="shrink-0 text-emerald-500" />
+              ) : (
+                <Share2 size={15} className="shrink-0 text-emerald-500" />
+              )}
+              <span className="truncate text-[13px] font-bold text-gray-700">
+                {copied ? "Lien copié" : "Inviter un ami"}
+              </span>
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={async () => {
@@ -375,7 +406,10 @@ export default function ScoreHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   return (
-    <header className="bg-emerald-900 pt-safe">
+    // Colle en haut : sur un tableau de scores on defile beaucoup, et
+    // remonter chercher la navigation a chaque fois est un aller-retour
+    // inutile. z-40 passe au-dessus du contenu sans couvrir les modales.
+    <header className="sticky top-0 z-40 bg-emerald-900 pt-safe">
       <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-5 lg:px-8 lg:py-4">
         <Link href={HOME} className="flex shrink-0 items-center gap-2">
           <Image src="/branding/logo_symbol.png" alt="KoppaFoot" width={34} height={34} priority />
@@ -387,7 +421,10 @@ export default function ScoreHeader() {
         {/* Sections. Hidden on a phone: the bottom tab bar owns navigation
             there, and the mobile band stays light. */}
         <nav className="ml-auto hidden min-w-0 items-center gap-0.5 lg:flex">
-          {(user ? [...PRIMARY, TRIBUNE] : PRIMARY).map((item) => {
+          {(user
+            ? [...PRIMARY, MERCATO, TRIBUNE]
+            : PRIMARY
+          ).map((item) => {
             const active = item.exact
               ? pathname === item.href
               : pathname.startsWith(item.href);
@@ -395,6 +432,7 @@ export default function ScoreHeader() {
               <Link
                 key={item.href}
                 href={item.href}
+                {...(item.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 aria-current={active ? "page" : undefined}
                 className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
                   active
@@ -408,8 +446,9 @@ export default function ScoreHeader() {
             );
           })}
 
-          <span aria-hidden className="mx-1 h-5 w-px bg-white/15" />
-          <ExtraMenu />
+          {/* Les trois portes, repliees — la barre garde la navigation
+              interne, le megamenu porte ce qui sort de l'application. */}
+          <KoppaLinksMenu />
         </nav>
 
         {/* A field on a pointer, an icon on a phone — both open the same

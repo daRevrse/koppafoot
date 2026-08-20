@@ -6,7 +6,7 @@ export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organ
 
 // Role picked in the Évolution onboarding (null/absent = not activated yet;
 // everyone starts as a plain spectator account).
-export type EvolutionRole = "player" | "manager";
+export type EvolutionRole = "player" | "manager" | "referee";
 
 export type AuthProvider = "email" | "phone" | "google";
 

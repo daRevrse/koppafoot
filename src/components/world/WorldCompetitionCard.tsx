@@ -42,7 +42,7 @@ export default function WorldCompetitionCard({
   return (
     <Link
       href={`/competitions/monde/${competition.code}`}
-      className="group flex flex-col overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg"
+      className="group flex flex-col overflow-hidden transition-all hover:border-emerald-200"
     >
       {/* Emblem panel */}
       <div className="relative flex aspect-[16/9] w-full items-center justify-center bg-gradient-to-br from-gray-900 via-gray-900 to-emerald-950">

@@ -15,6 +15,7 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export interface Movement {
   id: string;
+  playerId: string | null;
   playerName: string;
   playerPhoto: string | null;
   playerPosition: string | null;
@@ -86,6 +87,7 @@ export async function getConfirmedMovements(max = 20): Promise<Movement[]> {
       const x = d.data() as Row;
       return {
         id: d.id,
+        playerId: str(x.receiver_id),
         playerName: str(x.receiver_name) ?? "Joueur",
         playerPhoto: str(x.receiver_photo),
         playerPosition: position(x.receiver_position),
@@ -101,6 +103,7 @@ export async function getConfirmedMovements(max = 20): Promise<Movement[]> {
       const x = d.data() as Row;
       return {
         id: d.id,
+        playerId: str(x.player_id),
         playerName: str(x.player_name) ?? "Joueur",
         playerPhoto: str(x.player_photo),
         playerPosition: position(x.player_position),
@@ -116,7 +119,7 @@ export async function getConfirmedMovements(max = 20): Promise<Movement[]> {
     // accepted — that is one arrival, not two. Keep the most recent record
     // of each (player, club) pair.
     const seen = new Set<string>();
-    return [...fromInvites, ...fromRequests]
+    const merged = [...fromInvites, ...fromRequests]
       .filter((m) => m.at !== "")
       .sort((a, b) => b.at.localeCompare(a.at))
       .filter((m) => {
@@ -126,8 +129,60 @@ export async function getConfirmedMovements(max = 20): Promise<Movement[]> {
         return true;
       })
       .slice(0, max);
+
+    return hydrateVisuals(merged);
   } catch (err) {
     console.error("getConfirmedMovements failed:", err);
     return [];
   }
+}
+
+/**
+ * Va chercher les visages et les blasons manquants.
+ *
+ * Les documents d'invitation et de candidature portent des champs denormalises
+ * (`receiver_photo`, `team_logo`) qui, dans les faits, sont vides sur la
+ * totalite des dossiers existants : ils n'ont jamais ete remplis a l'ecriture.
+ * Le rail affichait donc douze jeux d'initiales et douze ecussons par defaut.
+ *
+ * Plutot que de reparer l'ecriture retroactivement — ce qui demanderait une
+ * migration et ne reglerait rien pour les dossiers deja passes — on relit la
+ * source de verite : `users` et `teams`. C'est ce que fait deja la page
+ * mercato cote client, ici en une passe et avec le SDK admin.
+ *
+ * Deux lectures groupees au total, quel que soit le nombre de mouvements, et
+ * un echec laisse simplement les valeurs a null : on retombe sur les initiales.
+ */
+async function hydrateVisuals(movements: Movement[]): Promise<Movement[]> {
+  const playerIds = [...new Set(movements.filter((m) => !m.playerPhoto && m.playerId).map((m) => m.playerId as string))];
+  const teamIds = [...new Set(movements.filter((m) => !m.teamLogo && m.teamId).map((m) => m.teamId))];
+  if (playerIds.length === 0 && teamIds.length === 0) return movements;
+
+  const photoById = new Map<string, string>();
+  const logoById = new Map<string, string>();
+
+  try {
+    const [users, teams] = await Promise.all([
+      playerIds.length ? adminDb.getAll(...playerIds.map((id) => adminDb.doc(`users/${id}`))) : Promise.resolve([]),
+      teamIds.length ? adminDb.getAll(...teamIds.map((id) => adminDb.doc(`teams/${id}`))) : Promise.resolve([]),
+    ]);
+
+    for (const d of users) {
+      const url = str((d.data() as Row | undefined)?.profile_picture_url);
+      if (url) photoById.set(d.id, url);
+    }
+    for (const d of teams) {
+      const url = str((d.data() as Row | undefined)?.logo_url);
+      if (url) logoById.set(d.id, url);
+    }
+  } catch (err) {
+    console.error("hydrateVisuals failed:", err);
+    return movements;
+  }
+
+  return movements.map((m) => ({
+    ...m,
+    playerPhoto: m.playerPhoto ?? (m.playerId ? photoById.get(m.playerId) ?? null : null),
+    teamLogo: m.teamLogo ?? logoById.get(m.teamId) ?? null,
+  }));
 }

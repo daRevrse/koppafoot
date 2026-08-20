@@ -128,7 +128,7 @@ export async function GET(req: Request) {
       };
     });
 
-    // One pass over the profiles, split by user_type.
+    // One pass over the profiles, split by role.
     const players: Ranked[] = [];
     const terrains: Ranked[] = [];
     const arbitres: Ranked[] = [];
@@ -136,7 +136,16 @@ export async function GET(req: Request) {
     usersSnap.docs.forEach((d) => {
       const x = d.data() as Row;
       if (x.is_active === false) return;
-      const type = s(x.user_type);
+      // Le role Evolution passe AVANT le type de compte. `user_type` dit ce
+      // qu'est le compte — un organisateur reste `organizer` meme quand il
+      // active l'espace arbitre, parce que l'activation preserve les types
+      // privilegies. Classer sur lui seul rendait invisible tout arbitre qui
+      // est aussi autre chose, et la recherche est justement l'endroit ou un
+      // organisateur cherche quelqu'un pour siffler.
+      //
+      // Repli sur `user_type` pour les comptes d'avant, qui n'ont pas de role
+      // Evolution mais portent deja `referee` ou `venue_owner`.
+      const type = s(x.evolution_role) || s(x.user_type);
       const name = fullName(x);
       const city = s(x.location_city);
       const photo = s(x.profile_picture_url) || null;

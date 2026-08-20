@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
@@ -29,8 +30,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getUserById,
-  getTeamsByPlayer,
-  getTeamsByManager,
   isInShortlist,
   addToShortlist,
   removeFromShortlist,
@@ -96,9 +95,13 @@ type PublicTab = "overview" | "posts" | "galerie" | "palmares";
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-      <span className="text-2xl font-bold text-emerald-600">{value}</span>
-      <span className="mt-1 text-xs text-gray-500">{label}</span>
+    <div className="border border-gray-200/70 bg-white px-4 py-5 text-center">
+      <span className="block font-display text-3xl font-black tabular-nums leading-none text-gray-900">
+        {value}
+      </span>
+      <span className="mt-2 block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+        {label}
+      </span>
     </div>
   );
 }
@@ -108,7 +111,7 @@ function TeamCard({ team, showRecord }: { team: Team; showRecord?: boolean }) {
   const winRate = total > 0 ? Math.round((team.wins / total) * 100) : 0;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
       <div
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white text-sm font-bold"
         style={{ backgroundColor: team.color || "#10b981" }}
@@ -116,14 +119,16 @@ function TeamCard({ team, showRecord }: { team: Team; showRecord?: boolean }) {
         {team.name.charAt(0).toUpperCase()}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-gray-900">{team.name}</p>
-        <p className="text-xs text-gray-500 flex items-center gap-1">
-          <MapPin size={11} /> {team.city}
-        </p>
+        <p className="truncate text-sm font-bold text-gray-900">{team.name}</p>
+        {team.city && (
+          <p className="mt-0.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+            <MapPin size={11} /> {team.city}
+          </p>
+        )}
         {showRecord && (
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-1 text-[11px] font-bold tabular-nums text-gray-500">
             {team.wins}V – {team.draws}N – {team.losses}D
-            <span className="ml-1 text-emerald-600 font-medium">({winRate}% victoires)</span>
+            <span className="ml-1.5 font-black text-emerald-700">{winRate}%</span>
           </p>
         )}
       </div>
@@ -142,38 +147,25 @@ function PhysicalInfoCard({ profile }: { profile: UserProfile }) {
 
   return (
     <div>
-      <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-gray-400">
+      <h3 className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
         Informations physiques
       </h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {profile.strongFoot && (
-          <div className="rounded-xl border border-gray-100 bg-white p-3 text-center shadow-sm">
-            <Footprints size={18} className="mx-auto text-emerald-500 mb-1" />
-            <p className="text-xs text-gray-500">Pied fort</p>
-            <p className="text-sm font-semibold text-gray-900">{FOOT_LABELS[profile.strongFoot]}</p>
+      {/* Un seul bloc decoupe par des filets, plutot que quatre tuiles qui
+          flottent : quatre valeurs d'une meme fiche forment un tableau, pas
+          quatre objets independants. */}
+      <div className="grid grid-cols-2 border-x border-b border-gray-200/70 sm:grid-cols-4">
+        {([
+          profile.strongFoot ? { Icon: Footprints, label: "Pied fort", value: FOOT_LABELS[profile.strongFoot] } : null,
+          profile.height ? { Icon: Ruler, label: "Taille", value: `${profile.height} cm` } : null,
+          profile.weight ? { Icon: Weight, label: "Poids", value: `${profile.weight} kg` } : null,
+          age !== null ? { Icon: Cake, label: "Âge", value: `${age} ans` } : null,
+        ].filter(Boolean) as { Icon: typeof Ruler; label: string; value: string }[]).map(({ Icon, label, value }) => (
+          <div key={label} className="border-t border-gray-200/70 bg-white px-4 py-5 text-center [&+&]:border-l">
+            <Icon size={17} strokeWidth={1.5} className="mx-auto text-gray-300" />
+            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">{label}</p>
+            <p className="mt-1 font-display text-lg font-black leading-none text-gray-900">{value}</p>
           </div>
-        )}
-        {profile.height && (
-          <div className="rounded-xl border border-gray-100 bg-white p-3 text-center shadow-sm">
-            <Ruler size={18} className="mx-auto text-emerald-500 mb-1" />
-            <p className="text-xs text-gray-500">Taille</p>
-            <p className="text-sm font-semibold text-gray-900">{profile.height} cm</p>
-          </div>
-        )}
-        {profile.weight && (
-          <div className="rounded-xl border border-gray-100 bg-white p-3 text-center shadow-sm">
-            <Weight size={18} className="mx-auto text-emerald-500 mb-1" />
-            <p className="text-xs text-gray-500">Poids</p>
-            <p className="text-sm font-semibold text-gray-900">{profile.weight} kg</p>
-          </div>
-        )}
-        {age !== null && (
-          <div className="rounded-xl border border-gray-100 bg-white p-3 text-center shadow-sm">
-            <Cake size={18} className="mx-auto text-emerald-500 mb-1" />
-            <p className="text-xs text-gray-500">Âge</p>
-            <p className="text-sm font-semibold text-gray-900">{age} ans</p>
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -197,12 +189,12 @@ function PlayerSection({ profile, teams }: { profile: UserProfile; teams: Team[]
       {(position || level) && (
         <div className="flex flex-wrap gap-2">
           {position && (
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
+            <span className="flex items-center gap-1.5 border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
               <Target size={14} /> {position}
             </span>
           )}
           {level && (
-            <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-700">
+            <span className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
               <Star size={14} /> {level}
             </span>
           )}
@@ -257,7 +249,7 @@ function ManagerSection({ profile, teams }: { profile: UserProfile; teams: Team[
       )}
 
       {totalMatches > 0 && (
-        <div className="flex items-center gap-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+        <div className="flex items-center gap-4 border border-emerald-100 bg-emerald-50 p-4">
           <Trophy size={24} className="text-emerald-600" />
           <div>
             <p className="text-sm font-semibold text-gray-900">Taux de victoire global</p>
@@ -298,20 +290,20 @@ function RefereeSection({ profile }: { profile: UserProfile }) {
       {licenseLevel && (
         <div className="flex items-center gap-2">
           <Award size={16} className="text-purple-600" />
-          <span className="rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-700">
+          <span className="border border-purple-200 bg-purple-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-purple-700">
             Licence {licenseLevel}
           </span>
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         {maskedLicense && (
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className=" border border-gray-200/70 bg-white p-4">
             <p className="text-xs text-gray-500">N° de licence</p>
             <p className="mt-1 font-semibold text-gray-900 font-mono">{maskedLicense}</p>
           </div>
         )}
         {typeof profile.experienceYears === "number" && (
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className=" border border-gray-200/70 bg-white p-4">
             <p className="text-xs text-gray-500">Années d&apos;expérience</p>
             <p className="mt-1 font-semibold text-gray-900">
               {profile.experienceYears} an{profile.experienceYears > 1 ? "s" : ""}
@@ -327,7 +319,7 @@ function VenueOwnerSection({ profile }: { profile: UserProfile }) {
   return (
     <div className="space-y-4">
       {profile.companyName && (
-        <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
           <Building2 size={20} className="text-orange-500" />
           <div>
             <p className="text-xs text-gray-500">Société</p>
@@ -343,10 +335,54 @@ function VenueOwnerSection({ profile }: { profile: UserProfile }) {
 // Main Page
 // ============================================
 
+/**
+ * La fiche publique, telle que la sert /api/public/profile/[uid] : une
+ * projection en liste blanche, sans email ni telephone. Les champs absents
+ * restent indefinis — la page les traite deja comme optionnels.
+ */
+async function fetchPublicProfile(
+  uid: string,
+): Promise<{ profile: UserProfile; teams: Team[] } | null> {
+  try {
+    const res = await fetch(`/api/public/profile/${encodeURIComponent(uid)}`);
+    if (!res.ok) return null;
+    const { profile, teams } = await res.json();
+    if (!profile) return null;
+    const mapped = {
+      uid: profile.uid,
+      firstName: profile.first_name ?? "",
+      lastName: profile.last_name ?? "",
+      profilePictureUrl: profile.profile_picture_url ?? null,
+      coverPhotoUrl: profile.cover_photo_url ?? null,
+      bio: profile.bio ?? null,
+      locationCity: profile.location_city ?? null,
+      position: profile.position ?? null,
+      skillLevel: profile.skill_level ?? null,
+      strongFoot: profile.strong_foot ?? null,
+      height: profile.height ?? null,
+      weight: profile.weight ?? null,
+      dateOfBirth: profile.date_of_birth ?? null,
+      userType: profile.user_type ?? "member",
+      evolutionRole: profile.evolution_role ?? null,
+      jerseyNumber: profile.jersey_number ?? null,
+      galleryUrls: profile.gallery_urls ?? [],
+      // Le cast passe par `unknown` a dessein : UserProfile exige email,
+      // phone et quelques champs de compte que cette projection ne porte pas
+      // — c'est tout l'interet de la projection. La page ne lit aucun d'eux.
+    } as unknown as UserProfile;
+
+    // Les equipes arrivent deja au format de la page : l'endpoint les projette
+    // en camelCase, il n'y a rien a retraduire ici.
+    return { profile: mapped, teams: (teams ?? []) as Team[] };
+  } catch {
+    return null;
+  }
+}
+
 export default function PublicProfilePage() {
   const { uid } = useParams<{ uid: string }>();
   const router = useRouter();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, loading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -374,15 +410,44 @@ export default function PublicProfilePage() {
 
   const isOwnProfile = currentUser?.uid === uid;
 
-  // Load profile
+  // Chargement de la fiche.
+  //
+  // On attend que l'authentification soit TRANCHEE avant de lire. Sans cette
+  // attente, `currentUser` vaut null au premier rendu : la fiche se chargeait
+  // par la projection publique, s'affichait, puis l'auth arrivait, l'effet
+  // rejouait par getUserById et remplacait tout — les informations physiques
+  // apparaissaient et disparaissaient dans le meme souffle.
+  //
+  // Attendre coute quelques dizaines de millisecondes et economise une
+  // requete ; afficher deux fois coutait un clignotement a chaque ouverture.
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || authLoading) return;
 
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const p = await getUserById(uid);
+        // Connecte : lecture directe. Visiteur : `users` lui est ferme par les
+        // regles (le document porte email et telephone), donc on passe par la
+        // projection publique — voir /api/public/profile/[uid].
+        // La projection publique sert TOUT LE MONDE pour les equipes, y
+        // compris un lecteur connecte. Deux raisons :
+        //
+        // - `teams` est ferme aux visiteurs par les regles, donc la lecture
+        //   client ne rendait jamais rien sans compte : « Equipes (0) » etait
+        //   affiche a chaque visiteur, sur chaque fiche.
+        // - la lecture client etait branchee sur `user_type`, qui dit le type
+        //   de COMPTE. Un organisateur ou un manager qui joue n'entrait dans
+        //   aucune des deux branches, et voyait « Equipes (0) » alors meme
+        //   qu'il etait dans un effectif.
+        //
+        // L'endpoint interroge les deux appartenances — effectif et manager —
+        // sans rien supposer du role.
+        const pub = await fetchPublicProfile(uid);
+
+        // Connecte, la lecture directe reste la source de la FICHE : elle
+        // porte les champs de compte que la projection ne publie pas.
+        const p = currentUser ? await getUserById(uid) : pub?.profile ?? null;
         if (!p) {
           setProfile(null);
           setLoading(false);
@@ -390,14 +455,7 @@ export default function PublicProfilePage() {
         }
         setProfile(p);
         setFollowerCount(p.followersCount ?? 0);
-
-        if (p.userType === "player") {
-          const playerTeams = await getTeamsByPlayer(uid);
-          setTeams(playerTeams);
-        } else if (p.userType === "manager") {
-          const managerTeams = await getTeamsByManager(uid);
-          setTeams(managerTeams);
-        }
+        setTeams(pub?.teams ?? []);
       } catch {
         setError("Une erreur est survenue lors du chargement du profil.");
       } finally {
@@ -406,7 +464,7 @@ export default function PublicProfilePage() {
     }
 
     load();
-  }, [uid]);
+  }, [uid, currentUser, authLoading]);
 
   // Check follow status
   useEffect(() => {
@@ -538,7 +596,7 @@ export default function PublicProfilePage() {
         <p className="text-lg font-semibold text-gray-700">Profil introuvable</p>
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-2 border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           <ArrowLeft size={14} /> Retour
         </button>
@@ -552,7 +610,7 @@ export default function PublicProfilePage() {
         <p className="text-sm text-red-600">{error}</p>
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-2 border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           <ArrowLeft size={14} /> Retour
         </button>
@@ -569,140 +627,159 @@ export default function PublicProfilePage() {
     { key: "galerie", label: "Galerie", icon: ImageIcon },
   ];
 
+  // Ce qu'on EST sur le terrain n'est pas ce qu'est son COMPTE. `user_type`
+  // dit organizer, manager ou superadmin — c'est un type de compte. Le role
+  // Evolution dit joueur. Un organisateur qui joue avait donc une fiche vide :
+  // ses informations physiques etaient bien en base, mais la section qui les
+  // porte ne s'affichait que pour user_type === "player".
+  //
+  // Les deux signaux comptent : le role Evolution quand il existe, le type de
+  // compte pour les comptes anciens qui n'en ont jamais choisi.
+  const isPlayer = profile.evolutionRole === "player" || profile.userType === "player";
+  const isManager = profile.evolutionRole === "manager" || profile.userType === "manager";
+  const isReferee = profile.evolutionRole === "referee" || profile.userType === "referee";
+
   return (
-    <div className="mx-auto max-w-3xl">
-      {/* Back button */}
-      <button
-        onClick={() => router.back()}
-        className="mb-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+    <div className="mx-auto max-w-6xl pb-24">
+      {/* Fil d'ariane plutot qu'un bouton Retour : il dit d'ou l'on vient ET
+          ou l'on est, la ou « Retour » ne disait ni l'un ni l'autre. */}
+      <nav
+        aria-label="Fil d'ariane"
+        className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
       >
-        <ArrowLeft size={16} /> Retour
-      </button>
+        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        <span className="truncate text-gray-600">
+          {profile.firstName} {profile.lastName}
+        </span>
+      </nav>
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Cover photo */}
-        <div className="relative h-44 overflow-hidden rounded-t-2xl md:h-52">
+        {/* Hero collant sous le header, comme sur une competition. La photo
+            de couverture devient le fond : elle etait un bandeau decoratif de
+            180px qui poussait le contenu sous la ligne de flottaison. */}
+        <section className="sticky top-16 z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:top-[72px]">
           {profile.coverPhotoUrl ? (
-            <img src={profile.coverPhotoUrl} alt="" className="h-full w-full object-cover" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={profile.coverPhotoUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/85 to-gray-900/60" />
+            </>
           ) : (
-            <div className="h-full w-full bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-400" />
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
           )}
-        </div>
 
-        {/* Profile card */}
-        <div className="relative rounded-b-2xl border border-t-0 border-gray-200 bg-white px-6 pb-6">
-          <div className="flex items-end gap-4">
-            <div className="-mt-12 shrink-0">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-emerald-100 text-2xl font-bold text-emerald-700 shadow-md overflow-hidden">
+          <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 text-lg font-black text-white/80">
                 {profile.profilePictureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={profile.profilePictureUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
                   initials
                 )}
               </div>
-            </div>
 
-            <div className="flex flex-1 items-start justify-between pt-3 flex-wrap gap-3">
-              <div>
-                <h1 className="font-display text-xl font-bold text-gray-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                  {profile.locationCity ?? "Togo"}
+                </p>
+                <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
                   {profile.firstName} {profile.lastName}
                 </h1>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  {profile.locationCity && (
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <MapPin size={11} /> {profile.locationCity}
-                    </span>
-                  )}
-                  {/* Followers count */}
-                  <span className="flex items-center gap-1 text-xs text-gray-500">
-                    <Users size={11} /> {followerCount} abonné{followerCount > 1 ? "s" : ""}
-                  </span>
-                </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Follow button */}
+              {/* Les deux actions restent au niveau du nom : suivre quelqu'un
+                  et le mettre en selection se decident en le regardant. */}
+              <div className="hidden shrink-0 items-center gap-2 sm:flex">
                 {currentUser && !isOwnProfile && (
                   <button
                     onClick={handleFollow}
                     disabled={followLoading}
-                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${
+                    className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
                       following
-                        ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        : "bg-emerald-600 text-white hover:bg-emerald-700"
+                        ? "border-white/30 text-white/80 hover:border-white"
+                        : "border-white bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-300"
                     }`}
                   >
                     {followLoading ? (
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={13} className="animate-spin" />
                     ) : following ? (
-                      <UserMinus size={14} />
+                      <UserMinus size={13} />
                     ) : (
-                      <UserPlus size={14} />
+                      <UserPlus size={13} />
                     )}
                     {following ? "Abonné" : "Suivre"}
                   </button>
                 )}
 
-                {/* Mercato CTA */}
                 {isManagerViewingPlayer && (
                   <button
                     onClick={handleShortlist}
                     disabled={shortlistLoading}
-                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${
+                    className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
                       shortlistEntryId
-                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                        : "border border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                        ? "border-emerald-300 text-emerald-300"
+                        : "border-white/30 text-white/80 hover:border-white"
                     }`}
                   >
                     {shortlistLoading ? (
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={13} className="animate-spin" />
                     ) : shortlistEntryId ? (
-                      <CheckCircle size={14} />
+                      <CheckCircle size={13} />
                     ) : (
-                      <Plus size={14} />
+                      <Plus size={13} />
                     )}
-                    {shortlistEntryId ? "Dans la sélection" : "Ajouter au Mercato"}
+                    {shortlistEntryId ? "Dans la sélection" : "Mercato"}
                   </button>
                 )}
               </div>
             </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
+              <span className="text-emerald-300">
+                {followerCount} abonné{followerCount > 1 ? "s" : ""}
+              </span>
+              {teams.length > 0 && (
+                <span>{teams.length} équipe{teams.length > 1 ? "s" : ""}</span>
+              )}
+            </div>
+
+            {profile.bio && (
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">{profile.bio}</p>
+            )}
+          </div>
+        </section>
+
+        {/* Une seule carte, dont les onglets changent le contenu. */}
+        <div className="mt-6 border border-gray-200/70 bg-white">
+          <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+            {publicTabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                  activeTab === t.key
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          {/* Bio */}
-          {profile.bio && (
-            <p className="mt-4 text-sm text-gray-600 leading-relaxed">{profile.bio}</p>
-          )}
-        </div>
-
-        {/* Tabs */}
-        <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 scrollbar-hide">
-          {publicTabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`flex shrink-0 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
-                activeTab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <t.icon size={14} />
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div className="mt-6">
+          <div className="p-5">
           {/* ═══ OVERVIEW ═══ */}
           {activeTab === "overview" && (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-              {profile.userType === "player" && <PlayerSection profile={profile} teams={teams} />}
-              {profile.userType === "manager" && <ManagerSection profile={profile} teams={teams} />}
-              {profile.userType === "referee" && <RefereeSection profile={profile} />}
+            <div>
+              {isPlayer && <PlayerSection profile={profile} teams={teams} />}
+              {isManager && <ManagerSection profile={profile} teams={teams} />}
+              {isReferee && <RefereeSection profile={profile} />}
               {profile.userType === "venue_owner" && <VenueOwnerSection profile={profile} />}
             </div>
           )}
@@ -711,14 +788,14 @@ export default function PublicProfilePage() {
           {activeTab === "palmares" && (
             <div className="space-y-4">
               {(profile.trophies ?? []).length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                <div className="border border-gray-200/70 bg-white py-12 text-center">
                   <Trophy size={32} className="mx-auto text-gray-300" />
                   <p className="mt-3 text-sm font-medium text-gray-500">Aucun trophée</p>
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(profile.trophies ?? []).map((trophy, i) => (
-                    <div key={i} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div key={i} className="flex items-start gap-3 border border-gray-200/70 bg-white p-4">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
                         <Trophy size={20} className="text-amber-600" />
                       </div>
@@ -744,16 +821,19 @@ export default function PublicProfilePage() {
                   <Loader2 size={24} className="animate-spin text-emerald-500" />
                 </div>
               ) : posts.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                <div className="border border-gray-200/70 bg-white py-12 text-center">
                   <FileText size={32} className="mx-auto text-gray-300" />
                   <p className="mt-3 text-sm font-medium text-gray-500">Aucun post publié</p>
                 </div>
               ) : (
                 posts.map((post) => (
+                  // Plus de cast vers un UserProfile vide : PostCard accepte
+                  // desormais un lecteur absent, et c'est ce mensonge au
+                  // typage qui plantait sur charAt.
                   <PostCard
                     key={post.id}
                     post={post}
-                    currentUser={currentUser || ({} as UserProfile)}
+                    currentUser={currentUser}
                     onLikeAction={handleLike}
                     onDeleteAction={handleDeletePost}
                   />
@@ -766,14 +846,14 @@ export default function PublicProfilePage() {
           {activeTab === "galerie" && (
             <div>
               {(profile.galleryPhotos ?? []).length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                <div className="border border-gray-200/70 bg-white py-12 text-center">
                   <ImageIcon size={32} className="mx-auto text-gray-300" />
                   <p className="mt-3 text-sm font-medium text-gray-500">Aucune photo dans la galerie</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {(profile.galleryPhotos ?? []).map((url, i) => (
-                    <div key={i} className="aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+                    <div key={i} className="aspect-square overflow-hidden border border-gray-200/70 bg-gray-100">
                       <img src={url} alt="" className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
                     </div>
                   ))}
@@ -781,6 +861,7 @@ export default function PublicProfilePage() {
               )}
             </div>
           )}
+          </div>
         </div>
       </motion.div>
     </div>

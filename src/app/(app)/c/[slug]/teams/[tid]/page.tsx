@@ -4,9 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
 import {
-  Loader2, SearchX, CalendarDays, MapPin, Clock, ChevronRight, History, Shield, Users,
+  Loader2, SearchX, CalendarDays, MapPin, Clock, ChevronRight, History, Users,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
@@ -57,7 +56,7 @@ function formatShortDate(date: string): string {
 // Team crest: real logo when present, otherwise a first-letter avatar.
 function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-xs font-black text-gray-500">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-xs font-black text-gray-500">
       {logo ? (
         <Image src={logo} alt={name} width={32} height={32} className="h-full w-full object-cover" />
       ) : (
@@ -72,6 +71,11 @@ function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
 // ============================================
 
 export default function PublicTeamPage() {
+  // Deux onglets seulement : l'effectif et ce que l'equipe a fait. Le
+  // prochain match reste hors carte, au-dessus — c'est la seule chose de
+  // cette page qui perime.
+  const [tab, setTab] = useState<"roster" | "results">("roster");
+
   const { slug, tid } = useParams() as { slug: string; tid: string };
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [teams, setTeams] = useState<CompTeam[]>([]);
@@ -212,7 +216,7 @@ export default function PublicTeamPage() {
   if (notFound || !competition) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
+        <div className="flex h-16 w-16 items-center justify-center bg-gray-100 text-gray-300">
           <SearchX size={32} />
         </div>
         <div>
@@ -229,7 +233,7 @@ export default function PublicTeamPage() {
   if (teamsLoaded && !team) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
+        <div className="flex h-16 w-16 items-center justify-center bg-gray-100 text-gray-300">
           <SearchX size={32} />
         </div>
         <div>
@@ -259,52 +263,59 @@ export default function PublicTeamPage() {
   }
 
   return (
-    <div className="space-y-8 pb-20">
-      {/* Header */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center text-center"
+    <div className="mx-auto max-w-6xl pb-24">
+      {/* Fil d'ariane : ou l'on est, sans repeter le nom en dessous. */}
+      <nav
+        aria-label="Fil d'ariane"
+        className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
       >
-        <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
-          <Link href={`/c/${slug}`} className="hover:text-emerald-600">
-            {competition.name}
-          </Link>
-        </span>
+        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        <Link href={`/c/${slug}`} className="transition-colors hover:text-emerald-700">
+          {competition.name}
+        </Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        <span className="truncate text-gray-600">{team.name}</span>
+      </nav>
 
-        <div
-          className="mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[2rem] border border-gray-100 bg-gray-50 text-3xl font-black text-gray-400 shadow-sm"
-          style={!team.logoUrl && team.color ? { backgroundColor: team.color, color: "#fff" } : undefined}
-        >
-          {team.logoUrl ? (
-            <Image
-              src={team.logoUrl}
-              alt={team.name}
-              width={96}
-              height={96}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span>{team.name?.[0]?.toUpperCase() || "?"}</span>
-          )}
+      {/* Meme hero que sur une competition : compact, colle sous le header. */}
+      <section className="sticky top-16 z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5 lg:top-[72px]">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
+
+        <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-white/5 text-xl font-black text-white/70"
+              style={!team.logoUrl && team.color ? { backgroundColor: team.color, color: "#fff" } : undefined}
+            >
+              {team.logoUrl ? (
+                <Image src={team.logoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" />
+              ) : (
+                <span>{team.name?.[0]?.toUpperCase() || "?"}</span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                {competition.name}
+              </p>
+              <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
+                {team.name}
+              </h1>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
+            {team.group && <span>Groupe {team.group}</span>}
+            {standing && (
+              <span className="text-emerald-300">
+                {ordinal(standing.rank)} · {standing.points} pts
+              </span>
+            )}
+            <span>{roster.length} joueur{roster.length > 1 ? "s" : ""}</span>
+          </div>
         </div>
-
-        <h1 className="font-display text-2xl font-black tracking-tight text-gray-900">{team.name}</h1>
-
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-          {team.group && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-gray-600">
-              <Shield size={12} />
-              Groupe {team.group}
-            </span>
-          )}
-          {standing && (
-            <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-emerald-700">
-              {ordinal(standing.rank)} · {standing.points} pts
-            </span>
-          )}
-        </div>
-      </motion.section>
+      </section>
 
       {/* Prochain match */}
       <section className="space-y-3">
@@ -318,12 +329,12 @@ export default function PublicTeamPage() {
         {nextMatch ? (
           <Link
             href={`/c/${slug}/matches/${nextMatch.match.id}`}
-            className="group block overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg"
+            className="group block overflow-hidden rounded-[1.75rem] border border-gray-200/70 bg-white transition-all hover:border-emerald-200"
           >
             <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
               <div className="flex min-w-0 items-center gap-2">
                 {stageTag(nextMatch.match) && (
-                  <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
                     {stageTag(nextMatch.match)}
                   </span>
                 )}
@@ -376,12 +387,37 @@ export default function PublicTeamPage() {
             </div>
           </Link>
         ) : (
-          <div className="rounded-[1.75rem] border border-gray-100 bg-white px-5 py-8 text-center shadow-sm">
+          <div className="rounded-[1.75rem] border border-gray-200/70 bg-white px-5 py-8 text-center">
             <p className="text-sm font-bold text-gray-400 italic">Aucun match à venir.</p>
           </div>
         )}
       </section>
 
+      {/* Une seule carte, dont les onglets changent le contenu — la meme
+          structure que la page d'une competition. */}
+      <div className="mt-6 border border-gray-200/70 bg-white">
+        <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+          {([
+            { id: "roster" as const, label: "Effectif" },
+            { id: "results" as const, label: "Résultats" },
+          ]).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                tab === t.id
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-400 hover:text-gray-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5">
+          {tab === "results" && (
+            <>
       {/* Résultats */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 px-1">
@@ -392,7 +428,7 @@ export default function PublicTeamPage() {
         </div>
 
         {results.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-gray-100 bg-white px-5 py-8 text-center shadow-sm">
+          <div className="rounded-[1.75rem] border border-gray-200/70 bg-white px-5 py-8 text-center">
             <p className="text-sm font-bold text-gray-400 italic">Aucun match joué pour l&apos;instant.</p>
           </div>
         ) : (
@@ -421,14 +457,14 @@ export default function PublicTeamPage() {
                 <Link
                   key={match.id}
                   href={`/c/${slug}/matches/${match.id}`}
-                  className={`group block overflow-hidden rounded-[1.75rem] border border-l-4 bg-white shadow-sm transition-all hover:shadow-lg ${
-                    isLive ? "border-red-100 hover:border-red-200" : "border-gray-100 hover:border-emerald-200"
+                  className={`group block overflow-hidden rounded-[1.75rem] border border-l-4 bg-white transition-all ${
+                    isLive ? "border-red-100 hover:border-red-200" : "border-gray-200/70 hover:border-emerald-200"
                   } ${accent}`}
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
                     <div className="flex min-w-0 items-center gap-2">
                       {tag && (
-                        <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                        <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
                           {tag}
                         </span>
                       )}
@@ -465,7 +501,10 @@ export default function PublicTeamPage() {
           </div>
         )}
       </section>
-
+            </>
+          )}
+          {tab === "roster" && (
+            <>
       {/* Effectif */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 px-1">
@@ -476,13 +515,17 @@ export default function PublicTeamPage() {
         </div>
 
         {roster.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-gray-100 bg-white px-5 py-8 text-center shadow-sm">
+          <div className="rounded-[1.75rem] border border-gray-200/70 bg-white px-5 py-8 text-center">
             <p className="text-sm font-bold text-gray-400 italic">Effectif non communiqué.</p>
           </div>
         ) : (
           <RosterClaimList cid={competition.id} teamId={tid} roster={roster} />
         )}
       </section>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Search, MapPin, Filter, X,
   Bookmark, BookmarkCheck, Send, Clock,
-  Inbox, ChevronRight, Loader2, Users, Shield,
+  ChevronRight, Loader2, Users, Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -32,6 +32,9 @@ import type { UserProfile, ShortlistEntry, JoinRequest, Invitation, Team } from 
 const POSITION_LABELS: Record<string, string> = {
   goalkeeper: "Gardien", defender: "Défenseur", midfielder: "Milieu", forward: "Attaquant",
 };
+// Le poste garde sa couleur : c'est l'axe sur lequel un manager balaie une
+// grille de trente joueurs. Le niveau, lui, est passe en gris — deux echelles
+// de couleur cote a cote se lisent moins bien qu'une seule.
 const POSITION_COLORS: Record<string, string> = {
   goalkeeper: "bg-orange-100 text-orange-700", defender: "bg-blue-100 text-blue-700",
   midfielder: "bg-emerald-100 text-emerald-700", forward: "bg-amber-100 text-amber-700",
@@ -40,8 +43,8 @@ const LEVEL_LABELS: Record<string, string> = {
   beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Avancé",
 };
 const LEVEL_COLORS: Record<string, string> = {
-  beginner: "bg-green-100 text-green-700", amateur: "bg-blue-100 text-blue-700",
-  intermediate: "bg-amber-100 text-amber-700", advanced: "bg-red-100 text-red-700",
+  beginner: "bg-gray-100 text-gray-600", amateur: "bg-gray-100 text-gray-600",
+  intermediate: "bg-gray-100 text-gray-600", advanced: "bg-gray-900 text-white",
 };
 // Villes du public visé. La liste gelée proposait Paris/Lyon/Marseille/Toulouse,
 // héritage d'avant le pivot — inutilisable pour une audience togolaise.
@@ -68,18 +71,28 @@ function playerAge(dateOfBirth?: string): number | null {
 }
 
 const INV_STATUS_CONFIG = {
-  pending:  { label: "En attente", color: "bg-amber-100 text-amber-700" },
-  accepted: { label: "Acceptée",   color: "bg-emerald-100 text-emerald-700" },
-  declined: { label: "Déclinée",   color: "bg-red-100 text-red-700" },
+  pending:  { label: "En attente", color: "bg-gray-100 text-gray-600" },
+  accepted: { label: "Acceptée",   color: "bg-emerald-700 text-white" },
+  declined: { label: "Déclinée",   color: "bg-gray-900 text-white" },
 };
 
-const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string }> = {
-  amber: { bg: "bg-amber-100", icon: "text-amber-600", stripe: "bg-amber-500" },
-  blue: { bg: "bg-blue-100", icon: "text-blue-600", stripe: "bg-blue-500" },
-  red: { bg: "bg-red-100", icon: "text-red-600", stripe: "bg-red-500" },
-  emerald: { bg: "bg-emerald-100", icon: "text-emerald-600", stripe: "bg-emerald-500" },
-  purple: { bg: "bg-purple-100", icon: "text-purple-600", stripe: "bg-purple-500" },
-  orange: { bg: "bg-orange-100", icon: "text-orange-600", stripe: "bg-orange-500" },
+// Les gabarits affichaient jusqu'ici la valeur brute de la base — "pending",
+// "accepted" — a des lecteurs francophones.
+const APP_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente", accepted: "Acceptée", rejected: "Refusée",
+};
+
+// Couleur de fond du blason d'une equipe qui n'a pas de logo. Le liseré
+// (`stripe`) a disparu avec les cartes d'invitation : il etait choisi par la
+// premiere lettre du nom d'equipe contre des cles qui sont des noms de
+// couleurs, donc il retombait toujours sur emerald.
+const COLOR_MAP: Record<string, { bg: string; icon: string }> = {
+  amber: { bg: "bg-amber-100", icon: "text-amber-600" },
+  blue: { bg: "bg-blue-100", icon: "text-blue-600" },
+  red: { bg: "bg-red-100", icon: "text-red-600" },
+  emerald: { bg: "bg-emerald-100", icon: "text-emerald-600" },
+  purple: { bg: "bg-purple-100", icon: "text-purple-600" },
+  orange: { bg: "bg-orange-100", icon: "text-orange-600" },
 };
 
 function timeAgo(dateStr: string | undefined): string {
@@ -139,37 +152,37 @@ function InviteModal({ entry, teams, senderName, onClose, onSent }: {
     <div className="fixed inset-0 modal-layer flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        className="w-full max-w-md border border-gray-200/70 bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <PlayerAvatar name={entry.playerName} photo={entry.playerPhoto} size={40} />
-            <h3 className="truncate text-lg font-bold text-gray-900 font-display">Inviter {entry.playerName}</h3>
+            <h3 className="truncate font-display text-lg font-black tracking-tight text-gray-900">Inviter {entry.playerName}</h3>
           </div>
-          <button onClick={onClose} className="shrink-0 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button onClick={onClose} aria-label="Fermer" className="shrink-0 text-gray-400 transition-colors hover:text-gray-900"><X size={20} /></button>
         </div>
-        <div className="mt-4 space-y-4">
+        <div className="mt-6 space-y-5">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Équipe</label>
+            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Équipe</label>
             <select value={teamId} onChange={(e) => setTeamId(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Message</label>
+            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Message</label>
             <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3}
               placeholder="Un petit mot pour le joueur..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm resize-none focus:border-primary-600 focus:outline-none" />
+              className="w-full resize-none border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none" />
           </div>
         </div>
-        <div className="mt-5 flex gap-3">
+        <div className="mt-6 flex gap-3">
           <button onClick={handleSend} disabled={sending || !teamId}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50">
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            {sending ? "Envoi..." : "Envoyer l'invitation"}
+            className="flex flex-1 items-center justify-center gap-2 bg-gray-900 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:bg-emerald-700 disabled:opacity-40">
+            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
+            {sending ? "Envoi..." : "Envoyer"}
           </button>
           <button onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            className="border border-gray-200/70 px-5 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900">
             Annuler
           </button>
         </div>
@@ -195,32 +208,32 @@ function CandidatureModal({ team, onClose, onSubmit, submitting }: {
     <div className="fixed inset-0 modal-layer flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between gap-3 border-b border-gray-100 p-5">
+        className="w-full max-w-md border border-gray-200/70 bg-white shadow-xl">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200/70 p-5">
           <div className="flex min-w-0 items-center gap-3">
             <TeamCrest name={team.name} logo={team.logoUrl} size={40} />
-            <h2 className="truncate text-lg font-bold text-gray-900 font-display">Candidater à {team.name}</h2>
+            <h2 className="truncate font-display text-lg font-black tracking-tight text-gray-900">Candidater à {team.name}</h2>
           </div>
-          <button onClick={onClose} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} aria-label="Fermer" className="shrink-0 p-1 text-gray-400 transition-colors hover:text-gray-900">
             <X size={20} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form onSubmit={handleSubmit} className="space-y-5 p-5">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Votre message</label>
+            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ton message</label>
             <textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} rows={5}
-              placeholder="Présentez-vous..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 resize-none transition-shadow" />
-            <p className="mt-1 text-right text-xs text-gray-400">{message.length}/500</p>
+              placeholder="Présente-toi..."
+              className="w-full resize-none border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none" />
+            <p className="mt-1 text-right text-[11px] font-bold text-gray-400">{message.length}/500</p>
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+              className="flex-1 border border-gray-200/70 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900">
               Annuler
             </button>
             <button type="submit" disabled={submitting}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50">
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              className="flex flex-1 items-center justify-center gap-2 bg-gray-900 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:bg-emerald-700 disabled:opacity-40">
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
               {submitting ? "Envoi..." : "Envoyer"}
             </button>
           </div>
@@ -515,18 +528,14 @@ export default function MercatoPage() {
   // every tab below is gated off and the page would render empty.
   if (!isManager && !isPlayer) {
     return (
-      <div className="mx-auto max-w-lg py-16 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
-          <Users size={26} />
-        </div>
-        <h1 className="mt-4 font-display text-2xl font-black text-gray-900">Mercato</h1>
-        <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-relaxed text-gray-500">
-          Active ton espace pour entrer sur le marché : en <strong>joueur</strong> pour
-          trouver une équipe, en <strong>manager</strong> pour recruter.
+      <div className="mx-auto max-w-3xl pb-24 pt-4">
+        <p className="max-w-lg text-base leading-relaxed text-gray-500">
+          Le marché a deux côtés et pas de neutre : entre en <strong className="font-black text-gray-900">joueur</strong> pour
+          trouver une équipe, en <strong className="font-black text-gray-900">manager</strong> pour recruter.
         </p>
         <Link
           href="/evolution"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
+          className="mt-7 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
         >
           Choisir mon rôle
           <ChevronRight size={15} />
@@ -537,50 +546,43 @@ export default function MercatoPage() {
 
   const pendingAppsCount = joinRequests.filter(r => r.status === "pending").length;
   const pendingInvsCount = invitations.filter(i => i.status === "pending").length;
+  // Un manager attend des reponses des deux cotes ; un joueur ne repond qu'aux
+  // invitations, ses candidatures sont dans le camp d'en face.
+  const waitingCount = isManager ? pendingAppsCount + pendingInvsCount : pendingInvsCount;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 font-display">Mercato</h1>
-          {isManager && (pendingAppsCount + pendingInvsCount) > 0 && (
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-accent-500 px-2 text-xs font-bold text-white">
-              {pendingAppsCount + pendingInvsCount}
-            </span>
-          )}
-          {isPlayer && (pendingInvsCount) > 0 && (
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-accent-500 px-2 text-xs font-bold text-white">
-              {pendingInvsCount}
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-sm text-gray-500">
-          {isManager ? "Recrute des joueurs et gère tes candidatures" : "Trouve une équipe et gère tes invitations"}
+    <div className="mx-auto max-w-5xl space-y-10 pb-24 pt-4">
+      {/* Pas de titre : « Mercato » est deja dans la barre du haut, et un H1
+          qui repete l'onglet actif ne fait que manger le haut de l'ecran.
+          Ce qui attend une reponse, en revanche, ne se lit nulle part
+          ailleurs — et se dit en toutes lettres plutot qu'en pastille : le
+          chiffre seul n'apprend pas ce qu'il compte. */}
+      {waitingCount > 0 && (
+        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-emerald-700">
+          {waitingCount} {waitingCount > 1 ? "réponses attendues" : "réponse attendue"}
         </p>
-      </motion.div>
+      )}
 
-      {/* Main tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
+      {/* Onglets. Les icones sont tombees : les libelles sont deja courts et
+          sans ambiguite, l'icone repetait le mot au lieu de l'abreger. */}
+      <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70">
         {(isManager ? [
-          { key: "players",      label: "Joueurs",       icon: Search,      count: undefined },
-          { key: "shortlist",    label: "Sélection",     icon: Bookmark,    count: shortlist.length },
-          { key: "applications", label: "Candidatures",  icon: Inbox,       count: pendingAppsCount },
-          { key: "invitations",  label: "Invitations",   icon: Send,        count: pendingInvsCount },
+          { key: "players",      label: "Joueurs",       count: undefined },
+          { key: "shortlist",    label: "Sélection",     count: shortlist.length },
+          { key: "applications", label: "Candidatures",  count: pendingAppsCount },
+          { key: "invitations",  label: "Invitations",   count: pendingInvsCount },
         ] : [
-          { key: "teams",        label: "Équipes",       icon: Shield,      count: undefined },
-          { key: "applications", label: "Candidatures",  icon: Inbox,       count: pendingAppsCount },
-          { key: "invitations",  label: "Invitations",   icon: Send,        count: pendingInvsCount },
+          { key: "teams",        label: "Équipes",       count: undefined },
+          { key: "applications", label: "Candidatures",  count: pendingAppsCount },
+          { key: "invitations",  label: "Invitations",   count: pendingInvsCount },
         ]).map((tab) => (
           <button key={tab.key} onClick={() => setMainTab(tab.key)}
-            className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-3 text-xs sm:text-sm sm:gap-2 sm:pr-5 sm:px-0 font-medium whitespace-nowrap transition-colors ${
-              mainTab === tab.key ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400 hover:text-gray-600"
+            className={`shrink-0 whitespace-nowrap border-b-2 pb-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+              mainTab === tab.key ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
             }`}>
-            <tab.icon size={15} /> {tab.label}
+            {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
-              <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                mainTab === tab.key ? "bg-primary-100 text-primary-700" : "bg-gray-100 text-gray-500"
-              }`}>{tab.count}</span>
+              <span className={`ml-2 ${mainTab === tab.key ? "text-emerald-700" : "text-emerald-600/70"}`}>{tab.count}</span>
             )}
           </button>
         ))}
@@ -593,30 +595,30 @@ export default function MercatoPage() {
           <motion.div key="players" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
              <div className="flex gap-3">
               <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="text" value={nameQuery} onChange={(e) => setNameQuery(e.target.value)}
                   placeholder="Rechercher par nom..."
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                  className="w-full border border-gray-200/70 bg-white py-3 pl-11 pr-3 text-sm font-bold text-gray-900 placeholder:font-medium placeholder:text-gray-400 focus:border-gray-900 focus:outline-none" />
               </div>
               <button onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
-                  showFilters ? "border-primary-300 bg-primary-50 text-primary-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                className={`flex shrink-0 items-center gap-2 border px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                  showFilters ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-500 hover:border-gray-900 hover:text-gray-900"
                 }`}>
-                <Filter size={16} /> Filtres
+                <Filter size={14} /> Filtres
               </button>
             </div>
             {showFilters && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                className="flex flex-wrap gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                className="flex flex-wrap gap-5 border border-gray-200/70 bg-gray-50 p-5">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">Ville</label>
-                  <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ville</label>
+                  <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
                     {CITIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">Niveau</label>
-                  <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Niveau</label>
+                  <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
                     {LEVELS.map(l => <option key={l} value={l}>{l === "Tous" ? "Tous" : LEVEL_LABELS[l]}</option>)}
                   </select>
                 </div>
@@ -624,7 +626,7 @@ export default function MercatoPage() {
             )}
             {loading ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map(i => <div key={i} className="h-48 animate-pulse rounded-xl bg-gray-100" />)}
+                {[1, 2, 3].map(i => <div key={i} className="h-52 animate-pulse border border-gray-200/70 bg-gray-100" />)}
               </div>
             ) : players.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -632,9 +634,9 @@ export default function MercatoPage() {
                   const shortlisted = shortlistedIds.has(p.uid);
                   const age = playerAge(p.dateOfBirth);
                   return (
-                  <div key={p.uid} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
+                  <div key={p.uid} className="flex flex-col border border-gray-200/70 bg-white p-5 transition-colors hover:border-gray-900">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-xl font-black text-emerald-700 ring-2 ring-emerald-100">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-lg font-black text-gray-500">
                         {p.profilePictureUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={p.profilePictureUrl} alt="" className="h-full w-full object-cover" />
@@ -643,8 +645,8 @@ export default function MercatoPage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="truncate text-lg font-black text-gray-900">{p.firstName} {p.lastName}</h4>
-                        <p className="flex items-center gap-1 truncate text-xs font-semibold text-gray-400">
+                        <h4 className="truncate font-display text-lg font-black tracking-tight text-gray-900">{p.firstName} {p.lastName}</h4>
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
                           <MapPin size={10} className="shrink-0" /> {p.locationCity || "Ville non précisée"}
                         </p>
                       </div>
@@ -653,35 +655,35 @@ export default function MercatoPage() {
                     {/* What a manager actually scouts on */}
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {p.position && (
-                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${POSITION_COLORS[p.position] || "bg-gray-100 text-gray-600"}`}>
+                        <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${POSITION_COLORS[p.position] || "bg-gray-100 text-gray-600"}`}>
                           {POSITION_LABELS[p.position] || p.position}
                         </span>
                       )}
                       {p.skillLevel && (
-                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${LEVEL_COLORS[p.skillLevel] || "bg-gray-100 text-gray-600"}`}>
+                        <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${LEVEL_COLORS[p.skillLevel] || "bg-gray-100 text-gray-600"}`}>
                           {LEVEL_LABELS[p.skillLevel] || p.skillLevel}
                         </span>
                       )}
                     </div>
 
                     {(age !== null || p.strongFoot || p.height) && (
-                      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-gray-500">
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold text-gray-500">
                         {age !== null && <span>{age} ans</span>}
                         {p.strongFoot && <span>Pied {FOOT_LABELS[p.strongFoot]}</span>}
                         {p.height && <span>{p.height} cm</span>}
                       </div>
                     )}
 
-                    <div className="mt-4 flex gap-2 pt-1">
-                       <Link href={`/profile/${p.uid}`} className="flex-1 rounded-xl border border-gray-200 py-2 text-center text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">Profil</Link>
+                    <div className="mt-auto flex gap-2 pt-4">
+                       <Link href={`/profile/${p.uid}`} className="flex-1 border border-gray-200/70 py-2.5 text-center text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900">Profil</Link>
                        <button
                          onClick={() => !shortlisted && handleAddToShortlist(p)}
                          disabled={shortlisted || addingToShortlist.has(p.uid)}
                          aria-label={shortlisted ? "Déjà dans la shortlist" : "Ajouter à la shortlist"}
-                         className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold transition-colors ${
+                         className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
                            shortlisted
-                             ? "bg-emerald-50 text-emerald-600"
-                             : "bg-emerald-500 text-white hover:bg-emerald-600"
+                             ? "border border-emerald-700 text-emerald-700"
+                             : "bg-gray-900 text-white hover:bg-emerald-700"
                          }`}
                        >
                         {addingToShortlist.has(p.uid) ? <Loader2 size={16} className="animate-spin" /> : shortlisted ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
@@ -693,9 +695,9 @@ export default function MercatoPage() {
                 })}
               </div>
             ) : (
-              <div className="py-20 text-center border-2 border-dashed rounded-2xl">
-                <Users size={32} className="mx-auto text-gray-300" />
-                <p className="mt-2 text-gray-500">Aucun joueur compatible trouvé</p>
+              <div className="border border-gray-200/70 bg-white px-6 py-16 text-center">
+                <Users size={30} strokeWidth={1.4} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-base font-bold text-gray-400">Aucun joueur ne correspond à tes filtres</p>
               </div>
             )}
           </motion.div>
@@ -706,30 +708,30 @@ export default function MercatoPage() {
           <motion.div key="teams" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
              <div className="flex gap-3">
               <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="text" value={nameQuery} onChange={(e) => setNameQuery(e.target.value)}
                   placeholder="Rechercher une équipe..."
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                  className="w-full border border-gray-200/70 bg-white py-3 pl-11 pr-3 text-sm font-bold text-gray-900 placeholder:font-medium placeholder:text-gray-400 focus:border-gray-900 focus:outline-none" />
               </div>
               <button onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
-                  showFilters ? "border-primary-300 bg-primary-50 text-primary-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                className={`flex shrink-0 items-center gap-2 border px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                  showFilters ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-500 hover:border-gray-900 hover:text-gray-900"
                 }`}>
-                <Filter size={16} /> Filtres
+                <Filter size={14} /> Filtres
               </button>
             </div>
             {showFilters && (
                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                className="flex flex-wrap gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                className="flex flex-wrap gap-5 border border-gray-200/70 bg-gray-50 p-5">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">Ville</label>
-                  <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ville</label>
+                  <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
                     {CITIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">Niveau</label>
-                  <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Niveau</label>
+                  <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
                     {LEVELS.map(l => <option key={l} value={l}>{l === "Tous" ? "Tous" : LEVEL_LABELS[l]}</option>)}
                   </select>
                 </div>
@@ -737,7 +739,7 @@ export default function MercatoPage() {
             )}
             {loading ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map(i => <div key={i} className="h-48 animate-pulse rounded-xl bg-gray-100" />)}
+                {[1, 2, 3].map(i => <div key={i} className="h-52 animate-pulse border border-gray-200/70 bg-gray-100" />)}
               </div>
             ) : teams.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -747,32 +749,32 @@ export default function MercatoPage() {
                    const full = t.memberIds.length >= t.maxMembers;
                    const played = t.matchesPlayed ?? 0;
                    return (
-                    <div key={t.id} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
+                    <div key={t.id} className="flex flex-col border border-gray-200/70 bg-white p-5 transition-colors hover:border-gray-900">
                       <div className="flex items-start justify-between gap-3">
-                         <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl ${colors.bg}`}>
+                         <div className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden ${colors.bg}`}>
                            {t.logoUrl ? (
                              // eslint-disable-next-line @next/next/no-img-element
                              <img src={t.logoUrl} alt="" className="h-full w-full object-cover" />
                            ) : (
-                             <Shield size={38} className={colors.icon} />
+                             <Shield size={32} className={colors.icon} />
                            )}
                          </div>
-                         <div className="flex flex-col items-end gap-1">
-                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${LEVEL_COLORS[t.level] || "bg-gray-100 text-gray-600"}`}>
+                         <div className="flex flex-col items-end gap-1.5">
+                           <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${LEVEL_COLORS[t.level] || "bg-gray-100 text-gray-600"}`}>
                              {LEVEL_LABELS[t.level] || t.level}
                            </span>
                            {/* Whether they are taking players is the first thing
                                a player needs to know. */}
                            {t.isRecruiting && !full && (
-                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-600">
+                             <span className="bg-emerald-700 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">
                                Recrute
                              </span>
                            )}
                          </div>
                       </div>
 
-                      <h4 className="mt-3 truncate text-lg font-black text-gray-900">{t.name}</h4>
-                      <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-gray-400">
+                      <h4 className="mt-4 truncate font-display text-lg font-black tracking-tight text-gray-900">{t.name}</h4>
+                      <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
                         <MapPin size={10} className="shrink-0" /> {t.city || "Ville non précisée"}
                       </p>
 
@@ -784,7 +786,7 @@ export default function MercatoPage() {
 
                       {/* Squad size and record — what tells a player whether
                           there is room, and what they would be joining. */}
-                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold">
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
                         <span className={full ? "text-red-500" : "text-gray-600"}>
                           {t.memberIds.length}/{t.maxMembers} joueurs{full ? " · complet" : ""}
                         </span>
@@ -798,14 +800,14 @@ export default function MercatoPage() {
                       </div>
 
                       <div className="mt-auto flex gap-2 pt-4">
-                         <Link href={`/teams/${t.id}`} className="flex-1 rounded-xl border border-gray-200 py-2 text-center text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">Détails</Link>
+                         <Link href={`/teams/${t.id}?from=mercato`} className="flex-1 border border-gray-200/70 py-2.5 text-center text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900">Détails</Link>
                          <button
                            onClick={() => !hasSent && !full && setCandidatureTeam(t)}
                            disabled={hasSent || full}
-                           className={`flex-[2] rounded-xl py-2 text-sm font-bold transition-all ${
+                           className={`flex-[2] py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
                              hasSent || full
-                               ? "bg-gray-50 text-gray-400"
-                               : "bg-emerald-500 text-white hover:bg-emerald-600"
+                               ? "border border-gray-200/70 text-gray-400"
+                               : "bg-gray-900 text-white hover:bg-emerald-700"
                            }`}
                          >
                           {hasSent ? "Candidature envoyée" : full ? "Effectif complet" : "Candidater"}
@@ -816,9 +818,9 @@ export default function MercatoPage() {
                 })}
               </div>
             ) : (
-              <div className="py-20 text-center border-2 border-dashed rounded-2xl">
-                <Shield size={32} className="mx-auto text-gray-300" />
-                <p className="mt-2 text-gray-500">Aucune équipe ne correspond à tes filtres</p>
+              <div className="border border-gray-200/70 bg-white px-6 py-16 text-center">
+                <Shield size={30} strokeWidth={1.4} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-base font-bold text-gray-400">Aucune équipe ne correspond à tes filtres</p>
               </div>
             )}
           </motion.div>
@@ -827,26 +829,28 @@ export default function MercatoPage() {
         {/* ---- TAB: SHORTLIST (Manager only) ---- */}
         {isManager && mainTab === "shortlist" && (
            <motion.div key="shortlist" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-             {shortlist.length > 0 ? shortlist.map(e => (
-               <div key={e.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl bg-white">
-                  <div className="flex min-w-0 items-center gap-3">
-                     <PlayerAvatar name={e.playerName} photo={photoOf(e.playerId, e.playerPhoto)} size={40} />
-                     <div className="min-w-0">
-                        <h4 className="truncate font-bold text-sm text-gray-900">{e.playerName}</h4>
-                        <p className="truncate text-[10px] text-gray-500">{e.playerCity} • {POSITION_LABELS[e.playerPosition] || e.playerPosition}</p>
-                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                     <button onClick={() => setInviteTarget(e)} className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold">Inviter</button>
-                     <button onClick={() => handleRemoveFromShortlist(e)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
-                       {removingId === e.id ? <Loader2 size={16} className="animate-spin"/> : <X size={16}/>}
-                     </button>
-                  </div>
+             {shortlist.length > 0 ? (
+               <div className="divide-y divide-gray-200/70 border border-gray-200/70 bg-white">
+                 {shortlist.map(e => (
+                 <div key={e.id} className="flex items-center gap-4 px-5 py-4">
+                    <PlayerAvatar name={e.playerName} photo={photoOf(e.playerId, e.playerPhoto)} size={40} />
+                    <div className="min-w-0 flex-1">
+                       <h4 className="truncate text-base font-bold text-gray-900">{e.playerName}</h4>
+                       <p className="truncate text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
+                         {e.playerCity} · {POSITION_LABELS[e.playerPosition] || e.playerPosition}
+                       </p>
+                    </div>
+                    <button onClick={() => setInviteTarget(e)} className="shrink-0 bg-gray-900 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:bg-emerald-700">Inviter</button>
+                    <button onClick={() => handleRemoveFromShortlist(e)} aria-label="Retirer de la sélection" className="shrink-0 p-2 text-gray-300 transition-colors hover:text-red-600">
+                      {removingId === e.id ? <Loader2 size={16} className="animate-spin"/> : <X size={16}/>}
+                    </button>
+                 </div>
+                 ))}
                </div>
-             )) : (
-               <div className="py-12 text-center border-2 border-dashed rounded-xl">
-                 <Bookmark size={32} className="mx-auto text-gray-200" />
-                 <p className="mt-2 text-gray-400">Ta sélection est vide</p>
+             ) : (
+               <div className="border border-gray-200/70 bg-white px-6 py-16 text-center">
+                 <Bookmark size={30} strokeWidth={1.4} className="mx-auto text-gray-300" />
+                 <p className="mt-3 text-base font-bold text-gray-400">Ta sélection est vide</p>
                </div>
              )}
            </motion.div>
@@ -856,33 +860,33 @@ export default function MercatoPage() {
         {mainTab === "applications" && (
           <motion.div key="applications" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
              {/* Subtabs for status */}
-             <div className="flex gap-4 border-b border-gray-100">
+             <div className="flex gap-6 border-b border-gray-200/70">
                 {["pending", "accepted", "rejected"].map(s => (
-                  <button key={s} onClick={() => setAppSubTab(s)} className={`pb-2 text-sm font-medium transition-all border-b-2 ${appSubTab === s ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400"}`}>
+                  <button key={s} onClick={() => setAppSubTab(s)} className={`border-b-2 pb-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${appSubTab === s ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
                     {s === "pending" ? "En attente" : s === "accepted" ? "Acceptées" : "Refusées"}
-                    <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px]">{joinRequests.filter(r => r.status === s).length}</span>
+                    <span className="ml-2 text-gray-300">{joinRequests.filter(r => r.status === s).length}</span>
                   </button>
                 ))}
              </div>
 
-             <div className="space-y-3">
+             <div className="divide-y divide-gray-200/70 border border-gray-200/70 bg-white">
                {joinRequests.filter(r => r.status === appSubTab).map(req => (
-                  <div key={req.id} className="p-4 border border-gray-200 rounded-xl bg-white">
-                    <div className="flex items-start justify-between">
-                       <div className="flex min-w-0 items-center gap-3">
+                  <div key={req.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                       <div className="flex min-w-0 items-center gap-4">
                           {isManager ? (
                             <PlayerAvatar name={req.playerName} photo={photoOf(req.playerId, req.playerPhoto)} size={40} />
                           ) : (
                             <TeamCrest name={req.teamName} logo={logoOf(req.teamId, req.teamLogo)} size={40} />
                           )}
                           <div className="min-w-0">
-                             <h4 className="truncate font-bold text-gray-900">{isManager ? req.playerName : req.teamName}</h4>
-                             <p className="truncate text-[10px] text-gray-500">{isManager ? req.playerCity : "Manager : " + req.managerId.slice(0,8)}</p>
+                             <h4 className="truncate text-base font-bold text-gray-900">{isManager ? req.playerName : req.teamName}</h4>
+                             <p className="truncate text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">{isManager ? req.playerCity : "Manager : " + req.managerId.slice(0,8)}</p>
                           </div>
                        </div>
-                       {!isManager && <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${req.status === "pending" ? "bg-amber-100 text-amber-700" : req.status === "accepted" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{req.status}</span>}
+                       {!isManager && <span className={`shrink-0 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${req.status === "pending" ? "bg-gray-100 text-gray-600" : req.status === "accepted" ? "bg-emerald-700 text-white" : "bg-gray-900 text-white"}`}>{APP_STATUS_LABELS[req.status] || req.status}</span>}
                     </div>
-                    {req.message && <p className="mt-3 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg italic">&ldquo;{req.message}&rdquo;</p>}
+                    {req.message && <p className="mt-3 border-l-2 border-gray-200 pl-3 text-sm italic leading-relaxed text-gray-600">&ldquo;{req.message}&rdquo;</p>}
                     
                     {isManager && req.status === "pending" && (
                       <div className="mt-4 flex gap-2">
@@ -891,14 +895,14 @@ export default function MercatoPage() {
                         <button
                           onClick={() => handleRespondToApp(req, true)}
                           disabled={respondingApp === req.id}
-                          className="flex-1 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                          className="flex-1 bg-gray-900 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
                         >
                           {respondingApp === req.id ? "..." : "Accepter"}
                         </button>
                         <button
                           onClick={() => handleRespondToApp(req, false)}
                           disabled={respondingApp === req.id}
-                          className="flex-1 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          className="flex-1 border border-gray-200/70 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900 disabled:opacity-40"
                         >
                           Refuser
                         </button>
@@ -907,7 +911,7 @@ export default function MercatoPage() {
                   </div>
                ))}
                {joinRequests.filter(r => r.status === appSubTab).length === 0 && (
-                 <div className="py-12 text-center text-gray-400 text-sm">
+                 <div className="px-6 py-16 text-center text-base font-bold text-gray-400">
                    Aucune candidature {appSubTab === "pending" ? "en attente" : appSubTab === "accepted" ? "acceptée" : "refusée"}
                  </div>
                )}
@@ -919,68 +923,62 @@ export default function MercatoPage() {
         {mainTab === "invitations" && (
           <motion.div key="invitations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
              {/* Subtabs for status */}
-             <div className="flex gap-4 border-b border-gray-100">
+             <div className="flex gap-6 border-b border-gray-200/70">
                 {["pending", "accepted", "declined"].map(s => (
-                  <button key={s} onClick={() => setInvSubTab(s)} className={`pb-2 text-sm font-medium transition-all border-b-2 ${invSubTab === s ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400"}`}>
+                  <button key={s} onClick={() => setInvSubTab(s)} className={`border-b-2 pb-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${invSubTab === s ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
                     {s === "pending" ? "En attente" : s === "accepted" ? "Acceptées" : "Déclinées"}
-                    <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px]">{invitations.filter(i => i.status === s).length}</span>
+                    <span className="ml-2 text-gray-300">{invitations.filter(i => i.status === s).length}</span>
                   </button>
                 ))}
              </div>
 
-             <div className="space-y-3">
+             <div className="divide-y divide-gray-200/70 border border-gray-200/70 bg-white">
                {invitations.filter(i => i.status === invSubTab).map(inv => {
                   const status = respondingInv[inv.id];
-                  const colors = COLOR_MAP[inv.teamName?.charAt(0).toLowerCase()] || COLOR_MAP.emerald;
                   return (
-                  <div key={inv.id} className="relative overflow-hidden p-5 border border-gray-200 rounded-xl bg-white pl-6">
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.stripe}`} />
-                    <div className="flex items-start justify-between">
-                       <div className="flex min-w-0 items-center gap-3">
+                  <div key={inv.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                       <div className="flex min-w-0 items-center gap-4">
                           {isManager ? (
                             <PlayerAvatar name={inv.receiverName} photo={photoOf(inv.receiverId, inv.receiverPhoto)} size={40} />
                           ) : (
-                            <TeamCrest
-                              name={inv.teamName}
-                              logo={logoOf(inv.teamId, inv.teamLogo)}
-                              size={40}
-                              bg={colors.bg}
-                              fg={colors.icon}
-                            />
+                            <TeamCrest name={inv.teamName} logo={logoOf(inv.teamId, inv.teamLogo)} size={40} />
                           )}
                           <div className="min-w-0">
-                             <h4 className="truncate font-bold text-gray-900">{isManager ? inv.receiverName : inv.teamName}</h4>
-                             <p className="truncate text-[10px] text-gray-500">
-                               {isManager ? inv.receiverCity : "Invité par " + inv.senderName} • <Clock size={8} className="inline"/> {timeAgo(inv.createdAt)}
+                             <h4 className="truncate text-base font-bold text-gray-900">{isManager ? inv.receiverName : inv.teamName}</h4>
+                             <p className="flex items-center gap-1 truncate text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
+                               {isManager ? inv.receiverCity : "Invité par " + inv.senderName}
+                               <span className="text-gray-300">·</span>
+                               <Clock size={9} className="shrink-0"/> {timeAgo(inv.createdAt)}
                              </p>
                           </div>
                        </div>
-                       {isManager && <span className={`px-2 py-0.5 rounded-full text-xs ${INV_STATUS_CONFIG[inv.status as keyof typeof INV_STATUS_CONFIG]?.color || ""}`}>{inv.status}</span>}
+                       {isManager && <span className={`shrink-0 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${INV_STATUS_CONFIG[inv.status as keyof typeof INV_STATUS_CONFIG]?.color || "bg-gray-100 text-gray-600"}`}>{INV_STATUS_CONFIG[inv.status as keyof typeof INV_STATUS_CONFIG]?.label || inv.status}</span>}
                     </div>
-                    {inv.message && <p className="mt-3 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg italic">&ldquo;{inv.message}&rdquo;</p>}
+                    {inv.message && <p className="mt-3 border-l-2 border-gray-200 pl-3 text-sm italic leading-relaxed text-gray-600">&ldquo;{inv.message}&rdquo;</p>}
                     
                     {isPlayer && inv.status === "pending" && (
                       <div className="mt-4 flex gap-2">
                         {!status ? (
                           <>
-                            <button onClick={() => handlePlayerRespondInv(inv, true)} className="flex-1 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold">Accepter</button>
-                            <button onClick={() => handlePlayerRespondInv(inv, false)} className="flex-1 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold">Décliner</button>
+                            <button onClick={() => handlePlayerRespondInv(inv, true)} className="flex-1 bg-gray-900 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:bg-emerald-700">Accepter</button>
+                            <button onClick={() => handlePlayerRespondInv(inv, false)} className="flex-1 border border-gray-200/70 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900">Décliner</button>
                           </>
                         ) : (
-                          <div className="w-full text-center py-1.5 text-xs font-bold text-primary-600 bg-primary-50 rounded-lg">
-                            {status === "accepted" ? "Acceptée !" : "Déclinée"}
+                          <div className="w-full border border-emerald-700 py-2.5 text-center text-[11px] font-black uppercase tracking-[0.15em] text-emerald-700">
+                            {status === "accepted" ? "Acceptée" : "Déclinée"}
                           </div>
                         )}
                       </div>
                     )}
 
                     {isManager && inv.status === "pending" && (
-                       <button onClick={() => cancelInvitation(inv.id)} className="mt-4 text-xs text-red-500 font-medium">Annuler l&apos;invitation</button>
+                       <button onClick={() => cancelInvitation(inv.id)} className="mt-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-red-600">Annuler l&apos;invitation</button>
                     )}
                   </div>
                )})}
                {invitations.filter(i => i.status === invSubTab).length === 0 && (
-                 <div className="py-12 text-center text-gray-400 text-sm">
+                 <div className="px-6 py-16 text-center text-base font-bold text-gray-400">
                    Aucune invitation {invSubTab === "pending" ? "en attente" : invSubTab === "accepted" ? "acceptée" : "déclinée"}
                  </div>
                )}

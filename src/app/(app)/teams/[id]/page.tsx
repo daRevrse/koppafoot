@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Shield, MapPin, Users, Star, ChevronLeft, Settings,
+  Shield, MapPin, Users, Star, ChevronLeft, Settings, BarChart3,
   Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
@@ -64,7 +64,7 @@ const POSITION_COLORS: Record<string, string> = {
   midfielder: "bg-emerald-100 text-emerald-700", forward: "bg-amber-100 text-amber-700",
 };
 
-type ActiveTab = "roster" | "matches" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
+type ActiveTab = "roster" | "matches" | "stats" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
 
 // ============================================
 // Edit Team Modal
@@ -137,11 +137,11 @@ function EditTeamModal({ team, onClose, onSaved }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl"
+        className="w-full max-w-md border border-gray-200/70 bg-white shadow-xl"
       >
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Modifier l&apos;equipe</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100">
+          <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100">
             <X size={20} />
           </button>
         </div>
@@ -150,7 +150,7 @@ function EditTeamModal({ team, onClose, onSaved }: {
           {/* Media uploads */}
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">Bannière</label>
-            <div className="relative h-24 w-full cursor-pointer overflow-hidden rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100"
+            <div className="relative h-24 w-full cursor-pointer overflow-hidden border border-gray-200/70 bg-gray-50 hover:bg-gray-100"
               onClick={() => document.getElementById("banner-input")?.click()}>
               {bannerPreview
                 ? <img src={bannerPreview} className="h-full w-full object-cover" alt="" />
@@ -159,7 +159,7 @@ function EditTeamModal({ team, onClose, onSaved }: {
             </div>
             <label className="block text-sm font-medium text-gray-700">Logo</label>
             <div className="flex items-center gap-3">
-              <div className="relative h-16 w-16 cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 flex-shrink-0"
+              <div className="relative h-16 w-16 cursor-pointer overflow-hidden border border-gray-200/70 bg-gray-50 hover:bg-gray-100 flex-shrink-0"
                 onClick={() => document.getElementById("logo-input")?.click()}>
                 {logoPreview
                   ? <img src={logoPreview} className="h-full w-full object-cover" alt="" />
@@ -173,34 +173,34 @@ function EditTeamModal({ team, onClose, onSaved }: {
             <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
             <input type="text" required value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Slogan</label>
             <input type="text" maxLength={80} value={form.slogan}
               onChange={(e) => setForm({ ...form, slogan: e.target.value })}
               placeholder="Ex: Toujours debout !"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
             <input type="text" required value={form.city}
               onChange={(e) => setForm({ ...form, city: e.target.value })}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
             <textarea value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 resize-none" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Niveau</label>
               <select value={form.level}
                 onChange={(e) => setForm({ ...form, level: e.target.value as Team["level"] })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none">
                 <option value="beginner">Debutant</option>
                 <option value="amateur">Amateur</option>
                 <option value="intermediate">Intermediaire</option>
@@ -211,7 +211,7 @@ function EditTeamModal({ team, onClose, onSaved }: {
               <label className="mb-1 block text-sm font-medium text-gray-700">Joueurs max</label>
               <input type="number" min={5} max={25} value={form.maxMembers}
                 onChange={(e) => setForm({ ...form, maxMembers: Number(e.target.value) })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
             </div>
           </div>
           <div>
@@ -221,13 +221,13 @@ function EditTeamModal({ team, onClose, onSaved }: {
                 <button key={c.value} type="button"
                   onClick={() => setForm({ ...form, color: c.value })}
                   className={`h-8 w-8 rounded-full ${c.class} transition-all ${
-                    form.color === c.value ? "ring-2 ring-offset-2 ring-primary-600 scale-110" : "opacity-60 hover:opacity-100"
+                    form.color === c.value ? "ring-2 ring-offset-2 ring-gray-900 scale-110" : "opacity-60 hover:opacity-100"
                   }`} title={c.label} />
               ))}
             </div>
           </div>
           <button type="submit" disabled={submitting || !form.name.trim() || !form.city.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex w-full items-center justify-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? <><Loader2 size={16} className="animate-spin" /> Sauvegarde...</> : <><Check size={16} /> Enregistrer</>}
           </button>
         </form>
@@ -252,7 +252,7 @@ function DeleteConfirmModal({ teamName, onClose, onConfirm, deleting }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        className="w-full max-w-sm border border-gray-200/70 bg-white p-6 shadow-xl"
       >
         <div className="flex items-center gap-3 text-red-600">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
@@ -265,11 +265,11 @@ function DeleteConfirmModal({ teamName, onClose, onConfirm, deleting }: {
         </p>
         <div className="mt-5 flex gap-3">
           <button onClick={onConfirm} disabled={deleting}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-all disabled:opacity-50">
+            className="flex flex-1 items-center justify-center gap-2 bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-all disabled:opacity-50">
             {deleting ? <><Loader2 size={16} className="animate-spin" /> Suppression...</> : <><Trash2 size={16} /> Supprimer</>}
           </button>
           <button onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            className="flex-1 border border-gray-200/70 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             Annuler
           </button>
         </div>
@@ -307,27 +307,27 @@ function AddAchievementModal({ teamId, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        className="w-full max-w-sm border border-gray-200/70 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Ajouter un trophée</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
+          <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Titre</label>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="Ex: Champion régional 2024"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
             <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Description (optionnel)</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">Icône</label>
@@ -335,14 +335,14 @@ function AddAchievementModal({ teamId, onClose, onSaved }: {
               {ACHIEVEMENT_ICONS.map(({ value, label, Icon }) => (
                 <button key={value} type="button" onClick={() => setForm({ ...form, icon: value })}
                   title={label}
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all ${form.icon === value ? "border-primary-600 bg-primary-50 text-primary-600" : "border-gray-200 text-gray-400 hover:border-gray-300"}`}>
+                  className={`flex h-10 w-10 items-center justify-center border-2 transition-all ${form.icon === value ? "border-gray-900 bg-emerald-50 text-emerald-700" : "border-gray-200/70 text-gray-400 hover:border-gray-300"}`}>
                   <Icon size={18} />
                 </button>
               ))}
             </div>
           </div>
           <button type="submit" disabled={saving || !form.title.trim() || !form.date}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+            className="flex w-full items-center justify-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Enregistrer
           </button>
         </form>
@@ -373,43 +373,43 @@ function CreateTrainingModal({ teamId, managerId, memberIds, onClose, onSaved }:
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        className="w-full max-w-sm border border-gray-200/70 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Créer un entraînement</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
+          <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Titre</label>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="Ex: Entraînement tactique"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
               <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none" />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Heure</label>
               <input type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none" />
             </div>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Lieu</label>
             <input required value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
               placeholder="Ex: Stade municipal"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Description (optionnel)</label>
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
-              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+              className="w-full resize-none border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900" />
           </div>
           <button type="submit" disabled={saving || !form.title.trim() || !form.date || !form.time || !form.location.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+            className="flex w-full items-center justify-center gap-2 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Créer
           </button>
         </form>
@@ -468,7 +468,7 @@ function GhostPlayerModal({
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-md bg-white p-6 shadow-xl"
       >
         <h3 className="mb-4 text-lg font-bold text-gray-900">
           {ghost ? "Modifier le joueur" : "Ajouter un joueur"}
@@ -478,7 +478,7 @@ function GhostPlayerModal({
             <div>
               <label className="mb-1 block text-xs font-semibold text-gray-500">Prénom</label>
               <input
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
                 value={form.firstName}
                 onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                 placeholder="Jean"
@@ -488,7 +488,7 @@ function GhostPlayerModal({
             <div>
               <label className="mb-1 block text-xs font-semibold text-gray-500">Nom</label>
               <input
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
                 value={form.lastName}
                 onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                 placeholder="Dupont"
@@ -499,7 +499,7 @@ function GhostPlayerModal({
           <div>
             <label className="mb-1 block text-xs font-semibold text-gray-500">Poste</label>
             <select
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+              className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
               value={form.position}
               onChange={(e) => setForm({ ...form, position: e.target.value as GhostPlayer["position"] })}
             >
@@ -512,7 +512,7 @@ function GhostPlayerModal({
           <div>
             <label className="mb-1 block text-xs font-semibold text-gray-500">Numéro de dossard (optionnel)</label>
             <input
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+              className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
               value={form.squadNumber}
               onChange={(e) => setForm({ ...form, squadNumber: e.target.value })}
               placeholder="Ex: 10"
@@ -520,11 +520,11 @@ function GhostPlayerModal({
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              className="flex-1 border border-gray-200/70 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
               Annuler
             </button>
             <button type="submit" disabled={submitting}
-              className="flex-1 rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
+              className="flex-1 bg-gray-900 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
               {submitting ? "Enregistrement..." : ghost ? "Modifier" : "Ajouter"}
             </button>
           </div>
@@ -551,7 +551,7 @@ function GhostStatsModal({
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-sm bg-white p-6 shadow-xl"
       >
         <h3 className="mb-1 text-lg font-bold text-gray-900">
           {ghost.firstName} {ghost.lastName}
@@ -565,14 +565,14 @@ function GhostStatsModal({
             { label: "Jaunes", value: ghost.yellowCards },
             { label: "Rouges", value: ghost.redCards },
           ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center rounded-xl bg-gray-50 py-3">
+            <div key={s.label} className="flex flex-col items-center bg-gray-50 py-3">
               <span className="text-2xl font-black text-gray-900">{s.value}</span>
               <span className="text-[10px] font-semibold text-gray-400 uppercase">{s.label}</span>
             </div>
           ))}
         </div>
         <button onClick={onClose}
-          className="mt-5 w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+          className="mt-5 w-full border border-gray-200/70 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
           Fermer
         </button>
       </motion.div>
@@ -584,7 +584,51 @@ function GhostStatsModal({
 // Main Component
 // ============================================
 
+/**
+ * La fiche publique d'une equipe, telle que la sert /api/public/team/[id].
+ * Ni `memberIds` ni `managerId` n'en font partie : ils restent vides ici, ce
+ * qui fait tomber d'elles-memes les vues reservees au manager.
+ */
+async function fetchPublicTeam(id: string): Promise<Team | null> {
+  try {
+    const res = await fetch(`/api/public/team/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    const { team } = await res.json();
+    if (!team) return null;
+    return {
+      id: team.id,
+      name: team.name ?? "",
+      city: team.city ?? null,
+      description: team.description ?? null,
+      slogan: team.slogan ?? null,
+      logoUrl: team.logo_url ?? null,
+      bannerUrl: team.banner_url ?? null,
+      color: team.color ?? null,
+      level: team.level ?? "amateur",
+      isRecruiting: team.is_recruiting ?? false,
+      maxMembers: team.max_members ?? 0,
+      matchesPlayed: team.matches_played ?? 0,
+      wins: team.wins ?? 0,
+      draws: team.draws ?? 0,
+      losses: team.losses ?? 0,
+      achievements: team.achievements ?? [],
+      galleryUrls: team.gallery_urls ?? [],
+      isGhost: team.is_ghost ?? false,
+      memberIds: [],
+      managerId: "",
+    } as unknown as Team;
+  } catch {
+    return null;
+  }
+}
+
 export default function TeamDetailPage() {
+  // Lu une fois au montage : ?from=mercato quand on arrive depuis le marche.
+  const [origin, setOrigin] = useState<string | null>(null);
+  useEffect(() => {
+    setOrigin(new URLSearchParams(window.location.search).get("from"));
+  }, []);
+
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -655,9 +699,13 @@ export default function TeamDetailPage() {
     if (!teamId) return;
     setLoading(true);
     try {
-      const data = await getTeamById(teamId);
+      // Connecte : lecture directe. Visiteur : `teams` lui est ferme par les
+      // regles, donc on sert la projection publique — voir
+      // /api/public/team/[id]. Elle ne porte ni effectif ni manager, donc la
+      // page rend sa fiche sans les blocs qui en dependent.
+      const data = user ? await getTeamById(teamId) : await fetchPublicTeam(teamId);
       setTeam(data);
-      if (data) {
+      if (data && user) {
         // Fetch members
         const memberProfiles = await getUsersByIds(data.memberIds);
         setMembers(memberProfiles);
@@ -670,7 +718,7 @@ export default function TeamDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [teamId]);
+  }, [teamId, user]);
 
   useEffect(() => {
     fetchTeam();
@@ -686,19 +734,23 @@ export default function TeamDetailPage() {
     }
   }, [team]);
 
-  // Real-time trainings listener
+  // Entrainements : reserves aux comptes (regle Firestore `trainings`).
+  // Sans cette garde, un visiteur non connecte ouvrait un listener que les
+  // regles refusent — d'ou un permission-denied dans la console a chaque
+  // affichage public de la page.
   useEffect(() => {
-    if (!teamId) return;
+    if (!teamId || !user) return;
     const unsub = onTrainingsByTeam(teamId, setTrainings);
     return unsub;
-  }, [teamId]);
+  }, [teamId, user]);
 
-  // Real-time ghost players listener
+  // Joueurs fantomes : meme chose (regle `teams/{id}/ghost_players`). Ce sont
+  // des joueurs saisis a la main par le manager, pas une donnee de vitrine.
   useEffect(() => {
-    if (!teamId) return;
+    if (!teamId || !user) return;
     const unsub = onGhostPlayersByTeam(teamId, setGhostPlayers);
     return unsub;
-  }, [teamId]);
+  }, [teamId, user]);
 
   // Check follow status
   useEffect(() => {
@@ -941,21 +993,24 @@ export default function TeamDetailPage() {
     }
   };
 
-  if (!user) return null;
+  // Plus de garde sur le compte : la fiche d'une equipe est publique. Ce qui
+  // demande un compte (parametres, candidatures, gestion d'effectif) est deja
+  // conditionne a `isTeamManager`, qui est faux sans compte.
+
 
   // Loading skeleton
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-200" />
+          <div className="h-8 w-8 animate-pulse bg-gray-200" />
           <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white">
+        <div className=" border border-gray-200/70 bg-white">
           <div className="h-2 animate-pulse bg-gray-200" />
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 animate-pulse rounded-2xl bg-gray-200" />
+              <div className="h-16 w-16 animate-pulse bg-gray-200" />
               <div className="space-y-2">
                 <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
                 <div className="h-4 w-24 animate-pulse rounded bg-gray-100" />
@@ -963,15 +1018,15 @@ export default function TeamDetailPage() {
             </div>
             <div className="grid grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+                <div key={i} className="h-16 animate-pulse bg-gray-100" />
               ))}
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className=" border border-gray-200/70 bg-white p-6">
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+              <div key={i} className="h-14 animate-pulse bg-gray-100" />
             ))}
           </div>
         </div>
@@ -984,15 +1039,29 @@ export default function TeamDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Shield size={48} className="text-gray-300" />
-        <h2 className="mt-4 text-xl font-bold text-gray-900 font-display">Equipe introuvable</h2>
+        <h2 className="mt-4 font-display text-2xl font-black tracking-tight text-gray-900">Équipe introuvable</h2>
         <p className="mt-2 text-sm text-gray-500">Cette equipe n&apos;existe pas ou a ete supprimee</p>
         <Link href="/teams"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all">
-          <ChevronLeft size={16} /> Retour aux equipes
+          className="mt-6 inline-flex items-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all">
+          <ChevronLeft size={15} /> Retour aux équipes
         </Link>
       </div>
     );
   }
+
+  // Fil d'ariane plutot qu'un retour devine. « Mes equipes » etait code en
+  // dur comme destination par defaut : un visiteur venu du Direct, d'une
+  // competition ou de la recherche se voyait proposer une liste qui n'est pas
+  // la sienne et ou cette equipe ne figure meme pas, puisqu'il n'en est pas
+  // membre. Le fil dit ou l'on est ; on n'a plus a deviner d'ou l'on vient.
+  //
+  // Le seul cas ou une origine reste utile est le mercato, qui marque son
+  // passage avec ?from=mercato — et un membre, pour qui « Mes equipes » est
+  // reellement le rayon dont cette equipe fait partie.
+  const trail: { href: string; label: string }[] =
+    origin === "mercato" ? [{ href: "/mercato", label: "Mercato" }]
+    : isTeamManager || isTeamMember ? [{ href: "/teams", label: "Mes équipes" }]
+    : [{ href: "/", label: "Direct" }];
 
   const colors = COLOR_MAP[team.color] ?? COLOR_MAP.emerald;
   const winRate = team.matchesPlayed > 0 ? Math.round((team.wins / team.matchesPlayed) * 100) : 0;
@@ -1011,19 +1080,28 @@ export default function TeamDetailPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Back button */}
-      <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
-        <Link href="/teams" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-          <ChevronLeft size={16} /> Mes equipes
-        </Link>
-      </motion.div>
+      {/* Fil d'ariane : ou l'on est, sans supposer d'ou l'on vient. */}
+      <nav
+        aria-label="Fil d'ariane"
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
+      >
+        {trail.map((step) => (
+          <span key={step.href} className="flex items-center gap-2">
+            <Link href={step.href} className="transition-colors hover:text-emerald-700">
+              {step.label}
+            </Link>
+            <span aria-hidden className="text-gray-300">›</span>
+          </span>
+        ))}
+        <span className="truncate text-gray-600">{team.name}</span>
+      </nav>
 
       {/* Team header card */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
+        className="group relative overflow-hidden border border-gray-200/70 bg-white"
       >
         {/* Banner with gradient overlay */}
         <div className="relative h-28 w-full overflow-hidden sm:h-56">
@@ -1038,9 +1116,9 @@ export default function TeamDetailPage() {
           <div className="absolute right-4 top-4 flex gap-2">
              {!isTeamManager && !isGhostTeam && (
                 <button onClick={handleFollowToggle} disabled={followLoading}
-                  className={`flex items-center gap-1.5 rounded-full backdrop-blur-md px-4 py-2 text-xs font-bold transition-all shadow-lg ${
+                  className={`flex items-center gap-1.5 rounded-full backdrop-blur-md px-4 py-2 text-xs font-bold transition-all ${
                     isFollowing 
-                      ? "bg-primary-500/90 text-white" 
+                      ? "bg-emerald-500/90 text-white" 
                       : "bg-white/90 text-gray-900 hover:bg-white"
                   }`}>
                   <Heart size={14} className={isFollowing ? "fill-current" : ""} />
@@ -1049,7 +1127,7 @@ export default function TeamDetailPage() {
               )}
               {isTeamManager && (
                 <button onClick={() => setShowEditModal(true)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow-lg backdrop-blur-md transition-all hover:bg-white">
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-900 backdrop-blur-md transition-all hover:bg-white">
                   <Edit3 size={16} />
                 </button>
               )}
@@ -1059,13 +1137,13 @@ export default function TeamDetailPage() {
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
             <div className="flex items-end gap-5">
               <div className="relative shrink-0">
-                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
+                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
                   {team.logoUrl
                     ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
                     : <Shield size={40} className={colors.icon} />}
                 </div>
                 {team.isRecruiting && (
-                  <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-white">
+                  <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white">
                     <UserPlus size={12} />
                   </div>
                 )}
@@ -1090,7 +1168,7 @@ export default function TeamDetailPage() {
                 {team.slogan && <p className="mt-1 text-sm font-medium opacity-90 italic">«&nbsp;{team.slogan}&nbsp;»</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold opacity-80 sm:gap-4">
                   {team.city && (
-                    <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary-400" /> {team.city}</span>
+                    <span className="flex items-center gap-1.5"><MapPin size={14} className="text-gray-400" /> {team.city}</span>
                   )}
                   <span className="flex items-center gap-1.5">
                     <Users size={14} className="text-blue-400" />
@@ -1115,29 +1193,10 @@ export default function TeamDetailPage() {
             </div>
           )}
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-4">
-             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-gray-100 bg-gray-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
-                <div className="absolute -right-2 -top-2 opacity-10"><Users size={64}/></div>
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Effectif</p>
-                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-gray-900 font-display">{squadCount}</p>
-             </div>
-             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
-                <div className="absolute -right-2 -top-2 opacity-10 text-emerald-600"><Trophy size={64}/></div>
-                <p className="text-xs font-bold uppercase tracking-wider text-emerald-600/60">Victoires</p>
-                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-emerald-600 font-display">{team.wins}</p>
-             </div>
-             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-red-100 bg-red-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
-                <div className="absolute -right-2 -top-2 opacity-10 text-red-600"><X size={64}/></div>
-                <p className="text-xs font-bold uppercase tracking-wider text-red-600/60">Défaites</p>
-                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-red-600 font-display">{team.losses}</p>
-             </div>
-             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-blue-100 bg-blue-50/50 p-3 sm:p-4 transition-all hover:shadow-md">
-                <div className="absolute -right-2 -top-2 opacity-10 text-blue-600"><Star size={64}/></div>
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-600/60">Win Rate</p>
-                <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-blue-600 font-display">{winRate}%</p>
-             </div>
-          </div>
+          {/* Les chiffres ne sont plus ici : ils avaient pris le bas de la
+              carte d'identite de l'equipe pour dire quatre nombres qu'on ne
+              lit pas en arrivant. Ils ont leur onglet, juste apres le
+              « A propos ». */}
         </div>
       </motion.div>
 
@@ -1146,11 +1205,12 @@ export default function TeamDetailPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="flex overflow-x-auto border-b border-gray-200 scrollbar-hide"
+        className="flex overflow-x-auto border-b border-gray-200/70 scrollbar-hide"
       >
         {[
           { id: "roster", label: "Effectif", icon: Users, count: members.length },
           { id: "matches", label: "Matchs", icon: Calendar, count: matches.length },
+          { id: "stats", label: "Stats", icon: BarChart3, count: 0 },
           // Sur un fantôme il ne reste que l'effectif, les matchs joués contre
           // lui et de quoi le supprimer.
           ...(isGhostTeam ? [] : [
@@ -1165,7 +1225,7 @@ export default function TeamDetailPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id as ActiveTab)}
             className={`relative flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-3 text-xs sm:text-sm sm:gap-2 sm:pr-6 sm:px-0 font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id ? "border-primary-600 text-primary-600" : "border-transparent text-gray-400 hover:text-gray-600"
+              activeTab === tab.id ? "border-gray-900 text-emerald-700" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}
           >
             <tab.icon size={16} />
@@ -1175,7 +1235,7 @@ export default function TeamDetailPage() {
                 "isBadge" in tab && tab.isBadge
                   ? "bg-red-100 text-red-600"
                   : activeTab === tab.id
-                    ? "bg-primary-100 text-primary-700"
+                    ? "bg-emerald-50 text-emerald-700"
                     : "bg-gray-100 text-gray-500"
               }`}>
                 {tab.count}
@@ -1194,7 +1254,7 @@ export default function TeamDetailPage() {
             if (!manager) return null;
             const initials = `${manager.firstName[0] ?? ""}${manager.lastName[0] ?? ""}`;
             return (
-              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:p-4">
+              <div className="flex items-center gap-3 border border-blue-100 bg-blue-50/60 p-3 sm:p-4">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${manager.firstName} ${manager.lastName}`)}`}>
                   {manager.profilePictureUrl ? <img src={manager.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
                 </div>
@@ -1210,7 +1270,7 @@ export default function TeamDetailPage() {
                     <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
                     <input
                       type="text"
-                      className="h-9 w-11 sm:w-12 rounded-xl border border-gray-100 bg-white text-center text-sm font-black text-gray-900 shadow-sm focus:border-blue-300 focus:ring-0"
+                      className="h-9 w-11 sm:w-12 border border-gray-200/70 bg-white text-center text-sm font-black text-gray-900 focus:border-blue-300 focus:ring-0"
                       value={teamSquadNumbers[manager.uid] || ""}
                       onChange={(e) => handleSquadNumberChange(manager.uid, e.target.value)}
                       placeholder="N°"
@@ -1223,18 +1283,18 @@ export default function TeamDetailPage() {
 
           {/* Player list (excluding manager) */}
           {isTeamManager && (lineupChanged || squadNumbersChanged) && (
-            <div className="flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5">
-              <span className="text-sm text-primary-700">Modification(s) en attente</span>
+            <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+              <span className="text-sm text-emerald-700">Modification(s) en attente</span>
               <div className="flex gap-2">
                 {lineupChanged && (
                   <button onClick={handleSaveLineup} disabled={savingLineup}
-                    className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+                    className="flex items-center gap-1 bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
                     {savingLineup ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Composition
                   </button>
                 )}
                 {squadNumbersChanged && (
                   <button onClick={handleSaveSquadNumbers} disabled={savingSquadNumbers}
-                    className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                    className="flex items-center gap-1 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
                     {savingSquadNumbers ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Dossards
                   </button>
                 )}
@@ -1249,7 +1309,7 @@ export default function TeamDetailPage() {
 
             if (totalCount === 0) {
               return (
-                <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+                <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
                   <Users size={32} className="text-gray-300" />
                   <p className="mt-3 text-sm text-gray-500">Aucun joueur dans l&apos;équipe</p>
                 </div>
@@ -1267,13 +1327,13 @@ export default function TeamDetailPage() {
                     <motion.div key={member.uid} layout
                       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -60, height: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}
-                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 hover:shadow-sm transition-shadow sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                      className="flex flex-col gap-3 border border-gray-200/70 bg-white p-3 transition-shadow sm:flex-row sm:items-center sm:justify-between sm:p-4"
                     >
                       <div className="flex items-center gap-3">
                         {isTeamManager && (
                           <button onClick={() => handleLineupToggle(member.uid)}
                             title={isStarter ? "Retirer des titulaires" : "Ajouter aux titulaires"}
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-primary-600 bg-primary-600 text-white" : "border-gray-300 text-transparent hover:border-primary-400"}`}>
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-gray-900 bg-gray-900 text-white" : "border-gray-300 text-transparent hover:border-gray-900"}`}>
                             <UserCheck size={12} />
                           </button>
                         )}
@@ -1282,31 +1342,31 @@ export default function TeamDetailPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <Link href={`/profile/${member.uid}`} className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
+                            <Link href={`/profile/${member.uid}`} className="font-semibold text-gray-900 hover:text-emerald-700 transition-colors">
                               {member.firstName} {member.lastName}
                             </Link>
-                            {isStarter && <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700">Titulaire</span>}
+                            {isStarter && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">Titulaire</span>}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <MapPin size={11} /> {member.locationCity}
-                            {pos && <span className={`ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
+                            {pos && <span className={`ml-1 px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
                           </div>
                         </div>
                       </div>
                       {isTeamManager && (
-                        <div className="flex items-center gap-3 border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                          <div className="flex items-center gap-2 sm:border-r sm:border-gray-100 sm:pr-4">
+                        <div className="flex items-center gap-3 border-t border-gray-200/70 pt-2 sm:border-t-0 sm:pt-0 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                          <div className="flex items-center gap-2 sm:border-r sm:border-gray-200/70 sm:pr-4">
                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">N°</span>
                             <input
                               type="text"
-                              className="h-8 w-11 rounded-xl border border-gray-100 bg-gray-50/50 text-center text-sm font-black text-gray-900 shadow-sm focus:border-primary-300 focus:bg-white focus:ring-0 transition-all sm:h-9 sm:w-12"
+                              className="h-8 w-11 border border-gray-200/70 bg-gray-50/50 text-center text-sm font-black text-gray-900 focus:border-gray-900 focus:bg-white focus:ring-0 transition-all sm:h-9 sm:w-12"
                               value={teamSquadNumbers[member.uid] || ""}
                               onChange={(e) => handleSquadNumberChange(member.uid, e.target.value)}
                               placeholder="—"
                             />
                           </div>
                           <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
-                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                            className="flex items-center gap-1 border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
                             {removingMember === member.uid ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />} Retirer
                           </button>
                         </div>
@@ -1322,7 +1382,7 @@ export default function TeamDetailPage() {
                     <motion.div key={`ghost-${ghost.id}`} layout
                       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -60, height: 0 }} transition={{ duration: 0.3, delay: (realPlayers.length + i) * 0.05 }}
-                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 hover:shadow-sm transition-shadow sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                      className="flex flex-col gap-3 border border-gray-200/70 bg-white p-3 transition-shadow sm:flex-row sm:items-center sm:justify-between sm:p-4"
                     >
                       <div className="flex items-center gap-3">
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${ghost.firstName} ${ghost.lastName}`)}`}>
@@ -1332,22 +1392,22 @@ export default function TeamDetailPage() {
                           <h4 className="font-semibold text-gray-900">{ghost.firstName} {ghost.lastName}</h4>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             {ghost.squadNumber && <span className="font-bold text-gray-700">N°{ghost.squadNumber}</span>}
-                            <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[ghost.position] ?? "bg-gray-100 text-gray-600"}`}>
+                            <span className={` px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[ghost.position] ?? "bg-gray-100 text-gray-600"}`}>
                               {POSITION_LABELS[ghost.position] ?? ghost.position}
                             </span>
                           </div>
                         </div>
                       </div>
                       {isTeamManager && (
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0 w-full sm:w-auto justify-end">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t border-gray-200/70 pt-2 sm:border-t-0 sm:pt-0 w-full sm:w-auto justify-end">
                           <button
                             onClick={() => setGhostStatsTarget(ghost)}
-                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            className="flex items-center gap-1 border border-gray-200/70 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                             <BarChart2 size={12} /> <span>Stats</span>
                           </button>
                           <button
                             onClick={() => { setEditingGhost(ghost); setShowGhostModal(true); }}
-                            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            className="flex items-center gap-1 border border-gray-200/70 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                             <Edit3 size={12} /> <span>Modifier</span>
                           </button>
                           <button
@@ -1363,7 +1423,7 @@ export default function TeamDetailPage() {
                               }
                             }}
                             disabled={deletingGhostId === ghost.id}
-                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                            className="flex items-center gap-1 border border-red-200 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
                             {deletingGhostId === ghost.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} <span>Supprimer</span>
                           </button>
                         </div>
@@ -1378,7 +1438,7 @@ export default function TeamDetailPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => { setEditingGhost(null); setShowGhostModal(true); }}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                className="flex flex-1 items-center justify-center gap-2 border border-gray-200/70 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <Plus size={16} /> Ajouter un joueur
               </button>
               {/* Recruter ouvre le mercato côté manager, sur l'onglet joueurs.
@@ -1386,7 +1446,7 @@ export default function TeamDetailPage() {
               {!isGhostTeam && (
                 <Link
                   href="/mercato?tab=players"
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+                  className="flex flex-1 items-center justify-center gap-2 bg-emerald-500 py-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
                 >
                   <UserPlus size={16} /> Recruter
                 </Link>
@@ -1413,7 +1473,7 @@ export default function TeamDetailPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className="rounded-xl border border-gray-200 bg-white p-4"
+                  className=" border border-gray-200/70 bg-white p-4"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -1446,7 +1506,7 @@ export default function TeamDetailPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className="rounded-xl border border-gray-200 bg-white p-4"
+                  className=" border border-gray-200/70 bg-white p-4"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -1474,11 +1534,11 @@ export default function TeamDetailPage() {
           )}
 
           {matches.length === 0 && (
-            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+            <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Trophy size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucun match programme</p>
               {isTeamManager && (
-                <span className="mt-4 inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400">
+                <span className="mt-4 inline-flex cursor-not-allowed items-center gap-2 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400">
                   <Calendar size={14} /> Programmer un match — bientôt
                 </span>
               )}
@@ -1487,7 +1547,7 @@ export default function TeamDetailPage() {
 
           {/* CTA for manager */}
           {isTeamManager && matches.length > 0 && (
-            <span className="flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 py-4 text-sm font-medium text-gray-400">
+            <span className="flex cursor-not-allowed items-center justify-center gap-2 border border-gray-200/70 bg-gray-50 py-4 text-sm font-medium text-gray-400">
               <Calendar size={16} /> Programmer un match — bientôt
             </span>
           )}
@@ -1495,6 +1555,48 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: PALMARES ===================== */}
+      {activeTab === "stats" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          {/* Le bilan, en toutes lettres. « Win Rate » est devenu « Ratio de
+              victoires » : le tableau de bord d'un club de Lome n'a pas de
+              raison de parler anglais. */}
+          <div className="grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-4">
+            {[
+              { label: "Effectif", value: squadCount, tone: "text-gray-900" },
+              { label: "Victoires", value: team.wins, tone: "text-emerald-700" },
+              { label: "Nuls", value: team.draws, tone: "text-gray-900" },
+              { label: "Défaites", value: team.losses, tone: "text-red-600" },
+            ].map((s) => (
+              <div key={s.label} className="bg-white p-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{s.label}</p>
+                <p className={`mt-2 font-display text-3xl font-black tabular-nums ${s.tone}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
+            <div className="bg-white p-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Matchs joués</p>
+              <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">{team.matchesPlayed}</p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ratio de victoires</p>
+              <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">
+                {team.matchesPlayed > 0 ? `${winRate}%` : "—"}
+              </p>
+            </div>
+          </div>
+
+          {/* Un ratio calcule sur zero match affiche 0% et se lit comme une
+              equipe qui perd tout. Mieux vaut le dire. */}
+          {team.matchesPlayed === 0 && (
+            <p className="border border-gray-200/70 bg-white px-6 py-12 text-center text-base font-bold text-gray-400">
+              Aucun match joué pour l&apos;instant — le bilan viendra avec.
+            </p>
+          )}
+        </motion.div>
+      )}
+
       {activeTab === "palmares" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
           {(team.achievements ?? []).length > 0 ? (
@@ -1502,8 +1604,8 @@ export default function TeamDetailPage() {
               const AchIcon = ACHIEVEMENT_ICONS.find((a) => a.value === ach.icon)?.Icon ?? Trophy;
               return (
                 <motion.div key={ach.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${colors.bg}`}>
+                  className="flex items-center gap-4 border border-gray-200/70 bg-white p-4">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center ${colors.bg}`}>
                     <AchIcon size={24} className={colors.icon} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1513,7 +1615,7 @@ export default function TeamDetailPage() {
                   </div>
                   {isTeamManager && (
                     <button onClick={async () => { await removeAchievement(team.id, ach.id); await fetchTeam(); }}
-                      className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                      className="shrink-0 p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
                       <Trash2 size={14} />
                     </button>
                   )}
@@ -1521,14 +1623,14 @@ export default function TeamDetailPage() {
               );
             })
           ) : (
-            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+            <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Trophy size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucun trophée pour le moment</p>
             </div>
           )}
           {isTeamManager && (
             <button onClick={() => setShowAchievementModal(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+              className="flex w-full items-center justify-center gap-2 border border-gray-200/70 border-emerald-200 bg-emerald-50/50 py-4 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors">
               <Plus size={16} /> Ajouter un trophée
             </button>
           )}
@@ -1541,7 +1643,7 @@ export default function TeamDetailPage() {
           {(team.galleryUrls ?? []).length > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {(team.galleryUrls ?? []).map((url, i) => (
-                <div key={i} className="group relative aspect-square overflow-hidden rounded-xl">
+                <div key={i} className="group relative aspect-square overflow-hidden">
                   <img src={url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                   {isTeamManager && (
                     <button onClick={() => handleRemoveGalleryImage(url)}
@@ -1553,13 +1655,13 @@ export default function TeamDetailPage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+            <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Image size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucune photo pour le moment</p>
             </div>
           )}
           {isTeamManager && (
-            <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+            <label className="flex w-full cursor-pointer items-center justify-center gap-2 border border-gray-200/70 border-emerald-200 bg-emerald-50/50 py-4 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors">
               {uploadingGallery ? <Loader2 size={16} className="animate-spin" /> : <><Plus size={16} /> Ajouter une photo</>}
               <input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} disabled={uploadingGallery} />
             </label>
@@ -1575,7 +1677,7 @@ export default function TeamDetailPage() {
             const confirmedCount = training.attendees.filter((a) => a.status === "confirmed").length;
             return (
               <motion.div key={training.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                className="rounded-xl border border-gray-200 bg-white p-4">
+                className=" border border-gray-200/70 bg-white p-4">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <h4 className="font-semibold text-gray-900">{training.title}</h4>
@@ -1591,11 +1693,11 @@ export default function TeamDetailPage() {
                     {myAttendee && myAttendee.status === "pending" && (
                       <>
                         <button onClick={() => respondToTraining(training.id, user!.uid, "confirmed").then(() => toast.success("Présence confirmée"))}
-                          className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                          className="flex items-center gap-1 bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
                           <Check size={12} /> Présent
                         </button>
                         <button onClick={() => respondToTraining(training.id, user!.uid, "declined").then(() => toast.success("Absence signalée"))}
-                          className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+                          className="flex items-center gap-1 border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
                           <X size={12} /> Absent
                         </button>
                       </>
@@ -1607,7 +1709,7 @@ export default function TeamDetailPage() {
                     )}
                     {isTeamManager && (
                       <button onClick={() => deleteTraining(training.id).then(() => toast.success("Entraînement supprimé"))}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        className=" p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
                         <Trash2 size={14} />
                       </button>
                     )}
@@ -1616,14 +1718,14 @@ export default function TeamDetailPage() {
               </motion.div>
             );
           }) : (
-            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+            <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Dumbbell size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucun entraînement programmé</p>
             </div>
           )}
           {isTeamManager && (
             <button onClick={() => setShowTrainingModal(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 py-4 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors">
+              className="flex w-full items-center justify-center gap-2 border border-gray-200/70 border-emerald-200 bg-emerald-50/50 py-4 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors">
               <Plus size={16} /> Créer un entraînement
             </button>
           )}
@@ -1645,7 +1747,7 @@ export default function TeamDetailPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.05 }}
-                className="rounded-xl border border-gray-200 bg-white p-4"
+                className=" border border-gray-200/70 bg-white p-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -1686,7 +1788,7 @@ export default function TeamDetailPage() {
                       <button
                         onClick={() => handleAccept(request)}
                         disabled={respondingId === request.id}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-all disabled:opacity-50"
+                        className="flex items-center gap-1 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-all disabled:opacity-50"
                       >
                         {respondingId === request.id ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -1698,7 +1800,7 @@ export default function TeamDetailPage() {
                       <button
                         onClick={() => handleRefuse(request.id)}
                         disabled={respondingId === request.id}
-                        className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                       >
                         {respondingId === request.id ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -1721,7 +1823,7 @@ export default function TeamDetailPage() {
               </motion.div>
             ))
           ) : (
-            <div className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-12">
+            <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <ClipboardList size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucune candidature pour le moment</p>
             </div>
@@ -1729,7 +1831,7 @@ export default function TeamDetailPage() {
 
           {/* Error feedback */}
           {actionError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className=" border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {actionError}
             </div>
           )}
@@ -1745,7 +1847,7 @@ export default function TeamDetailPage() {
           className="space-y-4"
         >
           {isGhostTeam && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
+            <div className=" border border-gray-200/70 bg-gray-50 p-4 sm:p-5">
               <h3 className="font-semibold text-gray-900">Équipe hors plateforme</h3>
               <p className="mt-1 text-sm text-gray-500">
                 Cette équipe n&apos;a pas de compte sur KoppaFoot : tu l&apos;as créée pour pouvoir
@@ -1758,7 +1860,7 @@ export default function TeamDetailPage() {
           {/* Recruiting toggle — masqué sur un fantôme : l'activer le ferait
               entrer dans searchTeams, donc dans le mercato. */}
           {!isGhostTeam && (
-          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900">Statut de recrutement</h3>
@@ -1767,7 +1869,7 @@ export default function TeamDetailPage() {
                 </p>
               </div>
               <button onClick={handleToggleRecruiting}
-                className={`flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                className={`flex shrink-0 items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                   team.isRecruiting
                     ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1781,7 +1883,7 @@ export default function TeamDetailPage() {
 
           {/* Training schedule */}
           {!isGhostTeam && (
-          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
+          <div className=" border border-gray-200/70 bg-white p-4 sm:p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Dumbbell size={16} className="text-violet-500" />
               <h3 className="font-semibold text-gray-900">Planning d&apos;entraînement</h3>
@@ -1793,7 +1895,7 @@ export default function TeamDetailPage() {
             ) : (
               <div className="space-y-2">
                 {(team.trainingSchedule ?? []).map((slot, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2">
+                  <div key={i} className="flex items-center justify-between bg-violet-50 px-3 py-2">
                     <div className="text-sm">
                       <span className="font-semibold text-violet-900">
                         {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"][slot.day]} {slot.time}
@@ -1813,13 +1915,13 @@ export default function TeamDetailPage() {
             )}
 
             {/* Add slot form */}
-            <div className="space-y-3 border-t border-gray-100 pt-4">
+            <div className="space-y-3 border-t border-gray-200/70 pt-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ajouter un créneau</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-xs text-gray-400">Jour</label>
                   <select
-                    className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
                     value={scheduleForm.day}
                     onChange={(e) => setScheduleForm({ ...scheduleForm, day: Number(e.target.value) as TrainingScheduleSlot["day"] })}
                   >
@@ -1836,7 +1938,7 @@ export default function TeamDetailPage() {
                   <label className="mb-1 block text-xs text-gray-400">Heure</label>
                   <input
                     type="time"
-                    className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
                     value={scheduleForm.time}
                     onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
                   />
@@ -1845,7 +1947,7 @@ export default function TeamDetailPage() {
               <div>
                 <label className="mb-1 block text-xs text-gray-400">Lieu</label>
                 <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                  className="w-full border border-gray-200/70 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
                   placeholder="Stade municipal"
                   value={scheduleForm.location}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })}
@@ -1854,7 +1956,7 @@ export default function TeamDetailPage() {
               <div>
                 <label className="mb-1 block text-xs text-gray-400">Label (optionnel)</label>
                 <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
+                  className="w-full border border-gray-200/70 px-2 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
                   placeholder="Tactique, Physique..."
                   value={scheduleForm.label}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, label: e.target.value })}
@@ -1863,7 +1965,7 @@ export default function TeamDetailPage() {
               <button
                 onClick={handleAddSlot}
                 disabled={addingSlot || !scheduleForm.location.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                className="flex w-full items-center justify-center gap-2 bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
               >
                 {addingSlot ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 Ajouter
@@ -1873,7 +1975,7 @@ export default function TeamDetailPage() {
           )}
 
           {/* Team info summary */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">
             <h3 className="font-semibold text-gray-900">Informations</h3>
             <dl className="mt-3 space-y-3">
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
@@ -1898,13 +2000,13 @@ export default function TeamDetailPage() {
           </div>
 
           {/* Danger zone */}
-          <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 sm:p-5">
+          <div className=" border border-red-200 bg-red-50/50 p-4 sm:p-5">
             <h3 className="font-semibold text-red-700">Zone dangereuse</h3>
             <p className="mt-1 text-sm text-red-600/80">
               Supprimer l&apos;equipe supprimera toutes les donnees associees de maniere irreversible.
             </p>
             <button onClick={() => setShowDeleteModal(true)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-all sm:w-auto sm:justify-start">
+              className="mt-4 flex w-full items-center justify-center gap-2 bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-all sm:w-auto sm:justify-start">
               <Trash2 size={14} /> Supprimer l&apos;equipe
             </button>
           </div>

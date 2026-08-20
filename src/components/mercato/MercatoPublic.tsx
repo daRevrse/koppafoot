@@ -31,10 +31,8 @@ export default function MercatoPublic() {
   return (
     <div className="mx-auto max-w-3xl space-y-12 pb-24 pt-4">
       <header>
-        <h1 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-6xl">
-          Le mercato
-        </h1>
-        <p className="mt-4 max-w-lg text-base leading-relaxed text-gray-500">
+        {/* Pas de titre : la barre du haut dit deja « Mercato ». */}
+        <p className="max-w-lg text-base leading-relaxed text-gray-500">
           Les arrivées confirmées du football togolais. Pour recruter ou trouver
           une équipe, il faut un compte.
         </p>
