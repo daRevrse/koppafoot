@@ -60,6 +60,12 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) ? get(p).data : null;
     }
 
+    /** Le role choisi sur /evolution, independant du type de compte. */
+    function isEvolutionRole(role) {
+      let profile = getProfile();
+      return profile != null && profile.get('evolution_role', null) == role;
+    }
+
     function grantIsLive(g) {
       return g != null
         && g.get('revoked', false) == false
@@ -140,7 +146,7 @@ service cloud.firestore {
         // rôle sans pouvoir le redevenir. Organisateur et superadmin restent
         // hors de ce chemin, des deux côtés : ces transitions passent par le
         // SDK admin.
-        && request.resource.data.user_type in ['player', 'manager', 'referee']
+        && request.resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner']
         && resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner'];
     }
 
@@ -180,8 +186,20 @@ service cloud.firestore {
     // Venues collection
     // ============================================
     match /venues/{venueId} {
-      allow read: if isAuthenticated();
-      allow create: if isRole('venue_owner') && request.resource.data.owner_id == request.auth.uid;
+      // Lecture publique : un terrain est une annonce faite pour etre trouvee.
+      // Le document ne porte que ce qu'on publie volontairement — nom,
+      // adresse, format, surface — et aucune coordonnee personnelle : celles
+      // du proprietaire restent dans `users`, ferme.
+      allow read: if true;
+
+      // Creation : le TYPE DE COMPTE ne suffit plus. Depuis que le terrain est
+      // un role Evolution activable, un organisateur qui reference son terrain
+      // garde `user_type: "organizer"` — `isRole('venue_owner')` seul lui
+      // aurait refuse la creation. Le role Evolution vaut donc autorisation,
+      // au meme titre.
+      allow create: if isAuthenticated()
+                    && request.resource.data.owner_id == request.auth.uid
+                    && (isRole('venue_owner') || isEvolutionRole('venue_owner'));
       allow update: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
       allow delete: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
     }

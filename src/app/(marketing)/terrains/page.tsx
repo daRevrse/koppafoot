@@ -135,9 +135,9 @@ export default function TerrainsPage() {
             Référencer un terrain
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
-            Le formulaire d&apos;inscription d&apos;un terrain n&apos;est pas encore
-            ouvert : ça se fait pour l&apos;instant à la main. Créez un compte, on
-            met la fiche en place avec vous.
+            Créez un compte, activez l&apos;espace terrain et saisissez votre
+            fiche : nom, ville, format, surface. Elle entre aussitôt dans la
+            recherche, là où les équipes cherchent où jouer.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <Link

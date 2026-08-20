@@ -70,16 +70,13 @@ const OPEN: Role[] = [
       "Ta fiche d'arbitre avec ton niveau de licence, et ta place dans la recherche : les organisateurs qui cherchent quelqu'un pour siffler te trouvent. L'activation est libre — personne ne vérifie la licence aujourd'hui, elle sert à te présenter, pas à te valider.",
     cta: { label: "Devenir arbitre", href: "/evolution" },
   },
-];
-
-const COMING: Role[] = [
   {
     name: "Propriétaire de terrain",
     image: "/branding/role_proprietaire.png",
     line: "Tu as la pelouse",
     body:
       "Un terrain se référence sur la plateforme et se trouve dans la recherche. Tout ce qui touche à la réservation et au calendrier d'occupation n'existe pas encore.",
-    cta: { label: "Voir la page terrains", href: "/terrains" },
+    cta: { label: "Référencer mon terrain", href: "/evolution" },
   },
 ];
 
@@ -158,17 +155,6 @@ export default function RolesPage() {
           </h2>
           <div className="mt-8 grid gap-px bg-gray-200/70 lg:grid-cols-3">
             {OPEN.map((r) => <RoleCard key={r.name} role={r} />)}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-gray-200/70 py-20 sm:py-28">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-            Déjà dans les données, pas encore dans le parcours
-          </h2>
-          <div className="mt-8 grid gap-px bg-gray-200/70 sm:grid-cols-2">
-            {COMING.map((r) => <RoleCard key={r.name} role={r} />)}
           </div>
         </div>
       </section>

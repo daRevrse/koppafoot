@@ -72,10 +72,11 @@ export async function GET(req: Request) {
   const searching = needle.length >= 2;
 
   try {
-    const [compsSnap, teamsSnap, usersSnap] = await Promise.all([
+    const [compsSnap, teamsSnap, usersSnap, venuesSnap] = await Promise.all([
       adminDb.collection("competitions").get(),
       adminDb.collection("teams").get(),
       adminDb.collection("users").get(),
+      adminDb.collection("venues").get(),
     ]);
 
     // Competitions carry no follower counter of their own; the truth lives
@@ -128,9 +129,35 @@ export async function GET(req: Request) {
       };
     });
 
+    // Les terrains referencés, lus dans `venues`.
+    //
+    // La categorie « terrains » ne montrait jusqu'ici que des COMPTES de
+    // proprietaires, avec leurs champs `venue_name`/`venue_city` — un compte
+    // ne pouvait donc porter qu'un seul terrain, et la collection `venues`,
+    // pourtant complete, n'etait lue nulle part. Les deux sources coexistent
+    // le temps que les anciens comptes soient repris : un terrain saisi
+    // aujourd'hui arrive ici, un proprietaire d'avant reste trouvable.
+    const venueHits: Ranked[] = venuesSnap.docs.map((d) => {
+      const x = d.data() as Row;
+      const city = s(x.city);
+      return {
+        hit: {
+          id: d.id,
+          title: s(x.name) || "Terrain",
+          subtitle: [s(x.address), city].filter(Boolean).join(", ") || "Togo",
+          href: `/terrains/${d.id}`,
+          image: s(x.photo_url) || null,
+          badge: x.available === false ? "Fermé" : undefined,
+        },
+        // Un terrain ouvert passe devant un terrain ferme.
+        rank: x.available === false ? 0 : 1,
+        haystack: fold(`${s(x.name)} ${city} ${s(x.address)}`),
+      };
+    });
+
     // One pass over the profiles, split by role.
     const players: Ranked[] = [];
-    const terrains: Ranked[] = [];
+    const terrains: Ranked[] = [...venueHits];
     const arbitres: Ranked[] = [];
 
     usersSnap.docs.forEach((d) => {

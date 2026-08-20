@@ -7,13 +7,14 @@ import {
   Rocket, User, Briefcase, ArrowLeft, ArrowRight, Loader2,
   Check, Trophy, RefreshCw, Mail,
   Store, ClipboardCheck, BarChart3, CalendarDays, Users, Swords, Lock,
-  Search, FileText, Flag,
+  Search, FileText, Flag, MapPin,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoleOnboarding } from "@/hooks/useRoleOnboarding";
 import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
-import type { EvolutionRole, FirestoreUser } from "@/types";
+import type { EvolutionRole, FirestoreUser, Venue } from "@/types";
+import { createVenue } from "@/lib/firestore";
 
 // ============================================
 // Évolution — role onboarding. Proposes the available roles (Joueur,
@@ -50,6 +51,17 @@ const ROLES: {
       "Deviens propriétaire d'une équipe de compétition",
       "Réponds aux invitations des organisateurs",
       "Gère ton effectif et tes compositions",
+    ],
+  },
+  {
+    role: "venue_owner",
+    title: "Propriétaire de terrain",
+    Icon: MapPin,
+    tagline: "Tu as la pelouse.",
+    perks: [
+      "Référence ton terrain : surface, format, ville",
+      "Les équipes et organisateurs le trouvent dans la recherche",
+      "Sa fiche publique porte tes informations de contact",
     ],
   },
   {
@@ -92,6 +104,14 @@ const ROLE_FEATURES: Record<EvolutionRole, {
   // aujourd'hui, ses ecrans propres (designations, rapports) sont encore au
   // placard — d'ou l'absence de `href`, qui les affiche en « Bientot » plutot
   // que de promettre une page qui n'ouvre pas.
+  venue_owner: [
+    { label: "Mes terrains", desc: "Ajoute, modifie ou retire un terrain", Icon: MapPin, href: "/mes-terrains" },
+    { label: "Être trouvé", desc: "Tes terrains apparaissent dans la recherche", Icon: Search, href: "/" },
+    // La reservation en ligne n'existe pas et la page /terrains le dit
+    // franchement : pas de `href`, donc « Bientot » plutot qu'une promesse.
+    { label: "Réservations", desc: "Recevoir et gérer les demandes de créneau", Icon: CalendarDays },
+    { label: "Calendrier d'occupation", desc: "Voir qui joue chez toi et quand", Icon: ClipboardCheck },
+  ],
   referee: [
     { label: "Ma fiche d'arbitre", desc: "Licence, niveau et coordonnées visibles par les organisateurs", Icon: User, href: "/profile" },
     { label: "Être trouvé", desc: "Tu apparais dans la recherche, catégorie Arbitres", Icon: Search, href: "/" },
@@ -106,7 +126,22 @@ const ROLE_META: Record<EvolutionRole, { space: string; profile: string; tagline
   player: { space: "Espace joueur", profile: "Ton profil joueur", tagline: "Ton profil sportif est actif.", Icon: User },
   manager: { space: "Espace manager", profile: "Ton profil manager", tagline: "Ton profil manager est actif.", Icon: Briefcase },
   referee: { space: "Espace arbitre", profile: "Ton profil arbitre", tagline: "Ton profil d'arbitre est actif.", Icon: Flag },
+  venue_owner: { space: "Espace terrain", profile: "Ton terrain", tagline: "Ton terrain est référencé.", Icon: MapPin },
 };
+
+const FIELD_SIZES = [
+  { value: "5v5", label: "5 contre 5" },
+  { value: "7v7", label: "7 contre 7" },
+  { value: "11v11", label: "11 contre 11" },
+  { value: "futsal", label: "Futsal" },
+];
+
+const FIELD_SURFACES = [
+  { value: "natural_grass", label: "Pelouse" },
+  { value: "synthetic", label: "Synthétique" },
+  { value: "hybrid", label: "Hybride" },
+  { value: "indoor", label: "Intérieur" },
+];
 
 const LICENSE_LEVELS = [
   { value: "trainee", label: "Stagiaire" },
@@ -175,6 +210,10 @@ export default function EvolutionPage() {
   const [teamName, setTeamName] = useState(user?.teamName ?? "");
   const [licenseLevel, setLicenseLevel] = useState(user?.licenseLevel ?? "");
   const [licenseNumber, setLicenseNumber] = useState(user?.licenseNumber ?? "");
+  const [venueName, setVenueName] = useState("");
+  const [venueAddress, setVenueAddress] = useState("");
+  const [fieldSize, setFieldSize] = useState("11v11");
+  const [fieldSurface, setFieldSurface] = useState("synthetic");
   const [city, setCity] = useState(user?.locationCity ?? "");
 
   if (!user) return null;
@@ -200,10 +239,34 @@ export default function EvolutionPage() {
       } else if (role === "referee") {
         if (licenseLevel) patch.license_level = licenseLevel;
         if (licenseNumber.trim()) patch.license_number = licenseNumber.trim();
+      } else if (role === "venue_owner") {
+        // Rien a poser sur le compte : le terrain est un document a part,
+        // cree juste apres. Un proprietaire peut en avoir plusieurs, ce qu'un
+        // champ `venue_name` sur son profil n'aurait jamais su representer.
       } else {
         if (teamName.trim()) patch.team_name = teamName.trim();
       }
       await updateProfile(patch);
+
+      // Le premier terrain part avec l'activation : un espace terrain sans
+      // terrain n'aurait rien a montrer, et on tient la saisie tant que la
+      // personne est dans le geste.
+      if (role === "venue_owner" && venueName.trim()) {
+        await createVenue({
+          name: venueName.trim(),
+          address: venueAddress.trim(),
+          city: city.trim() || user.locationCity || "",
+          ownerId: user.uid,
+          fieldType: fieldSurface === "indoor" ? "indoor" : "outdoor",
+          fieldSurface: fieldSurface as Venue["fieldSurface"],
+          fieldSize: fieldSize as Venue["fieldSize"],
+          pricePerHour: 0,
+          amenities: [],
+          available: true,
+          photoUrl: null,
+        });
+      }
+
       toast.success(`${ROLE_META[role].space} activé !`);
       setPicking(null);
       setSwitching(false);
@@ -450,6 +513,45 @@ export default function EvolutionPage() {
                     Pied fort
                   </label>
                   <ChoicePills options={FEET} value={strongFoot} onChange={setStrongFoot} />
+                </div>
+              </>
+            ) : picking === "venue_owner" ? (
+              <>
+                <div>
+                  <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-400">
+                    Nom du terrain
+                  </label>
+                  <input
+                    type="text"
+                    value={venueName}
+                    onChange={(e) => setVenueName(e.target.value)}
+                    placeholder="ex: Terrain municipal de Bè"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-400">
+                    Adresse <span className="font-bold normal-case text-gray-300">(optionnel)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={venueAddress}
+                    onChange={(e) => setVenueAddress(e.target.value)}
+                    placeholder="ex: Rue des Palmiers, quartier Bè"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-400">
+                    Format
+                  </label>
+                  <ChoicePills options={FIELD_SIZES} value={fieldSize} onChange={setFieldSize} />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-400">
+                    Surface
+                  </label>
+                  <ChoicePills options={FIELD_SURFACES} value={fieldSurface} onChange={setFieldSurface} />
                 </div>
               </>
             ) : picking === "referee" ? (
