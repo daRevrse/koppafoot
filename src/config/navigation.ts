@@ -120,9 +120,20 @@ export interface BottomNavItem {
 // next to the notification bell, so the tab bar keeps room for the role
 // spaces (organisateur / live / évolution) that used to be buried in the
 // profile sheet.
+/**
+ * Les deux sections de LECTURE de la barre du bas.
+ *
+ * « Compétitions » en est sortie : l'annuaire s'atteint depuis le Direct,
+ * qui les liste déjà, alors qu'Actus n'était atteignable de nulle part en
+ * mobile — la rangée du header qui la porte est masquée sous `lg`.
+ *
+ * Les deux places suivantes ne sont pas des liens fixes : l'espace du compte
+ * (ou Evolution s'il n'a pas encore de rôle) et le bouton « Moi ». Voir
+ * MobileBottomNav.
+ */
 export const MEMBER_BOTTOM: BottomNavItem[] = [
   { path: "/", icon: "Flame", label: "Direct", exact: true },
-  { path: "/competitions", icon: "Trophy", label: "Compétitions" },
+  { path: "/actus", icon: "Newspaper", label: "Actus" },
 ];
 
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {

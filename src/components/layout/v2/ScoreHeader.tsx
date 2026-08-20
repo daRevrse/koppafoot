@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, Newspaper, ArrowLeftRight, Globe, Search, ChevronDown, User, Briefcase,
-  Link2 as LinkIcon, ArrowUpRight, Flag,
+  Link2 as LinkIcon, ArrowUpRight, Flag, X,
   Rocket, ClipboardList, Plus, Radio, Shield, LogOut, Share2, Check, Sparkles, MapPin,
   Users, ClipboardCheck, CalendarDays, BarChart3,
   type LucideIcon,
@@ -212,6 +212,64 @@ function KoppaLinksMenu() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * « Koppa Links » en mobile : une feuille, meme contenu que le megamenu.
+ *
+ * Les trois portes vivaient dans la rangee du header, masquee sous `lg` —
+ * donc invisibles sur telephone. On avait nomme et dessine trois espaces
+ * d'acquisition que la moitie des visiteurs ne pouvait pas atteindre.
+ *
+ * Une feuille montante plutot qu'un menu deroulant : sur un ecran de 375px,
+ * un panneau ancre en haut a droite deborde ou se colle au bord.
+ */
+function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Koppa Links">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      <div className="absolute inset-x-0 bottom-0 border-t border-gray-200/70 bg-white pb-safe">
+        <div className="flex items-center justify-between border-b border-gray-200/70 px-5 py-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+            Koppa Links
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="p-1 text-gray-400 transition-colors hover:text-gray-900"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {ENTRIES.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            className="flex items-start gap-4 border-b border-gray-200/70 px-5 py-5 last:border-b-0 active:bg-gray-50"
+          >
+            <item.Icon size={24} strokeWidth={1.5} className="mt-0.5 shrink-0 text-gray-300" />
+            <span className="min-w-0">
+              <span className="block font-display text-lg font-black uppercase leading-tight tracking-tight text-gray-900">
+                {item.label}
+              </span>
+              <span className="mt-1 block text-[13px] font-medium leading-relaxed text-gray-500">
+                {item.blurb}
+              </span>
+            </span>
+            <ArrowUpRight size={16} className="mt-1 shrink-0 text-gray-300" />
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -474,6 +532,7 @@ export default function ScoreHeader() {
   const { user } = useAuth();
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
 
   return (
     // Colle en haut : sur un tableau de scores on defile beaucoup, et
@@ -561,6 +620,17 @@ export default function ScoreHeader() {
             <Search size={22} />
           </button>
 
+          {/* Les trois portes : une feuille, puisque la rangee qui les porte
+              en desktop est masquee ici. */}
+          <button
+            type="button"
+            onClick={() => setLinksOpen(true)}
+            aria-label="Koppa Links"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            <LinkIcon size={22} />
+          </button>
+
           {/* La Tribune, mobile only and members only: the tab bar leaves it
               out (see MEMBER_BOTTOM), so dropping it here would strand it. */}
           {user && (
@@ -588,6 +658,7 @@ export default function ScoreHeader() {
       </div>
 
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
+      <KoppaLinksSheet open={linksOpen} onClose={() => setLinksOpen(false)} />
     </header>
   );
 }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, MessageCircle, User, LogOut, X, ClipboardList, Shield,
-  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight, Plus,
+  Rocket, Briefcase, UserPlus, Check, Radio, LayoutGrid, ChevronRight, Plus, Newspaper,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -16,7 +16,7 @@ import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/nav
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Flame, Trophy, MessageCircle, User,
+  Flame, Trophy, MessageCircle, User, Newspaper,
 };
 
 function isActive(pathname: string, item: BottomNavItem): boolean {
@@ -368,8 +368,26 @@ export default function MobileBottomNav() {
               );
             })}
 
-            {/* Role spaces — a sheet, like the profile tab next to it */}
-            {user && (
+            {/* Troisieme place : l'espace du compte.
+                
+                Sans role Evolution, elle devient l'invitation a en choisir un,
+                en jaune plein contraste — le meme geste que la barre desktop,
+                qui n'existait pas ici. C'est la porte vers tout le reste du
+                produit : la laisser au fond d'une feuille revenait a la
+                cacher a qui ne l'ouvre jamais. */}
+            {user && !user.evolutionRole && (
+              <Link
+                href="/evolution"
+                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5"
+              >
+                <Rocket size={22} className="text-amber-300" />
+                <span className="text-[10px] font-black leading-tight text-amber-300">
+                  Evolution
+                </span>
+              </Link>
+            )}
+
+            {user && user.evolutionRole && (
               <button
                 onClick={() => setSpacesOpen(true)}
                 className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
@@ -391,7 +409,7 @@ export default function MobileBottomNav() {
                       : "text-white/40 group-hover:text-white/70"
                   }`}
                 >
-                  Espaces
+                  Espace
                 </span>
               </button>
             )}
