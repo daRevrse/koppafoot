@@ -99,7 +99,7 @@ export async function GET(req: Request) {
         hit: {
           id: d.id,
           title: s(x.name) || "Compétition",
-          subtitle: s(x.venue_city) || s(x.organizer_name) || "Togo",
+          subtitle: s(x.venue_city) || s(x.organizer_name) || "",
           href: `/c/${s(x.slug) || d.id}`,
           image: s(x.logo_url) || null,
           badge: followers > 0 ? `${followers} abonné${followers > 1 ? "s" : ""}` : undefined,
@@ -117,7 +117,7 @@ export async function GET(req: Request) {
         hit: {
           id: d.id,
           title: s(x.name) || "Équipe",
-          subtitle: s(x.city) || "Togo",
+          subtitle: s(x.city) || "",
           href: `/teams/${d.id}`,
           image: s(x.logo_url) || null,
           badge: x.is_recruiting === true ? "Recrute" : undefined,
@@ -144,7 +144,7 @@ export async function GET(req: Request) {
         hit: {
           id: d.id,
           title: s(x.name) || "Terrain",
-          subtitle: [s(x.address), city].filter(Boolean).join(", ") || "Togo",
+          subtitle: [s(x.address), city].filter(Boolean).join(", ") || "",
           href: `/terrains/${d.id}`,
           image: s(x.photo_url) || null,
           badge: x.available === false ? "Fermé" : undefined,
@@ -184,7 +184,7 @@ export async function GET(req: Request) {
           hit: {
             id: d.id,
             title: venue,
-            subtitle: s(x.venue_city) || city || "Togo",
+            subtitle: s(x.venue_city) || city || "",
             href: `/profile/${d.id}`,
             image: photo,
           },
@@ -200,7 +200,7 @@ export async function GET(req: Request) {
           hit: {
             id: d.id,
             title: name,
-            subtitle: city || "Togo",
+            subtitle: city || "",
             href: `/profile/${d.id}`,
             image: photo,
             badge: level ? `Licence ${level}` : undefined,
@@ -217,7 +217,7 @@ export async function GET(req: Request) {
         hit: {
           id: d.id,
           title: name,
-          subtitle: [pos, city].filter(Boolean).join(" · ") || "Togo",
+          subtitle: [pos, city].filter(Boolean).join(" · ") || "",
           href: `/profile/${d.id}`,
           image: photo,
           badge: followers > 0 ? `${followers} abonné${followers > 1 ? "s" : ""}` : undefined,

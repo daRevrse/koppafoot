@@ -33,7 +33,7 @@ export default function MercatoPublic() {
       <header>
         {/* Pas de titre : la barre du haut dit deja « Mercato ». */}
         <p className="max-w-lg text-base leading-relaxed text-gray-500">
-          Les arrivées confirmées du football togolais. Pour recruter ou trouver
+          Les arrivées confirmées du football amateur. Pour recruter ou trouver
           une équipe, il faut un compte.
         </p>
 

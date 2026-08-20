@@ -19,7 +19,7 @@ export const revalidate = 60;
 export const metadata = {
   title: "Compétitions — Koppafoot",
   description:
-    "Suis les compétitions de football amateur du Togo et les grands championnats du monde : classements, résultats et calendriers en direct sur Koppafoot.",
+    "Suis les compétitions de football amateur et les grands championnats du monde : classements, résultats et calendriers en direct sur Koppafoot.",
 };
 
 export default async function CompetitionsPage() {

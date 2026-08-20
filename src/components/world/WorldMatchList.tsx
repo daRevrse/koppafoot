@@ -13,7 +13,7 @@ import type { FootballMatch } from "@/lib/football-data";
 // ============================================
 
 const TZ = "Africa/Lome";
-const TZ_LABEL = "Heures à Lomé (GMT)";
+const TZ_LABEL = "Heures en GMT";
 
 const dayKeyFmt = new Intl.DateTimeFormat("fr-CA", {
   timeZone: TZ,

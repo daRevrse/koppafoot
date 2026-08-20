@@ -109,7 +109,7 @@ function logoFor(
 
 /** Second line of a competition header — the "country" line of the model. */
 function competitionSubtitle(c: Competition): string {
-  return c.venueCity ?? c.organizerName ?? "Togo";
+  return c.venueCity ?? c.organizerName ?? "";
 }
 
 /**

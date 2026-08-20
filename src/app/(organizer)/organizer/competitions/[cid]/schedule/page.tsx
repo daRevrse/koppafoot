@@ -1040,7 +1040,7 @@ export default function CompetitionSchedulePage() {
                     <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
                     <input
                       type="text"
-                      placeholder="Lomé"
+                      placeholder="Ville"
                       value={addForm.venueCity}
                       onChange={(e) => setAdd("venueCity", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"

@@ -227,7 +227,7 @@ export default function VenueApplicationPage() {
           </label>
           <input
             type="text" value={venueName} onChange={(e) => setVenueName(e.target.value)}
-            placeholder="ex: Terrain municipal de Bè" className={inputClass}
+            placeholder="ex: Terrain municipal" className={inputClass}
           />
         </div>
 
@@ -238,7 +238,7 @@ export default function VenueApplicationPage() {
             </label>
             <input
               type="text" value={city} onChange={(e) => setCity(e.target.value)}
-              placeholder="ex: Lomé" className={inputClass}
+              placeholder="Ta ville" className={inputClass}
             />
           </div>
           <div>
@@ -258,7 +258,7 @@ export default function VenueApplicationPage() {
           </label>
           <input
             type="text" value={address} onChange={(e) => setAddress(e.target.value)}
-            placeholder="ex: Rue des Palmiers, quartier Bè" className={inputClass}
+            placeholder="Rue, quartier" className={inputClass}
           />
         </div>
 

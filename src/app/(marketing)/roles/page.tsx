@@ -140,7 +140,7 @@ export default function RolesPage() {
             Ce que tu deviens ici
           </h1>
           <p className="mt-8 max-w-xl text-lg leading-relaxed text-gray-600">
-            Le football togolais ne se joue pas qu&apos;avec des joueurs. Il faut
+            Le football amateur ne se joue pas qu&apos;avec des joueurs. Il faut
             quelqu&apos;un pour tenir l&apos;effectif, quelqu&apos;un pour monter la
             compétition, quelqu&apos;un pour siffler, et un terrain pour tout ça.
             Chaque rôle ouvre un espace différent.

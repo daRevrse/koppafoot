@@ -47,8 +47,10 @@ const LEVEL_COLORS: Record<string, string> = {
   intermediate: "bg-gray-100 text-gray-600", advanced: "bg-gray-900 text-white",
 };
 // Villes du public visé. La liste gelée proposait Paris/Lyon/Marseille/Toulouse,
-// héritage d'avant le pivot — inutilisable pour une audience togolaise.
-const CITIES = ["Toutes", "Lomé", "Kara", "Sokodé", "Kpalimé", "Atakpamé", "Dapaong", "Tsévié"];
+// Les villes viennent des joueurs eux-memes, pas d'une liste ecrite a la
+// main : celle-ci enfermait le mercato dans un pays, et un joueur d'ailleurs
+// n'y trouvait jamais sa ville. « Toutes » reste en tete.
+const CITIES_STATIQUES = ["Toutes"];
 
 // NB : searchPlayers accepte aussi un filtre `position`, jamais câblé dans l'UI.
 
@@ -293,6 +295,17 @@ export default function MercatoPage() {
 
   // ---- Player specific state ----
   const [teams, setTeams] = useState<Team[]>([]);
+
+  // Les villes proposees viennent des joueurs et des equipes eux-memes.
+  // C'etait une liste ecrite a la main, celle d'un seul pays : un joueur
+  // d'ailleurs ne trouvait jamais la sienne, et la liste mentait des qu'un
+  // compte s'inscrivait hors de ces huit villes.
+  const cities = useMemo(() => {
+    const vues = new Set<string>();
+    for (const p of players) if (p.locationCity?.trim()) vues.add(p.locationCity.trim());
+    for (const t of teams) if (t.city?.trim()) vues.add(t.city.trim());
+    return [...CITIES_STATIQUES, ...[...vues].sort((a, b) => a.localeCompare(b, "fr"))];
+  }, [players, teams]);
   const [candidatureTeam, setCandidatureTeam] = useState<Team | null>(null);
   const [submittingApp, setSubmittingApp] = useState(false);
   const [sentRequestIds, setSentRequestIds] = useState<Set<string>>(new Set());
@@ -613,7 +626,7 @@ export default function MercatoPage() {
                 <div>
                   <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ville</label>
                   <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
-                    {CITIES.map(c => <option key={c}>{c}</option>)}
+                    {cities.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
@@ -726,7 +739,7 @@ export default function MercatoPage() {
                 <div>
                   <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ville</label>
                   <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
-                    {CITIES.map(c => <option key={c}>{c}</option>)}
+                    {cities.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>

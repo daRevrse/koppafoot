@@ -687,7 +687,7 @@ export default function PublicProfilePage() {
 
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                  {profile.locationCity ?? "Togo"}
+                  {profile.locationCity ?? ""}
                 </p>
                 <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
                   {profile.firstName} {profile.lastName}

@@ -94,7 +94,7 @@ export default function GetStartedPage() {
           <input
             id="locationCity"
             autoComplete="address-level2"
-            placeholder="ex: Lomé"
+            placeholder="Ta ville"
             {...register("locationCity")}
             className={inputClass}
           />

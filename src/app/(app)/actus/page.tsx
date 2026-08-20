@@ -24,7 +24,7 @@ export const revalidate = 900;
 export const metadata = {
   title: "Actus — KoppaFoot",
   description:
-    "L'actualité du football togolais et africain : ce que la presse publie, rassemblé en un fil.",
+    "L'actualité du football : ce que la presse publie, rassemblé en un fil.",
 };
 
 /** Deux lignes de trois : au-dela, la grille defile sur elle-meme. */

@@ -1115,7 +1115,7 @@ export default function CompetitionKnockoutPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Lomé"
+                    placeholder="Ville"
                     value={slotForm.venueCity}
                     onChange={(e) => setSlotForm((p) => ({ ...p, venueCity: e.target.value }))}
                     className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"

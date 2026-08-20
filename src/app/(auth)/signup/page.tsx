@@ -265,7 +265,7 @@ export default function SignupPage() {
                   id="locationCity"
                   {...optionalForm.register("locationCity")}
                   className={inputClass}
-                  placeholder="Lomé, Abidjan, Cotonou…"
+                  placeholder="Ta ville"
                 />
               </div>
             </div>

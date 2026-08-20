@@ -243,7 +243,7 @@ export default function BecomeOrganizerPage() {
               value={organizerName}
               onChange={(e) => setOrganizerName(e.target.value)}
               className={inputClass}
-              placeholder="Ex. Association Miabé, Ligue de Lomé…"
+              placeholder="Ex. Association sportive, ligue de quartier…"
               maxLength={80}
               required
             />
@@ -280,7 +280,7 @@ export default function BecomeOrganizerPage() {
               value={competitionName}
               onChange={(e) => setCompetitionName(e.target.value)}
               className={inputClass}
-              placeholder="Ex. Tournoi inter-quartiers de Lomé"
+              placeholder="Ex. Tournoi inter-quartiers"
             />
           </div>
 
@@ -291,7 +291,7 @@ export default function BecomeOrganizerPage() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className={inputClass}
-                placeholder="Lomé"
+                placeholder="Ta ville"
               />
             </div>
             <div>

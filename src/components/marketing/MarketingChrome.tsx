@@ -94,7 +94,7 @@ export function MarketingFooter() {
       <div className="mx-auto max-w-7xl px-6 pb-0 pt-20 sm:px-10 sm:pt-28">
         <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
           <p className="max-w-sm font-display text-2xl font-black leading-tight tracking-tight text-gray-900 sm:text-3xl">
-            Le football togolais, tenu comme il le mérite.
+            Le football amateur, tenu comme il le mérite.
           </p>
 
           <div className="flex flex-col gap-3 text-sm font-bold text-gray-500">

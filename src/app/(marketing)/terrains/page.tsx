@@ -20,7 +20,7 @@ import { ArrowRight } from "lucide-react";
 export const metadata = {
   title: "Les terrains — KoppaFoot",
   description:
-    "Référencez votre terrain sur KoppaFoot : être trouvé par les équipes et les organisateurs du football togolais.",
+    "Référencez votre terrain sur KoppaFoot : être trouvé par les équipes et les organisateurs qui cherchent où jouer.",
 };
 
 const STEPS: { n: string; title: string; body: string }[] = [
@@ -61,9 +61,9 @@ export default function TerrainsPage() {
                 Sans pelouse, pas de match
               </h1>
               <p className="mt-8 max-w-xl text-lg leading-relaxed text-gray-600">
-                Les équipes et les compétitions du football togolais cherchent des
-                lieux où jouer. Un terrain qui n&apos;est référencé nulle part reste
-                vide les jours où quelqu&apos;un le cherchait.
+                Les équipes et les compétitions cherchent des lieux où jouer. Un
+                terrain qui n&apos;est référencé nulle part reste vide les jours où
+                quelqu&apos;un le cherchait.
               </p>
             </div>
 

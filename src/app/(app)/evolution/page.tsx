@@ -526,7 +526,7 @@ export default function EvolutionPage() {
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="ex: Lomé"
+                placeholder="Ta ville"
                 className={inputClass}
               />
             </div>

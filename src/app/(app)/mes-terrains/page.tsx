@@ -108,7 +108,7 @@ function VenueForm({ draft, setDraft, onSubmit, onCancel, busy, submitLabel }: {
           type="text"
           value={draft.name}
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          placeholder="ex: Terrain municipal de Bè"
+          placeholder="ex: Terrain municipal"
           className={inputClass}
         />
       </div>
@@ -122,7 +122,7 @@ function VenueForm({ draft, setDraft, onSubmit, onCancel, busy, submitLabel }: {
             type="text"
             value={draft.city}
             onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-            placeholder="ex: Lomé"
+            placeholder="Ta ville"
             className={inputClass}
           />
         </div>
@@ -134,7 +134,7 @@ function VenueForm({ draft, setDraft, onSubmit, onCancel, busy, submitLabel }: {
             type="text"
             value={draft.address}
             onChange={(e) => setDraft({ ...draft, address: e.target.value })}
-            placeholder="ex: Rue des Palmiers"
+            placeholder="Rue, quartier"
             className={inputClass}
           />
         </div>
