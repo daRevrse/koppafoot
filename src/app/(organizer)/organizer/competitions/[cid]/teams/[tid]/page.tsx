@@ -187,8 +187,8 @@ export default function CompetitionRosterPage() {
           <ArrowLeft size={16} />
           Équipes
         </Link>
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
+        <div className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center bg-gray-100">
             <Shield size={26} className="text-gray-400" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Équipe introuvable</p>
@@ -216,7 +216,7 @@ export default function CompetitionRosterPage() {
         <div className="flex items-center gap-4">
           {/* Logo or color swatch */}
           <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden"
             style={team.logoUrl ? undefined : { backgroundColor: team.color }}
           >
             {team.logoUrl ? (
@@ -247,7 +247,7 @@ export default function CompetitionRosterPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+          className="flex shrink-0 items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
         >
           <Plus size={16} />
           Ajouter un joueur
@@ -262,9 +262,9 @@ export default function CompetitionRosterPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center"
+          className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50">
+          <div className="flex h-14 w-14 items-center justify-center bg-primary-50">
             <Users size={26} className="text-primary-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucun joueur</p>
@@ -274,14 +274,14 @@ export default function CompetitionRosterPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="mt-6 flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="mt-6 flex items-center gap-2 bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
           >
             <Plus size={16} />
             Ajouter un joueur
           </button>
         </motion.div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-hidden border border-gray-200/70 bg-white">
           {players.map((player, i) => (
             <motion.div
               key={player.id}
@@ -291,7 +291,7 @@ export default function CompetitionRosterPage() {
               className="group flex items-center gap-4 border-b border-gray-50 px-4 py-3 transition-colors last:border-b-0 hover:bg-gray-50/60"
             >
               {/* Dossard badge */}
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-sm font-bold text-white">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-900 text-sm font-bold text-white">
                 {player.number}
               </div>
 
@@ -310,7 +310,7 @@ export default function CompetitionRosterPage() {
                   type="button"
                   onClick={() => openEdit(player)}
                   aria-label={`Modifier ${player.name}`}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
+                  className=" p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
                 >
                   <Pencil size={16} />
                 </button>
@@ -318,7 +318,7 @@ export default function CompetitionRosterPage() {
                   type="button"
                   onClick={() => setDeleting(player)}
                   aria-label={`Supprimer ${player.name}`}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  className=" p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -343,7 +343,7 @@ export default function CompetitionRosterPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-md bg-white p-6 shadow-2xl"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -352,7 +352,7 @@ export default function CompetitionRosterPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  className=" p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X size={18} />
                 </button>
@@ -365,7 +365,7 @@ export default function CompetitionRosterPage() {
                     type="text"
                     required
                     placeholder="ex: Jean Dupont"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                     value={form.name}
                     onChange={(e) => update("name", e.target.value)}
                   />
@@ -381,7 +381,7 @@ export default function CompetitionRosterPage() {
                     required
                     maxLength={3}
                     placeholder="ex: 10"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                     value={form.number}
                     onChange={(e) => update("number", e.target.value)}
                   />
@@ -392,7 +392,7 @@ export default function CompetitionRosterPage() {
                     Poste <span className="font-normal text-gray-400">(optionnel)</span>
                   </label>
                   <select
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none"
                     value={form.position}
                     onChange={(e) => update("position", e.target.value)}
                   >
@@ -410,14 +410,14 @@ export default function CompetitionRosterPage() {
                     type="button"
                     onClick={closeModal}
                     disabled={submitting}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     {editing ? "Enregistrer" : "Ajouter"}
@@ -444,7 +444,7 @@ export default function CompetitionRosterPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-sm bg-white p-6 shadow-2xl"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
                 <Trash2 size={22} className="text-red-600" />
@@ -461,7 +461,7 @@ export default function CompetitionRosterPage() {
                   type="button"
                   onClick={() => setDeleting(null)}
                   disabled={deleteSubmitting}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                  className=" px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -469,7 +469,7 @@ export default function CompetitionRosterPage() {
                   type="button"
                   onClick={handleDelete}
                   disabled={deleteSubmitting}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
                 >
                   {deleteSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   Supprimer

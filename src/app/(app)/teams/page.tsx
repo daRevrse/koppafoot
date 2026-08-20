@@ -86,7 +86,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md border border-gray-200/70 bg-white shadow-xl"
+        className="w-full max-w-md border border-gray-200/70 bg-white"
       >
         <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="font-display text-lg font-black tracking-tight text-gray-900">Créer une équipe</h2>

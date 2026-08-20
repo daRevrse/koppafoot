@@ -311,15 +311,15 @@ export default function MatchDetailPage() {
       <div className="flex items-center justify-between">
         <button 
           onClick={() => router.back()} 
-          className="group flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-xl shadow-gray-100/50 border border-gray-100 text-gray-600 transition-all hover:scale-105 active:scale-95"
+          className="group flex h-12 w-12 items-center justify-center bg-white shadow-gray-100/50 border border-gray-200/70 text-gray-600 transition-all hover:scale-105 active:scale-95"
         >
           <ChevronLeft size={24} className="transition-transform group-hover:-translate-x-0.5" />
         </button>
-        <div className="hidden sm:flex items-center gap-2 px-6 py-2 rounded-2xl bg-white border border-gray-100 shadow-sm">
+        <div className="hidden sm:flex items-center gap-2 px-6 py-2 bg-white border border-gray-200/70">
           <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Match ID:</span>
           <span className="text-[10px] font-mono font-bold text-gray-900">{id.slice(0, 8)}</span>
         </div>
-        <button className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-xl shadow-gray-100/50 border border-gray-100 text-gray-600 transition-all hover:scale-105 active:scale-95">
+        <button className="flex h-12 w-12 items-center justify-center bg-white shadow-gray-100/50 border border-gray-200/70 text-gray-600 transition-all hover:scale-105 active:scale-95">
           <Share2 size={20} />
         </button>
       </div>
@@ -383,7 +383,7 @@ export default function MatchDetailPage() {
 
           {/* Center Info */}
           <div className="flex flex-col items-center justify-center">
-            <div className={`mb-4 sm:mb-6 rounded-2xl sm:rounded-3xl ${isLive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'} border px-3 sm:px-4 py-1.5 sm:py-2 text-[9px] sm:text-xs font-black uppercase tracking-widest`}>
+            <div className={`mb-4 sm:mb-6 ${isLive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'} border px-3 sm:px-4 py-1.5 sm:py-2 text-[9px] sm:text-xs font-black uppercase tracking-widest`}>
                {PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label || "Prép."}
             </div>
             {match.liveState ? (
@@ -413,7 +413,7 @@ export default function MatchDetailPage() {
       </motion.div>
 
       {/* Tabs Control */}
-      <div className="flex p-1.5 gap-1 rounded-[2rem] bg-white shadow-xl shadow-gray-100/50 border border-gray-100">
+      <div className="flex p-1.5 gap-1 rounded-[2rem] bg-white shadow-gray-100/50 border border-gray-200/70">
         {[
           { id: "center", label: "Match Center", icon: Activity },
           { id: "squad", label: "Feuille de Match", icon: ClipboardList },
@@ -422,14 +422,14 @@ export default function MatchDetailPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`relative flex flex-1 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`relative flex flex-1 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3.5 text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
               activeTab === tab.id ? "text-emerald-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
             }`}
           >
             {activeTab === tab.id && (
               <motion.div
                 layoutId="activeTabBadge"
-                className="absolute inset-0 rounded-2xl bg-emerald-50 border border-emerald-100"
+                className="absolute inset-0 bg-emerald-50 border border-emerald-100"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
               />
             )}
@@ -469,8 +469,8 @@ export default function MatchDetailPage() {
             >
               {/* Manager LINEUP Validation Banner */}
               {isManager && (match.status === "upcoming" || match.status === "delayed") && !isMyTeamReady && (
-                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-amber-50 border border-amber-200 p-4 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                   <div className="h-14 w-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-amber-50 border border-amber-200 p-4 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                   <div className="h-14 w-14 bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
                       <ClipboardList size={28} />
                    </div>
                    <div className="flex-1">
@@ -478,7 +478,7 @@ export default function MatchDetailPage() {
                       <p className="text-sm text-amber-800/70 mb-4 font-bold">Vous devez confirmer votre effectif (numéros & rôles) avant que l'arbitre ne puisse lancer le match.</p>
                       <button 
                          onClick={() => setActiveTab("squad")}
-                         className="px-6 py-2.5 rounded-xl bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20"
+                         className="px-6 py-2.5 bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-amber-600/20"
                       >
                          Remplir la feuille de match
                       </button>
@@ -488,9 +488,9 @@ export default function MatchDetailPage() {
 
               {/* Post-Match Validation Banner */}
               {isManager && match.status === "completed" && (!match.postMatchFeedback || !match.postMatchFeedback[user?.uid!]) && (
-                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-primary-50 border border-primary-200 p-4 sm:p-8 shadow-sm">
+                <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-primary-50 border border-primary-200 p-4 sm:p-8">
                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-4 sm:mb-6">
-                      <div className="h-14 w-14 rounded-2xl bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
+                      <div className="h-14 w-14 bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
                          <Star size={28} />
                       </div>
                       <div>
@@ -509,7 +509,7 @@ export default function MatchDetailPage() {
                              toast.error("Erreur lors de la validation");
                            }
                          }}
-                         className="px-6 py-3 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+                         className="px-6 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-emerald-600/20 flex items-center gap-2"
                       >
                          <CheckCircle2 size={14} /> Valider le Match
                       </button>
@@ -522,7 +522,7 @@ export default function MatchDetailPage() {
                                .catch(() => toast.error("Erreur"));
                            }
                          }}
-                         className="px-6 py-3 rounded-xl bg-white border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all flex items-center gap-2"
+                         className="px-6 py-3 bg-white border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all flex items-center gap-2"
                       >
                          <XCircle size={14} /> Contester
                       </button>
@@ -541,7 +541,7 @@ export default function MatchDetailPage() {
               )}
 
               {/* Event Timeline */}
-              <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 p-4 sm:p-8 shadow-sm">
+              <div className="rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70 p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-4 sm:mb-8">
                   <h3 className="text-lg font-black text-gray-900 font-display">Timeline</h3>
                   <History className="text-gray-200" size={24} />
@@ -552,7 +552,7 @@ export default function MatchDetailPage() {
                   <div className="space-y-8 relative">
                     {match.status === "completed" && (
                          <div className="flex items-start gap-6 group">
-                           <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 shadow-sm bg-gray-900 border-black text-white transition-all group-hover:scale-110">
+                           <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center border-2 bg-gray-900 border-black text-white transition-all group-hover:scale-110">
                              <CheckCircle2 size={16} />
                            </div>
                            <div className="flex-1 pt-1">
@@ -572,10 +572,10 @@ export default function MatchDetailPage() {
                     {match.liveState?.events && match.liveState.events.length > 0 ? (
                       [...match.liveState.events].reverse().map((event, i) => (
                         <div key={event.id} className="flex items-start gap-6 group">
-                          <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 shadow-sm transition-all group-hover:scale-110 ${
+                          <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center border-2 transition-all group-hover:scale-110 ${
                             event.type === "goal" ? "bg-emerald-50 border-emerald-100 text-emerald-500" : 
                             event.type === "yellow_card" || event.type === "red_card" ? "bg-red-50 border-red-100 text-red-500" :
-                            "bg-gray-50 border-gray-100 text-gray-400"
+                            "bg-gray-50 border-gray-200/70 text-gray-400"
                           }`}>
                             <span className="text-[10px] font-black">{event.minute}'</span>
                           </div>
@@ -604,7 +604,7 @@ export default function MatchDetailPage() {
                                     ) : (
                                       <button 
                                         onClick={() => setContestingEventId(event.id)}
-                                        className="rounded border border-gray-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                                        className="rounded border border-gray-200/70 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                                       >
                                         Contester
                                       </button>
@@ -647,10 +647,10 @@ export default function MatchDetailPage() {
                     <div className={`mx-0 sm:mx-4 mb-4 sm:mb-8 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border transition-all ${
                       isReady 
                         ? 'bg-emerald-50/50 border-emerald-100/50 text-emerald-900 group' 
-                        : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 shadow-xl shadow-amber-200/20'
+                        : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 shadow-amber-200/20'
                     }`}>
                       <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                        <div className={`p-4 rounded-[1.5rem] shadow-sm transition-transform ${
+                        <div className={`p-4 rounded-[1.5rem] transition-transform ${
                           isReady ? 'bg-emerald-500 text-white group-hover:scale-110' : 'bg-white text-amber-500'
                         }`}>
                           {isReady ? <CheckCircle2 size={28} /> : <ClipboardList size={28} />}
@@ -680,7 +680,7 @@ export default function MatchDetailPage() {
                                 setTempAssignments(initial);
                                 setLineupMode(true);
                               }}
-                              className={`px-5 sm:px-8 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl ${
+                              className={`px-5 sm:px-8 py-3 sm:py-3.5 text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] ${
                                 isReady 
                                   ? 'bg-white text-emerald-600 border border-emerald-100 hover:bg-emerald-50' 
                                   : 'bg-gray-900 text-white hover:bg-black shadow-gray-900/20'
@@ -703,13 +703,13 @@ export default function MatchDetailPage() {
                       <h3 className="text-lg sm:text-xl font-black italic tracking-tight">Configuration Tactique</h3>
                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mt-1">Assignez les dossiers et rôles</p>
                     </div>
-                    <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                    <div className="h-14 w-14 bg-white/5 border border-white/10 flex items-center justify-center">
                        <Trophy className="text-emerald-400" size={24} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                    <div className="p-4 bg-white/5 border border-white/5 flex flex-col items-center text-center">
                        <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-2">Titulaires</p>
                        <span className={`text-2xl font-black ${
                          Object.values(tempAssignments).filter(a => a.role === 'starter').length === (match?.format ? parseInt(match.format.split('v')[0]) : 0) ? 'text-emerald-400' : 'text-amber-400'
@@ -717,7 +717,7 @@ export default function MatchDetailPage() {
                          {Object.values(tempAssignments).filter(a => a.role === 'starter').length} / {match?.format ? parseInt(match.format.split('v')[0]) : "?"}
                        </span>
                     </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                    <div className="p-4 bg-white/5 border border-white/5 flex flex-col items-center text-center">
                        <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-2">Remplaçants</p>
                        <span className="text-2xl font-black text-white/80">
                          {Object.values(tempAssignments).filter(a => a.role === 'substitute').length}
@@ -730,7 +730,7 @@ export default function MatchDetailPage() {
                     <div className="space-y-3">
                       <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Joueurs sans compte</p>
                       {ghostPlayers.map((ghost) => (
-                        <div key={ghost.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                        <div key={ghost.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5">
                           <div>
                             <p className="text-sm font-black text-white">{ghost.firstName} {ghost.lastName}</p>
                             <p className="text-[10px] text-white/40 uppercase tracking-widest">{ghost.position}{ghost.squadNumber ? ` · N°${ghost.squadNumber}` : ""}</p>
@@ -740,7 +740,7 @@ export default function MatchDetailPage() {
                               type="text"
                               placeholder="N°"
                               maxLength={3}
-                              className="w-12 h-9 rounded-xl bg-white/10 border border-white/10 text-center text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                              className="w-12 h-9 bg-white/10 border border-white/10 text-center text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                               value={tempAssignments[ghost.id]?.squadNumber || ghost.squadNumber || ""}
                               onChange={(e) => setTempAssignments(prev => ({
                                 ...prev,
@@ -748,7 +748,7 @@ export default function MatchDetailPage() {
                               }))}
                             />
                             <select
-                              className="h-9 px-2 rounded-xl bg-white/10 border border-white/10 text-[10px] font-black uppercase text-white focus:outline-none"
+                              className="h-9 px-2 bg-white/10 border border-white/10 text-[10px] font-black uppercase text-white focus:outline-none"
                               value={tempAssignments[ghost.id]?.role || "starter"}
                               onChange={(e) => setTempAssignments(prev => ({
                                 ...prev,
@@ -767,7 +767,7 @@ export default function MatchDetailPage() {
                   <div className="flex items-center gap-3 pt-4">
                     <button
                       onClick={() => setLineupMode(false)}
-                      className="flex-1 py-4 rounded-2xl bg-white/5 text-white/60 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                      className="flex-1 py-4 bg-white/5 text-white/60 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
                     >
                       Annuler
                     </button>
@@ -793,7 +793,7 @@ export default function MatchDetailPage() {
                         }
                       }}
                       disabled={validatingLineup}
-                      className="flex-[2] py-4 rounded-2xl bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="flex-[2] py-4 bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-emerald-500/20 hover:bg-emerald-600 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                     >
                       {validatingLineup ? <RefreshCcw size={16} className="animate-spin" /> : <Save size={16} />}
                       Envoyer à l'arbitre
@@ -807,7 +807,7 @@ export default function MatchDetailPage() {
                   — la compo est donc écrite sur le match. Sans elle, aucun but
                   adverse ne peut être attribué à un joueur dans la console. */}
               {ghostOpponentTeamId && (
-                <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-5">
+                <div className="mb-8 border border-gray-200/70 bg-white p-5">
                   <div className="mb-1 flex items-center gap-2">
                     <ClipboardList size={16} className="text-gray-400" />
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-500">
@@ -822,7 +822,7 @@ export default function MatchDetailPage() {
                   {opponentGhostPlayers.length === 0 ? (
                     <Link
                       href={`/teams/${ghostOpponentTeamId}`}
-                      className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 px-4 py-6 text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50"
+                      className="flex items-center justify-center gap-2 border border-dashed border-gray-200/70 px-4 py-6 text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50"
                     >
                       <UserPlus size={14} /> Aucun joueur — composer l&apos;effectif
                     </Link>
@@ -831,7 +831,7 @@ export default function MatchDetailPage() {
                       {opponentGhostPlayers.map((ghost) => {
                         const asgn = ghostAssignments[ghost.id];
                         return (
-                          <div key={ghost.id} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-3">
+                          <div key={ghost.id} className="flex items-center justify-between gap-3 border border-gray-200/70 bg-gray-50/60 p-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-black text-gray-900">
                                 {ghost.firstName} {ghost.lastName}
@@ -845,7 +845,7 @@ export default function MatchDetailPage() {
                                 type="text"
                                 placeholder="N°"
                                 maxLength={3}
-                                className="h-9 w-12 rounded-xl border border-gray-200 bg-white text-center text-xs font-black text-gray-900 focus:border-emerald-500 focus:outline-none"
+                                className="h-9 w-12 border border-gray-200/70 bg-white text-center text-xs font-black text-gray-900 focus:border-emerald-500 focus:outline-none"
                                 value={asgn?.number ?? ghost.squadNumber ?? ""}
                                 onChange={(e) => setGhostAssignments((prev) => ({
                                   ...prev,
@@ -853,7 +853,7 @@ export default function MatchDetailPage() {
                                 }))}
                               />
                               <select
-                                className="h-9 rounded-xl border border-gray-200 bg-white px-2 text-[10px] font-black uppercase text-gray-700 focus:outline-none"
+                                className="h-9 border border-gray-200/70 bg-white px-2 text-[10px] font-black uppercase text-gray-700 focus:outline-none"
                                 value={asgn?.role ?? "none"}
                                 onChange={(e) => {
                                   const v = e.target.value;
@@ -899,7 +899,7 @@ export default function MatchDetailPage() {
                           }
                         }}
                         disabled={savingGhostLineup}
-                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-800 disabled:opacity-50"
+                        className="mt-2 flex w-full items-center justify-center gap-2 bg-gray-900 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-800 disabled:opacity-50"
                       >
                         {savingGhostLineup ? <RefreshCcw size={14} className="animate-spin" /> : <Save size={14} />}
                         Enregistrer la feuille adverse
@@ -914,15 +914,15 @@ export default function MatchDetailPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-400 italic">{match.homeTeamName}</h3>
-                    <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-100">
+                    <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-200/70">
                       {homeSquad.filter(p => p.status === 'confirmed').length} Confirmés
                     </span>
                   </div>
                   <div className="space-y-2">
                     {homeSquad.map(player => (
-                      <div key={player.id} className="group flex items-center justify-between p-4 rounded-3xl bg-white border border-gray-100 shadow-sm transition-all hover:shadow-md hover:border-emerald-100">
+                      <div key={player.id} className="group flex items-center justify-between p-4 bg-white border border-gray-200/70 transition-all hover:border-emerald-100">
                         <div className="flex items-center gap-3">
-                          <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-black text-sm ${player.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                          <div className={`h-10 w-10 flex items-center justify-center font-black text-sm ${player.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                             {player.playerName[0]}
                           </div>
                           <div>
@@ -932,8 +932,8 @@ export default function MatchDetailPage() {
                                 {player.status === 'confirmed' ? 'Présent' : 'Invité'}
                               </p>
                               {player.matchRole && (
-                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase border ${
-                                  player.matchRole === 'starter' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-50 text-gray-400 border-gray-100'
+                                <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${
+                                  player.matchRole === 'starter' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-50 text-gray-400 border-gray-200/70'
                                 }`}>
                                   {player.matchRole === 'starter' ? 'Titulaire' : 'Remplaçant'}
                                 </span>
@@ -948,7 +948,7 @@ export default function MatchDetailPage() {
                                type="text"
                                placeholder="N°"
                                maxLength={3}
-                               className="w-12 h-9 rounded-xl bg-gray-50 border border-gray-200 text-center text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                               className="w-12 h-9 bg-gray-50 border border-gray-200/70 text-center text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                                value={tempAssignments[player.playerId]?.squadNumber || ""}
                                onChange={(e) => setTempAssignments(prev => ({
                                  ...prev,
@@ -956,7 +956,7 @@ export default function MatchDetailPage() {
                                }))}
                              />
                              <select
-                               className="h-9 px-2 rounded-xl bg-gray-50 border border-gray-200 text-[10px] font-black uppercase focus:outline-none"
+                               className="h-9 px-2 bg-gray-50 border border-gray-200/70 text-[10px] font-black uppercase focus:outline-none"
                                value={tempAssignments[player.playerId]?.role || "starter"}
                                onChange={(e) => setTempAssignments(prev => ({
                                  ...prev,
@@ -978,7 +978,7 @@ export default function MatchDetailPage() {
                       </div>
                     ))}
                     {homeSquad.length === 0 && (
-                      <div className="p-8 text-center rounded-3xl border border-dashed border-gray-200">
+                      <div className="p-8 text-center border border-dashed border-gray-200/70">
                         <p className="text-xs font-bold text-gray-400 italic">Aucun joueur pour le moment</p>
                       </div>
                     )}
@@ -989,15 +989,15 @@ export default function MatchDetailPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-400 italic">{match.awayTeamName}</h3>
-                    <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-100">
+                    <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-200/70">
                       {awaySquad.filter(p => p.status === 'confirmed').length} Confirmés
                     </span>
                   </div>
                   <div className="space-y-2">
                     {awaySquad.map(player => (
-                      <div key={player.id} className="group flex items-center justify-between p-4 rounded-3xl bg-white border border-gray-100 shadow-sm transition-all hover:shadow-md hover:border-emerald-100">
+                      <div key={player.id} className="group flex items-center justify-between p-4 bg-white border border-gray-200/70 transition-all hover:border-emerald-100">
                         <div className="flex items-center gap-3">
-                          <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-black text-sm ${player.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                          <div className={`h-10 w-10 flex items-center justify-center font-black text-sm ${player.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                             {player.playerName[0]}
                           </div>
                           <div>
@@ -1007,8 +1007,8 @@ export default function MatchDetailPage() {
                                 {player.status === 'confirmed' ? 'Présent' : 'Invité'}
                               </p>
                               {player.matchRole && (
-                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase border ${
-                                  player.matchRole === 'starter' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-50 text-gray-400 border-gray-100'
+                                <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${
+                                  player.matchRole === 'starter' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-50 text-gray-400 border-gray-200/70'
                                 }`}>
                                   {player.matchRole === 'starter' ? 'Titulaire' : 'Remplaçant'}
                                 </span>
@@ -1023,7 +1023,7 @@ export default function MatchDetailPage() {
                                type="text"
                                placeholder="N°"
                                maxLength={3}
-                               className="w-12 h-9 rounded-xl bg-gray-50 border border-gray-200 text-center text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                               className="w-12 h-9 bg-gray-50 border border-gray-200/70 text-center text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                                value={tempAssignments[player.playerId]?.squadNumber || ""}
                                onChange={(e) => setTempAssignments(prev => ({
                                  ...prev,
@@ -1031,7 +1031,7 @@ export default function MatchDetailPage() {
                                }))}
                              />
                              <select
-                               className="h-9 px-2 rounded-xl bg-gray-50 border border-gray-200 text-[10px] font-black uppercase focus:outline-none"
+                               className="h-9 px-2 bg-gray-50 border border-gray-200/70 text-[10px] font-black uppercase focus:outline-none"
                                value={tempAssignments[player.playerId]?.role || "starter"}
                                onChange={(e) => setTempAssignments(prev => ({
                                  ...prev,
@@ -1053,7 +1053,7 @@ export default function MatchDetailPage() {
                       </div>
                     ))}
                     {awaySquad.length === 0 && (
-                      <div className="p-8 text-center rounded-3xl border border-dashed border-gray-200">
+                      <div className="p-8 text-center border border-dashed border-gray-200/70">
                         <p className="text-xs font-bold text-gray-400 italic">Aucun joueur pour le moment</p>
                       </div>
                     )}
@@ -1073,7 +1073,7 @@ export default function MatchDetailPage() {
                     <p className="text-emerald-100 text-xs sm:text-sm font-medium mb-4 sm:mb-6">Ta team a besoin de renforts. Confirme ta présence pour porter fièrement tes couleurs.</p>
                     <button
                       onClick={handleJoin}
-                      className="flex items-center gap-2 rounded-2xl bg-white px-5 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-emerald-600 transition-all hover:scale-105 active:scale-95 shadow-lg"
+                      className="flex items-center gap-2 bg-white px-5 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-emerald-600 transition-all hover:scale-105 active:scale-95"
                     >
                       Confirmer ma présence
                     </button>
@@ -1092,11 +1092,11 @@ export default function MatchDetailPage() {
                     {teamMembers
                       .filter(m => !participations.some(p => p.playerId === m.uid))
                       .map(m => (
-                        <div key={m.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-md group">
+                        <div key={m.uid} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 border border-gray-200/70 transition-all hover:bg-white group">
                            <div className="flex items-center gap-3">
-                             <div className="h-10 w-10 rounded-2xl bg-white border border-gray-100 flex items-center justify-center font-black text-sm text-gray-500 shadow-sm">
+                             <div className="h-10 w-10 bg-white border border-gray-200/70 flex items-center justify-center font-black text-sm text-gray-500">
                                {m.profilePictureUrl ? (
-                                 <img src={m.profilePictureUrl} alt="" className="h-full w-full object-cover rounded-2xl" />
+                                 <img src={m.profilePictureUrl} alt="" className="h-full w-full object-cover" />
                                ) : m.firstName[0]}
                              </div>
                              <div>
@@ -1107,7 +1107,7 @@ export default function MatchDetailPage() {
                            <button 
                              onClick={() => handleInvitePlayer(m)}
                              disabled={inviting}
-                             className="h-10 w-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:grayscale"
+                             className="h-10 w-10 bg-emerald-500 text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:grayscale"
                            >
                              <UserPlus size={16} />
                            </button>
@@ -1115,7 +1115,7 @@ export default function MatchDetailPage() {
                       ))}
                   </div>
                   {teamMembers.filter(m => !participations.some(p => p.playerId === m.uid)).length === 0 && (
-                    <div className="p-8 text-center rounded-3xl bg-gray-50/50 border border-dashed border-gray-200">
+                    <div className="p-8 text-center bg-gray-50/50 border border-dashed border-gray-200/70">
                       <p className="text-xs font-black text-gray-300 uppercase tracking-widest italic">Tous les membres sont déjà sur la feuille de match</p>
                     </div>
                   )}
@@ -1133,8 +1133,8 @@ export default function MatchDetailPage() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
+                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70 flex flex-col items-center text-center">
+                  <div className="h-14 w-14 bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
                     <MapPin size={24} />
                   </div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Terrain</h4>
@@ -1142,8 +1142,8 @@ export default function MatchDetailPage() {
                   <p className="text-xs font-bold text-gray-400">{match.venueCity}</p>
                 </div>
 
-                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
+                <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70 flex flex-col items-center text-center">
+                  <div className="h-14 w-14 bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
                     <Shield size={24} />
                   </div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Arbitre</h4>
@@ -1153,16 +1153,16 @@ export default function MatchDetailPage() {
               </div>
 
               {/* Match Calendar Entry */}
-              <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-100 shadow-sm">
+              <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-gray-200/70">
                 <div className="flex items-center gap-4 sm:gap-6">
-                  <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl sm:rounded-[2rem] bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 sm:rounded-[2rem] bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{match.date.split('-')[1]}</span>
                     <span className="text-xl sm:text-2xl font-black text-emerald-700">{match.date.split('-')[2]}</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="text-lg sm:text-xl font-black text-gray-900 mb-1 truncate">{match.date}</h4>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-bold text-gray-400">
-                      <div className="flex items-center gap-1.5 sm:border-r sm:border-gray-100 sm:pr-4">
+                      <div className="flex items-center gap-1.5 sm:border-r sm:border-gray-200/70 sm:pr-4">
                         <Clock size={14} />
                         <span>{match.time}</span>
                       </div>
@@ -1187,9 +1187,9 @@ export default function MatchDetailPage() {
            className="relative overflow-hidden rounded-[1.5rem] sm:rounded-[3.5rem] bg-white border-2 border-emerald-500/20 p-5 sm:p-12 shadow-2xl mb-6 mt-6 sm:mt-8"
         >
           <div className="mb-6 sm:mb-8">
-             <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-100 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
+             <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-200/70 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
              <p className="text-gray-500 text-xs sm:text-sm">Le match est terminé. Veuillez valider le score final, les évènements et noter l'arbitre pour clore officiellement la rencontre.</p>
-             <div className="mt-4 p-3 sm:p-4 rounded-2xl bg-amber-50 border border-amber-100">
+             <div className="mt-4 p-3 sm:p-4 bg-amber-50 border border-amber-100">
                <p className="text-[11px] font-bold text-amber-700 flex items-start sm:items-center gap-2">
                  <AlertCircle size={14} className="shrink-0 mt-0.5 sm:mt-0" />
                  Note: Sans action sous 12h, le match sera validé automatiquement.
@@ -1198,7 +1198,7 @@ export default function MatchDetailPage() {
           </div>
 
           {user && match.postMatchFeedback?.[user.uid] ? (
-             <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gray-50 border border-gray-100 space-y-4">
+             <div className="p-4 sm:p-6 bg-gray-50 border border-gray-200/70 space-y-4">
                 <div className="flex items-center gap-2">
                    {match.postMatchFeedback[user.uid].validation === 'validated' ? (
                      <CheckCircle2 size={20} className="text-emerald-500" />
@@ -1226,13 +1226,13 @@ export default function MatchDetailPage() {
                     <div className="flex flex-col sm:flex-row gap-2">
                        <button
                           onClick={() => setValidation("validated")}
-                          className={`flex-1 flex gap-2 justify-center items-center py-4 sm:py-5 rounded-2xl text-[11px] sm:text-xs font-black uppercase tracking-widest border transition-all ${validation === "validated" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "bg-white border-gray-200 text-gray-500 hover:border-emerald-200"}`}
+                          className={`flex-1 flex gap-2 justify-center items-center py-4 sm:py-5 text-[11px] sm:text-xs font-black uppercase tracking-widest border transition-all ${validation === "validated" ? "bg-emerald-600 border-emerald-600 text-white shadow-emerald-600/20" : "bg-white border-gray-200/70 text-gray-500 hover:border-emerald-200"}`}
                        >
                          <CheckCircle2 size={16} /> Valider le Score
                        </button>
                        <button
                           onClick={() => setValidation("contested")}
-                          className={`flex-1 flex gap-2 justify-center items-center py-4 sm:py-5 rounded-2xl text-[11px] sm:text-xs font-black uppercase tracking-widest border transition-all ${validation === "contested" ? "bg-red-600 border-red-600 text-white shadow-xl shadow-red-600/20" : "bg-white border-gray-200 text-gray-500 hover:border-red-200"}`}
+                          className={`flex-1 flex gap-2 justify-center items-center py-4 sm:py-5 text-[11px] sm:text-xs font-black uppercase tracking-widest border transition-all ${validation === "contested" ? "bg-red-600 border-red-600 text-white shadow-red-600/20" : "bg-white border-gray-200/70 text-gray-500 hover:border-red-200"}`}
                        >
                          <XCircle size={16} /> Contester le Match
                        </button>
@@ -1246,8 +1246,8 @@ export default function MatchDetailPage() {
                      <button
                        key={i}
                        onClick={() => setRefereeRating(i + 1)}
-                       className={`h-11 w-11 sm:h-12 sm:w-12 flex items-center justify-center rounded-xl border transition-all ${
-                         i < refereeRating ? "bg-amber-50 border-amber-400 text-amber-500 shadow-sm" : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
+                       className={`h-11 w-11 sm:h-12 sm:w-12 flex items-center justify-center border transition-all ${
+                         i < refereeRating ? "bg-amber-50 border-amber-400 text-amber-500" : "bg-white border-gray-200/70 text-gray-400 hover:bg-gray-50"
                        }`}
                      >
                        <Star size={20} className={i < refereeRating ? "fill-amber-400 text-amber-500" : ""} />
@@ -1262,7 +1262,7 @@ export default function MatchDetailPage() {
                    rows={3}
                    value={managerComments}
                    onChange={e => setManagerComments(e.target.value)}
-                   className="w-full rounded-2xl border-gray-200 shadow-sm text-sm p-4 focus:ring-emerald-500 focus:border-emerald-500"
+                   className="w-full border-gray-200/70 text-sm p-4 focus:ring-emerald-500 focus:border-emerald-500"
                    placeholder={validation === 'contested' ? "Expliquez la raison de votre contestation..." : "Un mot sur l'organisation ou l'arbitrage ?"}
                  />
                </div>
@@ -1290,7 +1290,7 @@ export default function MatchDetailPage() {
                    }
                  }}
                  disabled={submittingFeedback}
-                 className="w-full h-14 rounded-2xl bg-gray-900 text-white font-black text-sm uppercase tracking-widest shadow-xl flex justify-center items-center gap-2 hover:bg-gray-800 transition-all active:scale-[0.98]"
+                 className="w-full h-14 bg-gray-900 text-white font-black text-sm uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-gray-800 transition-all active:scale-[0.98]"
                >
                  {submittingFeedback ? <RefreshCcw size={18} className="animate-spin" /> : <Save size={18} />}
                  Valider et envoyer
@@ -1343,7 +1343,7 @@ export default function MatchDetailPage() {
                 <XCircle size={24} />
               </button>
 
-              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-orange-50 border border-orange-100">
+              <div className="mb-6 flex h-16 w-16 items-center justify-center bg-orange-50 border border-orange-100">
                 <AlertCircle className="text-orange-500" size={32} />
               </div>
 
@@ -1360,7 +1360,7 @@ export default function MatchDetailPage() {
                     onChange={(e) => setContestationReason(e.target.value)}
                     required
                     rows={4}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50/50 p-4 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:outline-none transition-all resize-none"
+                    className="w-full border-2 border-gray-200/70 bg-gray-50/50 p-4 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:outline-none transition-all resize-none"
                     placeholder="Cet événement est incorrect car..."
                   />
                 </div>
@@ -1369,14 +1369,14 @@ export default function MatchDetailPage() {
                   <button
                     type="button"
                     onClick={() => setContestingEventId(null)}
-                    className="flex-1 h-12 flex items-center justify-center rounded-2xl border-2 border-gray-100 bg-white text-[11px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
+                    className="flex-1 h-12 flex items-center justify-center border-2 border-gray-200/70 bg-white text-[11px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={submittingContestation}
-                    className="flex-1 h-12 flex items-center justify-center rounded-2xl bg-orange-500 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-orange-500/20 active:scale-95 disabled:opacity-50 transition-all hover:bg-orange-600"
+                    className="flex-1 h-12 flex items-center justify-center bg-orange-500 text-[11px] font-black uppercase tracking-widest text-white shadow-orange-500/20 active:scale-95 disabled:opacity-50 transition-all hover:bg-orange-600"
                   >
                     {submittingContestation ? (
                       <RefreshCcw size={18} className="animate-spin" />

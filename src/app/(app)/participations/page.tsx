@@ -32,7 +32,7 @@ function ParticipationSkeleton() {
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+        <div key={i} className="animate-pulse border border-gray-200/70 bg-white p-5 space-y-3">
           <div className="flex items-center gap-3">
             <div className="h-5 w-40 rounded bg-gray-200" />
           </div>
@@ -42,8 +42,8 @@ function ParticipationSkeleton() {
             <div className="h-3 w-28 rounded bg-gray-100" />
           </div>
           <div className="flex gap-2">
-            <div className="h-9 w-24 rounded-lg bg-gray-100" />
-            <div className="h-9 w-24 rounded-lg bg-gray-100" />
+            <div className="h-9 w-24 bg-gray-100" />
+            <div className="h-9 w-24 bg-gray-100" />
           </div>
         </div>
       ))}
@@ -113,8 +113,7 @@ export default function ParticipationsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-2xl font-bold text-gray-900 font-display">Participations</h1>
-        <p className="mt-1 text-sm text-gray-500">Gère tes demandes de participation aux matchs</p>
+        <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Mes convocations</h1>
       </motion.div>
 
       {/* Tabs */}
@@ -122,7 +121,7 @@ export default function ParticipationsPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.08 }}
-        className="flex border-b border-gray-200"
+        className="flex border-b border-gray-200/70"
       >
         <button
           onClick={() => setTab("requests")}
@@ -172,7 +171,7 @@ export default function ParticipationsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.06 }}
-                  className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+                  className="group overflow-hidden border border-gray-200/70 bg-white transition-shadow"
                 >
                   <div className="p-4 sm:p-5">
                     {/* Match label */}
@@ -229,7 +228,7 @@ export default function ParticipationsPage() {
                         <button
                           onClick={() => handleRespond(participation, true)}
                           disabled={isResponding}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-1.5 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isResponding ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -241,7 +240,7 @@ export default function ParticipationsPage() {
                         <button
                           onClick={() => handleRespond(participation, false)}
                           disabled={isResponding}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-1.5 border border-gray-200/70 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isResponding ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -264,9 +263,9 @@ export default function ParticipationsPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+              className="flex flex-col items-center border border-dashed border-gray-200/70 bg-white py-16"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+              <div className="flex h-16 w-16 items-center justify-center bg-gray-100">
                 {tab === "requests" ? (
                   <Inbox size={32} className="text-gray-300" />
                 ) : (

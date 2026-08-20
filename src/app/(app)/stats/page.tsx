@@ -39,7 +39,7 @@ function StatTile({
   label: string; value: number; Icon: typeof Target; accent: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
+    <div className=" border border-gray-200/70 bg-white p-4 text-center">
       <Icon size={20} className={`mx-auto ${accent}`} />
       <p className="mt-2 font-display text-2xl font-black text-gray-900">{value}</p>
       <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
@@ -131,13 +131,11 @@ export default function StatsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
           <BarChart3 size={26} />
         </div>
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-black tracking-tight text-gray-900">
-            Mes statistiques
-          </h1>
+          <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Mes statistiques</h1>
           <p className="mt-0.5 text-sm font-bold text-gray-400">
             Ton bilan sur toutes les compétitions KoppaFoot.
           </p>
@@ -145,8 +143,8 @@ export default function StatsPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-[2rem] border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-300">
+        <div className="rounded-[2rem] border border-gray-200/70 bg-white p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gray-100 text-gray-300">
             <Users size={26} />
           </div>
           <p className="mt-4 font-display text-lg font-black text-gray-900">
@@ -164,13 +162,13 @@ export default function StatsPage() {
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Link
               href="/mercato"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
+              className="inline-flex items-center gap-2 bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
             >
               Trouver une équipe
             </Link>
             <Link
               href="/competitions"
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm font-black text-gray-600 transition-colors hover:bg-gray-50"
+              className="inline-flex items-center gap-2 border border-gray-200/70 px-5 py-3 text-sm font-black text-gray-600 transition-colors hover:bg-gray-50"
             >
               <Trophy size={15} />
               Voir les compétitions
@@ -208,9 +206,9 @@ export default function StatsPage() {
                 >
                   <Link
                     href={`/c/${row.link.competition_slug}/teams/${row.link.team_id}`}
-                    className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+                    className="flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
                   >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-amber-50 text-amber-500">
                       <Trophy size={20} />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -255,7 +253,7 @@ export default function StatsPage() {
               <p className="px-1 text-xs font-black uppercase tracking-widest text-gray-400">
                 Mes derniers matchs
               </p>
-              <div className="divide-y divide-gray-50 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+              <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">
                 {recent.map((a) => {
                   const m = a.match;
                   const isHome = m.homeTeamId === a.link.team_id;
@@ -274,7 +272,7 @@ export default function StatsPage() {
                         {matchDate(m.date)}
                       </span>
                       <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-white ${
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center text-[11px] font-black text-white ${
                           drew ? "bg-gray-400" : won ? "bg-emerald-500" : "bg-red-400"
                         }`}
                       >
@@ -300,7 +298,7 @@ export default function StatsPage() {
             </div>
           )}
 
-          <p className="flex items-start gap-2 rounded-2xl bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
+          <p className="flex items-start gap-2 bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
             <Info size={14} className="mt-0.5 shrink-0 text-gray-400" />
             Un match compte comme joué quand il est terminé et que tu figures sur la
             feuille de match. Les buts et cartons sont ceux saisis en direct par

@@ -55,7 +55,7 @@ export default function LiveTrainingEntry() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+        <div className="flex h-14 w-14 items-center justify-center bg-red-50 text-red-500">
           <AlertTriangle size={26} />
         </div>
         <p className="mt-4 font-display text-lg font-black text-gray-900">{error}</p>
@@ -71,7 +71,7 @@ export default function LiveTrainingEntry() {
 
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+      <div className="flex h-14 w-14 items-center justify-center bg-emerald-50 text-emerald-500">
         <GraduationCap size={26} />
       </div>
       <p className="mt-4 font-display text-lg font-black text-gray-900">

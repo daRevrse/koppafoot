@@ -109,7 +109,7 @@ export default function MatchLiveView() {
     <div className="mx-auto max-w-4xl space-y-6 pb-20">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-gray-100 text-gray-600">
+        <button onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center bg-white border border-gray-200/70 text-gray-600">
           <ChevronLeft size={24} />
         </button>
         {/* Same treatment as the competition match page: name the fixture
@@ -136,12 +136,12 @@ export default function MatchLiveView() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 sm:p-8 text-white shadow-xl relative"
+        className="overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black p-5 sm:p-8 text-white relative"
       >
         <div className="relative z-10 grid grid-cols-3 items-center gap-2 sm:gap-6">
           {/* Home */}
           <div className="text-center">
-            <div className="mx-auto mb-3 sm:mb-4 flex h-14 w-14 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-inner">
+            <div className="mx-auto mb-3 sm:mb-4 flex h-14 w-14 sm:h-20 sm:w-20 items-center justify-center bg-white/5 backdrop-blur-xl border border-white/10 shadow-inner">
                <span className="text-3xl font-black">{match.homeTeamName?.[0] || "?"}</span>
             </div>
             <h2 className="text-sm font-black uppercase tracking-tight mb-2 truncate">{match.homeTeamName}</h2>
@@ -166,7 +166,7 @@ export default function MatchLiveView() {
 
           {/* Away */}
           <div className="text-center">
-            <div className="mx-auto mb-3 sm:mb-4 flex h-14 w-14 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-inner">
+            <div className="mx-auto mb-3 sm:mb-4 flex h-14 w-14 sm:h-20 sm:w-20 items-center justify-center bg-white/5 backdrop-blur-xl border border-white/10 shadow-inner">
                <span className="text-3xl font-black">{match.awayTeamName?.[0] || "?"}</span>
             </div>
             <h2 className="text-sm font-black uppercase tracking-tight mb-2 truncate">{match.awayTeamName}</h2>
@@ -213,8 +213,8 @@ export default function MatchLiveView() {
       ];
       const activeTab = detailTab === "stats" && !hasStats ? "feed" : detailTab;
       return (
-      <div className="rounded-2xl bg-white border border-gray-100 p-5 sm:p-6 shadow-sm">
-        <div className="mb-8 flex gap-6 border-b border-gray-100">
+      <div className=" bg-white border border-gray-200/70 p-5 sm:p-6">
+        <div className="mb-8 flex gap-6 border-b border-gray-200/70">
           <button
             onClick={() => setDetailTab("feed")}
             className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
@@ -284,10 +284,10 @@ export default function MatchLiveView() {
             {match.liveState?.events && match.liveState.events.length > 0 ? (
               [...match.liveState.events].reverse().map((event) => (
                 <div key={event.id} className="flex items-start gap-6 group">
-                  <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border-2 shadow-sm transition-all group-hover:scale-110 ${
+                  <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center border-2 transition-all group-hover:scale-110 ${
                     event.type === "goal" ? "bg-amber-50 border-amber-100 text-amber-500" : 
                     event.type === "yellow_card" ? "bg-amber-50 border-amber-100 text-amber-400" :
-                    event.type === "red_card" ? "bg-red-50 border-red-100 text-red-500" : "bg-gray-50 border-gray-100 text-gray-400"
+                    event.type === "red_card" ? "bg-red-50 border-red-100 text-red-500" : "bg-gray-50 border-gray-200/70 text-gray-400"
                   }`}>
                     <span className="text-[10px] font-black">{event.minute}&apos;</span>
                   </div>
@@ -312,7 +312,7 @@ export default function MatchLiveView() {
               ))
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-gray-200 mb-4">
+                 <div className="flex h-16 w-16 items-center justify-center bg-gray-50 text-gray-200 mb-4">
                     <Activity size={32} />
                  </div>
                  <p className="text-sm font-bold text-gray-400 italic">Le match n&apos;a pas encore commencé...</p>

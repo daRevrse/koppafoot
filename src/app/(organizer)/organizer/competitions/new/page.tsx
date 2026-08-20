@@ -113,7 +113,7 @@ export default function NewCompetitionPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/organizer"
-          className="rounded-full border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-colors hover:text-primary-600"
+          className="rounded-full border border-gray-200/70 bg-white p-2 text-gray-500 transition-colors hover:text-primary-600"
         >
           <ArrowLeft size={20} />
         </Link>
@@ -127,7 +127,7 @@ export default function NewCompetitionPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* General */}
-        <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="space-y-5 border border-gray-200/70 bg-white p-6">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Trophy size={16} className="text-amber-500" />
             Informations générales
@@ -141,7 +141,7 @@ export default function NewCompetitionPage() {
               type="text"
               required
               placeholder="ex: Coupe d'été 2026"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+              className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
               value={form.name}
               onChange={(e) => update("name", e.target.value)}
             />
@@ -159,7 +159,7 @@ export default function NewCompetitionPage() {
             <textarea
               rows={3}
               placeholder="Présentez votre compétition en quelques mots…"
-              className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+              className="w-full resize-none border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
               value={form.description}
               onChange={(e) => update("description", e.target.value)}
             />
@@ -190,7 +190,7 @@ export default function NewCompetitionPage() {
         </div>
 
         {/* Type */}
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="space-y-4 border border-gray-200/70 bg-white p-6">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Trophy size={16} className="text-amber-500" />
             Type de compétition
@@ -199,7 +199,7 @@ export default function NewCompetitionPage() {
         </div>
 
         {/* Format */}
-        <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="space-y-5 border border-gray-200/70 bg-white p-6">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Settings size={16} className="text-primary-500" />
             Format
@@ -212,7 +212,7 @@ export default function NewCompetitionPage() {
         </div>
 
         {/* Schedule & location */}
-        <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="space-y-5 border border-gray-200/70 bg-white p-6">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Calendar size={16} className="text-primary-500" />
             Dates et lieu <span className="font-normal text-gray-400">(optionnel)</span>
@@ -223,7 +223,7 @@ export default function NewCompetitionPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">Date de début</label>
               <input
                 type="date"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                 value={form.startDate}
                 onChange={(e) => update("startDate", e.target.value)}
               />
@@ -232,7 +232,7 @@ export default function NewCompetitionPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">Date de fin</label>
               <input
                 type="date"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                 value={form.endDate}
                 onChange={(e) => update("endDate", e.target.value)}
               />
@@ -246,7 +246,7 @@ export default function NewCompetitionPage() {
               <input
                 type="text"
                 placeholder="ex: Paris"
-                className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-4 focus:border-primary-500 focus:outline-none"
+                className="w-full border border-gray-200/70 py-2 pl-9 pr-4 focus:border-primary-500 focus:outline-none"
                 value={form.venueCity}
                 onChange={(e) => update("venueCity", e.target.value)}
               />
@@ -258,14 +258,14 @@ export default function NewCompetitionPage() {
         <div className="flex items-center justify-end gap-3">
           <Link
             href="/organizer"
-            className="rounded-lg px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+            className=" px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
           >
             Annuler
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-8 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 bg-primary-600 px-8 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
           >
             {submitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
             Créer la compétition

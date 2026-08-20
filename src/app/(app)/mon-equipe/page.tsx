@@ -86,13 +86,11 @@ export default function MyTeamsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
           <Trophy size={26} />
         </div>
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-black tracking-tight text-gray-900">
-            Mes compétitions
-          </h1>
+          <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Mes compétitions</h1>
           <p className="mt-0.5 text-sm font-bold text-gray-400">
             Les compétitions où tes équipes sont engagées.
           </p>
@@ -104,8 +102,8 @@ export default function MyTeamsPage() {
       <CompetitionRegistrationPanel clubs={clubs} />
 
       {entries.length === 0 ? (
-        <div className="rounded-[2rem] border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-300">
+        <div className="rounded-[2rem] border border-gray-200/70 bg-white p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gray-100 text-gray-300">
             <Mail size={26} />
           </div>
           <p className="mt-4 font-display text-lg font-black text-gray-900">
@@ -118,7 +116,7 @@ export default function MyTeamsPage() {
           </p>
           <Link
             href={clubs.length === 0 ? "/teams" : "/competitions"}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
+            className="mt-6 inline-flex items-center gap-2 bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
           >
             {clubs.length === 0 ? "Créer mon équipe" : "Voir les compétitions"}
           </Link>
@@ -136,10 +134,10 @@ export default function MyTeamsPage() {
               >
                 <Link
                   href={`/mon-equipe/${team.competitionId}/${team.id}`}
-                  className="block rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+                  className="block border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-amber-50">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden bg-amber-50">
                       {competition?.logoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={competition.logoUrl} alt="" className="h-full w-full object-cover" />
@@ -169,7 +167,7 @@ export default function MyTeamsPage() {
 
                   {/* The team itself, secondary to the competition */}
                   <div className="mt-3 flex items-center gap-2 border-t border-gray-50 pt-3">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden bg-gray-50">
                       {team.logoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />

@@ -137,7 +137,7 @@ function EditTeamModal({ team, onClose, onSaved }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md border border-gray-200/70 bg-white shadow-xl"
+        className="w-full max-w-md border border-gray-200/70 bg-white"
       >
         <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Modifier l&apos;equipe</h2>
@@ -252,7 +252,7 @@ function DeleteConfirmModal({ teamName, onClose, onConfirm, deleting }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm border border-gray-200/70 bg-white p-6 shadow-xl"
+        className="w-full max-w-sm border border-gray-200/70 bg-white p-6"
       >
         <div className="flex items-center gap-3 text-red-600">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
@@ -307,7 +307,7 @@ function AddAchievementModal({ teamId, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm border border-gray-200/70 bg-white shadow-xl">
+        className="w-full max-w-sm border border-gray-200/70 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Ajouter un trophée</h2>
           <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
@@ -335,7 +335,7 @@ function AddAchievementModal({ teamId, onClose, onSaved }: {
               {ACHIEVEMENT_ICONS.map(({ value, label, Icon }) => (
                 <button key={value} type="button" onClick={() => setForm({ ...form, icon: value })}
                   title={label}
-                  className={`flex h-10 w-10 items-center justify-center border-2 transition-all ${form.icon === value ? "border-gray-900 bg-emerald-50 text-emerald-700" : "border-gray-200/70 text-gray-400 hover:border-gray-300"}`}>
+                  className={`flex h-10 w-10 items-center justify-center border-2 transition-all ${form.icon === value ? "border-gray-900 bg-emerald-50 text-emerald-700" : "border-gray-200/70 text-gray-400 hover:border-gray-200/70"}`}>
                   <Icon size={18} />
                 </button>
               ))}
@@ -373,7 +373,7 @@ function CreateTrainingModal({ teamId, managerId, memberIds, onClose, onSaved }:
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm border border-gray-200/70 bg-white shadow-xl">
+        className="w-full max-w-sm border border-gray-200/70 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Créer un entraînement</h2>
           <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
@@ -468,7 +468,7 @@ function GhostPlayerModal({
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="w-full max-w-md bg-white p-6 shadow-xl"
+        className="w-full max-w-md bg-white p-6"
       >
         <h3 className="mb-4 text-lg font-bold text-gray-900">
           {ghost ? "Modifier le joueur" : "Ajouter un joueur"}
@@ -551,7 +551,7 @@ function GhostStatsModal({
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="w-full max-w-sm bg-white p-6 shadow-xl"
+        className="w-full max-w-sm bg-white p-6"
       >
         <h3 className="mb-1 text-lg font-bold text-gray-900">
           {ghost.firstName} {ghost.lastName}
@@ -1137,7 +1137,7 @@ export default function TeamDetailPage() {
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
             <div className="flex items-end gap-5">
               <div className="relative shrink-0">
-                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden border-4 border-white bg-white shadow-xl sm:h-24 sm:w-24 ${colors.bg}`}>
+                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden border-4 border-white bg-white sm:h-24 sm:w-24 ${colors.bg}`}>
                   {team.logoUrl
                     ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
                     : <Shield size={40} className={colors.icon} />}
@@ -1333,7 +1333,7 @@ export default function TeamDetailPage() {
                         {isTeamManager && (
                           <button onClick={() => handleLineupToggle(member.uid)}
                             title={isStarter ? "Retirer des titulaires" : "Ajouter aux titulaires"}
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-gray-900 bg-gray-900 text-white" : "border-gray-300 text-transparent hover:border-gray-900"}`}>
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${isStarter ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 text-transparent hover:border-gray-900"}`}>
                             <UserCheck size={12} />
                           </button>
                         )}

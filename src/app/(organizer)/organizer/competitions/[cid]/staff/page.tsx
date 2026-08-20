@@ -467,7 +467,7 @@ export default function CompetitionStaffPage() {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="flex shrink-0 items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
           >
             <Plus size={16} />
             Créer un code
@@ -479,8 +479,8 @@ export default function CompetitionStaffPage() {
             <Loader2 size={22} className="animate-spin text-gray-300" />
           </div>
         ) : activeCodes.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-10 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50">
+          <div className=" border border-dashed border-gray-200/70 bg-white px-4 py-10 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center bg-primary-50">
               <KeyRound size={22} className="text-primary-500" />
             </div>
             <p className="mt-3 text-sm font-bold text-gray-900">Aucun code actif</p>
@@ -497,7 +497,7 @@ export default function CompetitionStaffPage() {
               return (
                 <div
                   key={row.code}
-                  className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                  className=" border border-gray-200/70 bg-white p-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -517,7 +517,7 @@ export default function CompetitionStaffPage() {
                       onClick={() => handleRevokeCode(row.code)}
                       disabled={revokingCode === row.code}
                       aria-label={`Révoquer le code ${row.label}`}
-                      className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     >
                       {revokingCode === row.code ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -529,7 +529,7 @@ export default function CompetitionStaffPage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <code
-                      className={`rounded-lg px-3 py-2 font-mono text-sm font-black tracking-[0.15em] ${
+                      className={` px-3 py-2 font-mono text-sm font-black tracking-[0.15em] ${
                         expired ? "bg-gray-100 text-gray-400 line-through" : "bg-gray-900 text-white"
                       }`}
                     >
@@ -538,7 +538,7 @@ export default function CompetitionStaffPage() {
                     <button
                       type="button"
                       onClick={() => handleCopy(row.code, "code")}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+                      className="flex items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
                     >
                       {copiedCode === `${row.code}:code` ? (
                         <Check size={14} className="text-emerald-600" />
@@ -550,7 +550,7 @@ export default function CompetitionStaffPage() {
                     <button
                       type="button"
                       onClick={() => handleShare(row)}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+                      className="flex items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
                     >
                       <Share2 size={14} />
                       Partager le lien
@@ -591,12 +591,12 @@ export default function CompetitionStaffPage() {
               return (
                 <div
                   key={grant.uid}
-                  className={`flex items-center gap-3 rounded-2xl border p-3.5 shadow-sm ${
-                    active ? "border-gray-100 bg-white" : "border-gray-100 bg-gray-50"
+                  className={`flex items-center gap-3 border p-3.5 ${
+                    active ? "border-gray-200/70 bg-white" : "border-gray-200/70 bg-gray-50"
                   }`}
                 >
                   <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center ${
                       active ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-400"
                     }`}
                   >
@@ -615,7 +615,7 @@ export default function CompetitionStaffPage() {
                       onClick={() => handleRevokeGrant(grant.uid)}
                       disabled={revokingGrant === grant.uid}
                       aria-label={`Retirer l'accès de ${grant.name}`}
-                      className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     >
                       {revokingGrant === grant.uid ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -650,7 +650,7 @@ export default function CompetitionStaffPage() {
 
         <form
           onSubmit={handleAdd}
-          className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center"
+          className="flex flex-col gap-3 border border-gray-200/70 bg-white p-4 sm:flex-row sm:items-center"
         >
           <div className="relative flex-1">
             <Mail
@@ -660,7 +660,7 @@ export default function CompetitionStaffPage() {
             <input
               type="email"
               placeholder="e-mail du modérateur"
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm focus:border-primary-500 focus:outline-none"
+              className="w-full border border-gray-200/70 py-2.5 pl-9 pr-4 text-sm focus:border-primary-500 focus:outline-none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={submitting}
@@ -669,7 +669,7 @@ export default function CompetitionStaffPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black disabled:opacity-50"
+            className="flex shrink-0 items-center justify-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black disabled:opacity-50"
           >
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
             Ajouter
@@ -694,9 +694,9 @@ export default function CompetitionStaffPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.97 }}
-                    className="group flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm"
+                    className="group flex items-center gap-3 border border-gray-200/70 bg-white p-3.5"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-primary-50">
                       <ShieldCheck size={18} className="text-primary-600" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -712,7 +712,7 @@ export default function CompetitionStaffPage() {
                       onClick={() => handleRemove(mod.uid)}
                       disabled={removingUid === mod.uid}
                       aria-label={`Retirer ${fullName || "ce modérateur"}`}
-                      className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     >
                       {removingUid === mod.uid ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -736,7 +736,7 @@ export default function CompetitionStaffPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="max-h-[90vh] w-full max-w-md overflow-y-auto modal-sheet rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl"
+              className="max-h-[90vh] w-full max-w-md overflow-y-auto modal-sheet rounded-t-2xl bg-white p-6"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -744,7 +744,7 @@ export default function CompetitionStaffPage() {
                 </h2>
                 <button
                   onClick={() => !creating && setCreateOpen(false)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                  className=" p-1.5 text-gray-400 hover:bg-gray-100"
                 >
                   <X size={18} />
                 </button>
@@ -760,7 +760,7 @@ export default function CompetitionStaffPage() {
                     placeholder="Kodjo — poule A"
                     value={form.label}
                     onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
                     Sert uniquement à t&apos;y retrouver dans la liste.
@@ -772,7 +772,7 @@ export default function CompetitionStaffPage() {
                   <select
                     value={form.scopeKey}
                     onChange={(e) => setForm((p) => ({ ...p, scopeKey: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   >
                     <option value="competition">Toute la compétition</option>
                     {hasGroupMatches && <option value="stage:group">Phase de groupes</option>}
@@ -814,7 +814,7 @@ export default function CompetitionStaffPage() {
                     type="date"
                     value={form.expiresAt}
                     onChange={(e) => setForm((p) => ({ ...p, expiresAt: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
                     Recommandé : la fin du tournoi. Sans date, le code reste valable jusqu&apos;à
@@ -826,7 +826,7 @@ export default function CompetitionStaffPage() {
                   <button
                     type="button"
                     onClick={() => !creating && setCreateOpen(false)}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   >
                     Annuler
                   </button>
@@ -834,7 +834,7 @@ export default function CompetitionStaffPage() {
                     type="button"
                     onClick={handleCreateCode}
                     disabled={creating}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {creating ? <Loader2 size={16} className="animate-spin" /> : <Ticket size={16} />}
                     Générer le code
@@ -854,9 +854,9 @@ export default function CompetitionStaffPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md modal-sheet rounded-t-2xl bg-white p-6 text-center shadow-xl sm:rounded-2xl"
+              className="w-full max-w-md modal-sheet rounded-t-2xl bg-white p-6 text-center"
             >
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center bg-emerald-50">
                 <Check size={24} className="text-emerald-600" />
               </div>
               <h2 className="mt-3 font-display text-lg font-bold text-gray-900">
@@ -864,7 +864,7 @@ export default function CompetitionStaffPage() {
               </h2>
               <p className="mt-1 text-xs text-gray-500">{explainStaffScope(freshCode.scope)}</p>
 
-              <code className="mt-4 block rounded-xl bg-gray-900 px-4 py-4 font-mono text-2xl font-black tracking-[0.2em] text-white">
+              <code className="mt-4 block bg-gray-900 px-4 py-4 font-mono text-2xl font-black tracking-[0.2em] text-white">
                 {formatStaffCode(freshCode.code)}
               </code>
 
@@ -872,7 +872,7 @@ export default function CompetitionStaffPage() {
                 <button
                   type="button"
                   onClick={() => handleShare(freshCode)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+                  className="flex flex-1 items-center justify-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
                 >
                   <Share2 size={16} />
                   Partager le lien
@@ -880,7 +880,7 @@ export default function CompetitionStaffPage() {
                 <button
                   type="button"
                   onClick={() => handleCopy(freshCode.code, "code")}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+                  className="flex flex-1 items-center justify-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
                 >
                   {copiedCode === `${freshCode.code}:code` ? (
                     <Check size={16} className="text-emerald-600" />
@@ -893,7 +893,7 @@ export default function CompetitionStaffPage() {
               <button
                 type="button"
                 onClick={() => setFreshCode(null)}
-                className="mt-3 w-full rounded-lg px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100"
+                className="mt-3 w-full px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100"
               >
                 Fermer
               </button>
