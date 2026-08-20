@@ -79,7 +79,7 @@ function MatchSkeleton() {
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div key={i} className="animate-pulse overflow-hidden border border-gray-200/70 bg-white">
           <div className="flex flex-col sm:flex-row">
             <div className="h-16 w-full bg-gray-100 sm:h-auto sm:w-24" />
             <div className="flex-1 p-4 sm:p-5 space-y-3">
@@ -263,7 +263,7 @@ export default function MatchesPage() {
   const selectAwayTeam = (team: Team) => {
     setAwayTeamId(team.id);
     setAwayTeamName(team.name);
-    // Une équipe fantôme porte le manager_id de son créateur — le laisser
+    // Une équipe fantôme porte le manager_id de son créateur, le laisser
     // passer ferait de lui le manager des DEUX camps.
     setAwayManagerId(team.isGhost ? "" : team.managerId);
     setAwayIsGhost(!!team.isGhost);
@@ -613,7 +613,7 @@ export default function MatchesPage() {
         >
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+            className="inline-flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
           >
             <Plus size={16} /> Créer un match
           </button>
@@ -629,12 +629,12 @@ export default function MatchesPage() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="rounded-xl border-2 border-primary-200 bg-primary-50/30 p-3 sm:p-6">
+            <div className=" border-2 border-primary-200 bg-primary-50/30 p-3 sm:p-6">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 font-display">Nouveau match</h3>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  className="flex h-8 w-8 items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X size={18} />
                 </button>
@@ -646,7 +646,7 @@ export default function MatchesPage() {
                   <select
                     value={selectedTeamId}
                     onChange={(e) => setSelectedTeamId(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   >
                     <option value="">Sélectionner une équipe</option>
                     {teams.map((t) => (
@@ -664,11 +664,11 @@ export default function MatchesPage() {
                       value={awaySearchQuery}
                       onChange={(e) => handleAwaySearchChange(e.target.value)}
                       placeholder="Rechercher l'équipe adverse..."
-                      className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                      className="w-full border border-gray-200/70 bg-white pl-8 pr-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                     />
                   </div>
                   {showAwayDropdown && awaySearchQuery.trim() && (
-                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="absolute z-10 mt-1 w-full overflow-hidden border border-gray-200/70 bg-white">
                       {awaySearchResults.map((team) => (
                         <button
                           key={team.id}
@@ -698,7 +698,7 @@ export default function MatchesPage() {
                         type="button"
                         onClick={handleCreateGhostOpponent}
                         disabled={creatingGhost}
-                        className="flex w-full items-center gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-50 disabled:opacity-50"
+                        className="flex w-full items-center gap-2 border-t border-gray-200/70 bg-gray-50/60 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-50 disabled:opacity-50"
                       >
                         {creatingGhost ? (
                           <Loader2 size={14} className="shrink-0 animate-spin text-primary-600" />
@@ -718,7 +718,7 @@ export default function MatchesPage() {
                   )}
                 </div>
                 {awayIsGhost && (
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <div className=" border border-gray-200/70 bg-gray-50 px-3 py-2.5">
                     <p className="text-xs text-gray-600">
                       <strong className="font-semibold text-gray-800">{awayTeamName}</strong> n&apos;est pas sur
                       KoppaFoot : pas de défi à accepter, le match est planifié directement. Son effectif se
@@ -733,7 +733,7 @@ export default function MatchesPage() {
                     type="date"
                     value={matchDate}
                     onChange={(e) => setMatchDate(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   />
                 </div>
                 {/* Time */}
@@ -743,10 +743,10 @@ export default function MatchesPage() {
                     type="time"
                     value={matchTime}
                     onChange={(e) => setMatchTime(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   />
                 </div>
-                {/* Venue — terrain référencé si la collection en contient,
+                {/* Venue, terrain référencé si la collection en contient,
                     saisie libre sinon (ou via « Autre terrain »). */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Terrain</label>
@@ -754,11 +754,11 @@ export default function MatchesPage() {
                     <select
                       value={selectedVenueId}
                       onChange={(e) => setSelectedVenueId(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                      className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                     >
                       <option value="">Autre terrain (saisie libre)</option>
                       {venues.map((v) => (
-                        <option key={v.id} value={v.id}>{v.name} — {v.city}</option>
+                        <option key={v.id} value={v.id}>{v.name}, {v.city}</option>
                       ))}
                     </select>
                   )}
@@ -769,14 +769,14 @@ export default function MatchesPage() {
                         value={customVenueName}
                         onChange={(e) => setCustomVenueName(e.target.value)}
                         placeholder="Nom du terrain"
-                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                        className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                       />
                       <input
                         type="text"
                         value={customVenueCity}
                         onChange={(e) => setCustomVenueCity(e.target.value)}
                         placeholder="Ville"
-                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                        className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                       />
                     </div>
                   )}
@@ -788,10 +788,10 @@ export default function MatchesPage() {
                     {["5v5", "7v7", "11v11"].map((f) => (
                       <label
                         key={f}
-                        className={`flex flex-1 cursor-pointer items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        className={`flex flex-1 cursor-pointer items-center justify-center border px-3 py-2.5 text-sm font-medium transition-colors ${
                           format === f
                             ? "border-primary-600 bg-primary-50 text-primary-700"
-                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                            : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         <input
@@ -817,10 +817,10 @@ export default function MatchesPage() {
                     ].map((opt) => (
                       <label
                         key={String(opt.value)}
-                        className={`flex flex-1 cursor-pointer items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        className={`flex flex-1 cursor-pointer items-center justify-center border px-3 py-2.5 text-sm font-medium transition-colors ${
                           isHome === opt.value
                             ? "border-primary-600 bg-primary-50 text-primary-700"
-                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                            : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         <input
@@ -837,11 +837,11 @@ export default function MatchesPage() {
                 </div>
               </div>
               {/* Referee section */}
-              <div className="mt-3 sm:mt-4 rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+              <div className="mt-3 sm:mt-4 border border-gray-200/70 bg-white p-3 sm:p-4">
                 <p className="mb-3 text-sm font-medium text-gray-700">Arbitre</p>
                 <div className="flex gap-2 mb-3">
                   {[{ v: "none" as const, label: "Aucun pour l'instant" }, { v: "local" as const, label: "Arbitre local" }].map(({ v, label }) => (
-                    <label key={v} className={`flex flex-1 cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${refereeMode === v ? "border-primary-600 bg-primary-50 text-primary-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                    <label key={v} className={`flex flex-1 cursor-pointer items-center justify-center border px-3 py-2 text-xs font-medium transition-colors ${refereeMode === v ? "border-primary-600 bg-primary-50 text-primary-700" : "border-gray-200/70 text-gray-600 hover:bg-gray-50"}`}>
                       <input type="radio" className="sr-only" checked={refereeMode === v} onChange={() => setRefereeMode(v)} /> {label}
                     </label>
                   ))}
@@ -849,12 +849,12 @@ export default function MatchesPage() {
                 {refereeMode === "local" && (
                   <input value={localRefereeName} onChange={(e) => setLocalRefereeName(e.target.value)}
                     placeholder="Nom de l'arbitre local"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 )}
               </div>
 
               {/* Auto-accept toggle */}
-              <div className="mt-3 sm:mt-4 flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50/50 p-3 sm:p-4">
+              <div className="mt-3 sm:mt-4 flex items-center justify-between border border-primary-100 bg-primary-50/50 p-3 sm:p-4">
                 <div>
                   <p className="text-sm font-bold text-gray-900">Auto-acceptation des joueurs</p>
                   <p className="text-xs text-gray-500">Bypass le quota de joueurs et confirme tout le monde immédiatement</p>
@@ -871,7 +871,7 @@ export default function MatchesPage() {
                 <button
                   onClick={handleCreate}
                   disabled={creating || !selectedTeamId || !awayTeamName || !matchDate || !matchTime}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creating ? (
                     <><Loader2 size={16} className="animate-spin" /> Création...</>
@@ -881,7 +881,7 @@ export default function MatchesPage() {
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className=" border border-gray-200/70 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Annuler
                 </button>
@@ -896,7 +896,7 @@ export default function MatchesPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.08 }}
-        className="flex border-b border-gray-200 overflow-x-auto scrollbar-hide"
+        className="flex border-b border-gray-200/70 overflow-x-auto scrollbar-hide"
       >
         {tabs.map((t) => {
           const Icon = t.icon;
@@ -941,7 +941,7 @@ export default function MatchesPage() {
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.06 }}
                 onClick={() => router.push(`/matches/${match.id}`)}
-                className="overflow-hidden rounded-xl border border-dashed border-amber-300 bg-white transition-shadow hover:shadow-md cursor-pointer"
+                className="overflow-hidden border border-dashed border-amber-300 bg-white transition-shadow cursor-pointer"
               >
                 <div className="flex flex-col sm:flex-row">
                   {/* Status strip */}
@@ -991,7 +991,7 @@ export default function MatchesPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleAcceptChallenge(match); }}
                         disabled={accepting === match.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {accepting === match.id ? (
                           <><Loader2 size={14} className="animate-spin" /> Acceptation...</>
@@ -1002,7 +1002,7 @@ export default function MatchesPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRejectChallenge(match); }}
                         disabled={accepting === match.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <XCircle size={14} /> Refuser
                       </button>
@@ -1019,9 +1019,9 @@ export default function MatchesPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+              className="flex flex-col items-center border border-dashed border-gray-200/70 bg-white py-16"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+              <div className="flex h-16 w-16 items-center justify-center bg-gray-100">
                 <Trophy size={32} className="text-gray-300" />
               </div>
               <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucun défi reçu</h3>
@@ -1055,8 +1055,8 @@ export default function MatchesPage() {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.06 }}
                   onClick={() => router.push(`/matches/${match.id}`)}
-                  className={`group overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md cursor-pointer ${
-                    isDraft ? "border-dashed border-gray-300" : "border-gray-200"
+                  className={`group overflow-hidden border bg-white transition-shadow cursor-pointer ${
+                    isDraft ? "border-dashed border-gray-200/70" : "border-gray-200/70"
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row">
@@ -1167,7 +1167,7 @@ export default function MatchesPage() {
                           <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
                             match.validationStatus === 'validated' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
                             match.validationStatus === 'contested' ? 'bg-red-50 border-red-100 text-red-600' :
-                            match.validationStatus === 'unverified' ? 'bg-gray-100 border-gray-200 text-gray-500' :
+                            match.validationStatus === 'unverified' ? 'bg-gray-100 border-gray-200/70 text-gray-500' :
                             'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
                           }`}>
                             {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
@@ -1191,7 +1191,7 @@ export default function MatchesPage() {
                               <Users size={12} />
                               <span className="hidden sm:inline">Confirmations:</span>
                             </span>
-                            <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-0.5 border border-gray-100">
+                            <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 border border-gray-200/70">
                               <span className="text-[10px] uppercase font-bold text-gray-400">Dom.</span>
                               <span className={`text-xs font-bold ${match.confirmedHome >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
                                 {match.confirmedHome}
@@ -1210,7 +1210,7 @@ export default function MatchesPage() {
 
                       {/* Referee application management */}
                       {match.refereeStatus === "pending" && match.managerId === user?.uid && (
-                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
+                        <div className="mt-4 border border-amber-200 bg-amber-50 p-3 sm:p-4">
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <Award size={16} className="text-amber-600 shrink-0" />
@@ -1222,14 +1222,14 @@ export default function MatchesPage() {
                             <button
                               onClick={() => handleRespondReferee(match.id, true)}
                               disabled={respondingToRef === match.id}
-                              className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                              className="flex-1 bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
                             >
                               {respondingToRef === match.id ? "Validation..." : "Accepter l'arbitre"}
                             </button>
                             <button
                               onClick={() => handleRespondReferee(match.id, false)}
                               disabled={respondingToRef === match.id}
-                              className="flex-1 rounded-lg border border-amber-300 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                              className="flex-1 border border-amber-300 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors disabled:opacity-50"
                             >
                               Refuser
                             </button>
@@ -1259,7 +1259,7 @@ export default function MatchesPage() {
                       {/* Player rating button (completed) */}
                       {match.status === "completed" && match.managerId === user?.uid && (
                         <button onClick={(e) => { e.stopPropagation(); openRatingModal(match); }}
-                          className="mt-3 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                          className="mt-3 flex items-center gap-1.5 border border-gray-200/70 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                           <Star size={12} /> Noter les joueurs
                         </button>
                       )}
@@ -1271,7 +1271,7 @@ export default function MatchesPage() {
                              <Link
                               href={`/matches/${match.id}/live`}
                               onClick={(e) => e.stopPropagation()}
-                              className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-black uppercase tracking-tight text-white shadow-lg shadow-red-100 transition-all hover:bg-red-700 animate-pulse"
+                              className="flex items-center justify-center gap-2 bg-red-600 px-4 py-3 text-sm font-black uppercase tracking-tight text-white shadow-red-100 transition-all hover:bg-red-700 animate-pulse"
                             >
                               <Activity size={18} />
                               Suivre en direct
@@ -1281,14 +1281,14 @@ export default function MatchesPage() {
                              <Link
                               href={`/matches/${match.id}/live`}
                               onClick={(e) => e.stopPropagation()}
-                              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black uppercase tracking-tight text-white transition-all hover:bg-black"
+                              className="flex items-center justify-center gap-2 bg-gray-900 px-4 py-3 text-sm font-black uppercase tracking-tight text-white transition-all hover:bg-black"
                             >
                               <MonitorPlay size={18} />
                               Accéder au direct
                              </Link>
                           )}
                           {match.modificationRequest ? (
-                            <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
+                            <div className=" border border-primary-200 bg-primary-50 p-3">
                               <p className="text-sm font-medium text-primary-800 mb-1">Demande de modification</p>
                               <div className="text-xs text-primary-700 bg-white/50 rounded p-2 mb-2">
                                 <p><strong>Nouvelle date:</strong> {match.modificationRequest.date} à {match.modificationRequest.time}</p>
@@ -1320,13 +1320,13 @@ export default function MatchesPage() {
                             <div className="flex flex-wrap gap-2">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); openModifyModal(match); }}
-                                className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="flex items-center gap-1 border border-gray-200/70 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                               >
                                 <Edit3 size={14} /> Modifier
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
-                                className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                                className="flex items-center gap-1 border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                               >
                                 <XCircle size={14} /> Annuler
                               </button>
@@ -1341,7 +1341,7 @@ export default function MatchesPage() {
                       {(isDraft || match.status === "pending") && (
                         <div className="mt-3 sm:mt-4 flex flex-col gap-2">
                           {match.status === "pending" && (
-                             <div className="mb-2 p-3 rounded-lg bg-amber-50 border border-amber-100 italic">
+                             <div className="mb-2 p-3 bg-amber-50 border border-amber-100 italic">
                                <p className="text-[11px] text-amber-700">
                                  En attente du quota minimum de joueurs ({getMinConfirmed(match.format)} confirmés par équipe).
                                </p>
@@ -1353,7 +1353,7 @@ export default function MatchesPage() {
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleForceComplete(match.id); }}
                                   disabled={completing === match.id || match.confirmedHome < getMinConfirmed(match.format) || match.confirmedAway < getMinConfirmed(match.format)}
-                                  className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="flex-1 flex items-center justify-center gap-2 bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                 {completing === match.id ? (
                                   <Loader2 size={14} className="animate-spin" />
@@ -1366,7 +1366,7 @@ export default function MatchesPage() {
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                            className="w-full inline-flex items-center justify-center gap-2 border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <XCircle size={14} /> {match.status === "challenge" || match.status === "pending" ? "Annuler le défi" : "Supprimer"}
                           </button>
@@ -1392,9 +1392,9 @@ export default function MatchesPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="flex flex-col items-center rounded-xl border-2 border-dashed border-gray-200 bg-white py-16"
+              className="flex flex-col items-center border border-dashed border-gray-200/70 bg-white py-16"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+              <div className="flex h-16 w-16 items-center justify-center bg-gray-100">
                 {tab === "live" ? (
                   <Activity size={32} className="text-gray-300" />
                 ) : tab === "upcoming" ? (
@@ -1432,8 +1432,8 @@ export default function MatchesPage() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 modal-layer bg-gray-900/40 backdrop-blur-sm" onClick={() => setRatingMatch(null)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl max-h-[80vh] flex flex-col">
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-white max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-gray-200/70 px-6 py-4">
                 <h3 className="text-lg font-bold text-gray-900 font-display">Noter les joueurs</h3>
                 <button onClick={() => setRatingMatch(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
@@ -1460,10 +1460,10 @@ export default function MatchesPage() {
                   );
                 })}
               </div>
-              <div className="border-t border-gray-100 px-6 py-4 flex justify-end gap-3">
-                <button onClick={() => setRatingMatch(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Annuler</button>
+              <div className="border-t border-gray-200/70 px-6 py-4 flex justify-end gap-3">
+                <button onClick={() => setRatingMatch(null)} className=" px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Annuler</button>
                 <button onClick={handleSaveRatings} disabled={savingRatings || ratingPlayers.length === 0}
-                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center">
+                  className=" bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center">
                   {savingRatings ? <Loader2 size={16} className="animate-spin" /> : <><Star size={14} /> Enregistrer</>}
                 </button>
               </div>
@@ -1487,9 +1487,9 @@ export default function MatchesPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-xl"
+              className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-white"
             >
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div className="flex items-center justify-between border-b border-gray-200/70 px-6 py-4">
                 <h3 className="text-lg font-bold text-gray-900 font-display">Modifier le match</h3>
                 <button onClick={() => setModifyingMatch(null)} className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
@@ -1505,7 +1505,7 @@ export default function MatchesPage() {
                         value={modDate}
                         onChange={(e) => setModDate(e.target.value)}
                         required
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-primary-500"
+                        className="w-full border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500"
                       />
                     </div>
                     <div className="flex-1">
@@ -1515,7 +1515,7 @@ export default function MatchesPage() {
                         value={modTime}
                         onChange={(e) => setModTime(e.target.value)}
                         required
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-primary-500"
+                        className="w-full border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500"
                       />
                     </div>
                   </div>
@@ -1525,7 +1525,7 @@ export default function MatchesPage() {
                       value={modVenueId}
                       onChange={(e) => setModVenueId(e.target.value)}
                       required
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-primary-500"
+                      className="w-full border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500"
                     >
                       <option value="">Sélectionner un terrain</option>
                       {venues.map((v) => (
@@ -1540,7 +1540,7 @@ export default function MatchesPage() {
                       onChange={(e) => setModReason(e.target.value)}
                       required
                       placeholder="Expliquez pourquoi vous souhaitez modifier ce match..."
-                      className="w-full h-24 resize-none rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-primary-500 text-sm"
+                      className="w-full h-24 resize-none border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500 text-sm"
                     />
                   </div>
                 </div>
@@ -1548,14 +1548,14 @@ export default function MatchesPage() {
                   <button
                     type="button"
                     onClick={() => setModifyingMatch(null)}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    className=" px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={submittingMod}
-                    className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center min-w-[140px]"
+                    className=" bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center min-w-[140px]"
                   >
                     {submittingMod ? <Loader2 size={16} className="animate-spin" /> : "Envoyer la demande"}
                   </button>

@@ -3,6 +3,7 @@ import { Outfit, DM_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthModalProvider } from "@/components/auth/AuthModal";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import TopLoadingBar from "@/components/ui/TopLoadingBar";
 import "./globals.css";
@@ -31,7 +32,7 @@ export const viewport: Viewport = {
 // iOS launch images.
 //
 // A standalone PWA on iOS shows a startup image only when the media query
-// matches the device exactly — CSS width, CSS height AND pixel ratio. Anything
+// matches the device exactly, CSS width, CSS height AND pixel ratio. Anything
 // else and Safari ignores the tag and opens on a blank white screen, which is
 // why this is a table of every current device rather than one image.
 //
@@ -58,7 +59,7 @@ export const metadata: Metadata = {
   description: "La plateforme qui connecte les passionnés de football",
   // No `icons` block: src/app/{favicon.ico,icon.png,apple-icon.png} come from
   // the file convention, and declaring `icons` at all makes this object win
-  // over it — which is how the apple-touch-icon went missing when the launch
+  // over it, which is how the apple-touch-icon went missing when the launch
   // images were (wrongly) hung off `icons.other`.
   appleWebApp: {
     capable: true,
@@ -69,7 +70,7 @@ export const metadata: Metadata = {
   other: {
     // Next only emits the standardised `mobile-web-app-capable`, which Safari
     // did not understand before 17.4. Without the Apple-prefixed one an
-    // iPhone opens the app in a browser view instead of standalone — and iOS
+    // iPhone opens the app in a browser view instead of standalone, and iOS
     // shows a launch image only in standalone, which is why the splash never
     // appeared. Kept alongside, not instead of.
     "apple-mobile-web-app-capable": "yes",
@@ -89,10 +90,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>
-          <Suspense fallback={null}>
-            <TopLoadingBar />
-          </Suspense>
-          {children}
+          <AuthModalProvider>
+            <Suspense fallback={null}>
+              <TopLoadingBar />
+            </Suspense>
+            {children}
+          </AuthModalProvider>
           <Toaster
             position="top-right"
             toastOptions={{

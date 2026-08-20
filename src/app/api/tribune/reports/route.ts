@@ -5,14 +5,14 @@ import { FieldValue } from "firebase-admin/firestore";
 /**
  * Post reports.
  *
- * The Tribune's "Signaler" button used to pop a toast and send nothing —
+ * The Tribune's "Signaler" button used to pop a toast and send nothing,
  * a reported post reached no one. Reports now land in `post_reports`, which
  * is admin-SDK only: reporters write through this route and never read the
  * queue back.
  *
- * POST   { postId, reason? }  — any authenticated user reports a post.
- * GET    ?status=pending      — superadmin reads the queue.
- * PATCH  { id, action }       — superadmin dismisses a report.
+ * POST   { postId, reason? } , any authenticated user reports a post.
+ * GET    ?status=pending     , superadmin reads the queue.
+ * PATCH  { id, action }      , superadmin dismisses a report.
  */
 
 async function callerUidOf(req: NextRequest): Promise<string | null> {

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Mail, Phone, Loader2, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -31,7 +31,7 @@ const emailSchema = yup.object({
   password: yup.string().required("Mot de passe requis"),
 });
 
-// The national part only — the country code comes from the picker and the
+// The national part only, the country code comes from the picker and the
 // two are joined into E.164 before hitting Firebase. Users type their number
 // the way they say it ("90 12 34 56"), spaces and leading 0 included.
 const phoneSchema = yup.object({
@@ -58,9 +58,9 @@ type CodeForm = yup.InferType<typeof codeSchema>;
 // ============================================
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 const inputClassPassword =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-11 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 
 // ============================================
 // Tabs
@@ -69,7 +69,7 @@ const inputClassPassword =
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée — temporairement.
+ * Connexion par SMS masquée, temporairement.
  *
  * L'envoi de SMS réels est toujours refusé côté Firebase, donc l'onglet ne
  * menait qu'à une erreur. Tout le circuit (schéma, formulaires, reCAPTCHA,
@@ -81,7 +81,46 @@ type Tab = "email" | "phone";
  */
 const PHONE_LOGIN_ENABLED = false;
 
+/**
+ * Idem pour l'email + mot de passe : masqué, pas supprimé.
+ *
+ * L'authentification passe désormais par une modale (voir AuthModal) qui ne
+ * propose que Google, un tap, aucun mot de passe à retrouver, et surtout
+ * aucune redirection : on se connecte sans quitter la page qu'on lisait.
+ * Cette page reste l'adresse de repli, alignée sur la même offre.
+ *
+ * Le formulaire entier (validation, erreurs, mot de passe oublié) est
+ * conservé et reste compilé : repasser à `true` suffit à le remettre.
+ */
+const EMAIL_LOGIN_ENABLED = false;
+
+/**
+ * De quelle fonction vient-on, et que lui promet-on.
+ *
+ * Une même page de connexion, un en-tête qui change : arriver ici depuis
+ * « référencer mon terrain » et lire « Connecte-toi pour accéder à ton
+ * espace » fait douter d'avoir cliqué au bon endroit. Le `?for=` porte cette
+ * provenance, le `?next=` ramène au bon endroit après coup.
+ */
+const CONTEXTES: Record<string, { titre: string; phrase: string }> = {
+  organisateur: {
+    titre: "Organiser une compétition",
+    phrase: "Un compte d'abord, ta candidature d'organisateur se dépose ensuite.",
+  },
+  terrain: {
+    titre: "Référencer un terrain",
+    phrase: "Un compte d'abord, la fiche de ton terrain se saisit ensuite.",
+  },
+};
+
+const CONTEXTE_DEFAUT = {
+  titre: "Connexion",
+  phrase: "Connecte-toi pour accéder à ton espace",
+};
+
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const contexte = CONTEXTES[searchParams.get("for") ?? ""] ?? CONTEXTE_DEFAUT;
   const [tab, setTab] = useState<Tab>("email");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +134,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { loginWithEmail, sendPhoneCode, confirmPhoneCode, loginWithGoogle } = useAuth();
 
-  // Fresh verifier AND fresh container on every attempt — see lib/recaptcha.
+  // Fresh verifier AND fresh container on every attempt, see lib/recaptcha.
   const buildRecaptcha = (): RecaptchaVerifier => {
     if (!recaptchaRef.current) throw new Error("reCAPTCHA indisponible");
     const verifier = createRecaptchaVerifier(recaptchaRef.current, recaptchaVerifier.current);
@@ -104,7 +143,7 @@ export default function LoginPage() {
   };
 
   // The verifier is built on demand by requestCode (Firebase consumes it on
-  // every attempt), so here we only tear it down — on unmount and whenever
+  // every attempt), so here we only tear it down, on unmount and whenever
   // the user leaves the phone tab.
   useEffect(() => {
     return () => {
@@ -149,7 +188,7 @@ export default function LoginPage() {
   });
 
   // Sends (or resends) the SMS. Firebase consumes the verifier on every
-  // attempt — successful or not — so a fresh one is built each time.
+  // attempt, successful or not, so a fresh one is built each time.
   const requestCode = async (e164: string) => {
     const result = await sendPhoneCode(e164, buildRecaptcha());
     setConfirmation(result);
@@ -201,7 +240,7 @@ export default function LoginPage() {
       if (!confirmation) throw new Error("Pas de confirmation en cours");
       const { isNewUser } = await confirmPhoneCode(confirmation, data.code);
       if (isNewUser) {
-        // Authenticated but no Firestore profile yet — same path as Google.
+        // Authenticated but no Firestore profile yet, same path as Google.
         router.push("/get-started");
         return;
       }
@@ -237,8 +276,10 @@ export default function LoginPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
     >
-      <h2 className="mb-1 text-2xl font-black text-gray-900 font-display">Connexion</h2>
-      <p className="mb-6 text-sm text-gray-400">Connecte-toi pour accéder à ton espace</p>
+      <h2 className="mb-1 font-display text-2xl font-black uppercase tracking-tight text-gray-900">
+        {contexte.titre}
+      </h2>
+      <p className="mb-6 text-sm text-gray-400">{contexte.phrase}</p>
 
       {/* Google en tête : c'est le chemin le plus court (un tap, pas de mot de
           passe à retrouver), donc il passe avant le formulaire email. */}
@@ -246,7 +287,7 @@ export default function LoginPage() {
         type="button"
         onClick={handleGoogle}
         disabled={submitting}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
+        className="flex w-full items-center justify-center gap-3 border border-gray-200/70 bg-white px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
       >
         <svg viewBox="0 0 24 24" width="16" height="16">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -257,6 +298,8 @@ export default function LoginPage() {
         Continuer avec Google
       </button>
 
+      {EMAIL_LOGIN_ENABLED && (
+      <>
       {/* Divider */}
       <div className="my-6 flex items-center gap-3">
         <div className="h-px flex-1 bg-gray-100" />
@@ -264,16 +307,16 @@ export default function LoginPage() {
         <div className="h-px flex-1 bg-gray-100" />
       </div>
 
-      {/* Tabs — un seul onglet ne se dessine pas : sans le téléphone, le
+      {/* Tabs, un seul onglet ne se dessine pas : sans le téléphone, le
           formulaire email prend toute la place. */}
       {PHONE_LOGIN_ENABLED && (
-      <div className="mb-6 flex rounded-xl bg-gray-100 p-1">
+      <div className="mb-6 flex bg-gray-100 p-1">
         <button
           type="button"
           onClick={() => { setTab("email"); setPhoneStep("number"); }}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
             tab === "email"
-              ? "bg-white text-emerald-600 shadow-sm"
+              ? "bg-white text-emerald-600"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -282,9 +325,9 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => setTab("phone")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
             tab === "phone"
-              ? "bg-white text-emerald-600 shadow-sm"
+              ? "bg-white text-emerald-600"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -357,7 +400,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Se connecter
@@ -383,7 +426,7 @@ export default function LoginPage() {
                   aria-label="Indicatif pays"
                   value={dialCode}
                   onChange={(e) => setDialCode(e.target.value)}
-                  className="w-[7.5rem] shrink-0 rounded-xl border border-gray-200 bg-gray-50 py-3 pl-3 pr-2 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all"
+                  className="w-[7.5rem] shrink-0 border border-gray-200/70 bg-gray-50 py-3 pl-3 pr-2 text-sm font-semibold text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all"
                 >
                   {COUNTRY_CODES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -412,7 +455,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Envoyer le code
@@ -442,7 +485,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 maxLength={6}
                 {...codeForm.register("code")}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
+                className="w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
                 placeholder="000000"
               />
               {codeForm.formState.errors.code && (
@@ -453,7 +496,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Vérifier
@@ -479,6 +522,8 @@ export default function LoginPage() {
           </motion.form>
         )}
       </AnimatePresence>
+      </>
+      )}
 
       {/* Links */}
       <div className="mt-8 space-y-2 text-center text-sm">
@@ -492,7 +537,7 @@ export default function LoginPage() {
 
       <PWAInstallPrompt />
 
-      {/* reCAPTCHA container — seul le SMS s'en sert */}
+      {/* reCAPTCHA container, seul le SMS s'en sert */}
       {PHONE_LOGIN_ENABLED && <div ref={recaptchaRef} />}
     </motion.div>
   );

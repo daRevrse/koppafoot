@@ -198,11 +198,11 @@ export default function AdminMatchesPage() {
                             {m.scoreHome} - {m.scoreAway}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          <span className="text-xs text-gray-400">,</span>
                         )}
                       </td>
                       <td className="px-5 py-3">
-                        <span className="text-sm text-gray-600">{m.refereeName || "—"}</span>
+                        <span className="text-sm text-gray-600">{m.refereeName || ","}</span>
                       </td>
                       <td className="px-5 py-3">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusConf.bg} ${statusConf.color}`}>

@@ -5,7 +5,7 @@
 // intentionally free of any Firebase SDK import (no web SDK, no admin SDK) so
 // both the client lib (competition-firestore.ts, web SDK) and the server lib
 // (competition-admin.ts, firebase-admin) can share them. Output is always a
-// plain serializable object (ISO string dates) — safe to pass server->client.
+// plain serializable object (ISO string dates), safe to pass server->client.
 // ============================================
 
 import type {
@@ -14,7 +14,7 @@ import type {
   CompMatch, FirestoreCompMatch,
 } from "@/types";
 
-// Moved to lib/dates.ts — every read path needs it, not just competitions.
+// Moved to lib/dates.ts, every read path needs it, not just competitions.
 // Re-exported so existing importers keep working.
 import { formatDate } from "./dates";
 export { formatDate };
@@ -35,13 +35,13 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     // stage feeding a bracket.
     competitionType: d.competition_type ?? "groups_knockout",
     isSandbox: d.is_sandbox ?? false,
-    // Absent des compétitions créées avant le champ — rien ne s'affiche alors.
+    // Absent des compétitions créées avant le champ, rien ne s'affiche alors.
     organizerName: d.organizer_name ?? null,
     format: d.format,
     startDate: d.start_date,
     endDate: d.end_date,
     venueCity: d.venue_city,
-    // Entry file — absent on every competition created before it existed,
+    // Entry file, absent on every competition created before it existed,
     // which is exactly the "asks for nothing" default.
     rulesText: d.rules_text ?? null,
     rulesUrl: d.rules_url ?? null,
@@ -123,6 +123,8 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
         playerId: e.player_id,
         playerName: e.player_name,
         detail: e.detail,
+        assistPlayerId: e.assist_player_id ?? null,
+        assistPlayerName: e.assist_player_name ?? null,
         contestedByManagerId: e.contested_by_manager_id,
         contestationReason: e.contestation_reason,
         varStatus: e.var_status ?? null,

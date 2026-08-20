@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     await batch.commit();
   }
 
-  // Push + email — best effort, parallel
+  // Push + email, best effort, parallel
   const html = adminMessageEmailHtml(title, body);
   await Promise.allSettled(
     userIds.map(async (uid) => {

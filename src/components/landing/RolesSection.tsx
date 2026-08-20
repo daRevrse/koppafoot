@@ -64,7 +64,7 @@ export default function RolesSection() {
           </p>
         </motion.div>
 
-        {/* Roles — one per row with large portrait image */}
+        {/* Roles, one per row with large portrait image */}
         <div className="space-y-16 lg:space-y-24 mb-12">
           {ROLES.map((role, i) => {
             const isReversed = i % 2 !== 0;
@@ -81,7 +81,7 @@ export default function RolesSection() {
                 className={`flex flex-col items-stretch gap-8 lg:gap-0 ${isReversed ? "lg:flex-row-reverse" : "lg:flex-row"
                   }`}
               >
-                {/* Portrait image — large */}
+                {/* Portrait image, large */}
                 <div className="relative w-full lg:w-[55%] lg:flex-shrink-0">
                   <div className="relative h-[500px] sm:h-[700px] lg:h-[780px] overflow-hidden rounded-[32px] lg:rounded-[40px] shadow-2xl">
                     <Image
@@ -97,7 +97,7 @@ export default function RolesSection() {
                   </div>
                 </div>
 
-                {/* Text content — vertically centered */}
+                {/* Text content, vertically centered */}
                 <div className="flex-1 flex flex-col justify-center text-center lg:text-left px-2 lg:px-14">
                   <span
                     className={`inline-block self-center lg:self-start rounded-full bg-gradient-to-r ${role.gradient} px-5 py-2 text-xs font-bold text-white uppercase tracking-wider mb-5`}

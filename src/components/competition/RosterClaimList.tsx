@@ -11,8 +11,8 @@ import type { CompPlayer, RosterClaim } from "@/types";
 //
 // Players do NOT claim their line any more: the link is created for them
 // when their manager registers the club in a competition, or imports it into
-// an existing team. Everyone therefore sees a plain roster — the "Toi" badge
-// marks their own line — and only a superadmin gets the attach control, to
+// an existing team. Everyone therefore sees a plain roster, the "Toi" badge
+// marks their own line, and only a superadmin gets the attach control, to
 // repair rosters an organizer typed by hand.
 // ============================================
 
@@ -29,8 +29,8 @@ export default function RosterClaimList({
   const [myClaims, setMyClaims] = useState<RosterClaim[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
 
-  // Only the repair path reads claims, so ordinary visitors — the vast
-  // majority on a public roster — no longer pay for that request.
+  // Only the repair path reads claims, so ordinary visitors, the vast
+  // majority on a public roster, no longer pay for that request.
   const loadClaims = useCallback(async () => {
     if (!firebaseUser || user?.userType !== "superadmin") return;
     try {
@@ -65,7 +65,7 @@ export default function RosterClaimList({
         toast.error(data.error ?? "Une erreur est survenue");
         return;
       }
-      toast.success("Demande envoyée — en attente de validation");
+      toast.success("Demande envoyée, en attente de validation");
       await loadClaims();
     } catch {
       toast.error("Une erreur est survenue");
@@ -82,7 +82,7 @@ export default function RosterClaimList({
   // Claiming is now an ADMIN repair tool, not a player flow. Links are
   // created automatically when a manager registers their club or imports it
   // into a competition team, so asking players to claim their own line would
-  // duplicate a job the system already does — and re-introduce a validation
+  // duplicate a job the system already does, and re-introduce a validation
   // queue for organizers. Superadmins keep it to fix rosters typed by hand.
   const canRepair = user?.userType === "superadmin";
 
@@ -99,7 +99,7 @@ export default function RosterClaimList({
         return (
           <div key={player.id} className="flex items-center gap-3 px-4 py-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-              {player.number || "—"}
+              {player.number || ","}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">
               {player.name}

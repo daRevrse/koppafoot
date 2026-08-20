@@ -11,10 +11,10 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================
-// AppHeader — light top bar: search on the left, actions on the right
+// AppHeader, light top bar: search on the left, actions on the right
 // (Tribune globe on mobile, notifications for authed users, join/login for
 // guests). Profile, competitions and logout live in the sidebar and the
-// profile page; the "Organiser ma compétition" CTA lives on /competitions —
+// profile page; the "Organiser ma compétition" CTA lives on /competitions,
 // the header stays minimal.
 // ============================================
 
@@ -41,14 +41,14 @@ export default function AppHeader() {
       </Link>
 
       {/* Desktop: search. Teams resolve in its own dropdown, competitions are
-          handed to /competitions?q= — see HeaderSearch. */}
+          handed to /competitions?q=, see HeaderSearch. */}
       <div className="hidden min-w-0 flex-1 items-center lg:flex">
         <HeaderSearch />
       </div>
 
-      {/* Right side — privileges depend on auth state */}
+      {/* Right side, privileges depend on auth state */}
       <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-3">
-        {/* Search — mobile only, since the bar above is lg:. Without it a phone
+        {/* Search, mobile only, since the bar above is lg:. Without it a phone
             has no way to search anything at all. */}
         <button
           type="button"
@@ -60,7 +60,7 @@ export default function AppHeader() {
           <Search size={20} />
         </button>
 
-        {/* La Tribune — mobile only. It left the bottom tab bar for this spot
+        {/* La Tribune, mobile only. It left the bottom tab bar for this spot
             next to the bell; on desktop it stays in the sidebar and the rail. */}
         <Link
           href="/feed"

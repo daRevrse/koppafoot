@@ -51,7 +51,7 @@ export default function HeroSection() {
           Crée ton équipe, trouve des matchs, élargit ton réseau.
         </motion.p>
 
-        {/* CTA — Pill-shaped, solid, no gradient */}
+        {/* CTA, Pill-shaped, solid, no gradient */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

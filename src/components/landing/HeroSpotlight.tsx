@@ -13,7 +13,7 @@ import type { Competition, CompMatch, CompetitionStatus } from "@/types";
 // ============================================
 // Competition-first hero. Receives PLAIN serializable props from the page
 // Server Component (page.tsx fetches via @/lib/competition-admin). This file is
-// a client component — it must NEVER import the server-only admin lib.
+// a client component, it must NEVER import the server-only admin lib.
 //
 //  - featured == null  → brand-hero fallback (pre-launch / fetch-error). Copied
 //    from HeroSection so the landing never crashes when Firestore is unreachable.

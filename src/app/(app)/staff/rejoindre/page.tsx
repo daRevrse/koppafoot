@@ -19,7 +19,7 @@ import type { StaffScope } from "@/types";
 // Redeem a staff access code
 //
 // The screen a volunteer lands on from the link (or the code) an organizer
-// sent them. It asks for one thing — the code — and hands back the live space
+// sent them. It asks for one thing, the code, and hands back the live space
 // for exactly what that code covers.
 // ============================================
 
@@ -171,7 +171,7 @@ function JoinStaffInner() {
       ) : (
         <div className="space-y-3">
           <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-            Connecte-toi (ou crée un compte en 30 secondes) pour activer ce code — c&apos;est ce
+            Connecte-toi (ou crée un compte en 30 secondes) pour activer ce code, c&apos;est ce
             qui permet de savoir qui a saisi quoi pendant le match.
           </p>
           <Link

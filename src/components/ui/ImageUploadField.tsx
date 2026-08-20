@@ -5,7 +5,7 @@ import { Upload, X, Image as ImageIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
 // ============================================
-// ImageUploadField — pick an image file (with live preview) or paste a URL.
+// ImageUploadField, pick an image file (with live preview) or paste a URL.
 // The parent owns persistence: it receives the chosen File via onFile and
 // the typed URL via onUrlChange, then uploads on submit. Reusable across
 // competition logo/banner, match banner, etc.

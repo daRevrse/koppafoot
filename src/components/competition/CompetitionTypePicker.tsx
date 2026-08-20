@@ -5,7 +5,7 @@ import { COMPETITION_TYPES } from "@/lib/competition-format";
 import type { CompetitionType } from "@/types";
 
 // ============================================
-// Type picker — four cards, one per competition shape. Shown at creation and
+// Type picker, four cards, one per competition shape. Shown at creation and
 // (read-only, with a warning) once fixtures exist.
 // ============================================
 

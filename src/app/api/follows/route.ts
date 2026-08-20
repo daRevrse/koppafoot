@@ -6,14 +6,14 @@ import { FieldValue } from "firebase-admin/firestore";
  * Follow / unfollow, for both user profiles and teams.
  *
  * The follow document itself was always writable only by its own follower, but
- * the two counters it maintains live on the *followed* document — so the rules
+ * the two counters it maintains live on the *followed* document, so the rules
  * had to allow any signed-in user to write `followers_count` on any user, which
  * meant anyone could set anyone's follower count to anything. Both sides of the
  * write happen here now, in one transaction, and that rule branch is gone.
  *
  * POST { action: "follow" | "unfollow", targetType: "user" | "team", targetId }
  *
- * The follower is always the token's owner — never a value from the body.
+ * The follower is always the token's owner, never a value from the body.
  */
 
 type Body = {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       if (!targetSnap.exists) throw new Error("NOT_FOUND");
 
       // Counters only move when the relationship actually changes. Following
-      // twice — a double-tap, a retry — used to increment twice.
+      // twice, a double-tap, a retry, used to increment twice.
       const alreadyFollows = followSnap.exists;
       if (action === "follow" && alreadyFollows) return;
       if (action === "unfollow" && !alreadyFollows) return;

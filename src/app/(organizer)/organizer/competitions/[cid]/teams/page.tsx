@@ -97,7 +97,7 @@ export default function CompetitionTeamsPage() {
         if (cancelled) return;
         setInvites(Object.fromEntries(data.invites.map((inv) => [inv.teamId, inv])));
       } catch {
-        // silent — the invite chips just won't show
+        // silent, the invite chips just won't show
       }
     })();
     return () => { cancelled = true; };
@@ -286,7 +286,7 @@ export default function CompetitionTeamsPage() {
     try {
       // Free the entry FIRST. Deleting the team while its registration still
       // reads "accepted" is what used to leave the club shown as taking part
-      // in a competition it had been pulled out of — and barred from
+      // in a competition it had been pulled out of, and barred from
       // entering again. If this fails we stop, rather than create that state.
       const token = await firebaseUser.getIdToken();
       const res = await fetch("/api/competitions/registrations", {
@@ -304,7 +304,7 @@ export default function CompetitionTeamsPage() {
       setDeleting(null);
     } catch (err) {
       if (err instanceof TeamHasPlayedError) {
-        toast.error("Cette équipe a déjà joué — disqualifie-la plutôt que de la retirer.");
+        toast.error("Cette équipe a déjà joué, disqualifie-la plutôt que de la retirer.");
         setDeleting(null);
         setDisqualifying(deleting);
         setDqReason("");
@@ -325,7 +325,7 @@ export default function CompetitionTeamsPage() {
       announce(cid, { kind: "team_disqualified", teamName: disqualifying.name });
       toast.success(
         forfeited > 0
-          ? `${disqualifying.name} disqualifiée — ${forfeited} match${forfeited > 1 ? "s" : ""} perdu${forfeited > 1 ? "s" : ""} par forfait`
+          ? `${disqualifying.name} disqualifiée, ${forfeited} match${forfeited > 1 ? "s" : ""} perdu${forfeited > 1 ? "s" : ""} par forfait`
           : `${disqualifying.name} disqualifiée`,
       );
       setDisqualifying(null);
@@ -376,7 +376,7 @@ export default function CompetitionTeamsPage() {
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href={`/organizer/competitions/${cid}/import`}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+            className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
           >
             <Upload size={16} />
             Importer
@@ -384,7 +384,7 @@ export default function CompetitionTeamsPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
           >
             <Plus size={16} />
             Ajouter une équipe
@@ -401,9 +401,9 @@ export default function CompetitionTeamsPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center"
+          className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50">
+          <div className="flex h-14 w-14 items-center justify-center bg-primary-50">
             <Users size={26} className="text-primary-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucune équipe</p>
@@ -413,7 +413,7 @@ export default function CompetitionTeamsPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="mt-6 flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="mt-6 flex items-center gap-2 bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
           >
             <Plus size={16} />
             Ajouter une équipe
@@ -427,11 +427,11 @@ export default function CompetitionTeamsPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
-              className="group flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+              className="group flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
             >
               {/* Logo or color swatch */}
               <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden"
                 style={team.logoUrl ? undefined : { backgroundColor: team.color }}
               >
                 {team.logoUrl ? (
@@ -468,18 +468,18 @@ export default function CompetitionTeamsPage() {
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <Link
                     href={`/organizer/competitions/${cid}/teams/${team.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                    className="inline-flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
                   >
                     <Users size={13} />
                     Effectif ({team.players.length})
                   </Link>
                   {team.claimedByManagerId ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                       <BadgeCheck size={13} />
                       Manager assigné
                     </span>
                   ) : invites[team.id] ? (
-                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                    <span className="inline-flex max-w-full items-center gap-1.5 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                       <Mail size={13} className="shrink-0" />
                       <span className="truncate">Invité : {invites[team.id].email}</span>
                       <button
@@ -495,7 +495,7 @@ export default function CompetitionTeamsPage() {
                     <button
                       type="button"
                       onClick={() => { setInviting(team); setInviteEmail(""); }}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                      className="inline-flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
                     >
                       <UserPlus size={13} />
                       Inviter un manager
@@ -510,7 +510,7 @@ export default function CompetitionTeamsPage() {
                   type="button"
                   onClick={() => openEdit(team)}
                   aria-label={`Modifier ${team.name}`}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
+                  className=" p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
                 >
                   <Pencil size={16} />
                 </button>
@@ -520,7 +520,7 @@ export default function CompetitionTeamsPage() {
                     onClick={() => { setDisqualifying(team); setDqReason(""); }}
                     aria-label={`Disqualifier ${team.name}`}
                     title="Disqualifier"
-                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    className=" p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                   >
                     <Ban size={16} />
                   </button>
@@ -529,7 +529,7 @@ export default function CompetitionTeamsPage() {
                   type="button"
                   onClick={() => setDeleting(team)}
                   aria-label={`Supprimer ${team.name}`}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  className=" p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -554,7 +554,7 @@ export default function CompetitionTeamsPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-md bg-white p-6 shadow-2xl"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -563,7 +563,7 @@ export default function CompetitionTeamsPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  className=" p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X size={18} />
                 </button>
@@ -578,7 +578,7 @@ export default function CompetitionTeamsPage() {
                     type="text"
                     required
                     placeholder="ex: FC Étoile"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                     value={form.name}
                     onChange={(e) => update("name", e.target.value)}
                   />
@@ -593,7 +593,7 @@ export default function CompetitionTeamsPage() {
                     required
                     maxLength={5}
                     placeholder="ex: ETO"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 uppercase focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-4 py-2 uppercase focus:border-primary-500 focus:outline-none"
                     value={form.shortName}
                     onChange={(e) => update("shortName", e.target.value.toUpperCase())}
                   />
@@ -639,7 +639,7 @@ export default function CompetitionTeamsPage() {
                   <div className="flex items-center gap-3">
                     {/* Preview */}
                     <div
-                      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70"
                       style={logoPreview || form.logoUrl ? undefined : { backgroundColor: form.color }}
                     >
                       {logoPreview || form.logoUrl ? (
@@ -655,7 +655,7 @@ export default function CompetitionTeamsPage() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+                      <label className="inline-flex cursor-pointer items-center gap-2 border border-gray-200/70 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
                         <Upload size={15} />
                         {logoFile ? "Changer le fichier" : "Choisir un fichier"}
                         <input
@@ -685,7 +685,7 @@ export default function CompetitionTeamsPage() {
                   <input
                     type="url"
                     placeholder="…ou coller une URL d'image"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="mt-2 w-full border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     value={form.logoUrl}
                     onChange={(e) => update("logoUrl", e.target.value)}
                   />
@@ -696,14 +696,14 @@ export default function CompetitionTeamsPage() {
                     type="button"
                     onClick={closeModal}
                     disabled={submitting}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     {editing ? "Enregistrer" : "Ajouter"}
@@ -730,7 +730,7 @@ export default function CompetitionTeamsPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-md bg-white p-6 shadow-2xl"
             >
               <div className="mb-1 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -739,7 +739,7 @@ export default function CompetitionTeamsPage() {
                 <button
                   type="button"
                   onClick={() => !inviteSubmitting && setInviting(null)}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  className=" p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X size={18} />
                 </button>
@@ -762,7 +762,7 @@ export default function CompetitionTeamsPage() {
                       required
                       autoFocus
                       placeholder="manager@email.com"
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 py-2 pl-10 pr-4 focus:border-primary-500 focus:outline-none"
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                     />
@@ -774,14 +774,14 @@ export default function CompetitionTeamsPage() {
                     type="button"
                     onClick={() => setInviting(null)}
                     disabled={inviteSubmitting}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={inviteSubmitting}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {inviteSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     Envoyer l&apos;invitation
@@ -808,7 +808,7 @@ export default function CompetitionTeamsPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-sm bg-white p-6 shadow-2xl"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
                 <Trash2 size={22} className="text-red-600" />
@@ -825,7 +825,7 @@ export default function CompetitionTeamsPage() {
                   type="button"
                   onClick={() => setDeleting(null)}
                   disabled={deleteSubmitting}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                  className=" px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -833,7 +833,7 @@ export default function CompetitionTeamsPage() {
                   type="button"
                   onClick={handleDelete}
                   disabled={deleteSubmitting}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
                 >
                   {deleteSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   Supprimer
@@ -859,7 +859,7 @@ export default function CompetitionTeamsPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-md bg-white p-6 shadow-2xl"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
                 <Ban size={22} className="text-red-600" />
@@ -871,7 +871,7 @@ export default function CompetitionTeamsPage() {
                 <span className="font-semibold text-gray-700">{disqualifying.name}</span> garde
                 les résultats déjà joués. Tous ses matchs à venir sont perdus par forfait{" "}
                 <span className="font-semibold text-gray-700">0-{FORFEIT_SCORE}</span>, et
-                comptés comme des victoires pour ses adversaires — classement et tableau final
+                comptés comme des victoires pour ses adversaires, classement et tableau final
                 compris.
               </p>
               <p className="mt-2 text-xs font-semibold text-red-600">
@@ -886,7 +886,7 @@ export default function CompetitionTeamsPage() {
                 value={dqReason}
                 onChange={(e) => setDqReason(e.target.value)}
                 placeholder="Joueur non qualifié, forfait général…"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className="w-full border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
 
               <div className="mt-6 flex items-center justify-end gap-3">
@@ -894,7 +894,7 @@ export default function CompetitionTeamsPage() {
                   type="button"
                   onClick={() => setDisqualifying(null)}
                   disabled={dqSubmitting}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                  className=" px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -902,7 +902,7 @@ export default function CompetitionTeamsPage() {
                   type="button"
                   onClick={handleDisqualify}
                   disabled={dqSubmitting}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
                 >
                   {dqSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
                   Disqualifier

@@ -85,7 +85,7 @@ export async function createCompetition(input: {
   endDate?: string | null;
   venueCity?: string | null;
   createdBy: string;
-  /** Nom de la structure organisatrice, recopié du profil — voir le type. */
+  /** Nom de la structure organisatrice, recopié du profil, voir le type. */
   organizerName?: string | null;
 }): Promise<string> {
   // Ensure slug uniqueness: slug, slug-2, slug-3, ...
@@ -146,7 +146,7 @@ const PUBLIC_STATUS_RANK: Record<Competition["status"], number> = {
 };
 
 /**
- * Client-side equivalent of competition-admin.getPublicCompetitions — all
+ * Client-side equivalent of competition-admin.getPublicCompetitions, all
  * publicly-visible competitions (status != draft), most relevant first.
  * Used by logged-in surfaces (dashboard) that need client Firestore.
  */
@@ -172,7 +172,7 @@ export async function listCompetitionsByOrganizer(uid: string): Promise<Competit
   const snap = await getDocs(q);
   return snap.docs
     .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
-    // Training sandboxes are owned by their user but are not real work —
+    // Training sandboxes are owned by their user but are not real work,
     // they belong in /live-ops, not in the organizer's competition list.
     .filter((c) => !c.isSandbox);
 }
@@ -194,8 +194,8 @@ export async function getSandboxCompetition(uid: string): Promise<Competition | 
 /**
  * Competitions the user can act on as staff: those they moderate, those they
  * organize (a user may be both), and those where they redeemed an access code.
- * Two `array-contains` queries — neither uses `orderBy`, so no composite index
- * is required (array-contains is auto-indexed) — plus a collection-group read
+ * Two `array-contains` queries, neither uses `orderBy`, so no composite index
+ * is required (array-contains is auto-indexed), plus a collection-group read
  * of the grants. Results are merged, de-duped by id, and sorted by `createdAt`
  * desc in memory.
  */
@@ -214,7 +214,7 @@ export async function listModeratedCompetitions(uid: string): Promise<Competitio
   }
 
   // Code holders are not in either array, so their competitions are fetched
-  // one by one — a volunteer holds one or two codes, never a hundred.
+  // one by one, a volunteer holds one or two codes, never a hundred.
   const missing = grantedIds.filter((id) => !byId.has(id));
   if (missing.length > 0) {
     const snaps = await Promise.all(missing.map((id) => getDoc(doc(db, "competitions", id))));
@@ -226,7 +226,7 @@ export async function listModeratedCompetitions(uid: string): Promise<Competitio
   }
 
   return Array.from(byId.values())
-    // The sandbox gets its own card on /live-ops — listing it alongside real
+    // The sandbox gets its own card on /live-ops, listing it alongside real
     // competitions would blur what is live and what is practice.
     .filter((c) => !c.isSandbox)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -277,7 +277,7 @@ export async function deleteCompetition(cid: string): Promise<void> {
 /**
  * Creates a fresh competition from an existing one: same type, format and
  * team list (rosters included), but no matches, no groups, no staff and no
- * manager claims — a new edition starts from a clean slate.
+ * manager claims, a new edition starts from a clean slate.
  */
 export async function duplicateCompetition(
   cid: string,
@@ -368,7 +368,7 @@ export function onCompTeams(cid: string, cb: (teams: CompTeam[]) => void): Unsub
 
 /**
  * Every competition team this manager owns, across all competitions.
- * Collection-group query — needs the `comp_teams.claimed_by_manager_id`
+ * Collection-group query, needs the `comp_teams.claimed_by_manager_id`
  * COLLECTION_GROUP field override in firestore.indexes.json.
  */
 export async function listCompTeamsByManager(uid: string): Promise<CompTeam[]> {
@@ -378,7 +378,7 @@ export async function listCompTeamsByManager(uid: string): Promise<CompTeam[]> {
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => {
-    // competitions/{cid}/comp_teams/{tid} — the parent's parent is the comp.
+    // competitions/{cid}/comp_teams/{tid}, the parent's parent is the comp.
     const cid = d.ref.parent.parent?.id ?? "";
     return toCompTeam(d.id, cid, d.data() as FirestoreCompTeam);
   });
@@ -404,7 +404,7 @@ export async function updateCompTeam(
 /** Thrown by `deleteCompTeam` when the team already has a result on record. */
 export class TeamHasPlayedError extends Error {
   constructor(public readonly playedCount: number) {
-    super("Cette équipe a déjà joué — elle ne peut plus être retirée.");
+    super("Cette équipe a déjà joué, elle ne peut plus être retirée.");
     this.name = "TeamHasPlayedError";
   }
 }
@@ -437,7 +437,7 @@ export const FORFEIT_SCORE = 3;
  *
  * Each forfeited match goes through `finishCompMatch`, so a knockout tie also
  * carries the opponent into the next round exactly as a played result would.
- * Only `scheduled` matches are touched — a match already live belongs to the
+ * Only `scheduled` matches are touched, a match already live belongs to the
  * organizer's console, not to this.
  *
  * Returns how many matches were forfeited.
@@ -508,7 +508,7 @@ export async function syncTeamToMatches(
 }
 
 // ============================================
-// Roster (players live on the comp_team doc as a small array — read-modify-write)
+// Roster (players live on the comp_team doc as a small array, read-modify-write)
 // ============================================
 
 /**
@@ -548,7 +548,7 @@ export function rosterNameKey(name: string): string {
  * "Kodjo" twice (or "kodjo" after "Kodjo") reuses the same roster line instead
  * of stacking duplicates.
  *
- * Returns the resolved players in the same order as `inputs` — callers need the
+ * Returns the resolved players in the same order as `inputs`, callers need the
  * ids to link goal events. Prefer this over looping `addCompPlayer`: the roster
  * is a single array field, so N sequential read-modify-writes would be N chances
  * to lose a concurrent edit.
@@ -600,7 +600,7 @@ export async function updateCompPlayer(
   const players: CompPlayer[] = team.players.map((p) => {
     if (p.id !== playerId) return p;
     const position = patch.position ?? p.position;
-    // `user_id` is carried over unless the patch explicitly sets it —
+    // `user_id` is carried over unless the patch explicitly sets it,
     // renaming a player must not silently unlink their account.
     const userId = patch.user_id !== undefined ? patch.user_id : p.user_id ?? null;
     return {
@@ -642,12 +642,12 @@ export async function setCompMatchLineup(
 }
 
 // ============================================
-// Bulk import (paste / CSV) — teams+players and matches
+// Bulk import (paste / CSV), teams+players and matches
 // ============================================
 
 /**
  * Split pasted/CSV text into trimmed cells. Detects the delimiter from the first
- * non-empty line (tab > semicolon > comma — FR Excel uses ';'), drops empty lines.
+ * non-empty line (tab > semicolon > comma, FR Excel uses ';'), drops empty lines.
  * Column mapping + header-skip are the caller's job (it knows the expected columns).
  */
 export function parseDelimited(text: string): string[][] {
@@ -712,7 +712,7 @@ export interface ImportRosterRow {
 }
 
 /**
- * Replace a single team's roster from the rows (idempotent — re-importing
+ * Replace a single team's roster from the rows (idempotent, re-importing
  * overwrites the previous roster). The organizer picks the team first, so
  * roster rows carry no team column.
  */
@@ -895,7 +895,7 @@ export function roundRobinPairs(teamIds: string[]): [string, string][] {
  * Re-running is therefore a no-op rather than an error.
  *
  * Teams are grouped by their `group` field; teams with `group == null` (unassigned)
- * are ignored — except on single-group types (championnat, championnat +
+ * are ignored, except on single-group types (championnat, championnat +
  * play-offs) where every team plays in the one group, so unassigned teams are
  * folded into it rather than dropped. Within each group, `roundRobinPairs`
  * produces every unordered pair once, and `format.double_round` appends the
@@ -1066,7 +1066,10 @@ type StoredCompEvent = {
   player_id: string | null;
   player_name: string | null;
   detail: string | null;
-  /** Goals only — see `setCompGoalVarStatus`. Absent on an unreviewed goal. */
+  /** Goals only, the passer, when the console was told. See `setCompGoalAssist`. */
+  assist_player_id?: string | null;
+  assist_player_name?: string | null;
+  /** Goals only, see `setCompGoalVarStatus`. Absent on an unreviewed goal. */
   var_status?: GoalVarStatus | null;
   created_at: string;
 };
@@ -1150,7 +1153,7 @@ export async function addCompEvent(
     player_name?: string | null;
     detail?: string | null;
   },
-): Promise<void> {
+): Promise<string> {
   const newEvent: StoredCompEvent = {
     id: Math.random().toString(36).substring(2, 11),
     type: event.type,
@@ -1173,13 +1176,60 @@ export async function addCompEvent(
   }
 
   await updateDoc(compMatchRef(cid, mid), updates);
+  // The id goes back to the caller so the console can hang an assist on this
+  // exact goal a moment later, see `setCompGoalAssist`.
+  return newEvent.id;
+}
+
+/**
+ * Attach (or clear) the passer on a goal already in the timeline.
+ *
+ * The goal is written the instant it is scored, the scoreboard must not wait
+ * on a second question, so the assist lands afterwards, which means editing
+ * one entry of `live_state.events`. That array is append-only through
+ * arrayUnion everywhere else, so this is a read-modify-write and runs in a
+ * transaction: the console keeps recording cards and goals while the scorer
+ * is still being asked who laid it on.
+ *
+ * Passing `null` clears a mistake. The score is never touched.
+ */
+export async function setCompGoalAssist(
+  cid: string,
+  mid: string,
+  eventId: string,
+  assist: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = compMatchRef(cid, mid);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
+    const d = snap.data() as FirestoreCompMatch;
+
+    const events = d.live_state?.events ?? [];
+    const index = events.findIndex((e) => e.id === eventId);
+    if (index === -1) throw new Error("Événement introuvable");
+    if (events[index].type !== "goal") throw new Error("Seul un but a un passeur");
+
+    tx.update(ref, {
+      "live_state.events": events.map((e, i) =>
+        i === index
+          ? {
+              ...e,
+              assist_player_id: assist?.playerId ?? null,
+              assist_player_name: assist?.playerName ?? null,
+            }
+          : e,
+      ),
+      updated_at: serverTimestamp(),
+    });
+  });
 }
 
 /**
  * Put a goal under video review, uphold it, or disallow it.
  *
- * The scoreboard follows the verdict — a disallowed goal comes off, a restored
- * one goes back on — while the event itself never leaves the timeline, because
+ * The scoreboard follows the verdict, a disallowed goal comes off, a restored
+ * one goes back on, while the event itself never leaves the timeline, because
  * "but refusé" is part of the story of the match and the crowd saw it happen.
  * "checking" changes nothing on the score: on a real pitch the goal stands
  * until the referee says otherwise.
@@ -1216,7 +1266,7 @@ export async function setCompGoalVarStatus(
       updated_at: serverTimestamp(),
     };
 
-    // Only crossing in or out of "cancelled" moves the score — flipping
+    // Only crossing in or out of "cancelled" moves the score, flipping
     // between "checking" and "confirmed" leaves it alone.
     const wasCancelled = before === "cancelled";
     const nowCancelled = status === "cancelled";
@@ -1301,7 +1351,7 @@ export async function finishCompMatch(
  * Push a decided winner into the slot it feeds in the next round.
  *
  * Idempotent: it writes only when the target slot does not already hold that
- * team, so finishing a match twice is a no-op — and correcting a result that
+ * team, so finishing a match twice is a no-op, and correcting a result that
  * flipped the winner overwrites the stale qualifier instead of duplicating it.
  */
 async function propagateBracketWinner(
@@ -1337,7 +1387,7 @@ async function propagateBracketWinner(
 
 /**
  * `detail` marker put on an own goal. The event counts for the team that
- * benefits (`team_id`), while `player_id` points at the player who scored it —
+ * benefits (`team_id`), while `player_id` points at the player who scored it,
  * a player of the OTHER team. `computeTopScorers` skips these so a defender
  * never climbs the scoring chart for a mistake.
  */
@@ -1347,7 +1397,7 @@ export const OWN_GOAL_DETAIL = "csc";
 export interface ResultGoal {
   /** Side the goal counts FOR. */
   side: "home" | "away";
-  /** Roster line of the scorer — of the OPPOSING team when `ownGoal`. */
+  /** Roster line of the scorer, of the OPPOSING team when `ownGoal`. */
   playerId: string | null;
   playerName: string | null;
   /** `null` (or 0) = unknown. No real goal is scored at the 0th minute. */
@@ -1356,7 +1406,7 @@ export interface ResultGoal {
 }
 
 /**
- * Write a final result — score AND scorers — on a match that was never run
+ * Write a final result, score AND scorers, on a match that was never run
  * through the live console (a date the organizer is catching up on).
  *
  * Unlike `addCompEvent`, this NEVER increments the scoreboard: the score is
@@ -1366,7 +1416,7 @@ export interface ResultGoal {
  *
  * Re-entering a result REPLACES the goal events instead of appending, so an
  * organizer can reopen and correct without duplicating. Cards, substitutions
- * and period markers from a real live session are preserved untouched — only
+ * and period markers from a real live session are preserved untouched, only
  * `type === "goal"` entries are rebuilt.
  *
  * Fewer scorers than goals is allowed (an unknown scorer is a legitimate state);
@@ -1374,7 +1424,7 @@ export interface ResultGoal {
  *
  * On a knockout match, a level score is decided by the shootout when one is
  * given, and the winner is pushed into the next round exactly like
- * `finishCompMatch` does — correcting a result that flips the winner re-seeds
+ * `finishCompMatch` does, correcting a result that flips the winner re-seeds
  * the successor slot.
  */
 export async function setCompMatchResult(
@@ -1402,7 +1452,7 @@ export async function setCompMatchResult(
   const goalEvents: StoredCompEvent[] = input.goals.map((g) => ({
     id: Math.random().toString(36).substring(2, 11),
     type: "goal",
-    period: 0, // unknown — the match was not clocked
+    period: 0, // unknown, the match was not clocked
     minute: g.minute ?? 0,
     team_id: (g.side === "home" ? d.home_team_id : d.away_team_id) ?? "",
     player_id: g.ownGoal ? null : g.playerId ?? null,
@@ -1467,7 +1517,7 @@ export async function setCompMatchResult(
 //
 // These feed the public standings page, the scorers page, and (later)
 // knockout bracket seeding. They take already-fetched arrays and return
-// derived data — no `db`, no async, fully testable in isolation.
+// derived data, no `db`, no async, fully testable in isolation.
 // ============================================
 
 export interface StandingRow {
@@ -1616,7 +1666,7 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
       // the golden boot alike.
       if (event.varStatus === "cancelled") continue;
       // An own goal counts on the scoreboard for `teamId`, but the player who
-      // scored it plays for the other side — crediting them here would rank
+      // scored it plays for the other side, crediting them here would rank
       // them under an opponent's colours. Not a scorer.
       if (event.detail === OWN_GOAL_DETAIL) continue;
 
@@ -1638,6 +1688,89 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
 
   return Array.from(byKey.values()).sort(
     (a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName),
+  );
+}
+
+export interface PlayerContribution {
+  playerName: string;
+  teamId: string;
+  goals: number;
+  assists: number;
+  /** Goals + assists, what the ranking is actually on. */
+  total: number;
+}
+
+/**
+ * Offensive contributions per player: goals AND assists, from the same events.
+ *
+ * Same rules as `computeTopScorers` for the goal side (a VAR-cancelled goal
+ * never happened; an own goal credits nobody). The passer rides on the goal
+ * event itself, so an assist can only exist where a goal does, and a goal
+ * that was disallowed takes its assist down with it.
+ *
+ * Keyed like the golden boot: `playerId` when the roster line is linked,
+ * lowercased name otherwise, always scoped to the team, so the same name on
+ * two teams stays two players.
+ */
+export function computePlayerContributions(matches: CompMatch[]): PlayerContribution[] {
+  const byKey = new Map<string, PlayerContribution>();
+
+  const keyFor = (teamId: string, id: string | null | undefined, name: string): string | null => {
+    if (id) return `${teamId}::id:${id}`;
+    if (name !== "") return `${teamId}::name:${name.toLowerCase()}`;
+    return null;   // anonymous, nothing to rank
+  };
+
+  const credit = (
+    key: string,
+    teamId: string,
+    name: string,
+    field: "goals" | "assists",
+  ) => {
+    const row = byKey.get(key);
+    if (row) {
+      row[field] += 1;
+      row.total += 1;
+      // First non-empty spelling wins, same as the golden boot.
+      if (row.playerName === "" && name !== "") row.playerName = name;
+    } else {
+      byKey.set(key, {
+        playerName: name,
+        teamId,
+        goals: field === "goals" ? 1 : 0,
+        assists: field === "assists" ? 1 : 0,
+        total: 1,
+      });
+    }
+  };
+
+  for (const match of matches) {
+    for (const event of match.liveState?.events ?? []) {
+      if (event.type !== "goal") continue;
+      if (event.varStatus === "cancelled") continue;
+
+      // The own goal still carries a real assist for nobody, and its scorer
+      // plays for the other side, skip the pair entirely.
+      if (event.detail === OWN_GOAL_DETAIL) continue;
+
+      const scorerName = (event.playerName ?? "").trim();
+      const scorerKey = keyFor(event.teamId, event.playerId, scorerName);
+      if (scorerKey) credit(scorerKey, event.teamId, scorerName, "goals");
+
+      const passerName = (event.assistPlayerName ?? "").trim();
+      const passerKey = keyFor(event.teamId, event.assistPlayerId, passerName);
+      // A player cannot assist their own goal.
+      if (passerKey && passerKey !== scorerKey) {
+        credit(passerKey, event.teamId, passerName, "assists");
+      }
+    }
+  }
+
+  return Array.from(byKey.values()).sort(
+    (a, b) =>
+      b.total - a.total ||
+      b.goals - a.goals ||
+      a.playerName.localeCompare(b.playerName),
   );
 }
 
@@ -1703,7 +1836,7 @@ function knockoutRoundName(roundTeams: number): CompMatchRound {
  *
  * Seeding:
  *  - Primary (qualifiers_per_group === 2 AND group_count even): groups are
- *    paired two-by-two — (G0,G1), (G2,G3), … — and each pair (X,Y) yields the
+ *    paired two-by-two, (G0,G1), (G2,G3), …, and each pair (X,Y) yields the
  *    matchups `1X vs 2Y` and `1Y vs 2X`. No two teams from the same group can
  *    meet in round 1, and because matchups are emitted pair-by-pair, the two
  *    eventual finalists come from opposite halves of the bracket (they can only
@@ -1721,7 +1854,7 @@ function knockoutRoundName(roundTeams: number): CompMatchRound {
  * winner-propagation path only forwards winners (not losers), so the organizer
  * populates this match manually; it is intentionally NOT wired into the tree.
  *
- * This function does NOT change the competition status — the organizer/UI sets
+ * This function does NOT change the competition status, the organizer/UI sets
  * `status: "knockout"` separately.
  */
 export async function generateKnockout(cid: string): Promise<void> {
@@ -1819,7 +1952,7 @@ export async function generateKnockout(cid: string): Promise<void> {
       round1.push({ home: y[0], away: x[1] }); // 1Y vs 2X
     }
   } else {
-    // Standard 1-vs-N pairing on seed order — used by cups (team list order),
+    // Standard 1-vs-N pairing on seed order, used by cups (team list order),
     // play-offs (table order) and any non-standard group shape (odd
     // group_count, or qualifiers_per_group !== 2). The organizer can adjust
     // matchups manually afterwards.
@@ -1931,7 +2064,7 @@ export async function generateKnockout(cid: string): Promise<void> {
 // Automatic seeding only lands cleanly when the group count divides the
 // bracket. Five groups of four (Miabé CAN) qualify ten teams for an eight-team
 // bracket: two qualifiers have to be cut and there is no universal rule saying
-// which — real competitions write that rule in their own regulations. So the
+// which, real competitions write that rule in their own regulations. So the
 // organizer draws the tree instead: pick a size, then say where each first-round
 // slot comes from ("1er poule A", "2e meilleur 3e"). Slots are resolved into
 // real teams once the tables are final.
@@ -1942,7 +2075,7 @@ export const KNOCKOUT_BRACKET_SIZES = [4, 8, 16] as const;
 
 export type KnockoutBracketSize = (typeof KNOCKOUT_BRACKET_SIZES)[number];
 
-/** "1er", "2e", "3e"… — used to label positions and repêchage indexes. */
+/** "1er", "2e", "3e"…, used to label positions and repêchage indexes. */
 function ordinalFr(n: number): string {
   return n === 1 ? "1er" : `${n}e`;
 }
@@ -1954,7 +2087,7 @@ export function describeBracketSlotSource(source: BracketSlotSource): string {
     : `${ordinalFr(source.index)} meilleur ${ordinalFr(source.rank)}`;
 }
 
-/** Stable key for a source — used to spot the same slot picked twice. */
+/** Stable key for a source, used to spot the same slot picked twice. */
 export function bracketSlotSourceKey(source: BracketSlotSource): string {
   return source.kind === "group_rank"
     ? `g:${source.group}:${source.rank}`
@@ -1962,7 +2095,7 @@ export function bracketSlotSourceKey(source: BracketSlotSource): string {
 }
 
 /**
- * Inverse of `bracketSlotSourceKey` — lets a `<select>` carry a source as its
+ * Inverse of `bracketSlotSourceKey`, lets a `<select>` carry a source as its
  * option value. Returns null for anything malformed (including the empty
  * "no source" value).
  */
@@ -1983,7 +2116,7 @@ export function parseBracketSlotSourceKey(key: string): BracketSlotSource | null
 }
 
 /**
- * The teams that finished `rank`-th in their group, ranked against each other —
+ * The teams that finished `rank`-th in their group, ranked against each other,
  * the repêchage ladder. Ordered by points, then goal difference, then goals
  * scored, then name, matching `computeStandings`'s within-group ordering.
  *
@@ -2005,7 +2138,7 @@ export function rankedBestOfRank(standings: GroupStanding[], rank: number): Stan
 
 /**
  * Team a source currently points at, or null while the group stage has not
- * produced one. Pure — feeds both the live preview and the write path.
+ * produced one. Pure, feeds both the live preview and the write path.
  */
 export function resolveBracketSlot(
   source: BracketSlotSource,
@@ -2063,7 +2196,7 @@ function emptyKnockoutMatch(
 /**
  * Create an empty bracket of `size` teams: every round from the first down to
  * the final, each match wired to its successor so winners propagate. Slots are
- * left blank — the organizer fills them with sources afterwards.
+ * left blank, the organizer fills them with sources afterwards.
  *
  * Refuses to run over an existing bracket: clearing one destroys played
  * results, so that has to be an explicit `clearKnockoutBracket` call.
@@ -2084,7 +2217,7 @@ export async function createKnockoutBracket(
   const matchesCol = collection(db, "competitions", cid, "comp_matches");
   const existing = await getDocs(query(matchesCol, where("stage", "==", "knockout")));
   if (!existing.empty) {
-    throw new Error("Un tableau existe déjà — supprimez-le avant d'en dessiner un autre");
+    throw new Error("Un tableau existe déjà, supprimez-le avant d'en dessiner un autre");
   }
 
   // Pre-mint a ref per match so a round can point at the next one before write.
@@ -2129,8 +2262,8 @@ export async function createKnockoutBracket(
 }
 
 /**
- * Delete every knockout match of a competition. Destructive by nature — any
- * score, scorer or lineup recorded on those matches goes with them — so the UI
+ * Delete every knockout match of a competition. Destructive by nature, any
+ * score, scorer or lineup recorded on those matches goes with them, so the UI
  * must confirm before calling, and say what is being lost.
  */
 export async function clearKnockoutBracket(cid: string): Promise<number> {

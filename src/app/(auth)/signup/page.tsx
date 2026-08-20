@@ -13,9 +13,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 // ============================================
-// Signup — onboarded wizard, limited to the essentials.
+// Signup, onboarded wizard, limited to the essentials.
 // Step 1 (required): identity + credentials. Step 2 (skippable):
-// city/phone — everything optional can be completed later in the
+// city/phone, everything optional can be completed later in the
 // profile. Single account type ("player" as the technical default);
 // organizer / live-ops / superadmin are granted by promotion.
 // ============================================
@@ -36,9 +36,9 @@ type EssentialsForm = yup.InferType<typeof essentialsSchema>;
 type OptionalForm = yup.InferType<typeof optionalSchema>;
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 const inputClassPassword =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-11 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 const labelClass = "mb-1.5 block text-xs font-bold text-gray-600";
 const iconClass = "absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300";
 
@@ -210,7 +210,7 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition-all"
             >
               Continuer
               <ArrowRight size={16} />
@@ -227,7 +227,7 @@ export default function SignupPage() {
               type="button"
               onClick={handleGoogle}
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-3 border border-gray-200/70 bg-white px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
             >
               <svg viewBox="0 0 24 24" width="16" height="16">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -251,7 +251,7 @@ export default function SignupPage() {
             className="space-y-4"
           >
             <p className="text-xs leading-relaxed text-gray-400">
-              Ces informations sont optionnelles — tu pourras les compléter à tout
+              Ces informations sont optionnelles, tu pourras les compléter à tout
               moment dans ton profil.
             </p>
 
@@ -265,7 +265,7 @@ export default function SignupPage() {
                   id="locationCity"
                   {...optionalForm.register("locationCity")}
                   className={inputClass}
-                  placeholder="Lomé, Abidjan, Cotonou…"
+                  placeholder="Ta ville"
                 />
               </div>
             </div>
@@ -289,7 +289,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+              className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               Créer mon compte

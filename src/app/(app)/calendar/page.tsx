@@ -85,15 +85,15 @@ const DEFAULT_STYLE = { dot: "bg-primary-500", bg: "bg-primary-50", label: "Matc
 
 function CalendarSkeleton() {
   return (
-    <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white overflow-hidden">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-200" />
+    <div className="lg:col-span-2 border border-gray-200/70 bg-white overflow-hidden">
+      <div className="flex items-center justify-between border-b border-gray-200/70 px-5 py-4">
+        <div className="h-8 w-8 animate-pulse bg-gray-200" />
         <div className="h-5 w-36 animate-pulse rounded bg-gray-200" />
-        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-200" />
+        <div className="h-8 w-8 animate-pulse bg-gray-200" />
       </div>
       <div className="grid grid-cols-7 gap-px bg-gray-50 p-2">
         {Array.from({ length: 35 }).map((_, i) => (
-          <div key={i} className="aspect-square animate-pulse rounded-lg bg-gray-100" />
+          <div key={i} className="aspect-square animate-pulse bg-gray-100" />
         ))}
       </div>
     </div>
@@ -192,8 +192,7 @@ export default function CalendarPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-2xl font-bold text-gray-900 font-display">Calendrier</h1>
-        <p className="mt-1 text-sm text-gray-500">Tes matchs et événements à venir</p>
+        <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Calendrier</h1>
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -205,13 +204,13 @@ export default function CalendarPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: 0.08 }}
-            className="lg:col-span-2 rounded-xl border border-gray-200 bg-white overflow-hidden"
+            className="lg:col-span-2 border border-gray-200/70 bg-white overflow-hidden"
           >
             {/* Month nav */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-gray-200/70 px-5 py-4">
               <button
                 onClick={prevMonth}
-                className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex h-8 w-8 items-center justify-center hover:bg-gray-100 transition-colors"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -220,7 +219,7 @@ export default function CalendarPage() {
               </h2>
               <button
                 onClick={nextMonth}
-                className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex h-8 w-8 items-center justify-center hover:bg-gray-100 transition-colors"
               >
                 <ChevronRight size={18} />
               </button>
@@ -254,7 +253,7 @@ export default function CalendarPage() {
                   <button
                     key={day}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`relative flex flex-col items-center justify-center rounded-lg aspect-square text-sm transition-all ${
+                    className={`relative flex flex-col items-center justify-center aspect-square text-sm transition-all ${
                       isSelected
                         ? "bg-primary-600 text-white font-bold ring-2 ring-primary-300"
                         : isToday
@@ -291,7 +290,7 @@ export default function CalendarPage() {
             </div>
 
             {/* Legend */}
-            <div className="flex items-center gap-4 border-t border-gray-100 px-5 py-3">
+            <div className="flex items-center gap-4 border-t border-gray-200/70 px-5 py-3">
               {Object.entries(STATUS_STYLES).map(([key, style]) => (
                 <div key={key} className="flex items-center gap-1.5 text-xs text-gray-500">
                   <div className={`h-2 w-2 rounded-full ${style.dot}`} />
@@ -306,14 +305,14 @@ export default function CalendarPage() {
           </motion.div>
         )}
 
-        {/* Side panel — selected day details */}
+        {/* Side panel, selected day details */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.16 }}
-          className="rounded-xl border border-gray-200 bg-white"
+          className=" border border-gray-200/70 bg-white"
         >
-          <div className="border-b border-gray-100 px-5 py-4">
+          <div className="border-b border-gray-200/70 px-5 py-4">
             <h3 className="text-sm font-bold text-gray-900 font-display">
               {selectedDate
                 ? `${parseInt(selectedDate.split("-")[2])} ${MONTHS[parseInt(selectedDate.split("-")[1]) - 1]}`
@@ -334,7 +333,7 @@ export default function CalendarPage() {
                   const style = STATUS_STYLES[match.status] ?? DEFAULT_STYLE;
                   return (
                     <motion.div key={match.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-                      className={`rounded-lg ${style.bg} p-3`}>
+                      className={` ${style.bg} p-3`}>
                       <div className="flex items-center gap-2">
                         <div className={`h-2 w-2 rounded-full ${style.dot}`} />
                         <span className="text-xs font-semibold text-gray-500 uppercase">
@@ -370,7 +369,7 @@ export default function CalendarPage() {
                 {/* Training events */}
                 {selectedTrainings.map((ev, i) => (
                   <motion.div key={`training-${i}`} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-                    className="rounded-lg bg-violet-50 p-3">
+                    className=" bg-violet-50 p-3">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-violet-400" />
                       <span className="text-xs font-semibold text-violet-600 uppercase">🏋️ Entraînement</span>

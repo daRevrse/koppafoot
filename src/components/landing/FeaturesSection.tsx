@@ -25,7 +25,7 @@ const FEATURES = [
   {
     icon: Hash,
     badge: "Communauté",
-    title: "Le Terrain — ton fil d'actu",
+    title: "Le Terrain, ton fil d'actu",
     description:
       "Partage tes résultats, commente les matchs et suis l'actualité de ta communauté football. Le Terrain, c'est ton réseau social dédié.",
     gradient: "from-amber-400 to-orange-500",
@@ -85,7 +85,7 @@ export default function FeaturesSection() {
           </p>
         </motion.div>
 
-        {/* Features grid — large rounded cards */}
+        {/* Features grid, large rounded cards */}
         <div className="mt-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature, i) => {
             const Icon = feature.icon;

@@ -26,15 +26,15 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 }
 
 // ============================================
-// Member — unified nav (competition-first scope)
+// Member, unified nav (competition-first scope)
 // ============================================
 // Post-pivot: the same simple navigation for everyone, including guests
-// (the home shell is public — auth only unlocks privileges). Legacy roles
+// (the home shell is public, auth only unlocks privileges). Legacy roles
 // (manager/referee/venue_owner) map to the member nav until their
 // verticals come back from _shelved.
 
 export const MEMBER_NAV: NavEntry[] = [
-  { path: "/", icon: "Activity", label: "Direct", exact: true },
+  { path: "/", icon: "Flame", label: "Direct", exact: true },
   { path: "/competitions", icon: "Trophy", label: "Compétitions" },
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
@@ -53,7 +53,7 @@ export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
 // shell, so its entries are declared with the other spaces in AppSidebar.
 
 // ============================================
-// Admin — Grouped
+// Admin, Grouped
 // ============================================
 
 export const ADMIN_GROUPED_NAV: NavEntry[] = [
@@ -65,6 +65,7 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     items: [
       { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
       { path: "/admin/organizers", icon: "ClipboardList", label: "Organisateurs" },
+      { path: "/admin/terrains", icon: "MapPin", label: "Terrains" },
     ],
   },
   {
@@ -119,9 +120,20 @@ export interface BottomNavItem {
 // next to the notification bell, so the tab bar keeps room for the role
 // spaces (organisateur / live / évolution) that used to be buried in the
 // profile sheet.
+/**
+ * Les deux sections de LECTURE de la barre du bas.
+ *
+ * « Compétitions » en est sortie : l'annuaire s'atteint depuis le Direct,
+ * qui les liste déjà, alors qu'Actus n'était atteignable de nulle part en
+ * mobile, la rangée du header qui la porte est masquée sous `lg`.
+ *
+ * Les deux places suivantes ne sont pas des liens fixes : l'espace du compte
+ * (ou Evolution s'il n'a pas encore de rôle) et le bouton « Moi ». Voir
+ * MobileBottomNav.
+ */
 export const MEMBER_BOTTOM: BottomNavItem[] = [
-  { path: "/", icon: "Activity", label: "Direct", exact: true },
-  { path: "/competitions", icon: "Trophy", label: "Compétitions" },
+  { path: "/", icon: "Flame", label: "Direct", exact: true },
+  { path: "/actus", icon: "Newspaper", label: "Actus" },
 ];
 
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {

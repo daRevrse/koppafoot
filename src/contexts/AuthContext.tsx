@@ -68,8 +68,8 @@ interface AuthContextType {
   updateProfile: (data: Partial<FirestoreUser>) => Promise<void>;
   /**
    * Re-read the profile document into the context. For writes that happen
-   * outside updateProfile() — le suivi d'une compétition, par exemple, qui
-   * passe par arrayUnion — sans quoi le reste de l'app (l'étoile du sidebar)
+   * outside updateProfile(), le suivi d'une compétition, par exemple, qui
+   * passe par arrayUnion, sans quoi le reste de l'app (l'étoile du sidebar)
    * garde l'ancienne liste jusqu'au prochain rechargement.
    */
   refreshUser: () => Promise<void>;
@@ -98,7 +98,7 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     emailVerified: false, // overwritten by Firebase auth state
     authProviders: data.auth_providers ?? [],
     // Written with serverTimestamp(), so Firestore returns a Timestamp object
-    // even though the type says string — `new Date(...)` on it yields
+    // even though the type says string, `new Date(...)` on it yields
     // "Invalid Date", which is what the profile header used to show.
     createdAt: formatDate(data.created_at),
     updatedAt: formatDate(data.updated_at),
@@ -119,6 +119,11 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     followingCount: data.following_count ?? 0,
     // Évolution
     evolutionRole: data.evolution_role ?? null,
+    // Les casquettes. `?? undefined` et non `?? false` : un compte d'avant
+    // n'a pas de drapeau, et le predicat de `lib/hats` doit pouvoir se
+    // rabattre sur `user_type` sans qu'un `false` explicite le contredise.
+    ...(data.is_organizer !== undefined && { isOrganizer: data.is_organizer }),
+    ...(data.is_venue_owner !== undefined && { isVenueOwner: data.is_venue_owner }),
     followedCompetitionIds: data.followed_competition_ids ?? [],
     organizerName: data.organizer_name ?? null,
     // Gallery
@@ -134,7 +139,7 @@ function buildFirestoreUser(
   data: SignupData,
   providers: AuthProvider[],
 ): Omit<FirestoreUser, "created_at" | "updated_at"> {
-  // Build base object — never pass undefined to Firestore
+  // Build base object, never pass undefined to Firestore
   const base: Omit<FirestoreUser, "created_at" | "updated_at"> = {
     email: data.email ?? null,
     phone: data.phone ?? null,
@@ -278,7 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // First sign-in on this number. With signupData we can create the
       // profile straight away; without it the caller must route to
-      // /get-started — an authenticated user with no profile is a dead end.
+      // /get-started, an authenticated user with no profile is a dead end.
       if (signupData) {
         await createUserProfile(result.user.uid, {
           ...signupData,
@@ -299,7 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const existing = await fetchUserProfile(result.user.uid);
     if (existing) return { isNewUser: false };
 
-    // New user via Google — needs profile creation
+    // New user via Google, needs profile creation
     if (signupData) {
       await createUserProfile(result.user.uid, {
         ...signupData,
@@ -401,7 +406,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfileFn = useCallback(
     async (data: Partial<FirestoreUser>) => {
       if (!auth.currentUser) throw new Error("Non connecté");
-      // Strip undefined values — Firestore rejects them
+      // Strip undefined values, Firestore rejects them
       const cleaned = Object.fromEntries(
         Object.entries(data).filter(([, v]) => v !== undefined)
       );

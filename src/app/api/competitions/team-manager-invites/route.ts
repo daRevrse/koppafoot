@@ -7,7 +7,7 @@ import type { FirestoreCompetition } from "@/types";
 const APP_URL = "https://www.koppafoot.com";
 
 /**
- * Team-manager invitations — an organizer hands the management of one of
+ * Team-manager invitations, an organizer hands the management of one of
  * their competition teams to someone by email. Accepting (see
  * /api/team-manager-invites/[id]) makes the invitee owner+manager of the
  * team (comp_teams.claimed_by_manager_id) and flips their account to the
@@ -16,9 +16,9 @@ const APP_URL = "https://www.koppafoot.com";
  * The `team_manager_invites` collection is admin-SDK only: clients always
  * go through these routes, so no Firestore rules are needed.
  *
- * POST   { cid, teamId, email }  — create + send the invite email.
- * GET    ?cid=...                — list pending invites of a competition.
- * DELETE { id }                  — revoke a pending invite.
+ * POST   { cid, teamId, email } , create + send the invite email.
+ * GET    ?cid=...               , list pending invites of a competition.
+ * DELETE { id }                 , revoke a pending invite.
  */
 
 async function authorize(
@@ -63,7 +63,7 @@ async function authorize(
  * Every account reachable at this email.
  *
  * `adminAuth.getUserByEmail` only knows about emails carried by the Firebase
- * Auth record, which a phone-only account does not have — its email lives on
+ * Auth record, which a phone-only account does not have, its email lives on
  * the Firestore profile instead. Looking in both is what lets us notify a
  * manager who signed up with their phone number.
  */
@@ -74,7 +74,7 @@ async function findUidsByEmail(email: string): Promise<string[]> {
     const record = await adminAuth.getUserByEmail(email);
     uids.add(record.uid);
   } catch {
-    // No Auth record with this email — expected for phone-only accounts,
+    // No Auth record with this email, expected for phone-only accounts,
     // and for invitees who have not signed up yet.
   }
 
@@ -171,14 +171,14 @@ export async function POST(req: NextRequest) {
 
     // Both of these MUST be awaited. This route runs as a serverless
     // function: once the response is returned the instance can be frozen, so
-    // any promise still in flight is dropped — which is exactly why the
+    // any promise still in flight is dropped, which is exactly why the
     // in-app notification kept not arriving. Failures are caught rather than
     // propagated: the invite doc is already written, so a dead mailer must
     // not turn a successful invite into a 500.
     await Promise.allSettled([
       sendNotificationEmail(
         normalizedEmail,
-        `${inviterName} te confie l'équipe ${team.name} — KoppaFoot`,
+        `${inviterName} te confie l'équipe ${team.name}, KoppaFoot`,
         teamManagerInviteHtml(inviterName, team.name, competition.name, acceptLink),
       ).catch((e) => {
         console.warn("[team-manager-invites] email failed:", e?.message);

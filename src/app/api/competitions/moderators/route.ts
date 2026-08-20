@@ -11,7 +11,7 @@ import type { FirestoreCompetition } from "@/types";
  * 3. Authorize: the caller must be an organizer of THAT competition, OR be a
  *    superadmin. This is checked against the server-loaded competition doc, never
  *    trusting the client. (Moderator changes mutate the competition doc, which
- *    Firestore rules restrict to organizers — so the caller is acting as one.)
+ *    Firestore rules restrict to organizers, so the caller is acting as one.)
  *
  * Returns either an early `NextResponse` (the error to return) or the resolved
  * `{ callerUid, competition }` on success.

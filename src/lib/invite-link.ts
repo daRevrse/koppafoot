@@ -1,4 +1,4 @@
-// "Inviter un ami" — share (or copy) the public app link. Client-only:
+// "Inviter un ami", share (or copy) the public app link. Client-only:
 // only ever called from click handlers, so navigator is always defined.
 
 const APP_URL = "https://www.koppafoot.com";
@@ -13,7 +13,7 @@ export async function shareInviteLink(firstName?: string): Promise<"shared" | "c
       await navigator.share({ title: "Koppafoot", text, url: APP_URL });
       return "shared";
     } catch (err) {
-      // AbortError = user closed the share sheet — not a failure to report.
+      // AbortError = user closed the share sheet, not a failure to report.
       if ((err as DOMException)?.name === "AbortError") return "shared";
       // fall through to clipboard
     }

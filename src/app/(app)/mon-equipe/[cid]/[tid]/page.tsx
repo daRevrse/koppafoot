@@ -19,7 +19,7 @@ import { computeSquadStats } from "@/lib/player-stats";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
 // ============================================
-// Mon équipe — one competition team. The manager runs the roster, validates
+// Mon équipe, one competition team. The manager runs the roster, validates
 // the players who claim their line, and reads the squad's stats. The team's
 // name, poule and ownership stay with the organizer (enforced in the rules).
 // ============================================
@@ -27,7 +27,7 @@ import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/typ
 type Tab = "roster" | "claims" | "stats";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none";
+  "w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none";
 
 export default function MyTeamPage() {
   const { cid, tid } = useParams() as { cid: string; tid: string };
@@ -71,7 +71,7 @@ export default function MyTeamPage() {
       const data = (await res.json()) as { claims: RosterClaim[] };
       setClaims((data.claims ?? []).filter((c) => c.teamId === tid));
     } catch {
-      // Non-blocking — the rest of the page still works.
+      // Non-blocking, the rest of the page still works.
     }
   }, [firebaseUser, cid, tid]);
 
@@ -103,7 +103,7 @@ export default function MyTeamPage() {
     reloadClaims();
   }, [reloadClaims]);
 
-  // The manager's clubs — source of the roster import.
+  // The manager's clubs, source of the roster import.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -119,7 +119,7 @@ export default function MyTeamPage() {
 
   // Pulls the club squad into the competition roster. Runs server-side: the
   // import also writes a `linked_comp_players` row on each player's own user
-  // doc — only the admin SDK may do that — which is what makes their personal
+  // doc, only the admin SDK may do that, which is what makes their personal
   // statistics fill with no claim and no validation.
   const importClub = async (club: Team) => {
     if (!firebaseUser) return;
@@ -266,7 +266,7 @@ export default function MyTeamPage() {
     }
   };
 
-  // Unlinking is a plain roster write — the manager owns the players array.
+  // Unlinking is a plain roster write, the manager owns the players array.
   const unlink = async (player: CompPlayer) => {
     setSaving(true);
     try {
@@ -316,8 +316,8 @@ export default function MyTeamPage() {
         Mes équipes
       </Link>
 
-      <div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gray-50">
+      <div className="flex items-center gap-4 border border-gray-200/70 bg-white p-5">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden bg-gray-50">
           {team.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
@@ -335,14 +335,14 @@ export default function MyTeamPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="flex gap-1 bg-gray-100 p-1">
         {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition-colors ${
-              tab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-sm font-bold transition-colors ${
+              tab === t.key ? "bg-white text-gray-900" : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <t.icon size={14} />
@@ -359,12 +359,12 @@ export default function MyTeamPage() {
       {/* ── Effectif ─────────────────────────────── */}
       {tab === "roster" && (
         <div className="space-y-3">
-          {/* Club link — avoids typing the same squad into two models. */}
+          {/* Club link, avoids typing the same squad into two models. */}
           {team.claimedByTeamId ? (
             (() => {
               const club = clubs.find((c) => c.id === team.claimedByTeamId);
               return (
-                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <div className="flex flex-wrap items-center gap-3 border border-emerald-100 bg-emerald-50/60 p-4">
                   <Link2 size={16} className="shrink-0 text-emerald-600" />
                   <p className="min-w-0 flex-1 text-sm font-bold text-emerald-900">
                     Rattachée à {club ? club.name : "ton club"}
@@ -374,7 +374,7 @@ export default function MyTeamPage() {
                       type="button"
                       onClick={() => importClub(club)}
                       disabled={importing}
-                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+                      className="flex shrink-0 items-center gap-1.5 border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
                     >
                       {importing ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -388,11 +388,11 @@ export default function MyTeamPage() {
               );
             })()
           ) : clubs.length > 0 ? (
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <div className=" border border-gray-200/70 bg-white p-4">
               <p className="text-sm font-bold text-gray-900">Importer ton effectif</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
                 Reprends les joueurs de ton club plutôt que de tout ressaisir. Ceux qui
-                ont un compte KoppaFoot sont rattachés directement — leurs stats se
+                ont un compte KoppaFoot sont rattachés directement, leurs stats se
                 remplissent sans qu&apos;ils aient à le demander.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -402,7 +402,7 @@ export default function MyTeamPage() {
                     type="button"
                     onClick={() => importClub(club)}
                     disabled={importing}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                    className="flex items-center gap-1.5 bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
                   >
                     {importing ? (
                       <Loader2 size={13} className="animate-spin" />
@@ -415,7 +415,7 @@ export default function MyTeamPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-4">
+            <div className=" border border-dashed border-gray-200/70 bg-gray-50/60 p-4">
               <p className="text-sm font-bold text-gray-700">Pas encore de club</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
                 Crée ton club pour gérer un effectif permanent et l&apos;importer dans
@@ -430,7 +430,7 @@ export default function MyTeamPage() {
           <button
             type="button"
             onClick={openAdd}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-3 text-sm font-bold text-gray-500 transition-colors hover:border-emerald-300 hover:text-emerald-600"
+            className="flex w-full items-center justify-center gap-2 border border-dashed border-gray-200/70 py-3 text-sm font-bold text-gray-500 transition-colors hover:border-emerald-300 hover:text-emerald-600"
           >
             <Plus size={15} />
             Ajouter un joueur
@@ -440,7 +440,7 @@ export default function MyTeamPage() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+              className="space-y-3 border border-gray-200/70 bg-white p-4"
             >
               <div className="grid gap-2 sm:grid-cols-[5rem_1fr_8rem]">
                 <input
@@ -469,7 +469,7 @@ export default function MyTeamPage() {
                 <button
                   type="button"
                   onClick={closeEditor}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className=" px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Annuler
                 </button>
@@ -477,7 +477,7 @@ export default function MyTeamPage() {
                   type="button"
                   onClick={savePlayer}
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-emerald-500 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                   Enregistrer
@@ -487,15 +487,15 @@ export default function MyTeamPage() {
           )}
 
           {roster.length === 0 ? (
-            <p className="rounded-2xl border border-gray-100 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400 shadow-sm">
+            <p className=" border border-gray-200/70 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400">
               Effectif vide.
             </p>
           ) : (
-            <div className="divide-y divide-gray-50 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">
               {roster.map((player) => (
                 <div key={player.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-                    {player.number || "—"}
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-50 text-xs font-black tabular-nums text-gray-500">
+                    {player.number || ","}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>
@@ -513,7 +513,7 @@ export default function MyTeamPage() {
                   <button
                     type="button"
                     onClick={() => openEdit(player)}
-                    className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                   >
                     <Pencil size={15} />
                   </button>
@@ -521,7 +521,7 @@ export default function MyTeamPage() {
                     type="button"
                     onClick={() => deletePlayer(player)}
                     disabled={saving}
-                    className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                    className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -536,14 +536,14 @@ export default function MyTeamPage() {
       {tab === "claims" && (
         <div className="space-y-3">
           {claims.length === 0 ? (
-            <p className="rounded-2xl border border-gray-100 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400 shadow-sm">
+            <p className=" border border-gray-200/70 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400">
               Aucune demande en attente.
             </p>
           ) : (
             claims.map((claim) => (
               <div
                 key={claim.id}
-                className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                className="flex items-center gap-3 border border-gray-200/70 bg-white p-4"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-black text-gray-900">{claim.userName}</p>
@@ -555,7 +555,7 @@ export default function MyTeamPage() {
                   type="button"
                   onClick={() => decideClaim(claim, "reject")}
                   disabled={busyClaim === claim.id}
-                  className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  className="shrink-0 border border-gray-200/70 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                 >
                   <X size={15} />
                 </button>
@@ -563,7 +563,7 @@ export default function MyTeamPage() {
                   type="button"
                   onClick={() => decideClaim(claim, "accept")}
                   disabled={busyClaim === claim.id}
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                  className="flex shrink-0 items-center gap-1.5 bg-emerald-500 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
                 >
                   {busyClaim === claim.id ? (
                     <Loader2 size={15} className="animate-spin" />
@@ -575,7 +575,7 @@ export default function MyTeamPage() {
               </div>
             ))
           )}
-          <p className="rounded-2xl bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
+          <p className=" bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
             Quand un joueur clique « C&apos;est moi » sur la page publique de
             l&apos;équipe, sa demande arrive ici. Une fois validée, ses buts, cartons et
             matchs joués alimentent ses statistiques personnelles.
@@ -585,10 +585,10 @@ export default function MyTeamPage() {
 
       {/* ── Stats ────────────────────────────────── */}
       {tab === "stats" && (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto border border-gray-200/70 bg-white">
           <table className="w-full min-w-[26rem] text-sm">
             <thead>
-              <tr className="border-b border-gray-100 text-[11px] font-black uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-gray-200/70 text-[11px] font-black uppercase tracking-wide text-gray-400">
                 <th className="px-4 py-3 text-left">Joueur</th>
                 <th className="px-2 py-3 text-center">MJ</th>
                 <th className="px-2 py-3 text-center">Tit.</th>

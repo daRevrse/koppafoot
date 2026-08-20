@@ -57,7 +57,7 @@ export default function LandingFooter() {
         </div>
       </div>
 
-      {/* Giant brand letters — centered */}
+      {/* Giant brand letters, centered */}
       <div className="relative overflow-hidden">
         <div className="py-12 lg:py-16 text-center">
           <p className="text-[6rem] sm:text-[10rem] lg:text-[14rem] font-black text-white/[0.04] font-display leading-none tracking-tighter select-none uppercase">

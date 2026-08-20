@@ -17,7 +17,7 @@ export default function LiveOpsCompetition() {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  // Access-code holders reach this screen too — with a grant that may cover
+  // Access-code holders reach this screen too, with a grant that may cover
   // one poule or one match, which is what filters the list below.
   const [grant, setGrant] = useState<StaffGrant | null>(null);
   const [grantChecked, setGrantChecked] = useState(false);
@@ -53,7 +53,7 @@ export default function LiveOpsCompetition() {
     if (!member) router.replace("/live-ops");
   }, [user, competition, grant, grantChecked, router]);
 
-  // A scoped holder is shown only the matches they may actually write to —
+  // A scoped holder is shown only the matches they may actually write to,
   // opening a console that refuses every save would be a trap.
   const visibleMatches =
     grant && competition && !competition.organizerIds.includes(user?.uid ?? "")
@@ -81,7 +81,7 @@ export default function LiveOpsCompetition() {
       <h1 className="font-display text-2xl font-extrabold text-gray-900">{competition.name}</h1>
 
       {grant && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <div className="flex items-start gap-2.5 border border-emerald-200 bg-emerald-50 px-4 py-3">
           <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
           <p className="text-xs text-emerald-800">
             <span className="font-bold">Accès staff : {describeStaffScope(grant.scope)}.</span>{" "}
@@ -92,7 +92,7 @@ export default function LiveOpsCompetition() {
 
       <div className="grid gap-2">
         {visibleMatches.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-gray-200 bg-white py-12 text-center text-sm text-gray-500">
+          <p className=" border border-dashed border-gray-200/70 bg-white py-12 text-center text-sm text-gray-500">
             Aucun match pour cette compétition.
           </p>
         ) : (
@@ -104,7 +104,7 @@ export default function LiveOpsCompetition() {
                 href={`/live-ops/${cid}/matches/${m.id}/live`}
                 target="_blank"
                 rel="noopener"
-                className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md"
+                className="flex items-center gap-3 border border-gray-200/70 bg-white p-4 transition-all hover:border-emerald-200"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-gray-900">

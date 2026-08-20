@@ -1,5 +1,6 @@
 "use client";
 
+import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
@@ -82,7 +83,13 @@ function useDropdown() {
 
 interface PostCardProps {
   post: Post;
-  currentUser: UserProfile;
+  /**
+   * Le lecteur, ou `null` s'il n'est pas connecte, une fiche publique se lit
+   * sans compte. Ne sert PAS a nommer l'auteur du post (c'est `post.author*`)
+   * mais a savoir ce que ce lecteur-ci a le droit de faire, et a estampiller
+   * un repost dont il devient l'auteur.
+   */
+  currentUser: UserProfile | null;
   onLikeAction: (postId: string, isLiked: boolean) => void;
   onDeleteAction: (postId: string) => void;
 }
@@ -103,20 +110,28 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
   const badge = TYPE_BADGES[post.type];
   const BadgeIcon = badge?.icon;
-  const isOwn = post.authorId === currentUser.uid;
+  const isOwn = currentUser != null && post.authorId === currentUser.uid;
   const isSystem = post.authorId === SYSTEM_AUTHOR_ID;
 
-  const isVenueOwner = currentUser.userType === "venue_owner";
+  const isVenueOwner = ownsVenue(currentUser);
 
+  // Ces deux valeurs estampillent un repost, dont le lecteur devient
+  // l'auteur, elles ne decrivent jamais l'auteur du post affiche. Sans
+  // compte il n'y a rien a estampiller, et le bouton correspondant est
+  // masque plus bas.
   const authorRole =
-    currentUser.userType === "manager" ? "Manager"
-    : currentUser.userType === "referee" ? "Arbitre"
+    currentUser?.userType === "manager" ? "Manager"
+    : currentUser?.userType === "referee" ? "Arbitre"
     : isVenueOwner ? "Partenaire"
     : "Joueur";
 
-  const authorName = isVenueOwner && currentUser.companyName
+  // Le nom se construit champ par champ : un profil incomplet en base a un
+  // nom de famille vide, et « P. » tout court vaut mieux qu'un plantage.
+  const initial = currentUser?.lastName?.charAt(0);
+  const authorName = isVenueOwner && currentUser?.companyName
     ? currentUser.companyName
-    : `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`;
+    : [currentUser?.firstName, initial ? `${initial}.` : null]
+        .filter(Boolean).join(" ");
 
   const handleSaveEdit = async () => {
     if (!editContent.trim() || editContent === post.content) { setEditing(false); return; }
@@ -131,7 +146,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     }
   };
 
-  // This used to pop a toast and send nothing at all — a reported post
+  // This used to pop a toast and send nothing at all, a reported post
   // reached nobody. It now lands in the moderation queue.
   const handleReport = async () => {
     setReporting(true);
@@ -206,7 +221,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         url: postUrl(),
       });
     } catch (err) {
-      // Cancelling the sheet rejects with AbortError — not a failure.
+      // Cancelling the sheet rejects with AbortError, not a failure.
       if ((err as Error)?.name !== "AbortError") {
         toast.error("Le partage a échoué.");
       }
@@ -215,6 +230,9 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
   // Commenting is optional: a bare repost is a normal thing to want.
   const handleRepost = async () => {
+    // Garde-fou : le bouton est masque sans compte, mais un repost anonyme
+    // ecrirait un post sans auteur si ce chemin etait atteint autrement.
+    if (!currentUser) return;
     setReposting(true);
     try {
       await createPost({
@@ -246,8 +264,8 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
   return (
     <div
-      className={`rounded-xl border bg-white ${
-        post.pinned ? "border-emerald-200 ring-1 ring-emerald-100" : "border-gray-200"
+      className={` border bg-white ${
+        post.pinned ? "border-emerald-200 ring-1 ring-emerald-100" : "border-gray-200/70"
       }`}
     >
       {post.pinned && (
@@ -258,7 +276,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
       {/* Header */}
       <div className="flex items-start justify-between p-4 pb-0">
         <div className="flex items-center gap-3">
-          {/* The official account has no profile page to visit — its name and
+          {/* The official account has no profile page to visit, its name and
               avatar are deliberately not links. */}
           {isSystem ? (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-gray-100">
@@ -317,7 +335,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         <div className="relative">
           <button
             onClick={() => optionsDropdown.setOpen(!optionsDropdown.open)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
+            className="flex h-8 w-8 items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
           >
             <MoreHorizontal size={16} />
           </button>
@@ -330,7 +348,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-9 z-20 min-w-[160px] rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                  className="absolute right-0 top-9 z-20 min-w-[160px] border border-gray-200/70 bg-white py-1"
                 >
                   {isOwn ? (
                     <>
@@ -380,20 +398,20 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               rows={3}
-              className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none"
+              className="w-full resize-none border border-gray-200/70 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none"
               autoFocus
             />
             <div className="flex gap-2">
               <button
                 onClick={handleSaveEdit}
                 disabled={savingEdit}
-                className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                className="flex items-center gap-1 bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 <Check size={12} /> Sauvegarder
               </button>
               <button
                 onClick={() => { setEditing(false); setEditContent(post.content); }}
-                className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className="flex items-center gap-1 border border-gray-200/70 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 <X size={12} /> Annuler
               </button>
@@ -402,7 +420,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         ) : (
           <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
         )}
-        {/* Official posts point somewhere — an announcement you cannot act on
+        {/* Official posts point somewhere, an announcement you cannot act on
             is just noise. */}
         {!editing && post.link && (
           <Link
@@ -416,7 +434,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
       {/* Repost citation */}
       {post.metadata?.repostOf && (
-        <div className="mx-4 mb-2 rounded-lg border-l-4 border-primary-400 bg-gray-50 px-3 py-2">
+        <div className="mx-4 mb-2 border-l-4 border-primary-400 bg-gray-50 px-3 py-2">
           <p className="text-xs font-semibold text-gray-500 mb-1">↩ {post.metadata.repostOf.authorName}</p>
           <p className="text-xs text-gray-600 italic line-clamp-3">{post.metadata.repostOf.content}</p>
         </div>
@@ -424,13 +442,13 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
       {/* Match result card */}
       {post.type === "match_result" && post.metadata && (
-        <div className="mx-4 mb-2 rounded-lg bg-gray-50 p-3">
+        <div className="mx-4 mb-2 bg-gray-50 p-3">
           <div className="flex items-center justify-center gap-4">
             <div className="flex items-center gap-2">
               <Shield size={16} className="text-primary-500" />
               <span className="text-sm font-bold text-gray-900">{post.metadata.homeTeam}</span>
             </div>
-            <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1 shadow-sm">
+            <div className="flex items-center gap-2 bg-white px-3 py-1">
               <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreHome}</span>
               <span className="text-xs text-gray-400">-</span>
               <span className="text-lg font-bold text-gray-900 font-display">{post.metadata.scoreAway}</span>
@@ -445,8 +463,8 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
       {/* Team announcement card */}
       {post.type === "team_announcement" && post.metadata?.teamName && (
-        <div className="mx-4 mb-2 flex items-center gap-3 rounded-lg bg-blue-50 p-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+        <div className="mx-4 mb-2 flex items-center gap-3 bg-blue-50 p-3">
+          <div className="flex h-10 w-10 items-center justify-center bg-blue-100">
             <Shield size={20} className="text-blue-600" />
           </div>
           <div>
@@ -458,7 +476,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
       {/* Media */}
       {post.mediaUrls && post.mediaUrls.length > 0 && (
-        <div className={`mx-4 mb-2 grid gap-1 overflow-hidden rounded-lg ${post.mediaUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div className={`mx-4 mb-2 grid gap-1 overflow-hidden ${post.mediaUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
           {post.mediaUrls.map((url, idx) => (
             <img
               key={idx}
@@ -471,11 +489,11 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
       )}
 
       {/* Actions */}
-      <div className="flex items-center border-t border-gray-100 px-2 py-1">
+      <div className="flex items-center border-t border-gray-200/70 px-2 py-1">
         {/* Like */}
         <button
           onClick={() => onLikeAction(post.id, post.isLiked)}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
             post.isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500 hover:bg-red-50"
           }`}
         >
@@ -486,7 +504,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         {/* Comment */}
         <button
           onClick={() => setShowComments(!showComments)}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
             showComments ? "text-primary-600 bg-primary-50" : "text-gray-500 hover:text-primary-600 hover:bg-primary-50"
           }`}
         >
@@ -498,7 +516,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         <div className="relative flex-1">
           <button
             onClick={() => shareDropdown.setOpen(!shareDropdown.open)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            className="flex w-full items-center justify-center gap-2 py-2.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
           >
             <Share2 size={16} />
           </button>
@@ -511,7 +529,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 min-w-[200px] rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                  className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 min-w-[200px] border border-gray-200/70 bg-white py-1"
                 >
                   {canNativeShare && (
                     <button
@@ -547,12 +565,12 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-t border-gray-100 px-4 py-3 overflow-hidden"
+            className="border-t border-gray-200/70 px-4 py-3 overflow-hidden"
           >
             <p className="text-xs text-gray-500 mb-2 font-medium">
               Ajouter un commentaire <span className="text-gray-400">(optionnel)</span>
             </p>
-            <div className="rounded-lg border-l-4 border-primary-400 bg-gray-50 px-3 py-2 mb-2">
+            <div className=" border-l-4 border-primary-400 bg-gray-50 px-3 py-2 mb-2">
               <p className="text-xs font-semibold text-gray-500">{post.authorName}</p>
               <p className="text-xs text-gray-600 italic line-clamp-2">{post.content}</p>
             </div>
@@ -561,20 +579,20 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
               onChange={(e) => setRepostText(e.target.value)}
               placeholder="Votre commentaire..."
               rows={2}
-              className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none"
+              className="w-full resize-none border border-gray-200/70 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none"
               autoFocus
             />
             <div className="mt-2 flex gap-2">
               <button
                 onClick={handleRepost}
                 disabled={reposting}
-                className="flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                className="flex items-center gap-1 bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 <Repeat2 size={12} /> Partager
               </button>
               <button
                 onClick={() => { setShowRepost(false); setRepostText(""); }}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className=" border border-gray-200/70 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 Annuler
               </button>
@@ -590,12 +608,12 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-gray-100"
+            className="overflow-hidden border-t border-gray-200/70"
           >
             <CommentSection
               postId={post.id}
               commentCount={post.commentCount}
-              currentUser={{ uid: currentUser.uid, name: `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.` }}
+              currentUser={currentUser ? { uid: currentUser.uid, name: authorName } : null}
             />
           </motion.div>
         )}

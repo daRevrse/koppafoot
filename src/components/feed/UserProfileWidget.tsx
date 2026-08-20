@@ -1,5 +1,6 @@
 "use client";
 
+import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import Link from "next/link";
 import { MapPin, Users } from "lucide-react";
 import { ROLE_LABELS } from "@/types";
@@ -15,7 +16,7 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
   const roleLabel = ROLE_LABELS[user.userType] ?? "Joueur";
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className=" border border-gray-200/70 bg-white p-4">
       {/* Avatar + name */}
       <div className="flex flex-col items-center text-center gap-2">
         <div className={`flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(`${user.firstName} ${user.lastName}`)}`}>
@@ -31,8 +32,8 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
         </div>
         <div>
           <p className="text-sm font-bold text-gray-900">
-            {user.userType === "venue_owner" && user.companyName 
-              ? user.companyName 
+            {ownsVenue(user) && user.companyName
+              ? user.companyName
               : `${user.firstName} ${user.lastName}`}
           </p>
           <span className="inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 mt-0.5">
@@ -68,7 +69,7 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
 
       <Link
         href="/profile"
-        className="mt-4 flex w-full items-center justify-center rounded-xl border border-primary-200 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 transition-colors"
+        className="mt-4 flex w-full items-center justify-center border border-primary-200 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 transition-colors"
       >
         Voir mon profil
       </Link>

@@ -14,7 +14,7 @@ import type { SignupData } from "@/types";
 // ============================================
 // Schema
 // ============================================
-// Post-pivot: single account type — everyone completes a simple member
+// Post-pivot: single account type, everyone completes a simple member
 // profile (stored as "player"). Organizer / live-ops / superadmin are
 // granted by promotion.
 
@@ -26,10 +26,10 @@ const schema = yup.object({
 
 type FormData = yup.InferType<typeof schema>;
 
-// Same field styling as the (auth) pages — this screen is the tail of the
+// Same field styling as the (auth) pages, this screen is the tail of the
 // same funnel and must not read as a different product.
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+  "w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
 const labelClass = "mb-1.5 block text-xs font-bold text-gray-600";
 const errorClass = "mt-1 text-xs text-red-400";
 
@@ -94,7 +94,7 @@ export default function GetStartedPage() {
           <input
             id="locationCity"
             autoComplete="address-level2"
-            placeholder="ex: Lomé"
+            placeholder="Ta ville"
             {...register("locationCity")}
             className={inputClass}
           />
@@ -104,7 +104,7 @@ export default function GetStartedPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
         >
           {submitting && <Loader2 size={16} className="animate-spin" />}
           Continuer

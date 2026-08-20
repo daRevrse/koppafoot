@@ -6,7 +6,7 @@ import type {
 } from "@/types";
 
 // ============================================
-// Staff access codes — pure helpers
+// Staff access codes, pure helpers
 //
 // No Firebase import lives here on purpose: the API routes (admin SDK) and the
 // browser screens both need the same scope vocabulary, and a client-SDK import
@@ -34,7 +34,7 @@ export function normalizeStaffCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-/** "H4KM2Q7P" → "H4KM-2Q7P" — only for display, never for lookup. */
+/** "H4KM2Q7P" → "H4KM-2Q7P", only for display, never for lookup. */
 export function formatStaffCode(code: string): string {
   const c = normalizeStaffCode(code);
   return c.length === CODE_LENGTH ? `${c.slice(0, 4)}-${c.slice(4)}` : c;
@@ -87,7 +87,7 @@ export function scopeFromFirestore(scope: FirestoreStaffScope): StaffScope {
 
 /**
  * Validate a scope arriving from a client. Returns null when the shape is not
- * one the rules know how to enforce — an unknown scope must never be stored,
+ * one the rules know how to enforce, an unknown scope must never be stored,
  * because rules fall through to "deny" and the code would silently do nothing.
  */
 export function parseStaffScope(input: unknown): StaffScope | null {
@@ -138,7 +138,7 @@ export function isGrantActive(grant: StaffGrant, now: number = Date.now()): bool
 
 /**
  * Does this grant cover that match? Mirrors `staffGrantCoversMatch` in
- * firestore.rules — the rules are the enforcement, this is what the UI uses to
+ * firestore.rules, the rules are the enforcement, this is what the UI uses to
  * avoid offering a console the write will be refused on.
  */
 export function grantCoversMatch(

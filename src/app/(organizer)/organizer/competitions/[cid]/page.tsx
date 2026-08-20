@@ -5,22 +5,24 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Trophy, ArrowLeft, Loader2, Users, LayoutGrid, Calendar, GitBranch, ChevronRight, ShieldCheck,
-  Pencil, Save, X, Copy, Trash2, AlertTriangle,
+  Trophy, ArrowLeft, Loader2, Pencil, Save, X, Copy, Trash2, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   onCompetition, updateCompetition, deleteCompetition, duplicateCompetition,
+  onCompTeams, onCompMatches,
 } from "@/lib/competition-firestore";
-import {
-  COMPETITION_TYPE_LABELS, hasGroupStage, hasKnockout, isSingleGroup, statusFlow,
-} from "@/lib/competition-format";
+import { COMPETITION_TYPE_LABELS, statusFlow } from "@/lib/competition-format";
 import { announce } from "@/lib/tribune-client";
 import { uploadCompetitionLogo, uploadCompetitionBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import CompetitionFormatFields from "@/components/competition/CompetitionFormatFields";
+import CompetitionShareCard from "@/components/competition/CompetitionShareCard";
+import OrganizerProgress from "@/components/competition/OrganizerProgress";
 import toast from "react-hot-toast";
-import type { Competition, CompetitionFormat, CompetitionStatus } from "@/types";
+import type {
+  Competition, CompetitionFormat, CompetitionStatus, CompTeam, CompMatch,
+} from "@/types";
 
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
   draft: { label: "Brouillon", color: "text-gray-600", bg: "bg-gray-100" },
@@ -30,21 +32,17 @@ const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; b
   completed: { label: "Terminée", color: "text-emerald-700", bg: "bg-emerald-50" },
 };
 
-interface NavCard {
-  label: string;
-  description: string;
-  href: string;
-  icon: typeof Users;
-  iconColor: string;
-  iconBg: string;
-}
-
 export default function CompetitionDashboardPage() {
   const params = useParams<{ cid: string }>();
   const cid = params.cid;
   const { user } = useAuth();
   const router = useRouter();
   const [competition, setCompetition] = useState<Competition | null>(null);
+  // Teams and fixtures drive the progression below, every step reads its
+  // state from the real documents rather than from a stored checklist.
+  const [teams, setTeams] = useState<CompTeam[]>([]);
+  const [matches, setMatches] = useState<CompMatch[]>([]);
+  const [progressLoading, setProgressLoading] = useState(true);
 
   // Settings modal
   const [editOpen, setEditOpen] = useState(false);
@@ -56,7 +54,7 @@ export default function CompetitionDashboardPage() {
   const [fBannerUrl, setFBannerUrl] = useState("");
   const [fBannerFile, setFBannerFile] = useState<File | null>(null);
   const [fFormat, setFFormat] = useState<CompetitionFormat | null>(null);
-  // Entry file — règlement and fee. Off unless the organizer fills them in.
+  // Entry file, règlement and fee. Off unless the organizer fills them in.
   const [fRulesText, setFRulesText] = useState("");
   const [fRulesUrl, setFRulesUrl] = useState("");
   const [fRequireRules, setFRequireRules] = useState(false);
@@ -74,6 +72,28 @@ export default function CompetitionDashboardPage() {
     if (!cid) return;
     const unsubscribe = onCompetition(cid, setCompetition);
     return unsubscribe;
+  }, [cid]);
+
+  // Live, like the rest of the console: a team added from another screen
+  // ticks the step here without a reload.
+  useEffect(() => {
+    if (!cid) return;
+    let seenTeams = false;
+    let seenMatches = false;
+    const settle = () => {
+      if (seenTeams && seenMatches) setProgressLoading(false);
+    };
+    const stopTeams = onCompTeams(cid, (rows) => {
+      setTeams(rows);
+      seenTeams = true;
+      settle();
+    });
+    const stopMatches = onCompMatches(cid, (rows) => {
+      setMatches(rows);
+      seenMatches = true;
+      settle();
+    });
+    return () => { stopTeams(); stopMatches(); };
   }, [cid]);
 
   const openEdit = () => {
@@ -165,7 +185,7 @@ export default function CompetitionDashboardPage() {
         `${competition.name} (copie)`,
         user.uid,
       );
-      toast.success("Compétition dupliquée — équipes reprises, calendrier vierge");
+      toast.success("Compétition dupliquée, équipes reprises, calendrier vierge");
       router.push(`/organizer/competitions/${newId}`);
     } catch (err) {
       console.error("Error duplicating competition:", err);
@@ -208,56 +228,6 @@ export default function CompetitionDashboardPage() {
 
   const type = competition.competitionType;
 
-  // Each type only exposes the stages it actually plays: a cup has no poules,
-  // a championnat has no bracket, and a single-group competition composes
-  // itself so its "Poules" screen would be an empty formality.
-  const cards: NavCard[] = [
-    {
-      label: "Équipes",
-      description: "Gérer les équipes participantes",
-      href: `/organizer/competitions/${cid}/teams`,
-      icon: Users,
-      iconColor: "text-primary-600",
-      iconBg: "bg-primary-50",
-    },
-    ...(hasGroupStage(type) && !isSingleGroup(type)
-      ? [{
-          label: "Poules",
-          description: "Composer les groupes",
-          href: `/organizer/competitions/${cid}/groups`,
-          icon: LayoutGrid,
-          iconColor: "text-amber-600",
-          iconBg: "bg-amber-50",
-        }]
-      : []),
-    {
-      label: "Calendrier",
-      description: "Planifier les rencontres",
-      href: `/organizer/competitions/${cid}/schedule`,
-      icon: Calendar,
-      iconColor: "text-blue-600",
-      iconBg: "bg-blue-50",
-    },
-    ...(hasKnockout(type)
-      ? [{
-          label: type === "league_playoffs" ? "Play-offs" : "Phase finale",
-          description: "Tableau à élimination directe",
-          href: `/organizer/competitions/${cid}/knockout`,
-          icon: GitBranch,
-          iconColor: "text-purple-600",
-          iconBg: "bg-purple-50",
-        }]
-      : []),
-    {
-      label: "Staff",
-      description: "Inviter des modérateurs live",
-      href: `/organizer/competitions/${cid}/staff`,
-      icon: ShieldCheck,
-      iconColor: "text-emerald-600",
-      iconBg: "bg-emerald-50",
-    },
-  ];
-
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Back link */}
@@ -273,9 +243,9 @@ export default function CompetitionDashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+        className="flex items-center gap-4 border border-gray-200/70 bg-white p-6"
       >
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50">
           {competition.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={competition.logoUrl} alt="" className="h-full w-full object-cover" />
@@ -300,49 +270,29 @@ export default function CompetitionDashboardPage() {
         </div>
         <button
           onClick={openEdit}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex shrink-0 items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
         >
           <Pencil size={15} />
           <span className="hidden sm:inline">Modifier</span>
         </button>
       </motion.div>
 
-      {/* Navigation cards */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {cards.map((card, i) => {
-          const Icon = card.icon;
-          return (
-            <motion.div
-              key={card.href}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 + i * 0.04 }}
-            >
-              <Link
-                href={card.href}
-                className="group flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
-              >
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${card.iconBg}`}>
-                  <Icon size={22} className={card.iconColor} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-gray-900">{card.label}</p>
-                  <p className="mt-0.5 truncate text-xs text-gray-500">{card.description}</p>
-                </div>
-                <ChevronRight
-                  size={18}
-                  className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
-                />
-              </Link>
-            </motion.div>
-          );
-        })}
-      </div>
+      {/* The payoff first: a competition here produces a public page, and
+          that page is what fills the competition. */}
+      <CompetitionShareCard competition={competition} teamCount={teams.length} />
 
-      {/* Status control — a draft competition is invisible to the public, so
+      {/* Then the sequence, what is done, what is next. */}
+      <OrganizerProgress
+        competition={competition}
+        teams={teams}
+        matches={matches}
+        loading={progressLoading}
+      />
+
+      {/* Status control, a draft competition is invisible to the public, so
           publishing has to be an explicit act, not a side effect of
           generating fixtures. */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className=" border border-gray-200/70 bg-white p-5">
         <p className="text-sm font-bold text-gray-900">Statut</p>
         <p className="mt-0.5 text-xs text-gray-500">
           {competition.status === "draft"
@@ -373,14 +323,14 @@ export default function CompetitionDashboardPage() {
       </div>
 
       {/* Danger zone */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className=" border border-gray-200/70 bg-white p-5">
         <p className="text-sm font-bold text-gray-900">Actions</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={handleDuplicate}
             disabled={duplicating}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 border border-gray-200/70 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
             {duplicating ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
             Dupliquer
@@ -388,14 +338,14 @@ export default function CompetitionDashboardPage() {
           <button
             type="button"
             onClick={() => { setDeleteConfirm(""); setDeleteOpen(true); }}
-            className="flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+            className="flex items-center gap-2 border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
           >
             <Trash2 size={15} />
             Supprimer
           </button>
         </div>
         <p className="mt-2 text-xs text-gray-400">
-          La duplication reprend le type, le format et les équipes — sans le calendrier ni les résultats.
+          La duplication reprend le type, le format et les équipes, sans le calendrier ni les résultats.
         </p>
       </div>
 
@@ -407,10 +357,10 @@ export default function CompetitionDashboardPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-red-50 text-red-500">
                   <AlertTriangle size={20} />
                 </div>
                 <div className="min-w-0">
@@ -431,14 +381,14 @@ export default function CompetitionDashboardPage() {
                 type="text"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-red-400 focus:outline-none"
+                className="mt-1 w-full border border-gray-200/70 px-4 py-2 focus:border-red-400 focus:outline-none"
               />
 
               <div className="mt-5 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => !deleting && setDeleteOpen(false)}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Annuler
                 </button>
@@ -446,7 +396,7 @@ export default function CompetitionDashboardPage() {
                   type="button"
                   onClick={handleDelete}
                   disabled={deleting || deleteConfirm !== competition.name}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+                  className="flex items-center gap-2 bg-red-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-40"
                 >
                   {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   Supprimer
@@ -465,7 +415,7 @@ export default function CompetitionDashboardPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="max-h-[90vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -473,7 +423,7 @@ export default function CompetitionDashboardPage() {
                 </h2>
                 <button
                   onClick={() => !saving && setEditOpen(false)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                  className=" p-1.5 text-gray-400 hover:bg-gray-100"
                 >
                   <X size={18} />
                 </button>
@@ -486,7 +436,7 @@ export default function CompetitionDashboardPage() {
                     type="text"
                     value={fName}
                     onChange={(e) => setFName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -497,7 +447,7 @@ export default function CompetitionDashboardPage() {
                     rows={2}
                     value={fDesc}
                     onChange={(e) => setFDesc(e.target.value)}
-                    className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none"
+                    className="w-full resize-none border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                   />
                 </div>
                 <ImageUploadField
@@ -522,9 +472,9 @@ export default function CompetitionDashboardPage() {
                 />
 
                 {fFormat && (
-                  <div className="border-t border-gray-100 pt-4">
+                  <div className="border-t border-gray-200/70 pt-4">
                     <p className="mb-1 text-sm font-semibold text-gray-900">
-                      Format — {COMPETITION_TYPE_LABELS[type]}
+                      Format, {COMPETITION_TYPE_LABELS[type]}
                     </p>
                     <p className="mb-4 text-xs text-gray-400">
                       Le type ne peut pas changer après la création. Les modifications de
@@ -538,12 +488,12 @@ export default function CompetitionDashboardPage() {
                   </div>
                 )}
 
-                <div className="border-t border-gray-100 pt-4">
+                <div className="border-t border-gray-200/70 pt-4">
                   <p className="mb-1 text-sm font-semibold text-gray-900">
                     Dossier d&apos;inscription
                   </p>
                   <p className="mb-4 text-xs text-gray-400">
-                    Tout est facultatif. Laissé vide, l&apos;inscription reste en un clic —
+                    Tout est facultatif. Laissé vide, l&apos;inscription reste en un clic,
                     chaque exigence ajoutée fait tomber des inscriptions.
                   </p>
 
@@ -555,7 +505,7 @@ export default function CompetitionDashboardPage() {
                     value={fRulesText}
                     onChange={(e) => setFRulesText(e.target.value)}
                     placeholder="Conditions de participation, catégories d'âge, sanctions…"
-                    className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="w-full resize-none border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   />
 
                   <label className="mb-1 mt-3 block text-sm font-medium text-gray-700">
@@ -567,7 +517,7 @@ export default function CompetitionDashboardPage() {
                     value={fRulesUrl}
                     onChange={(e) => setFRulesUrl(e.target.value)}
                     placeholder="https://…"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   />
 
                   <label
@@ -582,7 +532,7 @@ export default function CompetitionDashboardPage() {
                       checked={fRequireRules}
                       disabled={!fRulesText.trim() && !fRulesUrl.trim()}
                       onChange={(e) => setFRequireRules(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                      className="mt-0.5 h-4 w-4 rounded border-gray-200/70"
                     />
                     <span>
                       Acceptation obligatoire à l&apos;inscription
@@ -604,13 +554,13 @@ export default function CompetitionDashboardPage() {
                       value={fEntryFee}
                       onChange={(e) => setFEntryFee(e.target.value)}
                       placeholder="0"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                     <input
                       type="text"
                       value={fFeeCurrency}
                       onChange={(e) => setFFeeCurrency(e.target.value)}
-                      className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-28 border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
                   <p className="mt-1.5 text-xs text-gray-400">
@@ -622,14 +572,14 @@ export default function CompetitionDashboardPage() {
                   <button
                     type="button"
                     onClick={() => !saving && setEditOpen(false)}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     Enregistrer

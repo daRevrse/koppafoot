@@ -35,19 +35,19 @@ export default function LiveOpsHome() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-extrabold text-gray-900">Mes compétitions</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          Gère les matchs en direct des compétitions où tu es modérateur ou organisateur.
+        <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Console live</h1>
+        <p className="mt-2 text-sm leading-relaxed text-gray-500">
+          Les compétitions où tu es organisateur ou modérateur.
         </p>
       </div>
 
-      {/* Practice before the real thing — always available, first-timers
+      {/* Practice before the real thing, always available, first-timers
           especially need it when the list below is empty. */}
       <LiveTrainingCard />
 
       {competitions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50">
+        <div className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
             <Trophy size={26} className="text-amber-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucune compétition</p>
@@ -66,9 +66,9 @@ export default function LiveOpsHome() {
             >
               <Link
                 href={`/live-ops/${c.id}`}
-                className="group flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+                className="group flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-50 to-orange-50">
+                <div className="flex h-12 w-12 items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
                   <Trophy size={20} className="text-amber-500" />
                 </div>
                 <div className="min-w-0 flex-1">

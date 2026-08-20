@@ -1,12 +1,13 @@
 "use client";
 
+import { isOrganizer as organizes } from "@/lib/hats";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Home, Activity, Trophy, Star, Settings, ChevronRight,
+  Home, Flame, Trophy, Star, Settings, ChevronRight,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
   Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
 } from "lucide-react";
@@ -14,31 +15,32 @@ import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
 import OrganizeCompetitionCta from "@/components/competition/OrganizeCompetitionCta";
-import type { Competition } from "@/types";
+import type { Competition, EvolutionRole } from "@/types";
 
 // ============================================
-// AppSidebar — light dashboard sidebar (ValueBet-style):
+// AppSidebar, light dashboard sidebar (ValueBet-style):
 // logo row / profile block / menu / followed competitions.
 // Public shell: guests get join/login CTAs in the profile slot.
 // ============================================
 
-// La Tribune lives in the right sidebar (and the mobile tab) — not here.
+// La Tribune lives in the right sidebar (and the mobile tab), not here.
 const MENU = [
-  // "Direct" is a live-score board, not a home page — a pulse reads truer
-  // than a house, and leaves Radio free for the live-ops space.
-  { path: "/", icon: Activity, label: "Direct", exact: true },
+  // "Direct" is a live-score board, not a home page, la flamme dit « ce qui
+  // chauffe maintenant » là où le pouls disait seulement « ça bouge », et
+  // laisse Radio à l'espace live-ops.
+  { path: "/", icon: Flame, label: "Direct", exact: true },
   { path: "/competitions", icon: Trophy, label: "Compétitions" },
 ];
 
 // ============================================
-// Spaces — the privileged areas (role, organizer, live, admin). Each is one
+// Spaces, the privileged areas (role, organizer, live, admin). Each is one
 // header entry plus its destinations, rendered indented underneath.
 //
 // They live in the SAME sidebar as the public menu on purpose: /organizer
 // and /live-ops have their own route groups and shells, which made them feel
 // like separate products. Surfacing their destinations here keeps it one app.
 //
-// Every sub-entry must be a route the user can actually use today — a
+// Every sub-entry must be a route the user can actually use today, a
 // submenu of teasers would just be noise.
 // ============================================
 
@@ -56,7 +58,10 @@ interface Space {
   items: SpaceItem[];
 }
 
-const ROLE_SPACE_ITEMS: Record<"player" | "manager", SpaceItem[]> = {
+// `Partial` : l'arbitre est un role activable mais ses destinations propres
+// (designations, rapports) sont encore au placard, il n'a donc pas d'entree
+// ici, et le `?? []` en aval rend la liste vide sans casser.
+const ROLE_SPACE_ITEMS: Partial<Record<EvolutionRole, SpaceItem[]>> = {
   player: [
     // /teams serves both sides: getTeamsByManager for a manager,
     // getTeamsByPlayer for a player. The player just had no way in.
@@ -91,13 +96,13 @@ function isActive(pathname: string, path: string, exact?: boolean): boolean {
 }
 
 /**
- * Un espace et ses destinations, repliables. L'en-tête reste un lien — c'est
- * une vraie page — donc le chevron est un bouton à part : cliquer le libellé
+ * Un espace et ses destinations, repliables. L'en-tête reste un lien, c'est
+ * une vraie page, donc le chevron est un bouton à part : cliquer le libellé
  * navigue, cliquer le chevron déplie.
  *
  * L'ouverture est DÉRIVÉE de la route : l'espace où l'on se trouve est
  * déplié, les autres sont repliés. Un clic sur le chevron pose une préférence
- * qui prend le dessus jusqu'au prochain rechargement — le menu reste monté
+ * qui prend le dessus jusqu'au prochain rechargement, le menu reste monté
  * pendant toute la navigation, donc le choix tient. Pas d'effet qui
  * resynchronise un état sur un autre, pas d'écart d'hydratation.
  */
@@ -231,7 +236,7 @@ export default function AppSidebar() {
         : { label: "Évolution", Icon: Rocket }
     : null;
 
-  const isOrganizer = user?.userType === "organizer" || user?.userType === "superadmin";
+  const isOrganizer = organizes(user);
   const moderatesAny = !!user && moderatesUid === user.uid;
 
   // Order matters: what the user does most often comes first.
@@ -272,7 +277,7 @@ export default function AppSidebar() {
   }, []);
 
   // "Live ops" is only for actual moderators (access is enforced by the
-  // (moderator) layout too — this just hides the entry from everyone else).
+  // (moderator) layout too, this just hides the entry from everyone else).
   // The result is stored WITH the uid it belongs to, so logging out or
   // switching account can't leave the entry showing on stale data.
   useEffect(() => {
@@ -388,7 +393,7 @@ export default function AppSidebar() {
                 </Link>
               );
             })}
-            {/* Privileged spaces — same shell, one app. Each renders its
+            {/* Privileged spaces, same shell, one app. Each renders its
                 header entry plus its destinations, dépliables. */}
             {spaces.map((space) => (
               <SpaceNav key={space.path} space={space} pathname={pathname} />
@@ -417,7 +422,7 @@ export default function AppSidebar() {
                   <Link
                     key={c.id}
                     // The Direct home no longer scopes to one competition, so
-                    // ?c=slug is dead — send the user to the competition itself.
+                    // ?c=slug is dead, send the user to the competition itself.
                     href={`/c/${c.slug}`}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
                   >
@@ -438,7 +443,7 @@ export default function AppSidebar() {
         <div className="space-y-2 border-t border-gray-100 px-4 py-3">
           {/* Organiser sa compétition : le geste qui fait vivre la plateforme,
               donc traité comme « Inviter un ami » plutôt que comme un lien en
-              bas du répertoire. Ne s'affiche pas aux organisateurs — ils ont
+              bas du répertoire. Ne s'affiche pas aux organisateurs, ils ont
               déjà leur espace au-dessus. */}
           <OrganizeCompetitionCta />
           <button

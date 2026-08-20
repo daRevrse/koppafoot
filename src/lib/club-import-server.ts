@@ -9,7 +9,7 @@ import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types
 // acceptance of a registration (/api/competitions/registrations), which must
 // land a squad in exactly the same state.
 //
-// It writes BOTH sides of the link — `user_id` on the roster line AND a
+// It writes BOTH sides of the link, `user_id` on the roster line AND a
 // `linked_comp_players` row on the player's own user doc. The second write
 // is why this cannot live on the client: the rules only ever let a user
 // write their own document, and without it /stats has nothing to read.

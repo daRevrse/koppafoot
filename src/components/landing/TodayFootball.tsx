@@ -9,7 +9,7 @@ import type { FootballMatch, TodayFootball as TodayFootballData } from "@/lib/fo
 // TodayFootball
 // ============================================
 // Real scores for the home. Receives a PLAIN TodayFootball object from the page
-// Server Component (page.tsx fetches via @/lib/football-data) — this client
+// Server Component (page.tsx fetches via @/lib/football-data), this client
 // component never imports the server-only lib.
 //
 // Football crests/emblems are arbitrary provider URLs → plain <img>.

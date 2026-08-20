@@ -43,8 +43,8 @@ export async function getTribuneIdentity(): Promise<TribuneIdentity> {
  * denies it outright) because the only thing that may authorize the write is
  * the superadmin check the calling route has already done.
  *
- * The URL is built the way the Firebase SDK builds one — a download token in
- * the object's metadata — rather than via makePublic(), which fails on
+ * The URL is built the way the Firebase SDK builds one, a download token in
+ * the object's metadata, rather than via makePublic(), which fails on
  * buckets with uniform access. A fresh token per upload also busts the cache
  * even though the path never changes.
  */
@@ -82,12 +82,12 @@ export async function setTribuneIdentity(input: TribuneIdentity): Promise<void> 
 export async function publishOfficialPost(input: {
   type: PostType;
   content: string;
-  /** Where the card points — a competition, a match. */
+  /** Where the card points, a competition, a match. */
   link?: string | null;
   pinned?: boolean;
 }): Promise<string> {
   // Snapshotted like every other post, so one still reads correctly if the
-  // settings document is ever lost — but the feed prefers the live value.
+  // settings document is ever lost, but the feed prefers the live value.
   const identity = await getTribuneIdentity();
   const ref = await adminDb.collection("posts").add({
     author_id: SYSTEM_AUTHOR_ID,
@@ -145,8 +145,8 @@ export function announcementFor(e: CompetitionEvent): { type: PostType; content:
       return {
         type: "match_result",
         content: e.forfeit
-          ? `🏁 ${e.competitionName} — ${e.homeTeam} ${e.scoreHome}-${e.scoreAway} ${e.awayTeam} (forfait).`
-          : `🏁 ${e.competitionName} — ${e.homeTeam} ${e.scoreHome}-${e.scoreAway} ${e.awayTeam}.`,
+          ? `🏁 ${e.competitionName}, ${e.homeTeam} ${e.scoreHome}-${e.scoreAway} ${e.awayTeam} (forfait).`
+          : `🏁 ${e.competitionName}, ${e.homeTeam} ${e.scoreHome}-${e.scoreAway} ${e.awayTeam}.`,
         link,
       };
     case "team_disqualified":

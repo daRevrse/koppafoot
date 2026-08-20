@@ -9,7 +9,7 @@ import type { FootballCompetition } from "@/lib/football-data";
 // ============================================
 // A row of curated real competitions (Champions League, PL, …). Receives a
 // PLAIN FootballCompetition[] from the page Server Component (page.tsx fetches
-// via @/lib/football-data) — never imports the server-only lib.
+// via @/lib/football-data), never imports the server-only lib.
 //
 // Emblems are arbitrary provider URLs → plain <img>. Renders nothing when empty.
 

@@ -1,25 +1,37 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
-import {
-  Loader2, SearchX, Trophy, CalendarDays, ClipboardList,
-  MapPin, Users, Timer,
-} from "lucide-react";
+import { Loader2, SearchX, Trophy, ClipboardList } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
-import { getCompetitionBySlug, onCompMatches } from "@/lib/competition-firestore";
-import { gameTypeLabel, matchDurationLabel } from "@/lib/competition-format";
+import { getCompetitionBySlug, onCompMatches, onCompTeams } from "@/lib/competition-firestore";
+import CompetitionRail from "@/components/competition/CompetitionRail";
+import CalendarTab from "@/components/competition/tabs/CalendarTab";
+import StandingsTab from "@/components/competition/tabs/StandingsTab";
+import BracketTab from "@/components/competition/tabs/BracketTab";
+import ScorersTab from "@/components/competition/tabs/ScorersTab";
+import { gameTypeLabel, matchDurationLabel, hasGroupStage, hasKnockout } from "@/lib/competition-format";
 import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
-import type { Competition, CompMatch, CompMatchRound, CompetitionStatus } from "@/types";
+import type { Competition, CompMatch, CompTeam, CompetitionStatus } from "@/types";
 
 // ============================================
 // Helpers
 // ============================================
+
+
+/**
+ * Les onglets de la page.
+ *
+ * « Accueil » a disparu : il ne montrait qu'un extrait de ce que les autres
+ * contiennent en entier, ce qui obligeait a choisir entre lire un resume et
+ * lire la chose. Le calendrier ouvre desormais la page.
+ */
+const TAB_IDS = ["calendar", "standings", "bracket", "scorers"] as const;
+type TabId = (typeof TAB_IDS)[number];
 
 // Status → label + accent, reusing the mapping style from the organizer landing.
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
@@ -30,30 +42,8 @@ const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; b
   completed: { label: "Terminée", color: "text-emerald-700", bg: "bg-emerald-50" },
 };
 
-// Knockout round → French label, for the per-match tag when `round` is set.
-const ROUND_LABELS: Record<CompMatchRound, string> = {
-  round_of_16: "8es de finale",
-  quarter: "Quart de finale",
-  semi: "Demi-finale",
-  final: "Finale",
-  third_place: "Petite finale",
-};
-
-// Small stage tag: "Groupe A" for group matches, the round label for knockout.
-function stageTag(match: CompMatch): string | null {
-  if (match.group) return `Groupe ${match.group}`;
-  if (match.round) return ROUND_LABELS[match.round];
-  return null;
-}
 
 // Format a single ISO date, e.g. "18 juil." (fr). Falls back to the raw string.
-function formatShortDate(date: string): string {
-  try {
-    return format(parseISO(date), "d MMM", { locale: fr });
-  } catch {
-    return date;
-  }
-}
 
 // Human date range for the hero. Both / start-only / end-only / none.
 function formatDateRange(start: string | null, end: string | null): string | null {
@@ -64,7 +54,7 @@ function formatDateRange(start: string | null, end: string | null): string | nul
       return d;
     }
   };
-  if (start && end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
   if (start) return `À partir du ${fmt(start)}`;
   if (end) return `Jusqu'au ${fmt(end)}`;
   return null;
@@ -72,119 +62,6 @@ function formatDateRange(start: string | null, end: string | null): string | nul
 
 // Team crest: real logo when present, otherwise a first-letter avatar. Mirrors
 // the crest treatment used across the public competition pages.
-function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
-  return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-xs font-black text-gray-500">
-      {logo ? (
-        <Image src={logo} alt={name} width={32} height={32} className="h-full w-full object-cover" />
-      ) : (
-        <span>{name?.[0]?.toUpperCase() || "?"}</span>
-      )}
-    </div>
-  );
-}
-
-// A scoreboard-style match card (live / completed): crests, names, final score.
-function ScoreCard({ match, slug }: { match: CompMatch; slug: string }) {
-  const isLive = match.status === "live";
-  const tag = stageTag(match);
-  return (
-    <Link
-      href={`/c/${slug}/matches/${match.id}`}
-      className={`group block overflow-hidden rounded-[1.75rem] border bg-white shadow-sm transition-all hover:shadow-lg ${
-        isLive ? "border-red-100 hover:border-red-200" : "border-gray-100 hover:border-emerald-200"
-      }`}
-    >
-      {/* Top row: tag + status */}
-      <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
-        {tag ? (
-          <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
-            {tag}
-          </span>
-        ) : (
-          <span />
-        )}
-        {isLive ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-red-600">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-            En direct
-          </span>
-        ) : (
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
-            Terminé
-          </span>
-        )}
-      </div>
-
-      {/* Scoreboard row */}
-      <div className="flex items-center gap-3 px-4 py-3.5">
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
-          <span className="truncate text-sm font-bold text-gray-900">{match.homeTeamName}</span>
-          <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} />
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 px-1">
-          <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
-          <span className="text-sm font-black text-gray-300">-</span>
-          <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
-        </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} />
-          <span className="truncate text-sm font-bold text-gray-900">{match.awayTeamName}</span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// An upcoming (scheduled) match card: crests, names, kickoff time / date.
-function FixtureCard({ match, slug }: { match: CompMatch; slug: string }) {
-  const tag = stageTag(match);
-  return (
-    <Link
-      href={`/c/${slug}/matches/${match.id}`}
-      className="group block overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg"
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
-        {tag ? (
-          <span className="truncate rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
-            {tag}
-          </span>
-        ) : (
-          <span />
-        )}
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">
-          À venir
-        </span>
-      </div>
-
-      <div className="flex items-center gap-3 px-4 py-3.5">
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
-          <span className="truncate text-sm font-bold text-gray-900">{match.homeTeamName}</span>
-          <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} />
-        </div>
-        <div className="flex shrink-0 flex-col items-center justify-center px-1">
-          {match.time ? (
-            <span className="rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-black tabular-nums text-gray-500">
-              {match.time}
-            </span>
-          ) : (
-            <span className="text-sm font-black text-gray-300">VS</span>
-          )}
-          {match.date && (
-            <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              {formatShortDate(match.date)}
-            </span>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} />
-          <span className="truncate text-sm font-bold text-gray-900">{match.awayTeamName}</span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 // ============================================
 // Component
 // ============================================
@@ -194,6 +71,12 @@ export default function PublicCompetitionHome() {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [followers, setFollowers] = useState<number | null>(null);
+  const [teams, setTeams] = useState<CompTeam[]>([]);
+  // L'onglet vit dans l'URL (?tab=) sans etre une route : le lien reste
+  // partageable, mais tout est servi par la meme page. Lu sur window comme
+  // ailleurs dans le projet, pour ne pas poser de frontiere Suspense.
+  const [tab, setTab] = useState<TabId>("calendar");
   const [notFound, setNotFound] = useState(false);
 
   // Resolve competition by slug, then subscribe to matches in real time.
@@ -201,6 +84,7 @@ export default function PublicCompetitionHome() {
   useEffect(() => {
     if (!slug) return;
     let unsubMatches: (() => void) | undefined;
+    let unsubTeams: (() => void) | undefined;
     let cancelled = false;
 
     (async () => {
@@ -213,79 +97,53 @@ export default function PublicCompetitionHome() {
       }
       setCompetition(comp);
       setLoading(false);
+
+      // Onglet demande dans l'URL. Lu ici, dans le meme passage asynchrone
+      // que la competition, plutot que dans un effet a part : un setState
+      // synchrone au montage relance un rendu pour rien.
+      const wanted = new URLSearchParams(window.location.search).get("tab");
+      if (wanted && (TAB_IDS as readonly string[]).includes(wanted)) {
+        setTab(wanted as TabId);
+      }
       unsubMatches = onCompMatches(comp.id, (m) => {
         if (!cancelled) setMatches(m);
       });
+      unsubTeams = onCompTeams(comp.id, (t) => {
+        if (!cancelled) setTeams(t);
+      });
+
+      // Le nombre d'abonnes : compte cote serveur, aucune competition ne le
+      // stocke. Volontairement apres l'affichage, c'est un ornement du hero,
+      // pas une raison de retarder la page.
+      fetch(`/api/competitions/${comp.id}/followers`)
+        .then((r) => (r.ok ? r.json() : { count: 0 }))
+        .then((d) => { if (!cancelled) setFollowers(d.count ?? 0); })
+        .catch(() => {});
     })();
 
     return () => {
       cancelled = true;
       unsubMatches?.();
+      unsubTeams?.();
     };
   }, [slug]);
 
-  // Live matches, in document order (already ordered by date asc upstream).
-  const liveMatches = useMemo(
-    () => matches.filter((m) => m.status === "live"),
-    [matches],
-  );
-
-  // Next few scheduled matches with a real date, ascending by date then time.
-  const upcomingMatches = useMemo(() => {
-    return matches
-      .filter((m) => m.status === "scheduled" && m.date != null)
-      .sort((a, b) => {
-        const d = (a.date as string).localeCompare(b.date as string);
-        if (d !== 0) return d;
-        // Within a day: nulls last, then "HH:mm" lexicographic (chronological).
-        if (a.time == null && b.time == null) return 0;
-        if (a.time == null) return 1;
-        if (b.time == null) return -1;
-        return a.time.localeCompare(b.time);
-      })
-      .slice(0, 5);
-  }, [matches]);
-
-  // Most recent completed matches, descending by date then time.
-  const recentResults = useMemo(() => {
-    return matches
-      .filter((m) => m.status === "completed")
-      .sort((a, b) => {
-        // Undated completed matches sort last.
-        if (a.date == null && b.date == null) return 0;
-        if (a.date == null) return 1;
-        if (b.date == null) return -1;
-        const d = b.date.localeCompare(a.date);
-        if (d !== 0) return d;
-        if (a.time == null && b.time == null) return 0;
-        if (a.time == null) return 1;
-        if (b.time == null) return -1;
-        return b.time.localeCompare(a.time);
-      })
-      .slice(0, 5);
-  }, [matches]);
-
   if (loading) {
     return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Chargement de la compétition...</p>
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-9 w-9 animate-spin text-emerald-600" />
       </div>
     );
   }
 
   if (notFound || !competition) {
     return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 text-gray-300">
-          <SearchX size={32} />
-        </div>
-        <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
-          <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
-          </p>
-        </div>
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center">
+        <SearchX size={30} className="text-gray-300" />
+        <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
+        <p className="text-sm font-bold text-gray-400">
+          Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
+        </p>
       </div>
     );
   }
@@ -293,101 +151,125 @@ export default function PublicCompetitionHome() {
   const statusCfg = STATUS_CONFIG[competition.status];
   const dateRange = formatDateRange(competition.startDate, competition.endDate);
 
+  // Memes conditions que l'ancienne barre d'onglets : un classement n'a de
+  // sens qu'avec une phase de groupes, un tableau qu'avec une phase finale.
+  const type = competition.competitionType ?? null;
+  const TABS: { id: TabId; label: string }[] = [
+    { id: "calendar", label: "Calendrier" },
+    ...(type === null || hasGroupStage(type) ? [{ id: "standings" as TabId, label: "Classement" }] : []),
+    ...(type === null || hasKnockout(type)
+      ? [{ id: "bracket" as TabId, label: type === "league_playoffs" ? "Play-offs" : "Tableau" }]
+      : []),
+    { id: "scorers", label: "Buteurs" },
+  ];
+
+  /** Change d'onglet et met l'URL a jour sans recharger ni empiler d'entree. */
+  const selectTab = (id: TabId) => {
+    setTab(id);
+    const url = new URL(window.location.href);
+    if (id === "calendar") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", id);
+    window.history.replaceState(null, "", url.toString());
+  };
+
   return (
-    <div className="space-y-8 pb-20">
-      {/* Hero */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[2.5rem] border border-gray-100 bg-gray-900 text-white shadow-xl"
+    <div className="mx-auto max-w-6xl pb-24">
+      {/* Fil d'ariane. Il dit ou l'on est sans repeter le titre, qui arrive
+          en grand juste dessous. */}
+      <nav
+        aria-label="Fil d'ariane"
+        className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
       >
-        {/* Banner or gradient backdrop */}
+        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        {competition.venueCity && (
+          <>
+            <span>{competition.venueCity}</span>
+            <span aria-hidden className="text-gray-300">›</span>
+          </>
+        )}
+        <span className="truncate text-gray-600">{competition.name}</span>
+      </nav>
+
+      {/* Hero compact et collant sous le header : sur cette page on vient lire
+          des resultats, pas admirer une banniere. */}
+      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
         {competition.bannerUrl ? (
           <>
             <Image
               src={competition.bannerUrl}
-              alt={competition.name}
-              width={1024}
-              height={420}
-              className="absolute inset-0 h-full w-full object-cover opacity-40"
+              alt=""
+              width={1600}
+              height={400}
+              priority
+              className="absolute inset-0 h-full w-full object-cover opacity-35"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/70 to-gray-900/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/85 to-gray-900/60" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-700 via-gray-900 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
         )}
 
-        <div className="relative z-10 flex flex-col items-center px-6 py-12 text-center">
-          {/* Logo or trophy */}
-          <div className="mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl">
-            {competition.logoUrl ? (
-              <Image
-                src={competition.logoUrl}
-                alt={competition.name}
-                width={96}
-                height={96}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <Trophy size={44} className="text-emerald-400" />
+        <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-white/5">
+              {competition.logoUrl ? (
+                <Image
+                  src={competition.logoUrl}
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Trophy size={26} strokeWidth={1.2} className="text-emerald-400" />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                {statusCfg.label}
+                {competition.organizerName && (
+                  <span className="text-white/40"> · {competition.organizerName}</span>
+                )}
+              </p>
+              <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
+                {competition.name}
+              </h1>
+            </div>
+
+            <div className="hidden shrink-0 sm:block">
+              <FollowCompetitionButton cid={competition.id} />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
+            {dateRange && <span>{dateRange}</span>}
+            {competition.venueCity && <span>{competition.venueCity}</span>}
+            <span>{gameTypeLabel(competition.format)}</span>
+            <span>{matchDurationLabel(competition.format)}</span>
+            {followers !== null && followers > 0 && (
+              <span className="text-emerald-300">
+                {followers} abonné{followers > 1 ? "s" : ""}
+              </span>
             )}
           </div>
 
-          <span
-            className={`mb-3 inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${statusCfg.bg} ${statusCfg.color}`}
-          >
-            {statusCfg.label}
-          </span>
-
-          <h1 className="font-display text-3xl font-black tracking-tight">{competition.name}</h1>
-
-          {competition.organizerName && (
-            <p className="mt-1.5 text-xs font-bold text-white/60">
-              Organisé par {competition.organizerName}
-            </p>
-          )}
-
-          {/* Dates, lieu, et les règles du jeu : une équipe doit savoir à
-              combien et combien de temps elle joue avant de s'inscrire. */}
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-bold text-white/70">
-            {dateRange && (
-              <span className="flex items-center gap-1.5">
-                <CalendarDays size={13} />
-                {dateRange}
-              </span>
-            )}
-            {competition.venueCity && (
-              <span className="flex items-center gap-1.5">
-                <MapPin size={13} />
-                {competition.venueCity}
-              </span>
-            )}
-            <span className="flex items-center gap-1.5">
-              <Users size={13} />
-              {gameTypeLabel(competition.format)}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Timer size={13} />
-              {matchDurationLabel(competition.format)}
-            </span>
-          </div>
-
-          {/* Suivre : la compétition entre dans « Mes compétitions » du menu
-              et ses buts arrivent en notification. */}
-          <div className="mt-5">
+          <div className="mt-4 sm:hidden">
             <FollowCompetitionButton cid={competition.id} />
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      {/* Entries are open — and a manager can register from right here
-          rather than being sent to another screen to do it. The button
-          renders nothing for anyone without a club. */}
+      {/* Inscriptions ouvertes : un manager s&apos;inscrit d&apos;ici plutot que
+          d&apos;etre envoye sur un autre ecran. Rien ne rend sans club. */}
       {competition.status === "registration" && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <ClipboardList size={18} className="shrink-0 text-emerald-600" />
+        <div className="mt-6 flex items-center gap-4 border border-emerald-200 bg-emerald-50/60 px-5 py-4">
+          <ClipboardList size={26} strokeWidth={1.3} className="shrink-0 text-emerald-600" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-emerald-900">Inscriptions ouvertes</p>
+            <p className="font-display text-lg font-black tracking-tight text-emerald-900">
+              Inscriptions ouvertes
+            </p>
             <p className="mt-0.5 text-xs font-semibold text-emerald-800">
               Tu diriges une équipe ? Inscris-la à cette compétition.
             </p>
@@ -396,54 +278,37 @@ export default function PublicCompetitionHome() {
         </div>
       )}
 
-      {/* En direct maintenant — or — Prochains matchs */}
-      {liveMatches.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-            <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-              En direct maintenant
-            </h2>
-          </div>
-          <div className="space-y-2.5">
-            {liveMatches.map((match) => (
-              <ScoreCard key={match.id} match={match} slug={slug} />
-            ))}
-          </div>
-        </section>
-      ) : upcomingMatches.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <CalendarDays size={15} className="text-emerald-500" />
-            <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-              Prochains matchs
-            </h2>
-          </div>
-          <div className="space-y-2.5">
-            {upcomingMatches.map((match) => (
-              <FixtureCard key={match.id} match={match} slug={slug} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {/* La grande carte et, a cote, les performances. Le rail ne rend rien
+          tant qu'aucun but n'a ete marque : une carte blanche vide n'est pas
+          une colonne, c'est un trou. */}
+      <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-6">
+        <div className="min-w-0 border border-gray-200/70 bg-white">
+        <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => selectTab(t.id)}
+              className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                tab === t.id
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-400 hover:text-gray-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Derniers résultats */}
-      {recentResults.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <Trophy size={15} className="text-emerald-500" />
-            <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-              Derniers résultats
-            </h2>
+        <div className="p-5">
+          {tab === "calendar" && <CalendarTab competition={competition} matches={matches} />}
+          {tab === "standings" && <StandingsTab competition={competition} matches={matches} teams={teams} />}
+          {tab === "bracket" && <BracketTab competition={competition} matches={matches} />}
+            {tab === "scorers" && <ScorersTab competition={competition} matches={matches} teams={teams} />}
           </div>
-          <div className="space-y-2.5">
-            {recentResults.map((match) => (
-              <ScoreCard key={match.id} match={match} slug={slug} />
-            ))}
-          </div>
-        </section>
-      )}
+        </div>
 
+        <CompetitionRail matches={matches} teams={teams} />
+      </div>
     </div>
   );
 }

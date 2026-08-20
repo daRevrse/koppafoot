@@ -136,7 +136,7 @@ export default function CompetitionGroupsPage() {
     setValidating(true);
     try {
       await updateCompetition(cid, { status: "group_stage" });
-      toast.success("Poules validées — phase de groupes lancée");
+      toast.success("Poules validées, phase de groupes lancée");
     } catch (err) {
       console.error("Error validating groups:", err);
       toast.error("Impossible de valider les poules");
@@ -185,7 +185,7 @@ export default function CompetitionGroupsPage() {
             type="button"
             onClick={handleRandomDraw}
             disabled={drawing || unassigned.length === 0}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:border-gray-200/70 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {drawing ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
             Tirage aléatoire
@@ -194,7 +194,7 @@ export default function CompetitionGroupsPage() {
             type="button"
             onClick={handleValidate}
             disabled={!allGroupsFull || validating}
-            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+            className="flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
           >
             {validating ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
             Valider les poules
@@ -215,8 +215,8 @@ export default function CompetitionGroupsPage() {
           <Loader2 size={28} className="animate-spin text-gray-300" />
         </div>
       ) : groupLetters.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
+        <div className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center bg-amber-50">
             <LayoutGrid size={26} className="text-amber-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucune poule configurée</p>
@@ -230,7 +230,7 @@ export default function CompetitionGroupsPage() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+            className=" border border-gray-200/70 bg-white p-5"
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -271,11 +271,11 @@ export default function CompetitionGroupsPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 + i * 0.04 }}
-                className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+                className=" border border-gray-200/70 bg-white p-5"
               >
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-sm font-bold text-amber-700">
+                    <span className="flex h-7 w-7 items-center justify-center bg-amber-100 text-sm font-bold text-amber-700">
                       {letter}
                     </span>
                     <h2 className="text-sm font-bold text-gray-900">Poule {letter}</h2>
@@ -325,9 +325,9 @@ interface TeamRowProps {
 
 function TeamRow({ team, value, options, onAssign }: TeamRowProps) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-2.5">
+    <div className="flex items-center gap-3 border border-gray-200/70 bg-gray-50/60 p-2.5">
       <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg"
+        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden"
         style={team.logoUrl ? undefined : { backgroundColor: team.color }}
       >
         {team.logoUrl ? (
@@ -347,7 +347,7 @@ function TeamRow({ team, value, options, onAssign }: TeamRowProps) {
         value={value}
         onChange={(e) => onAssign(team, e.target.value)}
         aria-label={`Poule de ${team.name}`}
-        className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-primary-500 focus:outline-none"
+        className="shrink-0 border border-gray-200/70 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-primary-500 focus:outline-none"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>

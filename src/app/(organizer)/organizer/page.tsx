@@ -24,14 +24,14 @@ function formatDateRange(start: string | null, end: string | null): string | nul
   if (!start && !end) return null;
   const fmt = (d: string) =>
     new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
-  if (start && end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
   return fmt((start ?? end) as string);
 }
 
 /**
  * Le nom public de l'organisateur, saisi à la candidature et modifiable ici.
  * Il est recopié sur chaque compétition à sa création : le changer ici ne
- * réécrit donc pas celles qui existent déjà — c'est dit explicitement.
+ * réécrit donc pas celles qui existent déjà, c'est dit explicitement.
  */
 function OrganizerNameField() {
   const { user, updateProfile } = useAuth();
@@ -55,7 +55,7 @@ function OrganizerNameField() {
     setSaving(true);
     try {
       await updateProfile({ organizer_name: next });
-      toast.success("Nom mis à jour — les compétitions déjà créées gardent l'ancien.");
+      toast.success("Nom mis à jour, les compétitions déjà créées gardent l'ancien.");
       setEditing(false);
     } catch {
       toast.error("Impossible d'enregistrer.");
@@ -77,20 +77,20 @@ function OrganizerNameField() {
           }}
           maxLength={80}
           placeholder="Association, ligue, collectif…"
-          className="w-56 rounded-lg border border-gray-200 px-2.5 py-1 text-sm text-gray-900 focus:border-primary-400 focus:outline-none"
+          className="w-56 border border-gray-200/70 px-2.5 py-1 text-sm text-gray-900 focus:border-primary-400 focus:outline-none"
         />
         <button
           onClick={save}
           disabled={saving}
           aria-label="Enregistrer"
-          className="rounded-lg bg-primary-600 p-1.5 text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          className=" bg-primary-600 p-1.5 text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
         >
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
         </button>
         <button
           onClick={() => setEditing(false)}
           aria-label="Annuler"
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100"
+          className=" p-1.5 text-gray-400 transition-colors hover:bg-gray-100"
         >
           <X size={14} />
         </button>
@@ -150,7 +150,7 @@ export default function OrganizerHomePage() {
           <motion.h1
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-2xl font-extrabold text-gray-900 font-display"
+            className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl"
           >
             Mes compétitions
           </motion.h1>
@@ -166,7 +166,7 @@ export default function OrganizerHomePage() {
         </div>
         <Link
           href="/organizer/competitions/new"
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+          className="flex shrink-0 items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
         >
           <Plus size={16} />
           Nouvelle compétition
@@ -182,9 +182,9 @@ export default function OrganizerHomePage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center"
+          className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50">
+          <div className="flex h-14 w-14 items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
             <Trophy size={26} className="text-amber-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucune compétition</p>
@@ -193,7 +193,7 @@ export default function OrganizerHomePage() {
           </p>
           <Link
             href="/organizer/competitions/new"
-            className="mt-6 flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="mt-6 flex items-center gap-2 bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
           >
             <Plus size={16} />
             Nouvelle compétition
@@ -213,9 +213,9 @@ export default function OrganizerHomePage() {
               >
                 <Link
                   href={`/organizer/competitions/${comp.id}`}
-                  className="group flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+                  className="group flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
                 >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-amber-50 to-orange-50">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50">
                     {comp.logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={comp.logoUrl} alt="" className="h-full w-full object-cover" />

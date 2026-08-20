@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ROLE_REDIRECTS } from "@/types";
 
-// Onboarding shell. Deliberately mirrors (auth)/layout — /get-started is the
+// Onboarding shell. Deliberately mirrors (auth)/layout, /get-started is the
 // tail of the sign-up funnel, so arriving here must not feel like landing on
 // a different site.
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
@@ -49,7 +49,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
           priority
         />
       </div>
-      <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-sm lg:p-10">
+      <div className="w-full max-w-md border border-gray-200/70 bg-white p-8 lg:p-10">
         {children}
       </div>
     </div>

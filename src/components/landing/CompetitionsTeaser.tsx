@@ -10,7 +10,7 @@ import type { Competition } from "@/types";
 // CompetitionsTeaser
 // ============================================
 // Bridges the hero into the directory. Receives the PLAIN Competition[] from the
-// page Server Component (fetched via @/lib/competition-admin) — this client
+// page Server Component (fetched via @/lib/competition-admin), this client
 // component never imports the server-only admin lib.
 //
 //  - <= 1 competition → a slim band (the hero already spotlights the only one;

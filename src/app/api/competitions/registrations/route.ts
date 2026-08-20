@@ -3,10 +3,11 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { importClubRoster } from "@/lib/club-import-server";
 import { announceCompetitionEvent } from "@/lib/tribune-server";
+import { notifyTeamActivity } from "@/lib/activity-notify-server";
 import type { FirestoreCompetition } from "@/types";
 
 /**
- * Competition registrations — a manager enters their club in a competition
+ * Competition registrations, a manager enters their club in a competition
  * that is open for entries.
  *
  * This is the mirror of team_manager_invites: there, an organizer hands an
@@ -18,17 +19,17 @@ import type { FirestoreCompetition } from "@/types";
  * The `competition_registrations` collection is admin-SDK only: clients
  * always go through this route, so no Firestore rules are needed.
  *
- * POST   { cid, clubId, message?, rulesAccepted? }  — apply.
- * GET    ?cid=...[&status=all]          — entries (organizer); pending only
+ * POST   { cid, clubId, message?, rulesAccepted? } , apply.
+ * GET    ?cid=...[&status=all]         , entries (organizer); pending only
  *                                         unless status=all.
- * GET    ?mine=1                        — the caller's own entries.
+ * GET    ?mine=1                       , the caller's own entries.
  * PATCH  { id, action: accept|reject|mark_paid|mark_unpaid }
- *                                       — organizer decision, then fee
+ *                                      , organizer decision, then fee
  *                                         tracking once accepted.
- * PATCH  { compTeamId, action: release } — the competition team was deleted;
+ * PATCH  { compTeamId, action: release }, the competition team was deleted;
  *                                         free the entry so the club is no
  *                                         longer shown as taking part.
- * DELETE { id }                         — the manager withdraws.
+ * DELETE { id }                        , the manager withdraws.
  */
 
 // Clubs store a colour NAME ("emerald"); competition teams store a hex, and
@@ -199,7 +200,7 @@ export async function POST(req: NextRequest) {
  * Repair pass over a manager's own entries.
  *
  * `release` keeps new deletions clean, but it cannot help entries orphaned
- * before it existed — or by a route that wipes comp_teams wholesale, like
+ * before it existed, or by a route that wipes comp_teams wholesale, like
  * deleting a whole competition. An accepted entry whose competition team is
  * gone is the bug the manager actually sees ("Inscrite" for a competition
  * they were pulled out of), so it is fixed on the way out.
@@ -258,7 +259,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Default stays pending-only — the decision panel wants nothing else.
+    // Default stays pending-only, the decision panel wants nothing else.
     // status=all is for the fee tracker, which follows accepted entries.
     const base = adminDb
       .collection("competition_registrations")
@@ -410,7 +411,7 @@ export async function PATCH(req: NextRequest) {
 
     await regRef.update({ status: "accepted", decided_by: callerUid, comp_team_id: teamRef.id });
 
-    // Already on the server — no need to go back out through the announce
+    // Already on the server, no need to go back out through the announce
     // route. Best-effort: a missing post must not fail an accepted entry.
     if (!competition.is_sandbox) {
       await announceCompetitionEvent({
@@ -430,6 +431,18 @@ export async function PATCH(req: NextRequest) {
       read: false,
       created_at: FieldValue.serverTimestamp(),
     });
+
+    // Le manager savait qu'il avait candidaté ; son effectif, lui, découvrait
+    // la compétition le jour de la convocation. Le bac à sable ne sort pas.
+    if (!competition.is_sandbox) {
+      await notifyTeamActivity({
+        teamId: reg.club_id,
+        event: "competition_entered",
+        actorId: reg.manager_id,
+        competitionName: competition.name,
+        link: `/c/${competition.slug}`,
+      }).catch((e) => console.error("[registrations] notify failed", e));
+    }
 
     return NextResponse.json({ ok: true, teamId: teamRef.id, ...imported });
   } catch (err) {

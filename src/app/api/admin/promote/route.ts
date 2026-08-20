@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      // Revocation covers both elevated roles — an organizer stripped of
+      // Revocation covers both elevated roles, an organizer stripped of
       // their rights falls back to player, same as a superadmin.
       if (currentType !== "superadmin" && currentType !== "organizer") {
         return NextResponse.json({ message: "Aucun droit à révoquer", user_type: currentType });

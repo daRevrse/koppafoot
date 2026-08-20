@@ -38,7 +38,7 @@ export default function AdminStatsPage() {
               { icon: Trophy, label: "Matchs", value: counts.matches, sub: `${counts.matchesCompleted} terminés, ${counts.matchesUpcoming} à venir`, color: "bg-amber-500" },
               { icon: MapPin, label: "Terrains", value: counts.venues, sub: `${counts.venueOwners} propriétaires`, color: "bg-purple-500" },
               { icon: MessageCircle, label: "Publications", value: counts.posts, sub: "Sur La Tribune", color: "bg-pink-500" },
-              { icon: TrendingUp, label: "Taux de complétion", value: counts.matches > 0 ? `${Math.round((counts.matchesCompleted / counts.matches) * 100)}%` : "—", sub: "Matchs terminés / total", color: "bg-sky-500" },
+              { icon: TrendingUp, label: "Taux de complétion", value: counts.matches > 0 ? `${Math.round((counts.matchesCompleted / counts.matches) * 100)}%` : ",", sub: "Matchs terminés / total", color: "bg-sky-500" },
             ].map((s, i) => (
               <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-3">

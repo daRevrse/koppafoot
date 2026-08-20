@@ -300,7 +300,7 @@ export default function RecruitmentPage() {
                               <div className="min-w-0 flex-1">
                                 <h3 className="font-bold text-gray-900 font-display truncate">{player.firstName} {player.lastName}</h3>
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
-                                  <MapPin size={12} /> {player.locationCity || "—"}
+                                  <MapPin size={12} /> {player.locationCity || ","}
                                 </div>
                               </div>
                             </div>

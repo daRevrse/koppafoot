@@ -5,41 +5,59 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   CalendarDays, ChevronRight, ChevronLeft, Trophy, MapPin,
+  ChevronDown, Star, Flame,
 } from "lucide-react";
-import { onCompMatches, listCompTeams } from "@/lib/competition-firestore";
+import {
+  onCompMatches, listCompTeams, describeBracketSlotSource,
+} from "@/lib/competition-firestore";
+import { useAuth } from "@/contexts/AuthContext";
+import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import type { CompetitionFeed } from "@/lib/competition-admin";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
-// DirectHome — the live-score home, served publicly at "/".
+// DirectHome, the live-score home, served publicly at "/".
 //
-// It answers one question: what is on right now, everywhere. It used to bind
-// to a single competition (?c=slug) and show that competition's poules,
-// standings and scorers — which is what the competition page is for. Now it
-// reads ACROSS every public competition: a banner carousel of the matches
-// that matter, then a timeline bucketed by day with today first.
+// It answers one question: what is on right now, everywhere. It reads ACROSS
+// every public competition: a banner carousel of the matches that matter,
+// then the board itself.
+//
+// Le corps sous le hero suit désormais le modèle des tableaux de scores
+// (FlashScore & co), parce que c'est la grammaire que le public connaît :
+//
+//   portée (Tous / Favoris / Compétitions)      ·  navigateur de date
+//   pastilles de statut (En direct / Terminés / À venir)
+//   une section repliable par COMPÉTITION, ses matchs dedans
+//
+// Deux changements de fond par rapport à la version « timeline » :
+//  - on regroupe par compétition et plus par jour. Le jour est choisi en
+//    haut, une fois ; à l'intérieur, ce qu'on cherche c'est « où en est ma
+//    compétition », pas « qu'est-ce qui se joue à 16 h ».
+//  - la ligne de match empile domicile au-dessus d'extérieur avec son score
+//    en bout : sur un téléphone, deux noms d'équipe sur une seule ligne ne
+//    tiennent pas sans tronquer.
+//
+// La colonne « Odds » du modèle n'a pas d'équivalent ici : KoppaFoot ne
+// diffuse pas de cotes.
 // ============================================
 
-type Tab = "all" | "live" | "finished" | "upcoming";
+/** Un match et la compétition dont il relève, le tableau mélange les deux. */
+type Entry = { match: CompMatch; competition: Competition };
 
-const TABS: { key: Tab; label: string }[] = [
+/** Portée de la liste, l'ensemble, ce que l'utilisateur suit, ou les
+ *  compétitions elles-mêmes. */
+type Scope = "all" | "favorites" | "competitions";
+
+const SCOPES: { key: Scope; label: string }[] = [
   { key: "all", label: "Tous" },
-  { key: "live", label: "En direct" },
-  { key: "finished", label: "Terminés" },
-  { key: "upcoming", label: "À venir" },
+  { key: "favorites", label: "Favoris" },
+  { key: "competitions", label: "Compétitions" },
 ];
 
-// ---- helpers ------------------------------------------------------------------
+/** Filtre de statut, en pastilles. `null` = pas de filtre. */
+type StatusFilter = "live" | "finished" | "upcoming" | null;
 
-function shortDay(date: string): string {
-  try {
-    return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
-      day: "2-digit", month: "2-digit",
-    });
-  } catch {
-    return date;
-  }
-}
+// ---- helpers ------------------------------------------------------------------
 
 function heroDate(date: string): string {
   try {
@@ -205,7 +223,46 @@ function HeroMatchCard({
   );
 }
 
-// ---- Match row (time | home | score | away | venue) --------------------------------
+// ---- Match row (stacked: home over away, score at the end) -------------------------
+
+/**
+ * Nom affichable d'un côté de l'affiche.
+ *
+ * Un match de tableau dont le tirage n'est pas fait porte un nom d'équipe
+ * vide : la ligne se rendait alors avec deux pastilles nues et rien à lire.
+ * On retombe sur la provenance du créneau ("1er poule A"), comme la page
+ * Tableau, et sinon sur le même « À déterminer ».
+ */
+function sideName(match: CompMatch, side: "home" | "away"): string {
+  const name = side === "home" ? match.homeTeamName : match.awayTeamName;
+  if (name) return name;
+  const source = side === "home" ? match.homeSource : match.awaySource;
+  return source ? describeBracketSlotSource(source) : "À déterminer";
+}
+
+/** Pastille d'un créneau que le tirage n'a pas encore rempli. */
+function EmptyBadge({ size = 20 }: { size?: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-200 text-gray-300"
+      style={{ width: size, height: size, fontSize: Math.max(9, size * 0.4) }}
+    >
+      ?
+    </span>
+  );
+}
+
+function ScoreCell({ value, dim }: { value: number; dim: boolean }) {
+  return (
+    <span
+      className={`w-5 shrink-0 text-right font-display text-sm font-black tabular-nums ${
+        dim ? "text-gray-400" : "text-gray-900"
+      }`}
+    >
+      {value}
+    </span>
+  );
+}
 
 function MatchRow({
   match, competition, teamsById,
@@ -214,67 +271,168 @@ function MatchRow({
 }) {
   const isLive = match.status === "live";
   const finished = match.status === "completed";
+  const scored = isLive || finished;
+  const home = match.scoreHome ?? 0;
+  const away = match.scoreAway ?? 0;
   const homeLogo = logoFor(teamsById, match.homeTeamId, match.homeTeamLogo);
   const awayLogo = logoFor(teamsById, match.awayTeamId, match.awayTeamLogo);
+  const homeName = sideName(match, "home");
+  const awayName = sideName(match, "away");
+  const drawn = Boolean(match.homeTeamName && match.awayTeamName);
 
   return (
     <Link
       href={`/c/${competition.slug}/matches/${match.id}`}
-      className="flex items-center gap-3 border-b border-gray-50 px-4 py-3 transition-colors last:border-0 hover:bg-gray-50/70"
+      className="flex items-center gap-3 border-b border-gray-50 px-3 py-2.5 transition-colors last:border-0 hover:bg-gray-50/70 sm:px-4"
     >
-      {/* Time column */}
-      <div className="w-12 shrink-0 text-center">
+      {/* Colonne horaire, l'état du match, pas seulement l'heure */}
+      <div className="w-12 shrink-0 text-center sm:w-14">
         {isLive ? (
           <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-black text-red-500">
             <span className="h-1 w-1 rounded-full bg-red-500" />
             {liveMinute(match)}&apos;
           </span>
+        ) : finished ? (
+          <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+            Terminé
+          </p>
         ) : (
           <>
-            <p className="text-xs font-black tabular-nums text-gray-900">{match.time ?? "—"}</p>
-            {match.date && (
-              <p className="text-[10px] font-bold text-gray-300">{shortDay(match.date)}</p>
+            <p className="text-xs font-black tabular-nums text-gray-900">
+              {match.time ?? ","}
+            </p>
+            {!match.date && (
+              <p className="text-[10px] font-bold text-gray-300">à programmer</p>
             )}
           </>
         )}
       </div>
 
-      {/* Home */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <TeamBadge name={match.homeTeamName} logo={homeLogo} size={24} />
-        <span className={`truncate text-sm font-bold ${finished && (match.scoreHome ?? 0) < (match.scoreAway ?? 0) ? "text-gray-400" : "text-gray-900"}`}>
-          {match.homeTeamName}
-        </span>
+      {/* Les deux équipes, empilées */}
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          {match.homeTeamName
+            ? <TeamBadge name={homeName} logo={homeLogo} size={20} />
+            : <EmptyBadge />}
+          <span
+            className={`min-w-0 flex-1 truncate text-sm ${
+              drawn ? "font-bold" : "font-semibold italic text-gray-400"
+            } ${finished && home < away ? "text-gray-400" : drawn ? "text-gray-900" : ""}`}
+          >
+            {homeName}
+          </span>
+          {scored && <ScoreCell value={home} dim={finished && home < away} />}
+        </div>
+        <div className="flex items-center gap-2">
+          {match.awayTeamName
+            ? <TeamBadge name={awayName} logo={awayLogo} size={20} />
+            : <EmptyBadge />}
+          <span
+            className={`min-w-0 flex-1 truncate text-sm ${
+              drawn ? "font-bold" : "font-semibold italic text-gray-400"
+            } ${finished && away < home ? "text-gray-400" : drawn ? "text-gray-900" : ""}`}
+          >
+            {awayName}
+          </span>
+          {scored && <ScoreCell value={away} dim={finished && away < home} />}
+        </div>
       </div>
 
-      {/* Score / VS */}
-      {isLive || finished ? (
-        <span className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-black tabular-nums text-white ${isLive ? "bg-red-500" : "bg-gray-900"}`}>
-          {match.scoreHome ?? 0}:{match.scoreAway ?? 0}
-        </span>
-      ) : (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-[9px] font-black text-gray-400">
-          VS
-        </span>
-      )}
-
-      {/* Away */}
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-        <span className={`truncate text-right text-sm font-bold ${finished && (match.scoreAway ?? 0) < (match.scoreHome ?? 0) ? "text-gray-400" : "text-gray-900"}`}>
-          {match.awayTeamName}
-        </span>
-        <TeamBadge name={match.awayTeamName} logo={awayLogo} size={24} />
-      </div>
-
-      {/* Competition (desktop). The feed mixes every competition, so the
-          fixture has to say which one it belongs to — the venue does not. */}
-      <span className="hidden w-28 shrink-0 truncate text-right text-[10px] font-bold text-gray-300 md:block">
-        {competition.name}
+      {/* Poule / lieu, l'info qui distingue deux affiches du même jour */}
+      <span className="hidden w-24 shrink-0 truncate text-right text-[10px] font-bold text-gray-300 md:block">
+        {match.group ? `Poule ${match.group}` : match.venueName ?? ""}
       </span>
     </Link>
   );
 }
 
+// ---- Competition section (collapsible, like the model's league blocks) ------------
+
+function CompetitionGroup({
+  competition, items, teamsById, collapsed, onToggle,
+}: {
+  competition: Competition;
+  items: Entry[];
+  teamsById: Map<string, CompTeam>;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const liveCount = items.filter((x) => x.match.status === "live").length;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50/70 px-3 py-2.5 sm:px-4">
+        {/* Le blason mène à la compétition ; le reste de l'en-tête plie la
+            section. Deux gestes distincts sur la même barre, comme le modèle. */}
+        <Link href={`/c/${competition.slug}`} className="shrink-0">
+          {competition.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={competition.logoUrl}
+              alt=""
+              className="h-7 w-7 rounded-full object-cover"
+            />
+          ) : (
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <Trophy size={14} />
+            </span>
+          )}
+        </Link>
+
+        <button
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <span className="min-w-0">
+            <span className="block truncate text-[13px] font-black text-gray-900">
+              {competition.name}
+            </span>
+            <span className="flex items-center gap-1 truncate text-[11px] font-bold text-gray-400">
+              {competition.venueCity ? (
+                <>
+                  <MapPin size={9} className="shrink-0" />
+                  {competition.venueCity}
+                </>
+              ) : (
+                competition.organizerName ?? "Compétition"
+              )}
+            </span>
+          </span>
+        </button>
+
+        {liveCount > 0 && (
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-500">
+            <span className="h-1 w-1 rounded-full bg-red-500" />
+            {liveCount}
+          </span>
+        )}
+        <span className="shrink-0 text-[11px] font-bold text-gray-400">{items.length}</span>
+        <FollowCompetitionButton cid={competition.id} variant="star" />
+        <button
+          onClick={onToggle}
+          aria-label={collapsed ? "Déplier" : "Replier"}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-200/70"
+        >
+          <ChevronDown
+            size={16}
+            className={`transition-transform ${collapsed ? "-rotate-90" : ""}`}
+          />
+        </button>
+      </div>
+
+      {!collapsed &&
+        items.map(({ match }) => (
+          <MatchRow
+            key={match.id}
+            match={match}
+            competition={competition}
+            teamsById={teamsById}
+          />
+        ))}
+    </div>
+  );
+}
 // ---- Hero carousel (featured match per competition, auto-advancing) ----------------
 
 function HeroCarousel({
@@ -373,23 +531,44 @@ function HeroCarousel({
   );
 }
 
-// ---- Day grouping -----------------------------------------------------------------
+// ---- Day helpers ------------------------------------------------------------------
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Aujourd&apos;hui / Demain / Hier, else a full French date. */
+function shiftDay(key: string, days: number): string {
+  const d = new Date(`${key}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return dayKey(d);
+}
+
+/** Aujourd&apos;hui / Demain / Hier, sinon une date française courte. */
 function dayLabel(date: string): string {
   const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
   if (date === dayKey(today)) return "Aujourd'hui";
-  if (date === dayKey(tomorrow)) return "Demain";
-  if (date === dayKey(yesterday)) return "Hier";
+  if (date === shiftDay(dayKey(today), 1)) return "Demain";
+  if (date === shiftDay(dayKey(today), -1)) return "Hier";
+  try {
+    return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
+      weekday: "short", day: "numeric", month: "short",
+    });
+  } catch {
+    return date;
+  }
+}
+
+/**
+ * Libellé long, en minuscules, destiné à être posé dans une phrase.
+ *
+ * Le libellé court du navigateur ("jeu. 20 août") passé en minuscules donnait
+ * « aucun match jeu. 20 août », qui se lit comme le mot « jeu ».
+ */
+function longDayLabel(date: string): string {
+  const today = dayKey(new Date());
+  if (date === today) return "aujourd'hui";
+  if (date === shiftDay(today, 1)) return "demain";
+  if (date === shiftDay(today, -1)) return "hier";
   try {
     return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR", {
       weekday: "long", day: "numeric", month: "long",
@@ -401,12 +580,91 @@ function dayLabel(date: string): string {
 
 const UNDATED = "0000-00-00";
 
+/**
+ * Le jour auquel un match appartient sur le tableau.
+ *
+ * Un match EN COURS compte pour aujourd'hui, quelle que soit la date portée
+ * par sa fiche : c'est ce qui se joue maintenant, et une rencontre non
+ * programmée qui démarre quand même resterait sinon introuvable derrière le
+ * navigateur de date.
+ */
+function bucketOf(m: CompMatch, today: string): string {
+  if (m.status === "live") return today;
+  return m.date ?? UNDATED;
+}
+
+/** Regroupe par compétition, celles en cours d'abord, puis par ordre alphabétique. */
+function groupByCompetition(list: Entry[]): { competition: Competition; items: Entry[] }[] {
+  const buckets = new Map<string, { competition: Competition; items: Entry[] }>();
+  for (const x of list) {
+    const bucket = buckets.get(x.competition.id);
+    if (bucket) bucket.items.push(x);
+    else buckets.set(x.competition.id, { competition: x.competition, items: [x] });
+  }
+  return [...buckets.values()]
+    .map((g) => ({
+      ...g,
+      items: [...g.items].sort((a, b) =>
+        (a.match.time ?? "99:99").localeCompare(b.match.time ?? "99:99"),
+      ),
+    }))
+    .sort((a, b) => {
+      const la = a.items.some((x) => x.match.status === "live") ? 0 : 1;
+      const lb = b.items.some((x) => x.match.status === "live") ? 0 : 1;
+      return la - lb || a.competition.name.localeCompare(b.competition.name);
+    });
+}
+
+// ---- Date navigator ---------------------------------------------------------------
+
+function DateNav({
+  value, onChange, today,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  today: string;
+}) {
+  return (
+    <div className="flex shrink-0 items-center rounded-xl border border-gray-200 bg-white">
+      <button
+        aria-label="Jour précédent"
+        onClick={() => onChange(shiftDay(value, -1))}
+        className="flex h-9 w-9 items-center justify-center rounded-l-xl text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      <button
+        onClick={() => onChange(today)}
+        title="Revenir à aujourd'hui"
+        className="min-w-[104px] border-x border-gray-200 px-2 py-1.5 text-xs font-black text-gray-900"
+      >
+        {dayLabel(value)}
+      </button>
+      <button
+        aria-label="Jour suivant"
+        onClick={() => onChange(shiftDay(value, 1))}
+        className="flex h-9 w-9 items-center justify-center rounded-r-xl text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+}
+
 // ---- Page -------------------------------------------------------------------------
 
 export default function DirectHome({ initialFeed }: { initialFeed: CompetitionFeed[] }) {
+  const { user } = useAuth();
   const [feed, setFeed] = useState<CompetitionFeed[]>(initialFeed);
   const [teams, setTeams] = useState<CompTeam[]>([]);
-  const [tab, setTab] = useState<Tab>("all");
+  const [scope, setScope] = useState<Scope>("all");
+  const [status, setStatus] = useState<StatusFilter>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // Calculé une fois par montage : recalculer `new Date()` à chaque rendu
+  // ferait sauter le jour sélectionné au passage de minuit, en plein clic.
+  const today = useMemo(() => dayKey(new Date()), []);
+  const [day, setDay] = useState(today);
 
   const competitions = useMemo(() => feed.map((f) => f.competition), [feed]);
   // Stable dependency: `competitions` is a fresh array on every feed update,
@@ -446,12 +704,12 @@ export default function DirectHome({ initialFeed }: { initialFeed: CompetitionFe
   const teamsById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
   // Every fixture, all competitions, each keeping its competition context.
-  const allMatches = useMemo(
+  const allMatches = useMemo<Entry[]>(
     () => feed.flatMap((f) => f.matches.map((match) => ({ match, competition: f.competition }))),
     [feed],
   );
 
-  // Banner: live first, then soonest upcoming, then most recent results —
+  // Banner: live first, then soonest upcoming, then most recent results,
   // capped so the carousel stays a highlight reel, not a second fixture list.
   const heroSlides = useMemo(() => {
     const live = allMatches.filter((x) => x.match.status === "live");
@@ -468,44 +726,69 @@ export default function DirectHome({ initialFeed }: { initialFeed: CompetitionFe
     return [...live, ...upcoming, ...recent].slice(0, 5);
   }, [allMatches]);
 
-  // Timeline: filtered by tab, then bucketed by DAY — today first.
-  const days = useMemo(() => {
-    let list = allMatches;
-    if (tab === "live") list = allMatches.filter((x) => x.match.status === "live");
-    if (tab === "finished") list = allMatches.filter((x) => x.match.status === "completed");
-    if (tab === "upcoming") list = allMatches.filter((x) => x.match.status === "scheduled");
+  const followedIds = useMemo(
+    () => new Set(user?.followedCompetitionIds ?? []),
+    [user],
+  );
 
-    const buckets = new Map<string, typeof list>();
-    for (const x of list) {
-      const key = x.match.date ?? UNDATED;
-      const bucket = buckets.get(key) ?? [];
-      bucket.push(x);
-      buckets.set(key, bucket);
-    }
+  // La portée s'applique avant tout le reste : « Favoris » restreint le
+  // tableau aux compétitions suivies, pas les matchs un par un.
+  const inScope = useMemo<Entry[]>(() => {
+    if (scope !== "favorites") return allMatches;
+    return allMatches.filter((x) => followedIds.has(x.competition.id));
+  }, [allMatches, scope, followedIds]);
 
-    const today = dayKey(new Date());
-    const todayMs = new Date(`${today}T00:00:00`).getTime();
+  const ofDay = useMemo(
+    () => inScope.filter((x) => bucketOf(x.match, today) === day),
+    [inScope, today, day],
+  );
 
-    return Array.from(buckets.entries())
-      .map(([date, items]) => ({
-        date,
-        items: [...items].sort((a, b) =>
-          (a.match.time ?? "99:99").localeCompare(b.match.time ?? "99:99"),
-        ),
-      }))
-      // Today first, then the nearest days around it; undated last.
-      .sort((a, b) => {
-        if (a.date === UNDATED) return 1;
-        if (b.date === UNDATED) return -1;
-        if (a.date === today) return -1;
-        if (b.date === today) return 1;
-        const da = Math.abs(new Date(`${a.date}T00:00:00`).getTime() - todayMs);
-        const db = Math.abs(new Date(`${b.date}T00:00:00`).getTime() - todayMs);
-        return da - db;
-      });
-  }, [allMatches, tab]);
+  // Les compteurs des pastilles portent sur le jour affiché : une pastille
+  // qui annonce 16 matchs et n'en montre aucun serait un mensonge.
+  const counts = useMemo(() => ({
+    live: ofDay.filter((x) => x.match.status === "live").length,
+    finished: ofDay.filter((x) => x.match.status === "completed").length,
+    upcoming: ofDay.filter((x) => x.match.status === "scheduled").length,
+  }), [ofDay]);
 
-  const liveCount = allMatches.filter((x) => x.match.status === "live").length;
+  const filtered = useMemo<Entry[]>(() => {
+    if (status === "live") return ofDay.filter((x) => x.match.status === "live");
+    if (status === "finished") return ofDay.filter((x) => x.match.status === "completed");
+    if (status === "upcoming") return ofDay.filter((x) => x.match.status === "scheduled");
+    return ofDay;
+  }, [ofDay, status]);
+
+  const groups = useMemo(() => groupByCompetition(filtered), [filtered]);
+
+  // Les matchs sans date ne sont atteignables par aucune flèche : ils sont
+  // rappelés sous le jour courant plutôt que d'être perdus.
+  const undated = useMemo(
+    () => (day === today && status !== "live" && status !== "finished"
+      ? groupByCompetition(inScope.filter((x) => bucketOf(x.match, today) === UNDATED))
+      : []),
+    [inScope, day, today, status],
+  );
+
+  // Le prochain jour qui a quelque chose à montrer, pour ne pas laisser
+  // l'utilisateur tâtonner de flèche en flèche sur une semaine vide.
+  const nextBusyDay = useMemo(() => {
+    const days = [...new Set(
+      inScope
+        .map((x) => bucketOf(x.match, today))
+        .filter((d) => d !== UNDATED && d !== day),
+    )].sort();
+    return days.find((d) => d > day) ?? days.reverse().find((d) => d < day) ?? null;
+  }, [inScope, today, day]);
+
+  const toggleGroup = (cid: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cid)) next.delete(cid);
+      else next.add(cid);
+      return next;
+    });
+
+  const liveTotal = allMatches.filter((x) => x.match.status === "live").length;
 
   if (feed.length === 0) {
     return (
@@ -523,81 +806,187 @@ export default function DirectHome({ initialFeed }: { initialFeed: CompetitionFe
     );
   }
 
+  const statusPills: { key: Exclude<StatusFilter, null>; label: string; count: number }[] = [
+    { key: "live", label: "En direct", count: counts.live },
+    { key: "finished", label: "Terminés", count: counts.finished },
+    { key: "upcoming", label: "À venir", count: counts.upcoming },
+  ];
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="mx-auto max-w-6xl space-y-4">
       <HeroCarousel slides={heroSlides} teamsById={teamsById} />
 
-      {/* Section header + underlined tabs */}
-      <div>
+      {/* ── Barre 1 : portée + navigateur de date ── */}
+      <div className="rounded-2xl border border-gray-100 bg-white px-3 pt-2 shadow-sm sm:px-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="flex min-w-0 items-center gap-2 truncate font-display text-xl font-black text-gray-900">
-            Le direct
-            {liveCount > 0 && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-black text-red-500">
-                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                {liveCount}
-              </span>
-            )}
-          </h2>
-          <Link
-            href="/competitions"
-            className="hidden shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600 sm:flex"
-          >
-            Toutes les compétitions
-            <ChevronRight size={13} />
-          </Link>
+          <div className="flex min-w-0 gap-4 overflow-x-auto sm:gap-5">
+            {SCOPES.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setScope(s.key)}
+                className={`relative shrink-0 pb-2.5 text-sm font-bold transition-colors ${
+                  scope === s.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {s.label}
+                {scope === s.key && (
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+                )}
+              </button>
+            ))}
+          </div>
+          {scope !== "competitions" && (
+            <div className="pb-2">
+              <DateNav value={day} onChange={setDay} today={today} />
+            </div>
+          )}
         </div>
-        <div className="mt-2 flex gap-5 border-b border-gray-200">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`relative pb-2.5 text-sm font-bold transition-colors ${
-                tab === t.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {t.label}
-              {tab === t.key && (
-                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
-              )}
-            </button>
-          ))}
-        </div>
+
+        {/* ── Barre 2 : pastilles de statut ── */}
+        {scope !== "competitions" && (
+          <div className="flex items-center justify-between gap-3 border-t border-gray-100 py-2.5">
+            <div className="flex gap-2 overflow-x-auto">
+              {statusPills.map((p) => {
+                const active = status === p.key;
+                const isLive = p.key === "live";
+                return (
+                  <button
+                    key={p.key}
+                    // Recliquer sur la pastille active enlève le filtre :
+                    // sinon on ne peut plus revenir à la liste entière.
+                    onClick={() => setStatus(active ? null : p.key)}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black transition-colors ${
+                      active
+                        ? isLive
+                          ? "bg-red-500 text-white"
+                          : "bg-gray-900 text-white"
+                        : isLive && p.count > 0
+                          ? "bg-red-50 text-red-500 hover:bg-red-100"
+                          : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    {isLive && p.count > 0 && !active && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                    )}
+                    {p.label}
+                    {p.count > 0 && ` (${p.count})`}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="hidden shrink-0 items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-gray-400 sm:flex">
+              <Flame size={12} className="text-emerald-500" />
+              {liveTotal} en direct
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Timeline by day */}
-      {days.length === 0 ? (
+      {/* ── Onglet Compétitions : le répertoire, pas les matchs ── */}
+      {scope === "competitions" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {competitions.map((c) => {
+            const played = allMatches.filter((x) => x.competition.id === c.id);
+            const live = played.filter((x) => x.match.status === "live").length;
+            return (
+              <div
+                key={c.id}
+                className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+              >
+                <Link href={`/c/${c.slug}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  {c.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <Trophy size={18} />
+                    </span>
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-gray-900">{c.name}</span>
+                    <span className="block truncate text-[11px] font-bold text-gray-400">
+                      {c.venueCity ?? c.organizerName ?? "Compétition"} · {played.length} match
+                      {played.length > 1 ? "s" : ""}
+                      {live > 0 ? ` · ${live} en direct` : ""}
+                    </span>
+                  </span>
+                </Link>
+                <FollowCompetitionButton cid={c.id} variant="star" />
+              </div>
+            );
+          })}
+        </div>
+      ) : groups.length === 0 && undated.length === 0 ? (
         <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center shadow-sm">
-          <CalendarDays size={24} className="mx-auto text-gray-300" />
-          <p className="mt-2 text-sm text-gray-400">Aucun match dans cette catégorie.</p>
+          {scope === "favorites" && followedIds.size === 0 ? (
+            <>
+              <Star size={24} className="mx-auto text-gray-300" />
+              <p className="mt-2 text-sm font-bold text-gray-500">Aucun favori</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Touche l&apos;étoile d&apos;une compétition pour la retrouver ici.
+              </p>
+            </>
+          ) : (
+            <>
+              <CalendarDays size={24} className="mx-auto text-gray-300" />
+              <p className="mt-2 text-sm text-gray-400">
+                Aucun match {longDayLabel(day)}
+                {status ? " dans ce filtre" : ""}.
+              </p>
+              {nextBusyDay && (
+                <button
+                  onClick={() => { setDay(nextBusyDay); setStatus(null); }}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600"
+                >
+                  Aller au {longDayLabel(nextBusyDay)}
+                  <ChevronRight size={13} />
+                </button>
+              )}
+            </>
+          )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {days.map(({ date, items }) => (
-            <div
-              key={date}
-              className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-2.5">
-                <p className="text-xs font-black uppercase tracking-wide text-gray-500">
-                  {date === UNDATED ? "À programmer" : dayLabel(date)}
-                </p>
-                <span className="text-[11px] font-bold text-gray-400">
-                  {items.length} match{items.length > 1 ? "s" : ""}
-                </span>
-              </div>
-              {items.map(({ match, competition }) => (
-                <MatchRow
-                  key={`${competition.id}-${match.id}`}
-                  match={match}
-                  competition={competition}
+        <div className="space-y-3">
+          {groups.map((g) => (
+            <CompetitionGroup
+              key={g.competition.id}
+              competition={g.competition}
+              items={g.items}
+              teamsById={teamsById}
+              collapsed={collapsed.has(g.competition.id)}
+              onToggle={() => toggleGroup(g.competition.id)}
+            />
+          ))}
+
+          {undated.length > 0 && (
+            <div className="space-y-3 pt-1">
+              <p className="px-1 text-xs font-black uppercase tracking-wide text-gray-400">
+                À programmer
+              </p>
+              {undated.map((g) => (
+                <CompetitionGroup
+                  key={`undated-${g.competition.id}`}
+                  competition={g.competition}
+                  items={g.items}
                   teamsById={teamsById}
+                  collapsed={collapsed.has(`undated-${g.competition.id}`)}
+                  onToggle={() => toggleGroup(`undated-${g.competition.id}`)}
                 />
               ))}
             </div>
-          ))}
+          )}
         </div>
       )}
+
+      <div className="flex justify-center pb-2">
+        <Link
+          href="/competitions"
+          className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600"
+        >
+          Toutes les compétitions
+          <ChevronRight size={13} />
+        </Link>
+      </div>
     </div>
   );
 }

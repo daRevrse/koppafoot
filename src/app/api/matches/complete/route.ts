@@ -10,11 +10,11 @@ import type { FirestoreMatch, FirestoreParticipation } from "@/types";
  * `teams` documents and every participating player's `users` document. Firestore
  * rules cannot express "you may increment these counters, but only as the result
  * of a match you actually played", so they settled for "any signed-in user may
- * write these fields on any document" — which let anyone rewrite anyone's career
+ * write these fields on any document", which let anyone rewrite anyone's career
  * stats or any club's record. The rollup lives here instead, and those rule
  * branches are gone.
  *
- * POST { matchId } — complete the match and roll its stats up.
+ * POST { matchId }, complete the match and roll its stats up.
  *
  * Authorization: either manager, the confirmed referee, or a superadmin. The
  * match document is loaded server-side; the caller's claim about their own role
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   // The rollup increments counters, so running it twice silently inflates every
-  // stat it touches. The client had no guard at all — a double-tap or a retry
+  // stat it touches. The client had no guard at all, a double-tap or a retry
   // counted the match twice.
   if (match.status === "completed") {
     return NextResponse.json({ error: "Match déjà terminé" }, { status: 409 });

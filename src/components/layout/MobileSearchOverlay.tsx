@@ -16,7 +16,7 @@ import type { Competition, Team } from "@/types";
 // without this there is no way to search anything on a phone at all.
 //
 // A dropdown makes no sense under a 40px-wide icon, so this takes the whole
-// screen — which buys enough room to resolve competitions here too, rather than
+// screen, which buys enough room to resolve competitions here too, rather than
 // bouncing to the directory the way the narrow desktop dropdown has to. Only
 // Koppafoot competitions are matched live: the world game is server-only
 // (football-data), so the last row hands the query to /competitions, where both
@@ -44,7 +44,7 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
   const trimmed = term.trim();
   const searching = trimmed.length >= MIN_CHARS;
 
-  // Focus the field as the screen appears — the icon was the intent to type.
+  // Focus the field as the screen appears, the icon was the intent to type.
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -66,7 +66,7 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Competitions are a short, public list — fetched once when the screen opens,
+  // Competitions are a short, public list, fetched once when the screen opens,
   // then filtered in memory rather than re-queried per keystroke.
   useEffect(() => {
     let cancelled = false;
@@ -186,7 +186,7 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
           </div>
         ) : nothing ? (
           // Not "aucun résultat": the world competitions are not searched here,
-          // so a query like "ligue" does have a match — one row below. Saying
+          // so a query like "ligue" does have a match, one row below. Saying
           // otherwise would send the reader away convinced there was nothing.
           <div className="flex flex-col items-center justify-center gap-3 px-8 pt-24 text-center">
             <p className="text-sm font-bold text-gray-400 italic">

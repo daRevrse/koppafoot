@@ -36,7 +36,7 @@ export default function RegistrationsPanel({
       const data = (await res.json()) as { registrations: CompetitionRegistration[] };
       setRegistrations(data.registrations ?? []);
     } catch {
-      // Non-blocking — the team list below still renders.
+      // Non-blocking, the team list below still renders.
     }
   }, [firebaseUser, cid]);
 
@@ -63,10 +63,10 @@ export default function RegistrationsPanel({
         return;
       }
       const messages = {
-        accept: `${reg.clubName} inscrite — ${data.added ?? 0} joueur(s) repris`,
+        accept: `${reg.clubName} inscrite, ${data.added ?? 0} joueur(s) repris`,
         reject: "Inscription refusée",
-        mark_paid: `${reg.clubName} — frais encaissés`,
-        mark_unpaid: `${reg.clubName} — repassée en impayé`,
+        mark_paid: `${reg.clubName}, frais encaissés`,
+        mark_unpaid: `${reg.clubName}, repassée en impayé`,
       };
       toast.success(messages[action]);
       await load();

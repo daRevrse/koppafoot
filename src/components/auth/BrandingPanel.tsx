@@ -113,7 +113,7 @@ export default function BrandingPanel() {
             </div>
             <div>
               <p className="text-xs font-semibold text-white/70">Karim B.</p>
-              <p className="text-[10px] text-white/30">Joueur — Lomé</p>
+              <p className="text-[10px] text-white/30">Joueur</p>
             </div>
           </div>
         </div>

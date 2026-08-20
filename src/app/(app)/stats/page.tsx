@@ -16,14 +16,14 @@ import {
 import type { LinkedCompPlayer } from "@/types";
 
 // ============================================
-// Mes statistiques — the player's own record, aggregated over every
+// Mes statistiques, the player's own record, aggregated over every
 // competition roster line linked to their account.
 //
 // Links are now created automatically: when a manager registers their club
 // in a competition (or imports it into an existing team), every member's
 // roster line carries their user_id and a row lands on their user doc. So a
 // player with a linked line but no minutes yet is the NORMAL case, not an
-// edge one — competitions are listed with zeros rather than hidden, because
+// edge one, competitions are listed with zeros rather than hidden, because
 // seeing the competition is how the player knows the link worked.
 // ============================================
 
@@ -39,7 +39,7 @@ function StatTile({
   label: string; value: number; Icon: typeof Target; accent: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
+    <div className=" border border-gray-200/70 bg-white p-4 text-center">
       <Icon size={20} className={`mx-auto ${accent}`} />
       <p className="mt-2 font-display text-2xl font-black text-gray-900">{value}</p>
       <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
@@ -62,7 +62,19 @@ export default function StatsPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
 
-  const links = useMemo(() => user?.linkedCompPlayers ?? [], [user]);
+  // Dedoublonnage a la source. Deux liens identiques, meme competition,
+  // meme equipe, meme joueur, ne peuvent venir que d'une anomalie de donnees,
+  // mais ils compteraient alors ses buts DEUX FOIS dans le total. Une clé
+  // React unique aurait masque le doublon sans corriger le chiffre.
+  const links = useMemo(() => {
+    const vus = new Set<string>();
+    return (user?.linkedCompPlayers ?? []).filter((l) => {
+      const cle = `${l.competition_id}::${l.team_id}::${l.player_id}`;
+      if (vus.has(cle)) return false;
+      vus.add(cle);
+      return true;
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -131,22 +143,20 @@ export default function StatsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+        {/* <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
           <BarChart3 size={26} />
-        </div>
+        </div> */}
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-black tracking-tight text-gray-900">
-            Mes statistiques
-          </h1>
-          <p className="mt-0.5 text-sm font-bold text-gray-400">
+          <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Mes statistiques</h1>
+          {/* <p className="mt-0.5 text-sm font-bold text-gray-400">
             Ton bilan sur toutes les compétitions KoppaFoot.
-          </p>
+          </p> */}
         </div>
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-[2rem] border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-300">
+        <div className="rounded-[2rem] border border-gray-200/70 bg-white p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gray-100 text-gray-300">
             <Users size={26} />
           </div>
           <p className="mt-4 font-display text-lg font-black text-gray-900">
@@ -164,13 +174,13 @@ export default function StatsPage() {
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Link
               href="/mercato"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
+              className="inline-flex items-center gap-2 bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
             >
               Trouver une équipe
             </Link>
             <Link
               href="/competitions"
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm font-black text-gray-600 transition-colors hover:bg-gray-50"
+              className="inline-flex items-center gap-2 border border-gray-200/70 px-5 py-3 text-sm font-black text-gray-600 transition-colors hover:bg-gray-50"
             >
               <Trophy size={15} />
               Voir les compétitions
@@ -201,16 +211,21 @@ export default function StatsPage() {
               const noMinutes = row.stats.matchesPlayed === 0;
               return (
                 <motion.div
-                  key={`${row.link.competition_id}-${row.link.player_id}`}
+                  // L'equipe fait partie de la cle : un joueur transfere en
+                  // cours de tournoi a DEUX lignes dans la meme competition,
+                  // une par club, et le code plus haut les construit
+                  // deliberement. Sans `team_id` les deux portaient la meme
+                  // cle, et React en omettait une.
+                  key={`${row.link.competition_id}-${row.link.team_id}-${row.link.player_id}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
                   <Link
                     href={`/c/${row.link.competition_slug}/teams/${row.link.team_id}`}
-                    className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+                    className="flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
                   >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-amber-50 text-amber-500">
                       <Trophy size={20} />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -224,7 +239,7 @@ export default function StatsPage() {
                         // Zeros on purpose: this is what tells the player the
                         // link worked and they are on the squad sheet.
                         <p className="mt-1.5 text-xs font-bold text-gray-400">
-                          Inscrit — aucun match joué pour l&apos;instant
+                          Inscrit, aucun match joué pour l&apos;instant
                         </p>
                       ) : (
                         <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-gray-600">
@@ -249,13 +264,13 @@ export default function StatsPage() {
             })}
           </div>
 
-          {/* Match by match — the question a player actually opens with */}
+          {/* Match by match, the question a player actually opens with */}
           {recent.length > 0 && (
             <div className="space-y-3">
               <p className="px-1 text-xs font-black uppercase tracking-widest text-gray-400">
                 Mes derniers matchs
               </p>
-              <div className="divide-y divide-gray-50 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+              <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">
                 {recent.map((a) => {
                   const m = a.match;
                   const isHome = m.homeTeamId === a.link.team_id;
@@ -274,9 +289,8 @@ export default function StatsPage() {
                         {matchDate(m.date)}
                       </span>
                       <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-white ${
-                          drew ? "bg-gray-400" : won ? "bg-emerald-500" : "bg-red-400"
-                        }`}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center text-[11px] font-black text-white ${drew ? "bg-gray-400" : won ? "bg-emerald-500" : "bg-red-400"
+                          }`}
                       >
                         {drew ? "N" : won ? "V" : "D"}
                       </span>
@@ -300,7 +314,7 @@ export default function StatsPage() {
             </div>
           )}
 
-          <p className="flex items-start gap-2 rounded-2xl bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
+          <p className="flex items-start gap-2 bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
             <Info size={14} className="mt-0.5 shrink-0 text-gray-400" />
             Un match compte comme joué quand il est terminé et que tu figures sur la
             feuille de match. Les buts et cartons sont ceux saisis en direct par

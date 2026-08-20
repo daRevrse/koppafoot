@@ -1,5 +1,5 @@
 // ============================================
-// Onboarding — declarative, per-role step lists.
+// Onboarding, declarative, per-role step lists.
 //
 // Each role's space has a sequence a user must walk before the space is
 // actually usable ("complete your profile", "create your team", …). Steps
@@ -15,7 +15,7 @@ import type { CompTeam, Team, UserProfile } from "@/types";
 export interface OnboardingStep {
   key: string;
   label: string;
-  /** Why this step matters — shown under the label while it is the current one. */
+  /** Why this step matters, shown under the label while it is the current one. */
   description: string;
   href: string;
   cta: string;
@@ -32,7 +32,7 @@ export interface OnboardingProgress {
   steps: OnboardingStep[];
   doneCount: number;
   total: number;
-  /** First unfinished step — what the guide asks for right now. */
+  /** First unfinished step, what the guide asks for right now. */
   current: OnboardingStep | null;
   complete: boolean;
 }
@@ -75,7 +75,7 @@ export function managerOnboarding(
     {
       key: "profile",
       label: "Compléter ton profil",
-      description: "Photo, ville et contact — c'est ce que voient les organisateurs qui t'invitent.",
+      description: "Photo, ville et contact, c'est ce que voient les organisateurs qui t'invitent.",
       href: "/profile",
       cta: "Compléter mon profil",
       done: profileDone(user),
@@ -93,7 +93,7 @@ export function managerOnboarding(
       key: "roster",
       label: "Constituer ton effectif",
       description:
-        "Ajoute tes joueurs — y compris ceux sans smartphone, en joueurs fictifs.",
+        "Ajoute tes joueurs, y compris ceux sans smartphone, en joueurs fictifs.",
       href: firstTeam ? `/teams/${firstTeam.id}` : "/teams",
       cta: "Ajouter des joueurs",
       done: ctx.rosterCount > 0,
@@ -127,7 +127,7 @@ export function playerOnboarding(
     {
       key: "profile",
       label: "Compléter ton profil",
-      description: "Photo, ville et contact — c'est ta carte de visite auprès des managers.",
+      description: "Photo, ville et contact, c'est ta carte de visite auprès des managers.",
       href: "/profile",
       cta: "Compléter mon profil",
       done: profileDone(user),

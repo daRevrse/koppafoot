@@ -3,14 +3,14 @@ import { adminDb } from "@/lib/firebase-admin";
 import { authorizeOrganizer } from "@/lib/competition-api-auth";
 
 // ============================================
-// Staff grants — cut one person's access
+// Staff grants, cut one person's access
 //
 // Revoking a CODE (see ../staff-codes) cuts everyone who redeemed it. This
 // route is the finer instrument: one volunteer loses the console, the code
 // stays valid for the others.
 // ============================================
 
-/** DELETE — revoke one grant. Body: { cid, uid }. */
+/** DELETE, revoke one grant. Body: { cid, uid }. */
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();

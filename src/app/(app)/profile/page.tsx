@@ -111,7 +111,8 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/login");
+    // Home is public, no reason to send anyone to a login screen.
+    router.push("/");
   };
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<TabType>("info");
@@ -154,6 +155,13 @@ export default function ProfilePage() {
           height: user.height ?? null,
           weight: user.weight ?? null,
           dateOfBirth: user.dateOfBirth ?? "",
+          // Sans ces valeurs, ouvrir "Modifier" affichait des selects vides
+          // et enregistrer effaçait le poste et le niveau déjà renseignés.
+          position: user.position ?? "",
+          skillLevel: user.skillLevel ?? "",
+          licenseNumber: user.licenseNumber ?? "",
+          licenseLevel: user.licenseLevel ?? "",
+          experienceYears: user.experienceYears ?? null,
         }
       : undefined,
   });
@@ -170,6 +178,18 @@ export default function ProfilePage() {
   }, [tab, user]);
 
   if (!user) return null;
+
+  // Le rôle effectif prime sur `user_type`. Depuis le pivot tout compte est
+  // créé en "player" et le rôle réel vient de /evolution, mais l'inverse
+  // existe aussi : un ancien compte "manager" qui a activé l'espace joueur.
+  // Se fier au seul user_type cachait le bloc physique aux deux.
+  const effectiveRole: string = user.evolutionRole ?? user.userType;
+  const isPlayerRole = effectiveRole === "player";
+  // Taille, poids, pied fort, date de naissance : tout le monde qui descend
+  // sur la pelouse les renseigne, joueur, manager qui joue, arbitre. Seuls
+  // les espaces qui n'y descendent jamais en sont dispensés.
+  const showPhysical = !["organizer", "venue_owner", "superadmin"].includes(effectiveRole);
+  const physicalComplete = Boolean(user.strongFoot && user.height && user.weight && user.dateOfBirth);
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const memberSince = user.createdAt
@@ -279,7 +299,7 @@ export default function ProfilePage() {
         height: data.height ?? undefined,
         weight: data.weight ?? undefined,
         date_of_birth: data.dateOfBirth || undefined,
-        ...(user.userType === "player" && {
+        ...((user.evolutionRole ?? user.userType) === "player" && {
           position: data.position || undefined,
           skill_level: data.skillLevel || undefined,
         }),
@@ -311,160 +331,167 @@ export default function ProfilePage() {
     { key: "palmares", label: "Palmarès", icon: Trophy },
     { key: "posts", label: "Posts", icon: FileText },
     { key: "galerie", label: "Galerie", icon: ImageIcon },
-    ...(user.userType === "player"
+    ...((user.evolutionRole ?? user.userType) === "player"
       ? [{ key: "carte" as TabType, label: "Carte FUT", icon: CreditCard }]
       : []),
   ];
 
   return (
-    <div className="mx-auto max-w-4xl">
-      {/* Cover photo */}
-      <div className="relative h-48 overflow-hidden rounded-t-xl bg-gradient-to-r from-primary-600 to-primary-400 md:h-56">
-        {user.coverPhotoUrl && (
-          <img src={user.coverPhotoUrl} alt="" className="h-full w-full object-cover" />
+    <div className="mx-auto max-w-6xl pb-24">
+      {/* Le meme hero que la fiche publique : la photo de couverture devient
+          le fond au lieu d'un bandeau de 200px, et l'identite se lit d'un
+          coup. On garde ici ce que la fiche publique n'a pas, le bouton
+          d'appareil photo sur l'avatar, et l'entree en edition. */}
+      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
+        {user.coverPhotoUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={user.coverPhotoUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/85 to-gray-900/60" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
         )}
-        <button
-          onClick={() => coverRef.current?.click()}
-          disabled={uploadingCover}
-          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm hover:bg-black/60"
-        >
-          {uploadingCover ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-          Couverture
-        </button>
-        <input ref={coverRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-      </div>
 
-      {/* Avatar + name */}
-      <div className="relative rounded-b-xl border border-t-0 border-gray-200 bg-white px-4 pb-6 lg:px-8">
-        <div className="flex flex-col items-center lg:flex-row lg:items-end lg:gap-6">
-          <div className="relative -mt-12 lg:-mt-16">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-primary-100 text-2xl font-bold text-primary-700 shadow-xl lg:h-32 lg:w-32 lg:text-4xl">
-              {user.profilePictureUrl ? (
-                <img src={user.profilePictureUrl} alt="" className="h-full w-full rounded-full object-cover" />
-              ) : (
-                initials
-              )}
-            </div>
-            <button
-              onClick={() => avatarRef.current?.click()}
-              disabled={uploadingAvatar}
-              className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-4 ring-white hover:bg-primary-700 transition-transform active:scale-90 lg:h-10 lg:w-10"
-            >
-              {uploadingAvatar ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-            </button>
-            <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-          </div>
-
-          <div className="mt-4 flex-1 text-center lg:mt-0 lg:pt-4 lg:text-left">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 lg:text-3xl">
-              {user.firstName} {user.lastName}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-2 lg:justify-start lg:gap-3">
-              {user.locationCity && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                  <MapPin size={14} className="text-gray-400" /> {user.locationCity}
-                </span>
-              )}
-              {memberSince && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                  <Calendar size={14} className="text-gray-400" /> {memberSince}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <Users size={14} className="text-gray-400" /> {user.followersCount ?? 0} {user.followersCount && user.followersCount > 1 ? "abonnés" : "abonné"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-6 flex w-full flex-col items-center gap-4 lg:mt-0 lg:w-auto lg:flex-row lg:gap-5">
-            <Link
-              href={`/profile/${user.uid}`}
-              className="text-sm font-semibold text-emerald-600 transition-colors hover:text-emerald-700 hover:underline lg:order-last"
-            >
-              Voir mon profil public →
-            </Link>
-            {!editing && (
+        <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative shrink-0">
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white/10 text-lg font-black text-white/80">
+                {user.profilePictureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
               <button
-                onClick={() => setEditing(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow-md active:scale-[0.98] lg:w-auto lg:px-5 lg:py-2.5"
+                onClick={() => avatarRef.current?.click()}
+                disabled={uploadingAvatar}
+                aria-label="Changer ma photo"
+                className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white transition-transform hover:bg-emerald-400 active:scale-90"
               >
-                <Edit3 size={18} className="text-gray-400" />
-                Modifier mon profil
+                {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
               </button>
-            )}
+              <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                Mon compte
+              </p>
+              <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
+                {user.firstName} {user.lastName}
+              </h1>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3">
+              <Link
+                href={`/profile/${user.uid}`}
+                className="text-[11px] font-black uppercase tracking-[0.15em] text-white/60 transition-colors hover:text-white"
+              >
+                Ma fiche publique
+              </Link>
+              {!editing && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="flex items-center gap-2 border border-white bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-300 hover:bg-emerald-300"
+                >
+                  <Edit3 size={13} />
+                  Modifier
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
+            {user.locationCity && <span>{user.locationCity}</span>}
+            {memberSince && <span>Depuis {memberSince}</span>}
+            <span className="text-emerald-300">
+              {user.followersCount ?? 0} abonné{(user.followersCount ?? 0) > 1 ? "s" : ""}
+            </span>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Tabs */}
-      <div className="mt-6 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 scrollbar-hide">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex shrink-0 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors whitespace-nowrap px-3 ${
-              tab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <t.icon size={14} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Une seule carte, dont les onglets changent le contenu. */}
+      <div className="mt-6 border border-gray-200/70 bg-white">
+        <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                tab === t.key
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-400 hover:text-gray-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Content */}
-      <div className="mt-6">
+        <div className="p-5">
         {/* ═══════════════ TAB: INFO (read) ═══════════════ */}
         {tab === "info" && !editing && (
           <div className="grid gap-6 md:grid-cols-3">
             {/* Bio */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <div className=" border border-gray-200/70 bg-white p-5">
               <h3 className="mb-3 text-sm font-semibold text-gray-900">Bio</h3>
               <p className="text-sm text-gray-600">{user.bio || "Aucune bio renseignée."}</p>
             </div>
             {/* Coordonnées */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-2">
+            <div className=" border border-gray-200/70 bg-white p-5 md:col-span-2">
               <h3 className="mb-2 text-sm font-semibold text-gray-900">Coordonnées</h3>
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-200/70">
                 <InfoRow icon={Mail} label="Email" value={user.email} />
                 <InfoRow icon={Phone} label="Téléphone" value={user.phone} />
                 <InfoRow icon={MapPin} label="Ville" value={user.locationCity} />
               </div>
             </div>
             {/* Physical Info Card */}
-            {(user.userType === "player" || user.userType === "referee") && (
-              <div className="rounded-lg border border-gray-200 bg-white p-5 md:col-span-3">
-                <h3 className="mb-3 text-sm font-semibold text-gray-900 flex items-center gap-2">
-                  <Ruler size={16} className="text-emerald-600" />
-                  Informations physiques
-                </h3>
+            {showPhysical && (
+              <div className=" border border-gray-200/70 bg-white p-5 md:col-span-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <Ruler size={16} className="text-emerald-600" />
+                    Informations physiques
+                  </h3>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="flex shrink-0 items-center gap-1.5 border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    <Edit3 size={13} />
+                    {physicalComplete ? "Modifier" : "Compléter"}
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Pied fort</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : "—"}
+                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : ","}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Ruler size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Taille</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {user.height ? `${user.height} cm` : "—"}
+                      {user.height ? `${user.height} cm` : ","}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Weight size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Poids</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {user.weight ? `${user.weight} kg` : "—"}
+                      {user.weight ? `${user.weight} kg` : ","}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
                     <Cake size={20} className="mx-auto text-emerald-500 mb-1" />
                     <p className="text-xs text-gray-500">Âge</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {age !== null ? `${age} ans` : "—"}
+                      {age !== null ? `${age} ans` : ","}
                     </p>
                   </div>
                 </div>
@@ -476,34 +503,34 @@ export default function ProfilePage() {
 
         {/* ═══════════════ TAB: INFO (edit) ═══════════════ */}
         {tab === "info" && editing && (
-          <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-gray-200 bg-white p-6">
+          <form onSubmit={handleSubmit(onSubmit)} className=" border border-gray-200/70 bg-white p-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Prénom</label>
-                <input {...register("firstName")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                <input {...register("firstName")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
-                <input {...register("lastName")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                <input {...register("lastName")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Téléphone</label>
-                <input {...register("phone")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                <input {...register("phone")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
-                <input {...register("locationCity")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                <input {...register("locationCity")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
               </div>
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Bio</label>
-                <textarea {...register("bio")} rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                <textarea {...register("bio")} rows={3} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 {errors.bio && <p className="mt-1 text-xs text-red-600">{errors.bio.message}</p>}
               </div>
 
               {/* Physical info */}
-              {(user.userType === "player" || user.userType === "referee") && (
+              {showPhysical && (
                 <div className="md:col-span-2">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
                     <Ruler size={16} className="text-emerald-600" /> Informations physiques
@@ -511,7 +538,7 @@ export default function ProfilePage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Pied fort</label>
-                      <select {...register("strongFoot")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                      <select {...register("strongFoot")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
                         <option value="">Non spécifié</option>
                         <option value="right">Droit</option>
                         <option value="left">Gauche</option>
@@ -520,26 +547,26 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Taille (cm)</label>
-                      <input type="number" min="100" max="250" {...register("height")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                      <input type="number" min="100" max="250" {...register("height")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Poids (kg)</label>
-                      <input type="number" min="30" max="200" {...register("weight")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                      <input type="number" min="30" max="200" {...register("weight")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Date de naissance</label>
-                      <input type="date" {...register("dateOfBirth")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                      <input type="date" {...register("dateOfBirth")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Player-specific */}
-              {user.userType === "player" && (
+              {isPlayerRole && (
                 <>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Poste</label>
-                    <select {...register("position")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                    <select {...register("position")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
                       <option value="">Non spécifié</option>
                       <option value="goalkeeper">Gardien</option>
                       <option value="defender">Défenseur</option>
@@ -550,7 +577,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Niveau</label>
-                    <select {...register("skillLevel")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                    <select {...register("skillLevel")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
                       <option value="">Non spécifié</option>
                       <option value="beginner">Débutant</option>
                       <option value="amateur">Amateur</option>
@@ -566,11 +593,11 @@ export default function ProfilePage() {
                 <>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">N° licence</label>
-                    <input {...register("licenseNumber")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                    <input {...register("licenseNumber")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Niveau licence</label>
-                    <select {...register("licenseLevel")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                    <select {...register("licenseLevel")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
                       <option value="">Non spécifié</option>
                       <option value="trainee">Stagiaire</option>
                       <option value="regional">Régional</option>
@@ -580,17 +607,17 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Années d&apos;expérience</label>
-                    <input type="number" min="0" {...register("experienceYears")} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                    <input type="number" min="0" {...register("experienceYears")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
                   </div>
                 </>
               )}
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={handleCancel} className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button type="button" onClick={handleCancel} className="flex items-center gap-1.5 border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 <X size={14} /> Annuler
               </button>
-              <button type="submit" disabled={saving} className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+              <button type="submit" disabled={saving} className="flex items-center gap-1.5 bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 Enregistrer
               </button>
@@ -602,7 +629,7 @@ export default function ProfilePage() {
         {tab === "palmares" && (
           <div className="space-y-6">
             {/* Add trophy form */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <div className=" border border-gray-200/70 bg-white p-5">
               <h3 className="mb-4 text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <Trophy size={16} className="text-amber-500" /> Ajouter un trophée
               </h3>
@@ -611,7 +638,7 @@ export default function ProfilePage() {
                   value={trophyTitle}
                   onChange={(e) => setTrophyTitle(e.target.value)}
                   placeholder="Titre (ex: Champion régional)"
-                  className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                  className=" border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                 />
                 <input
                   type="number"
@@ -619,19 +646,19 @@ export default function ProfilePage() {
                   onChange={(e) => setTrophyYear(parseInt(e.target.value))}
                   min={1990}
                   max={new Date().getFullYear()}
-                  className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
+                  className=" border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
                 />
                 <input
                   value={trophyDesc}
                   onChange={(e) => setTrophyDesc(e.target.value)}
                   placeholder="Description (optionnel)"
-                  className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
+                  className=" border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none"
                 />
               </div>
               <button
                 onClick={handleAddTrophy}
                 disabled={!trophyTitle.trim() || addingTrophy}
-                className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                className="mt-3 flex items-center gap-1.5 bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
               >
                 {addingTrophy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 Ajouter
@@ -640,7 +667,7 @@ export default function ProfilePage() {
 
             {/* Trophies list */}
             {(user.trophies ?? []).length === 0 ? (
-              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+              <div className=" border border-gray-200/70 bg-white py-12 text-center">
                 <Trophy size={32} className="mx-auto text-gray-300" />
                 <p className="mt-3 text-sm font-medium text-gray-500">Aucun trophée pour le moment</p>
                 <p className="mt-1 text-xs text-gray-400">Ajoutez vos accomplissements sportifs ci-dessus</p>
@@ -648,7 +675,7 @@ export default function ProfilePage() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {(user.trophies ?? []).map((trophy, i) => (
-                  <div key={i} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div key={i} className="flex items-start gap-3 border border-gray-200/70 bg-white p-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
                       <Trophy size={20} className="text-amber-600" />
                     </div>
@@ -661,7 +688,7 @@ export default function ProfilePage() {
                     </div>
                     <button
                       onClick={() => handleRemoveTrophy(i)}
-                      className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      className="shrink-0 p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -680,7 +707,7 @@ export default function ProfilePage() {
                 <Loader2 size={24} className="animate-spin text-emerald-500" />
               </div>
             ) : posts.length === 0 ? (
-              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+              <div className=" border border-gray-200/70 bg-white py-12 text-center">
                 <FileText size={32} className="mx-auto text-gray-300" />
                 <p className="mt-3 text-sm font-medium text-gray-500">Aucun post publié</p>
                 <Link href="/feed" className="mt-2 inline-block text-sm text-emerald-600 hover:underline">
@@ -689,7 +716,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               posts.map((post) => (
-                <div key={post.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div key={post.id} className=" border border-gray-200/70 bg-white p-4">
                   <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
                   <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
                     <span>{timeAgo(post.createdAt)}</span>
@@ -710,7 +737,7 @@ export default function ProfilePage() {
               <button
                 onClick={() => galleryRef.current?.click()}
                 disabled={uploadingGallery}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
                 {uploadingGallery ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 Ajouter des photos
@@ -728,7 +755,7 @@ export default function ProfilePage() {
 
             {/* Gallery grid */}
             {(user.galleryPhotos ?? []).length === 0 ? (
-              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+              <div className=" border border-gray-200/70 bg-white py-12 text-center">
                 <ImageIcon size={32} className="mx-auto text-gray-300" />
                 <p className="mt-3 text-sm font-medium text-gray-500">Aucune photo dans la galerie</p>
                 <p className="mt-1 text-xs text-gray-400">Ajoutez des photos pour enrichir votre profil public</p>
@@ -736,7 +763,7 @@ export default function ProfilePage() {
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                 {(user.galleryPhotos ?? []).map((url, i) => (
-                  <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+                  <div key={i} className="group relative aspect-square overflow-hidden border border-gray-200/70 bg-gray-100">
                     <img src={url} alt="" className="h-full w-full object-cover" />
                     <button
                       onClick={() => handleRemoveGalleryPhoto(url)}
@@ -753,7 +780,7 @@ export default function ProfilePage() {
 
         {/* ═══════════════ TAB: CARTE FUT ═══════════════ */}
         {tab === "carte" && user.userType === "player" && (
-          <div className="flex flex-col items-center rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-emerald-50 p-8">
+          <div className="flex flex-col items-center border border-gray-200/70 bg-gradient-to-br from-gray-50 to-emerald-50 p-8">
             <h3 className="mb-2 text-lg font-bold text-gray-900 font-display">Ma Carte KoppaFoot</h3>
             <p className="mb-6 text-sm text-gray-500">Télécharge ta carte style FUT avec tes infos</p>
             <KoppaFootCard profile={user} width={320} />
@@ -761,15 +788,16 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Logout — the only sign-out entry point in the shell */}
+      {/* Logout, the only sign-out entry point in the shell */}
       <div className="mt-6 flex justify-end">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          className="flex items-center gap-2 border border-gray-200/70 bg-white px-5 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
         >
           <LogOut size={15} />
           Déconnexion
         </button>
+        </div>
       </div>
     </div>
   );

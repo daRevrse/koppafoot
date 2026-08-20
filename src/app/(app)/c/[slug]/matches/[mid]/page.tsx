@@ -6,13 +6,18 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import {
   History, Loader2, Activity, MapPin, Calendar, Clock, SearchX, Users,
-  Goal, ArrowRightLeft, BarChart3,
+  Goal, ArrowRightLeft, BarChart3, ListOrdered, Swords,
 } from "lucide-react";
 import type { LineupEntry } from "@/types";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
-import { getCompetitionBySlug, onCompMatch, OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
-import type { CompMatch, CompMatchRound } from "@/types";
+import Link from "next/link";
+import {
+  getCompetitionBySlug, onCompMatch, onCompMatches, onCompTeams,
+  computeStandings, OWN_GOAL_DETAIL,
+} from "@/lib/competition-firestore";
+import MatchRail from "@/components/match/MatchRail";
+import type { CompMatch, CompMatchRound, CompTeam, CompetitionFormat } from "@/types";
 
 // ============================================
 // Helpers
@@ -73,7 +78,7 @@ function LineupColumn({ title, entries }: { title: string; entries: LineupEntry[
   const renderRow = (entry: LineupEntry) => (
     <div key={entry.playerId || `${entry.number}-${entry.name}`} className="flex items-center gap-2.5 py-1.5">
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-50 text-[10px] font-black tabular-nums text-gray-500">
-        {entry.number || "—"}
+        {entry.number || ","}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">{entry.name}</span>
     </div>
@@ -108,7 +113,15 @@ export default function PublicCompMatchView() {
   const [cid, setCid] = useState<string | null>(null);
   const [compBanner, setCompBanner] = useState<string | null>(null);
   const [compName, setCompName] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"feed" | "stats" | "lineups">("feed");
+  const [detailTab, setDetailTab] = useState<
+    "feed" | "lineups" | "stats" | "standings" | "h2h"
+  >("feed");
+  // Le classement et le face-a-face se calculent sur l'ensemble de la
+  // competition, pas sur ce seul match : d'ou ces deux abonnements.
+  const [compMatches, setCompMatches] = useState<CompMatch[]>([]);
+  const [compTeams, setCompTeams] = useState<CompTeam[]>([]);
+  const [compFormat, setCompFormat] = useState<CompetitionFormat | null>(null);
+  const [compSlug, setCompSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [displayTime, setDisplayTime] = useState(0);
@@ -131,6 +144,8 @@ export default function PublicCompMatchView() {
       setCid(competition.id);
       setCompBanner(competition.bannerUrl);
       setCompName(competition.name);
+      setCompFormat(competition.format);
+      setCompSlug(competition.slug ?? slug);
       unsub = onCompMatch(competition.id, mid, (m) => {
         if (cancelled) return;
         if (!m) setNotFound(true);
@@ -145,10 +160,19 @@ export default function PublicCompMatchView() {
     };
   }, [slug, mid]);
 
+  // Classement et face-a-face : deux lectures de la competition entiere, donc
+  // branchees seulement une fois l'identifiant resolu.
+  useEffect(() => {
+    if (!cid) return;
+    const stopMatches = onCompMatches(cid, setCompMatches);
+    const stopTeams = onCompTeams(cid, setCompTeams);
+    return () => { stopMatches(); stopTeams(); };
+  }, [cid]);
+
   // Server-clock timer. Same semantics as the spectator view: while the clock
   // runs we tick every 100ms from timerStartAt + timerOffset; when paused/stopped
   // the displayed value is the frozen timerOffset (derived at render below, so the
-  // effect only drives the running interval — no synchronous setState in its body).
+  // effect only drives the running interval, no synchronous setState in its body).
   useEffect(() => {
     const ls = match?.liveState;
     if (match?.status !== "live" || !ls || !ls.isTimerRunning || !ls.timerStartAt) return;
@@ -194,12 +218,12 @@ export default function PublicCompMatchView() {
     (match.status === "completed" ? "Terminé" : "À venir");
   const hasMeta = Boolean(match.venueName || match.date || match.time);
   // Competition name plus the round (or poule) this match belongs to.
-  const contextLabel = [
-    compName,
-    match.round ? ROUND_LABELS[match.round] : match.group ? `Poule ${match.group}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const roundLabel = match.round
+    ? ROUND_LABELS[match.round]
+    : match.group
+      ? `Poule ${match.group}`
+      : null;
+  const contextLabel = [compName, roundLabel].filter(Boolean).join(" · ");
   // While the clock runs, show the ticking value; otherwise the frozen offset.
   const shownTime =
     match.liveState?.isTimerRunning && match.liveState.timerStartAt
@@ -207,7 +231,36 @@ export default function PublicCompMatchView() {
       : match.liveState?.timerOffset || 0;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-20">
+    <div className="mx-auto max-w-[1400px] pb-20">
+      {/* Fil d'ariane. Il repond a « ou suis-je » sans reprendre le titre du
+          match, qui est deja en grand juste en dessous. */}
+      <nav
+        aria-label="Fil d'ariane"
+        className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
+      >
+        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+        <span aria-hidden className="text-gray-300">›</span>
+        {compSlug && compName ? (
+          <Link href={`/c/${compSlug}`} className="transition-colors hover:text-emerald-700">
+            {compName}
+          </Link>
+        ) : (
+          <span>Compétition</span>
+        )}
+        {roundLabel && (
+          <>
+            <span aria-hidden className="text-gray-300">›</span>
+            <span>{roundLabel}</span>
+          </>
+        )}
+        <span aria-hidden className="text-gray-300">›</span>
+        <span className="truncate text-gray-600">
+          {match.homeTeamName}, {match.awayTeamName}
+        </span>
+      </nav>
+
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+        <div className="min-w-0 space-y-6">
       {/* Where this match sits: the competition, and its round or group. The
           generic "Centre de Match" title said nothing the page did not already
           show, and "Rapport de match" named the document rather than the game. */}
@@ -280,7 +333,7 @@ export default function PublicCompMatchView() {
           </div>
         </div>
 
-        {/* Where and when — inside the frame rather than in a card of its own
+        {/* Where and when, inside the frame rather than in a card of its own
             below it: these belong to the fixture, not beside it. */}
         {hasMeta && (
           <div className="relative z-10 mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-t border-white/10 pt-4 text-[11px] font-bold text-white/50">
@@ -322,54 +375,55 @@ export default function PublicCompMatchView() {
           { label: "Cartons rouges", home: countBy("red_card", match.homeTeamId), away: countBy("red_card", match.awayTeamId) },
           { label: "Changements", home: countBy("substitution", match.homeTeamId), away: countBy("substitution", match.awayTeamId) },
         ];
-        const activeTab =
-          (detailTab === "lineups" && !hasLineups) || (detailTab === "stats" && !hasStats)
-            ? "feed"
-            : detailTab;
+        // Classement : uniquement si la competition a une phase de groupes
+        // remplie. Une poule vide afficherait un tableau de zeros.
+        const standings = compFormat ? computeStandings(compMatches, compTeams, compFormat) : [];
+        const hasStandings = standings.some((g) => g.rows.length > 0);
+
+        // Face-a-face : les rencontres terminees entre ces deux equipes dans
+        // cette competition, celle-ci exclue. On ne remonte pas plus loin,
+        // rien ne relie deux equipes d'une competition a l'autre.
+        const h2h = (match.homeTeamId && match.awayTeamId)
+          ? compMatches.filter((m) =>
+              m.id !== mid
+              && m.status === "completed"
+              && m.scoreHome !== null && m.scoreAway !== null
+              && ((m.homeTeamId === match.homeTeamId && m.awayTeamId === match.awayTeamId)
+                || (m.homeTeamId === match.awayTeamId && m.awayTeamId === match.homeTeamId)))
+          : [];
+        const hasH2H = h2h.length > 0;
+
+        const TABS = [
+          { id: "feed" as const, label: "Résumé", Icon: History, on: true },
+          { id: "lineups" as const, label: "Compos", Icon: Users, on: hasLineups },
+          { id: "stats" as const, label: "Stats", Icon: BarChart3, on: hasStats },
+          { id: "standings" as const, label: "Classement", Icon: ListOrdered, on: hasStandings },
+          { id: "h2h" as const, label: "H2H", Icon: Swords, on: hasH2H },
+        ].filter((t) => t.on);
+
+        // Un onglet dont la donnee a disparu (compo retiree, classement vide)
+        // ne doit pas laisser la page sur un panneau muet.
+        const activeTab = TABS.some((t) => t.id === detailTab) ? detailTab : "feed";
         return (
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
-            {/* Tab bar */}
-            <div className="mb-8 flex gap-6 border-b border-gray-100">
-              <button
-                onClick={() => setDetailTab("feed")}
-                className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
-                  activeTab === "feed" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                <History size={16} />
-                Fil du match
-                {activeTab === "feed" && (
-                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
-                )}
-              </button>
-              {hasStats && (
+            {/* Barre d'onglets. Pilotee par TABS : un onglet sans donnee
+                derriere ne s'affiche pas du tout, plutot que de s'ouvrir sur
+                un panneau vide. */}
+            <div className="mb-8 flex gap-7 overflow-x-auto border-b border-gray-200/70">
+              {TABS.map((tab) => (
                 <button
-                  onClick={() => setDetailTab("stats")}
-                  className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
-                    activeTab === "stats" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                  key={tab.id}
+                  onClick={() => setDetailTab(tab.id)}
+                  className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 pb-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                    activeTab === tab.id
+                      ? "border-gray-900 text-gray-900"
+                      : "border-transparent text-gray-400 hover:text-gray-700"
                   }`}
                 >
-                  <BarChart3 size={16} />
-                  Statistiques
-                  {activeTab === "stats" && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
-                  )}
+                  <tab.Icon size={14} />
+                  {tab.label}
                 </button>
-              )}
-              {hasLineups && (
-                <button
-                  onClick={() => setDetailTab("lineups")}
-                  className={`relative flex items-center gap-2 pb-3 text-sm font-black transition-colors ${
-                    activeTab === "lineups" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
-                  }`}
-                >
-                  <Users size={16} />
-                  Compositions
-                  {activeTab === "lineups" && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
-                  )}
-                </button>
-              )}
+              ))}
             </div>
 
             {/* Stats panel: one row per metric, the two teams facing each
@@ -427,6 +481,104 @@ export default function PublicCompMatchView() {
             )}
 
             {/* Feed panel */}
+            {activeTab === "standings" && (
+              <div className="space-y-8">
+                {standings.filter((g) => g.rows.length > 0).map((group) => (
+                  <div key={group.group}>
+                    <h3 className="mb-3 border-b border-gray-200/70 pb-2 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+                      Poule {group.group}
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[30rem] text-sm">
+                        <thead>
+                          <tr className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                            <th className="py-2 pr-3 text-left font-black">Équipe</th>
+                            <th className="px-2 py-2 text-right font-black">J</th>
+                            <th className="px-2 py-2 text-right font-black">G</th>
+                            <th className="px-2 py-2 text-right font-black">N</th>
+                            <th className="px-2 py-2 text-right font-black">P</th>
+                            <th className="px-2 py-2 text-right font-black">Diff</th>
+                            <th className="py-2 pl-2 text-right font-black">Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200/70">
+                          {group.rows.map((row, i) => {
+                            // Les deux equipes du match sont mises en avant :
+                            // c'est la seule raison de lire ce tableau ici.
+                            const involved = row.team.id === match.homeTeamId || row.team.id === match.awayTeamId;
+                            return (
+                              <tr key={row.team.id} className={involved ? "bg-emerald-50/60" : undefined}>
+                                <td className="py-2.5 pr-3">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-5 shrink-0 text-right text-[11px] font-black tabular-nums text-gray-400">{i + 1}</span>
+                                    <span className={`truncate ${involved ? "font-black text-gray-900" : "font-bold text-gray-700"}`}>
+                                      {row.team.name}
+                                    </span>
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2.5 text-right tabular-nums text-gray-500">{row.played}</td>
+                                <td className="px-2 py-2.5 text-right tabular-nums text-gray-500">{row.won}</td>
+                                <td className="px-2 py-2.5 text-right tabular-nums text-gray-500">{row.drawn}</td>
+                                <td className="px-2 py-2.5 text-right tabular-nums text-gray-500">{row.lost}</td>
+                                <td className="px-2 py-2.5 text-right tabular-nums text-gray-500">
+                                  {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
+                                </td>
+                                <td className="py-2.5 pl-2 text-right font-display font-black tabular-nums text-gray-900">{row.points}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "h2h" && (
+              <div className="space-y-5">
+                {/* Le bilan d'abord, les rencontres ensuite. */}
+                {(() => {
+                  let hw = 0, d = 0, aw = 0;
+                  for (const m of h2h) {
+                    const hs = m.scoreHome ?? 0, as = m.scoreAway ?? 0;
+                    const homeIsOurHome = m.homeTeamId === match.homeTeamId;
+                    const ourHome = homeIsOurHome ? hs : as;
+                    const ourAway = homeIsOurHome ? as : hs;
+                    if (ourHome > ourAway) hw += 1;
+                    else if (ourHome < ourAway) aw += 1;
+                    else d += 1;
+                  }
+                  return (
+                    <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
+                      {[
+                        { label: match.homeTeamName, value: hw },
+                        { label: "Nuls", value: d },
+                        { label: match.awayTeamName, value: aw },
+                      ].map((x) => (
+                        <div key={x.label} className="bg-white p-4 text-center">
+                          <p className="font-display text-3xl font-black tabular-nums text-gray-900">{x.value}</p>
+                          <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">{x.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                <div className="divide-y divide-gray-200/70 border border-gray-200/70">
+                  {h2h.map((m) => (
+                    <div key={m.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                      <span className="min-w-0 flex-1 truncate text-right font-bold text-gray-900">{m.homeTeamName}</span>
+                      <span className="shrink-0 font-display text-base font-black tabular-nums text-gray-900">
+                        {m.scoreHome} <span className="text-gray-300">–</span> {m.scoreAway}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-bold text-gray-900">{m.awayTeamName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {activeTab === "feed" && (
         <div className="relative">
           {/* Vertical Line */}
@@ -439,7 +591,7 @@ export default function PublicCompMatchView() {
                 const teamName = isHome ? match.homeTeamName : match.awayTeamName;
                 const isSub = event.type === "substitution";
                 // A goal the VAR is looking at, or took away. The disallowed
-                // one stays in the feed — the crowd saw it, and the timeline
+                // one stays in the feed, the crowd saw it, and the timeline
                 // is what explains why the score did not move.
                 const checking = event.type === "goal" && event.varStatus === "checking";
                 const cancelled = event.type === "goal" && event.varStatus === "cancelled";
@@ -462,9 +614,9 @@ export default function PublicCompMatchView() {
                       }`}
                     >
                       {/* A result entered after the fact may carry no minute
-                          (stored as 0) — no goal is ever scored at the 0th. */}
+                          (stored as 0), no goal is ever scored at the 0th. */}
                       <span className="text-[10px] font-black">
-                        {event.minute ? `${event.minute}'` : "—"}
+                        {event.minute ? `${event.minute}'` : ","}
                       </span>
                     </div>
 
@@ -535,6 +687,32 @@ export default function PublicCompMatchView() {
           </div>
           );
         })()}
+        </div>
+
+        {/* Le rail de la page. Il est rendu ici et non par le shell : son
+            contenu depend du match. ScoreShell referme sa gouttiere sur cette
+            route (routeOwnsItsRail) pour ne pas reserver 320px par-dessus. */}
+        <aside className="mt-6 lg:sticky lg:top-6 lg:mt-0">
+          <MatchRail
+            match={{
+              id: mid,
+              homeTeamName: match.homeTeamName,
+              awayTeamName: match.awayTeamName,
+              homeTeamLogo: match.homeTeamLogo,
+              awayTeamLogo: match.awayTeamLogo,
+              date: match.date,
+              time: match.time,
+              venueName: match.venueName,
+              venueCity: match.venueCity,
+              // Le pronostic ferme des que le match n'est plus a venir.
+              started: match.status !== "scheduled",
+              competition: compName
+                ? { name: compName, href: compSlug ? `/c/${compSlug}` : "/", round: roundLabel }
+                : null,
+            }}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

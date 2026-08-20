@@ -8,8 +8,8 @@ import type { FirestoreCompetition } from "@/types";
  *
  * The copy itself lives in lib/club-import-server so that accepting a
  * registration lands a squad in exactly the same state. This route only
- * carries the authorization: the caller must run BOTH sides — their own club
- * into their own competition team — unless they are an organizer of that
+ * carries the authorization: the caller must run BOTH sides, their own club
+ * into their own competition team, unless they are an organizer of that
  * competition or a superadmin acting on a manager's behalf.
  *
  * POST { cid, teamId, clubId }

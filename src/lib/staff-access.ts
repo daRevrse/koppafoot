@@ -14,7 +14,7 @@ import { toStaffGrant } from "@/lib/staff-scope";
 import type { FirestoreStaffGrant, StaffGrant } from "@/types";
 
 // ============================================
-// Staff grants — the client side of the access codes
+// Staff grants, the client side of the access codes
 //
 // Grants are written by the API only (Firestore rules deny every client
 // write). The browser reads them for two things: the organizer's staff screen,

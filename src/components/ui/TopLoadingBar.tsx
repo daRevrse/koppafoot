@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 // ============================================
-// TopLoadingBar — a thin YouTube-style progress bar pinned to the top of
+// TopLoadingBar, a thin YouTube-style progress bar pinned to the top of
 // the viewport. Starts trickling on internal link clicks / back-forward,
 // then completes when the route (pathname or query) actually changes.
 // ============================================

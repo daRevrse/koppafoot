@@ -18,7 +18,7 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 // ============================================
 
 const schema = yup.object({
-  // Step 1 — Personal
+  // Step 1, Personal
   firstName: yup.string().min(2, "Min. 2 caractères").required("Prénom requis"),
   lastName: yup.string().min(2, "Min. 2 caractères").required("Nom requis"),
   email: yup.string().email("Email invalide").required("Email requis"),
@@ -28,7 +28,7 @@ const schema = yup.object({
     .string()
     .oneOf([yup.ref("password")], "Les mots de passe ne correspondent pas")
     .required("Confirmation requise"),
-  // Step 2 — Venue
+  // Step 2, Venue
   venueName: yup.string().min(3, "Min. 3 caractères").required("Nom du terrain requis"),
   venueAddress: yup.string().required("Adresse requise"),
   venueCity: yup.string().required("Ville requise"),
@@ -178,7 +178,7 @@ export default function VenueOwnerSignupPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <AnimatePresence mode="wait">
-          {/* Step 1 — Personal */}
+          {/* Step 1, Personal */}
           {step === 0 && (
             <motion.div
               key="step-0"
@@ -254,7 +254,7 @@ export default function VenueOwnerSignupPage() {
             </motion.div>
           )}
 
-          {/* Step 2 — Venue */}
+          {/* Step 2, Venue */}
           {step === 1 && (
             <motion.div
               key="step-1"
@@ -319,7 +319,7 @@ export default function VenueOwnerSignupPage() {
             </motion.div>
           )}
 
-          {/* Step 3 — Confirm */}
+          {/* Step 3, Confirm */}
           {step === 2 && (
             <motion.div
               key="step-2"

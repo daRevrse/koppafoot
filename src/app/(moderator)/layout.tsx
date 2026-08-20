@@ -6,11 +6,12 @@ import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
-import AppShell from "@/components/layout/AppShell";
+import ScoreShell from "@/components/layout/v2/ScoreShell";
+import AuthRequired from "@/components/auth/AuthRequired";
 
 // "Live ops" space for moderators. Access is CONTROLLED: besides
 // authentication, the user must moderate at least one competition (or be
-// a superadmin) — everyone else is sent home. Per-competition membership
+// a superadmin), everyone else is sent home. Per-competition membership
 // stays enforced on the pages + by Firestore rules.
 //
 // The list screens render inside the SHARED app shell (they used to have
@@ -28,7 +29,7 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
   const [moderatesOk, setModeratesOk] = useState(false);
   const [checked, setChecked] = useState(false);
 
-  // Superadmin access is a property of the profile, not a lookup — derive it
+  // Superadmin access is a property of the profile, not a lookup, derive it
   // rather than writing it into state from inside the effect.
   const isSuperadmin = user?.userType === "superadmin";
   const allowed = isSuperadmin || moderatesOk;
@@ -36,7 +37,7 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (loading) return;
-    if (!firebaseUser) { router.replace("/login"); return; }
+    if (!firebaseUser) return;   // asked in place, see AuthRequired
     if (!user) { router.replace("/get-started"); return; }
     if (user.userType === "superadmin") return;
 
@@ -57,7 +58,16 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
     return () => { cancelled = true; };
   }, [user, firebaseUser, loading, router]);
 
-  if (loading || !firebaseUser || !user || !ready || !allowed) {
+  // Guest: keep the address, ask for the account over the top of it.
+  if (!loading && !firebaseUser) {
+    return (
+      <ScoreShell showTribune={false}>
+        <AuthRequired message="L'espace live demande un compte KoppaFoot." />
+      </ScoreShell>
+    );
+  }
+
+  if (loading || !user || !ready || !allowed) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 size={32} className="animate-spin text-primary-600" />
@@ -69,5 +79,5 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
     return <div className="min-h-screen bg-gray-50">{children}</div>;
   }
 
-  return <AppShell showTribune={false}>{children}</AppShell>;
+  return <ScoreShell showTribune={false}>{children}</ScoreShell>;
 }

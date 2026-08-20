@@ -9,12 +9,12 @@ import { SYSTEM_AUTHOR_ID } from "@/types";
 /**
  * The superadmin's own voice in the Tribune.
  *
- * GET                                  — the official account's own posts,
+ * GET                                 , the official account's own posts,
  *                                        plus its display identity.
- * POST   { content, pinned?, link? }   — publish as the official account.
- * PATCH  { id, pinned? , content? }    — pin/unpin, or rewrite the text.
- * PUT    { name, avatarUrl }           — the account's display identity.
- * DELETE { id }                        — moderation: remove any post.
+ * POST   { content, pinned?, link? }  , publish as the official account.
+ * PATCH  { id, pinned? , content? }   , pin/unpin, or rewrite the text.
+ * PUT    { name, avatarUrl }          , the account's display identity.
+ * DELETE { id }                       , moderation: remove any post.
  *
  * Everything here is superadmin-only. Publishing as "system" is impossible
  * from a browser by design (see firestore.rules), so it has to come through
@@ -78,7 +78,7 @@ export async function PUT(req: NextRequest) {
     const { name, avatarUrl, avatar } = (await req.json()) as {
       name?: string;
       avatarUrl?: string | null;
-      /** New picture, base64 — the browser cannot write the bucket itself. */
+      /** New picture, base64, the browser cannot write the bucket itself. */
       avatar?: { data?: string; contentType?: string } | null;
     };
     if (!name?.trim()) {
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Le message est requis" }, { status: 400 });
     }
 
-    // One pinned post at a time — a wall of pins pins nothing.
+    // One pinned post at a time, a wall of pins pins nothing.
     if (pinned) await unpinAll();
 
     const id = await publishOfficialPost({
@@ -159,7 +159,7 @@ export async function PATCH(req: NextRequest) {
     const patch: Record<string, unknown> = { updated_at: FieldValue.serverTimestamp() };
 
     if (content !== undefined) {
-      // Rewriting text is only offered on the platform's own posts — editing
+      // Rewriting text is only offered on the platform's own posts, editing
       // someone else's words under their name is not moderation.
       if (snap.data()?.author_id !== SYSTEM_AUTHOR_ID) {
         return NextResponse.json(
@@ -200,7 +200,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Publication introuvable" }, { status: 404 });
     }
 
-    // Warn the author their post went — unless it was ours to begin with.
+    // Warn the author their post went, unless it was ours to begin with.
     const authorId = snap.data()?.author_id;
     if (authorId && authorId !== SYSTEM_AUTHOR_ID) {
       await adminDb.collection("notifications").add({

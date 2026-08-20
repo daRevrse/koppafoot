@@ -60,6 +60,27 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) ? get(p).data : null;
     }
 
+    // Les casquettes : ce qu'un compte FAIT, cumulable, par opposition au
+    // rôle Evolution qui dit ce qu'il EST sur le terrain.
+    //
+    // Deux signaux lus ensemble. Le drapeau est le modèle actuel ; le
+    // `user_type` hérité couvre les comptes approuvés avant le changement,
+    // qui n'ont jamais reçu de drapeau. Ne lire que le premier aurait coupé
+    // l'accès à tous les organisateurs existants.
+    function hasHat(flag, legacyType) {
+      let profile = getProfile();
+      return profile != null
+        && (profile.get(flag, false) == true || profile.user_type == legacyType);
+    }
+
+    function isOrganizerHat() {
+      return hasHat('is_organizer', 'organizer') || isSuperAdmin();
+    }
+
+    function isVenueOwnerHat() {
+      return hasHat('is_venue_owner', 'venue_owner');
+    }
+
     function grantIsLive(g) {
       return g != null
         && g.get('revoked', false) == false
@@ -125,9 +146,22 @@ service cloud.firestore {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasOnly([
           'user_type', 'evolution_role', 'position', 'skill_level',
-          'strong_foot', 'team_name', 'location_city', 'updated_at'
+          'strong_foot', 'team_name', 'location_city', 'updated_at',
+          // Le rôle arbitre est activable librement depuis /evolution : son
+          // formulaire écrit le niveau et le numéro de licence. Sans ces deux
+          // clés ici, `hasOnly` rejetait l'activation entière.
+          //
+          // Personne ne vérifie ce numéro : il sert à se présenter aux
+          // organisateurs, pas à valider quoi que ce soit. Le laisser écrire
+          // par son propriétaire n'accorde donc aucun pouvoir.
+          'license_level', 'license_number'
         ])
-        && request.resource.data.user_type in ['player', 'manager']
+        // « referee » rejoint les cibles possibles — il était déjà accepté en
+        // valeur de DÉPART, ce qui laissait un arbitre historique changer de
+        // rôle sans pouvoir le redevenir. Organisateur et superadmin restent
+        // hors de ce chemin, des deux côtés : ces transitions passent par le
+        // SDK admin.
+        && request.resource.data.user_type in ['player', 'manager', 'referee']
         && resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner'];
     }
 
@@ -167,8 +201,19 @@ service cloud.firestore {
     // Venues collection
     // ============================================
     match /venues/{venueId} {
-      allow read: if isAuthenticated();
-      allow create: if isRole('venue_owner') && request.resource.data.owner_id == request.auth.uid;
+      // Lecture publique : un terrain est une annonce faite pour etre trouvee.
+      // Le document ne porte que ce qu'on publie volontairement — nom,
+      // adresse, format, surface — et aucune coordonnee personnelle : celles
+      // du proprietaire restent dans `users`, ferme.
+      allow read: if true;
+
+      // Créer un terrain demande la casquette « propriétaire », qui s'obtient
+      // par candidature. Elle se cumule avec le rôle Evolution : un arbitre
+      // ou un organisateur peut posséder un terrain sans cesser d'être l'un
+      // ou l'autre.
+      allow create: if isAuthenticated()
+                    && request.resource.data.owner_id == request.auth.uid
+                    && isVenueOwnerHat();
       allow update: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
       allow delete: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
     }
@@ -176,12 +221,37 @@ service cloud.firestore {
     // ============================================
     // Bookings collection
     // ============================================
+    // Demandes de créneau.
+    //
+    // Lecture réservée aux deux parties : une demande dit qui joue où et
+    // quand, ça ne regarde que le demandeur et le propriétaire. Les créneaux
+    // OCCUPÉS sont publiés séparément par /api/public/venue/[id]/slots, qui
+    // ne sort que la date et l'heure — jamais le nom du demandeur.
     match /bookings/{bookingId} {
-      allow read: if isAuthenticated() 
+      allow read: if isAuthenticated()
         && (resource.data.owner_id == request.auth.uid || resource.data.user_id == request.auth.uid || isSuperAdmin());
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() 
-        && (resource.data.owner_id == request.auth.uid || resource.data.user_id == request.auth.uid || isSuperAdmin());
+
+      // `create` était ouvert à tout compte connecté, sans contrainte sur le
+      // contenu : on pouvait donc déposer une demande au nom de quelqu'un
+      // d'autre, ou l'écrire déjà confirmée. Le demandeur est désormais
+      // forcément l'auteur, et toute demande naît en attente.
+      allow create: if isAuthenticated()
+                    && request.resource.data.user_id == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.venue_id is string
+                    && request.resource.data.owner_id is string;
+
+      // Confirmer est le geste du PROPRIÉTAIRE. L'ancienne règle laissait les
+      // deux parties écrire n'importe quel statut : un demandeur pouvait
+      // confirmer sa propre réservation, ce qui vidait l'accord de son sens.
+      // Il lui reste l'annulation, qui est légitimement la sienne.
+      allow update: if isAuthenticated() && (
+        resource.data.owner_id == request.auth.uid
+        || (resource.data.user_id == request.auth.uid
+            && request.resource.data.status == 'cancelled')
+        || isSuperAdmin()
+      );
+
       allow delete: if isSuperAdmin();
     }
 
@@ -411,6 +481,32 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated() && (request.resource.data.rated_by == request.auth.uid || resource.data.rated_by == request.auth.uid);
     }
 
+    // Pronostics « qui va gagner ? ».
+    //
+    // L'identifiant du document EST la contrainte : match__uid. Un compte ne
+    // peut donc physiquement pas déposer deux pronostics sur le même match,
+    // sans qu'aucune requête de comptage soit nécessaire pour le vérifier.
+    //
+    // Lecture réservée à l'auteur : le rail affiche des totaux, pas des noms.
+    // Ces totaux sont calculés par /api/matches/[mid]/predictions avec le SDK
+    // admin — c'est ce qui permet de garder les votes individuels fermés tout
+    // en publiant le résultat.
+    match /match_predictions/{predictionId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.uid == request.auth.uid
+                    && predictionId == request.resource.data.match_id + '__' + request.auth.uid
+                    && request.resource.data.pick in ['home', 'draw', 'away'];
+      allow update: if isAuthenticated()
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.match_id == resource.data.match_id
+                    && request.resource.data.pick in ['home', 'draw', 'away'];
+      // Un pronostic se change, il ne s'efface pas : sinon on pourrait voter,
+      // effacer, revoter pour gonfler un camp.
+      allow delete: if false;
+    }
+
     // Same as /follows: /api/follows owns the write, counter included.
     match /team_follows/{followId} {
       allow read: if isAuthenticated();
@@ -430,7 +526,7 @@ service cloud.firestore {
     // ============================================
     match /competitions/{cid} {
       allow read: if true;
-      allow create: if isRole('organizer')
+      allow create: if isOrganizerHat()
                     && request.auth.uid in request.resource.data.organizer_ids;
       allow update, delete: if isOrganizerOf(cid) || isSuperAdmin();
 

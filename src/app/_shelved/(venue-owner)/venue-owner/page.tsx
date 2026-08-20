@@ -13,15 +13,15 @@ export default function VenueOwnerDashboard() {
       <div className="mt-8 grid gap-6 sm:grid-cols-3">
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <p className="text-sm text-gray-500">Réservations</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">—</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">,</p>
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <p className="text-sm text-gray-500">Confirmées</p>
-          <p className="mt-1 text-2xl font-bold text-primary-600">—</p>
+          <p className="mt-1 text-2xl font-bold text-primary-600">,</p>
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <p className="text-sm text-gray-500">Revenus</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">—</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">,</p>
         </div>
       </div>
     </div>

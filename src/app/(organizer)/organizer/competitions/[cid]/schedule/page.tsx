@@ -33,7 +33,7 @@ interface RowState {
   venueCity: string;
 }
 
-// Display order of the final-phase rounds. `third_place` closes the list — it
+// Display order of the final-phase rounds. `third_place` closes the list, it
 // is not part of the elimination tree but it is a match to schedule all the same.
 const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final", "third_place"];
 
@@ -179,13 +179,13 @@ export default function CompetitionSchedulePage() {
 
   // Every schedulable block, in order: the groups first, then the final phase
   // round by round. A knockout match is scheduled before its two teams are
-  // known — the calendar is fixed first, the qualifiers arrive later.
+  // known, the calendar is fixed first, the qualifiers arrive later.
   const sections = useMemo<Section[]>(() => {
     const out: Section[] = [];
 
     const byGroup = new Map<string, CompMatch[]>();
     for (const m of groupMatches) {
-      const key = m.group ?? "—";
+      const key = m.group ?? ",";
       const bucket = byGroup.get(key);
       if (bucket) bucket.push(m);
       else byGroup.set(key, [m]);
@@ -208,7 +208,7 @@ export default function CompetitionSchedulePage() {
       });
     }
 
-    // Knockout matches added by hand carry no round — keep them visible.
+    // Knockout matches added by hand carry no round, keep them visible.
     const looseKnockout = knockoutMatches.filter((m) => !m.round);
     if (looseKnockout.length > 0) {
       out.push({
@@ -272,7 +272,7 @@ export default function CompetitionSchedulePage() {
 
   // Double-booking detection: two matches sharing the same venue + date + time.
   // Recomputed live as the organizer edits, so warnings appear immediately.
-  // A clash does not care about the stage — a quarter-final and a group match
+  // A clash does not care about the stage, a quarter-final and a group match
   // cannot share a pitch at the same hour either.
   const conflictIds = useMemo(() => {
     const seen = new Map<string, string>();
@@ -323,7 +323,7 @@ export default function CompetitionSchedulePage() {
   };
 
   const openAdd = () => {
-    // A cup has no poule — default such a competition to the final phase.
+    // A cup has no poule, default such a competition to the final phase.
     const stage: "group" | "knockout" =
       competition && !hasGroupStage(competition.competitionType) ? "knockout" : "group";
     setAddForm({
@@ -481,7 +481,7 @@ export default function CompetitionSchedulePage() {
   };
 
   /**
-   * Name of one side. A bracket slot is often still empty — it then shows where
+   * Name of one side. A bracket slot is often still empty, it then shows where
    * the place comes from ("1er poule A"), so the organizer knows what they are
    * scheduling before the qualifiers are known.
    */
@@ -520,15 +520,15 @@ export default function CompetitionSchedulePage() {
               <span className={away.pending ? "font-medium italic text-gray-400" : ""}>{away.label}</span>
             </span>
             {completed && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-700">
+              <span className="inline-flex items-center gap-1 bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-700">
                 <Check size={11} />
                 {match.scoreHome ?? 0} - {match.scoreAway ?? 0}
               </span>
             )}
             {past && (
               <span
-                title="Date dépassée — ajoutez un score ou reportez le match"
-                className="inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
+                title="Date dépassée, ajoutez un score ou reportez le match"
+                className="inline-flex items-center gap-1 bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
               >
                 <Clock size={11} />
                 Date dépassée
@@ -537,7 +537,7 @@ export default function CompetitionSchedulePage() {
             {conflict && (
               <span
                 title="Créneau déjà pris (stade + date + heure)"
-                className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
+                className="inline-flex items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
               >
                 <AlertTriangle size={11} />
                 Conflit
@@ -545,13 +545,13 @@ export default function CompetitionSchedulePage() {
             )}
           </p>
           <div className="flex shrink-0 items-center gap-1">
-            {/* Saved results stay editable — a wrong score or a
+            {/* Saved results stay editable, a wrong score or a
                 forgotten scorer is corrected from the same modal. */}
             {completed && canEnterResult && (
               <button
                 type="button"
                 onClick={() => openScore(match)}
-                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
               >
                 <Goal size={14} />
                 Score &amp; buteurs
@@ -560,7 +560,7 @@ export default function CompetitionSchedulePage() {
             <button
               type="button"
               onClick={() => openBanner(match)}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors ${
                 match.bannerUrl
                   ? "text-emerald-600 hover:bg-emerald-50"
                   : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -573,7 +573,7 @@ export default function CompetitionSchedulePage() {
               href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
               target="_blank"
               rel="noopener"
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isKnockout
                   ? "text-purple-600 hover:bg-purple-50"
                   : "text-primary-600 hover:bg-primary-50"
@@ -587,7 +587,7 @@ export default function CompetitionSchedulePage() {
 
         {/* Past-date action bar */}
         {past && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2 border border-red-200 bg-red-50 p-3">
             <div className="flex items-center gap-2 text-sm text-red-700">
               <AlertTriangle size={16} />
               <span className="font-semibold">Ce match devait se jouer le {row.date}{row.time ? ` à ${row.time}` : ""}.</span>
@@ -597,7 +597,7 @@ export default function CompetitionSchedulePage() {
                 <button
                   type="button"
                   onClick={() => openScore(match)}
-                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+                  className="flex items-center gap-1.5 bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
                 >
                   <Trophy size={15} />
                   Ajouter score
@@ -606,7 +606,7 @@ export default function CompetitionSchedulePage() {
               <button
                 type="button"
                 onClick={() => openPostpone(match)}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                className="flex items-center gap-1.5 border border-gray-200/70 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
               >
                 <CalendarClock size={15} />
                 Reporter
@@ -623,8 +623,8 @@ export default function CompetitionSchedulePage() {
               type="date"
               value={row.date}
               onChange={(e) => updateRow(match.id, "date", e.target.value)}
-              className={`rounded-lg border px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none ${
-                past ? "border-red-300 bg-red-50/50" : "border-gray-200"
+              className={` border px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none ${
+                past ? "border-red-300 bg-red-50/50" : "border-gray-200/70"
               }`}
             />
           </label>
@@ -634,7 +634,7 @@ export default function CompetitionSchedulePage() {
               type="time"
               value={row.time}
               onChange={(e) => updateRow(match.id, "time", e.target.value)}
-              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              className=" border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1">
@@ -644,7 +644,7 @@ export default function CompetitionSchedulePage() {
               placeholder="Nom du stade"
               value={row.venueName}
               onChange={(e) => updateRow(match.id, "venueName", e.target.value)}
-              className="min-w-[8rem] rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              className="min-w-[8rem] border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1">
@@ -657,14 +657,14 @@ export default function CompetitionSchedulePage() {
               placeholder="Ville"
               value={row.venueCity}
               onChange={(e) => updateRow(match.id, "venueCity", e.target.value)}
-              className="min-w-[7rem] rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              className="min-w-[7rem] border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
             />
           </label>
           <button
             type="button"
             onClick={() => handleSave(match.id)}
             disabled={saving}
-            className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-primary-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? (
               <Loader2 size={15} className="animate-spin" />
@@ -738,14 +738,14 @@ export default function CompetitionSchedulePage() {
             onClick={openAdd}
             disabled={teams.length < 2}
             title={teams.length < 2 ? "Ajoute au moins deux équipes d'abord" : "Ajouter un match"}
-            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={16} />
             Ajouter un match
           </button>
           <Link
             href={`/organizer/competitions/${cid}/import`}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
           >
             <Upload size={16} />
             Importer
@@ -762,30 +762,30 @@ export default function CompetitionSchedulePage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center"
+          className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
+          <div className="flex h-14 w-14 items-center justify-center bg-blue-50">
             <Calendar size={26} className="text-blue-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucun match</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Importez votre calendrier de matchs — ou générez automatiquement un round-robin de poule.
+            Importez votre calendrier de matchs, ou générez automatiquement un round-robin de poule.
             Les matchs de phase finale apparaîtront ici dès que le tableau sera dessiné.
           </p>
           <Link
             href={`/organizer/competitions/${cid}/import`}
-            className="mt-6 flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700"
+            className="mt-6 flex items-center gap-2 bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700"
           >
             <Upload size={16} />
             Importer des matchs
           </Link>
-          {/* A cup has no group stage — its matches come from the bracket. */}
+          {/* A cup has no group stage, its matches come from the bracket. */}
           {competition && hasGroupStage(competition.competitionType) && (
             <button
               type="button"
               onClick={handleGenerate}
               disabled={generating}
-              className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 flex items-center gap-2 border border-gray-200/70 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
               ou générer un round-robin
@@ -793,7 +793,7 @@ export default function CompetitionSchedulePage() {
           )}
           <Link
             href={`/organizer/competitions/${cid}/knockout`}
-            className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            className="mt-3 flex items-center gap-2 border border-gray-200/70 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
           >
             <GitBranch size={16} />
             ou dessiner la phase finale
@@ -803,13 +803,13 @@ export default function CompetitionSchedulePage() {
         <div className="space-y-6">
           {/* Horizontal navigation bar for the groups and the final phase */}
           {sections.length > 0 && (
-            <div className="flex items-center justify-between gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+            <div className="flex items-center justify-between gap-2 border border-gray-200/70 bg-white p-2">
               <button
                 type="button"
                 onClick={handlePrevSection}
                 aria-label="Bloc précédent"
                 title="Bloc précédent"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="flex h-9 w-9 shrink-0 items-center justify-center border border-gray-200/70 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -818,9 +818,9 @@ export default function CompetitionSchedulePage() {
                 <button
                   type="button"
                   onClick={() => setSelectedSection("ALL")}
-                  className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                  className={`shrink-0 px-4 py-2 text-xs font-bold transition-all ${
                     selectedSection === "ALL"
-                      ? "bg-primary-600 text-white shadow-md shadow-primary-200"
+                      ? "bg-primary-600 text-white shadow-primary-200"
                       : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                   }`}
                 >
@@ -834,16 +834,16 @@ export default function CompetitionSchedulePage() {
                       key={section.id}
                       type="button"
                       onClick={() => setSelectedSection(section.id)}
-                      className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                      className={`flex shrink-0 items-center gap-2 px-4 py-2 text-xs font-bold transition-all ${
                         isSelected
                           ? knockout
-                            ? "bg-purple-600 text-white shadow-md shadow-purple-200"
-                            : "bg-amber-500 text-white shadow-md shadow-amber-200"
+                            ? "bg-purple-600 text-white shadow-purple-200"
+                            : "bg-amber-500 text-white shadow-amber-200"
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                       }`}
                     >
                       <span
-                        className={`flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-[11px] font-black ${
+                        className={`flex h-5 min-w-5 items-center justify-center px-1 text-[11px] font-black ${
                           isSelected
                             ? "bg-white/20 text-white"
                             : knockout
@@ -864,7 +864,7 @@ export default function CompetitionSchedulePage() {
                 onClick={handleNextSection}
                 aria-label="Bloc suivant"
                 title="Bloc suivant"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="flex h-9 w-9 shrink-0 items-center justify-center border border-gray-200/70 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
                 <ChevronRight size={18} />
               </button>
@@ -879,11 +879,11 @@ export default function CompetitionSchedulePage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: si * 0.04 }}
-                className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+                className="overflow-hidden border border-gray-200/70 bg-white"
               >
-                <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3">
+                <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/70 px-5 py-3">
                   <span
-                    className={`flex h-7 min-w-7 items-center justify-center rounded-lg px-1 text-sm font-bold ${
+                    className={`flex h-7 min-w-7 items-center justify-center px-1 text-sm font-bold ${
                       knockout ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700"
                     }`}
                   >
@@ -893,7 +893,7 @@ export default function CompetitionSchedulePage() {
                   {knockout && (
                     <Link
                       href={`/organizer/competitions/${cid}/knockout`}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold text-purple-600 transition-colors hover:bg-purple-50"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-purple-600 transition-colors hover:bg-purple-50"
                     >
                       Tableau
                       <ChevronRight size={12} />
@@ -904,7 +904,7 @@ export default function CompetitionSchedulePage() {
                   </span>
                 </div>
 
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-200/70">
                   {section.matches.map((match) => renderMatchRow(match))}
                 </div>
               </motion.section>
@@ -921,31 +921,31 @@ export default function CompetitionSchedulePage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="max-h-[90vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Ajouter un match</h2>
                 <button
                   onClick={() => !addingMatch && setAddOpen(false)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                  className=" p-1.5 text-gray-400 hover:bg-gray-100"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               <div className="space-y-4">
-                {/* Phase — a poule match or a final-phase one */}
+                {/* Phase, a poule match or a final-phase one */}
                 <div className="flex items-center gap-2">
                   {(["group", "knockout"] as const).map((stage) => (
                     <button
                       key={stage}
                       type="button"
                       onClick={() => setAdd("stage", stage)}
-                      className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all ${
                         addForm.stage === stage
                           ? stage === "knockout"
-                            ? "bg-purple-600 text-white shadow-md shadow-purple-200"
-                            : "bg-amber-500 text-white shadow-md shadow-amber-200"
+                            ? "bg-purple-600 text-white shadow-purple-200"
+                            : "bg-amber-500 text-white shadow-amber-200"
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                       }`}
                     >
@@ -961,9 +961,9 @@ export default function CompetitionSchedulePage() {
                     <select
                       value={addForm.homeTeamId}
                       onChange={(e) => setAdd("homeTeamId", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">— Équipe —</option>
+                      <option value="">, Équipe,</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.awayTeamId}>
                           {t.name}{t.group ? ` (${t.group})` : ""}
@@ -976,9 +976,9 @@ export default function CompetitionSchedulePage() {
                     <select
                       value={addForm.awayTeamId}
                       onChange={(e) => setAdd("awayTeamId", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">— Équipe —</option>
+                      <option value="">, Équipe,</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.homeTeamId}>
                           {t.name}{t.group ? ` (${t.group})` : ""}
@@ -996,7 +996,7 @@ export default function CompetitionSchedulePage() {
                         <select
                           value={addForm.round}
                           onChange={(e) => setAdd("round", e.target.value as CompMatchRound)}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                          className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                         >
                           {ROUND_ORDER.map((r) => (
                             <option key={r} value={r}>
@@ -1013,7 +1013,7 @@ export default function CompetitionSchedulePage() {
                           placeholder="A"
                           value={addForm.group}
                           onChange={(e) => setAdd("group", e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                          className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                         />
                       </>
                     )}
@@ -1024,7 +1024,7 @@ export default function CompetitionSchedulePage() {
                       type="date"
                       value={addForm.date}
                       onChange={(e) => setAdd("date", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
                   <div className="col-span-1">
@@ -1033,17 +1033,17 @@ export default function CompetitionSchedulePage() {
                       type="time"
                       value={addForm.time}
                       onChange={(e) => setAdd("time", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
                   <div className="col-span-1">
                     <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
                     <input
                       type="text"
-                      placeholder="Lomé"
+                      placeholder="Ville"
                       value={addForm.venueCity}
                       onChange={(e) => setAdd("venueCity", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1055,7 +1055,7 @@ export default function CompetitionSchedulePage() {
                     placeholder="Nom du stade"
                     value={addForm.venueName}
                     onChange={(e) => setAdd("venueName", e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   />
                   {/* Occupied slots hint for the chosen venue */}
                   {addForm.venueName.trim() && (() => {
@@ -1074,7 +1074,7 @@ export default function CompetitionSchedulePage() {
                 </div>
 
                 {addForm.stage === "knockout" && (
-                  <p className="rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
+                  <p className=" border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
                     Ce match est ajouté au tableau sans y être relié : le vainqueur ne remonte pas
                     automatiquement. Pour un arbre complet, passez par{" "}
                     <Link href={`/organizer/competitions/${cid}/knockout`} className="font-bold underline">
@@ -1088,7 +1088,7 @@ export default function CompetitionSchedulePage() {
                   <button
                     type="button"
                     onClick={() => !addingMatch && setAddOpen(false)}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   >
                     Annuler
                   </button>
@@ -1096,7 +1096,7 @@ export default function CompetitionSchedulePage() {
                     type="button"
                     onClick={handleAddMatch}
                     disabled={addingMatch}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {addingMatch ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                     Ajouter le match
@@ -1116,13 +1116,13 @@ export default function CompetitionSchedulePage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-lg modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-lg modal-sheet rounded-t-3xl bg-white p-6"
             >
               <div className="mb-1 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Bannière du match</h2>
                 <button
                   onClick={() => !savingBanner && setBannerMatch(null)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                  className=" p-1.5 text-gray-400 hover:bg-gray-100"
                 >
                   <X size={18} />
                 </button>
@@ -1158,7 +1158,7 @@ export default function CompetitionSchedulePage() {
                       }
                     }}
                     disabled={savingBanner}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
+                    className=" px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
                   >
                     Retirer
                   </button>
@@ -1167,7 +1167,7 @@ export default function CompetitionSchedulePage() {
                   <button
                     type="button"
                     onClick={() => !savingBanner && setBannerMatch(null)}
-                    className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                    className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   >
                     Annuler
                   </button>
@@ -1175,7 +1175,7 @@ export default function CompetitionSchedulePage() {
                     type="button"
                     onClick={saveBanner}
                     disabled={savingBanner}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {savingBanner ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     Enregistrer
@@ -1187,7 +1187,7 @@ export default function CompetitionSchedulePage() {
         )}
       </AnimatePresence>
 
-      {/* Score + scorers modal — shared with the knockout bracket */}
+      {/* Score + scorers modal, shared with the knockout bracket */}
       <MatchResultModal
         cid={cid}
         match={scoreMatch}
@@ -1204,13 +1204,13 @@ export default function CompetitionSchedulePage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Reporter le match</h2>
                 <button
                   onClick={() => !savingPostpone && setPostponeMatch(null)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                  className=" p-1.5 text-gray-400 hover:bg-gray-100"
                 >
                   <X size={18} />
                 </button>
@@ -1234,7 +1234,7 @@ export default function CompetitionSchedulePage() {
                       type="date"
                       value={postponeDate}
                       onChange={(e) => setPostponeDate(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -1243,7 +1243,7 @@ export default function CompetitionSchedulePage() {
                       type="time"
                       value={postponeTime}
                       onChange={(e) => setPostponeTime(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1253,7 +1253,7 @@ export default function CompetitionSchedulePage() {
                 <button
                   type="button"
                   onClick={() => !savingPostpone && setPostponeMatch(null)}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Annuler
                 </button>
@@ -1261,7 +1261,7 @@ export default function CompetitionSchedulePage() {
                   type="button"
                   onClick={handleSavePostpone}
                   disabled={savingPostpone}
-                  className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-primary-200 transition-all hover:bg-primary-700 disabled:opacity-50"
                 >
                   {savingPostpone ? <Loader2 size={16} className="animate-spin" /> : <CalendarClock size={16} />}
                   Reporter le match

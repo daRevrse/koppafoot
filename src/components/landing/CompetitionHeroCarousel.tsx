@@ -20,7 +20,7 @@ import type { CompMatch, CompetitionStatus } from "@/types";
 // no data at all.
 //
 // Receives PLAIN serializable props from page.tsx (a Server Component). This is a
-// CLIENT component — it must NEVER import the server-only libs at runtime; only
+// CLIENT component, it must NEVER import the server-only libs at runtime; only
 // their exported TYPES are imported (import type) above.
 //
 // Competition banners/logos, team crests and provider emblems are arbitrary URLs

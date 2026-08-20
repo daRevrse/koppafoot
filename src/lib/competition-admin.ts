@@ -1,6 +1,6 @@
 // Server-only lib for public competition discovery (landing + /competitions).
 // Uses firebase-admin (adminDb) and the SDK-agnostic mappers. MUST NOT be
-// imported into any client component — it would leak server credentials.
+// imported into any client component, it would leak server credentials.
 // Every function degrades gracefully (returns [] / null) so public pages never
 // crash if Firestore is unreachable at prerender/request time.
 
@@ -83,7 +83,7 @@ export interface CompetitionHeroSlide {
  * competition (the whole comp_matches collection), derived in memory. Degrades
  * to [] on error.
  */
-/** One competition with ALL its fixtures — the Direct feed reads across them. */
+/** One competition with ALL its fixtures, the Direct feed reads across them. */
 export interface CompetitionFeed {
   competition: Competition;
   matches: CompMatch[];
@@ -151,5 +151,60 @@ export async function getHeroCompetitions(maxComps = 5): Promise<CompetitionHero
   } catch (err) {
     console.error("getHeroCompetitions failed:", err);
     return [];
+  }
+}
+
+/** Everything the public join page needs, in one server round-trip. */
+export interface CompetitionLanding {
+  competition: Competition;
+  /** Teams already in, the social proof of the page. */
+  teams: { id: string; name: string; logoUrl: string | null }[];
+  matchCount: number;
+}
+
+/**
+ * The conversion page's data, by slug.
+ *
+ * Read with the admin SDK rather than from the browser so the page can be
+ * server-rendered: it is meant to be pasted into WhatsApp, and a link only
+ * gets a title, a description and a thumbnail in the preview if the HTML
+ * carries them before any JavaScript runs.
+ *
+ * Returns null for an unknown slug AND for a draft competition, a draft is
+ * not public, and handing out its address would leak an unannounced event.
+ */
+export async function getCompetitionLanding(slug: string): Promise<CompetitionLanding | null> {
+  try {
+    const snap = await adminDb
+      .collection("competitions")
+      .where("slug", "==", slug)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+
+    const doc = snap.docs[0];
+    const competition = toCompetition(doc.id, doc.data() as FirestoreCompetition);
+    if (competition.status === "draft") return null;
+
+    const [teamsSnap, matchesSnap] = await Promise.all([
+      adminDb.collection("competitions").doc(doc.id).collection("comp_teams").get(),
+      adminDb.collection("competitions").doc(doc.id).collection("comp_matches").get(),
+    ]);
+
+    return {
+      competition,
+      teams: teamsSnap.docs.map((d) => {
+        const data = d.data() as { name?: string; logo_url?: string | null };
+        return {
+          id: d.id,
+          name: data.name ?? "",
+          logoUrl: data.logo_url ?? null,
+        };
+      }),
+      matchCount: matchesSnap.size,
+    };
+  } catch (err) {
+    console.error("getCompetitionLanding failed:", err);
+    return null;
   }
 }

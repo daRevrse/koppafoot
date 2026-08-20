@@ -9,7 +9,7 @@ import type { WorldStandingsGroup } from "@/lib/football-data";
 // from match documents). One section per group for cups, a single unlabelled
 // table for leagues.
 //
-// Server-safe: no client hooks, no motion — this is the page's SEO payload and
+// Server-safe: no client hooks, no motion, this is the page's SEO payload and
 // must be in the initial HTML.
 // ============================================
 
@@ -18,8 +18,8 @@ const formatDiff = (diff: number) => (diff > 0 ? `+${diff}` : `${diff}`);
 export default function WorldStandingsTable({ groups }: { groups: WorldStandingsGroup[] }) {
   if (groups.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-[2rem] border border-gray-100 bg-white py-16 text-center shadow-sm">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-50 text-gray-200">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center bg-gray-50 text-gray-200">
           <ListOrdered size={32} />
         </div>
         <p className="text-sm font-bold text-gray-400 italic">
@@ -34,10 +34,10 @@ export default function WorldStandingsTable({ groups }: { groups: WorldStandings
       {groups.map((group, gi) => (
         <section
           key={group.group ?? `table-${gi}`}
-          className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm"
+          className="overflow-hidden"
         >
           {group.group && (
-            <div className="flex items-center gap-2 border-b border-gray-50 px-5 py-4">
+            <div className="flex items-center gap-2 border-b border-gray-200/70 px-5 py-4">
               <Trophy size={16} className="text-emerald-500" />
               <h3 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
                 {group.group}
@@ -64,9 +64,9 @@ export default function WorldStandingsTable({ groups }: { groups: WorldStandings
               </thead>
               <tbody>
                 {group.rows.map((row) => (
-                  <tr key={row.team.id} className="border-t border-gray-50">
+                  <tr key={row.team.id} className="border-t border-gray-200/70">
                     <td className="px-3 py-3 text-center">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gray-100 text-xs font-black text-gray-500">
+                      <span className="flex h-6 w-6 items-center justify-center bg-gray-100 text-xs font-black text-gray-500">
                         {row.position}
                       </span>
                     </td>
@@ -80,7 +80,7 @@ export default function WorldStandingsTable({ groups }: { groups: WorldStandings
                             className="h-7 w-7 shrink-0 object-contain"
                           />
                         ) : (
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-[11px] font-black text-gray-400">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-gray-50 text-[11px] font-black text-gray-400">
                             {row.team.name[0]?.toUpperCase() ?? "?"}
                           </span>
                         )}

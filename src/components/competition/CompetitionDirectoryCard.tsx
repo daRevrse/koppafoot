@@ -32,7 +32,7 @@ function formatDateRange(start: string | null, end: string | null): string | nul
       return d;
     }
   };
-  if (start && end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
   if (start) return `À partir du ${fmt(start)}`;
   if (end) return `Jusqu'au ${fmt(end)}`;
   return null;
@@ -42,7 +42,7 @@ function formatDateRange(start: string | null, end: string | null): string | nul
 // Component
 // ============================================
 
-// A single directory tile. Presentational + server-safe (no client hooks) —
+// A single directory tile. Presentational + server-safe (no client hooks),
 // sauf le bouton Suivre, une île cliente posée par-dessus.
 // Banners/logos are organizer-entered arbitrary URLs → plain <img>, not
 // next/image. The whole tile links to the public competition home.

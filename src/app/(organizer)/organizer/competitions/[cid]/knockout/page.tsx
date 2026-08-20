@@ -40,10 +40,10 @@ import toast from "react-hot-toast";
 // ============================================
 
 // Display order of the bracket rounds. `third_place` is intentionally excluded
-// here — it is rendered separately (it isn't part of the elimination tree).
+// here, it is rendered separately (it isn't part of the elimination tree).
 const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final"];
 
-/** "Quarts, demies, finale" — the rounds a bracket of that size implies. */
+/** "Quarts, demies, finale", the rounds a bracket of that size implies. */
 function roundsPlanLabel(size: number): string {
   const names: string[] = [];
   for (let teams = size; teams >= 2; teams = teams / 2) {
@@ -62,7 +62,7 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
   third_place: "Petite finale",
 };
 
-/** "sam. 11 août · 16:00 · Stade X" — empty string when nothing is scheduled. */
+/** "sam. 11 août · 16:00 · Stade X", empty string when nothing is scheduled. */
 function formatSlot(match: CompMatch): string {
   const parts: string[] = [];
   if (match.date) {
@@ -98,8 +98,8 @@ function TeamSlot({
     return (
       <div className={`flex items-center gap-2.5 ${placeholder ? "text-purple-500" : "text-gray-400"}`}>
         <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dashed text-xs font-black ${
-            placeholder ? "border-purple-200 bg-purple-50" : "border-gray-200 bg-gray-50"
+          className={`flex h-8 w-8 shrink-0 items-center justify-center border border-dashed text-xs font-black ${
+            placeholder ? "border-purple-200 bg-purple-50" : "border-gray-200/70 bg-gray-50"
           }`}
         >
           ?
@@ -112,7 +112,7 @@ function TeamSlot({
   }
   return (
     <div className={`flex items-center gap-2.5 ${isWinner ? "text-gray-900" : "text-gray-700"}`}>
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50 text-xs font-black text-gray-500">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-xs font-black text-gray-500">
         {logo ? (
           <Image src={logo} alt={name} width={32} height={32} className="h-full w-full object-cover" />
         ) : (
@@ -143,7 +143,7 @@ function SlotEditor({
       <select
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-gray-700 focus:border-purple-500 focus:outline-none"
+        className="min-w-0 flex-1 border border-gray-200/70 px-2 py-1.5 text-sm text-gray-700 focus:border-purple-500 focus:outline-none"
       >
         <option value="">Choisir une équipe…</option>
         {teams.map((t) => (
@@ -159,7 +159,7 @@ function SlotEditor({
           if (team) onPick(team);
         }}
         disabled={!value}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-8 w-8 shrink-0 items-center justify-center bg-purple-600 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
         title="Valider"
       >
         <Check size={15} />
@@ -167,7 +167,7 @@ function SlotEditor({
       <button
         type="button"
         onClick={onCancel}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition-colors hover:bg-gray-50"
+        className="flex h-8 w-8 shrink-0 items-center justify-center border border-gray-200/70 text-gray-400 transition-colors hover:bg-gray-50"
         title="Annuler"
       >
         <X size={15} />
@@ -179,7 +179,7 @@ function SlotEditor({
 /**
  * Where a first-round slot comes from, as a menu of group positions and
  * repêchage places. Picking a source is what lets the bracket be drawn before
- * the group stage is over — the slot says "1er poule A" until a team earns it.
+ * the group stage is over, the slot says "1er poule A" until a team earns it.
  */
 function SourcePicker({
   groups,
@@ -190,7 +190,7 @@ function SourcePicker({
   disabled,
 }: {
   groups: string[];
-  /** Highest finishing position worth offering — the size of a group. */
+  /** Highest finishing position worth offering, the size of a group. */
   maxRank: number;
   groupCount: number;
   value: BracketSlotSource | null;
@@ -207,9 +207,9 @@ function SourcePicker({
       value={value ? bracketSlotSourceKey(value) : ""}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value ? parseBracketSlotSourceKey(e.target.value) : null)}
-      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 focus:border-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+      className="w-full border border-gray-200/70 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 focus:border-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
     >
-      <option value="">— Provenance —</option>
+      <option value="">, Provenance,</option>
       {groups.map((g) => (
         <optgroup key={g} label={`Poule ${g}`}>
           {ranks.map((rank) => {
@@ -265,8 +265,8 @@ export default function CompetitionKnockoutPage() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
   // Date / heure / lieu of one bracket match. A knockout match is scheduled
-  // before its two teams are known — the tournament calendar is fixed first,
-  // the qualifiers arrive later — so this never waits on a seated team.
+  // before its two teams are known, the tournament calendar is fixed first,
+  // the qualifiers arrive later, so this never waits on a seated team.
   const [scheduleMatch, setScheduleMatch] = useState<CompMatch | null>(null);
   const [slotForm, setSlotForm] = useState({ date: "", time: "", venueName: "", venueCity: "" });
   const [savingSchedule, setSavingSchedule] = useState(false);
@@ -292,7 +292,7 @@ export default function CompetitionKnockoutPage() {
   }, [cid]);
 
   // Live projection of every source, so the organizer sees who a slot currently
-  // points at while drawing — provisional until the group stage is over.
+  // points at while drawing, provisional until the group stage is over.
   const standings = useMemo(
     () => (competition ? computeStandings(groupMatches, teams, competition.format) : []),
     [groupMatches, teams, competition],
@@ -326,13 +326,13 @@ export default function CompetitionKnockoutPage() {
 
   const hasKnockout = matches.length > 0;
 
-  /** Knockout matches that already carry a result — what a redraw would erase. */
+  /** Knockout matches that already carry a result, what a redraw would erase. */
   const playedKnockoutCount = useMemo(
     () => matches.filter((m) => m.status === "live" || m.status === "completed").length,
     [matches],
   );
 
-  /** The bracket's opening round — the only one whose slots carry a source. */
+  /** The bracket's opening round, the only one whose slots carry a source. */
   const firstRound = rounds[0]?.round ?? null;
 
   const firstRoundMatches = useMemo(
@@ -377,7 +377,7 @@ export default function CompetitionKnockoutPage() {
       );
     }
     // Two teams out of the same group meeting straight away is the exact
-    // mistake the automatic seeding made — worth naming explicitly.
+    // mistake the automatic seeding made, worth naming explicitly.
     const sameGroup = firstRoundMatches.filter(
       (m) =>
         m.homeSource?.kind === "group_rank" &&
@@ -396,7 +396,7 @@ export default function CompetitionKnockoutPage() {
     setCreating(true);
     try {
       await createKnockoutBracket(cid, size);
-      toast.success(`Tableau à ${size} équipes créé — placez les provenances`);
+      toast.success(`Tableau à ${size} équipes créé, placez les provenances`);
     } catch (err) {
       console.error("Error creating bracket:", err);
       toast.error(err instanceof Error ? err.message : "Impossible de créer le tableau");
@@ -609,7 +609,7 @@ export default function CompetitionKnockoutPage() {
       const source = side === "home" ? match.homeSource : match.awaySource;
       const score = side === "home" ? match.scoreHome : match.scoreAway;
       const penalty = side === "home" ? match.penaltyHome : match.penaltyAway;
-      // Who the source points at right now — provisional until the tables are
+      // Who the source points at right now, provisional until the tables are
       // final, and only shown while no team has actually been seated.
       const projected = source && !teamId ? resolveBracketSlot(source, standings) : null;
 
@@ -650,7 +650,7 @@ export default function CompetitionKnockoutPage() {
                 <button
                   type="button"
                   onClick={() => setEditing(key)}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-gray-50 hover:text-purple-600"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center text-gray-300 transition-colors hover:bg-gray-50 hover:text-purple-600"
                   title="Placer une équipe à la main"
                 >
                   <Pencil size={13} />
@@ -683,14 +683,14 @@ export default function CompetitionKnockoutPage() {
     };
 
     return (
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-hidden border border-gray-200/70 bg-white">
         {/* Slots */}
         <div className="divide-y divide-gray-50">
           {renderSlot("home")}
           {renderSlot("away")}
         </div>
 
-        {/* Date, heure, lieu — settable before the two teams are known */}
+        {/* Date, heure, lieu, settable before the two teams are known */}
         {(() => {
           const slot = formatSlot(match);
           const clash = hasSlotClash(match);
@@ -719,7 +719,7 @@ export default function CompetitionKnockoutPage() {
               {clash && (
                 <span
                   title="Créneau déjà pris (stade + date + heure)"
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
+                  className="inline-flex shrink-0 items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700"
                 >
                   <AlertTriangle size={10} />
                   Conflit
@@ -750,13 +750,13 @@ export default function CompetitionKnockoutPage() {
             )}
           </span>
           <div className="flex shrink-0 items-center gap-1">
-            {/* Result entered after the fact — for a match the live console
+            {/* Result entered after the fact, for a match the live console
                 never ran, and to correct one it did. */}
             {canEnterResult && (
               <button
                 type="button"
                 onClick={() => setResultMatch(match)}
-                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
               >
                 <Goal size={14} />
                 {match.status === "completed" ? "Score & buteurs" : "Ajouter score"}
@@ -766,7 +766,7 @@ export default function CompetitionKnockoutPage() {
               href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
               target="_blank"
               rel="noopener"
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-purple-600 transition-colors hover:bg-purple-50"
+              className="inline-flex shrink-0 items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-600 transition-colors hover:bg-purple-50"
             >
               Console live
               <ChevronRight size={14} />
@@ -821,9 +821,9 @@ export default function CompetitionKnockoutPage() {
               title={
                 groupStageDone
                   ? "Placer les équipes selon les classements"
-                  : "Les poules ne sont pas terminées — le placement sera provisoire"
+                  : "Les poules ne sont pas terminées, le placement sera provisoire"
               }
-              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-emerald-200 transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {resolving ? <Loader2 size={16} className="animate-spin" /> : <Users size={16} />}
               Attribuer les places
@@ -833,7 +833,7 @@ export default function CompetitionKnockoutPage() {
                 type="button"
                 onClick={handleSetKnockoutStatus}
                 disabled={settingStatus}
-                className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-200 transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-purple-200 transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {settingStatus ? <Loader2 size={16} className="animate-spin" /> : <GitBranch size={16} />}
                 Passer en phase finale
@@ -842,7 +842,7 @@ export default function CompetitionKnockoutPage() {
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+              className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
             >
               <Trash2 size={16} />
               Redessiner
@@ -853,7 +853,7 @@ export default function CompetitionKnockoutPage() {
 
       {/* What is wrong with the drawing as it stands */}
       {hasKnockout && designWarnings.length > 0 && (
-        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="flex items-start gap-2.5 border border-amber-200 bg-amber-50 px-4 py-3">
           <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
           <div className="text-sm text-amber-800">
             <p className="font-bold">À vérifier avant de lancer la phase finale</p>
@@ -875,15 +875,15 @@ export default function CompetitionKnockoutPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center"
+          className="flex flex-col items-center justify-center border border-dashed border-gray-200/70 bg-white py-20 text-center"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50">
+          <div className="flex h-14 w-14 items-center justify-center bg-purple-50">
             <GitBranch size={26} className="text-purple-500" />
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Pas encore de phase finale</p>
           <p className="mt-1 max-w-md text-sm text-gray-500">
             Choisissez la taille du tableau : l&apos;arbre est créé vide, et vous décidez
-            vous-même d&apos;où vient chaque place — «&nbsp;1<sup>er</sup> poule A&nbsp;»,
+            vous-même d&apos;où vient chaque place, «&nbsp;1<sup>er</sup> poule A&nbsp;»,
             «&nbsp;2<sup>e</sup> meilleur 3<sup>e</sup>&nbsp;». Pas besoin d&apos;attendre la fin
             des poules.
           </p>
@@ -894,9 +894,9 @@ export default function CompetitionKnockoutPage() {
                 key={s}
                 type="button"
                 onClick={() => setSize(s)}
-                className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                className={` px-4 py-2 text-sm font-bold transition-all ${
                   size === s
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-200"
+                    ? "bg-purple-600 text-white shadow-purple-200"
                     : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                 }`}
               >
@@ -910,7 +910,7 @@ export default function CompetitionKnockoutPage() {
             type="button"
             onClick={handleCreateBracket}
             disabled={creating}
-            className="mt-5 flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-200 transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 flex items-center gap-2 bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-purple-200 transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {creating ? <Loader2 size={16} className="animate-spin" /> : <PenLine size={16} />}
             Dessiner le tableau
@@ -920,7 +920,7 @@ export default function CompetitionKnockoutPage() {
             type="button"
             onClick={handleGenerate}
             disabled={generating}
-            className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-3 flex items-center gap-2 border border-gray-200/70 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             ou générer automatiquement
@@ -941,7 +941,7 @@ export default function CompetitionKnockoutPage() {
               className="space-y-3"
             >
               <div className="flex items-center gap-2 px-1">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+                <span className="flex h-7 w-7 items-center justify-center bg-purple-100 text-purple-700">
                   <GitBranch size={15} />
                 </span>
                 <h2 className="text-sm font-bold text-gray-900">{ROUND_LABELS[r.round]}</h2>
@@ -966,7 +966,7 @@ export default function CompetitionKnockoutPage() {
               className="space-y-3"
             >
               <div className="flex items-center gap-2 px-1">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                <span className="flex h-7 w-7 items-center justify-center bg-amber-100 text-amber-700">
                   <Trophy size={15} />
                 </span>
                 <h2 className="text-sm font-bold text-gray-900">{ROUND_LABELS.third_place}</h2>
@@ -982,25 +982,25 @@ export default function CompetitionKnockoutPage() {
         </div>
       )}
 
-      {/* Redraw confirmation — this throws away played results, so it says so */}
+      {/* Redraw confirmation, this throws away played results, so it says so */}
       {confirmClear && (
         <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold text-gray-900">Redessiner le tableau</h2>
               <button
                 onClick={() => !clearing && setConfirmClear(false)}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                className=" p-1.5 text-gray-400 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className=" border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               <p className="flex items-center gap-2 font-bold">
                 <AlertTriangle size={16} />
                 {matches.length} match{matches.length > 1 ? "s" : ""} de phase finale seront supprimés
@@ -1018,7 +1018,7 @@ export default function CompetitionKnockoutPage() {
               <button
                 type="button"
                 onClick={() => !clearing && setConfirmClear(false)}
-                className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
               >
                 Annuler
               </button>
@@ -1026,7 +1026,7 @@ export default function CompetitionKnockoutPage() {
                 type="button"
                 onClick={handleClearBracket}
                 disabled={clearing}
-                className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
+                className="flex items-center gap-2 bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-red-200 transition-all hover:bg-red-700 disabled:opacity-50"
               >
                 {clearing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 Supprimer le tableau
@@ -1052,13 +1052,13 @@ export default function CompetitionKnockoutPage() {
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+              className="w-full max-w-md modal-sheet rounded-t-3xl bg-white p-6"
             >
               <div className="mb-1 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">Date et lieu</h2>
                 <button
                   onClick={() => !savingSchedule && setScheduleMatch(null)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                  className=" p-1.5 text-gray-400 hover:bg-gray-100"
                 >
                   <X size={18} />
                 </button>
@@ -1076,7 +1076,7 @@ export default function CompetitionKnockoutPage() {
                       type="date"
                       value={slotForm.date}
                       onChange={(e) => setSlotForm((p) => ({ ...p, date: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -1085,7 +1085,7 @@ export default function CompetitionKnockoutPage() {
                       type="time"
                       value={slotForm.time}
                       onChange={(e) => setSlotForm((p) => ({ ...p, time: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1097,7 +1097,7 @@ export default function CompetitionKnockoutPage() {
                     placeholder="Nom du stade"
                     value={slotForm.venueName}
                     onChange={(e) => setSlotForm((p) => ({ ...p, venueName: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
                   />
                   {taken.length > 0 && (
                     <p className="mt-1.5 text-[11px] text-gray-400">
@@ -1115,10 +1115,10 @@ export default function CompetitionKnockoutPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Lomé"
+                    placeholder="Ville"
                     value={slotForm.venueCity}
                     onChange={(e) => setSlotForm((p) => ({ ...p, venueCity: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -1127,7 +1127,7 @@ export default function CompetitionKnockoutPage() {
                 <button
                   type="button"
                   onClick={() => !savingSchedule && setScheduleMatch(null)}
-                  className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Annuler
                 </button>
@@ -1135,7 +1135,7 @@ export default function CompetitionKnockoutPage() {
                   type="button"
                   onClick={handleSaveSchedule}
                   disabled={savingSchedule}
-                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700 disabled:opacity-50"
+                  className="flex items-center gap-2 bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow-purple-200 transition-all hover:bg-purple-700 disabled:opacity-50"
                 >
                   {savingSchedule ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   Enregistrer
@@ -1146,7 +1146,7 @@ export default function CompetitionKnockoutPage() {
         );
       })()}
 
-      {/* Score + scorers modal — shared with the calendar */}
+      {/* Score + scorers modal, shared with the calendar */}
       <MatchResultModal
         cid={cid}
         match={resultMatch}

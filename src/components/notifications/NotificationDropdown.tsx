@@ -1,24 +1,40 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import Link from "next/link";
+import { Bell, CheckCheck, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useRouter } from "next/navigation";
 import type { Notification } from "@/types";
+import NotificationModal from "./NotificationModal";
 
 function NotificationItem({
   n,
   onRead,
+  onNavigate,
+  onLire,
 }: {
   n: Notification;
   onRead: (id: string) => void;
+  onNavigate: () => void;
+  onLire: (n: Notification) => void;
 }) {
   const router = useRouter();
 
   const handleClick = () => {
     onRead(n.id);
-    if (n.link) router.push(n.link);
+
+    // Un lien mene a sa destination. Sans lien, la notification EST le
+    // message : elle s'ouvre en modal, ou le corps se lit en entier. Elle
+    // renvoyait jusqu'ici sur /notifications, a charge de la retrouver dans
+    // la liste, ce qui n'est pas une lecture, c'est une recherche.
+    if (n.link) {
+      onNavigate();
+      router.push(n.link);
+      return;
+    }
+    onLire(n);
   };
 
   return (
@@ -48,6 +64,8 @@ function NotificationItem({
 export default function NotificationDropdown() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  // La notification en cours de lecture, quand elle n'a pas de lien propre.
+  const [lue, setLue] = useState<Notification | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,13 +119,32 @@ export default function NotificationDropdown() {
                 </p>
               ) : (
                 notifications.map((n) => (
-                  <NotificationItem key={n.id} n={n} onRead={markRead} />
+                  <NotificationItem
+                    key={n.id}
+                    n={n}
+                    onRead={markRead}
+                    onNavigate={() => setOpen(false)}
+                    onLire={(notif) => { setOpen(false); setLue(notif); }}
+                  />
                 ))
               )}
             </div>
+
+            {/* La cloche n'est qu'un aperçu : trois lignes par message et les
+                50 dernières. L'historique complet vit sur /notifications. */}
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1 border-t border-gray-100 bg-gray-50/70 px-4 py-2.5 text-xs font-black text-emerald-600 transition-colors hover:bg-gray-100"
+            >
+              Voir toutes les notifications
+              <ChevronRight size={13} />
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <NotificationModal notification={lue} onClose={() => setLue(null)} />
     </div>
   );
 }

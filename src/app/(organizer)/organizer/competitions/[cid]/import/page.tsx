@@ -293,15 +293,15 @@ export default function CompetitionImportPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
+      <div className="flex gap-2 bg-gray-100 p-1">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${
               tab === key
-                ? "bg-white text-primary-700 shadow-sm"
+                ? "bg-white text-primary-700"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -316,7 +316,7 @@ export default function CompetitionImportPage() {
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6"
+          className="space-y-4 border border-gray-200/70 bg-white p-5 sm:p-6"
         >
           <FormatHint
             columns={["Équipe", "Sigle (optionnel)", "Poule (optionnel)", "Couleur (optionnel)"]}
@@ -328,7 +328,7 @@ export default function CompetitionImportPage() {
             onChange={(e) => setTeamsText(e.target.value)}
             rows={6}
             placeholder={"Mali\tMLI\tA\t#0CB04A\nGuinée\tGUI\tA\t#CE1126"}
-            className="w-full resize-y rounded-xl border border-gray-300 px-4 py-3 font-mono text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+            className="w-full resize-y border border-gray-200/70 px-4 py-3 font-mono text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
           />
 
           <SectionControls
@@ -348,7 +348,7 @@ export default function CompetitionImportPage() {
                     : []),
                 ]}
               />
-              <div className="max-h-72 overflow-auto rounded-xl border border-gray-100">
+              <div className="max-h-72 overflow-auto border border-gray-200/70">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                     <tr>
@@ -358,18 +358,18 @@ export default function CompetitionImportPage() {
                       <th className="px-3 py-2 font-semibold">Couleur</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-200/70">
                     {parsedTeams.map((t, i) => (
                       <tr key={i} className={t.valid ? "" : "bg-red-50/60 text-red-700"}>
                         <td className="px-3 py-1.5">
                           <span className="inline-flex items-center gap-1.5">
                             {!t.valid && <AlertTriangle size={13} className="shrink-0" />}
-                            {t.row.name || "—"}
+                            {t.row.name || ","}
                           </span>
                         </td>
-                        <td className="px-3 py-1.5 text-gray-500">{t.row.shortName ?? "—"}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{t.row.group ?? "—"}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{t.row.color ?? "—"}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{t.row.shortName ?? ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{t.row.group ?? ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{t.row.color ?? ","}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -394,7 +394,7 @@ export default function CompetitionImportPage() {
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6"
+          className="space-y-4 border border-gray-200/70 bg-white p-5 sm:p-6"
         >
           {/* Team selector first */}
           <div>
@@ -402,16 +402,16 @@ export default function CompetitionImportPage() {
               Équipe à compléter
             </label>
             {teams.length === 0 ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <p className=" bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 Aucune équipe pour l&apos;instant. Importez d&apos;abord les équipes (onglet Équipes).
               </p>
             ) : (
               <select
                 value={rosterTeamId}
                 onChange={(e) => setRosterTeamId(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                className="w-full border border-gray-200/70 px-4 py-2.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
               >
-                <option value="">— Choisir une équipe —</option>
+                <option value="">, Choisir une équipe,</option>
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -440,7 +440,7 @@ export default function CompetitionImportPage() {
             rows={6}
             disabled={!rosterTeamId}
             placeholder={"Kossi Mensah\t9\tAttaquant\nAmin Diallo\t1\tGardien"}
-            className="w-full resize-y rounded-xl border border-gray-300 px-4 py-3 font-mono text-sm text-gray-700 focus:border-primary-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50"
+            className="w-full resize-y border border-gray-200/70 px-4 py-3 font-mono text-sm text-gray-700 focus:border-primary-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50"
           />
 
           <SectionControls
@@ -461,7 +461,7 @@ export default function CompetitionImportPage() {
                     : []),
                 ]}
               />
-              <div className="max-h-72 overflow-auto rounded-xl border border-gray-100">
+              <div className="max-h-72 overflow-auto border border-gray-200/70">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                     <tr>
@@ -470,17 +470,17 @@ export default function CompetitionImportPage() {
                       <th className="px-3 py-2 font-semibold">Poste</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-200/70">
                     {parsedRoster.map((p, i) => (
                       <tr key={i} className={p.valid ? "" : "bg-red-50/60 text-red-700"}>
                         <td className="px-3 py-1.5">
                           <span className="inline-flex items-center gap-1.5">
                             {!p.valid && <AlertTriangle size={13} className="shrink-0" />}
-                            {p.row.name || "—"}
+                            {p.row.name || ","}
                           </span>
                         </td>
-                        <td className="px-3 py-1.5">{p.row.number || "—"}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{p.row.position ?? "—"}</td>
+                        <td className="px-3 py-1.5">{p.row.number || ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{p.row.position ?? ","}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -505,7 +505,7 @@ export default function CompetitionImportPage() {
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6"
+          className="space-y-4 border border-gray-200/70 bg-white p-5 sm:p-6"
         >
           <FormatHint
             columns={[
@@ -519,7 +519,7 @@ export default function CompetitionImportPage() {
             example="Mali	Guinée	2026-07-24	20:00	Haady Parc	A"
           />
 
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className=" bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Les équipes doivent déjà exister dans la compétition (importez-les d&apos;abord). Les
             rencontres dont une équipe est introuvable seront ignorées.
           </p>
@@ -529,7 +529,7 @@ export default function CompetitionImportPage() {
             onChange={(e) => setMatchesText(e.target.value)}
             rows={6}
             placeholder={"Mali\tGuinée\t2026-07-24\t20:00\tHaady Parc\tA"}
-            className="w-full resize-y rounded-xl border border-gray-300 px-4 py-3 font-mono text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+            className="w-full resize-y border border-gray-200/70 px-4 py-3 font-mono text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
           />
 
           <SectionControls
@@ -552,7 +552,7 @@ export default function CompetitionImportPage() {
                     : []),
                 ]}
               />
-              <div className="max-h-72 overflow-auto rounded-xl border border-gray-100">
+              <div className="max-h-72 overflow-auto border border-gray-200/70">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                     <tr>
@@ -564,7 +564,7 @@ export default function CompetitionImportPage() {
                       <th className="px-3 py-2 font-semibold">Poule</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-200/70">
                     {parsedMatches.map((m, i) => {
                       const skipped = m.valid && (m.unknownHome || m.unknownAway);
                       return (
@@ -583,7 +583,7 @@ export default function CompetitionImportPage() {
                               {(!m.valid || m.unknownHome) && (
                                 <AlertTriangle size={13} className="shrink-0" />
                               )}
-                              {m.row.home || "—"}
+                              {m.row.home || ","}
                             </span>
                           </td>
                           <td className="px-3 py-1.5">
@@ -591,13 +591,13 @@ export default function CompetitionImportPage() {
                               {m.valid && m.unknownAway && (
                                 <AlertTriangle size={13} className="shrink-0" />
                               )}
-                              {m.row.away || "—"}
+                              {m.row.away || ","}
                             </span>
                           </td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.date ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.time ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.venue ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.group ?? "—"}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.date ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.time ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.venue ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{m.row.group ?? ","}</td>
                         </tr>
                       );
                     })}
@@ -625,13 +625,13 @@ export default function CompetitionImportPage() {
 
 function FormatHint({ columns, example }: { columns: string[]; example: string }) {
   return (
-    <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+    <div className=" bg-gray-50 px-4 py-3 text-sm text-gray-600">
       <p className="font-medium text-gray-700">Colonnes attendues (dans l&apos;ordre) :</p>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {columns.map((col, i) => (
           <span
             key={col}
-            className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200"
+            className="inline-flex items-center gap-1 bg-white px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200"
           >
             <span className="text-gray-400">{i + 1}.</span>
             {col}
@@ -659,7 +659,7 @@ function SectionControls({
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <label
-        className={`inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors ${
+        className={`inline-flex items-center gap-2 border border-gray-200/70 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors ${
           disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-gray-50"
         }`}
       >
@@ -679,7 +679,7 @@ function SectionControls({
           type="checkbox"
           checked={skipHeader}
           onChange={(e) => onToggleHeader(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          className="h-4 w-4 rounded border-gray-200/70 text-primary-600 focus:ring-primary-500"
         />
         Première ligne = en-tête
       </label>
@@ -712,7 +712,7 @@ function ImportButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex items-center gap-2 bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {submitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
       {label}

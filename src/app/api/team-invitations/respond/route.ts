@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { notifyTeamActivity } from "@/lib/activity-notify-server";
 import type { FirestoreInvitation } from "@/types";
 
 /**
  * A player answers an invitation to join a team.
  *
- * Accepting adds the player to `teams/{id}.member_ids` — a document the player
+ * Accepting adds the player to `teams/{id}.member_ids`, a document the player
  * does not own. The rule that allowed it could only check the shape of the write
  * (members preserved, manager and name untouched, caller present in the new
  * list), never *why* it was happening, so anyone signed in could add themselves
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
   }
 
   const invRef = adminDb.collection("invitations").doc(invitationId);
+  // Renseigné dans la transaction, lu après : la diffusion ne doit pas partir
+  // avant que l'adhésion ne soit effectivement écrite.
+  let joinedTeamId: string | null = null;
 
   try {
     await adminDb.runTransaction(async (tx) => {
@@ -63,6 +67,7 @@ export async function POST(req: NextRequest) {
           member_ids: FieldValue.arrayUnion(callerUid),
           updated_at: FieldValue.serverTimestamp(),
         });
+        joinedTeamId = invitation.team_id;
       }
     });
   } catch (err) {
@@ -78,6 +83,21 @@ export async function POST(req: NextRequest) {
     }
     console.error("invitation response failed:", err);
     return NextResponse.json({ error: "Opération impossible" }, { status: 500 });
+  }
+
+  // L'effectif et les abonnés apprennent l'arrivée. Best-effort : le joueur
+  // est déjà dans l'équipe, une diffusion ratée ne doit pas faire échouer sa
+  // réponse à l'invitation.
+  if (joinedTeamId) {
+    const userSnap = await adminDb.collection("users").doc(callerUid).get();
+    const u = userSnap.data();
+    await notifyTeamActivity({
+      teamId: joinedTeamId,
+      event: "member_joined",
+      actorId: callerUid,
+      playerId: callerUid,
+      playerName: `${u?.first_name ?? ""} ${u?.last_name ?? ""}`.trim() || "Un joueur",
+    }).catch((e) => console.error("[invitation respond] notify failed", e));
   }
 
   return NextResponse.json({ ok: true });

@@ -6,7 +6,7 @@ import type { FirestoreCompetition } from "@/types";
 // Shared authorization for the competition API routes
 //
 // Every staff route needs the same three steps, and getting one of them wrong
-// would hand a stranger the live console — so they live in one place.
+// would hand a stranger the live console, so they live in one place.
 // ============================================
 
 export type OrganizerAuthResult =
@@ -16,7 +16,7 @@ export type OrganizerAuthResult =
 /**
  * Verify the caller's Bearer id token, load the competition, and require the
  * caller to organize it (or be a superadmin). Authorization is checked against
- * the server-loaded document — the client's claim about its own role is never
+ * the server-loaded document, the client's claim about its own role is never
  * trusted.
  */
 export async function authorizeOrganizer(

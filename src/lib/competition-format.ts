@@ -1,5 +1,5 @@
 // ============================================
-// Competition types — the single source of truth on what each shape means.
+// Competition types, the single source of truth on what each shape means.
 // SDK-agnostic and pure, so both the client lib and the server lib can use it.
 // ============================================
 
@@ -82,7 +82,7 @@ export function isSingleGroup(type: CompetitionType): boolean {
 export const SINGLE_GROUP_LETTER = "A";
 
 // ============================================
-// Règles du jeu — le NvN et la durée. Deux réglages qui n'ont rien à voir
+// Règles du jeu, le NvN et la durée. Deux réglages qui n'ont rien à voir
 // avec la forme du tournoi : une coupe comme un championnat peut se jouer à
 // 5 contre 5 en 2×20. Absents des compétitions créées avant ces champs, d'où
 // les accesseurs plutôt que des lectures directes.
@@ -100,12 +100,12 @@ export const TEAM_SIZE_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 11];
 const positiveOr = (v: number | undefined, fallback: number) =>
   typeof v === "number" && v > 0 ? v : fallback;
 
-/** Joueurs de champ par équipe (NvN) — 11 par défaut. */
+/** Joueurs de champ par équipe (NvN), 11 par défaut. */
 export function teamSize(format: CompetitionFormat): number {
   return positiveOr(format.team_size, DEFAULT_TEAM_SIZE);
 }
 
-/** Durée d'une mi-temps en minutes — 45 par défaut. */
+/** Durée d'une mi-temps en minutes, 45 par défaut. */
 export function halfDuration(format: CompetitionFormat): number {
   return positiveOr(format.half_duration, DEFAULT_HALF_DURATION);
 }
@@ -115,7 +115,7 @@ export function matchDuration(format: CompetitionFormat): number {
   return halfDuration(format) * 2;
 }
 
-/** "11v11" — la même écriture que les matchs amicaux et les terrains. */
+/** "11v11", la même écriture que les matchs amicaux et les terrains. */
 export function gameTypeLabel(format: CompetitionFormat): string {
   const n = teamSize(format);
   return `${n}v${n}`;
@@ -194,7 +194,7 @@ export function statusFlow(type: CompetitionType): CompetitionStatus[] {
   return flow;
 }
 
-/** Label for the running stage — "phase de groupes" reads wrong for a league. */
+/** Label for the running stage, "phase de groupes" reads wrong for a league. */
 export function stageLabel(type: CompetitionType, status: CompetitionStatus): string {
   if (status === "group_stage") {
     return isSingleGroup(type) ? "Saison régulière" : "Phase de groupes";

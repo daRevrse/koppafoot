@@ -14,7 +14,7 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#f8f8f8",
     theme_color: "#059669",
     categories: ["sports", "football"],
-    // Each entry serves a file that really is the size it declares — the old
+    // Each entry serves a file that really is the size it declares, the old
     // ones pointed at the 2000x2000 source for every slot.
     //
     // The artwork doubles as the maskable icon by explicit choice. Launchers

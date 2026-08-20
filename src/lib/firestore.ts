@@ -217,6 +217,18 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
+    // Le role Evolution, ce qu'on est sur le terrain, par opposition a
+    // `user_type` qui dit ce qu'est le compte. Il manquait ici alors que
+    // AuthContext et la projection publique le portent tous les deux : une
+    // fiche lue par un visiteur l'avait donc, la meme fiche relue une fois
+    // connecte le perdait, et toute section conditionnee dessus disparaissait
+    // sous les yeux du lecteur.
+    ...(data.evolution_role !== undefined && { evolutionRole: data.evolution_role }),
+    // Les casquettes. `?? undefined` et non `?? false` : un compte d'avant
+    // n'a pas de drapeau, et le predicat de `lib/hats` doit pouvoir se
+    // rabattre sur `user_type` sans qu'un `false` explicite le contredise.
+    ...(data.is_organizer !== undefined && { isOrganizer: data.is_organizer }),
+    ...(data.is_venue_owner !== undefined && { isVenueOwner: data.is_venue_owner }),
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,
     followedCompetitionIds: data.followed_competition_ids ?? [],
@@ -262,6 +274,7 @@ export function toInvitation(id: string, d: FirestoreInvitation): Invitation {
   return {
     id, senderId: d.sender_id, senderName: d.sender_name,
     receiverId: d.receiver_id, receiverName: d.receiver_name,
+    receiverPhoto: d.receiver_photo ?? null, teamLogo: d.team_logo ?? null,
     receiverCity: d.receiver_city, receiverPosition: d.receiver_position,
     receiverLevel: d.receiver_level, teamId: d.team_id, teamName: d.team_name,
     message: d.message, status: d.status,
@@ -317,7 +330,8 @@ function toComment(id: string, d: FirestoreComment): Comment {
 function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntry {
   return {
     id, managerId: d.manager_id, playerId: d.player_id,
-    playerName: d.player_name, playerCity: d.player_city,
+    playerName: d.player_name, playerPhoto: d.player_photo ?? null,
+    playerCity: d.player_city,
     playerPosition: d.player_position, playerLevel: d.player_level,
     playerBio: d.player_bio ?? "", createdAt: d.created_at,
   };
@@ -326,6 +340,7 @@ function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntr
 function toJoinRequest(id: string, d: FirestoreJoinRequest): JoinRequest {
   return {
     id, playerId: d.player_id, playerName: d.player_name,
+    playerPhoto: d.player_photo ?? null, teamLogo: d.team_logo ?? null,
     playerCity: d.player_city, playerPosition: d.player_position,
     playerLevel: d.player_level, teamId: d.team_id, teamName: d.team_name,
     managerId: d.manager_id, message: d.message, status: d.status,
@@ -391,7 +406,7 @@ export async function createTeam(data: {
  * match incrémente `teams/{away_team_id}` et un update sur un doc absent fait
  * échouer tout le batch. Le doc appartient à son créateur (`manager_id`), ce
  * qui lui donne au passage le droit d'écriture sur la sous-collection
- * `ghost_players` — l'effectif de l'adversaire.
+ * `ghost_players`, l'effectif de l'adversaire.
  *
  * `is_recruiting: false` la tient hors de `searchTeams`, donc hors du mercato
  * et hors du sélecteur d'adversaire, où seules les vraies équipes ont leur place.
@@ -427,11 +442,46 @@ export async function deleteTeam(teamId: string): Promise<void> {
   await deleteDoc(doc(db, "teams", teamId));
 }
 
+/**
+ * Diffuse un mouvement d'effectif à l'équipe et à ses abonnés.
+ *
+ * Fire-and-forget par principe : la notification est un bonus, l'adhésion ou
+ * le retrait a déjà abouti quand on arrive ici. La liste des destinataires se
+ * lit côté serveur (voir /api/notifications/team-activity).
+ */
+export function notifyTeamActivity(input: {
+  teamId: string;
+  event: "member_joined" | "member_left" | "competition_entered";
+  playerId?: string;
+  competitionName?: string;
+  link?: string;
+}): void {
+  void (async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await fetch("/api/notifications/team-activity", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(input),
+      });
+    } catch {
+      // Best-effort only.
+    }
+  })();
+}
+
 export async function removeTeamMember(teamId: string, playerId: string): Promise<void> {
   await updateDoc(doc(db, "teams", teamId), {
     member_ids: arrayRemove(playerId),
     updated_at: serverTimestamp(),
   });
+  // Le reste de l'effectif doit apprendre le départ autrement qu'en
+  // recomptant la liste des joueurs.
+  notifyTeamActivity({ teamId, event: "member_left", playerId });
 }
 
 // addTeamMember() lived here: a bare arrayUnion onto any team's member_ids,
@@ -451,6 +501,26 @@ export async function getUsersByIds(uids: string[]): Promise<UserProfile[]> {
     for (const d of snap.docs) {
       results.push(toUserProfile(d.id, d.data() as FirestoreUser));
     }
+  }
+  return results;
+}
+
+/**
+ * Teams by id, batched like getUsersByIds.
+ *
+ * Le mercato en a besoin pour réhydrater les logos des candidatures et des
+ * invitations créées avant que le logo ne soit recopié dans le document :
+ * une carte par requête aurait fait une lecture par ligne de liste.
+ */
+export async function getTeamsByIds(teamIds: string[]): Promise<Team[]> {
+  if (teamIds.length === 0) return [];
+  const results: Team[] = [];
+  for (let i = 0; i < teamIds.length; i += 30) {
+    const chunk = teamIds.slice(i, i + 30);
+    const snap = await getDocs(
+      query(collection(db, "teams"), where("__name__", "in", chunk)),
+    );
+    for (const d of snap.docs) results.push(toTeam(d.id, d.data() as FirestoreTeam));
   }
   return results;
 }
@@ -476,7 +546,7 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
  * Distinct from searchTeams below, which exists for the mercato and only ever
  * returns teams that are recruiting. This one answers "where is my friend's
  * team?" as well as "who is taking players?", so it does not filter on
- * is_recruiting — the card badges that instead.
+ * is_recruiting, the card badges that instead.
  *
  * Firestore has no substring index, so the match is done client-side; ghost
  * teams (off-platform opponents, no account and no members) are dropped since
@@ -489,7 +559,7 @@ export async function findTeams(term: string, max = 24): Promise<Team[]> {
   return snap.docs
     .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
     .filter((t) => !t.isGhost && fold(`${t.name} ${t.city}`).includes(needle))
-    // Recruiting teams first — a search for a team is most often a search for
+    // Recruiting teams first, a search for a team is most often a search for
     // one that will have you.
     .sort((a, b) => Number(b.isRecruiting) - Number(a.isRecruiting) || a.name.localeCompare(b.name))
     .slice(0, max);
@@ -520,7 +590,7 @@ export async function getShortlistByManager(managerId: string): Promise<Shortlis
 }
 
 export async function addToShortlist(data: {
-  managerId: string; playerId: string; playerName: string;
+  managerId: string; playerId: string; playerName: string; playerPhoto?: string | null;
   playerCity: string; playerPosition: string; playerLevel: string; playerBio: string;
 }): Promise<string> {
   const q = query(collection(db, "shortlists"),
@@ -531,7 +601,8 @@ export async function addToShortlist(data: {
 
   const ref = await addDoc(collection(db, "shortlists"), {
     manager_id: data.managerId, player_id: data.playerId,
-    player_name: data.playerName, player_city: data.playerCity,
+    player_name: data.playerName, player_photo: data.playerPhoto ?? null,
+    player_city: data.playerCity,
     player_position: data.playerPosition, player_level: data.playerLevel,
     player_bio: data.playerBio, created_at: serverTimestamp(),
   });
@@ -555,9 +626,10 @@ export async function isInShortlist(managerId: string, playerId: string): Promis
 // ============================================
 
 export async function createJoinRequest(data: {
-  playerId: string; playerName: string; playerCity: string;
+  playerId: string; playerName: string; playerPhoto?: string | null; playerCity: string;
   playerPosition: string; playerLevel: string;
-  teamId: string; teamName: string; managerId: string; message: string;
+  teamId: string; teamName: string; teamLogo?: string | null;
+  managerId: string; message: string;
 }): Promise<string> {
   const q = query(collection(db, "join_requests"),
     where("player_id", "==", data.playerId),
@@ -568,6 +640,7 @@ export async function createJoinRequest(data: {
 
   const ref = await addDoc(collection(db, "join_requests"), {
     player_id: data.playerId, player_name: data.playerName,
+    player_photo: data.playerPhoto ?? null, team_logo: data.teamLogo ?? null,
     player_city: data.playerCity, player_position: data.playerPosition,
     player_level: data.playerLevel, team_id: data.teamId,
     team_name: data.teamName, manager_id: data.managerId,
@@ -636,6 +709,10 @@ export async function respondToJoinRequest(requestId: string, accepted: boolean,
   }
 
   await batch.commit();
+
+  if (accepted && teamId && playerId) {
+    notifyTeamActivity({ teamId, event: "member_joined", playerId });
+  }
 }
 
 // ============================================
@@ -722,7 +799,7 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
  *
  * Le flux normal naît en `challenge` : le manager adverse accepte, et c'est
  * son acceptation (`respondToMatchChallenge`) qui crée les convocations des
- * deux camps. Face à un fantôme il n'y a personne pour accepter — le match
+ * deux camps. Face à un fantôme il n'y a personne pour accepter, le match
  * partirait donc dans une boîte de réception que personne ne lit, et aucun
  * joueur ne serait convoqué. On planifie donc directement, et on convoque
  * l'équipe réelle ici même.
@@ -830,7 +907,7 @@ export async function updateMatchLineup(
  * fantôme n'en a pas, ses assignations y étaient donc silencieusement perdues.
  * On dénormalise la compo sur le match, comme le fait déjà le côté compétition.
  *
- * `ghostIsHome` dit de quel côté joue le fantôme — c'est lui qui décide quel
+ * `ghostIsHome` dit de quel côté joue le fantôme, c'est lui qui décide quel
  * drapeau `*_lineup_ready` est levé.
  */
 export async function setGhostLineup(
@@ -984,7 +1061,7 @@ export async function respondToMatchChallenge(
         author_role: "system",
         author_avatar: "",
         type: "match_announcement",
-        content: `⚽ Match confirmé ! ${matchLabel} le ${matchDate} à ${matchTime} — ${venueName}`,
+        content: `⚽ Match confirmé ! ${matchLabel} le ${matchDate} à ${matchTime}, ${venueName}`,
         metadata: { home_team: homeTeamId, away_team: awayTeamId },
         likes: [], comment_count: 0,
         created_at: serverTimestamp(), updated_at: serverTimestamp(),
@@ -1204,7 +1281,7 @@ export async function respondToParticipation(
         author_role: "system",
         author_avatar: "",
         type: "match_announcement",
-        content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${matchData.date} à ${matchData.time} — ${matchData.venue_name}`,
+        content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${matchData.date} à ${matchData.time}, ${matchData.venue_name}`,
         metadata: { home_team: matchData.home_team_name, away_team: matchData.away_team_name },
         likes: [], comment_count: 0,
         created_at: serverTimestamp(), updated_at: serverTimestamp(),
@@ -1223,7 +1300,7 @@ export async function forceCompleteMatch(matchId: string): Promise<void> {
 
 /**
  * Completing a match rolls its stats onto both clubs and every player who took
- * part — writes that no longer happen from the browser. See
+ * part, writes that no longer happen from the browser. See
  * /api/matches/complete: the counters live on documents the caller does not own,
  * so the only rule that could permit a client-side rollup was "anyone signed in
  * may rewrite these fields on anyone", which is exactly what it sounds like.
@@ -1290,12 +1367,14 @@ export function onParticipationsForPlayer(playerId: string, callback: (data: Par
 
 export async function sendInvitation(data: {
   senderId: string; senderName: string; receiverId: string; receiverName: string;
+  receiverPhoto?: string | null; teamLogo?: string | null;
   receiverCity: string; receiverPosition: string; receiverLevel: string;
   teamId: string; teamName: string; message: string;
 }): Promise<string> {
   const ref = await addDoc(collection(db, "invitations"), {
     sender_id: data.senderId, sender_name: data.senderName,
     receiver_id: data.receiverId, receiver_name: data.receiverName,
+    receiver_photo: data.receiverPhoto ?? null, team_logo: data.teamLogo ?? null,
     receiver_city: data.receiverCity, receiver_position: data.receiverPosition,
     receiver_level: data.receiverLevel, team_id: data.teamId,
     team_name: data.teamName, message: data.message,
@@ -1341,7 +1420,7 @@ export function onInvitationsByManager(managerId: string, callback: (data: Invit
  *
  * Goes through /api/team-invitations/respond: accepting writes `member_ids` on
  * a team the player does not own, and the rule that used to permit that could
- * only inspect the shape of the write, never whether an invitation existed —
+ * only inspect the shape of the write, never whether an invitation existed,
  * so it let anyone add themselves to any team. The server checks the invitation
  * instead.
  *
@@ -1383,7 +1462,7 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
  *
  * Filters on the ACTIVATED role, not on `user_type`: since the pivot every
  * account is created with `user_type: "player"`, so that field would put
- * every spectator who never opened the player space into the mercato —
+ * every spectator who never opened the player space into the mercato,
  * which is why managers were seeing profiles with no position. Docs without
  * `evolution_role` are excluded by the equality filter, which is the point.
  */
@@ -1406,13 +1485,38 @@ export async function searchPlayers(filters: { city?: string; position?: string;
 // Referees (for referee search)
 // ============================================
 
+/**
+ * Les arbitres, sur DEUX signaux réunis.
+ *
+ * Depuis que l'arbitre est un rôle Evolution activable librement, deux
+ * populations coexistent :
+ *
+ * - les comptes qui viennent de l'activer, marqués `evolution_role`. Un
+ *   organisateur qui arbitre garde son `user_type: "organizer"` (l'activation
+ *   préserve les types privilégiés), donc lui seul ce champ le désigne ;
+ * - les arbitres d'avant, désignés par `user_type: "referee"` et sans
+ *   `evolution_role`.
+ *
+ * Firestore ne sait pas faire un OU sur deux champs : on lance donc les deux
+ * requêtes et on fusionne. Filtrer sur un seul des deux aurait rendu invisible
+ * la moitié des arbitres, et laquelle dépend de leur ancienneté.
+ */
 export async function searchReferees(filters: { city?: string; licenseLevel?: string; query?: string }): Promise<UserProfile[]> {
-  const constraints: QueryConstraint[] = [where("user_type", "==", "referee"), where("is_active", "==", true)];
-  if (filters.city) constraints.push(where("location_city", "==", filters.city));
-  if (filters.licenseLevel) constraints.push(where("license_level", "==", filters.licenseLevel));
-  const q = query(collection(db, "users"), ...constraints);
-  const snap = await getDocs(q);
-  let results = snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
+  const common: QueryConstraint[] = [where("is_active", "==", true)];
+  if (filters.city) common.push(where("location_city", "==", filters.city));
+  if (filters.licenseLevel) common.push(where("license_level", "==", filters.licenseLevel));
+
+  const [parRole, parType] = await Promise.all([
+    getDocs(query(collection(db, "users"), where("evolution_role", "==", "referee"), ...common)),
+    getDocs(query(collection(db, "users"), where("user_type", "==", "referee"), ...common)),
+  ]);
+
+  const vus = new Set<string>();
+  let results = [...parRole.docs, ...parType.docs].flatMap((d) => {
+    if (vus.has(d.id)) return [];
+    vus.add(d.id);
+    return [toUserProfile(d.id, d.data() as FirestoreUser)];
+  });
   if (filters.query) {
     const search = filters.query.toLowerCase();
     results = results.filter((r) => `${r.firstName} ${r.lastName}`.toLowerCase().includes(search));
@@ -1462,7 +1566,7 @@ async function hydratePostAuthors(
     ...new Set(
       posts
         .map((p) => p.authorId)
-        // The official account has no users document — its identity comes
+        // The official account has no users document, its identity comes
         // from the Tribune settings, resolved at render time.
         .filter((id) => id && id !== SYSTEM_AUTHOR_ID && !cache.has(id)),
     ),
@@ -1486,7 +1590,7 @@ async function hydratePostAuthors(
   }
 
   // The official account's identity lives in settings/tribune and is editable
-  // from the admin panel, so it is resolved the same way — renaming it or
+  // from the admin panel, so it is resolved the same way, renaming it or
   // changing its picture must update everything it ever posted.
   if (posts.some((p) => p.authorId === SYSTEM_AUTHOR_ID) && !cache.has(SYSTEM_AUTHOR_ID)) {
     try {
@@ -1519,7 +1623,7 @@ export function onPosts(maxResults: number, currentUserId: string, callback: (da
     (snap) => {
       const seq = ++latest;
       const posts = snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
-      // Render immediately with the stored values, then correct them — the
+      // Render immediately with the stored values, then correct them, the
       // feed must not wait on a second round trip to appear.
       callback(posts);
       hydratePostAuthors(posts, authorCache).then(() => {
@@ -2201,6 +2305,51 @@ export async function deleteVenue(venueId: string): Promise<void> {
   await deleteDoc(doc(db, "venues", venueId));
 }
 
+/**
+ * Dépose une demande de créneau.
+ *
+ * Toujours en `pending` : la confirmation appartient au propriétaire, et les
+ * règles refusent d'ailleurs qu'une demande naisse dans un autre état.
+ *
+ * `total_price` reste à zéro, la plateforme n'encaisse rien et ne connaît
+ * pas les tarifs. Le champ existe dans le modèle, on ne lui fait pas dire ce
+ * qu'on ne sait pas.
+ */
+export async function createBooking(data: {
+  venueId: string;
+  venueName: string;
+  ownerId: string;
+  userId: string;
+  userName: string;
+  date: string;
+  time: string;
+  duration: number;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, "bookings"), {
+    venue_id: data.venueId,
+    venue_name: data.venueName,
+    owner_id: data.ownerId,
+    user_id: data.userId,
+    user_name: data.userName,
+    date: data.date,
+    time: data.time,
+    duration: data.duration,
+    total_price: 0,
+    status: "pending",
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Les demandes déposées par ce compte, la plus récente d'abord. */
+export function onBookingsByUser(userId: string, callback: (data: Booking[]) => void): Unsubscribe {
+  const q = query(collection(db, "bookings"), where("user_id", "==", userId), orderBy("created_at", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => toBooking(d.id, d.data() as FirestoreBooking)));
+  });
+}
+
 export function onBookingsByOwner(ownerId: string, callback: (data: Booking[]) => void): Unsubscribe {
   const q = query(collection(db, "bookings"), where("owner_id", "==", ownerId), orderBy("created_at", "desc"));
   return onSnapshot(q, (snap) => {
@@ -2390,7 +2539,7 @@ export async function createNotification(data: {
     created_at: serverTimestamp(),
   });
 
-  // Best-effort push — fire and forget
+  // Best-effort push, fire and forget
   const currentUser = auth.currentUser;
   if (currentUser) {
     currentUser.getIdToken().then((token) => {
@@ -2416,13 +2565,16 @@ export async function createNotification(data: {
 
 export function onNotifications(
   userId: string,
-  callback: (data: Notification[]) => void
+  callback: (data: Notification[]) => void,
+  // La cloche n'affiche qu'un aperçu ; l'écran /notifications remonte plus
+  // loin dans l'historique.
+  max = 50,
 ): Unsubscribe {
   const q = query(
     collection(db, "notifications"),
     where("user_id", "==", userId),
     orderBy("created_at", "desc"),
-    firestoreLimit(50)
+    firestoreLimit(max)
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => toNotification(d.id, d.data() as FirestoreNotification)));
