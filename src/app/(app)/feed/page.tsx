@@ -218,17 +218,28 @@ export default function FeedPage() {
     // d'ariane sur une page de premier niveau ne menerait nulle part.
     <div className="mx-auto flex max-w-5xl items-start gap-6 pb-24">
       {/* Qui je suis, pendant que je lis les autres. */}
-      <aside className="sticky top-24 hidden w-60 shrink-0 lg:block">
+      <aside className="sticky top-[calc(var(--header-h,72px)+1.5rem)] hidden w-60 shrink-0 lg:block">
         <UserProfileWidget user={user} />
       </aside>
 
       <div className="min-w-0 flex-1 space-y-4">
-          {/* New post form */}
+          {/* Le composeur suit la lecture.
+              
+              Il defile avec le fil, puis se cale sous le header et y reste :
+              on tombe rarement sur l'envie de publier au moment precis ou on
+              ouvre la page — elle vient en lisant, et il fallait alors
+              remonter tout le fil pour la saisir.
+
+              `--header-h` plutot qu'un offset ecrit a la main : la hauteur du
+              header depend du terminal, et c'est exactement l'erreur qui
+              faisait glisser les heros 14px dessous en mobile.
+
+              Fond opaque obligatoire : le fil passe DERRIERE lui. */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.08 }}
-            className=" border border-gray-200/70 bg-white p-4"
+            className="sticky top-[var(--header-h,72px)] z-20 border border-gray-200/70 bg-white p-4"
           >
             <div className="flex gap-3">
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ${avatarColor(`${user.firstName} ${user.lastName}`)}`}>
