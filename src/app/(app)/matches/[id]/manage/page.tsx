@@ -290,7 +290,7 @@ export default function LiveMatchManage() {
         </p>
 
         <div className="mt-12 w-full max-w-sm space-y-4">
-          <div className="flex items-center justify-between p-6 rounded-[2rem] bg-white border border-gray-200/70 shadow-gray-200/50">
+          <div className="flex items-center justify-between p-6 bg-white border border-gray-200/70 shadow-gray-200/50">
             <div className="flex items-center gap-4">
               <div className={`h-10 w-10 flex items-center justify-center ${match.homeLineupReady ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
                 {match.homeLineupReady ? <CheckCircle2 size={24} /> : <Clock size={24} />}
@@ -303,7 +303,7 @@ export default function LiveMatchManage() {
             {!match.homeLineupReady && <span className="text-[10px] font-black text-amber-500 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-tighter">Attente</span>}
           </div>
 
-          <div className="flex items-center justify-between p-6 rounded-[2rem] bg-white border border-gray-200/70 shadow-gray-200/50">
+          <div className="flex items-center justify-between p-6 bg-white border border-gray-200/70 shadow-gray-200/50">
             <div className="flex items-center gap-4">
               <div className={`h-10 w-10 flex items-center justify-center ${match.awayLineupReady ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
                 {match.awayLineupReady ? <CheckCircle2 size={24} /> : <Clock size={24} />}
@@ -318,7 +318,7 @@ export default function LiveMatchManage() {
         </div>
 
         {!lineupsReady ? (
-          <div className="mt-12 p-8 rounded-[2.5rem] bg-amber-50 border border-amber-100/50 text-amber-800 text-sm font-bold flex flex-col items-center gap-4 max-w-sm">
+          <div className="mt-12 p-8 bg-amber-50 border border-amber-100/50 text-amber-800 text-sm font-bold flex flex-col items-center gap-4 max-w-sm">
              <div className="h-14 w-14 bg-white flex items-center justify-center text-amber-500">
                 <AlertTriangle size={24} />
              </div>
@@ -329,9 +329,9 @@ export default function LiveMatchManage() {
         ) : (
           <button
             onClick={() => initLiveMatch(id)}
-            className="mt-12 group relative inline-flex items-center gap-6 rounded-[2.5rem] bg-emerald-600 px-14 py-8 text-2xl font-black uppercase tracking-widest text-white shadow-[0_30px_60px_rgba(16,185,129,0.4)] transition-all hover:bg-emerald-700 hover:scale-105 active:scale-95"
+            className="mt-12 group relative inline-flex items-center gap-6 bg-emerald-600 px-14 py-8 text-2xl font-black uppercase tracking-widest text-white transition-all hover:bg-emerald-700 hover:scale-105 active:scale-95"
           >
-            <div className="absolute inset-0 rounded-[2.5rem] bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="relative">Lancer le Match</span>
             <Flame size={28} className="relative transition-transform group-hover:scale-125 group-hover:rotate-12" />
           </button>
@@ -390,7 +390,7 @@ export default function LiveMatchManage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-[3rem] bg-[#0A0A0B] p-10 text-white shadow-[0_40px_100px_rgba(0,0,0,0.15)]"
+        className="relative overflow-hidden bg-[#0A0A0B] p-10 text-white"
       >
         {/* Background Effects */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-full bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.3),transparent)] pointer-events-none" />
@@ -402,7 +402,7 @@ export default function LiveMatchManage() {
           <div className="flex flex-col items-center gap-6">
             <div className="relative">
               <div className="absolute inset-0 blur-xl bg-white/10 rounded-full" />
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-[2.5rem] bg-gradient-to-br from-white/10 to-white/5 text-4xl font-black border border-white/10 shadow-2xl backdrop-blur-md">
+              <div className="relative flex h-24 w-24 items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-4xl font-black border border-white/10 shadow-2xl backdrop-blur-md">
                 {match.homeTeamName[0]}
               </div>
             </div>
@@ -427,14 +427,14 @@ export default function LiveMatchManage() {
               {match.liveState?.isTimerRunning ? (
                 <button
                   onClick={handlePauseTimer}
-                  className="group relative flex h-20 w-20 items-center justify-center rounded-[2rem] bg-amber-500 text-white shadow-[0_15px_30px_rgba(245,158,11,0.3)] transition-all hover:bg-amber-600 hover:scale-110 active:scale-95"
+                  className="group relative flex h-20 w-20 items-center justify-center bg-amber-500 text-white transition-all hover:bg-amber-600 hover:scale-110 active:scale-95"
                 >
                   <Pause size={32} fill="currentColor" />
                 </button>
               ) : (
                 <button
                   onClick={handleStartTimer}
-                  className="group relative flex h-20 w-20 items-center justify-center rounded-[2rem] bg-emerald-500 text-white shadow-[0_15px_30px_rgba(16,185,129,0.3)] transition-all hover:bg-emerald-600 hover:scale-110 active:scale-95"
+                  className="group relative flex h-20 w-20 items-center justify-center bg-emerald-500 text-white transition-all hover:bg-emerald-600 hover:scale-110 active:scale-95"
                 >
                   <Play size={32} fill="currentColor" className="ml-1" />
                 </button>
@@ -446,7 +446,7 @@ export default function LiveMatchManage() {
           <div className="flex flex-col items-center gap-6">
             <div className="relative">
               <div className="absolute inset-0 blur-xl bg-white/10 rounded-full" />
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-[2.5rem] bg-gradient-to-br from-white/10 to-white/5 text-4xl font-black border border-white/10 shadow-2xl backdrop-blur-md">
+              <div className="relative flex h-24 w-24 items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-4xl font-black border border-white/10 shadow-2xl backdrop-blur-md">
                 {match.awayTeamName[0]}
               </div>
             </div>
@@ -479,7 +479,7 @@ export default function LiveMatchManage() {
       {/* Control Panel: 2 Grids */}
       <div className="grid gap-6 md:grid-cols-2 px-4 sm:px-0">
         {/* Home Team Grid */}
-        <div className="rounded-[3rem] border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/40 relative group overflow-hidden">
+        <div className=" border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/40 relative group overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 blur-[80px] rounded-full opacity-50 bg-emerald-100" />
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-8">
@@ -521,7 +521,7 @@ export default function LiveMatchManage() {
         </div>
 
         {/* Away Team Grid */}
-        <div className="rounded-[3rem] border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/40 relative group overflow-hidden">
+        <div className=" border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/40 relative group overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 blur-[80px] rounded-full opacity-50 bg-blue-100" />
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-8">
@@ -577,10 +577,10 @@ export default function LiveMatchManage() {
               initial={{ opacity: 0, scale: 0.9, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }}
-              className="relative w-full max-w-sm rounded-[3rem] bg-white p-10 shadow-3xl text-center"
+              className="relative w-full max-w-sm bg-white p-10 shadow-3xl text-center"
             >
               <div className="mb-8">
-                 <div className="mx-auto h-20 w-20 rounded-[2rem] bg-gray-900 text-white flex items-center justify-center text-3xl font-black mb-4">
+                 <div className="mx-auto h-20 w-20 bg-gray-900 text-white flex items-center justify-center text-3xl font-black mb-4">
                    {selectedPlayer.player.squadNumber || selectedPlayer.player.playerName[0].toUpperCase()}
                  </div>
                  <h2 className="text-2xl font-black text-gray-900 leading-tight">{selectedPlayer.player.playerName}</h2>
@@ -630,7 +630,7 @@ export default function LiveMatchManage() {
       {/* Timeline & Flow Control */}
       <div className="grid gap-8 md:grid-cols-3 px-2">
         {/* Flow Control */}
-        <div className="rounded-[2.5rem] border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/50 backdrop-blur-sm">
+        <div className=" border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/50 backdrop-blur-sm">
            <div className="flex items-center gap-3 mb-6">
               <Clock className="text-gray-400" size={20} />
               <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Match Workflow</h3>
@@ -655,7 +655,7 @@ export default function LiveMatchManage() {
         </div>
 
         {/* Timeline */}
-        <div className="md:col-span-2 rounded-[2.5rem] border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/50">
+        <div className="md:col-span-2 border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/50">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <History className="text-gray-400" size={20} />
@@ -724,7 +724,7 @@ export default function LiveMatchManage() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md rounded-[3rem] bg-white p-10 shadow-2xl"
+              className="relative w-full max-w-md bg-white p-10 shadow-2xl"
             >
               <h2 className="mb-2 text-2xl font-black text-gray-900">Nouveau changement</h2>
               <p className="mb-8 text-sm font-bold text-gray-400 italic uppercase tracking-tight">{showSubModal.teamName}</p>

@@ -27,7 +27,7 @@ export default function CompetitionsTeaser({
   if (competitions.length <= 1) {
     return (
       <section className="bg-gray-50 px-6 py-16">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 rounded-[2.5rem] border border-gray-100 bg-white px-8 py-12 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 border border-gray-100 bg-white px-8 py-12 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
               <Trophy size={24} />

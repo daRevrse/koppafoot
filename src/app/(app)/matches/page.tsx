@@ -613,7 +613,7 @@ export default function MatchesPage() {
         >
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="inline-flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all hover:shadow-[0_0_12px_rgba(5,150,105,0.3)]"
+            className="inline-flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all"
           >
             <Plus size={16} /> Créer un match
           </button>

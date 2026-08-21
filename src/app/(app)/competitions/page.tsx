@@ -39,7 +39,7 @@ export default async function CompetitionsPage() {
         </div>
 
         {competitions.length === 0 && worldCompetitions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-5 rounded-[2.5rem] border border-gray-100 bg-white py-20 text-center shadow-sm">
+          <div className="flex flex-col items-center justify-center gap-5 border border-gray-100 bg-white py-20 text-center shadow-sm">
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-400">
               <Trophy size={32} />
             </div>

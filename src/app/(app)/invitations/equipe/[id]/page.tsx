@@ -83,7 +83,7 @@ export default function TeamManagerInvitePage() {
   if (notFound || !invite) {
     return (
       <div className="mx-auto max-w-md">
-        <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-gray-100 bg-white py-16 text-center shadow-sm">
+        <div className="flex flex-col items-center gap-4 border border-gray-100 bg-white py-16 text-center shadow-sm">
           <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gray-50 text-gray-300">
             <SearchX size={28} />
           </div>
@@ -107,7 +107,7 @@ export default function TeamManagerInvitePage() {
 
   return (
     <div className="mx-auto max-w-md">
-      <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
         {/* Header strip */}
         <div className="bg-emerald-950 px-6 py-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-emerald-300">

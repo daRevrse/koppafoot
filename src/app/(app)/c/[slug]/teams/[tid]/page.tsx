@@ -329,7 +329,7 @@ export default function PublicTeamPage() {
         {nextMatch ? (
           <Link
             href={`/c/${slug}/matches/${nextMatch.match.id}`}
-            className="group block overflow-hidden rounded-[1.75rem] border border-gray-200/70 bg-white transition-all hover:border-emerald-200"
+            className="group block overflow-hidden border border-gray-200/70 bg-white transition-all hover:border-emerald-200"
           >
             <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
               <div className="flex min-w-0 items-center gap-2">
@@ -387,7 +387,7 @@ export default function PublicTeamPage() {
             </div>
           </Link>
         ) : (
-          <div className="rounded-[1.75rem] border border-gray-200/70 bg-white px-5 py-8 text-center">
+          <div className=" border border-gray-200/70 bg-white px-5 py-8 text-center">
             <p className="text-sm font-bold text-gray-400 italic">Aucun match à venir.</p>
           </div>
         )}
@@ -428,7 +428,7 @@ export default function PublicTeamPage() {
         </div>
 
         {results.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-gray-200/70 bg-white px-5 py-8 text-center">
+          <div className=" border border-gray-200/70 bg-white px-5 py-8 text-center">
             <p className="text-sm font-bold text-gray-400 italic">Aucun match joué pour l&apos;instant.</p>
           </div>
         ) : (
@@ -457,7 +457,7 @@ export default function PublicTeamPage() {
                 <Link
                   key={match.id}
                   href={`/c/${slug}/matches/${match.id}`}
-                  className={`group block overflow-hidden rounded-[1.75rem] border border-l-4 bg-white transition-all ${
+                  className={`group block overflow-hidden border border-l-4 bg-white transition-all ${
                     isLive ? "border-red-100 hover:border-red-200" : "border-gray-200/70 hover:border-emerald-200"
                   } ${accent}`}
                 >
@@ -515,7 +515,7 @@ export default function PublicTeamPage() {
         </div>
 
         {roster.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-gray-200/70 bg-white px-5 py-8 text-center">
+          <div className=" border border-gray-200/70 bg-white px-5 py-8 text-center">
             <p className="text-sm font-bold text-gray-400 italic">Effectif non communiqué.</p>
           </div>
         ) : (

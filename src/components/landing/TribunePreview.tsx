@@ -96,7 +96,7 @@ export default function TribunePreview({ posts }: { posts: PublicPost[] }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{ duration: 0.5, delay: i * 0.08, ease: EASE }}
-              className="flex flex-col rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm"
+              className="flex flex-col border border-gray-100 bg-white p-6 shadow-sm"
             >
               <div className="flex items-center gap-3">
                 <Avatar post={post} />

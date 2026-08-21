@@ -317,7 +317,7 @@ export default function MatchResultModal({
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6 shadow-xl sm:rounded-3xl"
+            className="max-h-[92vh] w-full max-w-lg overflow-y-auto modal-sheet rounded-t-3xl bg-white p-6"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold text-gray-900">
@@ -325,7 +325,7 @@ export default function MatchResultModal({
               </h2>
               <button
                 onClick={() => !saving && onClose()}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                className=" p-1.5 text-gray-400 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
@@ -350,7 +350,7 @@ export default function MatchResultModal({
                   min={0}
                   value={scoreHome}
                   onChange={(e) => setScoreHome(e.target.value)}
-                  className="w-20 rounded-xl border border-gray-300 px-3 py-3 text-center text-2xl font-black text-gray-900 focus:border-primary-500 focus:outline-none"
+                  className="w-20 border border-gray-200/70 px-3 py-3 text-center text-2xl font-black text-gray-900 focus:border-primary-500 focus:outline-none"
                   placeholder="0"
                 />
               </div>
@@ -362,7 +362,7 @@ export default function MatchResultModal({
                   min={0}
                   value={scoreAway}
                   onChange={(e) => setScoreAway(e.target.value)}
-                  className="w-20 rounded-xl border border-gray-300 px-3 py-3 text-center text-2xl font-black text-gray-900 focus:border-primary-500 focus:outline-none"
+                  className="w-20 border border-gray-200/70 px-3 py-3 text-center text-2xl font-black text-gray-900 focus:border-primary-500 focus:outline-none"
                   placeholder="0"
                 />
               </div>
@@ -370,7 +370,7 @@ export default function MatchResultModal({
 
             {/* Shootout, a knockout tie has to send someone through */}
             {shootoutVisible && (
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <div className="mt-5 border border-amber-200 bg-amber-50 p-3">
                 <p className="mb-2 text-xs font-bold text-amber-800">
                   Score de parité, tirs au but
                   <span className="ml-1 font-medium text-amber-600">
@@ -385,7 +385,7 @@ export default function MatchResultModal({
                     onChange={(e) => setPenaltyHome(e.target.value)}
                     placeholder="0"
                     aria-label={`Tirs au but ${match.homeTeamName}`}
-                    className="w-16 rounded-lg border border-amber-300 bg-white px-2 py-2 text-center text-lg font-black text-gray-900 focus:border-amber-500 focus:outline-none"
+                    className="w-16 border border-amber-300 bg-white px-2 py-2 text-center text-lg font-black text-gray-900 focus:border-amber-500 focus:outline-none"
                   />
                   <span className="text-sm font-bold text-amber-400">tab</span>
                   <input
@@ -395,7 +395,7 @@ export default function MatchResultModal({
                     onChange={(e) => setPenaltyAway(e.target.value)}
                     placeholder="0"
                     aria-label={`Tirs au but ${match.awayTeamName}`}
-                    className="w-16 rounded-lg border border-amber-300 bg-white px-2 py-2 text-center text-lg font-black text-gray-900 focus:border-amber-500 focus:outline-none"
+                    className="w-16 border border-amber-300 bg-white px-2 py-2 text-center text-lg font-black text-gray-900 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -403,7 +403,7 @@ export default function MatchResultModal({
 
             {/* Scorers, one line per goal, all fields optional */}
             {(homeGoalRows.length > 0 || awayGoalRows.length > 0) && (
-              <div className="mt-6 space-y-4 border-t border-gray-100 pt-5">
+              <div className="mt-6 space-y-4 border-t border-gray-200/70 pt-5">
                 <div className="flex items-center gap-2">
                   <Goal size={15} className="text-emerald-600" />
                   <h3 className="text-sm font-bold text-gray-900">Buteurs</h3>
@@ -436,7 +436,7 @@ export default function MatchResultModal({
               <button
                 type="button"
                 onClick={() => !saving && onClose()}
-                className="rounded-lg px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
               >
                 Annuler
               </button>
@@ -444,7 +444,7 @@ export default function MatchResultModal({
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:opacity-50"
+                className="flex items-center gap-2 bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:opacity-50"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Trophy size={16} />}
                 Valider le score
@@ -486,15 +486,15 @@ function ScorerLines({
         {rows.map((row, i) => {
           const list = row.ownGoal ? opponentRoster : roster;
           return (
-            <div key={i} className="rounded-xl border border-gray-200 bg-gray-50/50 p-2.5">
+            <div key={i} className=" border border-gray-200/70 bg-gray-50/50 p-2.5">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-[11px] font-black text-emerald-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center bg-emerald-100 text-[11px] font-black text-emerald-700">
                   {i + 1}
                 </span>
                 <select
                   value={row.playerId}
                   onChange={(e) => onChange(i, { playerId: e.target.value })}
-                  className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                  className="min-w-0 flex-1 border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
                 >
                   <option value="">Buteur inconnu</option>
                   {list.map((p) => (
@@ -511,7 +511,7 @@ function ScorerLines({
                   placeholder="min"
                   value={row.minute}
                   onChange={(e) => onChange(i, { minute: e.target.value })}
-                  className="w-16 shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                  className="w-16 shrink-0 border border-gray-200/70 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
                 />
               </div>
 
@@ -521,7 +521,7 @@ function ScorerLines({
                   placeholder={`Nom du joueur (ajouté à l'effectif de ${row.ownGoal ? opponentName : teamName})`}
                   value={row.newName}
                   onChange={(e) => onChange(i, { newName: e.target.value })}
-                  className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                  className="mt-2 w-full border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
                 />
               )}
 
@@ -530,7 +530,7 @@ function ScorerLines({
                   type="checkbox"
                   checked={row.ownGoal}
                   onChange={(e) => onChange(i, { ownGoal: e.target.checked })}
-                  className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="h-3.5 w-3.5 rounded border-gray-200/70 text-primary-600 focus:ring-primary-500"
                 />
                 Contre son camp
                 {row.ownGoal && <span className="text-gray-400">, joueur de {opponentName}</span>}

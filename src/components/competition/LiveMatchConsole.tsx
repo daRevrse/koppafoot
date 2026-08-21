@@ -707,7 +707,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   if (loading) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary-600" />
+        <Loader2 className="h-10 w-10 animate-spin text-emerald-700" />
         <p className="font-bold text-gray-500 italic">Chargement du match...</p>
       </div>
     );
@@ -719,7 +719,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         <p className="text-lg font-bold text-gray-900">Match introuvable</p>
         <button
           onClick={() => router.push(returnHref)}
-          className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+          className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
         >
           Retour au calendrier
         </button>
@@ -743,7 +743,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         <div className="flex shrink-0 items-center justify-between gap-2 px-2 pt-2">
           <button
             onClick={() => router.push(returnHref)}
-            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
+            className="group flex h-10 w-10 shrink-0 items-center justify-center bg-white shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
           >
             <ChevronLeft size={20} className="text-gray-400 group-hover:text-gray-900" />
           </button>
@@ -751,7 +751,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
               Feuilles de match
             </p>
-            <h1 className="truncate font-display text-base font-extrabold tracking-tight text-gray-900 sm:text-xl">
+            <h1 className="truncate font-display text-base font-black uppercase tracking-tight text-gray-900 sm:text-xl">
               {match.homeTeamName} <span className="mx-1 text-gray-300">vs</span> {match.awayTeamName}
             </h1>
             {/* Les règles du match, là où l'opérateur compose la feuille. */}
@@ -765,7 +765,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         {/* Team switch, mobile only. Carries each side's validation state,
             since only one sheet is visible at a time. */}
         {!rostersLoading && (
-          <div className="mx-2 mt-3 flex shrink-0 gap-1 rounded-xl bg-gray-200/70 p-1 md:hidden">
+          <div className="mx-2 mt-3 flex shrink-0 gap-1 bg-gray-200/70 p-1 md:hidden">
             {([
               { side: "home" as Side, label: "Domicile", name: match.homeTeamName, ready: match.homeLineupReady },
               { side: "away" as Side, label: "Extérieur", name: match.awayTeamName, ready: match.awayLineupReady },
@@ -773,8 +773,8 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <button
                 key={t.side}
                 onClick={() => setSheetSide(t.side)}
-                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-black transition-colors ${
-                  sheetSide === t.side ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-2 text-xs font-black transition-colors ${
+                  sheetSide === t.side ? "bg-white text-gray-900" : "text-gray-500"
                 }`}
               >
                 {t.ready && <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />}
@@ -786,7 +786,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
         {rostersLoading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-700" />
             <p className="text-sm font-bold text-gray-400 italic">Chargement des effectifs...</p>
           </div>
         ) : (
@@ -824,7 +824,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
         {/* Launch gate, pinned, so kickoff is always one tap away instead of
             two rosters further down. */}
-        <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200 bg-white/95 px-3 py-3 pb-safe backdrop-blur">
+        <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200/70 bg-white/95 px-3 py-3 pb-safe backdrop-blur">
           {!lineupsReady && !rostersLoading && (
             <div className="mb-2 flex items-center justify-center gap-2 text-amber-700">
               <AlertTriangle size={15} className="shrink-0 text-amber-500" />
@@ -836,7 +836,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <button
             onClick={handleLaunch}
             disabled={!lineupsReady}
-            className="group relative inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary-600 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-primary-300/40 transition-all hover:bg-primary-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
+            className="group relative inline-flex w-full items-center justify-center gap-3 bg-gray-900 px-6 py-4 text-base font-black uppercase tracking-widest text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
           >
             <span className="relative">Coup d&apos;envoi</span>
             <Flame size={20} className="relative transition-transform group-hover:rotate-12 group-hover:scale-125" />
@@ -887,7 +887,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       {/* Sandbox banner, the console is otherwise indistinguishable from the
           real thing, and a trainee must never wonder whether it counts. */}
       {competition?.isSandbox && (
-        <div className="mx-2 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mx-2 flex items-start gap-3 border border-emerald-200 bg-emerald-50 p-4">
           <GraduationCap size={18} className="mt-0.5 shrink-0 text-emerald-600" />
           <div className="min-w-0">
             <p className="text-sm font-black text-emerald-900">Mode entraînement</p>
@@ -905,14 +905,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         {showBack ? (
           <button
             onClick={() => router.push(returnHref)}
-            className="group flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-lg shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
+            className="group flex h-11 w-11 items-center justify-center bg-white shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
           >
             <ChevronLeft size={22} className="text-gray-400 group-hover:text-gray-900" />
           </button>
         ) : showQuit ? (
           <button
             onClick={handleQuit}
-            className="group flex h-11 items-center gap-2 rounded-xl bg-white px-4 shadow-lg shadow-gray-200/60 transition-all hover:scale-105 active:scale-95"
+            className="group flex h-11 items-center gap-2 bg-white px-4 shadow-gray-200/60 transition-all hover:scale-105 active:scale-95"
           >
             <LogOut size={18} className="text-gray-400 group-hover:text-gray-900" />
             <span className="text-xs font-black uppercase tracking-wider text-gray-500 group-hover:text-gray-900">
@@ -930,14 +930,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               </span>
             ) : (
               <>
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-500" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-600">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-900" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
                   Match en Direct
                 </span>
               </>
             )}
           </div>
-          <h1 className="font-display text-base font-extrabold tracking-tight text-gray-900 sm:text-xl">
+          <h1 className="font-display text-base font-black uppercase tracking-tight text-gray-900 sm:text-xl">
             {match.homeTeamName} <span className="mx-1.5 text-gray-300">vs</span> {match.awayTeamName}
           </h1>
         </div>
@@ -953,10 +953,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-xl bg-[#0A0A0B] p-4 text-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] sm:rounded-2xl sm:p-10"
+        className="relative overflow-hidden bg-[#0A0A0B] p-4 text-white sm:p-10"
       >
         <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[80%] -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.3),transparent)]" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-primary-500/10 blur-[100px]" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-emerald-50 blur-[100px]" />
         <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-500/10 blur-[100px]" />
 
         <div className="relative z-10 grid grid-cols-3 items-center">
@@ -964,7 +964,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <div className="flex flex-col items-center gap-2.5 sm:gap-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-2xl sm:text-3xl">
+              <div className="relative flex h-11 w-11 items-center justify-center border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:text-3xl">
                 {match.homeTeamName[0]}
               </div>
             </div>
@@ -980,12 +980,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
           {/* Center */}
           <div className="flex flex-col items-center">
-            <div className="mb-3 rounded-full border border-white/5 bg-white/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-primary-400 backdrop-blur-xl sm:mb-5 sm:px-5 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]">
+            <div className="mb-3 rounded-full border border-white/5 bg-white/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-emerald-500 backdrop-blur-xl sm:mb-5 sm:px-5 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]">
               {PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
             </div>
             <div className="relative flex flex-col items-center">
-              <div className="absolute -inset-8 rounded-full bg-primary-500/10 blur-3xl" />
-              <div className="relative font-mono text-3xl font-black leading-none tracking-tighter tabular-nums text-primary-400 sm:text-[4.5rem]">
+              <div className="absolute -inset-8 rounded-full bg-emerald-50 blur-3xl" />
+              <div className="relative font-mono text-3xl font-black leading-none tracking-tighter tabular-nums text-emerald-500 sm:text-[4.5rem]">
                 {formatTime(displayTime)}
               </div>
             </div>
@@ -994,14 +994,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 {match.liveState?.isTimerRunning ? (
                   <button
                     onClick={handlePauseTimer}
-                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-500 text-white shadow-[0_15px_30px_rgba(245,158,11,0.3)] transition-all hover:scale-110 hover:bg-amber-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-2xl"
+                    className="flex h-11 w-11 items-center justify-center bg-amber-500 text-white transition-all hover:scale-110 hover:bg-amber-600 active:scale-95 sm:h-16 sm:w-16"
                   >
                     <Pause size={24} fill="currentColor" />
                   </button>
                 ) : (
                   <button
                     onClick={handleStartTimer}
-                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-white shadow-[0_15px_30px_rgba(37,99,235,0.3)] transition-all hover:scale-110 hover:bg-primary-600 active:scale-95 sm:h-16 sm:w-16 sm:rounded-2xl"
+                    className="flex h-11 w-11 items-center justify-center bg-gray-900 text-white transition-all hover:scale-110 hover:bg-gray-900 active:scale-95 sm:h-16 sm:w-16"
                   >
                     <Play size={24} fill="currentColor" className="ml-1" />
                   </button>
@@ -1014,7 +1014,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           <div className="flex flex-col items-center gap-2.5 sm:gap-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:rounded-2xl sm:text-3xl">
+              <div className="relative flex h-11 w-11 items-center justify-center border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:text-3xl">
                 {match.awayTeamName[0]}
               </div>
             </div>
@@ -1040,9 +1040,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       {!isCompleted && (
         <>
           {/* Lock banner */}
-          <div className="flex items-center justify-between rounded-lg bg-amber-500 p-3 text-white shadow-xl shadow-amber-500/20 sm:rounded-xl sm:p-4">
+          <div className="flex items-center justify-between bg-amber-500 p-3 text-white shadow-amber-500/20 sm:p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
+              <div className="flex h-9 w-9 items-center justify-center bg-white/20">
                 <Shield size={20} />
               </div>
               <div>
@@ -1053,7 +1053,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           </div>
 
           {/* Workflow */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/50 sm:rounded-2xl sm:p-7">
+          <div className=" border border-gray-200/70 bg-white p-4 shadow-gray-200/50 sm:p-7">
             <div className="mb-3.5 flex items-center gap-3 sm:mb-5">
               <Clock className="text-gray-400" size={18} />
               <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Déroulé</h3>
@@ -1063,7 +1063,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <button
                   onClick={handleHalfTime}
                   disabled={isSubmitting}
-                  className="group flex w-full items-center justify-between rounded-lg bg-gray-900 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                  className="group flex w-full items-center justify-between bg-gray-900 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
                 >
                   <span>Mi-temps</span>
                   <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
@@ -1073,7 +1073,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <button
                   onClick={handleResume}
                   disabled={isSubmitting}
-                  className="group flex w-full items-center justify-between rounded-lg bg-primary-600 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50"
+                  className="group flex w-full items-center justify-between bg-gray-900 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
                 >
                   <span>Reprise (2e mi-temps)</span>
                   <Play size={18} fill="currentColor" />
@@ -1083,7 +1083,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                 <button
                   onClick={handleFinishClick}
                   disabled={isSubmitting}
-                  className="flex w-full items-center justify-between rounded-lg border-2 border-red-50 bg-red-50/50 px-4 py-3 text-sm font-bold text-red-600 sm:px-5 sm:py-4 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+                  className="flex w-full items-center justify-between border border-red-50 bg-red-50/50 px-4 py-3 text-sm font-bold text-red-600 sm:px-5 sm:py-4 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
                 >
                   <span>Fin du match</span>
                   <CheckCircle2 size={20} />
@@ -1099,9 +1099,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       <div className="space-y-4 sm:space-y-7">
       {isCompleted ? (
         /* ----- Read-only completed summary ----- */
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/40 sm:rounded-2xl sm:p-8">
+        <div className=" border border-gray-200/70 bg-white p-5 shadow-gray-200/40 sm:p-8">
           <div className="mb-4 flex items-center gap-3 sm:mb-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="flex h-10 w-10 items-center justify-center bg-emerald-50 text-emerald-600">
               <CheckCircle2 size={22} />
             </div>
             <div>
@@ -1140,7 +1140,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           </div>
 
           {/* Events */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/50 sm:rounded-2xl sm:p-7">
+          <div className=" border border-gray-200/70 bg-white p-4 shadow-gray-200/50 sm:p-7">
             <div className="mb-4 flex items-center justify-between sm:mb-6">
               <div className="flex items-center gap-3">
                 <History className="text-gray-400" size={18} />
@@ -1230,10 +1230,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-8"
+              className="relative w-full max-w-sm bg-white p-5 shadow-2xl sm:p-8"
             >
               <div className="mb-4 flex items-center gap-3 sm:mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <div className="flex h-10 w-10 items-center justify-center bg-amber-50 text-amber-600">
                   <Trophy size={20} />
                 </div>
                 <div>
@@ -1252,7 +1252,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                     min={0}
                     value={penaltyHome}
                     onChange={(e) => setPenaltyHome(e.target.value)}
-                    className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-primary-500"
+                    className="w-full border border-gray-200/70 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-gray-900"
                   />
                 </label>
                 <label className="flex flex-col gap-2">
@@ -1264,7 +1264,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
                     min={0}
                     value={penaltyAway}
                     onChange={(e) => setPenaltyAway(e.target.value)}
-                    className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-primary-500"
+                    className="w-full border border-gray-200/70 bg-gray-50 p-4 text-center text-xl font-black outline-none transition-colors focus:border-gray-900"
                   />
                 </label>
               </div>
@@ -1272,7 +1272,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
               <button
                 onClick={handlePenaltySubmit}
                 disabled={isSubmitting}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
+                className="mt-6 flex w-full items-center justify-center gap-2 bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Terminer le match"}
               </button>
@@ -1318,17 +1318,17 @@ function LineupBuilder({
   onToggle: (playerId: string) => void;
   onValidate: () => void;
 }) {
-  const accentText = accent === "primary" ? "text-primary-600" : "text-amber-500";
+  const accentText = accent === "primary" ? "text-emerald-700" : "text-amber-500";
   const validateCls =
     accent === "primary"
-      ? "bg-primary-600 hover:bg-primary-700 shadow-primary-200"
+      ? "bg-gray-900 hover:bg-emerald-700"
       : "bg-amber-500 hover:bg-amber-600 shadow-amber-200";
 
   const starters = roster.filter((p) => sheet[p.id] === "starter").length;
   const subs = roster.filter((p) => sheet[p.id] === "substitute").length;
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/40 sm:rounded-2xl sm:p-7">
+    <div className="relative overflow-hidden border border-gray-200/70 bg-white p-4 shadow-gray-200/40 sm:p-7">
       {/* Side label and team name are already in the mobile tab above, so
           they only appear from md up where both sheets show at once. */}
       <div className="mb-1 hidden items-center justify-between md:flex">
@@ -1346,7 +1346,7 @@ function LineupBuilder({
       </h2>
 
       {roster.length === 0 ? (
-        <div className="mt-4 rounded-xl border-2 border-dashed border-gray-200 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
+        <div className="mt-4 border border-dashed border-gray-200/70 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
           Effectif vide, ajoute les joueurs dans la config de l&apos;équipe
         </div>
       ) : (
@@ -1367,15 +1367,15 @@ function LineupBuilder({
                 <button
                   key={p.id}
                   onClick={() => onToggle(p.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                  className={`flex w-full items-center gap-3 border px-4 py-3 text-left transition-all active:scale-[0.99] ${
                     role === "out"
-                      ? "border-gray-100 bg-gray-50/50 hover:border-gray-200"
+                      ? "border-gray-200/70 bg-gray-50/50 hover:border-gray-200/70"
                       : role === "starter"
                         ? "border-emerald-500/30 bg-emerald-50/60"
                         : "border-sky-500/30 bg-sky-50/60"
                   }`}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-gray-900 shadow-sm">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-white text-sm font-black text-gray-900">
                     {p.number || p.name[0]?.toUpperCase()}
                   </span>
                   <span className="flex-1 truncate text-sm font-bold text-gray-900">{p.name}</span>
@@ -1387,7 +1387,7 @@ function LineupBuilder({
           <button
             onClick={onValidate}
             disabled={saving}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 ${validateCls}`}
+            className={`flex w-full items-center justify-center gap-2 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 ${validateCls}`}
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : ready ? "Mettre à jour la feuille" : "Valider la feuille"}
           </button>
@@ -1429,7 +1429,7 @@ function RoleBadge({ role }: { role: SheetRole }) {
     );
   }
   return (
-    <span className="shrink-0 rounded-full border border-gray-200 px-2.5 py-1 text-[9px] font-black uppercase tracking-tighter text-gray-400">
+    <span className="shrink-0 rounded-full border border-gray-200/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-tighter text-gray-400">
       Hors feuille
     </span>
   );
@@ -1456,18 +1456,18 @@ function TeamScoringCard({
 }) {
   const goalCls =
     accent === "primary"
-      ? "bg-primary-600 hover:bg-primary-700 shadow-primary-200"
+      ? "bg-gray-900 hover:bg-emerald-700"
       : "bg-amber-500 hover:bg-amber-600 shadow-amber-200";
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-200/40 sm:rounded-2xl sm:p-7">
+    <div className="relative overflow-hidden border border-gray-200/70 bg-white p-4 shadow-gray-200/40 sm:p-7">
       <h3 className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
         {accent === "primary" ? "Domicile" : "Extérieur"}
       </h3>
       <h2 className="mb-6 max-w-full truncate text-lg font-black tracking-tight text-gray-900">{teamName}</h2>
 
       {disabled ? (
-        <div className="rounded-xl border-2 border-dashed border-gray-200 px-4 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-300">
+        <div className=" border border-dashed border-gray-200/70 px-4 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-300">
           Feuille de match vide
         </div>
       ) : (
@@ -1475,7 +1475,7 @@ function TeamScoringCard({
           <button
             onClick={onGoal}
             disabled={goalCooldown > 0}
-            className={`flex w-full items-center justify-center gap-3 rounded-lg py-4 text-base font-black uppercase tracking-widest text-white shadow-lg sm:py-6 sm:text-lg transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${goalCls}`}
+            className={`flex w-full items-center justify-center gap-3 py-4 text-base font-black uppercase tracking-widest text-white sm:py-6 sm:text-lg transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${goalCls}`}
           >
             <Goal size={24} />
             {goalCooldown > 0 ? `Buts dans ${goalCooldown}s` : "+1 BUT"}
@@ -1483,22 +1483,22 @@ function TeamScoringCard({
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
               onClick={onYellow}
-              className="flex items-center justify-center gap-2 rounded-lg bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex items-center justify-center gap-2 bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
             >
-              <span className="h-4 w-3 rounded-sm border border-amber-500/20 bg-amber-400" />
+              <span className="h-4 w-3 border border-amber-500/20 bg-amber-400" />
               Jaune
             </button>
             <button
               onClick={onRed}
-              className="flex items-center justify-center gap-2 rounded-lg bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex items-center justify-center gap-2 bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
             >
-              <span className="h-4 w-3 rounded-sm border border-red-700/20 bg-red-600" />
+              <span className="h-4 w-3 border border-red-700/20 bg-red-600" />
               Rouge
             </button>
           </div>
           <button
             onClick={onSub}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-gray-100 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-95"
+            className="mt-3 flex w-full items-center justify-center gap-2 border border-gray-200/70 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:border-gray-200/70 hover:bg-gray-50 active:scale-95"
           >
             <ArrowRightLeft size={16} />
             Remplacement
@@ -1552,7 +1552,7 @@ function PlayerPickerModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md rounded-xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-7"
+        className="relative w-full max-w-md bg-white p-5 shadow-2xl sm:p-7"
       >
         <button
           onClick={onClose}
@@ -1575,16 +1575,16 @@ function PlayerPickerModal({
               key={entry.playerId}
               disabled={isSubmitting}
               onClick={() => onPick(entry)}
-              className="group flex items-center gap-3 rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-3 text-left transition-all hover:border-primary-500 hover:bg-white active:scale-95 disabled:opacity-50"
+              className="group flex items-center gap-3 border border-gray-200/70 bg-gray-50/50 px-4 py-3 text-left transition-all hover:border-gray-900 hover:bg-white active:scale-95 disabled:opacity-50"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-sm font-black text-white">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-900 text-sm font-black text-white">
                 {entry.number || entry.name[0]?.toUpperCase()}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
                   <span className="truncate text-sm font-bold text-gray-900">{entry.name}</span>
                   {yellowSet.has(entry.playerId) && (
-                    <span title="Carton jaune" className="h-3 w-2 shrink-0 rounded-sm border border-amber-500/30 bg-amber-400" />
+                    <span title="Carton jaune" className="h-3 w-2 shrink-0 border border-amber-500/30 bg-amber-400" />
                   )}
                 </span>
                 <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">
@@ -1602,7 +1602,7 @@ function PlayerPickerModal({
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="mt-3 w-full rounded-xl border-2 border-gray-100 py-2.5 text-sm font-bold text-gray-400 transition-colors hover:border-gray-200 hover:text-gray-600 disabled:opacity-50"
+            className="mt-3 w-full border border-gray-200/70 py-2.5 text-sm font-bold text-gray-400 transition-colors hover:border-gray-200/70 hover:text-gray-600 disabled:opacity-50"
           >
             Aucune passe décisive
           </button>
@@ -1667,10 +1667,10 @@ function SubstitutionModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md rounded-xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-8"
+        className="relative w-full max-w-md bg-white p-5 shadow-2xl sm:p-8"
       >
         <div className="mb-4 flex items-center gap-3 sm:mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900 text-white">
+          <div className="flex h-10 w-10 items-center justify-center bg-gray-900 text-white">
             <ArrowRightLeft size={20} />
           </div>
           <div>
@@ -1687,7 +1687,7 @@ function SubstitutionModal({
             <select
               value={subOut}
               onChange={(e) => setSubOut(e.target.value)}
-              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-red-500"
+              className="w-full border border-gray-200/70 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-red-500"
             >
               <option value="">Sélectionner...</option>
               {starters.map((e) => (
@@ -1700,7 +1700,7 @@ function SubstitutionModal({
           </div>
 
           <div className="flex justify-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-900 text-white shadow-lg">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-900 text-white">
               <ArrowRightLeft size={22} />
             </div>
           </div>
@@ -1712,7 +1712,7 @@ function SubstitutionModal({
             <select
               value={subIn}
               onChange={(e) => setSubIn(e.target.value)}
-              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-emerald-500"
+              className="w-full border border-gray-200/70 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-emerald-500"
             >
               <option value="">Sélectionner...</option>
               {substitutes.map((e) => (
@@ -1727,7 +1727,7 @@ function SubstitutionModal({
           <button
             onClick={onSubmit}
             disabled={!subOut || !subIn || isSubmitting}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
+            className="mt-2 flex w-full items-center justify-center gap-2 bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Valider le changement"}
           </button>
@@ -1792,12 +1792,12 @@ function EventTimeline({
             className="group flex items-center gap-3.5 sm:gap-5"
           >
             <div
-              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-black shadow-sm ${
+              className={`relative flex h-11 w-11 shrink-0 items-center justify-center border text-xs font-black ${
                 cancelled
-                  ? "border-gray-100 bg-gray-50 text-gray-300"
+                  ? "border-gray-200/70 bg-gray-50 text-gray-300"
                   : checking
                     ? "border-amber-200 bg-amber-50 text-amber-600"
-                    : "border-gray-100 bg-gray-50"
+                    : "border-gray-200/70 bg-gray-50"
               }`}
             >
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
@@ -1809,10 +1809,10 @@ function EventTimeline({
                   <Goal size={16} className={cancelled ? "text-gray-300" : "text-amber-500"} />
                 )}
                 {event.type === "yellow_card" && (
-                  <span className="h-5 w-3.5 rounded-sm border border-amber-500/20 bg-amber-400 shadow-sm" />
+                  <span className="h-5 w-3.5 border border-amber-500/20 bg-amber-400" />
                 )}
                 {event.type === "red_card" && (
-                  <span className="h-5 w-3.5 rounded-sm border border-red-700/20 bg-red-600 shadow-sm" />
+                  <span className="h-5 w-3.5 border border-red-700/20 bg-red-600" />
                 )}
                 {isSub && <ArrowRightLeft size={16} className="text-sky-500" />}
                 <span
@@ -1830,19 +1830,19 @@ function EventTimeline({
                 </span>
 
                 {checking && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                  <span className="inline-flex items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
                     VAR en cours
                   </span>
                 )}
                 {cancelled && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-700">
+                  <span className="inline-flex items-center gap-1 bg-red-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-700">
                     <Ban size={10} />
                     But refusé
                   </span>
                 )}
                 {confirmed && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                  <span className="inline-flex items-center gap-1 bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
                     <Check size={10} />
                     Accordé VAR
                   </span>
@@ -1868,7 +1868,7 @@ function EventTimeline({
                       type="button"
                       disabled={varBusy}
                       onClick={() => onVarVerdict(event, "checking")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
                     >
                       <MonitorPlay size={12} />
                       Vérifier (VAR)
@@ -1879,7 +1879,7 @@ function EventTimeline({
                       type="button"
                       disabled={varBusy}
                       onClick={() => onVarVerdict(event, "confirmed")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
                     >
                       <Check size={12} />
                       But accordé
@@ -1889,7 +1889,7 @@ function EventTimeline({
                     type="button"
                     disabled={varBusy}
                     onClick={() => onVarVerdict(event, "cancelled")}
-                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
                   >
                     <Ban size={12} />
                     Refuser le but

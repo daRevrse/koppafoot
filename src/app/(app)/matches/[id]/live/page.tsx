@@ -156,7 +156,7 @@ export default function MatchLiveView() {
             {/* A finished match kept showing its frozen final time; one still
                 to come showed 00:00. The status pill above already says which. */}
             {isLive ? (
-              <div className="text-2xl sm:text-5xl font-mono font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <div className="text-2xl sm:text-5xl font-mono font-black text-emerald-500 drop-">
                 {formatTime(shownTime)}
               </div>
             ) : match.status === "completed" ? null : (

@@ -73,7 +73,7 @@ export default function RosterClaimsPanel({
   if (claims.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+    <div className=" border border-amber-100 bg-amber-50/60 p-4">
       <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
         <UserCheck size={15} />
         {claims.length} demande{claims.length !== 1 ? "s" : ""} de rattachement
@@ -85,7 +85,7 @@ export default function RosterClaimsPanel({
         {claims.map((claim) => (
           <div
             key={claim.id}
-            className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm"
+            className="flex items-center gap-3 bg-white p-3"
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-gray-900">{claim.userName}</p>
@@ -97,7 +97,7 @@ export default function RosterClaimsPanel({
               type="button"
               onClick={() => decide(claim, "reject")}
               disabled={busy === claim.id}
-              className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+              className="shrink-0 border border-gray-200/70 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
             >
               <X size={15} />
             </button>
@@ -105,7 +105,7 @@ export default function RosterClaimsPanel({
               type="button"
               onClick={() => decide(claim, "accept")}
               disabled={busy === claim.id}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+              className="flex shrink-0 items-center gap-1.5 bg-emerald-500 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
             >
               {busy === claim.id ? (
                 <Loader2 size={15} className="animate-spin" />

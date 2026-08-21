@@ -157,7 +157,13 @@ interface ApiScorer {
 
 async function fdFetch<T>(path: string, revalidate: number): Promise<T | null> {
   const token = process.env.FOOTBALL_DATA_TOKEN;
-  if (!token) return null;
+  if (!token) {
+    // Silencieux, cette absence donnait un tableau mondial vide sans que rien
+    // ne l'explique : en production la variable n'etait pas definie, et le
+    // symptome ressemblait a une panne de l'API.
+    console.warn("football-data: FOOTBALL_DATA_TOKEN absent, aucune donnee mondiale");
+    return null;
+  }
   try {
     const res = await fetch(`${BASE}${path}`, {
       headers: { "X-Auth-Token": token },
@@ -248,8 +254,33 @@ function classify(m: ApiMatch, scored: boolean, now: number): MatchPhase {
 }
 
 /** Today's matches across the plan's competitions, split by status. Cached ~90s. */
+/** « 2026-08-20 », au format que l'API attend. */
+function jour(decalage: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + decalage);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * La fenetre du tableau mondial.
+ *
+ * `/matches` sans parametre ne renvoie QUE le jour meme : c'est le defaut de
+ * l'API. Le tableau du Direct laisse pourtant naviguer d'un jour a l'autre,
+ * et les matchs de demain n'etaient donc jamais demandes, ni affiches.
+ *
+ * Dix jours au total, la limite du plan gratuit pour une plage. Deux jours en
+ * arriere pour les resultats qu'on vient de manquer, sept en avant pour ce
+ * qui se prepare.
+ */
+const JOURS_AVANT = 2;
+const JOURS_APRES = 7;
+
 export async function getTodayFootball(): Promise<TodayFootball> {
-  const data = await fdFetch<{ matches: ApiMatch[] }>("/matches", 90);
+  const data = await fdFetch<{ matches: ApiMatch[] }>(
+    `/matches?dateFrom=${jour(-JOURS_AVANT)}&dateTo=${jour(JOURS_APRES)}`,
+    90,
+  );
   const matches = data?.matches ?? [];
   const now = Date.now();
   const live: FootballMatch[] = [];

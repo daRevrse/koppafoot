@@ -246,7 +246,7 @@ export default function EvolutionPage() {
 
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <div className="rounded-[2rem] border border-gray-200/70 bg-white p-6 sm:p-8">
+        <div className=" border border-gray-200/70 bg-white p-6 sm:p-8">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">
               <meta.Icon size={26} />
@@ -379,7 +379,7 @@ export default function EvolutionPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
               onClick={() => setPicking(role)}
-              className={`group rounded-[2rem] border-2 bg-white p-6 text-left transition-all hover:-translate-y-0.5 ${
+              className={`group border-2 bg-white p-6 text-left transition-all hover:-translate-y-0.5 ${
                 activated === role
                   ? "border-emerald-400"
                   : "border-transparent hover:border-emerald-200"
@@ -436,7 +436,7 @@ export default function EvolutionPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -12 }}
-          className="rounded-[2rem] border border-gray-200/70 bg-white p-6 sm:p-8"
+          className=" border border-gray-200/70 bg-white p-6 sm:p-8"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-emerald-50 text-emerald-500">

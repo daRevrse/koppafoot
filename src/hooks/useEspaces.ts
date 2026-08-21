@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  ClipboardList, Radio, MapPin, CalendarDays, Shield, Store,
+  ClipboardList, Radio, MapPin, CalendarDays, Shield, Store, Inbox,
   User, Briefcase, Flag, LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -80,6 +80,10 @@ export function useEspaces(): Espaces | null {
   // Le mercato ne concerne que ceux qui jouent ou recrutent.
   if (user.evolutionRole === "player" || user.evolutionRole === "manager") {
     roleItems.push({ href: "/mercato", label: "Mercato", Icon: Store });
+    // Demander un creneau ne demande aucune casquette : cette page suit le
+    // role, pas la propriete d'un terrain. Elle etait rangee du cote des
+    // casquettes, donc invisible pour ceux qui reservent vraiment.
+    roleItems.push({ href: "/mes-reservations", label: "Mes réservations", Icon: CalendarDays });
   }
 
   // Les casquettes nomment leur DESTINATION, pas un « espace ». « Espace
@@ -97,7 +101,10 @@ export function useEspaces(): Espaces | null {
   }
   if (isVenueOwner(user)) {
     hatItems.push({ href: "/mes-terrains", label: "Mes terrains", Icon: MapPin });
-    hatItems.push({ href: "/mes-reservations", label: "Réservations", Icon: CalendarDays });
+    // Les demandes RECUES, et non /mes-reservations qui liste celles qu'on a
+    // faites ailleurs. Un proprietaire cliquait sur « Réservations » et
+    // tombait sur sa page de client, sans jamais voir ce qu'on lui demandait.
+    hatItems.push({ href: "/mes-terrains/reservations", label: "Réservations reçues", Icon: Inbox });
   }
   if (user.userType === "superadmin") {
     hatItems.push({ href: "/admin", label: "Administration", Icon: Shield });

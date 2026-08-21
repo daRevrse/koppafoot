@@ -75,7 +75,7 @@ export default function FanSection() {
                 className="group"
               >
                 {/* Large portrait image */}
-                <div className="relative aspect-[3/4] overflow-hidden rounded-[32px] shadow-xl mb-6">
+                <div className="relative aspect-[3/4] overflow-hidden shadow-xl mb-6">
                   <Image
                     src={feature.image}
                     alt={feature.title}

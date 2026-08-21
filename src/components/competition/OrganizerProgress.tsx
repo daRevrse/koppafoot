@@ -110,7 +110,7 @@ export default function OrganizerProgress({
   const requiredTotal = steps.filter((s) => !s.optional).length;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden border border-gray-200/70 bg-white">
       <div className="flex items-center justify-between gap-3 border-b border-gray-50 px-5 py-3.5">
         <p className="text-sm font-bold text-gray-900">Mise en place</p>
         <span className="shrink-0 text-xs font-bold text-gray-400 tabular-nums">
@@ -127,7 +127,7 @@ export default function OrganizerProgress({
             <Link
               key={step.href}
               href={step.href}
-              className="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-gray-50"
+              className="group relative flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-gray-50"
             >
               {/* Rail joining the markers, so the list reads as one path. */}
               {!last && (

@@ -52,7 +52,7 @@ export default function CompetitionDirectoryCard({ competition }: { competition:
   const cover = competition.bannerUrl ?? competition.logoUrl;
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-lg">
+    <div className="group relative flex flex-col overflow-hidden border border-gray-200/70 bg-white transition-all hover:border-emerald-200">
       {/* Hors du lien : un bouton imbriqué dans une ancre navigue au clic. */}
       <div className="absolute right-3 top-3 z-10">
         <FollowCompetitionButton cid={competition.id} variant="icon" />

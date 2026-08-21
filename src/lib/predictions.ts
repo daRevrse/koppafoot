@@ -26,6 +26,33 @@ export interface PredictionCounts {
 
 export const EMPTY_COUNTS: PredictionCounts = { home: 0, draw: 0, away: 0, total: 0 };
 
+/**
+ * Les pourcentages affiches, avec une voix d'office par issue.
+ *
+ * Sans elle, le premier votant envoie son camp a 100% et les deux autres a
+ * 0%. Un match nul « impossible » parce qu'une personne a clique, ce n'est
+ * pas un pronostic, c'est un artefact d'arrondi. Les trois voix de base
+ * amortissent les tout premiers votes et disparaissent dans le bruit des
+ * suivants.
+ *
+ * Elles ne comptent QUE pour les pourcentages : le nombre de pronostics
+ * annonce reste le vrai, sans quoi on afficherait trois votes fantomes sur
+ * un match que personne n'a encore joue.
+ */
+export const VOIX_DE_BASE = 1;
+
+export function pourcentages(counts: PredictionCounts): { home: number; draw: number; away: number } {
+  const h = counts.home + VOIX_DE_BASE;
+  const n = counts.draw + VOIX_DE_BASE;
+  const a = counts.away + VOIX_DE_BASE;
+  const total = h + n + a;
+  return {
+    home: Math.round((h / total) * 100),
+    draw: Math.round((n / total) * 100),
+    away: Math.round((a / total) * 100),
+  };
+}
+
 const predictionId = (matchId: string, uid: string) => `${matchId}__${uid}`;
 
 /** Le pronostic de ce compte sur ce match, ou null s'il n'a pas voté. */

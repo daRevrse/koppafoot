@@ -13,7 +13,7 @@ import type { CompetitionFormat, CompetitionType } from "@/types";
 // ============================================
 
 const numberClass =
-  "w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none";
+  "w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none";
 
 function NumberField({
   label,
@@ -56,7 +56,7 @@ function CheckField({
     <label className="flex cursor-pointer items-center gap-3">
       <input
         type="checkbox"
-        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+        className="h-4 w-4 rounded border-gray-200/70 text-primary-600 focus:ring-primary-500"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />
@@ -126,7 +126,7 @@ export default function CompetitionFormatFields({
         </div>
       </div>
 
-      <div className="border-t border-gray-100" />
+      <div className="border-t border-gray-200/70" />
 
       {/* Group / league stage */}
       {groups && (

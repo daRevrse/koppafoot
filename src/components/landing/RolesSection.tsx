@@ -83,7 +83,7 @@ export default function RolesSection() {
               >
                 {/* Portrait image, large */}
                 <div className="relative w-full lg:w-[55%] lg:flex-shrink-0">
-                  <div className="relative h-[500px] sm:h-[700px] lg:h-[780px] overflow-hidden rounded-[32px] lg:rounded-[40px] shadow-2xl">
+                  <div className="relative h-[500px] sm:h-[700px] lg:h-[780px] overflow-hidden shadow-2xl">
                     <Image
                       src={role.image}
                       alt={role.title}

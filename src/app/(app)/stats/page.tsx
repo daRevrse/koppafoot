@@ -155,7 +155,7 @@ export default function StatsPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-[2rem] border border-gray-200/70 bg-white p-8 text-center">
+        <div className=" border border-gray-200/70 bg-white p-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gray-100 text-gray-300">
             <Users size={26} />
           </div>

@@ -66,7 +66,7 @@ export default function PlatformPromo() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.5, delay: i * 0.08, ease: EASE }}
-                className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm"
+                className=" border border-gray-100 bg-white p-6 shadow-sm"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
                   <Icon size={24} />
@@ -85,7 +85,7 @@ export default function PlatformPromo() {
         <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-9 py-4 text-base font-bold text-white transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-[#1A1715]/20 active:scale-[0.97]"
+            className="inline-flex items-center gap-2 rounded-full bg-[#1A1715] px-9 py-4 text-base font-bold text-white transition-all hover:scale-[1.03] hover:shadow-2xl/20 active:scale-[0.97]"
           >
             Rejoindre Koppafoot
             <ArrowRight size={18} />

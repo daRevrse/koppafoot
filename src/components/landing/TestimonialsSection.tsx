@@ -68,7 +68,7 @@ export default function TestimonialsSection() {
                 delay: i * 0.1,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="group rounded-[28px] bg-white p-8 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1"
+              className="group bg-white p-8 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1"
             >
               {/* Stars */}
               <div className="flex gap-1">

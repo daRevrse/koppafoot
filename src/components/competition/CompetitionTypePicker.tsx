@@ -36,15 +36,15 @@ export default function CompetitionTypePicker({
             type="button"
             disabled={disabled}
             onClick={() => onChange(type)}
-            className={`rounded-2xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+            className={` border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
               selected
                 ? "border-primary-500 bg-primary-50/40"
-                : "border-gray-100 bg-white hover:border-primary-200"
+                : "border-gray-200/70 bg-white hover:border-primary-200"
             }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                className={`flex h-10 w-10 shrink-0 items-center justify-center ${
                   selected ? "bg-primary-500 text-white" : "bg-gray-100 text-gray-400"
                 }`}
               >

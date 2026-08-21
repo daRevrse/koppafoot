@@ -1,5 +1,6 @@
 "use client";
 
+import { pourcentages, type PredictionCounts } from "@/lib/predictions";
 import {
   useState, useEffect, useMemo, useCallback, useSyncExternalStore,
 } from "react";
@@ -762,6 +763,7 @@ function Spotlight({
   // Sliding it away a few seconds later would move the pronostic out from
   // under the tap.
   const [locked, setLocked] = useState(false);
+  const [counts, setCounts] = useState<PredictionCounts | null>(null);
 
   const count = entries.length;
 
@@ -773,6 +775,28 @@ function Spotlight({
 
   const safe = count === 0 ? 0 : index % count;
   const entry = entries[safe];
+
+  // Les comptes ne sont demandes qu'apres le vote : avant, ils n'ont rien a
+  // dire qu'on veuille montrer, et c'est une requete de moins par affiche.
+  //
+  // Place AVANT la sortie anticipee : un hook appele conditionnellement
+  // change l'ordre des hooks d'un rendu a l'autre, ce que React interdit.
+  const entreeCourante = count === 0 ? null : entries[index % count];
+  const idCourant = entreeCourante?.match.id ?? null;
+  const choixCourant = idCourant ? picks[idCourant] : undefined;
+  const termine = entreeCourante?.match.status === "completed";
+
+  useEffect(() => {
+    // Pas de setState synchrone au montage : on sort sans toucher a l'etat,
+    // et le rendu lit `parts` a null, ce qui masque simplement le bloc.
+    if (!idCourant || !choixCourant || termine) return;
+    let vivant = true;
+    fetch(`/api/matches/${encodeURIComponent(idCourant)}/predictions`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (vivant && d) setCounts(d as PredictionCounts); })
+      .catch(() => {});
+    return () => { vivant = false; };
+  }, [idCourant, choixCourant, termine]);
 
   if (!entry) return null;
 
@@ -790,6 +814,8 @@ function Spotlight({
     setLocked(true);
     onPick(match.id, p);
   };
+
+  const parts = counts ? pourcentages(counts) : null;
 
   return (
     <div className="overflow-hidden border border-gray-200/70 bg-white">
@@ -929,13 +955,40 @@ function Spotlight({
           </PickButton>
         </div>
 
-        {pick && (
+        {/* Une fois qu'on a vote, on veut savoir ce que pensent les autres,
+            pas s'entendre dire que son clic a ete enregistre. */}
+        {pick && !finished && parts && (
+          <div className="mt-3 space-y-1.5">
+            {([
+              { cle: "home" as const, libelle: match.homeTeamName, valeur: parts.home },
+              { cle: "draw" as const, libelle: "Match nul", valeur: parts.draw },
+              { cle: "away" as const, libelle: match.awayTeamName, valeur: parts.away },
+            ]).map((o) => (
+              <div key={o.cle}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className={`truncate text-[11px] font-bold ${
+                    pick === o.cle ? "text-emerald-700" : "text-gray-500"
+                  }`}>
+                    {o.libelle}
+                  </span>
+                  <span className="shrink-0 text-[11px] font-black tabular-nums text-gray-900">
+                    {o.valeur}%
+                  </span>
+                </div>
+                <div className="mt-1 h-1 bg-gray-100">
+                  <div
+                    className={`h-full ${pick === o.cle ? "bg-emerald-500" : "bg-gray-300"}`}
+                    style={{ width: `${o.valeur}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {pick && finished && (
           <p className="mt-2 text-center text-[10px] font-bold text-gray-300">
-            {finished
-              ? pick === outcome
-                ? "Pronostic validé"
-                : "Pronostic manqué"
-              : "Pronostic gardé sur cet appareil"}
+            {pick === outcome ? "Pronostic validé" : "Pronostic manqué"}
           </p>
         )}
       </div>
