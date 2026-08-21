@@ -13,10 +13,14 @@ interface UserProfileWidgetProps {
 
 export function UserProfileWidget({ user }: UserProfileWidgetProps) {
   const initials = `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
-  // Le role, et lui seul, dans la pastille.
-  const roleLabel = user.evolutionRole
-    ? ROLE_LABELS[user.evolutionRole]
-    : ROLE_LABELS[user.userType] ?? "Joueur";
+  // Le role, et lui seul, dans la pastille, ou RIEN.
+  //
+  // Le repli sur `user_type` reintroduisait exactement ce qu'on veut eviter :
+  // un compte sans role Evolution mais marque `organizer` ou `venue_owner`
+  // affichait « Organisateur » ou « Propriétaire de terrain » en pastille de
+  // role. Sans role choisi, il n'y a pas de role a annoncer, et les
+  // casquettes se disent en toutes lettres juste en dessous.
+  const roleLabel = user.evolutionRole ? ROLE_LABELS[user.evolutionRole] : null;
 
   // Les casquettes se disent en toutes lettres, sous le nom : ce sont des
   // fonctions cumulables, pas une identite unique qu'une pastille pourrait
@@ -47,9 +51,11 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
               ? user.companyName
               : `${user.firstName} ${user.lastName}`}
           </p>
-          <span className="inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 mt-0.5">
-            {roleLabel}
-          </span>
+          {roleLabel && (
+            <span className="mt-1 inline-block border border-gray-200/70 bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">
+              {roleLabel}
+            </span>
+          )}
           {casquettes.length > 0 && (
             <p className="mt-1 text-[11px] font-semibold leading-snug text-gray-500">
               {casquettes.join(" · ")}

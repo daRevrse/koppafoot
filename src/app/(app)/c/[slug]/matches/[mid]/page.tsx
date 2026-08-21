@@ -1,5 +1,6 @@
 "use client";
 
+import PitchPlaceholder from "@/components/match/PitchPlaceholder";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -213,6 +214,9 @@ export default function PublicCompMatchView() {
   }
 
   const isLive = match.status === "live";
+  // Un match a commence des qu'il est en cours ou termine. Avant, il n'a pas
+  // de score : afficher « 0 » ferait lire un 0-0 qui n'a jamais eu lieu.
+  const aCommence = match.status === "live" || match.status === "completed";
   const periodLabel =
     PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label ||
     (match.status === "completed" ? "Terminé" : "À venir");
@@ -274,11 +278,9 @@ export default function PublicCompMatchView() {
             {contextLabel && <span className="text-gray-200">·</span>}
           </>
         )}
-        {contextLabel && (
-          <h1 className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">
-            {contextLabel}
-          </h1>
-        )}
+        {/* Le titre du match vivait ici, au-dessus du hero, qui porte deja
+            les deux noms d'equipe en grand. Il redisait la meme chose en plus
+            petit. */}
       </div>
 
       {/* Main Scoreboard */}
@@ -305,7 +307,11 @@ export default function PublicCompMatchView() {
           <div className="text-center">
             <TeamCrest name={match.homeTeamName} logo={match.homeTeamLogo} />
             <h2 className="mb-1 truncate text-xs font-black uppercase tracking-tight sm:mb-2 sm:text-sm">{match.homeTeamName}</h2>
-            <div className="text-5xl font-black tracking-tighter sm:text-7xl">{match.scoreHome || 0}</div>
+            {/* Un match a venir n'a pas de score : « 0 » laissait croire a un
+                match en cours a 0-0, alors que rien n'a commence. */}
+            <div className="text-5xl font-black tracking-tighter sm:text-7xl">
+              {aCommence ? match.scoreHome ?? 0 : <span className="text-white/25">–</span>}
+            </div>
           </div>
 
           {/* Center Info */}
@@ -329,7 +335,9 @@ export default function PublicCompMatchView() {
           <div className="text-center">
             <TeamCrest name={match.awayTeamName} logo={match.awayTeamLogo} />
             <h2 className="mb-1 truncate text-xs font-black uppercase tracking-tight sm:mb-2 sm:text-sm">{match.awayTeamName}</h2>
-            <div className="text-5xl font-black tracking-tighter sm:text-7xl">{match.scoreAway || 0}</div>
+            <div className="text-5xl font-black tracking-tighter sm:text-7xl">
+              {aCommence ? match.scoreAway ?? 0 : <span className="text-white/25">–</span>}
+            </div>
           </div>
         </div>
 
@@ -395,7 +403,10 @@ export default function PublicCompMatchView() {
 
         const TABS = [
           { id: "feed" as const, label: "Résumé", Icon: History, on: true },
-          { id: "lineups" as const, label: "Compos", Icon: Users, on: hasLineups },
+          // Toujours present, meme sans compo : l'onglet montre alors le
+          // terrain et dit que ca viendra. Le faire disparaitre laissait
+          // croire que la fonction n'existe pas.
+          { id: "lineups" as const, label: "Composition", Icon: Users, on: true },
           { id: "stats" as const, label: "Stats", Icon: BarChart3, on: hasStats },
           { id: "standings" as const, label: "Classement", Icon: ListOrdered, on: hasStandings },
           { id: "h2h" as const, label: "H2H", Icon: Swords, on: hasH2H },
@@ -473,11 +484,15 @@ export default function PublicCompMatchView() {
             )}
 
             {/* Lineups panel */}
-            {activeTab === "lineups" && hasLineups && (
-              <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-                <LineupColumn title={match.homeTeamName} entries={match.homeLineup} />
-                <LineupColumn title={match.awayTeamName} entries={match.awayLineup} />
-              </div>
+            {activeTab === "lineups" && (
+              hasLineups ? (
+                <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+                  <LineupColumn title={match.homeTeamName} entries={match.homeLineup} />
+                  <LineupColumn title={match.awayTeamName} entries={match.awayLineup} />
+                </div>
+              ) : (
+                <PitchPlaceholder />
+              )
             )}
 
             {/* Feed panel */}
