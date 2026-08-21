@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Flame, Trophy, MessageCircle, User, LogOut, LogIn, X, Rocket, LayoutGrid, Newspaper,
-  } from "lucide-react";
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
@@ -114,6 +114,9 @@ function AvatarBottomSheet({
             /* Le meme emplacement, l'autre geste. La boite de dialogue reste
                ce qu'elle etait, elle s'ouvre juste d'ici en plus. */
             <div className="px-4 py-3">
+              <p className="mt-2 px-1 pb-2 text-[11px] font-semibold leading-relaxed font-display text-base text-white uppercase tracking-tight">
+                Faites en plus avec KoppaFoot.
+              </p>
               <button
                 type="button"
                 onClick={() => { onClose(); authModal.open(); }}
@@ -122,10 +125,10 @@ function AvatarBottomSheet({
                 <LogIn size={14} />
                 Se connecter
               </button>
-              <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-white/40">
+              {/* <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-white/40">
                 Suivre une équipe, pronostiquer, publier dans la Tribune : tout
                 cela demande un compte. Le reste se lit sans.
-              </p>
+              </p> */}
             </div>
           )}
 
@@ -331,9 +334,8 @@ export default function MobileBottomNav() {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200 ${
-                    active ? "bottom-nav-item-active" : ""
-                  }`}
+                  className={`bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200 ${active ? "bottom-nav-item-active" : ""
+                    }`}
                 >
                   {/* Active indicator pill */}
                   {active && (
@@ -344,11 +346,10 @@ export default function MobileBottomNav() {
                   <span className="relative">
                     <Icon
                       size={22}
-                      className={`transition-colors duration-200 ${
-                        active
-                          ? "text-emerald-400"
-                          : "text-white/50 group-hover:text-white/80"
-                      }`}
+                      className={`transition-colors duration-200 ${active
+                        ? "text-emerald-400"
+                        : "text-white/50 group-hover:text-white/80"
+                        }`}
                     />
 
                     {/* Badge: numeric count */}
@@ -369,11 +370,10 @@ export default function MobileBottomNav() {
 
                   {/* Label */}
                   <span
-                    className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
-                      active
-                        ? "text-emerald-400"
-                        : "text-white/40 group-hover:text-white/70"
-                    }`}
+                    className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${active
+                      ? "text-emerald-400"
+                      : "text-white/40 group-hover:text-white/70"
+                      }`}
                   >
                     {item.label}
                   </span>
@@ -408,19 +408,17 @@ export default function MobileBottomNav() {
                 <span className="relative">
                   <LayoutGrid
                     size={22}
-                    className={`transition-colors duration-200 ${
-                      spacesOpen
-                        ? "text-emerald-400"
-                        : "text-white/50 group-hover:text-white/80"
-                    }`}
+                    className={`transition-colors duration-200 ${spacesOpen
+                      ? "text-emerald-400"
+                      : "text-white/50 group-hover:text-white/80"
+                      }`}
                   />
                 </span>
                 <span
-                  className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
-                    spacesOpen
-                      ? "text-emerald-400"
-                      : "text-white/40 group-hover:text-white/70"
-                  }`}
+                  className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${spacesOpen
+                    ? "text-emerald-400"
+                    : "text-white/40 group-hover:text-white/70"
+                    }`}
                 >
                   Espace
                 </span>
@@ -433,14 +431,13 @@ export default function MobileBottomNav() {
                 pourtant aucun compte. */}
             <button
               onClick={() => setSheetOpen(true)}
-                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
-              >
+              className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
+            >
               <span className="relative">
-                <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${
-                  sheetOpen
-                    ? "ring-emerald-400 bg-emerald-700"
-                    : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
-                }`}>
+                <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${sheetOpen
+                  ? "ring-emerald-400 bg-emerald-700"
+                  : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
+                  }`}>
                   {user?.profilePictureUrl ? (
                     <img
                       src={user.profilePictureUrl}
@@ -457,11 +454,10 @@ export default function MobileBottomNav() {
                 </div>
               </span>
               <span
-                className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
-                  sheetOpen
-                    ? "text-emerald-400"
-                    : "text-white/40 group-hover:text-white/70"
-                }`}
+                className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${sheetOpen
+                  ? "text-emerald-400"
+                  : "text-white/40 group-hover:text-white/70"
+                  }`}
               >
                 {user ? "Moi" : "Compte"}
               </span>

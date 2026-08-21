@@ -184,9 +184,8 @@ function EspaceMenu({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-        }`}
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+          }`}
       >
         <Icon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
         {label}
@@ -235,9 +234,8 @@ function KoppaLinksMenu() {
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-        }`}
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+          }`}
       >
         <LinkIcon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
         Koppa Links
@@ -417,6 +415,9 @@ function AccountMenu() {
             /* La meme place, l'autre geste. Une boite de dialogue et non une
                page : personne ne perd le match qu'il etait en train de lire. */
             <div className="border-b border-gray-200/70 p-3">
+              <p className="mt-2 px-1 pb-2 text-[11px] font-semibold leading-relaxed font-display text-base font-black uppercase tracking-tight">
+                Faites en plus avec KoppaFoot.
+              </p>
               <button
                 type="button"
                 onClick={() => { setOpen(false); authModal.open(); }}
@@ -425,10 +426,10 @@ function AccountMenu() {
                 <LogIn size={14} />
                 Se connecter
               </button>
-              <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-gray-400">
+              {/* <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-gray-400">
                 Suivre une équipe, pronostiquer, publier dans la Tribune : tout
                 cela demande un compte. Le reste se lit sans.
-              </p>
+              </p> */}
             </div>
           )}
 
@@ -557,11 +558,10 @@ export default function ScoreHeader() {
                 href={item.href}
                 {...(item.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 aria-current={active ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-                  active
-                    ? "bg-white/15 text-white"
-                    : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-                }`}
+                className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${active
+                  ? "bg-white/15 text-white"
+                  : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+                  }`}
               >
                 <item.Icon size={17} className={active ? "text-amber-300" : "text-emerald-300/70"} />
                 {item.label}
@@ -640,18 +640,17 @@ export default function ScoreHeader() {
           {/* La Tribune, mobile only and members only: the tab bar leaves it
               out (see MEMBER_BOTTOM), so dropping it here would strand it. */}
           {user && (
-          <Link
-            href="/feed"
-            aria-label="La Tribune"
-            aria-current={pathname.startsWith("/feed") ? "page" : undefined}
-            className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors lg:hidden ${
-              pathname.startsWith("/feed")
+            <Link
+              href="/feed"
+              aria-label="La Tribune"
+              aria-current={pathname.startsWith("/feed") ? "page" : undefined}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors lg:hidden ${pathname.startsWith("/feed")
                 ? "bg-white/15 text-white"
                 : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            <Globe size={22} />
-          </Link>
+                }`}
+            >
+              <Globe size={22} />
+            </Link>
           )}
 
           {user && (
