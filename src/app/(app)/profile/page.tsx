@@ -823,10 +823,55 @@ export default function ProfilePage() {
 const MOT_DE_CONFIRMATION = "SUPPRIMER";
 
 function SuppressionDeCompte() {
+  const { firebaseUser, logout } = useAuth();
+  const router = useRouter();
   const [ouvert, setOuvert] = useState(false);
   const [saisie, setSaisie] = useState("");
+  const [envoi, setEnvoi] = useState(false);
+  const [obstacles, setObstacles] = useState<string[] | null>(null);
+  const [reconnexion, setReconnexion] = useState(false);
 
   const arme = saisie.trim().toUpperCase() === MOT_DE_CONFIRMATION;
+
+  const supprimer = async () => {
+    if (!arme || !firebaseUser) return;
+    setEnvoi(true);
+    setObstacles(null);
+    setReconnexion(false);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const rep = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ confirmation: saisie.trim().toUpperCase() }),
+      });
+      const data = await rep.json().catch(() => ({}));
+
+      if (rep.status === 409 && Array.isArray(data.obstacles)) {
+        setObstacles(data.obstacles);
+        return;
+      }
+      if (rep.status === 401 && data.error === "reauth") {
+        setReconnexion(true);
+        return;
+      }
+      if (!rep.ok) {
+        toast.error(data.error ?? "La suppression a échoué");
+        return;
+      }
+
+      // Le compte n'existe plus : la session locale non plus. On sort par
+      // l'accueil, qui est public.
+      toast.success("Votre compte a été supprimé");
+      await logout();
+      router.push("/");
+    } catch (err) {
+      console.error("Suppression du compte:", err);
+      toast.error("La suppression a échoué");
+    } finally {
+      setEnvoi(false);
+    }
+  };
 
   return (
     <div className="mt-12 border-t border-gray-200/70 pt-8">
@@ -843,7 +888,8 @@ function SuppressionDeCompte() {
           Votre fiche, vos photos, vos publications et vos demandes de
           réservation disparaissent. Les buts et passes déjà inscrits sur des
           feuilles de match restent : ils appartiennent à l&apos;histoire des
-          compétitions où vous avez joué. Cette action est définitive.
+          compétitions où vous avez joué, pas seulement à vous. Cette action est
+          définitive.
         </p>
 
         {!ouvert ? (
@@ -857,10 +903,11 @@ function SuppressionDeCompte() {
           </button>
         ) : (
           <div className="mt-5 border border-red-200 bg-white p-4 sm:p-5">
-            <label className="block text-[11px] font-black uppercase tracking-[0.12em] text-gray-500">
+            <label htmlFor="confirmation-suppression" className="block text-[11px] font-black uppercase tracking-[0.12em] text-gray-500">
               Tapez {MOT_DE_CONFIRMATION} pour confirmer
             </label>
             <input
+              id="confirmation-suppression"
               type="text"
               value={saisie}
               onChange={(e) => setSaisie(e.target.value)}
@@ -869,35 +916,56 @@ function SuppressionDeCompte() {
               className="mt-2 w-full max-w-xs border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm font-bold uppercase tracking-[0.1em] text-gray-900 outline-none transition-colors placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-300 focus:border-red-500 focus:bg-white"
             />
 
+            {obstacles && (
+              /* Le compte tient quelque chose qui appartient a d'autres. On
+                 dit quoi, et a qui le passer, plutot qu'un refus sec. */
+              <div className="mt-4 border border-amber-200 bg-amber-50 p-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-amber-700">
+                  À faire avant de partir
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {obstacles.map((o) => (
+                    <li key={o} className="text-sm leading-relaxed text-amber-900">{o}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {reconnexion && (
+              <div className="mt-4 border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm leading-relaxed text-amber-900">
+                  Par sécurité, une connexion récente est demandée pour
+                  supprimer un compte. Déconnectez-vous, reconnectez-vous, puis
+                  revenez ici.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => { await logout(); router.push("/"); }}
+                  className="mt-3 border border-amber-300 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800 transition-colors hover:bg-amber-100"
+                >
+                  Se déconnecter
+                </button>
+              </div>
+            )}
+
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                disabled
-                className={`flex items-center gap-2 border px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                  arme
-                    ? "border-red-300 bg-red-100 text-red-400"
-                    : "border-gray-200/70 bg-gray-100 text-gray-400"
-                }`}
+                onClick={supprimer}
+                disabled={!arme || envoi}
+                className="flex items-center gap-2 border border-red-600 bg-red-600 px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-red-700 hover:bg-red-700 disabled:cursor-not-allowed disabled:border-gray-200/70 disabled:bg-gray-100 disabled:text-gray-400"
               >
-                <Trash2 size={14} />
+                {envoi ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 Supprimer définitivement
               </button>
-              <span className="border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
-                Bientôt
-              </span>
               <button
                 type="button"
-                onClick={() => { setOuvert(false); setSaisie(""); }}
+                onClick={() => { setOuvert(false); setSaisie(""); setObstacles(null); setReconnexion(false); }}
                 className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-900"
               >
                 Annuler
               </button>
             </div>
-
-            <p className="mt-3 text-[11px] font-semibold leading-relaxed text-gray-400">
-              La suppression n&apos;est pas encore branchée. Pour fermer votre
-              compte dès maintenant, passez par la page d&apos;aide.
-            </p>
           </div>
         )}
       </div>
