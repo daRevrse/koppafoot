@@ -7,6 +7,7 @@ import {
   Sun, Moon, Languages,
 } from "lucide-react";
 import { shareInviteLink } from "@/lib/invite-link";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // ============================================
 // Les blocs du menu compte : inviter, support, thème, langue.
@@ -151,12 +152,12 @@ export function SupportBlock({ sombre, onNavigate }: {
 /**
  * Thème et langue.
  *
- * Interface seule : le choix se voit, mais rien ne l'applique encore. La
- * mention « Bientôt » le dit franchement plutôt que de laisser quelqu'un
- * conclure à une panne.
+ * Le thème est branché : le choix s'applique tout de suite et se garde sur
+ * l'appareil. La langue ne l'est pas encore, et le dit, une bascule muette
+ * qui prétend fonctionner étant pire qu'une bascule qui annonce son état.
  */
 export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { theme, setTheme } = useTheme();
   const [langue, setLangue] = useState<"fr" | "en">("fr");
   const t = ton(sombre);
 
@@ -169,15 +170,8 @@ export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
 
   return (
     <div>
-      <p className={`flex items-center gap-2 px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
+      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
         Préférences
-        <span className={
-          sombre
-            ? "border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] text-amber-300"
-            : "border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-700"
-        }>
-          Bientôt
-        </span>
       </p>
 
       <div className="px-4 pb-2">
@@ -202,6 +196,13 @@ export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
           <span className={`flex items-center gap-2 text-[13px] font-bold ${t.libelle}`}>
             <Languages size={15} className={t.icone} />
             Langue
+            <span className={
+              sombre
+                ? "border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-300"
+                : "border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-700"
+            }>
+              Bientôt
+            </span>
           </span>
           <span className={`flex shrink-0 border ${sombre ? "border-white/10" : "border-gray-200/70"}`}>
             <button type="button" onClick={() => setLangue("fr")} className={bascule(langue === "fr")}>

@@ -3,6 +3,7 @@ import { Outfit, DM_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthModalProvider } from "@/components/auth/AuthModal";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import TopLoadingBar from "@/components/ui/TopLoadingBar";
@@ -87,8 +88,26 @@ export default function RootLayout({
     <html
       lang="fr"
       className={`${outfit.variable} ${dmSans.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <head>
+        {/* Le theme AVANT la premiere peinture.
+
+            Un thème posé par React arrive après le premier rendu : la page
+            s'affiche en clair, puis vire au sombre. Cet éclair blanc est
+            exactement ce qu'un thème sombre existe pour éviter, et il n'y a
+            pas d'autre moyen de le supprimer que ce script bloquant, minuscule,
+            en tête de document.
+
+            Il lit le choix enregistré, et à défaut le réglage du système. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var c=localStorage.getItem("koppafoot:theme");var d=c?c==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var r=document.documentElement;r.dataset.theme=d?"dark":"light";}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
+        <ThemeProvider>
         <AuthProvider>
           <AuthModalProvider>
             <Suspense fallback={null}>
@@ -104,6 +123,7 @@ export default function RootLayout({
             }}
           />
         </AuthProvider>
+        </ThemeProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>
