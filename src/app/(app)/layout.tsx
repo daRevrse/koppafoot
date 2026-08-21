@@ -30,7 +30,10 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith("/invitations/") ||
     // Staff access codes arrive by WhatsApp: the volunteer must reach the
     // screen to be told what to do, rather than be bounced to a bare login.
-    pathname.startsWith("/staff/rejoindre")
+    pathname.startsWith("/staff/rejoindre") ||
+    // L'aide se lit sans compte : la moitie des questions qu'on s'y pose sont
+    // justement celles qu'on se pose AVANT d'en creer un.
+    pathname === "/aide"
   );
 }
 

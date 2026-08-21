@@ -5,12 +5,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, Share2, Check, Sparkles, MapPin,
+  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, Sparkles, MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
-import { shareInviteLink } from "@/lib/invite-link";
+import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
@@ -90,7 +90,7 @@ const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: Globe };
 // The sidebar's role destinations, now reached from the avatar menu.
 
 const MENU_CLASS =
-  "absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1 shadow-lg";
+  "absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-80 overflow-y-auto border border-gray-200/70 bg-white shadow-xl";
 
 /** Open state + click-outside, shared by the three menus of the band. */
 function useDropdown() {
@@ -355,18 +355,9 @@ function AccountMenu() {
   const router = useRouter();
   const authModal = useAuthModal();
   const { open, setOpen, boxRef } = useDropdown();
-  const [copied, setCopied] = useState(false);
-  const handleInvite = async () => {
-    const result = await shareInviteLink(user?.firstName);
-    // La feuille de partage parle d'elle-meme ; une copie silencieuse non.
-    if (result === "copied") {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
 
-  // Signed out: the same slot becomes the way in, and the way in is a
-  // dialog, not a page, so nobody loses the match they were reading.
+  // Deconnecte, la meme place devient l'entree, et l'entree est une boite de
+  // dialogue, pas une page : personne ne perd le match qu'il lisait.
   if (!user) {
     return (
       <div className="shrink-0">
@@ -382,10 +373,6 @@ function AccountMenu() {
     );
   }
 
-  // Quatre roles activables, pas deux : arbitre et terrain manquaient depuis
-  // leur degel, et retombaient sur le libelle « Évolution » comme si leur
-  // titulaire n'avait rien choisi.
-  // Le repli n'est pas de la prudence decorative : le type dit trois roles,
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?";
 
   return (
@@ -434,21 +421,16 @@ function AccountMenu() {
 
           {/* Inviter quelqu'un est un geste qu'on fait depuis son compte :
               c'est SON lien de parrainage qui part. */}
-          <div className="border-t border-gray-50 py-1">
-            <button
-              type="button"
-              onClick={handleInvite}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-            >
-              {copied ? (
-                <Check size={15} className="shrink-0 text-emerald-500" />
-              ) : (
-                <Share2 size={15} className="shrink-0 text-emerald-500" />
-              )}
-              <span className="truncate text-[13px] font-bold text-gray-700">
-                {copied ? "Lien copié" : "Inviter un ami"}
-              </span>
-            </button>
+          <div className="border-t border-gray-200/70 p-3">
+            <InviteCard firstName={user.firstName} />
+          </div>
+
+          <div className="border-t border-gray-200/70">
+            <SupportBlock />
+          </div>
+
+          <div className="border-t border-gray-200/70 pb-2">
+            <PreferencesBlock />
           </div>
 
           <button

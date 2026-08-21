@@ -5,10 +5,10 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, MessageCircle, User, LogOut, X, Rocket, UserPlus, Check, LayoutGrid, Newspaper,
+  Flame, Trophy, MessageCircle, User, LogOut, X, Rocket, LayoutGrid, Newspaper,
   } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { shareInviteLink } from "@/lib/invite-link";
+import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
@@ -32,7 +32,6 @@ function AvatarBottomSheet({
 }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [inviteCopied, setInviteCopied] = useState(false);
 
   const handleLogout = useCallback(async () => {
     onClose();
@@ -40,14 +39,6 @@ function AvatarBottomSheet({
     // Home is public, no reason to send anyone to a login screen.
     router.push("/");
   }, [logout, router, onClose]);
-
-  const handleInvite = useCallback(async () => {
-    const result = await shareInviteLink(user?.firstName);
-    if (result === "copied") {
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2500);
-    }
-  }, [user?.firstName]);
 
   if (!open || !user) return null;
 
@@ -64,7 +55,7 @@ function AvatarBottomSheet({
 
       {/* Sheet */}
       <div className="fixed inset-x-0 bottom-0 z-[70] animate-slide-up">
-        <div className="mx-2 mb-2 overflow-hidden rounded-2xl border border-white/10 bg-emerald-950/95 shadow-2xl backdrop-blur-xl">
+        <div className="mx-2 mb-2 max-h-[85vh] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-emerald-950/95 shadow-2xl backdrop-blur-xl">
           {/* Handle bar */}
           <div className="flex justify-center pt-3 pb-1">
             <div className="h-1 w-10 rounded-full bg-white/20" />
@@ -114,18 +105,17 @@ function AvatarBottomSheet({
               <User size={18} className="text-emerald-400" />
               Mon profil
             </Link>
-            <button
-              onClick={handleInvite}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-            >
-              {inviteCopied ? (
-                <Check size={18} className="text-emerald-400" />
-              ) : (
-                <UserPlus size={18} className="text-emerald-400" />
-              )}
-              {inviteCopied ? "Lien copié !" : "Inviter un ami"}
-            </button>
           </div>
+
+          <div className="px-4 pb-3">
+            <InviteCard firstName={user.firstName} />
+          </div>
+
+          <div className="mx-5 h-px bg-white/10" />
+          <SupportBlock sombre onNavigate={onClose} />
+
+          <div className="mx-5 h-px bg-white/10" />
+          <PreferencesBlock sombre />
 
           {/* Divider */}
           <div className="mx-5 h-px bg-white/10" />

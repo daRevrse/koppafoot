@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import {
   Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone,
   Trophy, ImageIcon, FileText, CreditCard, Plus, Trash2,
-  Ruler, Weight, Footprints, Cake, Users, LogOut,
+  Ruler, Weight, Footprints, Cake, Users, LogOut, AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -798,6 +798,108 @@ export default function ProfilePage() {
           Déconnexion
         </button>
         </div>
+
+        <SuppressionDeCompte />
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Supprimer son compte.
+//
+// INTERFACE SEULE pour l'instant : le bouton final est inerte. Supprimer un
+// compte n'est pas un `delete` sur un document, il faut décider du sort des
+// publications, des inscriptions en cours, des réservations à venir et des
+// buts déjà inscrits sur des feuilles de match. Tant que ces règles ne sont
+// pas écrites, un bouton qui marche à moitié ferait plus de dégâts qu'un
+// bouton qui n'existe pas.
+//
+// La confirmation par saisie du mot n'est pas une formalité : c'est le seul
+// garde-fou contre le clic machinal, et il coûte une seconde à qui veut
+// vraiment partir.
+// ============================================
+
+const MOT_DE_CONFIRMATION = "SUPPRIMER";
+
+function SuppressionDeCompte() {
+  const [ouvert, setOuvert] = useState(false);
+  const [saisie, setSaisie] = useState("");
+
+  const arme = saisie.trim().toUpperCase() === MOT_DE_CONFIRMATION;
+
+  return (
+    <div className="mt-12 border-t border-gray-200/70 pt-8">
+      <h2 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+        <AlertTriangle size={14} className="text-red-400" />
+        Zone sensible
+      </h2>
+
+      <div className="mt-3 border border-red-200 bg-red-50/50 p-5 sm:p-6">
+        <p className="font-display text-base font-black uppercase tracking-tight text-gray-900">
+          Supprimer mon compte
+        </p>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-500">
+          Votre fiche, vos photos, vos publications et vos demandes de
+          réservation disparaissent. Les buts et passes déjà inscrits sur des
+          feuilles de match restent : ils appartiennent à l&apos;histoire des
+          compétitions où vous avez joué. Cette action est définitive.
+        </p>
+
+        {!ouvert ? (
+          <button
+            type="button"
+            onClick={() => setOuvert(true)}
+            className="mt-5 flex items-center gap-2 border border-red-200 bg-white px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-red-600 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
+          >
+            <Trash2 size={14} />
+            Supprimer mon compte
+          </button>
+        ) : (
+          <div className="mt-5 border border-red-200 bg-white p-4 sm:p-5">
+            <label className="block text-[11px] font-black uppercase tracking-[0.12em] text-gray-500">
+              Tapez {MOT_DE_CONFIRMATION} pour confirmer
+            </label>
+            <input
+              type="text"
+              value={saisie}
+              onChange={(e) => setSaisie(e.target.value)}
+              autoComplete="off"
+              placeholder={MOT_DE_CONFIRMATION}
+              className="mt-2 w-full max-w-xs border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm font-bold uppercase tracking-[0.1em] text-gray-900 outline-none transition-colors placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-300 focus:border-red-500 focus:bg-white"
+            />
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled
+                className={`flex items-center gap-2 border px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                  arme
+                    ? "border-red-300 bg-red-100 text-red-400"
+                    : "border-gray-200/70 bg-gray-100 text-gray-400"
+                }`}
+              >
+                <Trash2 size={14} />
+                Supprimer définitivement
+              </button>
+              <span className="border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
+                Bientôt
+              </span>
+              <button
+                type="button"
+                onClick={() => { setOuvert(false); setSaisie(""); }}
+                className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-900"
+              >
+                Annuler
+              </button>
+            </div>
+
+            <p className="mt-3 text-[11px] font-semibold leading-relaxed text-gray-400">
+              La suppression n&apos;est pas encore branchée. Pour fermer votre
+              compte dès maintenant, passez par la page d&apos;aide.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
