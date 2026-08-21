@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, Sparkles, MapPin,
+  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -350,30 +350,29 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
 // ---- Account: the one menu on the right --------------------------------------
 
 
+/**
+ * Le menu du compte, connecte ou non.
+ *
+ * Deconnecte, ce bouton ouvrait directement la boite de connexion, et tout
+ * ce qu'il contient, l'invitation, l'aide, les preferences, disparaissait
+ * avec le compte. Or rien la-dedans ne demande d'etre identifie : on peut
+ * partager le lien de l'appli, lire l'aide et regarder les preferences sans
+ * avoir de compte, et ce sont justement les gestes d'un visiteur.
+ *
+ * Le menu est donc le meme dans les deux etats. Seule sa tete change : la
+ * fiche profil quand on a un compte, le bouton de connexion sinon. La boite
+ * de dialogue, elle, ne disparait pas, elle reste ce qu'elle etait, ouverte
+ * depuis ce bouton comme depuis les pages qui demandent un compte.
+ */
 function AccountMenu() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const authModal = useAuthModal();
   const { open, setOpen, boxRef } = useDropdown();
 
-  // Deconnecte, la meme place devient l'entree, et l'entree est une boite de
-  // dialogue, pas une page : personne ne perd le match qu'il lisait.
-  if (!user) {
-    return (
-      <div className="shrink-0">
-        <button
-          type="button"
-          onClick={() => authModal.open()}
-          aria-label="Se connecter"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-        >
-          <User size={20} />
-        </button>
-      </div>
-    );
-  }
-
-  const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?";
+  const initials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?"
+    : "";
 
   return (
     <div ref={boxRef} className="relative shrink-0">
@@ -381,10 +380,10 @@ function AccountMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label="Mon compte"
+        aria-label={user ? "Mon compte" : "Compte et réglages"}
         className="flex items-center gap-1 rounded-full p-0.5 pr-1 transition-colors hover:bg-white/10"
       >
-        {user.profilePictureUrl ? (
+        {user?.profilePictureUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={user.profilePictureUrl}
@@ -393,7 +392,7 @@ function AccountMenu() {
           />
         ) : (
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-black text-white">
-            {initials}
+            {user ? initials : <User size={18} />}
           </span>
         )}
         <ChevronDown size={13} className="hidden text-emerald-200/70 sm:block" />
@@ -401,51 +400,72 @@ function AccountMenu() {
 
       {open && (
         <div className={MENU_CLASS}>
-          <Link
-            href="/profile"
-            onClick={() => setOpen(false)}
-            className="block border-b border-gray-50 px-3 pb-2 pt-1.5 transition-colors hover:bg-gray-50"
-          >
-            <span className="block truncate text-[13px] font-black text-gray-900">
-              {user.firstName} {user.lastName}
-            </span>
-            <span className="block truncate text-[11px] font-bold text-gray-400">
-              Voir mon profil
-            </span>
-          </Link>
+          {user ? (
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="block border-b border-gray-200/70 px-4 py-3 transition-colors hover:bg-gray-50"
+            >
+              <span className="block truncate text-[13px] font-black text-gray-900">
+                {user.firstName} {user.lastName}
+              </span>
+              <span className="block truncate text-[11px] font-bold text-gray-400">
+                Voir mon profil
+              </span>
+            </Link>
+          ) : (
+            /* La meme place, l'autre geste. Une boite de dialogue et non une
+               page : personne ne perd le match qu'il etait en train de lire. */
+            <div className="border-b border-gray-200/70 p-3">
+              <button
+                type="button"
+                onClick={() => { setOpen(false); authModal.open(); }}
+                className="flex w-full items-center justify-center gap-2 border border-gray-900 bg-gray-900 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
+              >
+                <LogIn size={14} />
+                Se connecter
+              </button>
+              <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-gray-400">
+                Suivre une équipe, pronostiquer, publier dans la Tribune : tout
+                cela demande un compte. Le reste se lit sans.
+              </p>
+            </div>
+          )}
 
           {/* Ni destinations de role ni casquettes ici : elles sont dans
-              « Espace [role] », dans la barre. Une photo de profil annonce un
+              « MySpace », dans la barre. Une photo de profil annonce un
               compte, on n'y cherche pas « Mes equipes ». Ce menu ne garde
               que ce qui touche vraiment au compte. */}
 
-          {/* Inviter quelqu'un est un geste qu'on fait depuis son compte :
-              c'est SON lien de parrainage qui part. */}
+          {/* Partager l'appli ne demande pas de compte : c'est le lien public
+              qui part, et un visiteur convaincu est le meilleur porteur. */}
           <div className="border-t border-gray-200/70 p-3">
-            <InviteCard firstName={user.firstName} />
+            <InviteCard firstName={user?.firstName} />
           </div>
 
           <div className="border-t border-gray-200/70">
-            <SupportBlock />
+            <SupportBlock onNavigate={() => setOpen(false)} />
           </div>
 
           <div className="border-t border-gray-200/70 pb-2">
             <PreferencesBlock />
           </div>
 
-          <button
-            type="button"
-            onClick={async () => {
-              setOpen(false);
-              await logout();
-              // Home is public, no reason to send anyone to a login screen.
-              router.push("/");
-            }}
-            className="flex w-full items-center gap-2.5 border-t border-gray-50 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-          >
-            <LogOut size={15} className="shrink-0 text-gray-400" />
-            <span className="text-[13px] font-bold text-gray-500">Se déconnecter</span>
-          </button>
+          {user && (
+            <button
+              type="button"
+              onClick={async () => {
+                setOpen(false);
+                await logout();
+                // Home is public, no reason to send anyone to a login screen.
+                router.push("/");
+              }}
+              className="flex w-full items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+            >
+              <LogOut size={15} className="shrink-0 text-gray-400" />
+              <span className="text-[13px] font-bold text-gray-500">Se déconnecter</span>
+            </button>
+          )}
         </div>
       )}
     </div>

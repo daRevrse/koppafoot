@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, MessageCircle, User, LogOut, X, Rocket, LayoutGrid, Newspaper,
+  Flame, Trophy, MessageCircle, User, LogOut, LogIn, X, Rocket, LayoutGrid, Newspaper,
   } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
@@ -32,6 +32,7 @@ function AvatarBottomSheet({
 }) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const authModal = useAuthModal();
 
   const handleLogout = useCallback(async () => {
     onClose();
@@ -40,10 +41,11 @@ function AvatarBottomSheet({
     router.push("/");
   }, [logout, router, onClose]);
 
-  if (!open || !user) return null;
+  if (!open) return null;
 
-  const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-  const profileUrl = "/profile";
+  const initials = user
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : "";
 
   return (
     <>
@@ -61,27 +63,29 @@ function AvatarBottomSheet({
             <div className="h-1 w-10 rounded-full bg-white/20" />
           </div>
 
-          {/* User info */}
+          {/* Qui on est, ou l'invitation a le devenir */}
           <div className="flex items-center gap-3 px-5 py-4">
             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-800 ring-2 ring-emerald-400/30">
-              {user.profilePictureUrl ? (
+              {user?.profilePictureUrl ? (
                 <img
                   src={user.profilePictureUrl}
                   alt=""
                   className="h-full w-full object-cover"
                 />
-              ) : (
+              ) : user ? (
                 <span className="text-sm font-bold text-emerald-300">
                   {initials}
                 </span>
+              ) : (
+                <User size={22} className="text-emerald-300" />
               )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-white">
-                {user.firstName} {user.lastName}
+                {user ? `${user.firstName} ${user.lastName}` : "Visiteur"}
               </p>
               <p className="truncate text-xs text-emerald-400/70">
-                {user.email ?? user.phone}
+                {user ? (user.email ?? user.phone) : "Aucun compte sur cet appareil"}
               </p>
             </div>
             <button
@@ -95,20 +99,38 @@ function AvatarBottomSheet({
           {/* Divider */}
           <div className="mx-5 h-px bg-white/10" />
 
-          {/* Menu items */}
-          <div className="p-2">
-            <Link
-              href={profileUrl}
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-            >
-              <User size={18} className="text-emerald-400" />
-              Mon profil
-            </Link>
-          </div>
+          {user ? (
+            <div className="p-2">
+              <Link
+                href="/profile"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <User size={18} className="text-emerald-400" />
+                Mon profil
+              </Link>
+            </div>
+          ) : (
+            /* Le meme emplacement, l'autre geste. La boite de dialogue reste
+               ce qu'elle etait, elle s'ouvre juste d'ici en plus. */
+            <div className="px-4 py-3">
+              <button
+                type="button"
+                onClick={() => { onClose(); authModal.open(); }}
+                className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-emerald-950 transition-colors hover:bg-emerald-400"
+              >
+                <LogIn size={14} />
+                Se connecter
+              </button>
+              <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-white/40">
+                Suivre une équipe, pronostiquer, publier dans la Tribune : tout
+                cela demande un compte. Le reste se lit sans.
+              </p>
+            </div>
+          )}
 
           <div className="px-4 pb-3">
-            <InviteCard firstName={user.firstName} />
+            <InviteCard firstName={user?.firstName} />
           </div>
 
           <div className="mx-5 h-px bg-white/10" />
@@ -117,19 +139,22 @@ function AvatarBottomSheet({
           <div className="mx-5 h-px bg-white/10" />
           <PreferencesBlock sombre />
 
-          {/* Divider */}
-          <div className="mx-5 h-px bg-white/10" />
-
-          {/* Logout */}
-          <div className="p-2 pb-safe">
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
-            >
-              <LogOut size={18} />
-              Déconnexion
-            </button>
-          </div>
+          {user ? (
+            <>
+              <div className="mx-5 h-px bg-white/10" />
+              <div className="p-2 pb-safe">
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <LogOut size={18} />
+                  Déconnexion
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="pb-safe" />
+          )}
         </div>
       </div>
     </>
@@ -275,7 +300,6 @@ function useBottomNavHeight() {
 export default function MobileBottomNav() {
   const navRef = useBottomNavHeight();
   const { user } = useAuth();
-  const authModal = useAuthModal();
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [spacesOpen, setSpacesOpen] = useState(false);
@@ -403,59 +427,51 @@ export default function MobileBottomNav() {
               </button>
             )}
 
-            {/* Last tab: avatar (authed) or login link (guest) */}
-            {user ? (
-              <button
-                onClick={() => setSheetOpen(true)}
+            {/* Dernier onglet : la feuille du compte, avec ou sans compte.
+                Elle ouvrait la boite de connexion et emportait avec elle
+                l'invitation, l'aide et les preferences, qui ne demandent
+                pourtant aucun compte. */}
+            <button
+              onClick={() => setSheetOpen(true)}
                 className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
               >
-                <span className="relative">
-                  <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${
-                    sheetOpen
-                      ? "ring-emerald-400 bg-emerald-700"
-                      : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
-                  }`}>
-                    {user.profilePictureUrl ? (
-                      <img
-                        src={user.profilePictureUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-[8px] font-bold text-emerald-300">
-                        {initials}
-                      </span>
-                    )}
-                  </div>
-                </span>
-                <span
-                  className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
-                    sheetOpen
-                      ? "text-emerald-400"
-                      : "text-white/40 group-hover:text-white/70"
-                  }`}
-                >
-                  Moi
-                </span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => authModal.open()}
-                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
+              <span className="relative">
+                <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${
+                  sheetOpen
+                    ? "ring-emerald-400 bg-emerald-700"
+                    : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
+                }`}>
+                  {user?.profilePictureUrl ? (
+                    <img
+                      src={user.profilePictureUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : user ? (
+                    <span className="text-[8px] font-bold text-emerald-300">
+                      {initials}
+                    </span>
+                  ) : (
+                    <User size={13} className="text-emerald-300" />
+                  )}
+                </div>
+              </span>
+              <span
+                className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${
+                  sheetOpen
+                    ? "text-emerald-400"
+                    : "text-white/40 group-hover:text-white/70"
+                }`}
               >
-                <User size={22} className="text-white/50 group-hover:text-white/80" />
-                <span className="text-[10px] font-semibold leading-tight text-white/40 group-hover:text-white/70">
-                  Connexion
-                </span>
-              </button>
-            )}
+                {user ? "Moi" : "Compte"}
+              </span>
+            </button>
           </div>
         </div>
       </nav>
 
       {/* Profile bottom sheet */}
-      {user && <AvatarBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />}
+      <AvatarBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
 
       {/* Role spaces bottom sheet */}
       {user && <SpacesSheet open={spacesOpen} onClose={() => setSpacesOpen(false)} />}
