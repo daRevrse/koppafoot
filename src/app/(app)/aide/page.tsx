@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { HelpCircle, MessageSquare, Plus, Minus } from "lucide-react";
+import { HelpCircle, MessageSquare, Plus, Minus, Loader2, Check } from "lucide-react";
+import toast from "react-hot-toast";
+import { auth } from "@/lib/firebase";
 
 // ============================================
 // L'aide, et le retour qu'on veut nous faire.
@@ -15,9 +17,9 @@ import { HelpCircle, MessageSquare, Plus, Minus } from "lucide-react";
 // geste, « je ne comprends pas quelque chose ». Séparer les deux obligerait
 // à choisir avant de savoir laquelle des deux on cherche.
 //
-// Le formulaire de retour est de l'INTERFACE SEULE : aucune adresse de
-// support n'existe dans le projet, et en inventer une enverrait les messages
-// dans le vide. Il le dit plutôt que de faire semblant d'envoyer.
+// Le retour part dans les notifications des superadmins, et pas dans une
+// boîte de réception à consulter : une boîte que personne n'ouvre est une
+// corbeille avec un nom plus poli. Il est aussi conservé pour être relu.
 // ============================================
 
 const QUESTIONS: { q: string; r: string }[] = [
@@ -43,7 +45,7 @@ const QUESTIONS: { q: string; r: string }[] = [
   },
   {
     q: "Puis-je supprimer mon compte ?",
-    r: "Oui, depuis votre profil, tout en bas de la page. La suppression retire votre fiche, vos publications et vos demandes de réservation. Les feuilles de match déjà jouées gardent la trace des buts : ils appartiennent à l'histoire de la compétition, pas seulement à vous.",
+    r: "Oui, depuis votre profil, tout en bas de la page. La suppression retire votre fiche, vos publications et vos demandes de réservation. Les feuilles de match déjà jouées gardent la trace des buts : ils appartiennent à l'histoire de la compétition, pas seulement à vous. Si vous gérez une équipe, organisez une compétition ou possédez un terrain, il faut d'abord passer la main : partir laisserait une équipe sans manager ou un terrain sans personne pour répondre.",
   },
 ];
 
@@ -66,6 +68,105 @@ function Question({ q, r }: { q: string; r: string }) {
         <p className="px-5 pb-5 text-sm leading-relaxed text-gray-500">{r}</p>
       )}
     </li>
+  );
+}
+
+/**
+ * Le formulaire de retour.
+ *
+ * Il n'exige pas de compte. Le premier retour utile vient souvent de
+ * quelqu'un qui n'a pas réussi à en créer un, et le lui demander fermerait
+ * la seule porte qui lui restait.
+ */
+function FormulaireRetour() {
+  const [message, setMessage] = useState("");
+  const [envoi, setEnvoi] = useState(false);
+  const [envoye, setEnvoye] = useState(false);
+
+  const envoyer = async () => {
+    const texte = message.trim();
+    if (texte.length < 5) {
+      toast.error("Dites-nous un peu plus");
+      return;
+    }
+    setEnvoi(true);
+    try {
+      // Le jeton s'il existe : il donne un nom au retour, sans être exigé.
+      const entetes: Record<string, string> = { "Content-Type": "application/json" };
+      const fbUser = auth.currentUser;
+      if (fbUser) entetes.Authorization = `Bearer ${await fbUser.getIdToken()}`;
+
+      const rep = await fetch("/api/feedback", {
+        method: "POST",
+        headers: entetes,
+        body: JSON.stringify({ message: texte, page: window.location.pathname }),
+      });
+      const data = await rep.json().catch(() => ({}));
+      if (!rep.ok) {
+        toast.error(data.error ?? "L'envoi a échoué");
+        return;
+      }
+      setEnvoye(true);
+      setMessage("");
+    } catch (err) {
+      console.error("Envoi du retour:", err);
+      toast.error("L'envoi a échoué");
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  if (envoye) {
+    return (
+      <div className="border-x border-b border-gray-200/70 bg-white p-8 text-center sm:p-10">
+        <Check size={28} className="mx-auto text-emerald-600" strokeWidth={2.5} />
+        <p className="mt-4 font-display text-lg font-black uppercase tracking-tight text-gray-900">
+          C&apos;est parti
+        </p>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">
+          Votre message est arrivé. On ne répond pas toujours, mais on lit
+          tout, et ce sont ces retours qui décident de la suite.
+        </p>
+        <button
+          type="button"
+          onClick={() => setEnvoye(false)}
+          className="mt-5 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-emerald-700"
+        >
+          Écrire un autre retour
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-x border-b border-gray-200/70 bg-white p-5 sm:p-6">
+      <p className="text-sm leading-relaxed text-gray-500">
+        Un bug, un score faux, une idée : écrivez-le ici. Ce sont les
+        retours du terrain qui décident de ce qu&apos;on construit ensuite.
+      </p>
+      <textarea
+        rows={5}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        maxLength={4000}
+        placeholder="Ce que vous avez vu, et ce que vous attendiez…"
+        className="mt-4 w-full resize-none border border-gray-200/70 bg-gray-50 p-4 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-900 focus:bg-white"
+      />
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={envoyer}
+          disabled={envoi || message.trim().length < 5}
+          className="flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-gray-200/70 disabled:bg-gray-100 disabled:text-gray-400"
+        >
+          {envoi && <Loader2 size={13} className="animate-spin" />}
+          Envoyer
+        </button>
+        <span className="text-[11px] font-semibold text-gray-400">
+          {message.length > 0 && `${message.length} / 4000`}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -110,33 +211,7 @@ export default function AidePage() {
         <h2 className="flex items-center gap-2 border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
           <MessageSquare size={14} /> Nous faire un retour
         </h2>
-        <div className="border-x border-b border-gray-200/70 bg-white p-5 sm:p-6">
-          <p className="text-sm leading-relaxed text-gray-500">
-            Un bug, un score faux, une idée : écrivez-le ici. Ce sont les
-            retours du terrain qui décident de ce qu&apos;on construit ensuite.
-          </p>
-          <textarea
-            rows={5}
-            placeholder="Ce que vous avez vu, et ce que vous attendiez…"
-            className="mt-4 w-full resize-none border border-gray-200/70 bg-gray-50 p-4 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-900 focus:bg-white"
-          />
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              disabled
-              className="border border-gray-200/70 bg-gray-100 px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400"
-            >
-              Envoyer
-            </button>
-            <span className="border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
-              Bientôt
-            </span>
-          </div>
-          <p className="mt-3 text-[11px] font-semibold leading-relaxed text-gray-400">
-            L&apos;envoi n&apos;est pas encore branché. En attendant, passez par
-            la Tribune : un post y est lu par toute l&apos;équipe.
-          </p>
-        </div>
+        <FormulaireRetour />
       </section>
     </div>
   );
