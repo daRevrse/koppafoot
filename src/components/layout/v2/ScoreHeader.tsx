@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
+import { useT } from "@/i18n";
+import type { CleTraduction } from "@/i18n/fr";
 import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
@@ -45,11 +47,13 @@ interface NavEntry {
   newTab?: boolean;
   /** Ce qu'on trouve derriere, pour le megamenu. */
   blurb?: string;
+  /** La cle de traduction, quand l'entree en a une. Sinon, `label`. */
+  cle?: CleTraduction;
 }
 
 const PRIMARY: NavEntry[] = [
-  { href: HOME, label: "Direct", Icon: Flame, exact: true },
-  { href: "/actus", label: "Actus", Icon: Newspaper },
+  { href: HOME, label: "Direct", cle: "nav.direct", Icon: Flame, exact: true },
+  { href: "/actus", label: "Actus", cle: "nav.actus", Icon: Newspaper },
 ];
 
 /**
@@ -364,6 +368,7 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
  */
 function AccountMenu() {
   const { user, logout } = useAuth();
+  const t = useT();
   const router = useRouter();
   const authModal = useAuthModal();
   const { open, setOpen, boxRef } = useDropdown();
@@ -378,7 +383,7 @@ function AccountMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label={user ? "Mon compte" : "Compte et réglages"}
+        aria-label={user ? t("compte.monCompte") : t("compte.compteEtReglages")}
         className="flex items-center gap-1 rounded-full p-0.5 pr-1 transition-colors hover:bg-white/10"
       >
         {user?.profilePictureUrl ? (
@@ -408,7 +413,7 @@ function AccountMenu() {
                 {user.firstName} {user.lastName}
               </span>
               <span className="block truncate text-[11px] font-bold text-gray-400">
-                Voir mon profil
+                {t("compte.voirMonProfil")}
               </span>
             </Link>
           ) : (
@@ -416,7 +421,7 @@ function AccountMenu() {
                page : personne ne perd le match qu'il etait en train de lire. */
             <div className="border-b border-gray-200/70 p-3">
               <p className="mt-2 px-1 pb-2 text-[11px] font-semibold leading-relaxed font-display text-base font-black uppercase tracking-tight">
-                Faites en plus avec KoppaFoot.
+                {t("compte.faitesPlus")}
               </p>
               <button
                 type="button"
@@ -424,7 +429,7 @@ function AccountMenu() {
                 className="flex w-full items-center justify-center gap-2 border border-gray-900 bg-gray-900 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
               >
                 <LogIn size={14} />
-                Se connecter
+                {t("compte.seConnecter")}
               </button>
               {/* <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-gray-400">
                 Suivre une équipe, pronostiquer, publier dans la Tribune : tout
@@ -464,7 +469,7 @@ function AccountMenu() {
               className="flex w-full items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left transition-colors hover:bg-gray-50"
             >
               <LogOut size={15} className="shrink-0 text-gray-400" />
-              <span className="text-[13px] font-bold text-gray-500">Se déconnecter</span>
+              <span className="text-[13px] font-bold text-gray-500">{t("compte.seDeconnecter")}</span>
             </button>
           )}
         </div>
@@ -525,6 +530,7 @@ function useHeaderHeight() {
 }
 
 export default function ScoreHeader() {
+  const t = useT();
   const headerRef = useHeaderHeight();
   const { user } = useAuth();
   const pathname = usePathname();
@@ -564,7 +570,7 @@ export default function ScoreHeader() {
                   }`}
               >
                 <item.Icon size={17} className={active ? "text-amber-300" : "text-emerald-300/70"} />
-                {item.label}
+                {item.cle ? t(item.cle) : item.label}
               </Link>
             );
           })}
@@ -612,7 +618,7 @@ export default function ScoreHeader() {
         >
           <Search size={17} className="shrink-0 text-emerald-200/50" />
           <span className="truncate text-xs font-semibold text-emerald-200/50">
-            Compétition, équipe, joueur…
+            {t("nav.recherche")}
           </span>
         </button>
 

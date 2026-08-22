@@ -17,6 +17,7 @@ import { uploadProfilePhoto, uploadGalleryPhoto } from "@/lib/storage";
 import { getPostsByUser } from "@/lib/firestore";
 import KoppaFootCard from "@/components/ui/KoppaFootCard";
 import LoginMethodsCard from "@/components/auth/LoginMethodsCard";
+import { useT } from "@/i18n";
 import type { Post } from "@/types";
 
 // ============================================
@@ -823,6 +824,7 @@ export default function ProfilePage() {
 const MOT_DE_CONFIRMATION = "SUPPRIMER";
 
 function SuppressionDeCompte() {
+  const t = useT();
   const { firebaseUser, logout } = useAuth();
   const router = useRouter();
   const [ouvert, setOuvert] = useState(false);
@@ -856,18 +858,18 @@ function SuppressionDeCompte() {
         return;
       }
       if (!rep.ok) {
-        toast.error(data.error ?? "La suppression a échoué");
+        toast.error(data.error ?? t("suppr.echouee"));
         return;
       }
 
       // Le compte n'existe plus : la session locale non plus. On sort par
       // l'accueil, qui est public.
-      toast.success("Votre compte a été supprimé");
+      toast.success(t("suppr.faite"));
       await logout();
       router.push("/");
     } catch (err) {
       console.error("Suppression du compte:", err);
-      toast.error("La suppression a échoué");
+      toast.error(t("suppr.echouee"));
     } finally {
       setEnvoi(false);
     }
@@ -877,19 +879,15 @@ function SuppressionDeCompte() {
     <div className="mt-12 border-t border-gray-200/70 pt-8">
       <h2 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
         <AlertTriangle size={14} className="text-red-400" />
-        Zone sensible
+        {t("suppr.zone")}
       </h2>
 
       <div className="mt-3 border border-red-200 bg-red-50/50 p-5 sm:p-6">
         <p className="font-display text-base font-black uppercase tracking-tight text-gray-900">
-          Supprimer mon compte
+          {t("suppr.titre")}
         </p>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-500">
-          Votre fiche, vos photos, vos publications et vos demandes de
-          réservation disparaissent. Les buts et passes déjà inscrits sur des
-          feuilles de match restent : ils appartiennent à l&apos;histoire des
-          compétitions où vous avez joué, pas seulement à vous. Cette action est
-          définitive.
+          {t("suppr.texte")}
         </p>
 
         {!ouvert ? (
@@ -899,12 +897,12 @@ function SuppressionDeCompte() {
             className="mt-5 flex items-center gap-2 border border-red-200 bg-white px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-red-600 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
           >
             <Trash2 size={14} />
-            Supprimer mon compte
+            {t("suppr.titre")}
           </button>
         ) : (
           <div className="mt-5 border border-red-200 bg-white p-4 sm:p-5">
             <label htmlFor="confirmation-suppression" className="block text-[11px] font-black uppercase tracking-[0.12em] text-gray-500">
-              Tapez {MOT_DE_CONFIRMATION} pour confirmer
+              {t("suppr.tapez", { mot: MOT_DE_CONFIRMATION })}
             </label>
             <input
               id="confirmation-suppression"
@@ -921,7 +919,7 @@ function SuppressionDeCompte() {
                  dit quoi, et a qui le passer, plutot qu'un refus sec. */
               <div className="mt-4 border border-amber-200 bg-amber-50 p-4">
                 <p className="text-[11px] font-black uppercase tracking-[0.12em] text-amber-700">
-                  À faire avant de partir
+                  {t("suppr.aFaire")}
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {obstacles.map((o) => (
@@ -934,16 +932,14 @@ function SuppressionDeCompte() {
             {reconnexion && (
               <div className="mt-4 border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm leading-relaxed text-amber-900">
-                  Par sécurité, une connexion récente est demandée pour
-                  supprimer un compte. Déconnectez-vous, reconnectez-vous, puis
-                  revenez ici.
+                  {t("suppr.reconnexion")}
                 </p>
                 <button
                   type="button"
                   onClick={async () => { await logout(); router.push("/"); }}
                   className="mt-3 border border-amber-300 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800 transition-colors hover:bg-amber-100"
                 >
-                  Se déconnecter
+                  {t("compte.seDeconnecter")}
                 </button>
               </div>
             )}
@@ -956,14 +952,14 @@ function SuppressionDeCompte() {
                 className="flex items-center gap-2 border border-red-600 bg-red-600 px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-red-700 hover:bg-red-700 disabled:cursor-not-allowed disabled:border-gray-200/70 disabled:bg-gray-100 disabled:text-gray-400"
               >
                 {envoi ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                Supprimer définitivement
+                {t("suppr.definitivement")}
               </button>
               <button
                 type="button"
                 onClick={() => { setOuvert(false); setSaisie(""); setObstacles(null); setReconnexion(false); }}
                 className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-900"
               >
-                Annuler
+                {t("suppr.annuler")}
               </button>
             </div>
           </div>

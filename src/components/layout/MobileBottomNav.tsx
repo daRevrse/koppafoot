@@ -8,6 +8,7 @@ import {
   Flame, Trophy, MessageCircle, User, LogOut, LogIn, X, Rocket, LayoutGrid, Newspaper,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useT } from "@/i18n";
 import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
@@ -33,6 +34,7 @@ function AvatarBottomSheet({
   const { user, logout } = useAuth();
   const router = useRouter();
   const authModal = useAuthModal();
+  const t = useT();
 
   const handleLogout = useCallback(async () => {
     onClose();
@@ -82,10 +84,10 @@ function AvatarBottomSheet({
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-white">
-                {user ? `${user.firstName} ${user.lastName}` : "Visiteur"}
+                {user ? `${user.firstName} ${user.lastName}` : t("compte.visiteur")}
               </p>
               <p className="truncate text-xs text-emerald-400/70">
-                {user ? (user.email ?? user.phone) : "Aucun compte sur cet appareil"}
+                {user ? (user.email ?? user.phone) : t("compte.aucunCompte")}
               </p>
             </div>
             <button
@@ -107,7 +109,7 @@ function AvatarBottomSheet({
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
               >
                 <User size={18} className="text-emerald-400" />
-                Mon profil
+                {t("compte.monProfil")}
               </Link>
             </div>
           ) : (
@@ -115,7 +117,7 @@ function AvatarBottomSheet({
                ce qu'elle etait, elle s'ouvre juste d'ici en plus. */
             <div className="px-4 py-3">
               <p className="mt-2 px-1 pb-2 text-[11px] font-semibold leading-relaxed font-display text-base text-white uppercase tracking-tight">
-                Faites en plus avec KoppaFoot.
+                {t("compte.faitesPlus")}
               </p>
               <button
                 type="button"
@@ -123,7 +125,7 @@ function AvatarBottomSheet({
                 className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-emerald-950 transition-colors hover:bg-emerald-400"
               >
                 <LogIn size={14} />
-                Se connecter
+                {t("compte.seConnecter")}
               </button>
               {/* <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-white/40">
                 Suivre une équipe, pronostiquer, publier dans la Tribune : tout
@@ -151,7 +153,7 @@ function AvatarBottomSheet({
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
                 >
                   <LogOut size={18} />
-                  Déconnexion
+                  {t("compte.deconnexion")}
                 </button>
               </div>
             </>
@@ -303,6 +305,7 @@ function useBottomNavHeight() {
 export default function MobileBottomNav() {
   const navRef = useBottomNavHeight();
   const { user } = useAuth();
+  const t = useT();
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [spacesOpen, setSpacesOpen] = useState(false);
@@ -375,7 +378,7 @@ export default function MobileBottomNav() {
                       : "text-white/40 group-hover:text-white/70"
                       }`}
                   >
-                    {item.label}
+                    {item.cle ? t(item.cle) : item.label}
                   </span>
                 </Link>
               );
@@ -459,7 +462,7 @@ export default function MobileBottomNav() {
                   : "text-white/40 group-hover:text-white/70"
                   }`}
               >
-                {user ? "Moi" : "Compte"}
+                {user ? t("nav.moi") : t("nav.compte")}
               </span>
             </button>
           </div>

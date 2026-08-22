@@ -3,10 +3,21 @@
 
 const APP_URL = "https://www.koppafoot.com";
 
-export async function shareInviteLink(firstName?: string): Promise<"shared" | "copied" | "failed"> {
-  const text = firstName
-    ? `${firstName} t'invite à suivre les compétitions de football en direct sur Koppafoot ⚽`
-    : "Suis les compétitions de football en direct sur Koppafoot ⚽";
+/**
+ * Partage le lien public de l'appli.
+ *
+ * Le TEXTE est fourni par l'appelant plutot que construit ici : il est
+ * traduit, et une fonction de la couche `lib` n'a pas acces au dictionnaire.
+ * Le repli francais reste la pour les appels qui n'en passent pas.
+ */
+export async function shareInviteLink(
+  firstName?: string,
+  message?: string,
+): Promise<"shared" | "copied" | "failed"> {
+  const text = message
+    ?? (firstName
+      ? `${firstName} t'invite à suivre les compétitions de football en direct sur Koppafoot ⚽`
+      : "Suis les compétitions de football en direct sur Koppafoot ⚽");
 
   if (typeof navigator !== "undefined" && navigator.share) {
     try {

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLangue, useT } from "@/i18n";
 
 // ============================================
 // Les blocs du menu compte : inviter, support, thème, langue.
@@ -93,9 +94,13 @@ function Ligne({ href, Icon, label, onClick, t }: {
  */
 export function InviteCard({ firstName }: { firstName?: string }) {
   const [copie, setCopie] = useState(false);
+  const t = useT();
 
   const partager = async () => {
-    const resultat = await shareInviteLink(firstName);
+    const resultat = await shareInviteLink(
+      firstName,
+      firstName ? t("invite.message", { prenom: firstName }) : t("invite.messageAnonyme"),
+    );
     // La feuille de partage native parle d'elle-même ; une copie silencieuse
     // dans le presse-papier, non.
     if (resultat === "copied") {
@@ -114,10 +119,10 @@ export function InviteCard({ firstName }: { firstName?: string }) {
       />
       <div className="relative">
         <p className="font-display text-base font-black uppercase tracking-tight">
-          Invite tes amis
+          {t("invite.titre")}
         </p>
         <p className="mt-1 max-w-[15rem] text-[11px] font-semibold leading-relaxed text-white/70">
-          Le foot se suit à plusieurs. Partage KoppaFoot à ceux qui jouent avec toi.
+          {t("invite.texte")}
         </p>
         <button
           type="button"
@@ -125,7 +130,7 @@ export function InviteCard({ firstName }: { firstName?: string }) {
           className="mt-3 inline-flex items-center gap-2 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-900 transition-colors hover:bg-emerald-300"
         >
           {copie ? <Check size={13} /> : <Share2 size={13} />}
-          {copie ? "Lien copié" : "Partager le lien"}
+          {copie ? t("invite.copie") : t("invite.partager")}
         </button>
       </div>
     </div>
@@ -137,14 +142,15 @@ export function SupportBlock({ sombre, onNavigate }: {
   sombre?: boolean;
   onNavigate?: () => void;
 }) {
-  const t = ton(sombre);
+  const ton_ = ton(sombre);
+  const t = useT();
   return (
     <div>
-      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
-        Support
+      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${ton_.titre}`}>
+        {t("support.titre")}
       </p>
-      <Ligne t={t} href="/aide" onClick={onNavigate} Icon={HelpCircle} label="Questions fréquentes" />
-      <Ligne t={t} href="/aide#retour" onClick={onNavigate} Icon={MessageSquare} label="Nous faire un retour" />
+      <Ligne t={ton_} href="/aide" onClick={onNavigate} Icon={HelpCircle} label={t("support.faq")} />
+      <Ligne t={ton_} href="/aide#retour" onClick={onNavigate} Icon={MessageSquare} label={t("support.retour")} />
     </div>
   );
 }
@@ -158,7 +164,8 @@ export function SupportBlock({ sombre, onNavigate }: {
  */
 export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
   const { theme, setTheme } = useTheme();
-  const [langue, setLangue] = useState<"fr" | "en">("fr");
+  const { langue, setLangue } = useLangue();
+  const trad = useT();
   const t = ton(sombre);
 
   const bascule = (actif: boolean) =>
@@ -171,7 +178,7 @@ export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
   return (
     <div>
       <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
-        Préférences
+        {trad("prefs.titre")}
       </p>
 
       <div className="px-4 pb-2">
@@ -180,14 +187,14 @@ export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
             {theme === "light"
               ? <Sun size={15} className={t.icone} />
               : <Moon size={15} className={t.icone} />}
-            Thème
+            {trad("prefs.theme")}
           </span>
           <span className={`flex shrink-0 border ${sombre ? "border-white/10" : "border-gray-200/70"}`}>
             <button type="button" onClick={() => setTheme("light")} className={bascule(theme === "light")}>
-              Clair
+              {trad("prefs.clair")}
             </button>
             <button type="button" onClick={() => setTheme("dark")} className={bascule(theme === "dark")}>
-              Sombre
+              {trad("prefs.sombre")}
             </button>
           </span>
         </div>
@@ -195,14 +202,7 @@ export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
         <div className="flex items-center justify-between gap-3 py-1.5">
           <span className={`flex items-center gap-2 text-[13px] font-bold ${t.libelle}`}>
             <Languages size={15} className={t.icone} />
-            Langue
-            <span className={
-              sombre
-                ? "border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-300"
-                : "border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-700"
-            }>
-              Bientôt
-            </span>
+            {trad("prefs.langue")}
           </span>
           <span className={`flex shrink-0 border ${sombre ? "border-white/10" : "border-gray-200/70"}`}>
             <button type="button" onClick={() => setLangue("fr")} className={bascule(langue === "fr")}>
