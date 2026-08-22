@@ -1,0 +1,257 @@
+/* ============================================
+   LE THÈME SOMBRE
+
+   Pourquoi ce fichier existe plutôt qu'une passe de `dark:` dans le code.
+
+   Le projet compte environ 3500 occurrences d'utilitaires neutres, bg-white,
+   text-gray-900, border-gray-200/70. Les doubler d'une variante `dark:` veut
+   dire toucher plus de deux cents fichiers et, surtout, obliger chaque ligne
+   écrite ensuite à y penser. La règle qu'on oublie ne se voit pas en clair,
+   elle n'apparaît qu'au premier utilisateur en sombre.
+
+   Tailwind v4 fait pointer chaque utilitaire vers une variable CSS, donc on
+   peut reprendre la main d'un cran plus bas, sur les utilitaires eux-mêmes.
+   Une soixantaine de règles ici remplacent une passe dans tout le code, et
+   restent réversibles : supprimer ce fichier rend le projet exactement à son
+   état d'avant.
+
+   CE QU'ON NE TOUCHE PAS, et c'est le point délicat. `text-white`, `bg-gray-900`,
+   `to-black` ne changent pas : ils habillent déjà des surfaces sombres, les
+   héros, la barre du bas, les boutons pleins. Inverser la palette entière,
+   la solution qui paraît élégante en premier, les casse toutes, un héros
+   « emerald-800 via-gray-900 to-black » devenant clair avec son texte blanc
+   dessus. Le thème sombre du produit ne consiste donc pas à inverser, mais à
+   amener le reste de l'interface là où ces surfaces-là sont déjà.
+
+   Les règles sont hors `@layer`, ce qui les fait passer devant les
+   utilitaires de Tailwind quelle que soit leur spécificité. C'est pour ça que
+   les variantes `hover:`, `focus:` et `group-hover:` doivent être reprises
+   explicitement : sans elles, la règle de base gagnerait aussi au survol et
+   les menus perdraient leur réaction.
+   ============================================ */
+
+:root[data-theme="dark"] {
+  /* Dit au navigateur d'habiller ce qui ne nous appartient pas : barres de
+     défilement, sélecteurs de date, remplissage automatique des formulaires. */
+  color-scheme: dark;
+
+  /* Un noir légèrement vert plutôt qu'un gris neutre : le vert nuit de la
+     barre du bas et des héros est déjà la couleur du produit dans le noir,
+     un gris pur à côté aurait l'air d'un autre écran. */
+  --k-bg: #080d0b;
+  --k-surface: #101714;
+  --k-surface-2: #16201c;
+  --k-surface-3: #1d2924;
+  --k-surface-4: #27332e;
+
+  --k-ink-900: #eef3f0;
+  --k-ink-700: #d3dbd7;
+  --k-ink-600: #b7c1bc;
+  --k-ink-500: #9ba6a1;
+  --k-ink-400: #7f8a85;
+  --k-ink-300: #626c68;
+  --k-ink-200: #4d5854;
+
+  --k-border: #26322e;
+  --k-border-fort: #3b4a45;
+
+  /* Les variables sémantiques d'origine suivent, elles servent au body et à
+     quelques composants qui les lisent directement. */
+  --color-bg: var(--k-bg);
+  --color-bg-secondary: var(--k-surface-2);
+  --color-bg-tertiary: var(--k-surface-3);
+  --color-surface-elevated: var(--k-surface);
+  --color-surface-sunken: var(--k-surface-2);
+  --color-text-primary: var(--k-ink-900);
+  --color-text-secondary: var(--k-ink-600);
+  --color-text-muted: var(--k-ink-400);
+  --color-border: var(--k-border);
+  --color-border-light: var(--k-border);
+}
+
+/* ---- Surfaces ---------------------------------------------------------- */
+
+[data-theme="dark"] .bg-white { background-color: var(--k-surface); }
+[data-theme="dark"] .bg-gray-50 { background-color: var(--k-surface-2); }
+[data-theme="dark"] .bg-gray-100 { background-color: var(--k-surface-3); }
+[data-theme="dark"] .bg-gray-200 { background-color: var(--k-surface-4); }
+[data-theme="dark"] .bg-gray-50\/50 { background-color: color-mix(in srgb, var(--k-surface-2) 50%, transparent); }
+[data-theme="dark"] .bg-gray-50\/70 { background-color: color-mix(in srgb, var(--k-surface-2) 70%, transparent); }
+[data-theme="dark"] .bg-white\/95 { background-color: color-mix(in srgb, var(--k-surface) 95%, transparent); }
+
+[data-theme="dark"] .hover\:bg-white:hover { background-color: var(--k-surface); }
+[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: var(--k-surface-2); }
+[data-theme="dark"] .hover\:bg-gray-50\/70:hover { background-color: color-mix(in srgb, var(--k-surface-2) 70%, transparent); }
+[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: var(--k-surface-3); }
+[data-theme="dark"] .hover\:bg-gray-200:hover { background-color: var(--k-surface-4); }
+[data-theme="dark"] .focus\:bg-white:focus { background-color: var(--k-surface); }
+
+/* ---- Textes ------------------------------------------------------------ */
+
+[data-theme="dark"] .text-gray-900 { color: var(--k-ink-900); }
+[data-theme="dark"] .text-gray-800 { color: var(--k-ink-700); }
+[data-theme="dark"] .text-gray-700 { color: var(--k-ink-700); }
+[data-theme="dark"] .text-gray-600 { color: var(--k-ink-600); }
+[data-theme="dark"] .text-gray-500 { color: var(--k-ink-500); }
+[data-theme="dark"] .text-gray-400 { color: var(--k-ink-400); }
+[data-theme="dark"] .text-gray-300 { color: var(--k-ink-300); }
+[data-theme="dark"] .text-gray-200 { color: var(--k-ink-200); }
+
+[data-theme="dark"] .hover\:text-gray-900:hover { color: var(--k-ink-900); }
+[data-theme="dark"] .hover\:text-gray-700:hover { color: var(--k-ink-700); }
+[data-theme="dark"] .hover\:text-gray-600:hover { color: var(--k-ink-600); }
+[data-theme="dark"] .hover\:text-gray-500:hover { color: var(--k-ink-500); }
+[data-theme="dark"] .group-hover\:text-gray-900:is(:where(.group):hover *) { color: var(--k-ink-900); }
+[data-theme="dark"] .group-hover\:text-gray-500:is(:where(.group):hover *) { color: var(--k-ink-500); }
+
+/* ---- Bordures ---------------------------------------------------------- */
+
+[data-theme="dark"] .border-gray-50,
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-200\/70,
+[data-theme="dark"] .border-gray-300 { border-color: var(--k-border); }
+
+[data-theme="dark"] .hover\:border-gray-200\/70:hover,
+[data-theme="dark"] .hover\:border-gray-300:hover { border-color: var(--k-border-fort); }
+
+[data-theme="dark"] .divide-gray-200\/70 > :not(:last-child),
+[data-theme="dark"] .divide-gray-100 > :not(:last-child),
+[data-theme="dark"] .divide-gray-50 > :not(:last-child) { border-color: var(--k-border); }
+
+/* Les grandes surfaces en gris 900, les héros, gardent leur fond : elles sont
+   déjà sombres et leur texte est écrit pour elles. Les BOUTONS pleins, eux,
+   deviennent invisibles, un noir sur un presque-noir, et un bouton qu'on ne
+   distingue plus de la page n'est plus un bouton.
+
+   Le tri se fait par type d'élément plutôt que par classe : les héros sont des
+   `section` et des `div`, les actions sont des `button` et des `a`. C'est la
+   seule frontière qui sépare vraiment les deux usages du même gris.
+
+   Le vert remplace le noir parce qu'un bouton doit rester le point le plus
+   affirmé de l'écran, et que dans le noir c'est la couleur du produit qui
+   tient ce rôle, pas une nuance de gris de plus. */
+[data-theme="dark"] button.bg-gray-900,
+[data-theme="dark"] a.bg-gray-900,
+[data-theme="dark"] label.bg-gray-900 {
+  background-color: #047857;
+}
+[data-theme="dark"] button.border-gray-900,
+[data-theme="dark"] a.border-gray-900,
+[data-theme="dark"] label.border-gray-900 {
+  border-color: #047857;
+}
+
+/* Ailleurs, un contour redessine ce que le fond ne dit plus. */
+[data-theme="dark"] .border-gray-900,
+[data-theme="dark"] .hover\:border-gray-900:hover,
+[data-theme="dark"] .focus\:border-gray-900:focus { border-color: var(--k-border-fort); }
+[data-theme="dark"] .ring-gray-900 { --tw-ring-color: var(--k-border-fort); }
+
+/* ---- Dégradés qui partaient du blanc ----------------------------------- */
+
+[data-theme="dark"] .from-white { --tw-gradient-from: var(--k-surface); }
+[data-theme="dark"] .via-white { --tw-gradient-via: var(--k-surface); }
+[data-theme="dark"] .to-white { --tw-gradient-to: var(--k-surface); }
+[data-theme="dark"] .from-gray-50 { --tw-gradient-from: var(--k-surface-2); }
+[data-theme="dark"] .from-gray-100 { --tw-gradient-from: var(--k-surface-3); }
+
+/* ---- Pastilles de couleur ----------------------------------------------
+   Un fond emerald-50 sur une page sombre éclaire comme une lampe, et le
+   texte emerald-700 qu'il porte devient illisible dès qu'on assombrit le
+   fond. Les deux se traitent ensemble : fond translucide de la même teinte,
+   texte remonté de quatre crans dans l'échelle. */
+
+[data-theme="dark"] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.12); }
+[data-theme="dark"] .bg-emerald-50\/50 { background-color: rgb(16 185 129 / 0.08); }
+[data-theme="dark"] .bg-emerald-50\/60 { background-color: rgb(16 185 129 / 0.09); }
+[data-theme="dark"] .bg-emerald-100 { background-color: rgb(16 185 129 / 0.18); }
+[data-theme="dark"] .border-emerald-100 { border-color: rgb(16 185 129 / 0.2); }
+[data-theme="dark"] .border-emerald-200 { border-color: rgb(16 185 129 / 0.3); }
+[data-theme="dark"] .text-emerald-600 { color: #34d399; }
+[data-theme="dark"] .text-emerald-700 { color: #6ee7b7; }
+[data-theme="dark"] .text-emerald-800,
+[data-theme="dark"] .text-emerald-900 { color: #a7f3d0; }
+[data-theme="dark"] .hover\:text-emerald-700:hover { color: #6ee7b7; }
+
+[data-theme="dark"] .bg-amber-50 { background-color: rgb(245 158 11 / 0.12); }
+[data-theme="dark"] .bg-amber-50\/60 { background-color: rgb(245 158 11 / 0.09); }
+[data-theme="dark"] .bg-amber-100 { background-color: rgb(245 158 11 / 0.18); }
+[data-theme="dark"] .border-amber-100 { border-color: rgb(245 158 11 / 0.2); }
+[data-theme="dark"] .border-amber-200 { border-color: rgb(245 158 11 / 0.3); }
+[data-theme="dark"] .text-amber-600 { color: #fbbf24; }
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-800,
+[data-theme="dark"] .text-amber-900 { color: #fcd34d; }
+
+[data-theme="dark"] .bg-red-50 { background-color: rgb(239 68 68 / 0.12); }
+[data-theme="dark"] .bg-red-50\/50 { background-color: rgb(239 68 68 / 0.08); }
+[data-theme="dark"] .bg-red-100 { background-color: rgb(239 68 68 / 0.18); }
+[data-theme="dark"] .border-red-50 { border-color: rgb(239 68 68 / 0.15); }
+[data-theme="dark"] .border-red-100 { border-color: rgb(239 68 68 / 0.2); }
+[data-theme="dark"] .border-red-200 { border-color: rgb(239 68 68 / 0.3); }
+[data-theme="dark"] .text-red-600,
+[data-theme="dark"] .text-red-700 { color: #fca5a5; }
+[data-theme="dark"] .hover\:text-red-600:hover { color: #fca5a5; }
+[data-theme="dark"] .hover\:bg-red-50:hover { background-color: rgb(239 68 68 / 0.12); }
+[data-theme="dark"] .hover\:border-red-200:hover { border-color: rgb(239 68 68 / 0.3); }
+
+[data-theme="dark"] .bg-blue-50 { background-color: rgb(59 130 246 / 0.12); }
+[data-theme="dark"] .bg-blue-100 { background-color: rgb(59 130 246 / 0.18); }
+[data-theme="dark"] .border-blue-100 { border-color: rgb(59 130 246 / 0.2); }
+[data-theme="dark"] .border-blue-200 { border-color: rgb(59 130 246 / 0.3); }
+[data-theme="dark"] .text-blue-600,
+[data-theme="dark"] .text-blue-700 { color: #93c5fd; }
+
+[data-theme="dark"] .bg-orange-50 { background-color: rgb(249 115 22 / 0.12); }
+[data-theme="dark"] .bg-orange-100 { background-color: rgb(249 115 22 / 0.18); }
+[data-theme="dark"] .border-orange-200 { border-color: rgb(249 115 22 / 0.3); }
+[data-theme="dark"] .text-orange-600,
+[data-theme="dark"] .text-orange-700 { color: #fdba74; }
+
+[data-theme="dark"] .bg-violet-50 { background-color: rgb(139 92 246 / 0.12); }
+[data-theme="dark"] .bg-violet-100 { background-color: rgb(139 92 246 / 0.18); }
+[data-theme="dark"] .border-violet-200 { border-color: rgb(139 92 246 / 0.3); }
+[data-theme="dark"] .text-violet-600,
+[data-theme="dark"] .text-violet-700 { color: #c4b5fd; }
+
+
+/* ---- Valeurs arbitraires ------------------------------------------------
+   Une couleur ecrite en dur, `bg-[#F4F6FA]`, ne passe par aucune variable :
+   Tailwind l'inscrit telle quelle. Elle echappe donc a tout ce qui precede,
+   et c'est ainsi que le fond de la zone principale est reste blanc alors que
+   tout ce qui s'y trouvait etait deja passe au sombre.
+
+   L'échappement `\[` et `\#` est celui que Tailwind produit dans le nom de
+   classe, il faut le reproduire ici a l'identique. */
+
+[data-theme="dark"] .bg-\[\#F4F6FA\],
+[data-theme="dark"] .bg-\[\#F8F9FB\],
+[data-theme="dark"] .bg-\[\#F5F5F0\] { background-color: var(--k-bg); }
+
+/* Les pages d'accueil publiques ont leur propre encre, un brun tres sombre
+   ecrit en dur. Sur leur fond crème d'origine elle se lit ; sur le fond
+   sombre du theme elle disparait, et c'est la moitie du texte de ces pages
+   qui s'efface. */
+[data-theme="dark"] .text-\[\#1A1715\] { color: var(--k-ink-900); }
+[data-theme="dark"] .border-\[\#1A1715\] { border-color: var(--k-border-fort); }
+[data-theme="dark"] button.bg-\[\#1A1715\],
+[data-theme="dark"] a.bg-\[\#1A1715\] { background-color: #047857; }
+
+/* Le presque-noir des pages d'accueil publiques reste ce qu'il est : il est
+   deja sombre, et son texte est ecrit pour lui. */
+
+/* ---- Ombres ------------------------------------------------------------
+   Une ombre noire sous une carte sombre ne se voit pas et alourdit le rendu.
+   Le contour suffit à détacher, il est déjà là. */
+
+[data-theme="dark"] .shadow-sm,
+[data-theme="dark"] .shadow,
+[data-theme="dark"] .shadow-md,
+[data-theme="dark"] .shadow-lg,
+[data-theme="dark"] .shadow-xl,
+[data-theme="dark"] .shadow-2xl { --tw-shadow: 0 0 #0000; box-shadow: none; }
+
+/* Les images gardent leur luminosité, sauf les blasons et logos posés sur
+   fond blanc d'origine : rien à faire côté CSS, ils portent déjà leur propre
+   fond dans le composant. */

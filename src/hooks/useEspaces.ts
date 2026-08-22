@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { isOrganizer, isVenueOwner } from "@/lib/hats";
 import { ROLE_DESTINATIONS } from "@/config/role-destinations";
+import { useT } from "@/i18n";
 import type { EvolutionRole } from "@/types";
 
 // ============================================
@@ -57,6 +58,7 @@ export interface Espaces {
 
 export function useEspaces(): Espaces | null {
   const { user } = useAuth();
+  const t = useT();
   const [moderates, setModerates] = useState(false);
 
   useEffect(() => {
@@ -79,11 +81,11 @@ export function useEspaces(): Espaces | null {
 
   // Le mercato ne concerne que ceux qui jouent ou recrutent.
   if (user.evolutionRole === "player" || user.evolutionRole === "manager") {
-    roleItems.push({ href: "/mercato", label: "Mercato", Icon: Store });
+    roleItems.push({ href: "/mercato", label: t("espace.mercato"), Icon: Store });
     // Demander un creneau ne demande aucune casquette : cette page suit le
     // role, pas la propriete d'un terrain. Elle etait rangee du cote des
     // casquettes, donc invisible pour ceux qui reservent vraiment.
-    roleItems.push({ href: "/mes-reservations", label: "Mes réservations", Icon: CalendarDays });
+    roleItems.push({ href: "/mes-reservations", label: t("espace.mesReservations"), Icon: CalendarDays });
   }
 
   // Les casquettes nomment leur DESTINATION, pas un « espace ». « Espace
@@ -94,20 +96,20 @@ export function useEspaces(): Espaces | null {
     // « Nouvelle competition » n'est pas ici : c'est une ACTION, pas une
     // destination, et elle vit deja en tete de l'espace organisateur. Un menu
     // de navigation qui propose de creer quelque chose melange deux gestes.
-    hatItems.push({ href: "/organizer", label: "Compétitions organisées", Icon: ClipboardList });
+    hatItems.push({ href: "/organizer", label: t("espace.competitionsOrganisees"), Icon: ClipboardList });
   }
   if (moderates) {
-    hatItems.push({ href: "/live-ops", label: "Console live", Icon: Radio });
+    hatItems.push({ href: "/live-ops", label: t("espace.consoleLive"), Icon: Radio });
   }
   if (isVenueOwner(user)) {
-    hatItems.push({ href: "/mes-terrains", label: "Mes terrains", Icon: MapPin });
+    hatItems.push({ href: "/mes-terrains", label: t("espace.mesTerrains"), Icon: MapPin });
     // Les demandes RECUES, et non /mes-reservations qui liste celles qu'on a
     // faites ailleurs. Un proprietaire cliquait sur « Réservations » et
     // tombait sur sa page de client, sans jamais voir ce qu'on lui demandait.
-    hatItems.push({ href: "/mes-terrains/reservations", label: "Réservations reçues", Icon: Inbox });
+    hatItems.push({ href: "/mes-terrains/reservations", label: t("espace.reservationsRecues"), Icon: Inbox });
   }
   if (user.userType === "superadmin") {
-    hatItems.push({ href: "/admin", label: "Administration", Icon: Shield });
+    hatItems.push({ href: "/admin", label: t("espace.administration"), Icon: Shield });
   }
 
   return {

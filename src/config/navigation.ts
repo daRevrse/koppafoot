@@ -1,3 +1,4 @@
+import type { CleTraduction } from "@/i18n/fr";
 import type { UserRole } from "@/types";
 
 // ============================================
@@ -111,7 +112,17 @@ export const ROLE_BADGE_COLORS: Record<UserRole, string> = {
 export interface BottomNavItem {
   path: string;
   icon: string;   // lucide-react icon name
+  /** Le libelle en francais, qui sert de repli si `cle` manque. */
   label: string;
+  /**
+   * La cle de traduction, quand l'entree en a une.
+   *
+   * Elle est facultative pour que ce fichier reste utilisable tel quel :
+   * une entree ajoutee sans cle s'affiche en francais partout, ce qui est
+   * lisible, plutot que de casser la barre le jour ou on oublie de la
+   * declarer dans le dictionnaire.
+   */
+  cle?: CleTraduction;
   badge?: boolean;
   exact?: boolean;
 }
@@ -132,8 +143,8 @@ export interface BottomNavItem {
  * MobileBottomNav.
  */
 export const MEMBER_BOTTOM: BottomNavItem[] = [
-  { path: "/", icon: "Flame", label: "Direct", exact: true },
-  { path: "/actus", icon: "Newspaper", label: "Actus" },
+  { path: "/", icon: "Flame", label: "Direct", cle: "nav.direct", exact: true },
+  { path: "/actus", icon: "Newspaper", label: "Actus", cle: "nav.actus" },
 ];
 
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {

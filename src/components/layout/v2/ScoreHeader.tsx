@@ -5,12 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, Share2, Check, Sparkles, MapPin,
+  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
-import { shareInviteLink } from "@/lib/invite-link";
+import { useT } from "@/i18n";
+import type { CleTraduction } from "@/i18n/fr";
+import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
@@ -45,11 +47,13 @@ interface NavEntry {
   newTab?: boolean;
   /** Ce qu'on trouve derriere, pour le megamenu. */
   blurb?: string;
+  /** La cle de traduction, quand l'entree en a une. Sinon, `label`. */
+  cle?: CleTraduction;
 }
 
 const PRIMARY: NavEntry[] = [
-  { href: HOME, label: "Direct", Icon: Flame, exact: true },
-  { href: "/actus", label: "Actus", Icon: Newspaper },
+  { href: HOME, label: "Direct", cle: "nav.direct", Icon: Flame, exact: true },
+  { href: "/actus", label: "Actus", cle: "nav.actus", Icon: Newspaper },
 ];
 
 /**
@@ -90,7 +94,7 @@ const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: Globe };
 // The sidebar's role destinations, now reached from the avatar menu.
 
 const MENU_CLASS =
-  "absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1 shadow-lg";
+  "absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-80 overflow-y-auto border border-gray-200/70 bg-white shadow-xl";
 
 /** Open state + click-outside, shared by the three menus of the band. */
 function useDropdown() {
@@ -184,9 +188,8 @@ function EspaceMenu({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-        }`}
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+          }`}
       >
         <Icon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
         {label}
@@ -235,9 +238,8 @@ function KoppaLinksMenu() {
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-          open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-        }`}
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+          }`}
       >
         <LinkIcon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
         Koppa Links
@@ -350,43 +352,30 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
 // ---- Account: the one menu on the right --------------------------------------
 
 
+/**
+ * Le menu du compte, connecte ou non.
+ *
+ * Deconnecte, ce bouton ouvrait directement la boite de connexion, et tout
+ * ce qu'il contient, l'invitation, l'aide, les preferences, disparaissait
+ * avec le compte. Or rien la-dedans ne demande d'etre identifie : on peut
+ * partager le lien de l'appli, lire l'aide et regarder les preferences sans
+ * avoir de compte, et ce sont justement les gestes d'un visiteur.
+ *
+ * Le menu est donc le meme dans les deux etats. Seule sa tete change : la
+ * fiche profil quand on a un compte, le bouton de connexion sinon. La boite
+ * de dialogue, elle, ne disparait pas, elle reste ce qu'elle etait, ouverte
+ * depuis ce bouton comme depuis les pages qui demandent un compte.
+ */
 function AccountMenu() {
   const { user, logout } = useAuth();
+  const t = useT();
   const router = useRouter();
   const authModal = useAuthModal();
   const { open, setOpen, boxRef } = useDropdown();
-  const [copied, setCopied] = useState(false);
-  const handleInvite = async () => {
-    const result = await shareInviteLink(user?.firstName);
-    // La feuille de partage parle d'elle-meme ; une copie silencieuse non.
-    if (result === "copied") {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
 
-  // Signed out: the same slot becomes the way in, and the way in is a
-  // dialog, not a page, so nobody loses the match they were reading.
-  if (!user) {
-    return (
-      <div className="shrink-0">
-        <button
-          type="button"
-          onClick={() => authModal.open()}
-          aria-label="Se connecter"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-        >
-          <User size={20} />
-        </button>
-      </div>
-    );
-  }
-
-  // Quatre roles activables, pas deux : arbitre et terrain manquaient depuis
-  // leur degel, et retombaient sur le libelle « Évolution » comme si leur
-  // titulaire n'avait rien choisi.
-  // Le repli n'est pas de la prudence decorative : le type dit trois roles,
-  const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?";
+  const initials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?"
+    : "";
 
   return (
     <div ref={boxRef} className="relative shrink-0">
@@ -394,10 +383,10 @@ function AccountMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label="Mon compte"
+        aria-label={user ? t("compte.monCompte") : t("compte.compteEtReglages")}
         className="flex items-center gap-1 rounded-full p-0.5 pr-1 transition-colors hover:bg-white/10"
       >
-        {user.profilePictureUrl ? (
+        {user?.profilePictureUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={user.profilePictureUrl}
@@ -406,7 +395,7 @@ function AccountMenu() {
           />
         ) : (
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-black text-white">
-            {initials}
+            {user ? initials : <User size={18} />}
           </span>
         )}
         <ChevronDown size={13} className="hidden text-emerald-200/70 sm:block" />
@@ -414,56 +403,75 @@ function AccountMenu() {
 
       {open && (
         <div className={MENU_CLASS}>
-          <Link
-            href="/profile"
-            onClick={() => setOpen(false)}
-            className="block border-b border-gray-50 px-3 pb-2 pt-1.5 transition-colors hover:bg-gray-50"
-          >
-            <span className="block truncate text-[13px] font-black text-gray-900">
-              {user.firstName} {user.lastName}
-            </span>
-            <span className="block truncate text-[11px] font-bold text-gray-400">
-              Voir mon profil
-            </span>
-          </Link>
+          {user ? (
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="block border-b border-gray-200/70 px-4 py-3 transition-colors hover:bg-gray-50"
+            >
+              <span className="block truncate text-[13px] font-black text-gray-900">
+                {user.firstName} {user.lastName}
+              </span>
+              <span className="block truncate text-[11px] font-bold text-gray-400">
+                {t("compte.voirMonProfil")}
+              </span>
+            </Link>
+          ) : (
+            /* La meme place, l'autre geste. Une boite de dialogue et non une
+               page : personne ne perd le match qu'il etait en train de lire. */
+            <div className="border-b border-gray-200/70 p-3">
+              <p className="mt-2 px-1 pb-2 text-[11px] font-semibold leading-relaxed font-display text-base font-black uppercase tracking-tight">
+                {t("compte.faitesPlus")}
+              </p>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); authModal.open(); }}
+                className="flex w-full items-center justify-center gap-2 border border-gray-900 bg-gray-900 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
+              >
+                <LogIn size={14} />
+                {t("compte.seConnecter")}
+              </button>
+              {/* <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-gray-400">
+                Suivre une équipe, pronostiquer, publier dans la Tribune : tout
+                cela demande un compte. Le reste se lit sans.
+              </p> */}
+            </div>
+          )}
 
           {/* Ni destinations de role ni casquettes ici : elles sont dans
-              « Espace [role] », dans la barre. Une photo de profil annonce un
+              « MySpace », dans la barre. Une photo de profil annonce un
               compte, on n'y cherche pas « Mes equipes ». Ce menu ne garde
               que ce qui touche vraiment au compte. */}
 
-          {/* Inviter quelqu'un est un geste qu'on fait depuis son compte :
-              c'est SON lien de parrainage qui part. */}
-          <div className="border-t border-gray-50 py-1">
-            <button
-              type="button"
-              onClick={handleInvite}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-            >
-              {copied ? (
-                <Check size={15} className="shrink-0 text-emerald-500" />
-              ) : (
-                <Share2 size={15} className="shrink-0 text-emerald-500" />
-              )}
-              <span className="truncate text-[13px] font-bold text-gray-700">
-                {copied ? "Lien copié" : "Inviter un ami"}
-              </span>
-            </button>
+          {/* Partager l'appli ne demande pas de compte : c'est le lien public
+              qui part, et un visiteur convaincu est le meilleur porteur. */}
+          <div className="border-t border-gray-200/70 p-3">
+            <InviteCard firstName={user?.firstName} />
           </div>
 
-          <button
-            type="button"
-            onClick={async () => {
-              setOpen(false);
-              await logout();
-              // Home is public, no reason to send anyone to a login screen.
-              router.push("/");
-            }}
-            className="flex w-full items-center gap-2.5 border-t border-gray-50 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-          >
-            <LogOut size={15} className="shrink-0 text-gray-400" />
-            <span className="text-[13px] font-bold text-gray-500">Se déconnecter</span>
-          </button>
+          <div className="border-t border-gray-200/70">
+            <SupportBlock onNavigate={() => setOpen(false)} />
+          </div>
+
+          <div className="border-t border-gray-200/70 pb-2">
+            <PreferencesBlock />
+          </div>
+
+          {user && (
+            <button
+              type="button"
+              onClick={async () => {
+                setOpen(false);
+                await logout();
+                // Home is public, no reason to send anyone to a login screen.
+                router.push("/");
+              }}
+              className="flex w-full items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+            >
+              <LogOut size={15} className="shrink-0 text-gray-400" />
+              <span className="text-[13px] font-bold text-gray-500">{t("compte.seDeconnecter")}</span>
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -522,6 +530,7 @@ function useHeaderHeight() {
 }
 
 export default function ScoreHeader() {
+  const t = useT();
   const headerRef = useHeaderHeight();
   const { user } = useAuth();
   const pathname = usePathname();
@@ -555,14 +564,13 @@ export default function ScoreHeader() {
                 href={item.href}
                 {...(item.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 aria-current={active ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${
-                  active
-                    ? "bg-white/15 text-white"
-                    : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-                }`}
+                className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${active
+                  ? "bg-white/15 text-white"
+                  : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+                  }`}
               >
                 <item.Icon size={17} className={active ? "text-amber-300" : "text-emerald-300/70"} />
-                {item.label}
+                {item.cle ? t(item.cle) : item.label}
               </Link>
             );
           })}
@@ -610,7 +618,7 @@ export default function ScoreHeader() {
         >
           <Search size={17} className="shrink-0 text-emerald-200/50" />
           <span className="truncate text-xs font-semibold text-emerald-200/50">
-            Compétition, équipe, joueur…
+            {t("nav.recherche")}
           </span>
         </button>
 
@@ -638,18 +646,17 @@ export default function ScoreHeader() {
           {/* La Tribune, mobile only and members only: the tab bar leaves it
               out (see MEMBER_BOTTOM), so dropping it here would strand it. */}
           {user && (
-          <Link
-            href="/feed"
-            aria-label="La Tribune"
-            aria-current={pathname.startsWith("/feed") ? "page" : undefined}
-            className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors lg:hidden ${
-              pathname.startsWith("/feed")
+            <Link
+              href="/feed"
+              aria-label="La Tribune"
+              aria-current={pathname.startsWith("/feed") ? "page" : undefined}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors lg:hidden ${pathname.startsWith("/feed")
                 ? "bg-white/15 text-white"
                 : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            <Globe size={22} />
-          </Link>
+                }`}
+            >
+              <Globe size={22} />
+            </Link>
           )}
 
           {user && (
