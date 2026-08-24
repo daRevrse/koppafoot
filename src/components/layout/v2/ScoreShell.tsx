@@ -6,6 +6,7 @@ import RightRail, { routeOwnsItsRail } from "./rail/RightRail";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PullToRefresh from "@/components/layout/PullToRefresh";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
+import PWAInstallFloating from "@/components/pwa/PWAInstallFloating";
 
 // ============================================
 // ScoreShell, the chrome of the product, everywhere.
@@ -20,7 +21,11 @@ import PushNotificationSetup from "@/components/PushNotificationSetup";
 // one does not change the furniture.
 //
 // Kept from that shell: the mobile tab bar (the habit already learned on a
-// phone), pull-to-refresh and the push prompt.
+// phone), pull-to-refresh and the push plumbing.
+//
+// L'invitation à installer vit ici, et pas dans une page : l'entrée du menu
+// compte répond à qui la cherche, celle-ci s'adresse à qui n'y a pas pensé.
+// Elle attend, se ferme, et se tait un mois — voir PWAInstallFloating.
 //
 // The Tribune rail is gone, but its column is not: the same 320px stays open
 // on the right. Letting the content spread into it would have re-flowed every
@@ -50,6 +55,7 @@ export default function ScoreShell({
   return (
     <div className="flex min-h-screen flex-col">
       <PushNotificationSetup />
+      <PWAInstallFloating />
       <ScoreHeader />
 
       <div className="flex min-w-0 flex-1">

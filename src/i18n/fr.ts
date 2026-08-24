@@ -76,6 +76,10 @@ export const fr = {
   "install.action": "Installer KoppaFoot",
   "install.ios":
     "Pour installer KoppaFoot sur iPhone : touchez Partager en bas de Safari, puis « Sur l'écran d'accueil ». C'est aussi ce qui débloque les notifications.",
+  "install.flottantTitre": "Mettez KoppaFoot sur l'écran d'accueil",
+  "install.flottantTexte":
+    "Accès direct, plein écran, et les notifications de vos matchs.",
+  "install.plusTard": "Plus tard",
 
   // ---- Notifications push ----
   "notifs.titre": "Notifications",

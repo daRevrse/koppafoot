@@ -72,6 +72,10 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "install.action": "Install KoppaFoot",
   "install.ios":
     "To install KoppaFoot on iPhone: tap Share at the bottom of Safari, then “Add to Home Screen”. That is also what unlocks notifications.",
+  "install.flottantTitre": "Put KoppaFoot on your home screen",
+  "install.flottantTexte":
+    "One tap to open, full screen, and match notifications.",
+  "install.plusTard": "Later",
 
   // ---- Push notifications ----
   "notifs.titre": "Notifications",
