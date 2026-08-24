@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   const html = adminMessageEmailHtml(title, body);
   await Promise.allSettled(
     userIds.map(async (uid) => {
-      await sendPushToUser(uid, { title, body, link: "/dashboard" }).catch(() => {});
+      await sendPushToUser(uid, { title, body, link: "/dashboard", category: "annonces" }).catch(() => {});
       const email = emails[uid];
       if (email) {
         await sendNotificationEmail(email, title, html).catch(() => {});

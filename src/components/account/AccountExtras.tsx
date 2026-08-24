@@ -4,14 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Share2, Check, Megaphone, HelpCircle, MessageSquare, ChevronRight,
-  Sun, Moon, Languages,
+  Sun, Moon, Languages, Bell, BellOff,
 } from "lucide-react";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLangue, useT } from "@/i18n";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { CATEGORIES_PUSH } from "@/lib/push-categories";
 
 // ============================================
-// Les blocs du menu compte : inviter, support, thème, langue.
+// Les blocs du menu compte : inviter, support, notifications, thème, langue.
 //
 // Partagés entre le menu du header et la feuille du bas, pour la raison
 // apprise avec la navigation : deux copies d'un même bloc divergent, et
@@ -22,11 +24,11 @@ import { useLangue, useT } from "@/i18n";
 // L'alternative aurait été un second fichier, c'est-à-dire exactement la
 // divergence qu'on cherche à éviter.
 //
-// THÈME et LANGUE sont pour l'instant de l'INTERFACE SEULE. Aucun système de
-// thème sombre n'existe dans le projet (deux règles `dark:` en tout, aucune
-// bibliothèque i18n), donc les basculer ne change rien à ce qu'on voit. Ils
-// le disent : une bascule muette qui prétend fonctionner est pire qu'une
-// bascule qui annonce son état.
+// Une bascule muette qui prétend fonctionner est pire qu'une bascule qui
+// annonce son état : c'est la règle que suivent ces blocs. Le thème et la
+// langue s'appliquent pour de bon, et les notifications disent quand elles ne
+// peuvent PAS être réglées ici — refus navigateur, iPhone hors application —
+// plutôt que d'afficher un interrupteur sans effet.
 // ============================================
 
 interface Ton {
@@ -151,6 +153,127 @@ export function SupportBlock({ sombre, onNavigate }: {
       </p>
       <Ligne t={ton_} href="/aide" onClick={onNavigate} Icon={HelpCircle} label={t("support.faq")} />
       <Ligne t={ton_} href="/aide#retour" onClick={onNavigate} Icon={MessageSquare} label={t("support.retour")} />
+    </div>
+  );
+}
+
+/**
+ * Les notifications push.
+ *
+ * DEUX PORTÉES DANS UN SEUL BLOC, et l'ordre le dit : l'interrupteur du haut
+ * vaut pour CET APPAREIL — le jeton y vit, couper sur le téléphone ne doit
+ * pas éteindre l'ordinateur — les lignes du dessous valent pour le COMPTE,
+ * puisque c'est le serveur qui filtre à l'envoi.
+ *
+ * LES CAS OÙ IL N'Y A PAS D'INTERRUPTEUR comptent autant que l'interrupteur
+ * lui-même. Un refus navigateur est définitif : aucun appel ne peut le
+ * rouvrir, donc afficher une bascule qui ne marchera pas laisserait conclure
+ * à une panne du produit. On dit où aller. Sur iPhone, le push n'existe que
+ * dans l'application ajoutée à l'écran d'accueil, et là encore une bascule
+ * muette vaudrait moins que la phrase qui explique.
+ *
+ * L'INTERRUPTEUR DU HAUT COMMANDE CEUX DU DESSOUS. Tant qu'il est éteint,
+ * aucune notification ne part vers cet appareil : proposer d'y trier les
+ * catégories reviendrait à faire choisir la couleur d'une lampe débranchée,
+ * et laisserait croire, une fois les cases réglées, qu'on va recevoir
+ * quelque chose. Les catégories restent affichées — c'est ce qu'on gagne à
+ * autoriser — mais grisées et inertes jusqu'à l'autorisation.
+ */
+export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
+  const { etat, prefs, occupe, activer, desactiver, basculer } = usePushNotifications();
+  const trad = useT();
+  const t = ton(sombre);
+
+  // `null` tant que le navigateur n'a pas été interrogé, voir le hook : rien
+  // à afficher plutôt qu'un état par défaut qui serait faux la moitié du
+  // temps.
+  if (etat === null || etat === "non-supporte") return null;
+
+  const bascule = (actif: boolean) =>
+    `flex-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-colors disabled:cursor-not-allowed ${
+      actif
+        ? sombre ? "bg-emerald-500 text-emerald-950" : "bg-gray-900 text-white"
+        : sombre ? "text-white/50 hover:text-white" : "text-gray-500 hover:text-gray-900"
+    }`;
+
+  const cadre = `flex shrink-0 border ${sombre ? "border-white/10" : "border-gray-200/70"}`;
+  const note = `px-4 pb-1 text-[11px] font-semibold leading-relaxed ${
+    sombre ? "text-white/40" : "text-gray-500"
+  }`;
+
+  const actif = etat === "actif";
+  const reglable = etat === "actif" || etat === "inactif";
+
+  return (
+    <div>
+      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
+        {trad("notifs.titre")}
+      </p>
+
+      <div className="px-4 pb-2">
+        <div className="flex items-center justify-between gap-3 py-1.5">
+          <span className={`flex items-center gap-2 text-[13px] font-bold ${t.libelle}`}>
+            {actif
+              ? <Bell size={15} className={t.icone} />
+              : <BellOff size={15} className={t.icone} />}
+            {trad("notifs.appareil")}
+          </span>
+          {reglable && (
+            <span className={cadre}>
+              <button
+                type="button"
+                disabled={occupe}
+                onClick={() => (actif ? undefined : activer())}
+                className={bascule(actif)}
+              >
+                {trad("notifs.oui")}
+              </button>
+              <button
+                type="button"
+                disabled={occupe}
+                onClick={() => (actif ? desactiver() : undefined)}
+                className={bascule(!actif)}
+              >
+                {trad("notifs.non")}
+              </button>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {etat === "refuse" && <p className={note}>{trad("notifs.refuse")}</p>}
+      {etat === "ios-hors-app" && <p className={note}>{trad("notifs.ios")}</p>}
+
+      {/* Grisées et inertes tant que l'appareil n'est pas autorisé : ce sont
+          des réglages de ce qu'on RECEVRA, et on ne reçoit rien encore. */}
+      <div className={`px-4 pb-2 ${actif ? "" : "opacity-50"}`} aria-disabled={!actif}>
+        {CATEGORIES_PUSH.map((categorie) => (
+          <div key={categorie} className="flex items-center justify-between gap-3 py-1.5">
+            <span className={`min-w-0 flex-1 truncate text-[13px] font-bold ${t.libelle}`}>
+              {trad(`notifs.cat.${categorie}` as Parameters<typeof trad>[0])}
+            </span>
+            <span className={cadre}>
+              <button
+                type="button"
+                disabled={occupe || !actif}
+                onClick={() => (prefs[categorie] ? undefined : basculer(categorie))}
+                className={bascule(prefs[categorie])}
+              >
+                {trad("notifs.oui")}
+              </button>
+              <button
+                type="button"
+                disabled={occupe || !actif}
+                onClick={() => (prefs[categorie] ? basculer(categorie) : undefined)}
+                className={bascule(!prefs[categorie])}
+              >
+                {trad("notifs.non")}
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+      {actif && <p className={note}>{trad("notifs.compte")}</p>}
     </div>
   );
 }

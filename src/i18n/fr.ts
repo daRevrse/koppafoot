@@ -71,6 +71,23 @@ export const fr = {
   "prefs.sombre": "Sombre",
   "prefs.langue": "Langue",
 
+  // ---- Notifications push ----
+  "notifs.titre": "Notifications",
+  "notifs.appareil": "Sur cet appareil",
+  "notifs.oui": "Oui",
+  "notifs.non": "Non",
+  "notifs.nonSupporte": "Ce navigateur ne gère pas les notifications.",
+  "notifs.ios":
+    "Ajoutez KoppaFoot à votre écran d'accueil (Partager, puis « Sur l'écran d'accueil ») pour recevoir les notifications.",
+  "notifs.refuse":
+    "Bloquées dans les réglages du navigateur. Autorisez les notifications pour ce site, puis revenez ici.",
+  "notifs.compte": "Ces choix valent pour tous vos appareils.",
+  "notifs.cat.perso": "Ce qui m'est adressé",
+  "notifs.cat.equipe": "Ma ou mes équipes",
+  "notifs.cat.suivis": "Ce que je suis",
+  "notifs.cat.competitions": "Direct des compétitions",
+  "notifs.cat.annonces": "Annonces KoppaFoot",
+
   // ---- Page d'aide ----
   "aide.fil": "Aide",
   "aide.surtitre": "Support",

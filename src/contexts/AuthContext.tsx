@@ -125,6 +125,9 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.is_organizer !== undefined && { isOrganizer: data.is_organizer }),
     ...(data.is_venue_owner !== undefined && { isVenueOwner: data.is_venue_owner }),
     followedCompetitionIds: data.followed_competition_ids ?? [],
+    // Un compte d'avant ce réglage n'a pas le champ, et son absence vaut
+    // « tout accepté » — voir lib/push-categories.
+    pushPrefs: data.push_prefs ?? {},
     organizerName: data.organizer_name ?? null,
     // Gallery
     galleryPhotos: data.gallery_photos ?? [],

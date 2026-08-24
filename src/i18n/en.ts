@@ -67,6 +67,23 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "prefs.sombre": "Dark",
   "prefs.langue": "Language",
 
+  // ---- Push notifications ----
+  "notifs.titre": "Notifications",
+  "notifs.appareil": "On this device",
+  "notifs.oui": "On",
+  "notifs.non": "Off",
+  "notifs.nonSupporte": "This browser does not support notifications.",
+  "notifs.ios":
+    "Add KoppaFoot to your home screen (Share, then “Add to Home Screen”) to receive notifications.",
+  "notifs.refuse":
+    "Blocked in your browser settings. Allow notifications for this site, then come back here.",
+  "notifs.compte": "These choices apply to all your devices.",
+  "notifs.cat.perso": "Addressed to me",
+  "notifs.cat.equipe": "My teams",
+  "notifs.cat.suivis": "What I follow",
+  "notifs.cat.competitions": "Competition live",
+  "notifs.cat.annonces": "KoppaFoot announcements",
+
   // ---- Help page ----
   "aide.fil": "Help",
   "aide.surtitre": "Support",

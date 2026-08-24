@@ -1,3 +1,5 @@
+import type { PushPrefs } from "@/lib/push-categories";
+
 // ============================================
 // KOPPAFOOT, Core Types
 // ============================================
@@ -70,6 +72,8 @@ export interface UserProfile {
   isVenueOwner?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
+  /** Préférences de notification push, par catégorie. Absent = tout accepté. */
+  pushPrefs?: PushPrefs;
   /**
    * Nom public de la structure organisatrice (association, ligue, école,
    * collectif). Saisi à la candidature organisateur, repris à l'approbation,
@@ -168,6 +172,9 @@ export interface FirestoreUser {
   linked_comp_players?: LinkedCompPlayer[];
   // FCM push tokens
   fcm_tokens?: string[];
+  /** Ce que le compte accepte de recevoir en push, par catégorie. Absent =
+   *  tout accepté, voir lib/push-categories. */
+  push_prefs?: PushPrefs;
   // Timestamps
   created_at: string;
   updated_at: string;

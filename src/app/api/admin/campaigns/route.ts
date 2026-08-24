@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       const firstName: string = data.first_name ?? "";
       const email: string | undefined = data.email;
 
-      await sendPushToUser(uid, { title, body, link: defaults.link }).catch(() => {});
+      await sendPushToUser(uid, { title, body, link: defaults.link, category: "annonces" }).catch(() => {});
 
       if (email) {
         let html = "";
