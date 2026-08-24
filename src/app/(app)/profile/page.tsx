@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
+import {
+  nomPersonne, telephoneOptionnel, villeOptionnelle,
+} from "@/lib/champs-valides";
 import toast from "react-hot-toast";
 import {
   Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone,
@@ -25,10 +28,10 @@ import type { Post } from "@/types";
 // ============================================
 
 const schema = yup.object({
-  firstName: yup.string().min(2, "Min. 2 caractères").required("Requis"),
-  lastName: yup.string().min(2, "Min. 2 caractères").required("Requis"),
-  phone: yup.string().optional(),
-  locationCity: yup.string().optional(),
+  firstName: nomPersonne("Prénom"),
+  lastName: nomPersonne("Nom"),
+  phone: telephoneOptionnel,
+  locationCity: villeOptionnelle,
   bio: yup.string().max(500, "Max. 500 caractères").optional(),
   // Player
   position: yup.string().optional(),

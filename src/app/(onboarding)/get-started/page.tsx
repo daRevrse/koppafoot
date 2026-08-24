@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
+import { nomPersonne, villeRequise } from "@/lib/champs-valides";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
@@ -19,9 +20,9 @@ import type { SignupData } from "@/types";
 // granted by promotion.
 
 const schema = yup.object({
-  firstName: yup.string().min(2, "Min. 2 caractères").required("Prénom requis"),
-  lastName: yup.string().min(2, "Min. 2 caractères").required("Nom requis"),
-  locationCity: yup.string().required("Ville requise"),
+  firstName: nomPersonne("Prénom"),
+  lastName: nomPersonne("Nom"),
+  locationCity: villeRequise,
 });
 
 type FormData = yup.InferType<typeof schema>;
