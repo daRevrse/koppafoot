@@ -80,13 +80,30 @@ export async function POST(req: NextRequest) {
   const homeResult = scoreHome > scoreAway ? "win" : scoreHome < scoreAway ? "loss" : "draw";
   const awayResult = homeResult === "win" ? "loss" : homeResult === "loss" ? "win" : "draw";
 
-  // Off-platform opponent: no manager on the other side to counter-sign, so the
-  // result stands for club history but stays out of player counters.
-  //
-  // Ce n'est plus une fin de non-recevoir : le manager de l'équipe (ou un
-  // délégué de son staff) peut les attribuer ensuite, en son nom, voir
-  // /api/matches/credit-stats. Ici on ne fait rien tout seul.
+  // Adversaire hors plateforme : personne en face pour contresigner.
   const isGhostMatch = !match.away_manager_id;
+
+  // L'ÉQUIPE FANTÔME NE CUMULE RIEN, ni bilan de club ni statistiques de
+  // joueurs : c'est l'adversaire du jeu vidéo. Elle existe pour qu'on puisse
+  // jouer contre quelqu'un, pas pour tenir un palmarès que son seul adversaire
+  // aurait saisi. `is_home` dit si le CRÉATEUR joue à domicile, donc l'équipe
+  // fantôme est celle de l'autre côté.
+  const ghostTeamId = isGhostMatch
+    ? (match.is_home ? match.away_team_id : match.home_team_id)
+    : null;
+
+  // LE DIRECT VAUT CONSTAT. Un match couvert en live a vu ses buts saisis
+  // minute par minute, à chaud, par quelqu'un qui le regardait : les
+  // statistiques des joueurs de la vraie équipe peuvent partir seules. Sans
+  // couverture live, il n'y a rien d'autre qu'une feuille remplie après coup —
+  // celle-là s'attribue à la main, en connaissance de cause, voir
+  // /api/matches/credit-stats.
+  const couvertEnDirect =
+    !!match.live_state &&
+    ((match.live_state.events?.length ?? 0) > 0 ||
+     (match.live_state.current_period ?? 0) > 0);
+
+  const crediterLesJoueurs = !isGhostMatch || couvertEnDirect;
 
   const batch = adminDb.batch();
 
@@ -99,10 +116,10 @@ export async function POST(req: NextRequest) {
     updated_at: FieldValue.serverTimestamp(),
   });
 
-  if (match.home_team_id) {
+  if (match.home_team_id && match.home_team_id !== ghostTeamId) {
     batch.update(adminDb.collection("teams").doc(match.home_team_id), teamUpdate(homeResult));
   }
-  if (match.away_team_id) {
+  if (match.away_team_id && match.away_team_id !== ghostTeamId) {
     batch.update(adminDb.collection("teams").doc(match.away_team_id), teamUpdate(awayResult));
   }
 
@@ -125,14 +142,15 @@ export async function POST(req: NextRequest) {
 
     const playerGoals = goalsPerPlayer[part.player_id] ?? 0;
 
-    // The match sheet stays accurate either way; it is the profile-wide counter
-    // that a ghost match must not touch.
+    // La feuille de match reste juste dans tous les cas : c'est le compteur de
+    // carrière, sur le profil, qui attend une couverture live ou la décision
+    // du manager.
     batch.update(partDoc.ref, {
       goals: playerGoals,
       updated_at: FieldValue.serverTimestamp(),
     });
 
-    if (isGhostMatch) continue;
+    if (!crediterLesJoueurs) continue;
 
     batch.update(adminDb.collection("users").doc(part.player_id), {
       matches_played: FieldValue.increment(1),
@@ -149,6 +167,11 @@ export async function POST(req: NextRequest) {
     validation_status: isGhostMatch ? "unverified" : "pending",
     completed_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
+    // Le verrou anti-double-comptage se pose ici aussi : un amical crédité par
+    // le direct ne doit plus pouvoir l'être une seconde fois à la main.
+    ...(isGhostMatch && couvertEnDirect
+      ? { stats_credited_at: FieldValue.serverTimestamp(), stats_credited_by: callerUid }
+      : {}),
   });
 
   try {

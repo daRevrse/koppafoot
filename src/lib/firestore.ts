@@ -71,11 +71,6 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     lastName: d.last_name,
     position: d.position,
     squadNumber: d.squad_number ?? undefined,
-    matchesPlayed: d.matches_played ?? 0,
-    goals: d.goals ?? 0,
-    assists: d.assists ?? 0,
-    yellowCards: d.yellow_cards ?? 0,
-    redCards: d.red_cards ?? 0,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -990,10 +985,6 @@ export async function submitManagerFeedback(
     comments?: string;
     refereeRating?: number;
   },
-  ghostRollup?: {
-    teamId: string;
-    ghostPlayers: GhostPlayer[];
-  }
 ): Promise<void> {
   const matchRef = doc(db, "matches", matchId);
   await runTransaction(db, async (transaction) => {
@@ -1033,22 +1024,6 @@ export async function submitManagerFeedback(
       updated_at: serverTimestamp(),
     });
   });
-
-  // Rollup ghost player stats after transaction
-  if (ghostRollup && ghostRollup.ghostPlayers.length > 0) {
-    // Re-read match events after transaction to get liveState
-    const matchSnap = await getDoc(doc(db, "matches", matchId));
-    if (matchSnap.exists()) {
-      const matchData = matchSnap.data() as FirestoreMatch;
-      if (matchData.live_state?.events) {
-        await rollupGhostPlayerStats(
-          ghostRollup.teamId,
-          ghostRollup.ghostPlayers,
-          matchData.live_state.events as unknown as NonNullable<Match["liveState"]>["events"]
-        );
-      }
-    }
-  }
 }
 
 // ============================================
@@ -2507,11 +2482,6 @@ export async function createGhostPlayer(
     last_name: data.lastName.trim(),
     position: data.position,
     squad_number: data.squadNumber?.trim() || null,
-    matches_played: 0,
-    goals: 0,
-    assists: 0,
-    yellow_cards: 0,
-    red_cards: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
@@ -2555,41 +2525,6 @@ export function onGhostPlayersByTeam(
   return onSnapshot(ref, (snap) => {
     callback(snap.docs.map((d) => toGhostPlayer(d.id, teamId, d.data() as FirestoreGhostPlayer)));
   });
-}
-
-export async function rollupGhostPlayerStats(
-  teamId: string,
-  ghostPlayers: GhostPlayer[],
-  matchEvents: NonNullable<Match["liveState"]>["events"]
-): Promise<void> {
-  if (!ghostPlayers.length || !matchEvents?.length) return;
-
-  const ghostIds = new Set(ghostPlayers.map((g) => g.id));
-  const stats: Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number }> = {};
-
-  for (const event of matchEvents) {
-    if (!event.playerId || !ghostIds.has(event.playerId)) continue;
-    if (!stats[event.playerId]) stats[event.playerId] = { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 };
-    if (event.type === "goal") stats[event.playerId].goals += 1;
-    if (event.type === "yellow_card") stats[event.playerId].yellow_cards += 1;
-    if (event.type === "red_card") stats[event.playerId].red_cards += 1;
-  }
-
-  if (!Object.keys(stats).length) return;
-
-  const batch = writeBatch(db);
-  for (const [ghostId, s] of Object.entries(stats)) {
-    const ref = doc(db, "teams", teamId, "ghost_players", ghostId);
-    batch.update(ref, {
-      goals: increment(s.goals),
-      assists: increment(s.assists),
-      yellow_cards: increment(s.yellow_cards),
-      red_cards: increment(s.red_cards),
-      matches_played: increment(1),
-      updated_at: new Date().toISOString(),
-    });
-  }
-  await batch.commit();
 }
 
 // ============================================

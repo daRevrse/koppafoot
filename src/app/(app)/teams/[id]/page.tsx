@@ -739,20 +739,17 @@ function GhostStatsModal({
           {ghost.firstName} {ghost.lastName}
         </h3>
         <p className="mb-5 text-xs text-gray-400">{POSITION_LABELS[ghost.position] ?? ghost.position}</p>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Matchs", value: ghost.matchesPlayed },
-            { label: "Buts", value: ghost.goals },
-            { label: "Assists", value: ghost.assists },
-            { label: "Jaunes", value: ghost.yellowCards },
-            { label: "Rouges", value: ghost.redCards },
-          ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center bg-gray-50 py-3">
-              <span className="text-2xl font-black text-gray-900">{s.value}</span>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase">{s.label}</span>
-            </div>
-          ))}
-        </div>
+        {/* Pas de statistiques ici, et ce n'est pas un oubli : une équipe hors
+            plateforme est l'adversaire du jeu vidéo. Personne ne la
+            représente, personne ne contresigne ses buts, et lui tenir une
+            carrière reviendrait à publier un palmarès saisi par son seul
+            adversaire. Sa feuille de match reste générique. */}
+        <p className="bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
+          Équipe hors plateforme : ses joueurs ne cumulent pas de statistiques.
+          Cette fiche sert à composer la feuille de match, et à dire qui a marqué
+          en face pendant la rencontre.
+        </p>
+
         <button onClick={onClose}
           className="mt-5 w-full border border-gray-200/70 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
           Fermer

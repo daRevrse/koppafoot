@@ -537,7 +537,7 @@ export default function MatchDetailPage() {
                          onClick={async () => {
                            if (!user?.uid) return;
                            try {
-                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined);
+                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" });
                              toast.success("Match validé ! Merci.");
                            } catch (e) {
                              toast.error("Erreur lors de la validation");
@@ -551,7 +551,7 @@ export default function MatchDetailPage() {
                          onClick={() => {
                            const reason = prompt("Raison de la contestation :");
                            if (reason && user?.uid) {
-                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined)
+                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason })
                                .then(() => toast.success("Contestation enregistrée"))
                                .catch(() => toast.error("Erreur"));
                            }
@@ -575,8 +575,8 @@ export default function MatchDetailPage() {
                       <CheckCircle2 size={20} />
                     </div>
                     <p className="text-sm font-bold text-gray-700">
-                      Statistiques attribuées aux joueurs de votre équipe. Le match
-                      reste marqué non vérifié : personne en face ne l&apos;a contresigné.
+                      Statistiques attribuées aux joueurs de votre équipe. Le match reste
+                      marqué non vérifié : personne en face ne l&apos;a contresigné.
                     </p>
                   </div>
                 ) : (
@@ -590,11 +590,12 @@ export default function MatchDetailPage() {
                           Statistiques non attribuées
                         </h4>
                         <p className="text-sm font-bold text-blue-800/70">
-                          L&apos;adversaire n&apos;est pas sur KoppaFoot : personne en face
-                          n&apos;a pu contresigner la feuille, donc les buts et passes de ce
-                          match ne comptent pas encore dans les fiches de vos joueurs.
-                          Vous pouvez les attribuer sous votre responsabilité — la feuille
-                          de match fait foi, et c&apos;est définitif.
+                          Ce match n&apos;a pas été suivi en direct, et l&apos;adversaire
+                          n&apos;est pas sur KoppaFoot : personne n&apos;a pu contresigner la
+                          feuille, donc les buts et passes ne comptent pas encore dans les
+                          fiches de vos joueurs. Vous pouvez les attribuer sous votre
+                          responsabilité — la feuille de match fait foi, et c&apos;est
+                          définitif. L&apos;équipe adverse, elle, ne cumule rien.
                         </p>
                       </div>
                     </div>
@@ -1388,7 +1389,7 @@ export default function MatchDetailPage() {
                        validation,
                        comments: managerComments,
                        refereeRating
-                     }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined);
+                     });
                      toast.success("Retour envoyé à l'arbitre !");
                    } catch(e) {
                      console.error(e);

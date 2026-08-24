@@ -916,16 +916,27 @@ export interface Booking {
 // Ghost Players
 // ============================================
 
+/**
+ * Un joueur d'une équipe hors plateforme.
+ *
+ * IL N'A PAS DE STATISTIQUES, et c'est délibéré. Une équipe fantôme est
+ * l'adversaire du jeu vidéo : elle existe pour qu'on puisse jouer contre
+ * quelqu'un, pas pour tenir une carrière. Personne ne la représente, personne
+ * ne contresigne ses buts, et lui compter des statistiques reviendrait à
+ * publier un palmarès que son propre adversaire aurait saisi seul.
+ *
+ * Sa feuille de match reste générique : un nom, un poste, un numéro. De quoi
+ * dire qui a marqué en face pendant la rencontre, rien de plus.
+ *
+ * Les compteurs ont existé ici (buts, passes, cartons, matchs joués). Les
+ * documents déjà écrits les portent encore : plus rien ne les lit ni ne les
+ * incrémente.
+ */
 export interface FirestoreGhostPlayer {
   first_name: string;
   last_name: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squad_number?: string;
-  matches_played: number;
-  goals: number;
-  assists: number;
-  yellow_cards: number;
-  red_cards: number;
   created_at: string;
   updated_at: string;
 }
@@ -937,11 +948,6 @@ export interface GhostPlayer {
   lastName: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squadNumber?: string;
-  matchesPlayed: number;
-  goals: number;
-  assists: number;
-  yellowCards: number;
-  redCards: number;
   createdAt: string;
   updatedAt: string;
 }

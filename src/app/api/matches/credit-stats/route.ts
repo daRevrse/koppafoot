@@ -8,18 +8,22 @@ import type { FirestoreMatch, FirestoreParticipation } from "@/types";
  * POST { matchId } — attribuer les statistiques d'un amical joué contre une
  * équipe hors plateforme.
  *
- * POURQUOI CE N'EST PAS AUTOMATIQUE. Un match contre un adversaire fantôme n'a
- * qu'un seul manager : personne en face pour contresigner le score ni les
- * buteurs. /api/matches/complete laisse donc ces matchs hors des compteurs de
- * carrière, et c'est ce qui rend une fiche joueur crédible — sans quoi
- * n'importe qui pourrait s'inventer une saison en créant des adversaires
- * imaginaires et en s'attribuant des buts.
+ * QUAND CETTE ROUTE SERT, et quand elle ne sert pas. Un amical fantôme couvert
+ * EN DIRECT crédite ses joueurs tout seul à la fin du match : les buts y ont
+ * été saisis minute par minute, à chaud, par quelqu'un qui regardait — voir
+ * /api/matches/complete. Il ne reste ici que les matchs joués sans console
+ * live, dont la feuille a été remplie après coup.
  *
- * Ces matchs se jouent pourtant vraiment, et les buts y sont vrais. On rend
- * donc la décision à celui qui a vu le match : le manager de l'équipe, ou un
- * délégué de son staff. La trace de qui a crédité reste sur le document, et
- * le match garde son statut « non vérifié ». On n'efface pas la différence
- * entre un match contresigné et un match sur parole, on l'assume.
+ * Ceux-là n'ont qu'un seul manager et personne en face pour contresigner. Les
+ * créditer d'office reviendrait à laisser n'importe qui s'inventer une saison
+ * en créant des adversaires imaginaires. La décision revient donc à celui qui
+ * a vu le match : le manager de l'équipe, ou un délégué de son staff. La trace
+ * de qui a crédité reste sur le document, et le match garde son statut « non
+ * vérifié ». On n'efface pas la différence entre un match contresigné et un
+ * match sur parole, on l'assume.
+ *
+ * L'ADVERSAIRE FANTÔME NE REÇOIT RIEN, jamais, ni ici ni ailleurs : il est
+ * l'adversaire du jeu vidéo, seule notre équipe tient une carrière.
  *
  * IRRÉVERSIBLE PAR CONSTRUCTION : ce sont des incréments, et rien ne permet
  * de savoir plus tard quelle part d'un compteur venait d'ici. D'où le
