@@ -313,3 +313,27 @@ export function onRecentMatches(max: number, callback: (matches: Match[]) => voi
     callback(snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch)));
   });
 }
+
+// ============================================
+// Qui modère quelque chose.
+//
+// La modération ne se lit pas sur le compte : elle vit dans
+// `competitions.moderator_ids`. Une requête par ligne du tableau des
+// utilisateurs, c'est cinq cents lectures pour une colonne ; une seule
+// traversée des compétitions suffit à répondre pour tout le monde.
+//
+// Les brouillons sont inclus, contrairement à listPublicCompetitions : un
+// modérateur nommé sur une compétition pas encore publiée a bel et bien accès
+// à la console.
+// ============================================
+
+export async function getModeratorIds(): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, "competitions"));
+  const ids = new Set<string>();
+  for (const d of snap.docs) {
+    for (const uid of (d.data().moderator_ids as string[] | undefined) ?? []) {
+      if (uid) ids.add(uid);
+    }
+  }
+  return ids;
+}

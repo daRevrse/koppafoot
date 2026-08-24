@@ -288,14 +288,14 @@ export function teamManagerInviteHtml(
 // ── Campaign templates ──────────────────────────────────────
 
 /**
- * Aux comptes qui n'ont jamais choisi de rôle.
+ * Aux comptes qui n'ouvrent aucun espace.
  *
  * On ne leur reproche rien et on ne suppose pas qu'ils ont oublié : la
  * plupart se sont inscrits pour suivre un match, et ne savent pas qu'il y a
  * autre chose derrière. L'email dit ce que chaque rôle OUVRE, plutôt que de
  * demander de remplir un formulaire.
  */
-export function campaignNoRoleHtml(firstName: string): string {
+export function campaignSansEspaceHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">

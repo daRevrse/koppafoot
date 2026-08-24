@@ -8,7 +8,7 @@ import { auth } from "@/lib/firebase";
 import toast from "react-hot-toast";
 
 interface CampaignStat {
-  type: "manager_no_team" | "player_no_team" | "manager_welcome" | "no_role";
+  type: "manager_no_team" | "player_no_team" | "manager_welcome" | "sans_espace";
   count: number;
   defaults: { title: string; body: string; link: string };
 }
@@ -17,10 +17,10 @@ const CAMPAIGN_META: Record<
   string,
   { label: string; description: string; icon: React.ReactNode; color: string }
 > = {
-  no_role: {
-    label: "Comptes sans rôle",
+  sans_espace: {
+    label: "Comptes sans espace",
     description:
-      "Invite ceux qui n'ont jamais choisi entre joueur, manager et arbitre à ouvrir leur espace.",
+      "Relance ceux qui n'ouvrent aucun espace : ni rôle choisi, ni casquette. Ils ne voient que les scores.",
     icon: <Compass size={18} />,
     color: "text-violet-600 bg-violet-50",
   },
