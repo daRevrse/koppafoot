@@ -18,6 +18,7 @@ import {
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
+import HeaderProgress from "./HeaderProgress";
 
 // ============================================
 // ScoreHeader, the one band of the shell.
@@ -677,6 +678,10 @@ export default function ScoreHeader() {
           </div>
         </div>
       </div>
+
+      {/* Au bas du header, et donc calee sur sa hauteur reelle quoi qu'il
+          arrive : `pt-safe` et l'encoche la deplacent avec lui. */}
+      <HeaderProgress />
 
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       <KoppaLinksSheet open={linksOpen} onClose={() => setLinksOpen(false)} />
