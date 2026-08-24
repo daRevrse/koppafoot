@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   Share2, Check, Megaphone, HelpCircle, MessageSquare, ChevronRight,
-  Sun, Moon, Languages, Bell, BellOff,
+  Sun, Moon, Languages, Bell, BellOff, Download, Share,
 } from "lucide-react";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLangue, useT } from "@/i18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { CATEGORIES_PUSH } from "@/lib/push-categories";
+import {
+  etatInstallation, etatInstallationServeur, installer, souscrireInstallation,
+} from "@/lib/pwa-install";
 
 // ============================================
-// Les blocs du menu compte : inviter, support, notifications, thème, langue.
+// Les blocs du menu compte : inviter, support, installation, notifications,
+// thème, langue.
 //
 // Partagés entre le menu du header et la feuille du bas, pour la raison
 // apprise avec la navigation : deux copies d'un même bloc divergent, et
@@ -158,12 +161,65 @@ export function SupportBlock({ sombre, onNavigate }: {
 }
 
 /**
+ * L'installation de l'application.
+ *
+ * ELLE ÉTAIT DÉJÀ LÀ, mais seulement sur la page de connexion : personne de
+ * déjà connecté ne la voyait jamais, c'est-à-dire précisément ceux qui se
+ * servent du produit. Elle vit maintenant dans le menu du compte, à demeure,
+ * là où on cherche ce genre de chose.
+ *
+ * ELLE PASSE AVANT LES NOTIFICATIONS, et ce n'est pas un choix de mise en
+ * page : sur iPhone, le push n'existe QUE dans l'application ajoutée à
+ * l'écran d'accueil. Régler ses notifications sans l'avoir installée n'y mène
+ * nulle part, l'ordre des deux blocs dit donc l'ordre des gestes.
+ *
+ * SUR IPHONE, PAS DE BOUTON, une phrase. Safari n'offre aucune installation
+ * par appel, elle se fait à la main depuis le menu Partager. Un bouton qui ne
+ * ferait rien vaudrait moins que la marche à suivre.
+ */
+export function InstallBlock({ sombre }: { sombre?: boolean }) {
+  // L'état vit hors de React, dans un module qui écoute dès le chargement,
+  // voir lib/pwa-install. Le rendu serveur ne peut rien en savoir et
+  // n'affirme donc rien.
+  const etat = useSyncExternalStore(
+    souscrireInstallation,
+    etatInstallation,
+    etatInstallationServeur,
+  );
+  const t = ton(sombre);
+  const trad = useT();
+
+  if (etat === "installee" || etat === "indisponible") return null;
+
+  return (
+    <div>
+      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
+        {trad("install.titre")}
+      </p>
+
+      {etat === "possible" ? (
+        <Ligne t={t} Icon={Download} label={trad("install.action")} onClick={() => installer()} />
+      ) : (
+        <div className="flex items-start gap-3 px-4 py-2.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${t.puceFond}`}>
+            <Share size={15} className={t.icone} />
+          </span>
+          <p className={`text-[11px] font-semibold leading-relaxed ${
+            sombre ? "text-white/50" : "text-gray-500"
+          }`}>
+            {trad("install.ios")}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Les notifications push.
  *
- * DEUX PORTÉES DANS UN SEUL BLOC, et l'ordre le dit : l'interrupteur du haut
- * vaut pour CET APPAREIL — le jeton y vit, couper sur le téléphone ne doit
- * pas éteindre l'ordinateur — les lignes du dessous valent pour le COMPTE,
- * puisque c'est le serveur qui filtre à l'envoi.
+ * UN SEUL INTERRUPTEUR, et il vaut pour CET APPAREIL : le jeton y vit, couper
+ * sur le téléphone ne doit pas éteindre l'ordinateur.
  *
  * LES CAS OÙ IL N'Y A PAS D'INTERRUPTEUR comptent autant que l'interrupteur
  * lui-même. Un refus navigateur est définitif : aucun appel ne peut le
@@ -172,15 +228,14 @@ export function SupportBlock({ sombre, onNavigate }: {
  * dans l'application ajoutée à l'écran d'accueil, et là encore une bascule
  * muette vaudrait moins que la phrase qui explique.
  *
- * L'INTERRUPTEUR DU HAUT COMMANDE CEUX DU DESSOUS. Tant qu'il est éteint,
- * aucune notification ne part vers cet appareil : proposer d'y trier les
- * catégories reviendrait à faire choisir la couleur d'une lampe débranchée,
- * et laisserait croire, une fois les cases réglées, qu'on va recevoir
- * quelque chose. Les catégories restent affichées — c'est ce qu'on gagne à
- * autoriser — mais grisées et inertes jusqu'à l'autorisation.
+ * LE TRI PAR CATÉGORIE existe côté serveur (voir lib/push-categories) mais ne
+ * s'affiche pas ici : cinq lignes de plus pour un arbitrage que personne n'a
+ * encore demandé alourdissaient un menu dont c'est le cinquième bloc. Le
+ * jour où « trop de notifications » remonte du terrain, le filtre est déjà
+ * écrit, il ne manquera que les bascules.
  */
 export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
-  const { etat, prefs, occupe, activer, desactiver, basculer } = usePushNotifications();
+  const { etat, occupe, activer, desactiver } = usePushNotifications();
   const trad = useT();
   const t = ton(sombre);
 
@@ -244,36 +299,6 @@ export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
       {etat === "refuse" && <p className={note}>{trad("notifs.refuse")}</p>}
       {etat === "ios-hors-app" && <p className={note}>{trad("notifs.ios")}</p>}
 
-      {/* Grisées et inertes tant que l'appareil n'est pas autorisé : ce sont
-          des réglages de ce qu'on RECEVRA, et on ne reçoit rien encore. */}
-      <div className={`px-4 pb-2 ${actif ? "" : "opacity-50"}`} aria-disabled={!actif}>
-        {CATEGORIES_PUSH.map((categorie) => (
-          <div key={categorie} className="flex items-center justify-between gap-3 py-1.5">
-            <span className={`min-w-0 flex-1 truncate text-[13px] font-bold ${t.libelle}`}>
-              {trad(`notifs.cat.${categorie}` as Parameters<typeof trad>[0])}
-            </span>
-            <span className={cadre}>
-              <button
-                type="button"
-                disabled={occupe || !actif}
-                onClick={() => (prefs[categorie] ? undefined : basculer(categorie))}
-                className={bascule(prefs[categorie])}
-              >
-                {trad("notifs.oui")}
-              </button>
-              <button
-                type="button"
-                disabled={occupe || !actif}
-                onClick={() => (prefs[categorie] ? basculer(categorie) : undefined)}
-                className={bascule(!prefs[categorie])}
-              >
-                {trad("notifs.non")}
-              </button>
-            </span>
-          </div>
-        ))}
-      </div>
-      {actif && <p className={note}>{trad("notifs.compte")}</p>}
     </div>
   );
 }

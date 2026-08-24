@@ -12,7 +12,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
 import { useT } from "@/i18n";
 import type { CleTraduction } from "@/i18n/fr";
-import { InviteCard, SupportBlock, NotificationsBlock, PreferencesBlock } from "@/components/account/AccountExtras";
+import {
+  InviteCard, SupportBlock, InstallBlock, NotificationsBlock, PreferencesBlock,
+} from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
@@ -454,6 +456,7 @@ function AccountMenu() {
           </div>
 
           <div className="border-t border-gray-200/70 pb-2">
+            <InstallBlock />
             <NotificationsBlock />
             <PreferencesBlock />
           </div>

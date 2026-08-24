@@ -71,6 +71,12 @@ export const fr = {
   "prefs.sombre": "Sombre",
   "prefs.langue": "Langue",
 
+  // ---- Installation de l'application ----
+  "install.titre": "Application",
+  "install.action": "Installer KoppaFoot",
+  "install.ios":
+    "Pour installer KoppaFoot sur iPhone : touchez Partager en bas de Safari, puis « Sur l'écran d'accueil ». C'est aussi ce qui débloque les notifications.",
+
   // ---- Notifications push ----
   "notifs.titre": "Notifications",
   "notifs.appareil": "Sur cet appareil",
@@ -78,15 +84,9 @@ export const fr = {
   "notifs.non": "Non",
   "notifs.nonSupporte": "Ce navigateur ne gère pas les notifications.",
   "notifs.ios":
-    "Ajoutez KoppaFoot à votre écran d'accueil (Partager, puis « Sur l'écran d'accueil ») pour recevoir les notifications.",
+    "Disponible une fois l'application installée sur l'écran d'accueil, voir juste au-dessus.",
   "notifs.refuse":
     "Bloquées dans les réglages du navigateur. Autorisez les notifications pour ce site, puis revenez ici.",
-  "notifs.compte": "Ces choix valent pour tous vos appareils.",
-  "notifs.cat.perso": "Ce qui m'est adressé",
-  "notifs.cat.equipe": "Ma ou mes équipes",
-  "notifs.cat.suivis": "Ce que je suis",
-  "notifs.cat.competitions": "Direct des compétitions",
-  "notifs.cat.annonces": "Annonces KoppaFoot",
 
   // ---- Page d'aide ----
   "aide.fil": "Aide",

@@ -1,53 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Smartphone, X, Download } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
+import { Download, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import {
+  etatInstallation, etatInstallationServeur, installer, souscrireInstallation,
+} from "@/lib/pwa-install";
+
+// ============================================
+// La bannière d'installation, sur la page de connexion.
+//
+// ELLE ÉCOUTAIT `beforeinstallprompt` ELLE-MÊME, ce qui la condamnait à ne
+// fonctionner qu'ici : l'événement ne se produit qu'une fois, très tôt, et
+// un composant monté plus tard ne le voit jamais. C'est ce qui rendait
+// l'installation invisible à tous ceux qui étaient déjà connectés.
+//
+// L'écoute a déménagé dans lib/pwa-install, posée dès le chargement de
+// l'application. La bannière et le bloc du menu compte lisent désormais le
+// même état : deux copies d'une même logique divergent, et personne ne s'en
+// aperçoit avant qu'un utilisateur le signale.
+//
+// Elle reste réservée à cette page, et c'est volontaire : une bannière qui
+// suit partout est du harcèlement. Ailleurs, l'entrée permanente du menu
+// compte suffit.
+// ============================================
 
 export default function PWAInstallPrompt() {
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const etat = useSyncExternalStore(
+    souscrireInstallation,
+    etatInstallation,
+    etatInstallationServeur,
+  );
+  const [ferme, setFerme] = useState(false);
 
-  useEffect(() => {
-    // Check if already installed or in standalone mode
-    const isPWA = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone;
-    if (isPWA) {
-      setIsStandalone(true);
-      return;
-    }
-
-    const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the default browser prompt
-      e.preventDefault();
-      // Store the event so it can be triggered later
-      setInstallPrompt(e);
-      setIsVisible(true);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-
-    // Show the install prompt
-    installPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
-    const { outcome } = await installPrompt.userChoice;
-
-    if (outcome === "accepted") {
-      setInstallPrompt(null);
-      setIsVisible(false);
-    }
-  };
-
-  if (isStandalone || !isVisible) return null;
+  // La bannière ne parle qu'aux navigateurs qui savent installer sur appel :
+  // sur iPhone, la marche à suivre demande trois lignes d'explication, elles
+  // vivent dans le menu du compte plutôt qu'en travers d'un écran de
+  // connexion.
+  if (etat !== "possible" || ferme) return null;
 
   return (
     <AnimatePresence>
@@ -55,9 +45,8 @@ export default function PWAInstallPrompt() {
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-        className="mt-8 overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-md relative group"
+        className="relative mt-8 overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-md"
       >
-        {/* Subtle pulsed glow */}
         <motion.div
           animate={{ opacity: [0.1, 0.3, 0.1] }}
           transition={{ duration: 3, repeat: Infinity }}
@@ -69,21 +58,23 @@ export default function PWAInstallPrompt() {
             <Download size={20} />
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-bold truncate">Installer KoppaFoot</h4>
-            <p className="text-[10px] sm:text-xs text-black/40 leading-tight">Ajoutez l'app à votre écran d'accueil pour un accès direct.</p>
+          <div className="min-w-0 flex-1">
+            <h4 className="truncate text-sm font-bold">Installer KoppaFoot</h4>
+            <p className="text-[10px] leading-tight text-black/40 sm:text-xs">
+              Ajoutez l&apos;app à votre écran d&apos;accueil pour un accès direct.
+            </p>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={handleInstall}
-              className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
+              onClick={() => installer()}
+              className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 active:scale-95"
             >
               Installer
             </button>
             <button
-              onClick={() => setIsVisible(false)}
-              className="rounded-lg p-2 text-white/20 hover:text-white/50 hover:bg-white/5 transition-all"
+              onClick={() => setFerme(true)}
+              className="rounded-lg p-2 text-white/20 transition-all hover:bg-white/5 hover:text-white/50"
               aria-label="Fermer"
             >
               <X size={16} />
