@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users, Search, Filter, ChevronDown, MoreVertical,
@@ -9,6 +9,7 @@ import {
   Eye, Ban, CheckCircle, XCircle, Loader2,
 } from "lucide-react";
 import { getAllUsers, toggleUserActive } from "@/lib/admin-firestore";
+import RecordActions from "@/components/admin/RecordActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserProfile, UserRole } from "@/types";
 import toast from "react-hot-toast";
@@ -83,11 +84,16 @@ export default function AdminUsersPage() {
   const [toggling, setToggling] = useState<string | null>(null);
   const [savingRole, setSavingRole] = useState<RoleAction | null>(null);
 
-  useEffect(() => {
+  // Pas de `setLoading(true)` ici : l'état de départ est déjà « en
+  // chargement », et le poser depuis l'effet déclencherait un rendu en
+  // cascade. Un rechargement après correction remplace la liste sans clignoter.
+  const charger = useCallback(() => {
     getAllUsers(500)
       .then(setUsers)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { charger(); }, [charger]);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -353,6 +359,28 @@ export default function AdminUsersPage() {
                             </>
                           )}
                         </button>
+                        {/* La correction d'identité et l'effacement d'un compte
+                            vivent à côté de la suspension : trois gestes de la
+                            même colonne, du plus réversible au moins. Le rôle,
+                            lui, garde son propre chemin (la pastille). */}
+                        <span className="ml-2 inline-flex align-middle">
+                          <RecordActions
+                            resource="user"
+                            id={u.uid}
+                            label={`${u.firstName} ${u.lastName}`}
+                            onDone={charger}
+                            champs={[
+                              { cle: "first_name", label: "Prénom" },
+                              { cle: "last_name", label: "Nom" },
+                              { cle: "location_city", label: "Ville" },
+                              { cle: "bio", label: "Bio" },
+                            ]}
+                            valeurs={{
+                              first_name: u.firstName, last_name: u.lastName,
+                              location_city: u.locationCity, bio: u.bio ?? "",
+                            }}
+                          />
+                        </span>
                       </td>
                     </motion.tr>
                   );
