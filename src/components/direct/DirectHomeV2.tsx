@@ -1,6 +1,10 @@
 "use client";
 
-import { pourcentages, type PredictionCounts } from "@/lib/predictions";
+import {
+  castPrediction, getMyPrediction, pourcentages, type PredictionCounts,
+} from "@/lib/predictions";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/components/auth/AuthModal";
 import {
   useState, useEffect, useMemo, useCallback, useSyncExternalStore,
 } from "react";
@@ -301,15 +305,58 @@ function useCompFavourites() {
   return [favs, toggle] as const;
 }
 
+/**
+ * Les pronostics donnés depuis l'accueil.
+ *
+ * LE VOTE N'ÉTAIT ÉCRIT NULLE PART. Ce store ne tenait qu'une trace locale :
+ * l'affiche se souvenait du camp choisi, les barres restaient à 33/33/33 pour
+ * l'éternité, et le pronostic n'existait pour personne d'autre — pas même pour
+ * son auteur sur un autre appareil. Le sondage du rail, lui, écrivait bien
+ * dans `match_predictions` : deux surfaces, un seul de ces deux chemins
+ * comptait vraiment.
+ *
+ * Le stockage local RESTE, mais pour ce qu'il sait faire : réafficher tout de
+ * suite le camp choisi, sans attendre une lecture. L'écriture, elle, part
+ * maintenant vers la base.
+ *
+ * IL FAUT UN COMPTE, comme partout ailleurs : un pronostic anonyme se
+ * remplirait de rechargements de page. On ouvre la fenêtre de connexion au
+ * lieu de laisser le clic sans effet.
+ */
 function usePicks() {
   const picks = useSyncExternalStore(pickStore.subscribe, pickStore.get, pickStore.getServer);
+  const { user } = useAuth();
+  const { open } = useAuthModal();
 
-  const choose = useCallback((id: string, pick: Pick) => {
-    pickStore.set({ ...pickStore.get(), [id]: pick });
-  }, []);
+  const choose = useCallback(
+    async (id: string, pick: Pick) => {
+      if (!user) {
+        open("Crée ton compte pour donner ton pronostic.");
+        return;
+      }
+      // L'écriture d'abord, la trace locale ensuite : c'est le changement de
+      // `picks` qui déclenche la relecture des totaux, et la relire avant que
+      // le vote soit posé la renverrait sans lui.
+      await castPrediction(id, user.uid, pick).catch(() => {});
+      pickStore.set({ ...pickStore.get(), [id]: pick });
+    },
+    [user, open],
+  );
 
   return [picks, choose] as const;
 }
+
+/**
+ * Les matchs dont on a déjà tenté de rattraper le pronostic local.
+ *
+ * Une personne qui a voté AVANT ce correctif a un choix en mémoire locale et
+ * rien dans la base. On le repose une fois, au premier affichage de l'affiche,
+ * plutôt que de laisser un vote se perdre en silence. `castPrediction` écrit
+ * en `merge` sur un identifiant déterministe, donc reposer un vote déjà
+ * enregistré ne change rien — mais l'écrire à chaque rendu coûterait une
+ * requête par affichage, d'où ce garde-fou.
+ */
+const pronosticsRattrapes = new Set<string>();
 
 // ---- Competition directory ------------------------------------------------------
 
@@ -764,6 +811,7 @@ function Spotlight({
   // under the tap.
   const [locked, setLocked] = useState(false);
   const [counts, setCounts] = useState<PredictionCounts | null>(null);
+  const { user: utilisateur } = useAuth();
 
   const count = entries.length;
 
@@ -791,12 +839,32 @@ function Spotlight({
     // et le rendu lit `parts` a null, ce qui masque simplement le bloc.
     if (!idCourant || !choixCourant || termine) return;
     let vivant = true;
-    fetch(`/api/matches/${encodeURIComponent(idCourant)}/predictions`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (vivant && d) setCounts(d as PredictionCounts); })
-      .catch(() => {});
+
+    // `no-store` : la route pose un cache de dix secondes, largement de quoi
+    // renvoyer un total d'avant le vote qu'on vient de poser. On veut le
+    // chiffre du moment, pas celui d'il y a huit secondes.
+    const relire = () =>
+      fetch(`/api/matches/${encodeURIComponent(idCourant)}/predictions`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (vivant && d) setCounts(d as PredictionCounts); })
+        .catch(() => {});
+
+    // Rattrapage des votes d'avant, restés en mémoire locale sans jamais
+    // atteindre la base. Une fois par match et par session.
+    if (utilisateur && !pronosticsRattrapes.has(idCourant)) {
+      pronosticsRattrapes.add(idCourant);
+      getMyPrediction(idCourant, utilisateur.uid)
+        .then((enBase) =>
+          enBase ? null : castPrediction(idCourant, utilisateur.uid, choixCourant),
+        )
+        .catch(() => {})
+        .then(relire);
+    } else {
+      void relire();
+    }
+
     return () => { vivant = false; };
-  }, [idCourant, choixCourant, termine]);
+  }, [idCourant, choixCourant, termine, utilisateur]);
 
   if (!entry) return null;
 
