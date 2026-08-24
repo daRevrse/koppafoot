@@ -9,7 +9,9 @@ import {
   Eye, Ban, CheckCircle, XCircle, Loader2,
 } from "lucide-react";
 import { getAllUsers, getModeratorIds, toggleUserActive } from "@/lib/admin-firestore";
-import { ESPACE_LABELS, espacesDuCompte, type EspaceAcces } from "@/lib/espaces-acces";
+import {
+  ESPACE_LABELS, espacesDuCompte, roleEffectif, roleHerite, type EspaceAcces,
+} from "@/lib/espaces-acces";
 import RecordActions from "@/components/admin/RecordActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { EvolutionRole, UserProfile, UserRole } from "@/types";
@@ -89,8 +91,9 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  // Sur le rôle ÉVOLUTION, celui que le compte a activé, et non sur
-  // `user_type`, qui vaut « player » par défaut et ne dit donc rien.
+  // Sur le rôle EFFECTIF : celui qu'on a activé dans Évolution, ou à défaut
+  // celui déclaré à l'inscription pour les comptes plus anciens. Voir
+  // lib/espaces-acces, même raisonnement que pour les casquettes.
   const [roleFilter, setRoleFilter] = useState<"all" | "sans" | EvolutionRole>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   // CE QU'UN COMPTE PEUT OUVRIR, et non ce que dit `user_type` — qui vaut
@@ -122,8 +125,9 @@ export default function AdminUsersPage() {
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
-      if (roleFilter === "sans" && u.evolutionRole) return false;
-      if (roleFilter !== "all" && roleFilter !== "sans" && u.evolutionRole !== roleFilter) return false;
+      const role = roleEffectif(u);
+      if (roleFilter === "sans" && role) return false;
+      if (roleFilter !== "all" && roleFilter !== "sans" && role !== roleFilter) return false;
       if (statusFilter === "active" && !u.isActive) return false;
       if (statusFilter === "inactive" && u.isActive) return false;
       if (espaceFilter !== "all") {
@@ -147,7 +151,7 @@ export default function AdminUsersPage() {
   const roleCounts = useMemo(() => {
     const map = new Map<string, number>();
     users.forEach((u) => {
-      const cle = u.evolutionRole ?? "sans";
+      const cle = roleEffectif(u) ?? "sans";
       map.set(cle, (map.get(cle) ?? 0) + 1);
     });
     return map;
@@ -336,7 +340,9 @@ export default function AdminUsersPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((u, i) => {
-                  const roleConf = u.evolutionRole ? ROLE_CONFIG[u.evolutionRole] : null;
+                  const role = roleEffectif(u);
+                  const roleConf = role ? ROLE_CONFIG[role] : null;
+                  const herite = roleHerite(u);
                   return (
                     <motion.tr
                       key={u.uid}
@@ -397,9 +403,20 @@ export default function AdminUsersPage() {
                           casquettes — se règle depuis la colonne des espaces. */}
                       <td className="px-5 py-3">
                         {roleConf ? (
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleConf.bg} ${roleConf.color}`}>
+                          <span
+                            title={herite
+                              ? "Déclaré à l'inscription, jamais activé dans Évolution : le produit ne lui ouvre pas cet espace."
+                              : "Activé dans Évolution"}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleConf.bg} ${roleConf.color}`}
+                          >
                             <span className={`h-1.5 w-1.5 rounded-full ${roleConf.dot}`} />
                             {roleConf.label}
+                            {/* Hérité : le rôle est déclaré mais pas activé, et
+                                la navigation n'ouvre l'espace qu'une fois
+                                activé. Sans cette marque, la colonne « Rôle »
+                                et la colonne « Espaces » se contrediraient sans
+                                qu'on comprenne pourquoi. */}
+                            {herite && <span className="font-normal opacity-60">hérité</span>}
                           </span>
                         ) : (
                           <span className="text-[11px] font-semibold text-gray-300">Aucun</span>

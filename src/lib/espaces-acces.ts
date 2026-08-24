@@ -1,5 +1,5 @@
 import { isOrganizer, isSuperAdmin, isVenueOwner } from "@/lib/hats";
-import type { UserProfile } from "@/types";
+import type { EvolutionRole, UserProfile } from "@/types";
 
 // ============================================
 // À quels espaces un compte a accès.
@@ -40,6 +40,43 @@ export const ESPACE_LABELS: Record<EspaceAcces, string> = {
   live: "Console live",
   administration: "Administration",
 };
+
+/**
+ * Le rôle qu'un compte porte réellement.
+ *
+ * DEUX SIGNAUX, comme pour les casquettes (voir lib/hats). `evolution_role`
+ * est le rôle ACTIVÉ, choisi dans Évolution. `user_type` est ce qui a été dit
+ * à l'inscription, et c'est tout ce que portent les comptes créés avant
+ * qu'Évolution existe. Ne lire que le premier fait apparaître « Aucun » sur
+ * des joueurs, des managers et des arbitres qui se sont bel et bien déclarés.
+ *
+ * L'ordre compte : ce qu'on a activé prime sur ce qu'on avait déclaré, un
+ * compte qui change de rôle dans Évolution ne doit pas rester ce qu'il était.
+ * Les autres valeurs de `user_type` — organisateur, propriétaire, admin — ne
+ * sont pas des rôles et ne remontent jamais ici, ce sont des casquettes.
+ */
+export function roleEffectif(
+  user: Pick<UserProfile, "evolutionRole" | "userType">,
+): EvolutionRole | null {
+  if (user.evolutionRole) return user.evolutionRole;
+  const type = user.userType;
+  return type === "player" || type === "manager" || type === "referee" ? type : null;
+}
+
+/**
+ * Le rôle est-il HÉRITÉ plutôt qu'activé ?
+ *
+ * La distinction n'est pas cosmétique : la navigation du produit n'ouvre
+ * l'espace d'un rôle que s'il a été activé (voir hooks/useEspaces). Un compte
+ * hérité se déclare donc manager sans que le produit lui ouvre quoi que ce
+ * soit — c'est exactement la population qu'une relance doit aller chercher, et
+ * il faut pouvoir la voir.
+ */
+export function roleHerite(
+  user: Pick<UserProfile, "evolutionRole" | "userType">,
+): boolean {
+  return !user.evolutionRole && roleEffectif(user) !== null;
+}
 
 /** Ce qui vient du rôle, à ne pas confondre avec ce qui vient d'une casquette. */
 const ESPACE_DU_ROLE: Record<string, EspaceAcces> = {
