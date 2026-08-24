@@ -203,6 +203,31 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // Teams
 // ============================================
 
+/**
+ * Un membre du staff d'une équipe.
+ *
+ * DEUX CHOSES DISTINCTES DANS UN SEUL OBJET, et il faut les nommer : le
+ * `title` est de l'AFFICHAGE — coach, dirigeant, soigneur, ce qu'on présente
+ * sur la fiche — tandis que `delegated` est un DROIT. Les confondre, c'est-à-
+ * dire faire de « coach » une permission, aurait recréé un second système
+ * d'autorisation à côté de celui des compétitions, et deux modèles de droits
+ * dans un même produit finissent toujours par se contredire.
+ *
+ * `name` est recopié à l'ajout pour que la fiche s'affiche sans relire un
+ * profil par ligne. Il vieillit, comme toute dénormalisation : c'est le nom
+ * du jour où la personne a rejoint le staff.
+ */
+export interface TeamStaffMember {
+  uid: string;
+  name: string;
+  /** Ce qu'on montre : Adjoint, Coach, Dirigeant… */
+  title: string;
+  /** Reçoit les droits du manager sur l'équipe. Miroir de
+   *  `staff_manager_ids`, qui est la seule forme que les règles Firestore
+   *  savent interroger — une règle ne peut pas filtrer un tableau d'objets. */
+  delegated: boolean;
+}
+
 export interface Achievement {
   id: string;
   title: string;
@@ -235,6 +260,13 @@ export interface FirestoreTeam {
   followers_count?: number;
   squad_numbers?: { [playerId: string]: string };
   training_schedule?: TrainingScheduleSlot[];
+  /** Le staff, tel qu'on l'affiche. */
+  staff?: TeamStaffMember[];
+  /** Ceux du staff qui ont les droits du manager. Redondant avec
+   *  `staff[].delegated` et c'est voulu : les règles ne savent lire qu'un
+   *  tableau plat de chaînes. Les deux s'écrivent ensemble, voir
+   *  setTeamStaff. */
+  staff_manager_ids?: string[];
   // Équipe adverse qui n'est pas sur la plateforme, créée par un manager pour
   // pouvoir planifier un amical contre elle. C'est un vrai doc `teams` (sinon
   // le rollup de fin de match échouerait sur un doc absent) mais elle n'a ni
@@ -270,6 +302,8 @@ export interface Team {
   followersCount?: number;
   squadNumbers?: { [playerId: string]: string };
   trainingSchedule?: TrainingScheduleSlot[];
+  staff?: TeamStaffMember[];
+  staffManagerIds?: string[];
   isGhost?: boolean;
   createdAt: string;
   updatedAt: string;

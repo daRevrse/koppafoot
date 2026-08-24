@@ -11,7 +11,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import {
   // Manager actions
-  searchPlayers, getTeamsByManager, getShortlistByManager,
+  searchPlayers, getTeamsIManage, getShortlistByManager,
   addToShortlist, removeFromShortlist,
   onJoinRequestsByManager, respondToJoinRequest, sendInvitation,
   onInvitationsByManager, cancelInvitation,
@@ -333,7 +333,7 @@ export default function MercatoPage() {
     if (isManager) {
       (async () => {
         const [teams, sl] = await Promise.all([
-          getTeamsByManager(user.uid),
+          getTeamsIManage(user.uid),
           getShortlistByManager(user.uid),
         ]);
         setMyTeams(teams);

@@ -35,7 +35,7 @@ import type {
   UserProfile, FirestoreUser,
   ShortlistEntry, FirestoreShortlistEntry,
   JoinRequest, FirestoreJoinRequest,
-  Training, FirestoreTraining, TrainingAttendee,
+  Training, FirestoreTraining, TrainingAttendee, TeamStaffMember,
   PlayerRating, FirestorePlayerRating,
   Booking, FirestoreBooking,
   GhostPlayer, FirestoreGhostPlayer, LineupEntry,
@@ -106,6 +106,8 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
     achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
     squadNumbers: d.squad_numbers ?? {},
     trainingSchedule: d.training_schedule ?? [],
+    staff: d.staff ?? [],
+    staffManagerIds: d.staff_manager_ids ?? [],
     isGhost: d.is_ghost ?? false,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
@@ -366,6 +368,35 @@ export async function getTeamsByManager(managerId: string): Promise<Team[]> {
   return (await fetchTeamsOfManager(managerId)).filter((t) => !t.isGhost);
 }
 
+/**
+ * Les équipes qu'on gère : les siennes, et celles où l'on est staff délégué.
+ *
+ * DEUX REQUÊTES ET PAS UNE, parce que Firestore ne sait pas faire de OU entre
+ * deux champs. Les résultats se recollent ici, dédoublonnés par id — le
+ * propriétaire d'une équipe pourrait figurer dans son propre staff.
+ *
+ * C'est ce prédicat que doivent utiliser les écrans qui demandent « mes
+ * équipes » : sans lui, un délégué a les droits sur la fiche mais l'équipe
+ * n'apparaît nulle part chez lui, ce qui revient à ne pas la lui avoir
+ * déléguée.
+ */
+export async function getTeamsIManage(uid: string): Promise<Team[]> {
+  const deleguees = query(
+    collection(db, "teams"),
+    where("staff_manager_ids", "array-contains", uid),
+  );
+  const [miennes, snap] = await Promise.all([
+    getTeamsByManager(uid),
+    getDocs(deleguees),
+  ]);
+  const parId = new Map(miennes.map((t) => [t.id, t]));
+  snap.docs
+    .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
+    .filter((t) => !t.isGhost)
+    .forEach((t) => parId.set(t.id, t));
+  return [...parId.values()];
+}
+
 /** Les adversaires hors plateforme créés par ce manager. */
 export async function getGhostTeamsByManager(managerId: string): Promise<Team[]> {
   return (await fetchTeamsOfManager(managerId)).filter((t) => t.isGhost);
@@ -429,6 +460,23 @@ export async function createGhostTeam(data: {
 
 export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
   await updateDoc(doc(db, "teams", teamId), { ...data, updated_at: serverTimestamp() });
+}
+
+/**
+ * Écrit le staff d'une équipe.
+ *
+ * LES DEUX CHAMPS PARTENT ENSEMBLE, toujours, et c'est la seule raison
+ * d'être de cette fonction : `staff` porte l'affichage, `staff_manager_ids`
+ * porte les droits, et c'est le second que lisent les règles Firestore. Les
+ * écrire séparément, c'est un jour où quelqu'un figure comme adjoint sur la
+ * fiche sans pouvoir rien toucher, ou l'inverse — bien pire.
+ */
+export async function setTeamStaff(teamId: string, staff: TeamStaffMember[]): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    staff,
+    staff_manager_ids: staff.filter((m) => m.delegated).map((m) => m.uid),
+    updated_at: serverTimestamp(),
+  });
 }
 
 export async function updateTeamSquadNumbers(teamId: string, squadNumbers: Record<string, string>): Promise<void> {
