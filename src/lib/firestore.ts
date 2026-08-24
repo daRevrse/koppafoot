@@ -159,6 +159,8 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     localRefereeName: d.local_referee_name ?? null,
     autoAcceptPlayers: d.auto_accept_players ?? false,
     validationStatus: d.validation_status ?? "pending",
+    statsCreditedAt: d.stats_credited_at ?? null,
+    statsCreditedBy: d.stats_credited_by ?? null,
     completedAt: d.completed_at ?? null,
     liveState: d.live_state ? {
       currentPeriod: d.live_state.current_period,
@@ -1344,6 +1346,30 @@ export async function forceCompleteMatch(matchId: string): Promise<void> {
     status: "completed",
     updated_at: serverTimestamp(),
   });
+}
+
+/**
+ * Attribuer les statistiques d'un amical joué contre une équipe hors
+ * plateforme, aux joueurs de sa propre équipe.
+ *
+ * Même raison que le rollup de fin de match : les compteurs vivent sur des
+ * documents que l'appelant ne possède pas, donc l'écriture est côté serveur.
+ * Voir /api/matches/credit-stats pour ce que ça engage.
+ */
+export async function creditGhostMatchStats(matchId: string): Promise<number> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/matches/credit-stats", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify({ matchId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "L'attribution a échoué");
+  return data.joueurs ?? 0;
 }
 
 /**

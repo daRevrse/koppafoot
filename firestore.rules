@@ -162,6 +162,13 @@ service cloud.firestore {
             || request.auth.uid in equipe.get('staff_manager_ids', []));
     }
 
+    // Le staff d'une des deux équipes d'un match. Prend le document du match
+    // déjà chargé plutôt qu'un identifiant : les appelants l'ont tous sous la
+    // main, et chaque `get()` évité est une lecture facturée en moins.
+    function equipeDuMatchDeleguee(m) {
+      return equipeDeleguee(m.home_team_id) || equipeDeleguee(m.away_team_id);
+    }
+
     // Ce qu'un délégué ne touche pas : les deux clés par lesquelles on
     // pourrait prendre l'équipe à son manager, plus la liste elle-même. Un
     // délégué qui pourrait nommer des délégués pourrait s'en nommer un qui
@@ -349,6 +356,12 @@ service cloud.firestore {
           || resource.data.get('away_manager_id', '') == request.auth.uid
           || isSuperAdmin()
 
+          // 1 bis. Le staff délégué d'une des deux équipes. Tenir la feuille
+          //    de match fait partie de la gestion quotidienne : sans cette
+          //    branche, un adjoint voit les commandes et chaque geste est
+          //    refusé, ce qui est pire que de ne rien lui montrer.
+          || equipeDuMatchDeleguee(resource.data)
+
           // 2. Confirmed Referee
           || (resource.data.referee_id == request.auth.uid && resource.data.referee_status == 'confirmed')
 
@@ -416,7 +429,10 @@ service cloud.firestore {
             exists(/databases/$(database)/documents/matches/$(resource.data.match_id)) &&
             (get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.manager_id == request.auth.uid ||
              get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.away_manager_id == request.auth.uid ||
-             get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.referee_id == request.auth.uid)
+             get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.referee_id == request.auth.uid ||
+             // Même raison qu'au-dessus : une feuille de match se tient à
+             // plusieurs, et le délégué a les droits du manager.
+             equipeDuMatchDeleguee(get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data))
           )
           // The third leg of the same rollup: a branch letting any signed-in
           // user write goals/assists/matches_played on any match sheet. Removed

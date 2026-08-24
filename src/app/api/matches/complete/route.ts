@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch, FirestoreParticipation } from "@/types";
 
 /**
@@ -48,7 +49,15 @@ export async function POST(req: NextRequest) {
   const match = matchSnap.data() as FirestoreMatch;
 
   // Authorization, against the stored document.
-  const isManager = match.manager_id === callerUid || match.away_manager_id === callerUid;
+  // Le staff délégué d'une des deux équipes termine un match comme son
+  // manager : c'est le même geste, et il se fait au bord du terrain par qui
+  // s'y trouve. Les deux lectures ne partent que si les deux comparaisons
+  // directes ont échoué.
+  const isManager =
+    match.manager_id === callerUid ||
+    match.away_manager_id === callerUid ||
+    (await peutGererEquipeServeur(match.home_team_id, callerUid)) ||
+    (await peutGererEquipeServeur(match.away_team_id, callerUid));
   const isReferee = match.referee_id === callerUid && match.referee_status === "confirmed";
   let isSuperadmin = false;
   if (!isManager && !isReferee) {
@@ -73,6 +82,10 @@ export async function POST(req: NextRequest) {
 
   // Off-platform opponent: no manager on the other side to counter-sign, so the
   // result stands for club history but stays out of player counters.
+  //
+  // Ce n'est plus une fin de non-recevoir : le manager de l'équipe (ou un
+  // délégué de son staff) peut les attribuer ensuite, en son nom, voir
+  // /api/matches/credit-stats. Ici on ne fait rien tout seul.
   const isGhostMatch = !match.away_manager_id;
 
   const batch = adminDb.batch();

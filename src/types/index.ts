@@ -363,6 +363,15 @@ export interface FirestoreMatch {
   // il ne deviendra jamais "validated".
   validation_status?: "pending" | "contested" | "validated" | "unverified";
   completed_at?: string | null;
+  /**
+   * Un match contre une équipe hors plateforme ne crédite PAS les compteurs de
+   * carrière tout seul : personne en face pour contresigner. Le manager (ou un
+   * délégué) peut décider de les attribuer, et c'est ici qu'on garde la trace
+   * de qui l'a fait, et quand. Sa présence vaut « déjà crédité », ce qui est
+   * la seule protection contre un double comptage irréversible.
+   */
+  stats_credited_at?: string | null;
+  stats_credited_by?: string | null;
   live_state?: {
     current_period: number; // 0: pre, 1: 1st, 2: halftime, 3: 2nd, 4: finished
     timer_start_at: string | null;
@@ -450,6 +459,10 @@ export interface Match {
   confirmedAway: number;
   autoAcceptPlayers?: boolean;
   validationStatus?: "pending" | "contested" | "validated" | "unverified";
+  /** Voir `stats_credited_at` : renseigné dès que quelqu'un a attribué les
+   *  statistiques d'un match contre une équipe hors plateforme. */
+  statsCreditedAt?: string | null;
+  statsCreditedBy?: string | null;
   completedAt?: string | null;
   liveState?: {
     currentPeriod: number;
