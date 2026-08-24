@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { motion } from "motion/react";
 import {
   Trophy, Search, Calendar, MapPin, Users, Loader2,
   Clock, CheckCircle, XCircle, AlertCircle, Zap,
 } from "lucide-react";
 import { getAllMatches } from "@/lib/admin-firestore";
+import RecordActions from "@/components/admin/RecordActions";
 import type { Match, MatchStatus } from "@/types";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle }> = {
@@ -23,11 +24,18 @@ export default function AdminMatchesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MatchStatus | "all">("all");
 
-  useEffect(() => {
+  // Rechargement nommé : après une correction ou une suppression, la liste
+  // doit refléter la base, pas l'état d'avant le geste.
+  // Pas de `setLoading(true)` ici : l'état de départ est déjà « en
+  // chargement », et le poser depuis l'effet déclencherait un rendu en
+  // cascade. Un rechargement après correction remplace la liste sans clignoter.
+  const charger = useCallback(() => {
     getAllMatches(300)
       .then(setMatches)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { charger(); }, [charger]);
 
   const filtered = useMemo(() => {
     return matches.filter((m) => {
@@ -149,6 +157,7 @@ export default function AdminMatchesPage() {
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Score</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Arbitre</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Statut</th>
+                  <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -209,6 +218,37 @@ export default function AdminMatchesPage() {
                           <StatusIcon size={12} />
                           {statusConf.label}
                         </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex justify-end">
+                          <RecordActions
+                            resource="match"
+                            id={m.id}
+                            label={`${m.homeTeamName} vs ${m.awayTeamName}`}
+                            onDone={charger}
+                            champs={[
+                              { cle: "date", label: "Date" },
+                              { cle: "time", label: "Heure" },
+                              { cle: "venue_name", label: "Terrain" },
+                              { cle: "venue_city", label: "Ville" },
+                              { cle: "score_home", label: "Score domicile", type: "nombre" },
+                              { cle: "score_away", label: "Score extérieur", type: "nombre" },
+                              { cle: "status", label: "Statut", type: "liste", options: [
+                                { valeur: "pending", label: "En attente" },
+                                { valeur: "upcoming", label: "À venir" },
+                                { valeur: "live", label: "En direct" },
+                                { valeur: "completed", label: "Terminé" },
+                                { valeur: "cancelled", label: "Annulé" },
+                              ] },
+                            ]}
+                            valeurs={{
+                              date: m.date, time: m.time,
+                              venue_name: m.venueName, venue_city: m.venueCity,
+                              score_home: m.scoreHome ?? 0, score_away: m.scoreAway ?? 0,
+                              status: m.status,
+                            }}
+                          />
+                        </div>
                       </td>
                     </motion.tr>
                   );

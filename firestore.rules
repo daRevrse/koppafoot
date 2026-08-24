@@ -133,6 +133,51 @@ service cloud.firestore {
                   'claimed_by_team_id', 'updated_at']);
     }
 
+    // ============================================
+    // Le staff d'une équipe.
+    //
+    // `manager_id` ne porte qu'une personne, et une équipe amateur est tenue
+    // par deux ou trois. Un manager injoignable un dimanche matin bloquait
+    // la composition, les candidatures et les convocations de tout le monde.
+    //
+    // Les délégués vivent dans `staff_manager_ids`, un tableau PLAT de uid :
+    // une règle ne sait pas filtrer un tableau d'objets, la liste lisible par
+    // l'humain (`staff`, avec les titres) ne peut donc pas servir ici.
+    //
+    // Le `get()` coûte une lecture par vérification. C'est le prix des
+    // documents qui ne portent pas eux-mêmes l'équipe à laquelle ils
+    // appartiennent, et il n'y a pas d'alternative sans dupliquer la liste
+    // sur chaque candidature et chaque entraînement — qui dériverait.
+    // ============================================
+    function equipeDeleguee(teamId) {
+      return isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId))
+             .data.get('staff_manager_ids', []);
+    }
+
+    function equipeGeree(teamId) {
+      let equipe = get(/databases/$(database)/documents/teams/$(teamId)).data;
+      return isAuthenticated()
+        && (equipe.manager_id == request.auth.uid
+            || request.auth.uid in equipe.get('staff_manager_ids', []));
+    }
+
+    // Le staff d'une des deux équipes d'un match. Prend le document du match
+    // déjà chargé plutôt qu'un identifiant : les appelants l'ont tous sous la
+    // main, et chaque `get()` évité est une lecture facturée en moins.
+    function equipeDuMatchDeleguee(m) {
+      return equipeDeleguee(m.home_team_id) || equipeDeleguee(m.away_team_id);
+    }
+
+    // Ce qu'un délégué ne touche pas : les deux clés par lesquelles on
+    // pourrait prendre l'équipe à son manager, plus la liste elle-même. Un
+    // délégué qui pourrait nommer des délégués pourrait s'en nommer un qui
+    // exclut le manager.
+    function neTouchePasAuxCles() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['manager_id', 'staff', 'staff_manager_ids']);
+    }
+
     function noProtectedFields() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['email', 'user_type', 'is_superadmin', 'is_active', 'created_at']);
@@ -266,6 +311,12 @@ service cloud.firestore {
           resource.data.manager_id == request.auth.uid
           || isSuperAdmin()
 
+          // Le staff délégué gère l'équipe comme le manager : composition,
+          // dossards, effectif, créneaux. Il ne peut pas se nommer lui-même,
+          // ni nommer quelqu'un d'autre, ni changer de manager.
+          || (request.auth.uid in resource.data.get('staff_manager_ids', [])
+              && neTouchePasAuxCles())
+
           // A third branch used to let any signed-in user add themselves to
           // member_ids, as long as they kept the existing members, the manager
           // and the name. It could check the shape of the write but never its
@@ -304,6 +355,12 @@ service cloud.firestore {
           resource.data.manager_id == request.auth.uid
           || resource.data.get('away_manager_id', '') == request.auth.uid
           || isSuperAdmin()
+
+          // 1 bis. Le staff délégué d'une des deux équipes. Tenir la feuille
+          //    de match fait partie de la gestion quotidienne : sans cette
+          //    branche, un adjoint voit les commandes et chaque geste est
+          //    refusé, ce qui est pire que de ne rien lui montrer.
+          || equipeDuMatchDeleguee(resource.data)
 
           // 2. Confirmed Referee
           || (resource.data.referee_id == request.auth.uid && resource.data.referee_status == 'confirmed')
@@ -372,7 +429,10 @@ service cloud.firestore {
             exists(/databases/$(database)/documents/matches/$(resource.data.match_id)) &&
             (get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.manager_id == request.auth.uid ||
              get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.away_manager_id == request.auth.uid ||
-             get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.referee_id == request.auth.uid)
+             get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data.referee_id == request.auth.uid ||
+             // Même raison qu'au-dessus : une feuille de match se tient à
+             // plusieurs, et le délégué a les droits du manager.
+             equipeDuMatchDeleguee(get(/databases/$(database)/documents/matches/$(resource.data.match_id)).data))
           )
           // The third leg of the same rollup: a branch letting any signed-in
           // user write goals/assists/matches_played on any match sheet. Removed
@@ -465,15 +525,27 @@ service cloud.firestore {
 
     match /join_requests/{requestId} {
       allow create: if isAuthenticated() && request.resource.data.player_id == request.auth.uid;
-      allow read: if isAuthenticated() && (resource.data.player_id == request.auth.uid || resource.data.manager_id == request.auth.uid);
-      allow update: if isAuthenticated() && resource.data.manager_id == request.auth.uid;
+      allow read: if isAuthenticated()
+        && (resource.data.player_id == request.auth.uid
+            || resource.data.manager_id == request.auth.uid
+            || equipeDeleguee(resource.data.team_id));
+      allow update: if isAuthenticated()
+        && (resource.data.manager_id == request.auth.uid
+            || equipeDeleguee(resource.data.team_id));
     }
 
     match /trainings/{trainingId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.manager_id == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.manager_id == request.auth.uid;
-      allow update: if isAuthenticated() && (resource.data.manager_id == request.auth.uid || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees', 'updated_at']));
+      allow create: if isAuthenticated()
+        && (request.resource.data.manager_id == request.auth.uid
+            || equipeDeleguee(request.resource.data.team_id));
+      allow delete: if isAuthenticated()
+        && (resource.data.manager_id == request.auth.uid
+            || equipeDeleguee(resource.data.team_id));
+      allow update: if isAuthenticated()
+        && (resource.data.manager_id == request.auth.uid
+            || equipeDeleguee(resource.data.team_id)
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees', 'updated_at']));
     }
 
     match /player_ratings/{ratingId} {
@@ -515,10 +587,8 @@ service cloud.firestore {
 
     match /teams/{teamId}/ghost_players/{ghostId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() &&
-        get(/databases/$(database)/documents/teams/$(teamId)).data.manager_id == request.auth.uid;
-      allow update, delete: if isAuthenticated() &&
-        get(/databases/$(database)/documents/teams/$(teamId)).data.manager_id == request.auth.uid;
+      allow create: if equipeGeree(teamId);
+      allow update, delete: if equipeGeree(teamId);
     }
 
     // ============================================

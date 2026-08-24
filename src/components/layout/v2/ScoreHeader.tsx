@@ -12,10 +12,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
 import { useT } from "@/i18n";
 import type { CleTraduction } from "@/i18n/fr";
-import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
+import {
+  InviteCard, SupportBlock, InstallBlock, NotificationsBlock, PreferencesBlock,
+} from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
+import HeaderProgress from "./HeaderProgress";
 
 // ============================================
 // ScoreHeader, the one band of the shell.
@@ -454,6 +457,8 @@ function AccountMenu() {
           </div>
 
           <div className="border-t border-gray-200/70 pb-2">
+            <InstallBlock />
+            <NotificationsBlock />
             <PreferencesBlock />
           </div>
 
@@ -673,6 +678,10 @@ export default function ScoreHeader() {
           </div>
         </div>
       </div>
+
+      {/* Au bas du header, et donc calee sur sa hauteur reelle quoi qu'il
+          arrive : `pt-safe` et l'encoche la deplacent avec lui. */}
+      <HeaderProgress />
 
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       <KoppaLinksSheet open={linksOpen} onClose={() => setLinksOpen(false)} />

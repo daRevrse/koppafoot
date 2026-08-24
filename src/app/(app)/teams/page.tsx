@@ -8,7 +8,7 @@ import {
   Star, Settings, X, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTeamsByManager, getTeamsByPlayer, getGhostTeamsByManager, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
+import { getTeamsIManage, getTeamsByPlayer, getGhostTeamsByManager, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
 import type { Team } from "@/types";
 
 // ============================================
@@ -221,10 +221,10 @@ export default function TeamsPage() {
     setLoading(true);
     try {
       const data = isManager
-        ? await getTeamsByManager(user.uid)
+        ? await getTeamsIManage(user.uid)
         : await getTeamsByPlayer(user.uid);
       setTeams(data);
-      // getTeamsByManager exclut les équipes fantômes : elles portent le même
+      // getTeamsIManage exclut les équipes fantômes : elles portent le même
       // manager_id mais ne sont pas les équipes du manager.
       const ghosts = isManager ? await getGhostTeamsByManager(user.uid) : [];
       setGhostTeams(ghosts);

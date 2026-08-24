@@ -100,6 +100,9 @@ export async function PATCH(
           ? "Ton espace organisateur est ouvert. Crée ta première compétition !"
           : "Ta candidature n'a pas été retenue pour le moment.",
         link: approved ? "/organizer" : "/",
+        // Une réponse à MA candidature, pas une annonce : elle relève de ce
+        // qui m'est adressé.
+        category: "perso",
       }).catch((e) => {
         console.warn("[organizer-applications PATCH] push failed:", e?.message);
         throw e;

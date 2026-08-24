@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.allSettled(
       followersSnap.docs.map((d) =>
-        sendPushToUser(d.id, { title: title.trim(), body: body.trim(), link }),
+        sendPushToUser(d.id, { title: title.trim(), body: body.trim(), link, category: "competitions" }),
       ),
     );
     const sent = results.filter((r) => r.status === "fulfilled").length;

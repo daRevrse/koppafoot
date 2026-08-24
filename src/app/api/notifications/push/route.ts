@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
+import { categorieDuType } from "@/lib/push-categories";
+import type { NotificationType } from "@/types";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -19,7 +21,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "userId, title et body requis" }, { status: 400 });
   }
 
-  await sendPushToUser(userId, { title, body, link }).catch(() => {});
+  // Le `type` circulait déjà dans le corps de la requête, pour décider de
+  // l'email. Il sert maintenant aussi à classer le push. Un envoi sans type
+  // part quand même : le filtre ne coupe que ce qui a été décoché.
+  const category = type ? categorieDuType(type as NotificationType) : undefined;
+
+  await sendPushToUser(userId, { title, body, link, category }).catch(() => {});
 
   // Email pour les types haute priorité
   if (type === "invitation" || type === "join_request" || type === "admin_message") {

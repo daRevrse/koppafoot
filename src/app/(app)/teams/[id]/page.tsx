@@ -9,7 +9,7 @@ import {
   Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
-  Heart, Plus, Camera, UserCheck, BarChart2,
+  Heart, Plus, Camera, UserCheck, BarChart2, ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,11 +23,13 @@ import {
   followTeam, unfollowTeam, isFollowingTeam,
   onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
   onGhostPlayersByTeam, createGhostPlayer, updateGhostPlayer, deleteGhostPlayer,
+  setTeamStaff,
 } from "@/lib/firestore";
+import { TITRES_STAFF, estProprietaireEquipe, peutGererEquipe } from "@/lib/team-access";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
-import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot } from "@/types";
+import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
 
 // ============================================
 // Constants
@@ -355,6 +357,186 @@ function AddAchievementModal({ teamId, onClose, onSaved }: {
 // Create Training Modal
 // ============================================
 
+/**
+ * Le staff de l'équipe, vu et administré par le propriétaire.
+ *
+ * DÉLÉGUER N'EST PAS DÉCORER, et l'écran doit le dire : le titre est ce qu'on
+ * montre sur la fiche, la délégation est un droit réel sur l'équipe. Deux
+ * champs séparés, et une phrase sous la case, plutôt qu'un choix de « rôle »
+ * dont personne ne devinerait ce qu'il ouvre.
+ *
+ * ON NE RECRUTE QUE DANS L'EFFECTIF, pour l'instant. Nommer quelqu'un qui
+ * n'est pas dans l'équipe demande son accord — c'est un pouvoir qu'on lui
+ * donne, pas une étiquette — donc une invitation, donc un aller-retour que
+ * cette version n'a pas. Un coach qui ne joue pas rejoint l'effectif d'abord.
+ */
+function StaffBlock({ team, members, onSaved }: {
+  team: Team;
+  members: UserProfile[];
+  onSaved: () => Promise<void> | void;
+}) {
+  const staff = team.staff ?? [];
+  const [choix, setChoix] = useState("");
+  const [titre, setTitre] = useState(TITRES_STAFF[0]);
+  const [delegue, setDelegue] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Ni le manager (il a déjà tout), ni ceux qui y sont déjà.
+  const candidats = members.filter(
+    (m) => m.uid !== team.managerId && !staff.some((s) => s.uid === m.uid),
+  );
+
+  const enregistrer = async (liste: TeamStaffMember[]) => {
+    setSaving(true);
+    try {
+      await setTeamStaff(team.id, liste);
+      await onSaved();
+    } catch {
+      toast.error("Enregistrement impossible");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const ajouter = async () => {
+    const profil = candidats.find((m) => m.uid === choix);
+    if (!profil || !titre.trim()) return;
+    await enregistrer([
+      ...staff,
+      {
+        uid: profil.uid,
+        name: `${profil.firstName} ${profil.lastName}`.trim(),
+        title: titre.trim(),
+        delegated: delegue,
+      },
+    ]);
+    setChoix("");
+    toast.success(`${profil.firstName} rejoint le staff`);
+  };
+
+  const retirer = async (uid: string) => {
+    await enregistrer(staff.filter((m) => m.uid !== uid));
+  };
+
+  const basculerDelegation = async (uid: string) => {
+    await enregistrer(
+      staff.map((m) => (m.uid === uid ? { ...m, delegated: !m.delegated } : m)),
+    );
+  };
+
+  return (
+    <div className="border border-gray-200/70 bg-white p-4 sm:p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={16} className="text-blue-500" />
+        <h3 className="font-semibold text-gray-900">Staff de l&apos;équipe</h3>
+      </div>
+      <p className="text-sm text-gray-500">
+        Un délégué gère l&apos;équipe comme toi : composition, dossards, effectif,
+        candidatures, entraînements. Il ne peut ni nommer le staff, ni supprimer
+        l&apos;équipe.
+      </p>
+
+      {staff.length === 0 ? (
+        <p className="text-sm italic text-gray-400">Personne d&apos;autre que toi pour l&apos;instant.</p>
+      ) : (
+        <div className="space-y-2">
+          {staff.map((m) => (
+            <div key={m.uid} className="flex flex-wrap items-center gap-x-3 gap-y-2 border border-gray-200/70 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-gray-900">{m.name}</p>
+                <p className="text-xs text-gray-500">{m.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => basculerDelegation(m.uid)}
+                disabled={saving}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-colors disabled:opacity-50 ${
+                  m.delegated
+                    ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {m.delegated ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                {m.delegated ? "Délégué" : "Titre seul"}
+              </button>
+              <button
+                type="button"
+                onClick={() => retirer(m.uid)}
+                disabled={saving}
+                className="text-red-400 transition-colors hover:text-red-600 disabled:opacity-50"
+                aria-label={`Retirer ${m.name} du staff`}
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-3 border-t border-gray-200/70 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Ajouter</p>
+        {candidats.length === 0 ? (
+          <p className="text-sm italic text-gray-400">
+            Tout l&apos;effectif est déjà dans le staff, ou l&apos;équipe n&apos;a pas encore de joueurs.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                className="w-full border border-gray-200/70 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+                value={choix}
+                onChange={(e) => setChoix(e.target.value)}
+              >
+                <option value="">Choisir un joueur…</option>
+                {candidats.map((m) => (
+                  <option key={m.uid} value={m.uid}>
+                    {m.firstName} {m.lastName}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="w-full border border-gray-200/70 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+                list="titres-staff"
+                value={titre}
+                onChange={(e) => setTitre(e.target.value)}
+                placeholder="Coach, dirigeant…"
+              />
+              <datalist id="titres-staff">
+                {TITRES_STAFF.map((t) => <option key={t} value={t} />)}
+              </datalist>
+            </div>
+
+            <label className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={delegue}
+                onChange={(e) => setDelegue(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Lui donner les droits du manager
+                <span className="block text-xs text-gray-400">
+                  Sans cette case, le titre s&apos;affiche sur la fiche sans rien ouvrir.
+                </span>
+              </span>
+            </label>
+
+            <button
+              type="button"
+              onClick={ajouter}
+              disabled={saving || !choix || !titre.trim()}
+              className="flex items-center gap-2 bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+              Ajouter au staff
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CreateTrainingModal({ teamId, managerId, memberIds, onClose, onSaved }: {
   teamId: string; managerId: string; memberIds: string[]; onClose: () => void; onSaved: () => void;
 }) {
@@ -557,20 +739,17 @@ function GhostStatsModal({
           {ghost.firstName} {ghost.lastName}
         </h3>
         <p className="mb-5 text-xs text-gray-400">{POSITION_LABELS[ghost.position] ?? ghost.position}</p>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Matchs", value: ghost.matchesPlayed },
-            { label: "Buts", value: ghost.goals },
-            { label: "Assists", value: ghost.assists },
-            { label: "Jaunes", value: ghost.yellowCards },
-            { label: "Rouges", value: ghost.redCards },
-          ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center bg-gray-50 py-3">
-              <span className="text-2xl font-black text-gray-900">{s.value}</span>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase">{s.label}</span>
-            </div>
-          ))}
-        </div>
+        {/* Pas de statistiques ici, et ce n'est pas un oubli : une équipe hors
+            plateforme est l'adversaire du jeu vidéo. Personne ne la
+            représente, personne ne contresigne ses buts, et lui tenir une
+            carrière reviendrait à publier un palmarès saisi par son seul
+            adversaire. Sa feuille de match reste générique. */}
+        <p className="bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
+          Équipe hors plateforme : ses joueurs ne cumulent pas de statistiques.
+          Cette fiche sert à composer la feuille de match, et à dire qui a marqué
+          en face pendant la rencontre.
+        </p>
+
         <button onClick={onClose}
           className="mt-5 w-full border border-gray-200/70 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
           Fermer
@@ -692,7 +871,13 @@ export default function TeamDetailPage() {
   // le visage qu'il accepte ou refuse.
   const [candidatePhotos, setCandidatePhotos] = useState<Record<string, string | null>>({});
 
-  const isTeamManager = team?.managerId === user?.uid;
+  // DEUX PRÉDICATS, ET LA DIFFÉRENCE COMPTE. `isTeamManager` répond « a les
+  // droits du manager », propriétaire ou staff délégué, et c'est lui qui
+  // ouvre toutes les surfaces de gestion. `isTeamOwner` répond « c'est son
+  // équipe », et ne sert qu'aux deux gestes par lesquels on pourrait la lui
+  // prendre : nommer le staff, et supprimer l'équipe. Voir lib/team-access.
+  const isTeamManager = peutGererEquipe(team, user?.uid);
+  const isTeamOwner = estProprietaireEquipe(team, user?.uid);
   const isTeamMember = team?.memberIds.includes(user?.uid ?? "") ?? false;
 
   const fetchTeam = useCallback(async () => {
@@ -869,6 +1054,13 @@ export default function TeamDetailPage() {
     setRemovingMember(memberId);
     try {
       await removeTeamMember(team.id, memberId);
+      // Sortir de l'effectif, c'est sortir du staff. Sans ça, un joueur écarté
+      // gardait les droits du manager sur l'équipe qui vient de le retirer —
+      // le pire des oublis possibles sur cette page.
+      const staff = team.staff ?? [];
+      if (staff.some((m) => m.uid === memberId)) {
+        await setTeamStaff(team.id, staff.filter((m) => m.uid !== memberId));
+      }
       await fetchTeam();
     } catch {
       // Silent
@@ -1280,6 +1472,28 @@ export default function TeamDetailPage() {
               </div>
             );
           })()}
+
+          {/* Le staff, sous le manager : la même information, qui tient
+              l'équipe. Le nom vient du document (recopié à l'ajout), ce bloc
+              ne coûte donc aucune lecture de profil.
+              Visible des comptes connectés seulement : la projection publique
+              ne porte ni effectif ni manager, exprès (voir
+              /api/public/team/[id]), et un staff est une liste de personnes
+              rattachées à des comptes comme une autre. */}
+          {(team.staff ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-2 border border-gray-200/70 bg-gray-50/60 p-3 sm:p-4">
+              {(team.staff ?? []).map((m) => (
+                <span
+                  key={m.uid}
+                  className="flex items-center gap-1.5 border border-gray-200/70 bg-white px-2.5 py-1.5"
+                >
+                  {m.delegated && <ShieldCheck size={13} className="shrink-0 text-blue-500" />}
+                  <span className="text-sm font-semibold text-gray-900">{m.name}</span>
+                  <span className="text-xs text-gray-500">{m.title}</span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Player list (excluding manager) */}
           {isTeamManager && (lineupChanged || squadNumbersChanged) && (
@@ -1999,7 +2213,14 @@ export default function TeamDetailPage() {
             </dl>
           </div>
 
-          {/* Danger zone */}
+          {/* Le staff : nommé par le propriétaire, et par lui seul. */}
+          {!isGhostTeam && isTeamOwner && (
+            <StaffBlock team={team} members={members} onSaved={fetchTeam} />
+          )}
+
+          {/* Danger zone. Réservée au propriétaire : un délégué gère l'équipe,
+              il ne la supprime pas. */}
+          {isTeamOwner && (
           <div className=" border border-red-200 bg-red-50/50 p-4 sm:p-5">
             <h3 className="font-semibold text-red-700">Zone dangereuse</h3>
             <p className="mt-1 text-sm text-red-600/80">
@@ -2010,6 +2231,7 @@ export default function TeamDetailPage() {
               <Trash2 size={14} /> Supprimer l&apos;equipe
             </button>
           </div>
+          )}
         </motion.div>
       )}
 

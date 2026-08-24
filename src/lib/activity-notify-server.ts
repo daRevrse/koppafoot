@@ -2,6 +2,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
 import { FieldValue } from "firebase-admin/firestore";
 import type { NotificationType } from "@/types";
+import { categorieDuType } from "@/lib/push-categories";
 
 // ============================================
 // activity-notify-server, la vie d'une équipe, poussée à ceux qu'elle
@@ -181,6 +182,10 @@ export async function notifyTeamActivity(input: {
         title,
         body: r.type === "team_activity" ? body : followerBody,
         link,
+        // La catégorie suit l'AUDIENCE et non l'événement : le même départ de
+        // joueur relève de « mon équipe » pour l'effectif et de « ce que je
+        // suis » pour les abonnés, et les deux se coupent séparément.
+        category: categorieDuType(r.type),
       }),
     ),
   );

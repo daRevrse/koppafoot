@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   Share2, Check, Megaphone, HelpCircle, MessageSquare, ChevronRight,
-  Sun, Moon, Languages,
+  Sun, Moon, Languages, Bell, BellOff, Download, Share,
 } from "lucide-react";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLangue, useT } from "@/i18n";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import {
+  etatInstallation, etatInstallationServeur, installer, souscrireInstallation,
+} from "@/lib/pwa-install";
 
 // ============================================
-// Les blocs du menu compte : inviter, support, thème, langue.
+// Les blocs du menu compte : inviter, support, installation, notifications,
+// thème, langue.
 //
 // Partagés entre le menu du header et la feuille du bas, pour la raison
 // apprise avec la navigation : deux copies d'un même bloc divergent, et
@@ -22,11 +27,11 @@ import { useLangue, useT } from "@/i18n";
 // L'alternative aurait été un second fichier, c'est-à-dire exactement la
 // divergence qu'on cherche à éviter.
 //
-// THÈME et LANGUE sont pour l'instant de l'INTERFACE SEULE. Aucun système de
-// thème sombre n'existe dans le projet (deux règles `dark:` en tout, aucune
-// bibliothèque i18n), donc les basculer ne change rien à ce qu'on voit. Ils
-// le disent : une bascule muette qui prétend fonctionner est pire qu'une
-// bascule qui annonce son état.
+// Une bascule muette qui prétend fonctionner est pire qu'une bascule qui
+// annonce son état : c'est la règle que suivent ces blocs. Le thème et la
+// langue s'appliquent pour de bon, et les notifications disent quand elles ne
+// peuvent PAS être réglées ici — refus navigateur, iPhone hors application —
+// plutôt que d'afficher un interrupteur sans effet.
 // ============================================
 
 interface Ton {
@@ -151,6 +156,149 @@ export function SupportBlock({ sombre, onNavigate }: {
       </p>
       <Ligne t={ton_} href="/aide" onClick={onNavigate} Icon={HelpCircle} label={t("support.faq")} />
       <Ligne t={ton_} href="/aide#retour" onClick={onNavigate} Icon={MessageSquare} label={t("support.retour")} />
+    </div>
+  );
+}
+
+/**
+ * L'installation de l'application.
+ *
+ * ELLE ÉTAIT DÉJÀ LÀ, mais seulement sur la page de connexion : personne de
+ * déjà connecté ne la voyait jamais, c'est-à-dire précisément ceux qui se
+ * servent du produit. Elle vit maintenant dans le menu du compte, à demeure,
+ * là où on cherche ce genre de chose.
+ *
+ * ELLE PASSE AVANT LES NOTIFICATIONS, et ce n'est pas un choix de mise en
+ * page : sur iPhone, le push n'existe QUE dans l'application ajoutée à
+ * l'écran d'accueil. Régler ses notifications sans l'avoir installée n'y mène
+ * nulle part, l'ordre des deux blocs dit donc l'ordre des gestes.
+ *
+ * SUR IPHONE, PAS DE BOUTON, une phrase. Safari n'offre aucune installation
+ * par appel, elle se fait à la main depuis le menu Partager. Un bouton qui ne
+ * ferait rien vaudrait moins que la marche à suivre.
+ */
+export function InstallBlock({ sombre }: { sombre?: boolean }) {
+  // L'état vit hors de React, dans un module qui écoute dès le chargement,
+  // voir lib/pwa-install. Le rendu serveur ne peut rien en savoir et
+  // n'affirme donc rien.
+  const etat = useSyncExternalStore(
+    souscrireInstallation,
+    etatInstallation,
+    etatInstallationServeur,
+  );
+  const t = ton(sombre);
+  const trad = useT();
+
+  if (etat === "installee" || etat === "indisponible") return null;
+
+  return (
+    <div>
+      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
+        {trad("install.titre")}
+      </p>
+
+      {etat === "possible" ? (
+        <Ligne t={t} Icon={Download} label={trad("install.action")} onClick={() => installer()} />
+      ) : (
+        <div className="flex items-start gap-3 px-4 py-2.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${t.puceFond}`}>
+            <Share size={15} className={t.icone} />
+          </span>
+          <p className={`text-[11px] font-semibold leading-relaxed ${
+            sombre ? "text-white/50" : "text-gray-500"
+          }`}>
+            {trad("install.ios")}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Les notifications push.
+ *
+ * UN SEUL INTERRUPTEUR, et il vaut pour CET APPAREIL : le jeton y vit, couper
+ * sur le téléphone ne doit pas éteindre l'ordinateur.
+ *
+ * LES CAS OÙ IL N'Y A PAS D'INTERRUPTEUR comptent autant que l'interrupteur
+ * lui-même. Un refus navigateur est définitif : aucun appel ne peut le
+ * rouvrir, donc afficher une bascule qui ne marchera pas laisserait conclure
+ * à une panne du produit. On dit où aller. Sur iPhone, le push n'existe que
+ * dans l'application ajoutée à l'écran d'accueil, et là encore une bascule
+ * muette vaudrait moins que la phrase qui explique.
+ *
+ * LE TRI PAR CATÉGORIE existe côté serveur (voir lib/push-categories) mais ne
+ * s'affiche pas ici : cinq lignes de plus pour un arbitrage que personne n'a
+ * encore demandé alourdissaient un menu dont c'est le cinquième bloc. Le
+ * jour où « trop de notifications » remonte du terrain, le filtre est déjà
+ * écrit, il ne manquera que les bascules.
+ */
+export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
+  const { etat, occupe, activer, desactiver } = usePushNotifications();
+  const trad = useT();
+  const t = ton(sombre);
+
+  // `null` tant que le navigateur n'a pas été interrogé, voir le hook : rien
+  // à afficher plutôt qu'un état par défaut qui serait faux la moitié du
+  // temps.
+  if (etat === null || etat === "non-supporte") return null;
+
+  const bascule = (actif: boolean) =>
+    `flex-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-colors disabled:cursor-not-allowed ${
+      actif
+        ? sombre ? "bg-emerald-500 text-emerald-950" : "bg-gray-900 text-white"
+        : sombre ? "text-white/50 hover:text-white" : "text-gray-500 hover:text-gray-900"
+    }`;
+
+  const cadre = `flex shrink-0 border ${sombre ? "border-white/10" : "border-gray-200/70"}`;
+  const note = `px-4 pb-1 text-[11px] font-semibold leading-relaxed ${
+    sombre ? "text-white/40" : "text-gray-500"
+  }`;
+
+  const actif = etat === "actif";
+  const reglable = etat === "actif" || etat === "inactif";
+
+  return (
+    <div>
+      <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
+        {trad("notifs.titre")}
+      </p>
+
+      <div className="px-4 pb-2">
+        <div className="flex items-center justify-between gap-3 py-1.5">
+          <span className={`flex items-center gap-2 text-[13px] font-bold ${t.libelle}`}>
+            {actif
+              ? <Bell size={15} className={t.icone} />
+              : <BellOff size={15} className={t.icone} />}
+            {trad("notifs.appareil")}
+          </span>
+          {reglable && (
+            <span className={cadre}>
+              <button
+                type="button"
+                disabled={occupe}
+                onClick={() => (actif ? undefined : activer())}
+                className={bascule(actif)}
+              >
+                {trad("notifs.oui")}
+              </button>
+              <button
+                type="button"
+                disabled={occupe}
+                onClick={() => (actif ? desactiver() : undefined)}
+                className={bascule(!actif)}
+              >
+                {trad("notifs.non")}
+              </button>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {etat === "refuse" && <p className={note}>{trad("notifs.refuse")}</p>}
+      {etat === "ios-hors-app" && <p className={note}>{trad("notifs.ios")}</p>}
+
     </div>
   );
 }

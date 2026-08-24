@@ -16,7 +16,7 @@ import {
   forceCompleteMatch,
   getMatchesByManager,
   onMatchesByManager,
-  getTeamsByManager,
+  getTeamsIManage,
   getVenues,
   createMatch,
   cancelMatch,
@@ -183,7 +183,7 @@ export default function MatchesPage() {
     try {
       const [matchesData, teamsData, ghostsData, venuesData] = await Promise.all([
         getMatchesByManager(user.uid),
-        getTeamsByManager(user.uid),
+        getTeamsIManage(user.uid),
         getGhostTeamsByManager(user.uid),
         getVenues(),
       ]);

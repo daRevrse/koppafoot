@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
-import { InviteCard, SupportBlock, PreferencesBlock } from "@/components/account/AccountExtras";
+import {
+  InviteCard, SupportBlock, InstallBlock, NotificationsBlock, PreferencesBlock,
+} from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
@@ -140,6 +142,10 @@ function AvatarBottomSheet({
 
           <div className="mx-5 h-px bg-white/10" />
           <SupportBlock sombre onNavigate={onClose} />
+
+          <div className="mx-5 h-px bg-white/10" />
+          <InstallBlock sombre />
+          <NotificationsBlock sombre />
 
           <div className="mx-5 h-px bg-white/10" />
           <PreferencesBlock sombre />

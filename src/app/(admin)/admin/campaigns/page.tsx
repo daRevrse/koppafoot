@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Megaphone, Loader2, Send, X, Users, UserCheck } from "lucide-react";
+import { Megaphone, Loader2, Send, X, Users, UserCheck, Compass } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
 import toast from "react-hot-toast";
 
 interface CampaignStat {
-  type: "manager_no_team" | "player_no_team" | "manager_welcome";
+  type: "manager_no_team" | "player_no_team" | "manager_welcome" | "sans_espace";
   count: number;
   defaults: { title: string; body: string; link: string };
 }
@@ -17,6 +17,13 @@ const CAMPAIGN_META: Record<
   string,
   { label: string; description: string; icon: React.ReactNode; color: string }
 > = {
+  sans_espace: {
+    label: "Comptes sans espace",
+    description:
+      "Relance ceux qui n'ouvrent aucun espace : ni rôle choisi, ni casquette. Ils ne voient que les scores.",
+    icon: <Compass size={18} />,
+    color: "text-violet-600 bg-violet-50",
+  },
   manager_no_team: {
     label: "Managers sans équipe",
     description: "Relance les managers inscrits qui n'ont pas encore créé leur équipe.",

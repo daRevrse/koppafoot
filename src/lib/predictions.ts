@@ -88,7 +88,13 @@ export async function castPrediction(matchId: string, uid: string, pick: Pick): 
 /** Les totaux publics, comptés côté serveur. */
 export async function fetchCounts(matchId: string): Promise<PredictionCounts> {
   try {
-    const res = await fetch(`/api/matches/${encodeURIComponent(matchId)}/predictions`);
+    // `no-store` : la route pose un cache de dix secondes pour absorber les
+    // rafales de rechargement. Utile pour un visiteur, néfaste juste après un
+    // vote — on relirait le total d'avant, et l'auteur du vote croirait que
+    // rien n'a été pris en compte.
+    const res = await fetch(`/api/matches/${encodeURIComponent(matchId)}/predictions`, {
+      cache: "no-store",
+    });
     if (!res.ok) return EMPTY_COUNTS;
     const d = (await res.json()) as Partial<PredictionCounts>;
     return {

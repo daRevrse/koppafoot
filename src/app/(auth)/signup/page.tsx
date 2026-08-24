@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
+import {
+  nomPersonne, telephoneOptionnel, villeOptionnelle,
+} from "@/lib/champs-valides";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -21,15 +24,15 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 // ============================================
 
 const essentialsSchema = yup.object({
-  firstName: yup.string().min(2, "Min. 2 caractères").required("Prénom requis"),
-  lastName: yup.string().min(2, "Min. 2 caractères").required("Nom requis"),
+  firstName: nomPersonne("Prénom"),
+  lastName: nomPersonne("Nom"),
   email: yup.string().email("Email invalide").required("Email requis"),
   password: yup.string().min(6, "Min. 6 caractères").required("Mot de passe requis"),
 });
 
 const optionalSchema = yup.object({
-  locationCity: yup.string().optional(),
-  phone: yup.string().optional(),
+  locationCity: villeOptionnelle,
+  phone: telephoneOptionnel,
 });
 
 type EssentialsForm = yup.InferType<typeof essentialsSchema>;

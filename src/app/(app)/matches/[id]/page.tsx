@@ -8,7 +8,7 @@ import {
   Timer, Shield, History, ChevronLeft, Trophy, Activity,
   MapPin, Calendar, Clock, UserPlus, Users, Info, 
   CheckCircle2, XCircle, AlertCircle, Share2, MoreVertical,
-  ChevronRight, Star, Save, ClipboardList, RefreshCcw
+  ChevronRight, Star, Save, ClipboardList, RefreshCcw, BarChart2, Loader2
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { db } from "@/lib/firebase";
@@ -19,7 +19,7 @@ import {
   getMatchParticipations, getTeamMembers,
   updateMatchLineup, setGhostLineup, submitManagerFeedback,
   contestMatchEvent, getTeamById,
-  getGhostPlayersByTeam,
+  getGhostPlayersByTeam, getTeamsIManage, creditGhostMatchStats,
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
@@ -93,29 +93,63 @@ export default function MatchDetailPage() {
   const [opponentGhostPlayers, setOpponentGhostPlayers] = useState<GhostPlayer[]>([]);
   const [ghostAssignments, setGhostAssignments] = useState<Record<string, { number: string; role: "starter" | "substitute" }>>({});
   const [savingGhostLineup, setSavingGhostLineup] = useState(false);
+  // Attribution des stats d'un amical fantôme : irréversible, donc en deux
+  // temps. Un bouton unique se clique par réflexe, et rien ne se déduit
+  // ensuite d'un compteur de carrière.
+  const [confirmerCredit, setConfirmerCredit] = useState(false);
+  const [creditEnCours, setCreditEnCours] = useState(false);
 
   // 1. Check Roles & IDs
-  const isManager = useMemo(() => {
-    if (!match || !user) return false;
-    return user.uid === match.managerId || user.uid === match.awayManagerId;
-  }, [match, user]);
+  //
+  // ON NE COMPARE PLUS DES UID, ON REGARDE LES ÉQUIPES. Tout ce bloc partait
+  // de `manager_id` : un membre du staff délégué, qui a pourtant les droits du
+  // manager sur l'équipe, n'était donc personne sur cette page — ni feuille de
+  // match, ni score, ni fin de rencontre. Or c'est souvent lui qui est au bord
+  // du terrain. La question n'est pas « es-tu le manager du match » mais
+  // « l'une des deux équipes est-elle une des tiennes ».
+  const [mesEquipesIds, setMesEquipesIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!user) { setMesEquipesIds([]); return; }
+    let annule = false;
+    getTeamsIManage(user.uid)
+      .then((equipes) => { if (!annule) setMesEquipesIds(equipes.map((e) => e.id)); })
+      .catch(() => { if (!annule) setMesEquipesIds([]); });
+    return () => { annule = true; };
+  }, [user?.uid]);
 
   // `is_home` dit si le CRÉATEUR du match joue à domicile. Sans ça on
   // assimilait manager_id à l'équipe domicile, ce qui inversait les deux camps
   // dès qu'un manager planifiait un déplacement : feuille de match, numéros et
   // drapeau « compo prête » atterrissaient chez l'adversaire.
-  const iAmCreator = useMemo(() => !!user && user.uid === match?.managerId, [user, match]);
-
-  const myTeamIsHome = useMemo(() => {
-    if (!match || !user) return false;
-    return iAmCreator ? match.isHome : !match.isHome;
-  }, [match, user, iAmCreator]);
-
   const myTeamId = useMemo(() => {
     if (!match || !user) return null;
-    if (user.uid !== match.managerId && user.uid !== match.awayManagerId) return null;
-    return myTeamIsHome ? match.homeTeamId : match.awayTeamId;
-  }, [match, user, myTeamIsHome]);
+    // Les équipes qu'on gère d'abord : c'est le cas du staff délégué, et celui
+    // du manager dont l'équipe est bien la sienne.
+    if (mesEquipesIds.includes(match.homeTeamId)) return match.homeTeamId;
+    if (mesEquipesIds.includes(match.awayTeamId)) return match.awayTeamId;
+    // Repli sur le match lui-même : un manager reste maître de SON match même
+    // si l'équipe a changé de mains depuis, ou si la liste n'est pas encore
+    // chargée.
+    if (user.uid === match.managerId) return match.isHome ? match.homeTeamId : match.awayTeamId;
+    if (user.uid === match.awayManagerId) return match.isHome ? match.awayTeamId : match.homeTeamId;
+    return null;
+  }, [match, user, mesEquipesIds]);
+
+  const myTeamIsHome = useMemo(
+    () => !!match && !!myTeamId && myTeamId === match.homeTeamId,
+    [match, myTeamId],
+  );
+
+  const isManager = useMemo(() => !!myTeamId, [myTeamId]);
+
+  /** Le camp du créateur, celui qui pose la feuille de l'adversaire fantôme. */
+  const iAmCreator = useMemo(() => {
+    if (!match || !user) return false;
+    if (user.uid === match.managerId) return true;
+    const equipeDuCreateur = match.isHome ? match.homeTeamId : match.awayTeamId;
+    return mesEquipesIds.includes(equipeDuCreateur);
+  }, [match, user, mesEquipesIds]);
 
   const isHomeManager = useMemo(() => myTeamIsHome, [myTeamIsHome]);
 
@@ -503,7 +537,7 @@ export default function MatchDetailPage() {
                          onClick={async () => {
                            if (!user?.uid) return;
                            try {
-                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined);
+                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" });
                              toast.success("Match validé ! Merci.");
                            } catch (e) {
                              toast.error("Erreur lors de la validation");
@@ -517,7 +551,7 @@ export default function MatchDetailPage() {
                          onClick={() => {
                            const reason = prompt("Raison de la contestation :");
                            if (reason && user?.uid) {
-                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined)
+                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason })
                                .then(() => toast.success("Contestation enregistrée"))
                                .catch(() => toast.error("Erreur"));
                            }
@@ -528,6 +562,81 @@ export default function MatchDetailPage() {
                       </button>
                    </div>
                 </div>
+              )}
+
+              {/* Amical contre une équipe hors plateforme : les statistiques
+                  n'ont crédité personne à la fin du match, faute de manager en
+                  face pour contresigner. La décision revient à celui qui a vu
+                  le match. */}
+              {match.status === "completed" && !match.awayManagerId && isManager && (
+                match.statsCreditedAt ? (
+                  <div className="flex items-center gap-3 border border-gray-200/70 bg-gray-50 p-4 sm:gap-4 sm:p-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-900 text-white">
+                      <CheckCircle2 size={20} />
+                    </div>
+                    <p className="text-sm font-bold text-gray-700">
+                      Statistiques attribuées aux joueurs de votre équipe. Le match reste
+                      marqué non vérifié : personne en face ne l&apos;a contresigné.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border border-blue-200 bg-blue-50/60 p-4 sm:p-8">
+                    <div className="mb-4 flex flex-col items-start gap-4 sm:mb-6 sm:flex-row sm:gap-6">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-blue-100 text-blue-600">
+                        <BarChart2 size={28} />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-black leading-tight text-blue-900">
+                          Statistiques non attribuées
+                        </h4>
+                        <p className="text-sm font-bold text-blue-800/70">
+                          Ce match n&apos;a pas été suivi en direct, et l&apos;adversaire
+                          n&apos;est pas sur KoppaFoot : personne n&apos;a pu contresigner la
+                          feuille, donc les buts et passes ne comptent pas encore dans les
+                          fiches de vos joueurs. Vous pouvez les attribuer sous votre
+                          responsabilité — la feuille de match fait foi, et c&apos;est
+                          définitif. L&apos;équipe adverse, elle, ne cumule rien.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={async () => {
+                          if (!confirmerCredit) { setConfirmerCredit(true); return; }
+                          setCreditEnCours(true);
+                          try {
+                            const n = await creditGhostMatchStats(match.id);
+                            toast.success(
+                              n > 0
+                                ? `Statistiques attribuées à ${n} joueur${n > 1 ? "s" : ""}`
+                                : "Aucun joueur confirmé sur la feuille",
+                            );
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Erreur");
+                          } finally {
+                            setCreditEnCours(false);
+                            setConfirmerCredit(false);
+                          }
+                        }}
+                        disabled={creditEnCours}
+                        className="flex items-center gap-2 bg-blue-600 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {creditEnCours
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <BarChart2 size={14} />}
+                        {confirmerCredit ? "Confirmer l'attribution" : "Attribuer les statistiques"}
+                      </button>
+                      {confirmerCredit && (
+                        <button
+                          onClick={() => setConfirmerCredit(false)}
+                          className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-blue-700/60 transition-colors hover:text-blue-900"
+                        >
+                          Annuler
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
               )}
 
               {/* Match Validated State */}
@@ -1280,7 +1389,7 @@ export default function MatchDetailPage() {
                        validation,
                        comments: managerComments,
                        refereeRating
-                     }, myTeamId ? { teamId: myTeamId, ghostPlayers } : undefined);
+                     });
                      toast.success("Retour envoyé à l'arbitre !");
                    } catch(e) {
                      console.error(e);

@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, Trophy, MapPin, Clock, Shield, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMatchesByTeamIds, getTeamsByManager, getTeamsByPlayer } from "@/lib/firestore";
+import { getMatchesByTeamIds, getTeamsIManage, getTeamsByPlayer } from "@/lib/firestore";
 import type { Match, Team } from "@/types";
 
 // ============================================
@@ -149,7 +149,7 @@ export default function CalendarPage() {
     try {
       const isManager = user.userType === "manager";
       const userTeams = isManager
-        ? await getTeamsByManager(user.uid)
+        ? await getTeamsIManage(user.uid)
         : await getTeamsByPlayer(user.uid);
       const teamIds = [...new Set(userTeams.map((t) => t.id))];
       setTeams(userTeams);

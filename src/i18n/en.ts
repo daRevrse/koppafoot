@@ -67,6 +67,27 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "prefs.sombre": "Dark",
   "prefs.langue": "Language",
 
+  // ---- Install the app ----
+  "install.titre": "App",
+  "install.action": "Install KoppaFoot",
+  "install.ios":
+    "To install KoppaFoot on iPhone: tap Share at the bottom of Safari, then “Add to Home Screen”. That is also what unlocks notifications.",
+  "install.flottantTitre": "Put KoppaFoot on your home screen",
+  "install.flottantTexte":
+    "One tap to open, full screen, and match notifications.",
+  "install.plusTard": "Later",
+
+  // ---- Push notifications ----
+  "notifs.titre": "Notifications",
+  "notifs.appareil": "On this device",
+  "notifs.oui": "On",
+  "notifs.non": "Off",
+  "notifs.nonSupporte": "This browser does not support notifications.",
+  "notifs.ios":
+    "Available once the app is installed on your home screen, see just above.",
+  "notifs.refuse":
+    "Blocked in your browser settings. Allow notifications for this site, then come back here.",
+
   // ---- Help page ----
   "aide.fil": "Help",
   "aide.surtitre": "Support",

@@ -7,6 +7,7 @@ import {
   campaignManagerNoTeamHtml,
   campaignPlayerNoTeamHtml,
   campaignWelcomeManagerHtml,
+  campaignSansEspaceHtml,
 } from "@/lib/email";
 
 // ── Auth guard ──────────────────────────────────────────────
@@ -28,7 +29,16 @@ async function verifySuperadmin(req: NextRequest): Promise<string | null> {
 export type CampaignType =
   | "manager_no_team"
   | "player_no_team"
-  | "manager_welcome";
+  | "manager_welcome"
+  /**
+   * Les comptes qui n'ouvrent AUCUN espace.
+   *
+   * Ni rôle choisi, ni casquette : ils ne peuvent ni jouer, ni gérer, ni
+   * arbitrer, ni organiser. C'est la population la plus grande et la plus
+   * muette du produit — elle ne voit qu'un tableau de scores, et rien dans le
+   * produit ne vient la chercher. Il faut donc aller la chercher.
+   */
+  | "sans_espace";
 
 const CAMPAIGN_DEFAULTS: Record<
   CampaignType,
@@ -48,6 +58,11 @@ const CAMPAIGN_DEFAULTS: Record<
     title: "Bienvenue sur KoppaFoot ! 🎉",
     body: "Votre compte manager est prêt. Créez votre équipe et défiez vos premiers adversaires.",
     link: "/teams",
+  },
+  sans_espace: {
+    title: "Vous jouez, vous coachez, vous arbitrez ? ⚽",
+    body: "Choisissez votre rôle pour ouvrir votre espace : effectif, feuilles de match, convocations.",
+    link: "/evolution",
   },
 };
 
@@ -84,6 +99,30 @@ async function getTargetIds(type: CampaignType): Promise<string[]> {
     return playerIds.filter((id) => !playersWithRequest.has(id));
   }
 
+  if (type === "sans_espace") {
+    // Firestore ne sait pas demander « ce champ est absent » : un compte
+    // d'avant l'onboarding Évolution n'a pas la clé du tout, un autre l'a à
+    // null. Les deux comptent, donc le tri se fait en mémoire — comme les
+    // autres campagnes de ce fichier, qui parcourent déjà la collection.
+    //
+    // Les mêmes exclusions que la colonne « Espaces ouverts » de
+    // l'administration : une casquette ouvre déjà un espace, et proposer de
+    // choisir un rôle à un organisateur ne voudrait rien dire. Les modérateurs
+    // ne sont pas exclus ici — leur accès vient d'une compétition précise, et
+    // il s'éteint avec elle.
+    const snap = await adminDb.collection("users").get();
+    return snap.docs
+      .filter((d) => {
+        const data = d.data();
+        if (data.user_type === "superadmin" || data.user_type === "organizer") return false;
+        if (data.user_type === "venue_owner") return false;
+        if (data.is_organizer === true || data.is_venue_owner === true) return false;
+        if (data.is_active === false) return false;
+        return !data.evolution_role;
+      })
+      .map((d) => d.id);
+  }
+
   if (type === "manager_welcome") {
     const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
     const snap = await adminDb
@@ -109,7 +148,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const types: CampaignType[] = ["manager_no_team", "player_no_team", "manager_welcome"];
+  const types: CampaignType[] = [
+    "sans_espace", "manager_no_team", "player_no_team", "manager_welcome",
+  ];
   const results = await Promise.all(
     types.map(async (type) => {
       const userIds = await getTargetIds(type);
@@ -175,13 +216,14 @@ export async function POST(req: NextRequest) {
       const firstName: string = data.first_name ?? "";
       const email: string | undefined = data.email;
 
-      await sendPushToUser(uid, { title, body, link: defaults.link }).catch(() => {});
+      await sendPushToUser(uid, { title, body, link: defaults.link, category: "annonces" }).catch(() => {});
 
       if (email) {
         let html = "";
         if (campaignType === "manager_no_team") html = campaignManagerNoTeamHtml(firstName);
         if (campaignType === "player_no_team") html = campaignPlayerNoTeamHtml(firstName);
         if (campaignType === "manager_welcome") html = campaignWelcomeManagerHtml(firstName);
+        if (campaignType === "sans_espace") html = campaignSansEspaceHtml(firstName);
         if (html) await sendNotificationEmail(email, title, html).catch(() => {});
       }
     })

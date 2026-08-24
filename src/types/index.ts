@@ -1,3 +1,5 @@
+import type { PushPrefs } from "@/lib/push-categories";
+
 // ============================================
 // KOPPAFOOT, Core Types
 // ============================================
@@ -70,6 +72,8 @@ export interface UserProfile {
   isVenueOwner?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
+  /** Préférences de notification push, par catégorie. Absent = tout accepté. */
+  pushPrefs?: PushPrefs;
   /**
    * Nom public de la structure organisatrice (association, ligue, école,
    * collectif). Saisi à la candidature organisateur, repris à l'approbation,
@@ -168,6 +172,9 @@ export interface FirestoreUser {
   linked_comp_players?: LinkedCompPlayer[];
   // FCM push tokens
   fcm_tokens?: string[];
+  /** Ce que le compte accepte de recevoir en push, par catégorie. Absent =
+   *  tout accepté, voir lib/push-categories. */
+  push_prefs?: PushPrefs;
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -195,6 +202,31 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // ============================================
 // Teams
 // ============================================
+
+/**
+ * Un membre du staff d'une équipe.
+ *
+ * DEUX CHOSES DISTINCTES DANS UN SEUL OBJET, et il faut les nommer : le
+ * `title` est de l'AFFICHAGE — coach, dirigeant, soigneur, ce qu'on présente
+ * sur la fiche — tandis que `delegated` est un DROIT. Les confondre, c'est-à-
+ * dire faire de « coach » une permission, aurait recréé un second système
+ * d'autorisation à côté de celui des compétitions, et deux modèles de droits
+ * dans un même produit finissent toujours par se contredire.
+ *
+ * `name` est recopié à l'ajout pour que la fiche s'affiche sans relire un
+ * profil par ligne. Il vieillit, comme toute dénormalisation : c'est le nom
+ * du jour où la personne a rejoint le staff.
+ */
+export interface TeamStaffMember {
+  uid: string;
+  name: string;
+  /** Ce qu'on montre : Adjoint, Coach, Dirigeant… */
+  title: string;
+  /** Reçoit les droits du manager sur l'équipe. Miroir de
+   *  `staff_manager_ids`, qui est la seule forme que les règles Firestore
+   *  savent interroger — une règle ne peut pas filtrer un tableau d'objets. */
+  delegated: boolean;
+}
 
 export interface Achievement {
   id: string;
@@ -228,6 +260,13 @@ export interface FirestoreTeam {
   followers_count?: number;
   squad_numbers?: { [playerId: string]: string };
   training_schedule?: TrainingScheduleSlot[];
+  /** Le staff, tel qu'on l'affiche. */
+  staff?: TeamStaffMember[];
+  /** Ceux du staff qui ont les droits du manager. Redondant avec
+   *  `staff[].delegated` et c'est voulu : les règles ne savent lire qu'un
+   *  tableau plat de chaînes. Les deux s'écrivent ensemble, voir
+   *  setTeamStaff. */
+  staff_manager_ids?: string[];
   // Équipe adverse qui n'est pas sur la plateforme, créée par un manager pour
   // pouvoir planifier un amical contre elle. C'est un vrai doc `teams` (sinon
   // le rollup de fin de match échouerait sur un doc absent) mais elle n'a ni
@@ -263,6 +302,8 @@ export interface Team {
   followersCount?: number;
   squadNumbers?: { [playerId: string]: string };
   trainingSchedule?: TrainingScheduleSlot[];
+  staff?: TeamStaffMember[];
+  staffManagerIds?: string[];
   isGhost?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -322,6 +363,15 @@ export interface FirestoreMatch {
   // il ne deviendra jamais "validated".
   validation_status?: "pending" | "contested" | "validated" | "unverified";
   completed_at?: string | null;
+  /**
+   * Un match contre une équipe hors plateforme ne crédite PAS les compteurs de
+   * carrière tout seul : personne en face pour contresigner. Le manager (ou un
+   * délégué) peut décider de les attribuer, et c'est ici qu'on garde la trace
+   * de qui l'a fait, et quand. Sa présence vaut « déjà crédité », ce qui est
+   * la seule protection contre un double comptage irréversible.
+   */
+  stats_credited_at?: string | null;
+  stats_credited_by?: string | null;
   live_state?: {
     current_period: number; // 0: pre, 1: 1st, 2: halftime, 3: 2nd, 4: finished
     timer_start_at: string | null;
@@ -409,6 +459,10 @@ export interface Match {
   confirmedAway: number;
   autoAcceptPlayers?: boolean;
   validationStatus?: "pending" | "contested" | "validated" | "unverified";
+  /** Voir `stats_credited_at` : renseigné dès que quelqu'un a attribué les
+   *  statistiques d'un match contre une équipe hors plateforme. */
+  statsCreditedAt?: string | null;
+  statsCreditedBy?: string | null;
   completedAt?: string | null;
   liveState?: {
     currentPeriod: number;
@@ -862,16 +916,27 @@ export interface Booking {
 // Ghost Players
 // ============================================
 
+/**
+ * Un joueur d'une équipe hors plateforme.
+ *
+ * IL N'A PAS DE STATISTIQUES, et c'est délibéré. Une équipe fantôme est
+ * l'adversaire du jeu vidéo : elle existe pour qu'on puisse jouer contre
+ * quelqu'un, pas pour tenir une carrière. Personne ne la représente, personne
+ * ne contresigne ses buts, et lui compter des statistiques reviendrait à
+ * publier un palmarès que son propre adversaire aurait saisi seul.
+ *
+ * Sa feuille de match reste générique : un nom, un poste, un numéro. De quoi
+ * dire qui a marqué en face pendant la rencontre, rien de plus.
+ *
+ * Les compteurs ont existé ici (buts, passes, cartons, matchs joués). Les
+ * documents déjà écrits les portent encore : plus rien ne les lit ni ne les
+ * incrémente.
+ */
 export interface FirestoreGhostPlayer {
   first_name: string;
   last_name: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squad_number?: string;
-  matches_played: number;
-  goals: number;
-  assists: number;
-  yellow_cards: number;
-  red_cards: number;
   created_at: string;
   updated_at: string;
 }
@@ -883,11 +948,6 @@ export interface GhostPlayer {
   lastName: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squadNumber?: string;
-  matchesPlayed: number;
-  goals: number;
-  assists: number;
-  yellowCards: number;
-  redCards: number;
   createdAt: string;
   updatedAt: string;
 }

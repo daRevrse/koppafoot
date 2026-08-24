@@ -35,7 +35,7 @@ import type {
   UserProfile, FirestoreUser,
   ShortlistEntry, FirestoreShortlistEntry,
   JoinRequest, FirestoreJoinRequest,
-  Training, FirestoreTraining, TrainingAttendee,
+  Training, FirestoreTraining, TrainingAttendee, TeamStaffMember,
   PlayerRating, FirestorePlayerRating,
   Booking, FirestoreBooking,
   GhostPlayer, FirestoreGhostPlayer, LineupEntry,
@@ -71,11 +71,6 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     lastName: d.last_name,
     position: d.position,
     squadNumber: d.squad_number ?? undefined,
-    matchesPlayed: d.matches_played ?? 0,
-    goals: d.goals ?? 0,
-    assists: d.assists ?? 0,
-    yellowCards: d.yellow_cards ?? 0,
-    redCards: d.red_cards ?? 0,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -106,6 +101,8 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
     achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
     squadNumbers: d.squad_numbers ?? {},
     trainingSchedule: d.training_schedule ?? [],
+    staff: d.staff ?? [],
+    staffManagerIds: d.staff_manager_ids ?? [],
     isGhost: d.is_ghost ?? false,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
@@ -157,6 +154,8 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     localRefereeName: d.local_referee_name ?? null,
     autoAcceptPlayers: d.auto_accept_players ?? false,
     validationStatus: d.validation_status ?? "pending",
+    statsCreditedAt: d.stats_credited_at ?? null,
+    statsCreditedBy: d.stats_credited_by ?? null,
     completedAt: d.completed_at ?? null,
     liveState: d.live_state ? {
       currentPeriod: d.live_state.current_period,
@@ -366,6 +365,35 @@ export async function getTeamsByManager(managerId: string): Promise<Team[]> {
   return (await fetchTeamsOfManager(managerId)).filter((t) => !t.isGhost);
 }
 
+/**
+ * Les équipes qu'on gère : les siennes, et celles où l'on est staff délégué.
+ *
+ * DEUX REQUÊTES ET PAS UNE, parce que Firestore ne sait pas faire de OU entre
+ * deux champs. Les résultats se recollent ici, dédoublonnés par id — le
+ * propriétaire d'une équipe pourrait figurer dans son propre staff.
+ *
+ * C'est ce prédicat que doivent utiliser les écrans qui demandent « mes
+ * équipes » : sans lui, un délégué a les droits sur la fiche mais l'équipe
+ * n'apparaît nulle part chez lui, ce qui revient à ne pas la lui avoir
+ * déléguée.
+ */
+export async function getTeamsIManage(uid: string): Promise<Team[]> {
+  const deleguees = query(
+    collection(db, "teams"),
+    where("staff_manager_ids", "array-contains", uid),
+  );
+  const [miennes, snap] = await Promise.all([
+    getTeamsByManager(uid),
+    getDocs(deleguees),
+  ]);
+  const parId = new Map(miennes.map((t) => [t.id, t]));
+  snap.docs
+    .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
+    .filter((t) => !t.isGhost)
+    .forEach((t) => parId.set(t.id, t));
+  return [...parId.values()];
+}
+
 /** Les adversaires hors plateforme créés par ce manager. */
 export async function getGhostTeamsByManager(managerId: string): Promise<Team[]> {
   return (await fetchTeamsOfManager(managerId)).filter((t) => t.isGhost);
@@ -429,6 +457,23 @@ export async function createGhostTeam(data: {
 
 export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
   await updateDoc(doc(db, "teams", teamId), { ...data, updated_at: serverTimestamp() });
+}
+
+/**
+ * Écrit le staff d'une équipe.
+ *
+ * LES DEUX CHAMPS PARTENT ENSEMBLE, toujours, et c'est la seule raison
+ * d'être de cette fonction : `staff` porte l'affichage, `staff_manager_ids`
+ * porte les droits, et c'est le second que lisent les règles Firestore. Les
+ * écrire séparément, c'est un jour où quelqu'un figure comme adjoint sur la
+ * fiche sans pouvoir rien toucher, ou l'inverse — bien pire.
+ */
+export async function setTeamStaff(teamId: string, staff: TeamStaffMember[]): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId), {
+    staff,
+    staff_manager_ids: staff.filter((m) => m.delegated).map((m) => m.uid),
+    updated_at: serverTimestamp(),
+  });
 }
 
 export async function updateTeamSquadNumbers(teamId: string, squadNumbers: Record<string, string>): Promise<void> {
@@ -940,10 +985,6 @@ export async function submitManagerFeedback(
     comments?: string;
     refereeRating?: number;
   },
-  ghostRollup?: {
-    teamId: string;
-    ghostPlayers: GhostPlayer[];
-  }
 ): Promise<void> {
   const matchRef = doc(db, "matches", matchId);
   await runTransaction(db, async (transaction) => {
@@ -983,22 +1024,6 @@ export async function submitManagerFeedback(
       updated_at: serverTimestamp(),
     });
   });
-
-  // Rollup ghost player stats after transaction
-  if (ghostRollup && ghostRollup.ghostPlayers.length > 0) {
-    // Re-read match events after transaction to get liveState
-    const matchSnap = await getDoc(doc(db, "matches", matchId));
-    if (matchSnap.exists()) {
-      const matchData = matchSnap.data() as FirestoreMatch;
-      if (matchData.live_state?.events) {
-        await rollupGhostPlayerStats(
-          ghostRollup.teamId,
-          ghostRollup.ghostPlayers,
-          matchData.live_state.events as unknown as NonNullable<Match["liveState"]>["events"]
-        );
-      }
-    }
-  }
 }
 
 // ============================================
@@ -1296,6 +1321,30 @@ export async function forceCompleteMatch(matchId: string): Promise<void> {
     status: "completed",
     updated_at: serverTimestamp(),
   });
+}
+
+/**
+ * Attribuer les statistiques d'un amical joué contre une équipe hors
+ * plateforme, aux joueurs de sa propre équipe.
+ *
+ * Même raison que le rollup de fin de match : les compteurs vivent sur des
+ * documents que l'appelant ne possède pas, donc l'écriture est côté serveur.
+ * Voir /api/matches/credit-stats pour ce que ça engage.
+ */
+export async function creditGhostMatchStats(matchId: string): Promise<number> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/matches/credit-stats", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify({ matchId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "L'attribution a échoué");
+  return data.joueurs ?? 0;
 }
 
 /**
@@ -2433,11 +2482,6 @@ export async function createGhostPlayer(
     last_name: data.lastName.trim(),
     position: data.position,
     squad_number: data.squadNumber?.trim() || null,
-    matches_played: 0,
-    goals: 0,
-    assists: 0,
-    yellow_cards: 0,
-    red_cards: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
@@ -2481,41 +2525,6 @@ export function onGhostPlayersByTeam(
   return onSnapshot(ref, (snap) => {
     callback(snap.docs.map((d) => toGhostPlayer(d.id, teamId, d.data() as FirestoreGhostPlayer)));
   });
-}
-
-export async function rollupGhostPlayerStats(
-  teamId: string,
-  ghostPlayers: GhostPlayer[],
-  matchEvents: NonNullable<Match["liveState"]>["events"]
-): Promise<void> {
-  if (!ghostPlayers.length || !matchEvents?.length) return;
-
-  const ghostIds = new Set(ghostPlayers.map((g) => g.id));
-  const stats: Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number }> = {};
-
-  for (const event of matchEvents) {
-    if (!event.playerId || !ghostIds.has(event.playerId)) continue;
-    if (!stats[event.playerId]) stats[event.playerId] = { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 };
-    if (event.type === "goal") stats[event.playerId].goals += 1;
-    if (event.type === "yellow_card") stats[event.playerId].yellow_cards += 1;
-    if (event.type === "red_card") stats[event.playerId].red_cards += 1;
-  }
-
-  if (!Object.keys(stats).length) return;
-
-  const batch = writeBatch(db);
-  for (const [ghostId, s] of Object.entries(stats)) {
-    const ref = doc(db, "teams", teamId, "ghost_players", ghostId);
-    batch.update(ref, {
-      goals: increment(s.goals),
-      assists: increment(s.assists),
-      yellow_cards: increment(s.yellow_cards),
-      red_cards: increment(s.red_cards),
-      matches_played: increment(1),
-      updated_at: new Date().toISOString(),
-    });
-  }
-  await batch.commit();
 }
 
 // ============================================

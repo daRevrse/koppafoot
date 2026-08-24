@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users, Search, Filter, ChevronDown, MoreVertical,
@@ -8,11 +8,25 @@ import {
   Mail, Phone, MapPin, Calendar,
   Eye, Ban, CheckCircle, XCircle, Loader2,
 } from "lucide-react";
-import { getAllUsers, toggleUserActive } from "@/lib/admin-firestore";
+import { getAllUsers, getModeratorIds, toggleUserActive } from "@/lib/admin-firestore";
+import {
+  ESPACE_LABELS, espacesDuCompte, roleEffectif, roleHerite, type EspaceAcces,
+} from "@/lib/espaces-acces";
+import RecordActions from "@/components/admin/RecordActions";
 import { useAuth } from "@/contexts/AuthContext";
-import type { UserProfile, UserRole } from "@/types";
+import type { EvolutionRole, UserProfile, UserRole } from "@/types";
 import toast from "react-hot-toast";
 
+/**
+ * Les rôles, et rien d'autre.
+ *
+ * Organisateur, propriétaire de terrain et administrateur figuraient ici :
+ * ce ne sont pas des rôles mais des CASQUETTES, ce qu'un compte FAIT en plus
+ * de ce qu'il EST sur le terrain (voir lib/hats). Les mélanger donnait une
+ * colonne où « organisateur » chassait « joueur », alors que le même compte
+ * est les deux. Ils vivent maintenant dans la colonne des espaces, avec la
+ * console live et l'administration.
+ */
 const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
   player: { label: "Joueur", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
   manager: { label: "Manager", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-400" },
@@ -77,23 +91,51 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  // Sur le rôle EFFECTIF : celui qu'on a activé dans Évolution, ou à défaut
+  // celui déclaré à l'inscription pour les comptes plus anciens. Voir
+  // lib/espaces-acces, même raisonnement que pour les casquettes.
+  const [roleFilter, setRoleFilter] = useState<"all" | "sans" | EvolutionRole>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  // CE QU'UN COMPTE PEUT OUVRIR, et non ce que dit `user_type` — qui vaut
+  // « player » par défaut à l'inscription, choisi ou non. Un espace s'ouvre
+  // par le rôle OU par une casquette OU par une modération, voir
+  // lib/espaces-acces.
+  const [espaceFilter, setEspaceFilter] = useState<"all" | "aucun" | EspaceAcces>("all");
+  const [moderateurs, setModerateurs] = useState<Set<string>>(new Set());
   const [roleTarget, setRoleTarget] = useState<UserProfile | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [savingRole, setSavingRole] = useState<RoleAction | null>(null);
 
-  useEffect(() => {
+  // Pas de `setLoading(true)` ici : l'état de départ est déjà « en
+  // chargement », et le poser depuis l'effet déclencherait un rendu en
+  // cascade. Un rechargement après correction remplace la liste sans clignoter.
+  const charger = useCallback(() => {
     getAllUsers(500)
       .then(setUsers)
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => { charger(); }, [charger]);
+
+  // Une seule traversée des compétitions répond pour toute la liste : la
+  // console live s'ouvre sur `moderator_ids`, pas sur le compte.
+  useEffect(() => {
+    getModeratorIds().then(setModerateurs).catch(() => {});
+  }, []);
+
   const filtered = useMemo(() => {
     return users.filter((u) => {
-      if (roleFilter !== "all" && u.userType !== roleFilter) return false;
+      const role = roleEffectif(u);
+      if (roleFilter === "sans" && role) return false;
+      if (roleFilter !== "all" && roleFilter !== "sans" && role !== roleFilter) return false;
       if (statusFilter === "active" && !u.isActive) return false;
       if (statusFilter === "inactive" && u.isActive) return false;
+      if (espaceFilter !== "all") {
+        const ouverts = espacesDuCompte(u, moderateurs);
+        if (espaceFilter === "aucun" ? ouverts.length > 0 : !ouverts.includes(espaceFilter)) {
+          return false;
+        }
+      }
       if (search) {
         const s = search.toLowerCase();
         return (
@@ -104,13 +146,21 @@ export default function AdminUsersPage() {
       }
       return true;
     });
-  }, [users, search, roleFilter, statusFilter]);
+  }, [users, search, roleFilter, statusFilter, espaceFilter, moderateurs]);
 
   const roleCounts = useMemo(() => {
     const map = new Map<string, number>();
-    users.forEach((u) => map.set(u.userType, (map.get(u.userType) ?? 0) + 1));
+    users.forEach((u) => {
+      const cle = roleEffectif(u) ?? "sans";
+      map.set(cle, (map.get(cle) ?? 0) + 1);
+    });
     return map;
   }, [users]);
+
+  const sansEspace = useMemo(
+    () => users.filter((u) => espacesDuCompte(u, moderateurs).length === 0).length,
+    [users, moderateurs],
+  );
 
   const handleToggleActive = async (uid: string, currentActive: boolean) => {
     setToggling(uid);
@@ -150,7 +200,7 @@ export default function AdminUsersPage() {
       setUsers((prev) =>
         prev.map((u) => (u.uid === target.uid ? { ...u, userType: newType } : u)),
       );
-      toast.success(data.message ?? "Rôle mis à jour.");
+      toast.success(data.message ?? "Casquettes mises à jour.");
       setRoleTarget(null);
     } catch {
       toast.error("Erreur réseau.");
@@ -176,7 +226,7 @@ export default function AdminUsersPage() {
           transition={{ delay: 0.05 }}
           className="text-sm text-gray-500 mt-0.5"
         >
-          {users.length} utilisateurs au total sur la plateforme
+          {users.length} utilisateurs au total, dont {sansEspace} sans aucun espace
         </motion.p>
       </div>
 
@@ -192,9 +242,10 @@ export default function AdminUsersPage() {
           { value: "player" as const, label: "Joueurs", count: roleCounts.get("player") ?? 0 },
           { value: "manager" as const, label: "Managers", count: roleCounts.get("manager") ?? 0 },
           { value: "referee" as const, label: "Arbitres", count: roleCounts.get("referee") ?? 0 },
-          { value: "venue_owner" as const, label: "Propriétaires", count: roleCounts.get("venue_owner") ?? 0 },
-          { value: "organizer" as const, label: "Organisateurs", count: roleCounts.get("organizer") ?? 0 },
-          { value: "superadmin" as const, label: "Admins", count: roleCounts.get("superadmin") ?? 0 },
+          // Les casquettes ne sont pas des rôles : elles se filtrent par la
+          // liste des espaces, à côté, où elles cohabitent avec le rôle au
+          // lieu de le remplacer.
+          { value: "sans" as const, label: "Sans rôle", count: roleCounts.get("sans") ?? 0 },
         ].map((pill) => (
           <button
             key={pill.value}
@@ -235,6 +286,17 @@ export default function AdminUsersPage() {
           />
         </div>
         <select
+          value={espaceFilter}
+          onChange={(e) => setEspaceFilter(e.target.value as "all" | "aucun" | EspaceAcces)}
+          className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="all">Tous les espaces</option>
+          <option value="aucun">Aucun espace</option>
+          {(Object.keys(ESPACE_LABELS) as EspaceAcces[]).map((e) => (
+            <option key={e} value={e}>Accès {ESPACE_LABELS[e].toLowerCase()}</option>
+          ))}
+        </select>
+        <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
           className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -267,6 +329,7 @@ export default function AdminUsersPage() {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Utilisateur</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Espaces ouverts</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Rôle</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Ville</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Contact</th>
@@ -277,7 +340,9 @@ export default function AdminUsersPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((u, i) => {
-                  const roleConf = ROLE_CONFIG[u.userType] ?? ROLE_CONFIG.player;
+                  const role = roleEffectif(u);
+                  const roleConf = role ? ROLE_CONFIG[role] : null;
+                  const herite = roleHerite(u);
                   return (
                     <motion.tr
                       key={u.uid}
@@ -297,16 +362,65 @@ export default function AdminUsersPage() {
                           </div>
                         </div>
                       </td>
+                      {/* CE QUE LE COMPTE PEUT OUVRIR, calculé comme le
+                          calcule la navigation du produit : rôle, casquettes,
+                          modération. Une pastille vide dit ce que `user_type`
+                          cachait — un compte qui ne voit que les scores. */}
                       <td className="px-5 py-3">
+                        {/* Cliquable, parce que c'est ICI que se règle ce qui
+                            s'accorde : les casquettes organisateur et
+                            administrateur. Elles ouvrent un espace, donc elles
+                            se donnent depuis la colonne des espaces. */}
                         <button
                           onClick={() => setRoleTarget(u)}
-                          title="Modifier le rôle"
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all hover:ring-2 hover:ring-gray-200 ${roleConf.bg} ${roleConf.color}`}
+                          title="Gérer les casquettes"
+                          className="flex flex-wrap items-center gap-1 rounded-lg px-1 py-0.5 text-left transition-all hover:ring-2 hover:ring-gray-200"
                         >
-                          <span className={`h-1.5 w-1.5 rounded-full ${roleConf.dot}`} />
-                          {roleConf.label}
-                          <ChevronDown size={11} className="opacity-40 group-hover:opacity-70" />
+                          {(() => {
+                            const ouverts = espacesDuCompte(u, moderateurs);
+                            if (ouverts.length === 0) {
+                              return (
+                                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                                  Aucun
+                                </span>
+                              );
+                            }
+                            return ouverts.map((e) => (
+                              <span
+                                key={e}
+                                className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-700"
+                              >
+                                {ESPACE_LABELS[e]}
+                              </span>
+                            ));
+                          })()}
+                          <ChevronDown size={11} className="text-gray-300" />
                         </button>
+                      </td>
+                      {/* Le rôle ne se donne pas depuis ici : c'est le compte
+                          qui le choisit, dans Évolution. Une pastille cliquable
+                          laissait croire le contraire. Ce qui S'ACCORDE — les
+                          casquettes — se règle depuis la colonne des espaces. */}
+                      <td className="px-5 py-3">
+                        {roleConf ? (
+                          <span
+                            title={herite
+                              ? "Déclaré à l'inscription, jamais activé dans Évolution : le produit ne lui ouvre pas cet espace."
+                              : "Activé dans Évolution"}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleConf.bg} ${roleConf.color}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${roleConf.dot}`} />
+                            {roleConf.label}
+                            {/* Hérité : le rôle est déclaré mais pas activé, et
+                                la navigation n'ouvre l'espace qu'une fois
+                                activé. Sans cette marque, la colonne « Rôle »
+                                et la colonne « Espaces » se contrediraient sans
+                                qu'on comprenne pourquoi. */}
+                            {herite && <span className="font-normal opacity-60">hérité</span>}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-gray-300">Aucun</span>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <span className="text-sm text-gray-600">{u.locationCity || ","}</span>
@@ -353,6 +467,28 @@ export default function AdminUsersPage() {
                             </>
                           )}
                         </button>
+                        {/* La correction d'identité et l'effacement d'un compte
+                            vivent à côté de la suspension : trois gestes de la
+                            même colonne, du plus réversible au moins. Le rôle,
+                            lui, garde son propre chemin (la pastille). */}
+                        <span className="ml-2 inline-flex align-middle">
+                          <RecordActions
+                            resource="user"
+                            id={u.uid}
+                            label={`${u.firstName} ${u.lastName}`}
+                            onDone={charger}
+                            champs={[
+                              { cle: "first_name", label: "Prénom" },
+                              { cle: "last_name", label: "Nom" },
+                              { cle: "location_city", label: "Ville" },
+                              { cle: "bio", label: "Bio" },
+                            ]}
+                            valeurs={{
+                              first_name: u.firstName, last_name: u.lastName,
+                              location_city: u.locationCity, bio: u.bio ?? "",
+                            }}
+                          />
+                        </span>
                       </td>
                     </motion.tr>
                   );
@@ -388,12 +524,13 @@ export default function AdminUsersPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="font-bold text-gray-900">
-                Rôle de {roleTarget.firstName} {roleTarget.lastName}
+                Casquettes de {roleTarget.firstName} {roleTarget.lastName}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Actuellement{" "}
+                Ouvre{" "}
                 <span className="font-medium text-gray-700">
-                  {(ROLE_CONFIG[roleTarget.userType] ?? ROLE_CONFIG.player).label}
+                  {espacesDuCompte(roleTarget, moderateurs).map((e) => ESPACE_LABELS[e]).join(", ")
+                    || "aucun espace"}
                 </span>
                 {", "}
                 {roleTarget.email || roleTarget.phone || "sans contact"}
@@ -401,7 +538,7 @@ export default function AdminUsersPage() {
 
               {roleTarget.uid === firebaseUser?.uid ? (
                 <p className="mt-5 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
-                  Vous ne pouvez pas modifier votre propre rôle.
+                  Vous ne pouvez pas modifier vos propres casquettes.
                 </p>
               ) : (
                 <div className="mt-5 space-y-2">
@@ -431,7 +568,7 @@ export default function AdminUsersPage() {
                     <RoleOption
                       icon={UserMinus}
                       label="Retirer les droits"
-                      hint="Le compte redevient un simple joueur."
+                      hint="Le compte perd l'espace correspondant, son rôle ne change pas."
                       tone="gray"
                       busy={savingRole === "revoke"}
                       disabled={savingRole !== null}

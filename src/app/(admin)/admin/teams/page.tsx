@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { motion } from "motion/react";
 import {
   Shield, Search, Users, MapPin, Trophy, TrendingUp,
   Loader2, ChevronRight, Star,
 } from "lucide-react";
 import { getAllTeams } from "@/lib/admin-firestore";
+import RecordActions from "@/components/admin/RecordActions";
 import type { Team } from "@/types";
 
 const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -22,11 +23,16 @@ export default function AdminTeamsPage() {
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState<string>("all");
 
-  useEffect(() => {
+  // Pas de `setLoading(true)` ici : l'état de départ est déjà « en
+  // chargement », et le poser depuis l'effet déclencherait un rendu en
+  // cascade. Un rechargement après correction remplace la liste sans clignoter.
+  const charger = useCallback(() => {
     getAllTeams(300)
       .then(setTeams)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { charger(); }, [charger]);
 
   const filtered = useMemo(() => {
     return teams.filter((t) => {
@@ -179,11 +185,38 @@ export default function AdminTeamsPage() {
                     <span>{team.draws}N</span>
                     <span>{team.losses}D</span>
                   </div>
-                  {team.isRecruiting && (
-                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
-                      Recrute
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {team.isRecruiting && (
+                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
+                        Recrute
+                      </span>
+                    )}
+                    <RecordActions
+                      resource="team"
+                      id={team.id}
+                      label={team.name}
+                      onDone={charger}
+                      champs={[
+                        { cle: "name", label: "Nom" },
+                        { cle: "city", label: "Ville" },
+                        { cle: "slogan", label: "Slogan" },
+                        { cle: "description", label: "Description" },
+                        { cle: "max_members", label: "Effectif maximum", type: "nombre" },
+                        { cle: "level", label: "Niveau", type: "liste", options: [
+                          { valeur: "beginner", label: "Débutant" },
+                          { valeur: "amateur", label: "Amateur" },
+                          { valeur: "intermediate", label: "Intermédiaire" },
+                          { valeur: "advanced", label: "Avancé" },
+                        ] },
+                        { cle: "is_recruiting", label: "En recrutement", type: "booleen" },
+                      ]}
+                      valeurs={{
+                        name: team.name, city: team.city, slogan: team.slogan ?? "",
+                        description: team.description, max_members: team.maxMembers,
+                        level: team.level, is_recruiting: team.isRecruiting,
+                      }}
+                    />
+                  </div>
                 </div>
               </motion.div>
             );
