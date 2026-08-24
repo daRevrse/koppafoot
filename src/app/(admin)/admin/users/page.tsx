@@ -14,6 +14,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { UserProfile, UserRole } from "@/types";
 import toast from "react-hot-toast";
 
+/** Les trois rôles qu'un compte peut activer lui-même, voir EvolutionRole. */
+const EVOLUTION_LABELS: Record<string, string> = {
+  player: "Joueur",
+  manager: "Manager",
+  referee: "Arbitre",
+};
+
 const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
   player: { label: "Joueur", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
   manager: { label: "Manager", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-400" },
@@ -80,6 +87,10 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  // Le rôle Évolution est CE QUE LE COMPTE A CHOISI, à ne pas confondre avec
+  // `user_type`, qui vaut « player » par défaut à l'inscription. Une liste où
+  // les deux se ressemblent laissait croire que tout le monde avait choisi.
+  const [evolutionFilter, setEvolutionFilter] = useState<"all" | "choisi" | "aucun">("all");
   const [roleTarget, setRoleTarget] = useState<UserProfile | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [savingRole, setSavingRole] = useState<RoleAction | null>(null);
@@ -100,6 +111,8 @@ export default function AdminUsersPage() {
       if (roleFilter !== "all" && u.userType !== roleFilter) return false;
       if (statusFilter === "active" && !u.isActive) return false;
       if (statusFilter === "inactive" && u.isActive) return false;
+      if (evolutionFilter === "choisi" && !u.evolutionRole) return false;
+      if (evolutionFilter === "aucun" && u.evolutionRole) return false;
       if (search) {
         const s = search.toLowerCase();
         return (
@@ -110,13 +123,15 @@ export default function AdminUsersPage() {
       }
       return true;
     });
-  }, [users, search, roleFilter, statusFilter]);
+  }, [users, search, roleFilter, statusFilter, evolutionFilter]);
 
   const roleCounts = useMemo(() => {
     const map = new Map<string, number>();
     users.forEach((u) => map.set(u.userType, (map.get(u.userType) ?? 0) + 1));
     return map;
   }, [users]);
+
+  const sansRole = useMemo(() => users.filter((u) => !u.evolutionRole).length, [users]);
 
   const handleToggleActive = async (uid: string, currentActive: boolean) => {
     setToggling(uid);
@@ -182,7 +197,7 @@ export default function AdminUsersPage() {
           transition={{ delay: 0.05 }}
           className="text-sm text-gray-500 mt-0.5"
         >
-          {users.length} utilisateurs au total sur la plateforme
+          {users.length} utilisateurs au total, dont {sansRole} sans rôle choisi
         </motion.p>
       </div>
 
@@ -241,6 +256,15 @@ export default function AdminUsersPage() {
           />
         </div>
         <select
+          value={evolutionFilter}
+          onChange={(e) => setEvolutionFilter(e.target.value as "all" | "choisi" | "aucun")}
+          className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="all">Rôle choisi ou non</option>
+          <option value="choisi">Rôle choisi</option>
+          <option value="aucun">Sans rôle</option>
+        </select>
+        <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
           className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -273,6 +297,7 @@ export default function AdminUsersPage() {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Utilisateur</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Rôle choisi</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Rôle</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Ville</th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Contact</th>
@@ -302,6 +327,22 @@ export default function AdminUsersPage() {
                             <p className="text-xs text-gray-500 truncate max-w-[180px]">{u.email || u.phone || ","}</p>
                           </div>
                         </div>
+                      </td>
+                      {/* CE QUE LE COMPTE A CHOISI, et non ce que la base a
+                          mis par défaut. Sans cette colonne, impossible de
+                          distinguer un joueur qui s'est déclaré joueur d'un
+                          compte qui n'a jamais rien choisi : `user_type` vaut
+                          « player » dans les deux cas. */}
+                      <td className="px-5 py-3">
+                        {u.evolutionRole ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-700">
+                            {EVOLUTION_LABELS[u.evolutionRole]}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                            Aucun
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <button

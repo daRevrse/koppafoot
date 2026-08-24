@@ -287,6 +287,43 @@ export function teamManagerInviteHtml(
 
 // ── Campaign templates ──────────────────────────────────────
 
+/**
+ * Aux comptes qui n'ont jamais choisi de rôle.
+ *
+ * On ne leur reproche rien et on ne suppose pas qu'ils ont oublié : la
+ * plupart se sont inscrits pour suivre un match, et ne savent pas qu'il y a
+ * autre chose derrière. L'email dit ce que chaque rôle OUVRE, plutôt que de
+ * demander de remplir un formulaire.
+ */
+export function campaignNoRoleHtml(firstName: string): string {
+  return emailLayout(`
+    <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+      Vous suivez les matchs. Et si vous y jouiez&nbsp;?
+    </h2>
+    <p style="margin:0 0 16px;">
+      Votre compte KoppaFoot suit les scores en direct, et c'est déjà bien. Mais
+      le produit fait beaucoup plus dès qu'on lui dit ce qu'on est sur le terrain.
+    </p>
+    <table cellpadding="0" cellspacing="0" style="margin-top:8px;margin-bottom:24px;">
+      <tr>
+        <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;">
+          <p style="margin:0;font-size:13px;color:#166534;line-height:1.9;">
+            <strong>Joueur</strong> — votre fiche, vos convocations, vos buts.<br/>
+            <strong>Manager</strong> — votre équipe, son effectif, ses matchs.<br/>
+            <strong>Arbitre</strong> — vos désignations et vos feuilles de match.
+          </p>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
+      Le choix se fait en un clic, et rien n'est définitif : on change de rôle
+      quand on veut.
+    </p>
+    ${ctaButton("Choisir mon rôle", `${APP_URL}/evolution`)}
+  `);
+}
+
 export function campaignManagerNoTeamHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut Coach ${firstName},</p>
