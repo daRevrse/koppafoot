@@ -8,6 +8,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
+import { getMatchesIModerate } from "@/lib/firestore";
 import { isOrganizer, isVenueOwner } from "@/lib/hats";
 import { ROLE_DESTINATIONS } from "@/config/role-destinations";
 import { useT } from "@/i18n";
@@ -61,12 +62,20 @@ export function useEspaces(): Espaces | null {
   const t = useT();
   const [moderates, setModerates] = useState(false);
 
+  // Deux façons d'ouvrir la console, et il faut les deux : une compétition
+  // qu'on modère, ou un simple match qu'on a été chargé de couvrir. Ne
+  // regarder que les compétitions laissait l'entrée fermée pour quelqu'un
+  // invité sur un amical, qui recevait la notification sans avoir nulle part
+  // où aller.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    listModeratedCompetitions(user.uid)
-      .then((comps) => { if (!cancelled) setModerates(comps.length > 0); })
-      .catch(() => {});
+    Promise.all([
+      listModeratedCompetitions(user.uid).catch(() => []),
+      getMatchesIModerate(user.uid).catch(() => []),
+    ]).then(([comps, matchs]) => {
+      if (!cancelled) setModerates(comps.length > 0 || matchs.length > 0);
+    });
     return () => { cancelled = true; };
   }, [user]);
 

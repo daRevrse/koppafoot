@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import {
   Bell, CheckCheck, ChevronRight, Inbox, Loader2, Megaphone,
-  Swords, ClipboardCheck, UserPlus, Users, Star,
+  Swords, ClipboardCheck, UserPlus, Users, Star, CalendarClock,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { Notification, NotificationType } from "@/types";
@@ -31,6 +31,7 @@ const TYPE_META: Record<
   invitation:            { label: "Invitation",  Icon: UserPlus,       tone: "bg-emerald-50 text-emerald-600" },
   join_request:          { label: "Candidature", Icon: Inbox,          tone: "bg-blue-50 text-blue-600" },
   match_challenge:       { label: "Défi",        Icon: Swords,         tone: "bg-amber-50 text-amber-600" },
+  match_update:          { label: "Match",       Icon: CalendarClock,  tone: "bg-amber-50 text-amber-600" },
   participation_request: { label: "Convocation", Icon: ClipboardCheck, tone: "bg-purple-50 text-purple-600" },
   admin_message:         { label: "Message",     Icon: Megaphone,      tone: "bg-red-50 text-red-600" },
   team_activity:         { label: "Mon équipe",  Icon: Users,          tone: "bg-emerald-50 text-emerald-600" },
@@ -48,7 +49,8 @@ type FilterKey = (typeof FILTERS)[number]["key"];
 
 const MARKET_TYPES: NotificationType[] = ["invitation", "join_request"];
 const TEAM_TYPES: NotificationType[] = [
-  "team_activity", "follow_activity", "match_challenge", "participation_request",
+  "team_activity", "follow_activity", "match_challenge", "match_update",
+  "participation_request",
 ];
 
 function dayKey(iso: string): string {

@@ -414,9 +414,32 @@ export interface FirestoreMatch {
   } | null;
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
-  // Feuille de match du camp sans comptes (adversaire hors plateforme). Les
-  // joueurs réels passent par les participations ; un fantôme n'en a pas, donc
-  // sa compo est dénormalisée sur le match, comme côté compétition.
+  /**
+   * Ceux qui peuvent tenir la console de CE match, en plus des managers.
+   *
+   * La modération vivait uniquement sur `competitions.moderator_ids`, donc à
+   * l'échelle d'une compétition entière. Un amical n'appartient à aucune
+   * compétition : personne, hors le manager qui l'a créé, ne pouvait le
+   * couvrir. Cette liste-ci est portée par le match et ne vaut que pour lui.
+   */
+  moderator_ids?: string[];
+  /**
+   * Les joueurs SANS COMPTE de chaque camp, sur la feuille de ce match.
+   *
+   * Un joueur réel porte sa compo sur son document `participations` ; un
+   * joueur sans compte n'en a aucun, sa compo est donc dénormalisée ici, camp
+   * par camp, comme côté compétition.
+   *
+   * DEUX CHAMPS ET NON UN, parce que les deux camps peuvent en avoir : un
+   * adversaire hors plateforme n'a QUE ceux-là, mais une vraie équipe en
+   * compte souvent quelques-uns — parfois tout son effectif. Le champ unique
+   * `ghost_lineup` ne servait que l'adversaire : les joueurs sans compte de
+   * sa PROPRE équipe étaient saisissables à l'écran et perdus à
+   * l'enregistrement, `updateMatchLineup` n'écrivant que des participations.
+   */
+  home_ghost_lineup?: FirestoreLineupEntry[];
+  away_ghost_lineup?: FirestoreLineupEntry[];
+  /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
   post_match_feedback?: {
     [manager_id: string]: {
@@ -491,7 +514,11 @@ export interface Match {
   modificationRequest?: MatchModificationRequest | null;
   homeLineupReady?: boolean;
   awayLineupReady?: boolean;
-  ghostLineup?: LineupEntry[];
+  /** Voir `FirestoreMatch.moderator_ids`. */
+  moderatorIds: string[];
+  /** Voir `FirestoreMatch.home_ghost_lineup`. */
+  homeGhostLineup: LineupEntry[];
+  awayGhostLineup: LineupEntry[];
   postMatchFeedback?: {
     [managerId: string]: {
       validation: "validated" | "contested";
@@ -937,6 +964,20 @@ export interface FirestoreGhostPlayer {
   last_name: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squad_number?: string;
+  /**
+   * La carrière d'un joueur sans compte.
+   *
+   * Elle vit ici, sur la sous-collection de son équipe, et non sur un document
+   * `users` qui n'existe pas. Créditée aux mêmes conditions qu'un joueur avec
+   * compte — voir /api/matches/complete : le direct vaut constat, un match non
+   * couvert s'attribue à la main.
+   *
+   * Ces compteurs se déversent sur un vrai compte le jour où le joueur en crée
+   * un, voir /api/teams/merge-ghost.
+   */
+  goals?: number;
+  assists?: number;
+  matches_played?: number;
   created_at: string;
   updated_at: string;
 }
@@ -948,6 +989,10 @@ export interface GhostPlayer {
   lastName: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squadNumber?: string;
+  /** Voir `FirestoreGhostPlayer.goals`. */
+  goals: number;
+  assists: number;
+  matchesPlayed: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -971,6 +1016,9 @@ export type NotificationType =
   | "invitation"
   | "join_request"
   | "match_challenge"
+  /** Un match déjà programmé change de date, d'heure ou de terrain.
+   *  Envoyée à tous ceux qui y sont convoqués. */
+  | "match_update"
   | "participation_request"
   | "admin_message"
   /** Vie d'une équipe dont on est membre : arrivée, départ, inscription

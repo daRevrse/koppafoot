@@ -7,7 +7,8 @@ import {
   Trophy, Calendar, MapPin, Clock, Users, Shield,
   Plus, CheckCircle, XCircle, Timer, ChevronRight,
   Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send, Star, ClipboardList,
-  Activity, MonitorPlay, CheckCircle2, ArrowRight, History, Settings, Filter, ShieldCheck, Ban, Info
+  Activity, MonitorPlay, CheckCircle2, ArrowRight, History, Settings, Filter, ShieldCheck, Ban, Info,
+  Swords, CalendarPlus
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,9 +21,10 @@ import {
   getVenues,
   createMatch,
   cancelMatch,
-  searchTeams,
-  getGhostTeamsByManager,
-  createGhostTeam,
+  deleteMatch,
+  searchOpponentTeams,
+  createGhostOpponent,
+  updateMatchSchedule,
   getTeamMembers,
   getTeamById,
   getUsersByIds,
@@ -35,7 +37,7 @@ import {
   getRatingsForMatch,
   ratePlayer,
 } from "@/lib/firestore";
-import type { Match, Team, Venue, UserProfile, PlayerRating } from "@/types";
+import type { Match, Team, Venue, PlayerRating, LineupEntry } from "@/types";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -57,17 +59,28 @@ const REFEREE_STATUS_CONFIG = {
   none: { label: "Non assigné", color: "bg-gray-100 text-gray-500", icon: AlertCircle },
 };
 
-// Miroir client de ce que createGhostTeam écrit en base : évite un aller-retour
-// Firestore juste pour réafficher l'adversaire qu'on vient de créer.
-const EMPTY_GHOST_TEAM: Team = {
-  id: "", name: "", managerId: "", city: "", description: "",
-  level: "amateur", lookingFor: [], memberIds: [], maxMembers: 0,
-  color: "#6B7280", wins: 0, losses: 0, draws: 0, matchesPlayed: 0,
-  isRecruiting: false, isGhost: true,
-  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+/**
+ * Aujourd'hui, au format d'un `<input type="date">`.
+ *
+ * Construit champ par champ et NON via toISOString(), qui rend de l'UTC :
+ * passé 00h à l'ouest de Greenwich il renvoie déjà demain, et à l'est il
+ * renvoie encore hier en fin de soirée — dans les deux cas le plancher est
+ * faux d'une journée pour la moitié des utilisateurs.
+ */
+const aujourdhui = (): string => {
+  const d = new Date();
+  const mois = String(d.getMonth() + 1).padStart(2, "0");
+  const jour = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mois}-${jour}`;
 };
 
+/** Une date de match antérieure à aujourd'hui. */
+const dateDepassee = (date: string): boolean => !!date && date < aujourdhui();
+
 const FORMAT_TOTAL_PLAYERS: Record<string, number> = { "5v5": 10, "7v7": 14, "11v11": 22 };
+// Miroir de TAILLE_EFFECTIF (firestore.ts) : sert uniquement à annoncer au
+// manager combien de joueurs génériques il va récupérer.
+const TAILLE_EFFECTIF_FORMAT: Record<string, number> = { "5v5": 5, "7v7": 7, "11v11": 11 };
 const FORMAT_MIN_PER_TEAM: Record<string, number> = { "5v5": 3, "7v7": 5, "11v11": 8 };
 const getMinConfirmed = (format: string) => FORMAT_MIN_PER_TEAM[format] || 3;
 
@@ -111,6 +124,24 @@ function MatchSkeleton() {
 
 type Tab = "live" | "upcoming" | "completed" | "draft" | "challenges";
 
+/**
+ * Les deux parcours de création, qui n'ont presque rien en commun après la
+ * validation du formulaire.
+ *
+ *  - "challenge" : l'adversaire a un compte. On lui envoie un défi, il
+ *    l'accepte, et c'est SON acceptation qui convoque les deux effectifs.
+ *  - "friendly"  : l'adversaire n'est pas sur KoppaFoot. Personne n'a rien à
+ *    accepter, le match est programmé sec et notre effectif est convoqué
+ *    dans la foulée.
+ *
+ * Les mélanger dans un seul formulaire laissait le manager découvrir au
+ * troisième champ dans lequel des deux il se trouvait.
+ */
+type CreateMode = "challenge" | "friendly";
+
+/** Un match sans manager en face : l'adversaire n'est pas sur la plateforme. */
+const estAmical = (m: Match) => !m.awayManagerId;
+
 export default function MatchesPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -120,7 +151,7 @@ export default function MatchesPage() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("upcoming");
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createMode, setCreateMode] = useState<CreateMode | null>(null);
   const [creating, setCreating] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
@@ -131,6 +162,8 @@ export default function MatchesPage() {
   const [modTime, setModTime] = useState("");
   const [modVenueId, setModVenueId] = useState("");
   const [modReason, setModReason] = useState("");
+  const [modVenueName, setModVenueName] = useState("");
+  const [modVenueCity, setModVenueCity] = useState("");
   const [submittingMod, setSubmittingMod] = useState(false);
   const [respondingToMod, setRespondingToMod] = useState<string | null>(null);
   const [respondingToRef, setRespondingToRef] = useState<string | null>(null);
@@ -154,13 +187,8 @@ export default function MatchesPage() {
   const [awayTeamId, setAwayTeamId] = useState("");
   const [awayTeamName, setAwayTeamName] = useState("");
   const [awayManagerId, setAwayManagerId] = useState("");
-  // Adversaires hors plateforme déjà créés par ce manager, et drapeau sur la
-  // sélection courante : un fantôme n'a pas de manager en face, donc pas de
-  // défi à envoyer ni de compte à notifier.
-  const [ghostTeams, setGhostTeams] = useState<Team[]>([]);
-  const [awayIsGhost, setAwayIsGhost] = useState(false);
-  const [creatingGhost, setCreatingGhost] = useState(false);
   const [showAwayDropdown, setShowAwayDropdown] = useState(false);
+  const [searchingAway, setSearchingAway] = useState(false);
   const awaySearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const awayDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -171,7 +199,17 @@ export default function MatchesPage() {
 
   // Player rating modal state
   const [ratingMatch, setRatingMatch] = useState<Match | null>(null);
-  const [ratingPlayers, setRatingPlayers] = useState<UserProfile[]>([]);
+  /**
+   * Les joueurs à noter, avec ou sans compte.
+   *
+   * La modale ne lisait que les participations puis `getUsersByIds` : un joueur
+   * sans compte n'a ni l'une ni l'autre, il était donc absent de la notation
+   * alors qu'il avait joué le match. On note ce qu'on a vu sur le terrain, pas
+   * ce qui a un profil.
+   */
+  const [ratingPlayers, setRatingPlayers] = useState<
+    { id: string; nom: string; poste: string; sansCompte: boolean }[]
+  >([]);
   const [existingRatings, setExistingRatings] = useState<PlayerRating[]>([]);
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [savingRatings, setSavingRatings] = useState(false);
@@ -181,15 +219,13 @@ export default function MatchesPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [matchesData, teamsData, ghostsData, venuesData] = await Promise.all([
+      const [matchesData, teamsData, venuesData] = await Promise.all([
         getMatchesByManager(user.uid),
         getTeamsIManage(user.uid),
-        getGhostTeamsByManager(user.uid),
         getVenues(),
       ]);
       setMatches(matchesData);
       setTeams(teamsData);
-      setGhostTeams(ghostsData);
       setVenues(venuesData);
     } catch (err) {
       console.error("Erreur de chargement:", err);
@@ -233,13 +269,17 @@ export default function MatchesPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounced away team search
+  // Saisie de l'adversaire.
+  //
+  // En mode défi, la frappe déclenche une recherche serveur et ne vaut jamais
+  // pour adversaire : il faut choisir une équipe existante dans la liste.
+  // En mode amical, la frappe EST l'adversaire — le nom tapé suffit, et
+  // l'équipe hors plateforme ne sera écrite en base qu'à la validation.
   const handleAwaySearchChange = (value: string) => {
     setAwaySearchQuery(value);
     setAwayTeamId("");
-    setAwayTeamName("");
     setAwayManagerId("");
-    setAwayIsGhost(false);
+    setAwayTeamName(createMode === "friendly" ? value.trim() : "");
 
     if (awaySearchTimeout.current) clearTimeout(awaySearchTimeout.current);
     if (!value.trim()) {
@@ -247,15 +287,18 @@ export default function MatchesPage() {
       setShowAwayDropdown(false);
       return;
     }
-    // Le dropdown s'ouvre tout de suite : même sans résultat, il porte l'entrée
-    // « créer l'adversaire », qui est le cas courant en amateur.
     setShowAwayDropdown(true);
+    if (createMode !== "challenge") return;
+
+    setSearchingAway(true);
     awaySearchTimeout.current = setTimeout(async () => {
       try {
-        const results = await searchTeams({ query: value });
+        const results = await searchOpponentTeams({ query: value, managerId: user?.uid ?? "" });
         setAwaySearchResults(results);
       } catch (err) {
         console.error("Erreur recherche équipe:", err);
+      } finally {
+        setSearchingAway(false);
       }
     }, 300);
   };
@@ -266,39 +309,52 @@ export default function MatchesPage() {
     // Une équipe fantôme porte le manager_id de son créateur, le laisser
     // passer ferait de lui le manager des DEUX camps.
     setAwayManagerId(team.isGhost ? "" : team.managerId);
-    setAwayIsGhost(!!team.isGhost);
     setAwaySearchQuery(team.name);
     setShowAwayDropdown(false);
     setAwaySearchResults([]);
   };
 
-  // Adversaires hors plateforme correspondant à la saisie.
-  const ghostMatches = awaySearchQuery.trim()
-    ? ghostTeams.filter((t) => t.name.toLowerCase().includes(awaySearchQuery.trim().toLowerCase()))
-    : [];
+  const resetOpponent = () => {
+    setAwaySearchQuery("");
+    setAwaySearchResults([]);
+    setAwayTeamId("");
+    setAwayTeamName("");
+    setAwayManagerId("");
+    setShowAwayDropdown(false);
+  };
 
-  const handleCreateGhostOpponent = async () => {
-    if (!user) return;
-    const name = awaySearchQuery.trim();
-    if (!name) return;
-    setCreatingGhost(true);
-    try {
-      const id = await createGhostTeam({ name, managerId: user.uid });
-      const created: Team = {
-        ...EMPTY_GHOST_TEAM,
-        id,
-        name,
-        managerId: user.uid,
-      };
-      setGhostTeams((prev) => [created, ...prev]);
-      selectAwayTeam(created);
-      toast.success(`« ${name} » ajoutée comme adversaire hors plateforme`);
-    } catch (err) {
-      console.error("Création équipe fantôme:", err);
-      toast.error("Impossible de créer l'adversaire");
-    } finally {
-      setCreatingGhost(false);
-    }
+  const resetForm = () => {
+    resetOpponent();
+    setSelectedTeamId("");
+    setMatchDate("");
+    setMatchTime("");
+    setSelectedVenueId("");
+    setCustomVenueName("");
+    setCustomVenueCity("");
+    setFormat("11v11");
+    setIsHome(true);
+    setRefereeMode("none");
+    setLocalRefereeName("");
+    setAutoAcceptPlayers(false);
+  };
+
+  const openCreateForm = (mode: CreateMode) => {
+    if (createMode === mode) { setCreateMode(null); return; }
+    resetForm();
+    setCreateMode(mode);
+  };
+
+  // La seule passerelle entre les deux parcours : l'équipe cherchée n'est pas
+  // sur KoppaFoot. Tout ce qui est déjà saisi (date, terrain, format) suit,
+  // seul l'adversaire change de nature.
+  const switchToFriendly = () => {
+    const nom = awaySearchQuery.trim();
+    setCreateMode("friendly");
+    setAwaySearchResults([]);
+    setAwayTeamId("");
+    setAwayManagerId("");
+    setAwayTeamName(nom);
+    setShowAwayDropdown(false);
   };
 
   // Filter matches by tab
@@ -320,7 +376,18 @@ export default function MatchesPage() {
     if (!user || !selectedTeamId || !awayTeamName || !matchDate || !matchTime) return;
     const team = teams.find((t) => t.id === selectedTeamId);
     if (!team) return;
+    // En mode défi, un nom tapé sans équipe choisie dans la liste ne désigne
+    // personne : on ne peut pas envoyer un défi dans le vide.
+    if (createMode === "challenge" && !awayTeamId) return;
+    // On ne programme rien pour un jour déjà passé, dans aucun des deux
+    // parcours : le défi partirait vers une date que l'adversaire ne peut plus
+    // honorer, et l'amical convoquerait des joueurs pour un match joué.
+    if (dateDepassee(matchDate)) {
+      toast.error("Cette date est déjà passée.");
+      return;
+    }
 
+    const isFriendly = createMode === "friendly";
     const venue = venues.find((v) => v.id === selectedVenueId);
     const venueName = venue?.name ?? customVenueName.trim();
     const venueCity = venue?.city ?? customVenueCity.trim();
@@ -330,10 +397,24 @@ export default function MatchesPage() {
 
     setCreating(true);
     try {
+      // L'équipe hors plateforme naît ici, avec le match, et pas avant : la
+      // créer au clic dans le sélecteur laissait une équipe orpheline dès qu'on
+      // abandonnait le formulaire. Son effectif est généré dans la foulée, au
+      // gabarit du format, et sert directement de feuille de match adverse.
+      let opponentTeamId = awayTeamId;
+      let ghostLineup: LineupEntry[] | undefined;
+      if (isFriendly) {
+        const cree = await createGhostOpponent({
+          name: awayTeamName, managerId: user.uid, format,
+        });
+        opponentTeamId = cree.teamId;
+        ghostLineup = cree.lineup;
+      }
+
       // Face à un fantôme personne n'acceptera le défi : c'est la création qui
       // doit convoquer notre effectif.
       let homeSquad: { teamId: string; memberIds: string[]; memberNames: Map<string, string> } | undefined;
-      if (awayIsGhost) {
+      if (isFriendly) {
         const members = await getTeamMembers(team.id);
         homeSquad = {
           teamId: team.id,
@@ -343,8 +424,8 @@ export default function MatchesPage() {
       }
 
       await createMatch({
-        homeTeamId: isHome ? team.id : awayTeamId,
-        awayTeamId: isHome ? awayTeamId : team.id,
+        homeTeamId: isHome ? team.id : opponentTeamId,
+        awayTeamId: isHome ? opponentTeamId : team.id,
         homeTeamName,
         awayTeamName: awayTeamNameFinal,
         managerId: user.uid,
@@ -359,30 +440,44 @@ export default function MatchesPage() {
         playersTotal,
         autoAcceptPlayers,
         homeSquad,
+        ghostLineup,
       });
 
-      // Reset form and refresh
-      setSelectedTeamId("");
-      setAwaySearchQuery("");
-      setAwayTeamId("");
-      setAwayTeamName("");
-      setAwayManagerId("");
-      setAwayIsGhost(false);
-      setAwaySearchResults([]);
-      setShowAwayDropdown(false);
-      setMatchDate("");
-      setMatchTime("");
-      setSelectedVenueId("");
-      setCustomVenueName("");
-      setCustomVenueCity("");
-      setFormat("11v11");
-      setIsHome(true);
-      setShowCreateForm(false);
+      toast.success(isFriendly ? "Match programmé" : "Défi envoyé");
+      resetForm();
+      setCreateMode(null);
       await fetchData();
     } catch (err) {
       console.error("Erreur lors de la création:", err);
+      toast.error("Impossible de créer le match");
     } finally {
       setCreating(false);
+    }
+  };
+
+  /**
+   * Supprimer pour de bon, par opposition à annuler.
+   *
+   * Le bouton « Supprimer » appelait l'annulation, laquelle range le match
+   * parmi les annulés — que cet onglet affiche. Le match ne partait donc
+   * jamais, et rien ne permettait de le faire partir.
+   */
+  const handleDeleteMatch = async (match: Match) => {
+    const estAmicalSansCompte = estAmical(match);
+    const message = estAmicalSansCompte
+      ? `Supprimer définitivement ${match.homeTeamName} vs ${match.awayTeamName} ? Les convocations et l'adversaire hors plateforme créé pour ce match partent avec lui.`
+      : `Supprimer définitivement ${match.homeTeamName} vs ${match.awayTeamName} ? Les convocations partent avec lui.`;
+    if (!window.confirm(message)) return;
+    setCompleting(match.id);
+    try {
+      await deleteMatch(match.id);
+      setMatches((prev) => prev.filter((m) => m.id !== match.id));
+      toast.success("Match supprimé");
+    } catch (err) {
+      console.error(err);
+      toast.error("Impossible de supprimer ce match");
+    } finally {
+      setCompleting(null);
     }
   };
 
@@ -480,26 +575,66 @@ export default function MatchesPage() {
     }
   };
 
+  /**
+   * Débloquer un amical resté en « pending ».
+   *
+   * Ces matchs ont été créés avant que la création cesse d'attendre un quota
+   * adverse impossible. Un simple passage en « upcoming » les remet dans le
+   * parcours normal, sans migration ni script.
+   */
+  const handleProgramFriendly = async (matchId: string) => {
+    setCompleting(matchId);
+    try {
+      await updateMatchStatus(matchId, "upcoming");
+      toast.success("Match programmé");
+    } catch (err) {
+      console.error(err);
+      toast.error("Impossible de programmer ce match");
+    } finally {
+      setCompleting(null);
+    }
+  };
+
   const handleRequestModification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modifyingMatch || !user) return;
+    // Déplacer un match, c'est le reporter : jamais vers une date révolue.
+    if (dateDepassee(modDate)) {
+      toast.error("Impossible de déplacer un match vers une date passée.");
+      return;
+    }
     setSubmittingMod(true);
     try {
-      // Sans terrain référencé sélectionné, on conserve celui du match plutôt
-      // que de l'effacer (la collection venues est vide pour la plupart des clubs).
+      // Sans terrain référencé sélectionné, on retombe sur la saisie libre puis
+      // sur le terrain actuel plutôt que de l'effacer (la collection venues est
+      // vide pour la plupart des clubs).
       const selectedVenue = venues.find((v) => v.id === modVenueId);
-      await requestMatchModification(modifyingMatch.id, {
-        date: modDate,
-        time: modTime,
-        venueName: selectedVenue?.name || modifyingMatch.venueName,
-        venueCity: selectedVenue?.city || modifyingMatch.venueCity,
-        reason: modReason,
-        requestedBy: user.uid,
-      });
+      const venueName = selectedVenue?.name || modVenueName.trim() || modifyingMatch.venueName;
+      const venueCity = selectedVenue?.city || modVenueCity.trim() || modifyingMatch.venueCity;
+
+      if (estAmical(modifyingMatch)) {
+        // Personne en face pour accepter : la demande de modification restait
+        // en suspens à vie et gelait le match. On déplace, et on prévient les
+        // convoqués.
+        await updateMatchSchedule(modifyingMatch.id, {
+          date: modDate, time: modTime, venueName, venueCity,
+        });
+        toast.success("Match déplacé");
+      } else {
+        await requestMatchModification(modifyingMatch.id, {
+          date: modDate,
+          time: modTime,
+          venueName,
+          venueCity,
+          reason: modReason,
+          requestedBy: user.uid,
+        });
+        toast.success("Demande envoyée à l'adversaire");
+      }
       setModifyingMatch(null);
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la demande de modification");
+      toast.error("Erreur lors de la modification du match");
     } finally {
       setSubmittingMod(false);
     }
@@ -550,7 +685,26 @@ export default function MatchesPage() {
         .filter((p) => p.status === "confirmed" && p.teamId === myTeam.id)
         .map((p) => p.playerId);
       const players = await getUsersByIds(confirmedPlayerIds);
-      setRatingPlayers(players);
+
+      // La feuille du camp, côté joueurs sans compte : elle est dénormalisée
+      // sur le match, comme leur compo.
+      const monCampEstDomicile = match.homeTeamId === myTeam.id;
+      const sansCompte = (monCampEstDomicile ? match.homeGhostLineup : match.awayGhostLineup) ?? [];
+
+      setRatingPlayers([
+        ...players.map((u) => ({
+          id: u.uid,
+          nom: `${u.firstName} ${u.lastName}`.trim(),
+          poste: u.position ?? "Joueur",
+          sansCompte: false,
+        })),
+        ...sansCompte.map((e) => ({
+          id: e.playerId,
+          nom: e.name,
+          poste: e.role === "starter" ? "Titulaire" : "Remplaçant",
+          sansCompte: true,
+        })),
+      ]);
       setExistingRatings(existing);
       const initialRatings: Record<string, number> = {};
       for (const r of existing) { initialRatings[r.playerId] = r.score; }
@@ -564,6 +718,9 @@ export default function MatchesPage() {
     const myTeam = teams.find((t) => t.managerId === user.uid && (t.id === ratingMatch.homeTeamId || t.id === ratingMatch.awayTeamId));
     if (!myTeam) { setSavingRatings(false); return; }
     try {
+      // `ratePlayer` écrit une note attachée à un identifiant de joueur : celui
+      // d'un compte, ou celui d'un joueur sans compte. Le document de note ne
+      // fait pas la différence, et n'a pas de raison de la faire.
       await Promise.all(
         Object.entries(ratings).map(([playerId, score]) =>
           ratePlayer({ matchId: ratingMatch.id, playerId, teamId: myTeam.id, ratedBy: user.uid, score })
@@ -581,6 +738,8 @@ export default function MatchesPage() {
     setModTime(match.time);
     const venue = venues.find((v) => v.name === match.venueName);
     setModVenueId(venue?.id || "");
+    setModVenueName(venue ? "" : match.venueName);
+    setModVenueCity(venue ? "" : match.venueCity);
     setModReason("");
   };
 
@@ -611,18 +770,36 @@ export default function MatchesPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="inline-flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all"
-          >
-            <Plus size={16} /> Créer un match
-          </button>
+          {/* Deux entrées, pas une : le match qu'on doit faire accepter et
+              celui qu'on programme seul n'ont pas le même parcours. */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => openCreateForm("challenge")}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all ${
+                createMode === "challenge"
+                  ? "bg-primary-700 text-white"
+                  : "bg-primary-600 text-white hover:bg-primary-700"
+              }`}
+            >
+              <Swords size={16} /> Défier une équipe
+            </button>
+            <button
+              onClick={() => openCreateForm("friendly")}
+              className={`inline-flex items-center gap-2 border px-4 py-2.5 text-sm font-medium transition-all ${
+                createMode === "friendly"
+                  ? "border-primary-600 bg-primary-50 text-primary-700"
+                  : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Plus size={16} /> Programmer un amical
+            </button>
+          </div>
         </motion.div>
       </div>
 
       {/* Create match form */}
       <AnimatePresence>
-        {showCreateForm && (
+        {createMode && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -630,11 +807,20 @@ export default function MatchesPage() {
             className="overflow-hidden"
           >
             <div className=" border-2 border-primary-200 bg-primary-50/30 p-3 sm:p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-base sm:text-lg font-bold text-gray-900 font-display">Nouveau match</h3>
+              <div className="flex items-start justify-between gap-3 mb-5">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 font-display">
+                    {createMode === "challenge" ? "Défier une équipe" : "Programmer un amical"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {createMode === "challenge"
+                      ? "L'adversaire recevra le défi et devra l'accepter avant que le match soit programmé."
+                      : "L'adversaire n'est pas sur KoppaFoot : le match est programmé directement, ton effectif est convoqué."}
+                  </p>
+                </div>
                 <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="flex h-8 w-8 items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  onClick={() => setCreateMode(null)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X size={18} />
                 </button>
@@ -663,11 +849,17 @@ export default function MatchesPage() {
                       type="text"
                       value={awaySearchQuery}
                       onChange={(e) => handleAwaySearchChange(e.target.value)}
-                      placeholder="Rechercher l'équipe adverse..."
+                      onFocus={() => awaySearchQuery.trim() && setShowAwayDropdown(true)}
+                      placeholder={createMode === "challenge"
+                        ? "Rechercher une équipe sur KoppaFoot..."
+                        : "Nom de l'équipe adverse..."}
                       className="w-full border border-gray-200/70 bg-white pl-8 pr-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                     />
                   </div>
-                  {showAwayDropdown && awaySearchQuery.trim() && (
+
+                  {/* Mode défi : uniquement des équipes de la plateforme. Si rien
+                      ne sort, la seule issue offerte est de basculer en amical. */}
+                  {createMode === "challenge" && showAwayDropdown && awaySearchQuery.trim() && (
                     <div className="absolute z-10 mt-1 w-full overflow-hidden border border-gray-200/70 bg-white">
                       {awaySearchResults.map((team) => (
                         <button
@@ -680,49 +872,46 @@ export default function MatchesPage() {
                           <span className="text-xs text-gray-500">{team.city}</span>
                         </button>
                       ))}
-                      {ghostMatches.map((team) => (
-                        <button
-                          key={team.id}
-                          type="button"
-                          onClick={() => selectAwayTeam(team)}
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-primary-50"
-                        >
-                          <span className="flex-1 font-medium text-gray-900">{team.name}</span>
-                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-                            Hors plateforme
-                          </span>
-                        </button>
-                      ))}
-                      {/* Le cas courant en amateur : l'adversaire n'a pas de compte. */}
+                      {searchingAway && awaySearchResults.length === 0 && (
+                        <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">
+                          <Loader2 size={14} className="animate-spin" /> Recherche...
+                        </div>
+                      )}
+                      {!searchingAway && awaySearchResults.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-500">
+                          Aucune équipe KoppaFoot à ce nom.
+                        </div>
+                      )}
                       <button
                         type="button"
-                        onClick={handleCreateGhostOpponent}
-                        disabled={creatingGhost}
-                        className="flex w-full items-center gap-2 border-t border-gray-200/70 bg-gray-50/60 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-50 disabled:opacity-50"
+                        onClick={switchToFriendly}
+                        className="flex w-full items-center gap-2 border-t border-gray-200/70 bg-gray-50/60 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-50"
                       >
-                        {creatingGhost ? (
-                          <Loader2 size={14} className="shrink-0 animate-spin text-primary-600" />
-                        ) : (
-                          <Plus size={14} className="shrink-0 text-primary-600" />
-                        )}
+                        <CalendarPlus size={14} className="shrink-0 text-primary-600" />
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium text-primary-700">
                             « {awaySearchQuery.trim()} » n&apos;est pas sur KoppaFoot
                           </span>
                           <span className="block text-xs text-gray-500">
-                            L&apos;ajouter comme adversaire et composer son effectif
+                            Programmer un amical contre cette équipe
                           </span>
                         </span>
                       </button>
                     </div>
                   )}
+
+                  {/* Mode amical : le nom tapé fait l'affaire, et rien d'autre
+                      n'est proposé. Une équipe hors plateforme n'est pas un
+                      adversaire qu'on garde en stock : elle naît avec le match,
+                      porte son nom dans l'historique, et s'arrête là. */}
                 </div>
-                {awayIsGhost && (
-                  <div className=" border border-gray-200/70 bg-gray-50 px-3 py-2.5">
+                {createMode === "friendly" && awayTeamName && (
+                  <div className="border border-gray-200/70 bg-gray-50 px-3 py-2.5">
                     <p className="text-xs text-gray-600">
-                      <strong className="font-semibold text-gray-800">{awayTeamName}</strong> n&apos;est pas sur
-                      KoppaFoot : pas de défi à accepter, le match est planifié directement. Son effectif se
-                      compose depuis sa fiche équipe.
+                      <strong className="font-semibold text-gray-800">{awayTeamName}</strong>{" "}
+                      n&apos;est pas sur KoppaFoot : le match est programmé directement, et son
+                      camp reçoit {TAILLE_EFFECTIF_FORMAT[format] ?? 11} joueurs numérotés pour
+                      que le direct soit couvrable des deux côtés.
                     </p>
                   </div>
                 )}
@@ -733,6 +922,11 @@ export default function MatchesPage() {
                     type="date"
                     value={matchDate}
                     onChange={(e) => setMatchDate(e.target.value)}
+                    /* Les deux formulaires programment un match À VENIR. Un
+                       match déjà joué relève du parcours « renseigner un match
+                       joué », qui n'ouvre pas de convocations et se verrouille
+                       après validation — pas de celui-ci. */
+                    min={aujourdhui()}
                     className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   />
                 </div>
@@ -870,17 +1064,24 @@ export default function MatchesPage() {
               <div className="mt-4 sm:mt-5 flex flex-wrap gap-2 sm:gap-3">
                 <button
                   onClick={handleCreate}
-                  disabled={creating || !selectedTeamId || !awayTeamName || !matchDate || !matchTime}
+                  disabled={
+                    creating || !selectedTeamId || !awayTeamName || !matchDate || !matchTime ||
+                    // En mode défi, un nom tapé ne suffit pas : il faut une
+                    // équipe choisie dans la liste, sinon il n'y a personne à défier.
+                    (createMode === "challenge" && !awayTeamId)
+                  }
                   className="inline-flex items-center gap-2 bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creating ? (
-                    <><Loader2 size={16} className="animate-spin" /> Création...</>
+                    <><Loader2 size={16} className="animate-spin" /> {createMode === "challenge" ? "Envoi..." : "Création..."}</>
+                  ) : createMode === "challenge" ? (
+                    <><Swords size={16} /> Envoyer le défi</>
                   ) : (
                     <><Plus size={16} /> Programmer le match</>
                   )}
                 </button>
                 <button
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={() => setCreateMode(null)}
                   className=" border border-gray-200/70 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Annuler
@@ -1163,7 +1364,10 @@ export default function MatchesPage() {
                           {match.format}
                         </span>
 
-                        {match.status === "completed" && (
+                        {/* Pas de badge de validation sur un amical hors
+                            plateforme : il n'y a pas de second manager pour
+                            contresigner, donc rien à annoncer. */}
+                        {match.status === "completed" && !estAmical(match) && (
                           <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
                             match.validationStatus === 'validated' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
                             match.validationStatus === 'contested' ? 'bg-red-50 border-red-100 text-red-600' :
@@ -1186,25 +1390,46 @@ export default function MatchesPage() {
                           <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${refConf.color}`}>
                             <RefIcon size={12} /> {refConf.label}
                           </span>
+                          {/* Rien à confirmer quand l'auto-acceptation est
+                              active : les convocations partent déjà acceptées,
+                              personne n'attend de réponse. La ligne annonçait un
+                              suivi de confirmations qui n'avait pas lieu. */}
+                          {!match.autoAcceptPlayers && (
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             <span className="flex items-center gap-1 text-xs text-gray-500">
                               <Users size={12} />
                               <span className="hidden sm:inline">Confirmations:</span>
                             </span>
-                            <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 border border-gray-200/70">
-                              <span className="text-[10px] uppercase font-bold text-gray-400">Dom.</span>
-                              <span className={`text-xs font-bold ${match.confirmedHome >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
-                                {match.confirmedHome}
-                              </span>
-                              <span className="text-gray-300">/</span>
-                              <span className="text-[10px] uppercase font-bold text-gray-400">Ext.</span>
-                              <span className={`text-xs font-bold ${match.confirmedAway >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
-                                {match.confirmedAway}
-                              </span>
-                              <span className="text-gray-300 ml-0.5 sm:ml-1">|</span>
-                              <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Total {FORMAT_TOTAL_PLAYERS[match.format] || 0}</span>
-                            </div>
+                            {/* Face à un adversaire hors plateforme, le compteur
+                                d'en face reste à zéro par construction : personne
+                                à convoquer. L'afficher laissait croire à une
+                                équipe qui ne répond pas. */}
+                            {estAmical(match) ? (
+                              <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 border border-gray-200/70">
+                                <span className="text-[10px] uppercase font-bold text-gray-400">Mon équipe</span>
+                                <span className={`text-xs font-bold ${(match.isHome ? match.confirmedHome : match.confirmedAway) >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
+                                  {match.isHome ? match.confirmedHome : match.confirmedAway}
+                                </span>
+                                <span className="text-gray-300 ml-0.5 sm:ml-1">|</span>
+                                <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Onze {TAILLE_EFFECTIF_FORMAT[match.format] || 0}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 border border-gray-200/70">
+                                <span className="text-[10px] uppercase font-bold text-gray-400">Dom.</span>
+                                <span className={`text-xs font-bold ${match.confirmedHome >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
+                                  {match.confirmedHome}
+                                </span>
+                                <span className="text-gray-300">/</span>
+                                <span className="text-[10px] uppercase font-bold text-gray-400">Ext.</span>
+                                <span className={`text-xs font-bold ${match.confirmedAway >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
+                                  {match.confirmedAway}
+                                </span>
+                                <span className="text-gray-300 ml-0.5 sm:ml-1">|</span>
+                                <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Total {FORMAT_TOTAL_PLAYERS[match.format] || 0}</span>
+                              </div>
+                            )}
                           </div>
+                          )}
                         </div>
                       )}
 
@@ -1322,7 +1547,7 @@ export default function MatchesPage() {
                                 onClick={(e) => { e.stopPropagation(); openModifyModal(match); }}
                                 className="flex items-center gap-1 border border-gray-200/70 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                               >
-                                <Edit3 size={14} /> Modifier
+                                <Edit3 size={14} /> {estAmical(match) ? "Déplacer" : "Modifier"}
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
@@ -1340,7 +1565,26 @@ export default function MatchesPage() {
 
                       {(isDraft || match.status === "pending") && (
                         <div className="mt-3 sm:mt-4 flex flex-col gap-2">
-                          {match.status === "pending" && (
+                          {/* Un amical resté en « pending » date d'avant la
+                              correction : le quota adverse qu'il attendait ne
+                              pouvait jamais tomber. On le débloque à la main
+                              plutôt que de laisser ces matchs pourrir. */}
+                          {match.status === "pending" && estAmical(match) && (
+                            <div className="mb-2 flex flex-col gap-2 border border-amber-100 bg-amber-50 p-3">
+                              <p className="text-[11px] text-amber-700">
+                                Ce match attend un quota côté adverse, qui n&apos;existe pas :
+                                l&apos;équipe en face n&apos;est pas sur KoppaFoot.
+                              </p>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleProgramFriendly(match.id); }}
+                                disabled={completing === match.id}
+                                className="inline-flex items-center justify-center gap-2 bg-amber-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+                              >
+                                <CheckCircle size={14} /> Programmer ce match
+                              </button>
+                            </div>
+                          )}
+                          {match.status === "pending" && !estAmical(match) && (
                              <div className="mb-2 p-3 bg-amber-50 border border-amber-100 italic">
                                <p className="text-[11px] text-amber-700">
                                  En attente du quota minimum de joueurs ({getMinConfirmed(match.format)} confirmés par équipe).
@@ -1352,7 +1596,15 @@ export default function MatchesPage() {
                             <div className="flex gap-2">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleForceComplete(match.id); }}
-                                  disabled={completing === match.id || match.confirmedHome < getMinConfirmed(match.format) || match.confirmedAway < getMinConfirmed(match.format)}
+                                  disabled={
+                                    completing === match.id ||
+                                    // Sur un amical, le quota ne protège personne :
+                                    // le manager est le seul témoin du match.
+                                    (!estAmical(match) && (
+                                      match.confirmedHome < getMinConfirmed(match.format) ||
+                                      match.confirmedAway < getMinConfirmed(match.format)
+                                    ))
+                                  }
                                   className="flex-1 flex items-center justify-center gap-2 bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                 {completing === match.id ? (
@@ -1364,12 +1616,29 @@ export default function MatchesPage() {
                               </button>
                             </div>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
-                            className="w-full inline-flex items-center justify-center gap-2 border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            <XCircle size={14} /> {match.status === "challenge" || match.status === "pending" ? "Annuler le défi" : "Supprimer"}
-                          </button>
+                          {/* Annuler et supprimer sont deux gestes différents :
+                              le premier garde la trace d'un match qui n'a pas
+                              eu lieu, le second efface. Ils partageaient le
+                              même appel. */}
+                          {(match.status === "challenge" || match.status === "pending") ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCancelMatch(match.id); }}
+                              className="w-full inline-flex items-center justify-center gap-2 border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <XCircle size={14} /> Annuler le défi
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
+                              disabled={completing === match.id}
+                              className="w-full inline-flex items-center justify-center gap-2 border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                            >
+                              {completing === match.id
+                                ? <Loader2 size={14} className="animate-spin" />
+                                : <Trash2 size={14} />}
+                              Supprimer
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1439,18 +1708,25 @@ export default function MatchesPage() {
               </div>
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {ratingPlayers.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-8">Aucun joueur confirmé pour ce match</p>
+                  <p className="text-sm text-gray-500 text-center py-8">Aucun joueur sur la feuille de ce match</p>
                 ) : ratingPlayers.map((player) => {
-                  const score = ratings[player.uid] ?? 0;
+                  const score = ratings[player.id] ?? 0;
                   return (
-                    <div key={player.uid} className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900">{player.firstName} {player.lastName}</p>
-                        <p className="text-xs text-gray-400">{player.position ?? "Joueur"}</p>
+                    <div key={player.id} className="flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-sm font-semibold text-gray-900">{player.nom}</p>
+                        <p className="text-xs text-gray-400">
+                          {player.poste}
+                          {player.sansCompte && (
+                            <span className="ml-2 text-[10px] font-black uppercase tracking-wide text-gray-300">
+                              sans compte
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="range" min={1} max={10} step={1} value={score || 5}
-                          onChange={(e) => setRatings((r) => ({ ...r, [player.uid]: Number(e.target.value) }))}
+                          onChange={(e) => setRatings((r) => ({ ...r, [player.id]: Number(e.target.value) }))}
                           className="w-24 accent-primary-600" />
                         <span className={`w-8 text-center text-sm font-bold ${score >= 8 ? "text-emerald-600" : score >= 5 ? "text-amber-600" : score > 0 ? "text-red-500" : "text-gray-300"}`}>
                           {score || "–"}
@@ -1490,7 +1766,9 @@ export default function MatchesPage() {
               className="fixed left-1/2 top-1/2 modal-layer w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-white"
             >
               <div className="flex items-center justify-between border-b border-gray-200/70 px-6 py-4">
-                <h3 className="text-lg font-bold text-gray-900 font-display">Modifier le match</h3>
+                <h3 className="text-lg font-bold text-gray-900 font-display">
+                  {estAmical(modifyingMatch) ? "Déplacer le match" : "Modifier le match"}
+                </h3>
                 <button onClick={() => setModifyingMatch(null)} className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
                 </button>
@@ -1505,6 +1783,7 @@ export default function MatchesPage() {
                         value={modDate}
                         onChange={(e) => setModDate(e.target.value)}
                         required
+                        min={aujourdhui()}
                         className="w-full border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500"
                       />
                     </div>
@@ -1519,30 +1798,62 @@ export default function MatchesPage() {
                       />
                     </div>
                   </div>
+                  {/* Le select était `required` sur une collection venues vide
+                      chez la plupart des clubs : le formulaire ne partait
+                      jamais. Même repli qu'à la création, la saisie libre. */}
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Nouveau terrain</label>
-                    <select
-                      value={modVenueId}
-                      onChange={(e) => setModVenueId(e.target.value)}
-                      required
-                      className="w-full border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500"
-                    >
-                      <option value="">Sélectionner un terrain</option>
-                      {venues.map((v) => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
+                    {venues.length > 0 && (
+                      <select
+                        value={modVenueId}
+                        onChange={(e) => setModVenueId(e.target.value)}
+                        className="w-full border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500"
+                      >
+                        <option value="">Autre terrain (saisie libre)</option>
+                        {venues.map((v) => (
+                          <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    {!modVenueId && (
+                      <div className={`grid grid-cols-2 gap-2 ${venues.length > 0 ? "mt-2" : ""}`}>
+                        <input
+                          type="text"
+                          value={modVenueName}
+                          onChange={(e) => setModVenueName(e.target.value)}
+                          placeholder="Nom du terrain"
+                          className="w-full border border-gray-200/70 px-3 py-2 text-sm outline-none focus:border-primary-500"
+                        />
+                        <input
+                          type="text"
+                          value={modVenueCity}
+                          onChange={(e) => setModVenueCity(e.target.value)}
+                          placeholder="Ville"
+                          className="w-full border border-gray-200/70 px-3 py-2 text-sm outline-none focus:border-primary-500"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Motif de la modification</label>
-                    <textarea
-                      value={modReason}
-                      onChange={(e) => setModReason(e.target.value)}
-                      required
-                      placeholder="Expliquez pourquoi vous souhaitez modifier ce match..."
-                      className="w-full h-24 resize-none border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500 text-sm"
-                    />
-                  </div>
+                  {/* Le motif s'adresse au manager adverse. Sur un amical il n'y
+                      en a pas : on ne demande pas de se justifier auprès de soi. */}
+                  {!estAmical(modifyingMatch) && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Motif de la modification</label>
+                      <textarea
+                        value={modReason}
+                        onChange={(e) => setModReason(e.target.value)}
+                        required
+                        placeholder="Expliquez pourquoi vous souhaitez modifier ce match..."
+                        className="w-full h-24 resize-none border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500 text-sm"
+                      />
+                    </div>
+                  )}
+                  {estAmical(modifyingMatch) && (
+                    <p className="border border-gray-200/70 bg-gray-50 px-3 py-2.5 text-xs text-gray-600">
+                      L&apos;adversaire n&apos;est pas sur KoppaFoot : le changement s&apos;applique
+                      tout de suite et tes joueurs convoqués sont prévenus.
+                    </p>
+                  )}
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
                   <button
@@ -1557,7 +1868,9 @@ export default function MatchesPage() {
                     disabled={submittingMod}
                     className=" bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center min-w-[140px]"
                   >
-                    {submittingMod ? <Loader2 size={16} className="animate-spin" /> : "Envoyer la demande"}
+                    {submittingMod
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : estAmical(modifyingMatch) ? "Déplacer le match" : "Envoyer la demande"}
                   </button>
                 </div>
               </form>

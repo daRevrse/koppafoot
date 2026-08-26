@@ -105,6 +105,16 @@ export async function POST(req: NextRequest) {
         l.data.team_id === realTeamId,
     );
 
+  // Les joueurs SANS COMPTE de la vraie équipe, sur la même feuille. Ils n'ont
+  // pas de participation, leur ligne est dénormalisée sur le match — et ils
+  // sont crédités par le même geste, sous la même responsabilité. Les laisser
+  // de côté reviendrait à tenir une carrière à ceux qui ont un smartphone et
+  // rien aux autres, dans une équipe qui joue le même match.
+  const equipeReelleEstDomicile = match.is_home;
+  const lignesSansCompte = (
+    (equipeReelleEstDomicile ? match.home_ghost_lineup : match.away_ghost_lineup) ?? []
+  ).filter((l) => !!l.player_id);
+
   try {
     await adminDb.runTransaction(async (tx) => {
       const frais = await tx.get(matchRef);
@@ -119,6 +129,16 @@ export async function POST(req: NextRequest) {
           last_match_id: matchId,
           updated_at: FieldValue.serverTimestamp(),
         });
+      }
+
+      for (const ligne of lignesSansCompte) {
+        tx.update(
+          adminDb.collection("teams").doc(realTeamId).collection("ghost_players").doc(ligne.player_id),
+          {
+            matches_played: FieldValue.increment(1),
+            updated_at: FieldValue.serverTimestamp(),
+          },
+        );
       }
 
       tx.update(matchRef, {
@@ -138,5 +158,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "L'attribution a échoué" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, joueurs: lignes.length });
+  return NextResponse.json({ ok: true, joueurs: lignes.length + lignesSansCompte.length });
 }

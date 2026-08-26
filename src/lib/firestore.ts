@@ -71,6 +71,9 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     lastName: d.last_name,
     position: d.position,
     squadNumber: d.squad_number ?? undefined,
+    goals: d.goals ?? 0,
+    assists: d.assists ?? 0,
+    matchesPlayed: d.matches_played ?? 0,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -110,14 +113,14 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
 
 export function toMatch(id: string, d: FirestoreMatch): Match {
   let effectiveStatus = d.status;
-  
+
   // Dynamic status check for upcoming matches
   if (d.status === "upcoming" && d.date && d.time) {
     try {
       const matchDate = new Date(`${d.date}T${d.time}`);
       const now = new Date();
       if (now > matchDate) {
-        effectiveStatus = "delayed"; 
+        effectiveStatus = "delayed";
       }
     } catch (e) {
       console.warn("Invalid date format in match", d.date, d.time);
@@ -136,13 +139,20 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     isHome: d.is_home, playersConfirmed: d.players_confirmed ?? 0,
     playersTotal: d.players_total ?? 0,
     awayManagerId: d.away_manager_id ?? "",
+    moderatorIds: d.moderator_ids ?? [],
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
     homeLineupReady: d.home_lineup_ready ?? false,
     awayLineupReady: d.away_lineup_ready ?? false,
-    ghostLineup: (d.ghost_lineup ?? []).map((e) => ({
-      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
-    })),
+    // Repli sur `ghost_lineup` pour les matchs créés avant les champs par
+    // camp : ce champ-là ne concernait que l'adversaire hors plateforme, donc
+    // le camp opposé à celui du créateur (`is_home`).
+    homeGhostLineup: (d.home_ghost_lineup
+      ?? (!d.away_manager_id && !d.is_home ? d.ghost_lineup ?? [] : [])
+    ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    awayGhostLineup: (d.away_ghost_lineup
+      ?? (!d.away_manager_id && d.is_home ? d.ghost_lineup ?? [] : [])
+    ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
     modificationRequest: d.modification_request ? {
       date: d.modification_request.date,
       time: d.modification_request.time,
@@ -246,14 +256,30 @@ export async function getMatchParticipations(matchId: string): Promise<Participa
 /**
  * Get all members of a team
  */
+/**
+ * L'effectif d'une équipe, comptes seulement.
+ *
+ * LIT `teams.member_ids`, la seule source d'effectif de l'application. Cette
+ * fonction interrogeait `users` sur un champ `team_id` que RIEN N'ÉCRIT nulle
+ * part — un reliquat. Elle renvoyait donc systématiquement une liste vide, en
+ * silence, avec deux conséquences qu'on ne pouvait relier ni l'une ni l'autre à
+ * cette ligne :
+ *
+ *  - un amical ne convoquait personne. `createMatch` reçoit l'effectif à
+ *    convoquer et saute l'étape quand la liste est vide : le match partait sans
+ *    une seule participation, l'auto-acceptation n'avait rien à accepter, et la
+ *    feuille de match n'affichait que les joueurs sans compte.
+ *  - la grille « Inviter tes joueurs » de la fiche d'un match était vide, donc
+ *    annonçait « tous les membres sont déjà sur la feuille » alors qu'aucun
+ *    n'y était.
+ *
+ * Le parcours du défi, lui, ne passait pas par ici (voir respondToMatchChallenge,
+ * qui lit `memberIds`), ce qui explique que le défaut n'ait touché que l'amical.
+ */
 export async function getTeamMembers(teamId: string): Promise<UserProfile[]> {
-  const q = query(
-    collection(db, "users"),
-    where("team_id", "==", teamId),
-    where("is_active", "==", true)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => toUserProfile(d.id, d.data() as FirestoreUser));
+  const team = await getTeamById(teamId);
+  if (!team) return [];
+  return getUsersByIds(team.memberIds);
 }
 
 
@@ -394,11 +420,6 @@ export async function getTeamsIManage(uid: string): Promise<Team[]> {
   return [...parId.values()];
 }
 
-/** Les adversaires hors plateforme créés par ce manager. */
-export async function getGhostTeamsByManager(managerId: string): Promise<Team[]> {
-  return (await fetchTeamsOfManager(managerId)).filter((t) => t.isGhost);
-}
-
 export async function getTeamsByPlayer(playerId: string): Promise<Team[]> {
   const q = query(collection(db, "teams"), where("member_ids", "array-contains", playerId));
   const snap = await getDocs(q);
@@ -453,6 +474,71 @@ export async function createGhostTeam(data: {
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   return ref.id;
+}
+
+/** Combien de joueurs porte un onze de départ, selon le format. */
+export const TAILLE_EFFECTIF: Record<string, number> = { "5v5": 5, "7v7": 7, "11v11": 11 };
+
+/**
+ * Un adversaire hors plateforme, prêt à jouer.
+ *
+ * Personne ne va saisir onze noms avant un amical, et sans effectif la console
+ * live n'a qu'un camp : le direct devient inutilisable pour la moitié du
+ * terrain. On génère donc un onze anonyme — « Joueur 1 » à « Joueur N » — que
+ * le manager renomme depuis la fiche de l'équipe s'il connaît les vrais noms.
+ *
+ * Renvoie aussi la feuille de match correspondante, que `createMatch` pose
+ * directement sur le match : le camp fantôme est prêt sans qu'on ait rien
+ * demandé.
+ */
+export async function createGhostOpponent(data: {
+  name: string; managerId: string; format: string; city?: string;
+}): Promise<{ teamId: string; lineup: LineupEntry[] }> {
+  const teamId = await createGhostTeam({
+    name: data.name, managerId: data.managerId, city: data.city,
+  });
+  return { teamId, lineup: await prepareGhostLineup(teamId, data.format) };
+}
+
+/**
+ * La feuille de match d'un adversaire fantôme, quitte à la remplir soi-même.
+ *
+ * Complète l'effectif jusqu'à l'onze du format avec des joueurs anonymes, puis
+ * renvoie la compo : les `taille` premiers titulaires, le reste sur le banc.
+ * Un fantôme réutilisé d'un match à l'autre garde donc les noms que le manager
+ * lui a donnés entre-temps.
+ */
+export async function prepareGhostLineup(
+  teamId: string,
+  format: string,
+): Promise<LineupEntry[]> {
+  const taille = TAILLE_EFFECTIF[format] ?? 11;
+  const existants = await getGhostPlayersByTeam(teamId);
+  const joueurs = [...existants];
+
+  for (let i = existants.length + 1; i <= taille; i++) {
+    const numero = String(i);
+    // Séquentiel et non parallèle : l'ordre des joueurs est le seul repère
+    // qu'aura le manager dans une liste où ils s'appellent tous pareil.
+    const id = await createGhostPlayer(teamId, {
+      firstName: "Joueur", lastName: numero,
+      position: i === 1 ? "goalkeeper" : "midfielder",
+      squadNumber: numero,
+    });
+    joueurs.push({
+      id, teamId, firstName: "Joueur", lastName: numero,
+      position: i === 1 ? "goalkeeper" : "midfielder", squadNumber: numero,
+      goals: 0, assists: 0, matchesPlayed: 0,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    });
+  }
+
+  return joueurs.map((j, index) => ({
+    playerId: j.id,
+    name: `${j.firstName} ${j.lastName}`.trim(),
+    number: j.squadNumber || String(index + 1),
+    role: index < taille ? "starter" : "substitute",
+  }));
 }
 
 export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
@@ -622,6 +708,37 @@ export async function searchTeams(filters: { city?: string; level?: string; quer
     results = results.filter((t) => t.name.toLowerCase().includes(search));
   }
   return results;
+}
+
+/**
+ * Les équipes qu'on peut défier, pour le sélecteur d'adversaire.
+ *
+ * PAS `searchTeams` : celui-là filtre sur `is_recruiting`, ce qui est la bonne
+ * règle au mercato et la mauvaise ici. Une équipe au complet coupe son
+ * recrutement, elle ne cesse pas pour autant de jouer : la rendre introuvable
+ * comme adversaire n'avait aucun sens.
+ *
+ * Deux exclusions en revanche :
+ *  - les fantômes, qui n'ont pas de manager en face et relèvent de l'amical ;
+ *  - mes propres équipes, sans quoi on peut se programmer un Koppa FC contre
+ *    Koppa FC dont personne ne sait quoi faire ensuite.
+ *
+ * Le filtre sur le nom reste côté client, comme dans `searchTeams` : Firestore
+ * ne sait pas chercher un fragment de chaîne.
+ */
+export async function searchOpponentTeams(input: {
+  query: string;
+  managerId: string;
+}): Promise<Team[]> {
+  const search = input.query.trim().toLowerCase();
+  if (!search) return [];
+  const snap = await getDocs(collection(db, "teams"));
+  return snap.docs
+    .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
+    .filter((t) => !t.isGhost)
+    .filter((t) => t.managerId !== input.managerId)
+    .filter((t) => !(t.staffManagerIds ?? []).includes(input.managerId))
+    .filter((t) => t.name.toLowerCase().includes(search));
 }
 
 // ============================================
@@ -819,7 +936,7 @@ export function onLiveMatches(callback: (matches: Match[]) => void): Unsubscribe
     where("status", "==", "live"),
     orderBy("created_at", "desc")
   );
-  
+
   return onSnapshot(qLive, (snap) => {
     const matches = snap.docs.map(d => toMatch(d.id, d.data() as FirestoreMatch));
     callback(matches);
@@ -856,11 +973,21 @@ export async function createMatch(data: {
   autoAcceptPlayers?: boolean;
   // Effectif à convoquer côté équipe réelle, requis pour un adversaire fantôme.
   homeSquad?: { teamId: string; memberIds: string[]; memberNames: Map<string, string> };
+  // Feuille de match du camp fantôme, générée avec l'adversaire.
+  ghostLineup?: LineupEntry[];
 }): Promise<string> {
   const isGhostOpponent = !data.awayManagerId;
-  const status: MatchStatus = isGhostOpponent
-    ? (data.autoAcceptPlayers ? "upcoming" : "pending")
-    : "challenge";
+  // Un amical contre un fantôme est programmé, point : il n'y a pas de camp
+  // adverse à convoquer, donc `confirmed_away` reste à zéro et le passage
+  // automatique `pending -> upcoming` (voir respondToParticipation) ne pouvait
+  // jamais se déclencher. Le match restait en brouillon à vie. Les joueurs de
+  // notre camp sont convoqués et répondent quand même : leurs réponses
+  // remplissent la feuille de match, elles ne conditionnent plus la tenue du
+  // match. C'est aussi la seule issue pour une équipe dont l'effectif est
+  // entièrement composé de joueurs sans compte.
+  const status: MatchStatus = isGhostOpponent ? "upcoming" : "challenge";
+  const ghostIsHome = isGhostOpponent && !data.isHome;
+  const ghostLineup = isGhostOpponent ? (data.ghostLineup ?? []) : [];
   const ref = await addDoc(collection(db, "matches"), {
     home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
     home_team_name: data.homeTeamName, away_team_name: data.awayTeamName,
@@ -874,6 +1001,10 @@ export async function createMatch(data: {
     players_confirmed: 0, players_total: data.playersTotal,
     confirmed_home: 0, confirmed_away: 0,
     auto_accept_players: !!data.autoAcceptPlayers,
+    [ghostIsHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostLineup.map((e) => ({
+      player_id: e.playerId, name: e.name, number: e.number, role: e.role,
+    })),
+    [ghostIsHome ? "home_lineup_ready" : "away_lineup_ready"]: ghostLineup.length > 0,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   if (isGhostOpponent) {
@@ -903,21 +1034,38 @@ export async function updateMatch(matchId: string, data: Partial<FirestoreMatch>
   await updateDoc(doc(db, "matches", matchId), { ...data, updated_at: serverTimestamp() });
 }
 
+/**
+ * Enregistre la feuille de match d'un camp.
+ *
+ * DEUX ORIGINES, ET C'EST TOUT L'OBJET DE CETTE FONCTION. Les joueurs qui ont
+ * un compte portent leur numéro et leur rôle sur leur document
+ * `participations`. Ceux qui n'en ont pas n'ont aucun document où les poser :
+ * leurs assignations se dénormalisent sur le match, dans le champ du camp.
+ *
+ * Avant, seule la première branche existait. L'écran proposait pourtant de
+ * numéroter les joueurs sans compte, et `snap.docs.find(...)` ne trouvant
+ * jamais leur participation, chaque saisie était jetée en silence — sans une
+ * erreur, sans un avertissement, et la feuille se déclarait validée.
+ *
+ * `ghostEntries` REMPLACE la liste du camp, il ne s'y ajoute pas : un joueur
+ * retiré de la feuille doit disparaître, pas y rester faute d'être mentionné.
+ */
 export async function updateMatchLineup(
-  matchId: string, 
-  teamId: string, 
+  matchId: string,
+  teamId: string,
   isHome: boolean,
-  assignments: { playerId: string; squadNumber: string; role: "starter" | "substitute" }[]
+  assignments: { playerId: string; squadNumber: string; role: "starter" | "substitute" }[],
+  ghostEntries: LineupEntry[] = [],
 ): Promise<void> {
   const batch = writeBatch(db);
-  
+
   const q = query(
-    collection(db, "participations"), 
-    where("match_id", "==", matchId), 
+    collection(db, "participations"),
+    where("match_id", "==", matchId),
     where("team_id", "==", teamId)
   );
   const snap = await getDocs(q);
-  
+
   snap.docs.forEach(d => {
     batch.update(d.ref, {
       match_role: null,
@@ -936,37 +1084,115 @@ export async function updateMatchLineup(
     }
   });
 
+  // Une feuille sans un seul titulaire n'est pas une feuille prête. Le drapeau
+  // partait à `true` quoi qu'il arrive, et la console annonçait « validée » sur
+  // une grille vide.
+  const titulaires =
+    assignments.filter((a) => a.role === "starter").length +
+    ghostEntries.filter((e) => e.role === "starter").length;
+
   const matchRef = doc(db, "matches", matchId);
   batch.update(matchRef, {
-    [isHome ? "home_lineup_ready" : "away_lineup_ready"]: true,
+    [isHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostEntries.map((e) => ({
+      player_id: e.playerId, name: e.name, number: e.number, role: e.role,
+    })),
+    [isHome ? "home_lineup_ready" : "away_lineup_ready"]: titulaires > 0,
     updated_at: serverTimestamp(),
   });
 
   await batch.commit();
 }
 
+// ============================================
+// Modérateurs d'un match
+//
+// Ceux qui tiendront sa console live sans être managers. La liste vit sur le
+// match (`moderator_ids`) et ne vaut que pour lui : la modération de
+// compétition, elle, est globale et porte sur `competitions.moderator_ids`.
+// Les écritures passent par /api/matches/moderators, parce que résoudre un
+// email en compte demande le SDK admin.
+// ============================================
+
 /**
- * Feuille de match du camp sans comptes (adversaire hors plateforme).
+ * Les amicaux en cours ET ceux qui viennent de finir, pour le Direct.
  *
- * `updateMatchLineup` écrit le rôle sur les docs `participations` : un joueur
- * fantôme n'en a pas, ses assignations y étaient donc silencieusement perdues.
- * On dénormalise la compo sur le match, comme le fait déjà le côté compétition.
+ * Le tableau n'attachait d'écouteur qu'aux compétitions : un amical y entrait
+ * par le rendu serveur et n'en bougeait plus, score figé jusqu'à la
+ * revalidation. Or c'est justement celui qu'on regarde quand quelqu'un le
+ * couvre.
  *
- * `ghostIsHome` dit de quel côté joue le fantôme, c'est lui qui décide quel
- * drapeau `*_lineup_ready` est levé.
+ * LES DEUX STATUTS, pas seulement « live » : un match qui se termine sous les
+ * yeux du spectateur quitterait sinon la requête, et le tableau garderait de
+ * lui l'instantané d'avant — score figé à la dernière minute connue, mention
+ * « en direct » sur une rencontre finie.
+ *
+ * La requête ne porte que sur `status`, sans tri : un index composite pour une
+ * poignée de documents n'aurait servi à rien, et le tableau retrie de toute
+ * façon.
  */
-export async function setGhostLineup(
-  matchId: string,
-  ghostIsHome: boolean,
-  entries: LineupEntry[],
-): Promise<void> {
-  await updateDoc(doc(db, "matches", matchId), {
-    ghost_lineup: entries.map((e) => ({
-      player_id: e.playerId, name: e.name, number: e.number, role: e.role,
-    })),
-    [ghostIsHome ? "home_lineup_ready" : "away_lineup_ready"]: entries.length > 0,
-    updated_at: serverTimestamp(),
+export function onLiveFriendlies(
+  callback: (rows: { id: string; data: Record<string, unknown> }[]) => void,
+): Unsubscribe {
+  const q = query(collection(db, "matches"), where("status", "in", ["live", "completed"]));
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> }))),
+    () => callback([]),
+  );
+}
+
+/** Les matchs que ce compte a été chargé de couvrir. */
+export async function getMatchesIModerate(uid: string): Promise<Match[]> {
+  const q = query(collection(db, "matches"), where("moderator_ids", "array-contains", uid));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => toMatch(d.id, d.data() as FirestoreMatch))
+    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+}
+
+/** Idem, en direct : la console doit apparaître sans recharger la page. */
+export function onMatchesIModerate(
+  uid: string,
+  callback: (data: Match[]) => void,
+): Unsubscribe {
+  const q = query(collection(db, "matches"), where("moderator_ids", "array-contains", uid));
+  return onSnapshot(q, (snap) => {
+    callback(
+      snap.docs
+        .map((d) => toMatch(d.id, d.data() as FirestoreMatch))
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)),
+    );
   });
+}
+
+async function appelerRouteModerateurs(
+  methode: "POST" | "DELETE",
+  corps: Record<string, string>,
+): Promise<any> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/matches/moderators", {
+    method: methode,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify(corps),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "L'opération a échoué");
+  return data;
+}
+
+export async function addMatchModerator(
+  matchId: string,
+  email: string,
+): Promise<{ uid: string; firstName: string; lastName: string; email: string }> {
+  return appelerRouteModerateurs("POST", { matchId, email });
+}
+
+export async function removeMatchModerator(matchId: string, uid: string): Promise<void> {
+  await appelerRouteModerateurs("DELETE", { matchId, uid });
 }
 
 export async function cancelMatch(matchId: string): Promise<void> {
@@ -975,6 +1201,59 @@ export async function cancelMatch(matchId: string): Promise<void> {
     status: "cancelled",
     updated_at: serverTimestamp(),
   });
+}
+
+/**
+ * Supprimer un match, pour de bon.
+ *
+ * `cancelMatch` ne supprime rien : il passe le statut à « cancelled », et
+ * l'onglet Brouillons affiche justement les annulés. Le bouton « Supprimer »
+ * pointait dessus, si bien qu'un match supprimé restait à l'écran pour
+ * toujours, sans aucun moyen de s'en débarrasser.
+ *
+ * TROIS CHOSES PARTENT ENSEMBLE, sinon la suppression laisse des orphelins que
+ * plus aucun écran ne montre :
+ *   - les convocations, qui pendent au match par `match_id` ;
+ *   - l'équipe hors plateforme créée pour ce match, avec son effectif —
+ *     seulement si aucun autre match ne s'y rattache, les fantômes d'avant
+ *     pouvant être partagés ;
+ *   - le match lui-même, en dernier : tant qu'il existe, les règles Firestore
+ *     s'appuient dessus pour autoriser la suppression de ses convocations.
+ */
+export async function deleteMatch(matchId: string): Promise<void> {
+  const snap = await getDoc(doc(db, "matches", matchId));
+  if (!snap.exists()) return;
+  const m = snap.data() as FirestoreMatch;
+
+  const parts = await getDocs(
+    query(collection(db, "participations"), where("match_id", "==", matchId)),
+  );
+  const batch = writeBatch(db);
+  parts.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+
+  // Le fantôme est le camp opposé au créateur (`is_home`), et seulement sur un
+  // match sans manager adverse.
+  const idFantome = m.away_manager_id ? null : (m.is_home ? m.away_team_id : m.home_team_id);
+  if (idFantome) {
+    const equipe = await getDoc(doc(db, "teams", idFantome));
+    if (equipe.exists() && (equipe.data() as FirestoreTeam).is_ghost) {
+      const [surDomicile, surExterieur] = await Promise.all([
+        getDocs(query(collection(db, "matches"), where("home_team_id", "==", idFantome))),
+        getDocs(query(collection(db, "matches"), where("away_team_id", "==", idFantome))),
+      ]);
+      const autres = [...surDomicile.docs, ...surExterieur.docs].filter((d) => d.id !== matchId);
+      if (autres.length === 0) {
+        const joueurs = await getDocs(collection(db, "teams", idFantome, "ghost_players"));
+        const lot = writeBatch(db);
+        joueurs.docs.forEach((d) => lot.delete(d.ref));
+        lot.delete(doc(db, "teams", idFantome));
+        await lot.commit();
+      }
+    }
+  }
+
+  await deleteDoc(doc(db, "matches", matchId));
 }
 
 export async function submitManagerFeedback(
@@ -1077,7 +1356,7 @@ export async function respondToMatchChallenge(
   if (accepted) {
     await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, homeTeamId, homeTeamMemberIds, homeTeamMemberNames, format, true, !!autoAccept);
     await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, awayTeamId, awayTeamMemberIds, awayTeamMemberNames, format, false, !!autoAccept);
-    
+
     if (autoAccept) {
       // Create announcement immediately if auto-accepting
       await addDoc(collection(db, "posts"), {
@@ -1114,6 +1393,53 @@ export async function requestMatchModification(
   });
 }
 
+/**
+ * Déplacer un match sans passer par une demande.
+ *
+ * Réservé aux amicaux contre un fantôme : `requestMatchModification` attend
+ * qu'un manager adverse accepte, et il n'y en a pas. La demande s'écrivait
+ * quand même, le match affichait « en attente de validation adverse » et plus
+ * personne ne pouvait ni le déplacer ni s'en débarrasser. Ici on écrit
+ * directement, et les convoqués sont prévenus du changement.
+ */
+export async function updateMatchSchedule(
+  matchId: string,
+  data: { date: string; time: string; venueName: string; venueCity: string },
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    date: data.date, time: data.time,
+    venue_name: data.venueName, venue_city: data.venueCity,
+    modification_request: null,
+    updated_at: serverTimestamp(),
+  });
+
+  // Les participations portent une copie de la date et du terrain : sans ça,
+  // le joueur garde l'ancien créneau dans son agenda.
+  const q = query(collection(db, "participations"), where("match_id", "==", matchId));
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => {
+    batch.update(d.ref, {
+      match_date: data.date, match_time: data.time,
+      venue_name: data.venueName,
+      updated_at: serverTimestamp(),
+    });
+  });
+  await batch.commit();
+
+  await Promise.all(snap.docs.map((d) => {
+    const part = d.data() as FirestoreParticipation;
+    if (part.status === "cancelled" || part.status === "declined") return Promise.resolve();
+    return createNotification({
+      userId: part.player_id,
+      type: "match_update",
+      title: "Match déplacé",
+      body: `${part.match_label} : ${data.date} à ${data.time}${data.venueName ? `, ${data.venueName}` : ""}`,
+      link: `/matches/${matchId}`,
+    });
+  }));
+}
+
 export async function respondToMatchModification(
   matchId: string,
   accepted: boolean,
@@ -1123,14 +1449,14 @@ export async function respondToMatchModification(
     modification_request: null,
     updated_at: serverTimestamp(),
   };
-  
+
   if (accepted) {
     updates.date = currentMod.date;
     updates.time = currentMod.time;
     updates.venue_name = currentMod.venue_name;
     updates.venue_city = currentMod.venue_city;
   }
-  
+
   await updateDoc(doc(db, "matches", matchId), updates);
 }
 
@@ -1140,15 +1466,15 @@ export async function respondToMatchModification(
 // ============================================
 
 export async function invitePlayerToMatch(
-  matchId: string, 
-  matchLabel: string, 
-  matchDate: string, 
+  matchId: string,
+  matchLabel: string,
+  matchDate: string,
   matchTime: string,
-  venueName: string, 
-  playerId: string, 
-  playerName: string, 
-  teamId: string, 
-  format: string, 
+  venueName: string,
+  playerId: string,
+  playerName: string,
+  teamId: string,
+  format: string,
   isHome: boolean,
   autoConfirm: boolean = false
 ): Promise<void> {
@@ -1294,7 +1620,7 @@ export async function respondToParticipation(
       a >= minQuota
     ) {
       transaction.update(matchRef, { status: "upcoming", updated_at: serverTimestamp() });
-      
+
       // Since we can't easily addDoc in a transaction without knowing the ID,
       // we'll use setDoc with a manual ID or just keep it simple.
       // Actually, addDoc works fine if it's not part of the transaction's read-write cycle,
@@ -1963,7 +2289,7 @@ export function onMatchesByReferee(refereeId: string, callback: (data: Match[]) 
       orderBy("date", "asc")
     );
   }
-  
+
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map(d => toMatch(d.id, d.data() as FirestoreMatch)));
   });
@@ -2365,7 +2691,7 @@ export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id
   if (data.amenities) updates.amenities = data.amenities;
   if (data.available !== undefined) updates.available = data.available;
   if (data.photoUrl !== undefined) updates.photo_url = data.photoUrl;
-  
+
   updates.updated_at = serverTimestamp();
   await updateDoc(doc(db, "venues", venueId), updates);
 }
@@ -2502,6 +2828,9 @@ export async function createGhostPlayer(
     last_name: data.lastName.trim(),
     position: data.position,
     squad_number: data.squadNumber?.trim() || null,
+    goals: 0,
+    assists: 0,
+    matches_played: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
@@ -2525,6 +2854,32 @@ export async function updateGhostPlayer(
   if (data.position !== undefined) update.position = data.position;
   if (data.squadNumber !== undefined) update.squad_number = data.squadNumber.trim() || null;
   await updateDoc(ref, update);
+}
+
+/**
+ * Fusionner un joueur sans compte avec le compte qu'il vient de créer.
+ *
+ * Passe par le serveur : le transfert écrit dans `users/{uid}`, hors de ce que
+ * le manager possède. Voir /api/teams/merge-ghost.
+ */
+export async function mergeGhostPlayer(input: {
+  teamId: string;
+  ghostId: string;
+  playerId: string;
+}): Promise<{ nom: string; buts: number; passes: number; matchs: number }> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/teams/merge-ghost", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "La fusion a échoué");
+  return data;
 }
 
 export async function deleteGhostPlayer(teamId: string, ghostId: string): Promise<void> {

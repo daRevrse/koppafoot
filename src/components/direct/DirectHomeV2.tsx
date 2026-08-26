@@ -19,7 +19,8 @@ import {
 } from "@/lib/competition-firestore";
 import { stageLabel } from "@/lib/competition-format";
 import type { CompetitionFeed } from "@/lib/competition-admin";
-import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
+import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/lib/friendlies-shared";
+import { onLiveFriendlies } from "@/lib/firestore";
 import { isWorldComp } from "@/lib/world-board-shared";
 import type { FootballCompetition } from "@/lib/football-data";
 import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
@@ -703,7 +704,12 @@ function CompetitionGroup({
   // A knockout day reads better by round than by the competition's running
   // stage, "Quart de finale" beats "Phase finale" when the two agree.
   const firstRound = entries[0]?.match.round;
-  const heading = firstRound ? ROUND_LABELS[firstRound] : stage;
+  // « Matchs amicaux, Phase de groupes » : un amical n'a ni poule ni tour. Le
+  // rattachement à une compétition synthétique lui faisait hériter d'un libellé
+  // d'étape qui ne veut rien dire.
+  const heading = competition.id === FRIENDLY_COMP_ID
+    ? null
+    : firstRound ? ROUND_LABELS[firstRound] : stage;
 
   return (
     <div className="border-b border-gray-200/70 last:border-0">
@@ -1242,6 +1248,34 @@ export default function DirectHomeV2({
     return () => unsubs.forEach((u) => u());
   }, [competitionIds]);
 
+  // Les amicaux en cours, en direct eux aussi.
+  //
+  // L'écouteur par compétition, juste au-dessus, saute volontairement le fanion
+  // des amicaux : ils n'ont pas de sous-collection `comp_matches`, ils vivent
+  // dans `matches`. Sans cet écouteur-ci, un amical couvert restait figé sur
+  // l'instantané du rendu serveur — le score n'avançait pas, et un match lancé
+  // après le chargement de la page n'apparaissait jamais.
+  useEffect(() => {
+    return onLiveFriendlies((rows) => {
+      const frais = rows
+        .map((r) => amicalVersCompMatch(r.id, r.data))
+        .filter((m): m is NonNullable<typeof m> => m != null);
+      const idsFrais = new Set(frais.map((m) => m.id));
+
+      setFeed((prev) => {
+        const groupe = prev.find((f) => f.competition.id === FRIENDLY_COMP_ID);
+        // Le rendu serveur porte aussi les amicaux à venir : on remplace ceux
+        // dont l'écouteur donne des nouvelles, on ne jette pas les autres.
+        const inchanges = (groupe?.matches ?? []).filter((m) => !idsFrais.has(m.id));
+        const matches = [...frais, ...inchanges];
+        if (matches.length === 0) return prev;
+        return groupe
+          ? prev.map((f) => (f.competition.id === FRIENDLY_COMP_ID ? { ...f, matches } : f))
+          : [...prev, { competition: FRIENDLY_COMPETITION, matches }];
+      });
+    });
+  }, []);
+
   // Team docs carry the current crest; match docs only a snapshot of it.
   useEffect(() => {
     const ids = competitionIds ? competitionIds.split(",") : [];
@@ -1329,9 +1363,16 @@ export default function DirectHomeV2({
     // Le jour affiche filtre automatiquement : c'est un tableau de scores,
     // il repond d'abord a « qu'est-ce qui se joue ». Les favoris echappent au
     // filtre, on les suit quelle que soit la date.
+    // UN MATCH EN COURS ECHAPPE AU FILTRE DE JOUR, toujours. Il se joue
+    // maintenant, quelle que soit la date que porte sa fiche — et les deux se
+    // separent plus souvent qu'on ne croit : un amical programme pour samedi
+    // que le manager lance mercredi pour essayer la console, un match reporte
+    // dont personne n'a corrige la date. Le compteur « En direct » comptait
+    // deja ces matchs-la (il lit `scoped`, hors jour), si bien que le tableau
+    // annoncait « En direct (1) » au-dessus d'une liste ou il ne figurait pas.
     let list = tab === "favs"
       ? scoped.filter((e) => favs.has(entryKey(e)) || compFavs.has(e.competition.id))
-      : scoped.filter((e) => e.match.date === day);
+      : scoped.filter((e) => e.match.date === day || e.match.status === "live");
     if (chip === "live") list = list.filter((e) => e.match.status === "live");
     if (chip === "finished") list = list.filter((e) => e.match.status === "completed");
     if (chip === "upcoming") list = list.filter((e) => e.match.status === "scheduled");

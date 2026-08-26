@@ -59,12 +59,16 @@ export async function POST(req: NextRequest) {
     (await peutGererEquipeServeur(match.home_team_id, callerUid)) ||
     (await peutGererEquipeServeur(match.away_team_id, callerUid));
   const isReferee = match.referee_id === callerUid && match.referee_status === "confirmed";
+  // Celui qui a couvert le match le siffle. Le coup de sifflet final fait
+  // partie de la couverture : demander au manager de venir cliquer derrière
+  // laisserait un match live ouvert jusqu'à ce qu'il y pense.
+  const isModerateur = (match.moderator_ids ?? []).includes(callerUid);
   let isSuperadmin = false;
-  if (!isManager && !isReferee) {
+  if (!isManager && !isReferee && !isModerateur) {
     const caller = await adminDb.collection("users").doc(callerUid).get();
     isSuperadmin = caller.exists && caller.data()?.user_type === "superadmin";
   }
-  if (!isManager && !isReferee && !isSuperadmin) {
+  if (!isManager && !isReferee && !isModerateur && !isSuperadmin) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
@@ -159,6 +163,43 @@ export async function POST(req: NextRequest) {
       last_match_id: matchId,
       updated_at: FieldValue.serverTimestamp(),
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Les joueurs SANS COMPTE de la vraie équipe.
+  //
+  // Ils n'ont pas de document `participations` — c'est leur définition — donc
+  // la boucle ci-dessus ne les voit pas. Leur feuille de match est
+  // dénormalisée sur le match (`home_ghost_lineup` / `away_ghost_lineup`) et
+  // leur carrière vit sur `teams/{id}/ghost_players`.
+  //
+  // MÊMES CONDITIONS QUE LES COMPTES : `crediterLesJoueurs`, donc le direct
+  // vaut constat et un match non couvert attend la décision du manager. Un
+  // joueur sans smartphone n'a pas à être moins bien traité, ni mieux.
+  //
+  // L'ÉQUIPE FANTÔME EST EXCLUE : ses « Joueur 1 » à « Joueur 11 » ne tiennent
+  // aucune carrière, pour la même raison que le club lui-même n'en tient pas.
+  if (crediterLesJoueurs) {
+    const camps: { teamId: string | undefined; entries: unknown }[] = [
+      { teamId: match.home_team_id, entries: match.home_ghost_lineup },
+      { teamId: match.away_team_id, entries: match.away_ghost_lineup },
+    ];
+    for (const camp of camps) {
+      if (!camp.teamId || camp.teamId === ghostTeamId) continue;
+      const lignes = Array.isArray(camp.entries) ? camp.entries : [];
+      for (const ligne of lignes as { player_id?: string; role?: string }[]) {
+        if (!ligne.player_id) continue;
+        const buts = goalsPerPlayer[ligne.player_id] ?? 0;
+        batch.update(
+          adminDb.collection("teams").doc(camp.teamId).collection("ghost_players").doc(ligne.player_id),
+          {
+            matches_played: FieldValue.increment(1),
+            goals: FieldValue.increment(buts),
+            updated_at: FieldValue.serverTimestamp(),
+          },
+        );
+      }
+    }
   }
 
   batch.update(matchRef, {

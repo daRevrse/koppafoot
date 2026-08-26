@@ -97,6 +97,16 @@ function toMatch(id: string, d: FirestoreMatch): Match {
     isHome: d.is_home, playersConfirmed: d.players_confirmed ?? 0,
     playersTotal: d.players_total ?? 0,
     awayManagerId: d.away_manager_id ?? "",
+    moderatorIds: d.moderator_ids ?? [],
+    // Repli sur `ghost_lineup` pour les matchs créés avant les champs par
+    // camp : ce champ-là ne concernait que l'adversaire hors plateforme, donc
+    // le camp opposé à celui du créateur (`is_home`).
+    homeGhostLineup: (d.home_ghost_lineup
+      ?? (!d.away_manager_id && !d.is_home ? d.ghost_lineup ?? [] : [])
+    ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    awayGhostLineup: (d.away_ghost_lineup
+      ?? (!d.away_manager_id && d.is_home ? d.ghost_lineup ?? [] : [])
+    ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
     homeLineupReady: d.home_lineup_ready ?? false,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
@@ -17,7 +17,7 @@ import {
   toMatch, toParticipation,
   invitePlayerToMatch, respondToParticipation,
   getMatchParticipations, getTeamMembers,
-  updateMatchLineup, setGhostLineup, submitManagerFeedback,
+  updateMatchLineup, submitManagerFeedback,
   contestMatchEvent, getTeamById,
   getGhostPlayersByTeam, getTeamsIManage, creditGhostMatchStats,
 } from "@/lib/firestore";
@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
 import MatchRail from "@/components/match/MatchRail";
+import MatchModerators from "@/components/match/MatchModerators";
 
 // ============================================
 // Helpers
@@ -58,12 +59,16 @@ export default function MatchDetailPage() {
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"center" | "squad" | "info">("center");
+  const [activeTab, setActiveTab] = useState<"center" | "squad" | "info">("info");
+  /** L'onglet d'ouverture n'est choisi qu'une fois, sinon un rafraîchissement
+   *  du match ramènerait l'utilisateur là où il n'était plus. */
+  const ongletInitialise = useRef(false);
   const [displayTime, setDisplayTime] = useState(0);
   const [inviting, setInviting] = useState(false);
   const [lineupMode, setLineupMode] = useState(false);
   const [tempAssignments, setTempAssignments] = useState<Record<string, { squadNumber: string; role: "starter" | "substitute" }>>({});
   const [savingLineup, setSavingLineup] = useState(false);
+  const [repondEnCours, setRepondEnCours] = useState(false);
   const [validatingLineup, setValidatingLineup] = useState(false);
 
   const [contestingEventId, setContestingEventId] = useState<string | null>(null);
@@ -91,9 +96,6 @@ export default function MatchDetailPage() {
   const [refereeRating, setRefereeRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [ghostPlayers, setGhostPlayers] = useState<GhostPlayer[]>([]);
-  const [opponentGhostPlayers, setOpponentGhostPlayers] = useState<GhostPlayer[]>([]);
-  const [ghostAssignments, setGhostAssignments] = useState<Record<string, { number: string; role: "starter" | "substitute" }>>({});
-  const [savingGhostLineup, setSavingGhostLineup] = useState(false);
   // Attribution des stats d'un amical fantôme : irréversible, donc en deux
   // temps. Un bouton unique se clique par réflexe, et rien ne se déduit
   // ensuite d'un compteur de carrière.
@@ -143,14 +145,12 @@ export default function MatchDetailPage() {
   );
 
   const isManager = useMemo(() => !!myTeamId, [myTeamId]);
-
-  /** Le camp du créateur, celui qui pose la feuille de l'adversaire fantôme. */
-  const iAmCreator = useMemo(() => {
-    if (!match || !user) return false;
-    if (user.uid === match.managerId) return true;
-    const equipeDuCreateur = match.isHome ? match.homeTeamId : match.awayTeamId;
-    return mesEquipesIds.includes(equipeDuCreateur);
-  }, [match, user, mesEquipesIds]);
+  /**
+   * Un amical contre une équipe hors plateforme : personne en face, donc rien
+   * à contresigner. Le statut de validation existe toujours en base (voir
+   * /api/matches/complete) mais il n'a aucun destinataire, on ne l'affiche pas.
+   */
+  const estAmical = useMemo(() => !!match && !match.awayManagerId, [match]);
 
   const isHomeManager = useMemo(() => myTeamIsHome, [myTeamIsHome]);
 
@@ -159,12 +159,52 @@ export default function MatchDetailPage() {
     return myTeamIsHome ? match.homeLineupReady : match.awayLineupReady;
   }, [match, user, myTeamId, myTeamIsHome]);
 
-  // Adversaire hors plateforme : personne en face pour composer sa feuille de
-  // match, c'est donc le créateur qui la pose depuis l'effectif fantôme.
-  const ghostOpponentTeamId = useMemo(() => {
-    if (!match || !iAmCreator || match.awayManagerId) return null;
-    return myTeamIsHome ? match.awayTeamId : match.homeTeamId;
-  }, [match, iAmCreator, myTeamIsHome]);
+  /** De quel côté joue l'équipe hors plateforme, s'il y en a une. */
+  const ghostIsHome = useMemo(
+    () => !!match && estAmical && !match.isHome,
+    [match, estAmical],
+  );
+
+  /** Les mêmes que le garde de la console (voir matches/[id]/manage). */
+  const peutTenirLaConsole = useMemo(() => {
+    if (!match || !user) return false;
+    return (
+      isManager ||
+      user.uid === match.managerId ||
+      user.uid === match.awayManagerId ||
+      (match.moderatorIds ?? []).includes(user.uid) ||
+      (match.refereeId === user.uid && match.refereeStatus === "confirmed")
+    );
+  }, [match, user, isManager]);
+
+  /**
+   * L'équipe hors plateforme, et comment nommer ce qu'elle fait.
+   *
+   * Ses joueurs s'appellent « Joueur 1 » à « Joueur 11 » et le resteront : on
+   * ne compose pas l'effectif d'un adversaire qui n'a pas de compte. « Joueur 9
+   * — carton jaune » n'apprend donc rien à personne. Le nom du club, lui, dit
+   * ce qu'il y a à dire.
+   *
+   * Ne concerne QUE ce camp : les joueurs sans compte de sa propre équipe
+   * portent de vrais noms, ce sont les siens.
+   */
+  const idEquipeFantome = useMemo(() => {
+    if (!match || !estAmical) return null;
+    return ghostIsHome ? match.homeTeamId : match.awayTeamId;
+  }, [match, estAmical, ghostIsHome]);
+
+  const auteurDeLEvenement = (teamId: string, playerName?: string): string => {
+    if (idEquipeFantome && teamId === idEquipeFantome) {
+      return ghostIsHome ? match!.homeTeamName : match!.awayTeamName;
+    }
+    return playerName || "Action";
+  };
+
+  /** Les joueurs sans compte de MON camp, tels qu'enregistrés sur ce match. */
+  const mesEntreesSansCompte = useMemo(
+    () => (!match ? [] : myTeamIsHome ? match.homeGhostLineup : match.awayGhostLineup),
+    [match, myTeamIsHome],
+  );
 
   const myParticipation = useMemo(() => {
     return participations.find(p => p.playerId === user?.uid);
@@ -222,25 +262,25 @@ export default function MatchDetailPage() {
     }
   }, [myTeamId]);
 
-  // Load ghost players for lineup
+  // Les joueurs sans compte de MA propre équipe. Rien à voir avec l'adversaire
+  // hors plateforme : ce sont mes joueurs, ceux qui n'ont pas de smartphone, et
+  // ils doivent figurer sur ma feuille de match comme les autres. Certaines
+  // équipes n'ont même que ceux-là.
   useEffect(() => {
-    if (!myTeamId) return;
+    if (!myTeamId) { setGhostPlayers([]); return; }
     getGhostPlayersByTeam(myTeamId).then(setGhostPlayers).catch(console.error);
   }, [myTeamId]);
 
-  // Effectif de l'adversaire hors plateforme, source de sa feuille de match.
-  useEffect(() => {
-    if (!ghostOpponentTeamId) return;
-    getGhostPlayersByTeam(ghostOpponentTeamId).then(setOpponentGhostPlayers).catch(console.error);
-  }, [ghostOpponentTeamId]);
 
-  // Repartir de la compo déjà enregistrée plutôt que d'une feuille vierge.
+  // Un match en cours s'ouvre sur le Match Center : c'est le direct qu'on vient
+  // chercher ce jour-là. Le reste du temps il n'a rien à montrer — pas de
+  // timeline, pas de score — et c'est la fiche d'informations qui répond à la
+  // vraie question : c'est quand, c'est où.
   useEffect(() => {
-    if (!match?.ghostLineup?.length) return;
-    setGhostAssignments(Object.fromEntries(
-      match.ghostLineup.map((e) => [e.playerId, { number: e.number, role: e.role }]),
-    ));
-  }, [match?.ghostLineup]);
+    if (!match || ongletInitialise.current) return;
+    ongletInitialise.current = true;
+    setActiveTab(match.status === "live" ? "center" : "info");
+  }, [match]);
 
   // 3. Timer Logic
   useEffect(() => {
@@ -298,24 +338,28 @@ export default function MatchDetailPage() {
     else if (resultat === "echec") toast.error("Le partage a échoué.");
   };
 
-  const handleJoin = async () => {
-    if (!match || !user || !myTeamId) return;
+  /**
+   * Répondre à sa convocation.
+   *
+   * `handleJoin` créait une NOUVELLE participation : c'était le geste d'un
+   * manager qui s'ajoute lui-même à la feuille, pas celui d'un joueur qui
+   * répond. Un convoqué en a déjà une, il faut la mettre à jour — sans quoi
+   * les compteurs de confirmation ne bougeaient jamais.
+   */
+  const handleRepondreConvocation = async (accepte: boolean) => {
+    if (!match || !myParticipation) return;
+    setRepondEnCours(true);
     try {
-      await invitePlayerToMatch(
-        match.id,
-        `${match.homeTeamName} vs ${match.awayTeamName}`,
-        match.date,
-        match.time,
-        match.venueName,
-        user.uid,
-        `${user.firstName} ${user.lastName}`,
-        myTeamId,
-        match.format,
-        user.uid === match.managerId, 
-        match.autoAcceptPlayers || false
+      await respondToParticipation(
+        myParticipation.id, accepte,
+        match.id, myParticipation.teamId, match.format, myParticipation.isHome,
       );
-    } catch (error) {
-      console.error("Join failed", error);
+      toast.success(accepte ? "Présence confirmée" : "Absence enregistrée");
+    } catch (e) {
+      console.error(e);
+      toast.error("Impossible d'enregistrer ta réponse");
+    } finally {
+      setRepondEnCours(false);
     }
   };
 
@@ -428,7 +472,7 @@ export default function MatchDetailPage() {
                 </span>
               )}
             </div>
-            {match.status === "completed" && (
+            {match.status === "completed" && !estAmical && (
               <div className={`flex items-center gap-2 px-4 py-1 rounded-full border backdrop-blur-md ${
                 match.validationStatus === 'validated' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                 match.validationStatus === 'contested' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
@@ -494,13 +538,23 @@ export default function MatchDetailPage() {
       {/* Tabs Control */}
       <div className="flex p-1.5 gap-1 bg-white shadow-gray-100/50 border border-gray-200/70">
         {[
-          { id: "center", label: "Match Center", icon: Activity },
+          // L'ordre suit ce qu'on est venu voir. Match en cours : le direct
+          // d'abord. Sinon, les informations d'abord — le Match Center d'un
+          // match à venir est une coquille.
+          ...(match.status === "live"
+            ? [
+                { id: "center", label: "Match Center", icon: Activity },
+                { id: "info", label: "Informations", icon: Info },
+              ]
+            : [
+                { id: "info", label: "Informations", icon: Info },
+                { id: "center", label: "Match Center", icon: Activity },
+              ]),
           // La feuille de match ne s'affiche pas sans compte : les règles
           // Firestore ne servent pas `participations` à un invité, l'onglet
           // n'aurait donc que deux colonnes vides à montrer. Mieux vaut ne
           // pas l'annoncer que l'annoncer creux.
           ...(user ? [{ id: "squad", label: "Feuille de Match", icon: ClipboardList }] : []),
-          { id: "info", label: "Informations", icon: Info },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -698,7 +752,42 @@ export default function MatchDetailPage() {
                 </div>
               )}
 
-              {/* Event Timeline */}
+              {/* Avant le coup d'envoi, le Match Center n'avait plus rien à
+                  montrer depuis que la timeline attend le direct : l'onglet
+                  s'ouvrait sur quatre cents pixels de vide. Il annonce donc ce
+                  qu'on est venu y chercher — quand ça commence — et ouvre la
+                  console à ceux qui la tiendront. */}
+              {match.status !== "live" && match.status !== "completed" && (
+                <div className="flex flex-col items-center border border-gray-200/70 bg-white px-6 py-12 text-center sm:py-16">
+                  <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
+                    <Clock size={30} className="text-gray-300" />
+                  </div>
+                  <h4 className="mt-5 text-lg font-black text-gray-900">
+                    {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
+                  </h4>
+                  {match.status !== "cancelled" && (
+                    <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
+                      Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
+                      <span className="font-bold text-gray-700">{match.time}</span>
+                      {match.venueName ? <> · {match.venueName}</> : null}.
+                      {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
+                    </p>
+                  )}
+                  {peutTenirLaConsole && match.status !== "cancelled" && (
+                    <button
+                      onClick={() => router.push(`/matches/${id}/manage`)}
+                      className="mt-6 inline-flex items-center gap-2 bg-gray-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
+                    >
+                      <Activity size={14} /> Ouvrir la console live
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Event Timeline. Un match qui n'a pas commencé n'a pas
+                  d'histoire : le bloc n'apparaît qu'une fois le direct lancé,
+                  et reste ensuite comme récit de la rencontre. */}
+              {(match.status === "live" || match.status === "completed") && (
               <div className=" bg-white border border-gray-200/70 p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-4 sm:mb-8">
                   <h3 className="text-lg font-black text-gray-900 font-display">Timeline</h3>
@@ -746,12 +835,16 @@ export default function MatchDetailPage() {
                             </div>
                             <div className="flex items-center justify-between">
                               <p className="text-[11px] font-bold text-gray-500">
-                                {event.playerName || "Action"} {event.detail && `• ${event.detail}`}
+                                {auteurDeLEvenement(event.teamId, event.playerName)} {event.detail && `• ${event.detail}`}
                               </p>
                               <div className="flex items-center gap-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 italic">
-                                  {event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName}
-                                </p>
+                                {/* Le rappel de l'équipe ne sert plus à rien
+                                    quand c'est déjà elle qu'on vient de nommer. */}
+                                {event.teamId !== idEquipeFantome && (
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 italic">
+                                    {event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName}
+                                  </p>
+                                )}
                                 {match.status === "completed" && match.validationStatus !== "validated" && isManager && (
                                   <>
                                     {event.contestedByManagerId ? (
@@ -783,6 +876,7 @@ export default function MatchDetailPage() {
                   </div>
                 </div>
               </div>
+              )}
             </motion.div>
           )}
 
@@ -834,6 +928,18 @@ export default function MatchDetailPage() {
                                       role: p.matchRole || "starter"
                                     };
                                   }
+                                });
+                                // Les joueurs sans compte AUSSI. Leurs lignes
+                                // affichaient « Titu » par simple valeur par
+                                // défaut du sélecteur, sans rien poser dans
+                                // l'état : le compteur lisait 1/11 pendant que
+                                // huit lignes annonçaient le contraire.
+                                ghostPlayers.forEach(g => {
+                                  const dejaPose = mesEntreesSansCompte.find(e => e.playerId === g.id);
+                                  initial[g.id] = {
+                                    squadNumber: dejaPose?.number || g.squadNumber || "",
+                                    role: dejaPose?.role || "starter",
+                                  };
                                 });
                                 setTempAssignments(initial);
                                 setLineupMode(true);
@@ -934,13 +1040,35 @@ export default function MatchDetailPage() {
                         if (!match || !myTeamId) return;
                         setValidatingLineup(true);
                         try {
-                          const assignments = Object.entries(tempAssignments).map(([playerId, val]) => ({
-                            playerId,
-                            squadNumber: val.squadNumber,
-                            role: val.role
-                          }));
+                          // Un joueur sans compte n'a pas de participation où
+                          // écrire son numéro : ses assignations partent dans
+                          // la feuille du camp, sur le match. Les mélanger
+                          // revenait à les jeter (voir updateMatchLineup).
+                          const idsSansCompte = new Set(ghostPlayers.map(g => g.id));
+                          const entrees = Object.entries(tempAssignments);
+
+                          const assignments = entrees
+                            .filter(([playerId]) => !idsSansCompte.has(playerId))
+                            .map(([playerId, val]) => ({
+                              playerId,
+                              squadNumber: val.squadNumber,
+                              role: val.role,
+                            }));
+
+                          const ghostEntries = entrees
+                            .filter(([playerId]) => idsSansCompte.has(playerId))
+                            .map(([playerId, val]) => {
+                              const g = ghostPlayers.find(x => x.id === playerId)!;
+                              return {
+                                playerId,
+                                name: `${g.firstName} ${g.lastName}`.trim(),
+                                number: val.squadNumber || g.squadNumber || "",
+                                role: val.role,
+                              };
+                            });
+
                           // This updateMatchLineup also sets the ready flag in firestore
-                          await updateMatchLineup(match.id, myTeamId, myTeamIsHome, assignments);
+                          await updateMatchLineup(match.id, myTeamId, myTeamIsHome, assignments, ghostEntries);
                           setLineupMode(false);
                           toast.success("Feuille de match validée !");
                         } catch (err) {
@@ -950,8 +1078,13 @@ export default function MatchDetailPage() {
                           setValidatingLineup(false);
                         }
                       }}
-                      disabled={validatingLineup}
-                      className="flex-[2] py-4 bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-emerald-500/20 hover:bg-emerald-600 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                      disabled={
+                        validatingLineup ||
+                        // Une feuille sans titulaire se déclarait « validée » et
+                        // ouvrait la console sur une grille vide.
+                        Object.values(tempAssignments).filter(a => a.role === "starter").length === 0
+                      }
+                      className="flex-[2] py-4 bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-emerald-500/20 hover:bg-emerald-600 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:scale-100"
                     >
                       {validatingLineup ? <RefreshCcw size={16} className="animate-spin" /> : <Save size={16} />}
                       Envoyer à l'arbitre
@@ -960,121 +1093,33 @@ export default function MatchDetailPage() {
                 </div>
               )}
 
-              {/* Feuille de match de l'adversaire hors plateforme : personne en
-                  face pour la poser, et ses joueurs n'ont pas de participation
-                 , la compo est donc écrite sur le match. Sans elle, aucun but
-                  adverse ne peut être attribué à un joueur dans la console. */}
-              {ghostOpponentTeamId && (
-                <div className="mb-8 border border-gray-200/70 bg-white p-5">
-                  <div className="mb-1 flex items-center gap-2">
-                    <ClipboardList size={16} className="text-gray-400" />
-                    <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-500">
-                      Feuille de match · {myTeamIsHome ? match.awayTeamName : match.homeTeamName}
-                    </h3>
-                  </div>
-                  <p className="mb-4 text-xs text-gray-400">
-                    Cette équipe n&apos;est pas sur KoppaFoot : c&apos;est toi qui composes sa feuille,
-                    depuis l&apos;effectif que tu lui as créé.
-                  </p>
-
-                  {opponentGhostPlayers.length === 0 ? (
-                    <Link
-                      href={`/teams/${ghostOpponentTeamId}`}
-                      className="flex items-center justify-center gap-2 border border-dashed border-gray-200/70 px-4 py-6 text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50"
-                    >
-                      <UserPlus size={14} /> Aucun joueur, composer l&apos;effectif
-                    </Link>
-                  ) : (
-                    <div className="space-y-2">
-                      {opponentGhostPlayers.map((ghost) => {
-                        const asgn = ghostAssignments[ghost.id];
-                        return (
-                          <div key={ghost.id} className="flex items-center justify-between gap-3 border border-gray-200/70 bg-gray-50/60 p-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-gray-900">
-                                {ghost.firstName} {ghost.lastName}
-                              </p>
-                              <p className="text-[10px] uppercase tracking-widest text-gray-400">
-                                {ghost.position}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <input
-                                type="text"
-                                placeholder="N°"
-                                maxLength={3}
-                                className="h-9 w-12 border border-gray-200/70 bg-white text-center text-xs font-black text-gray-900 focus:border-emerald-500 focus:outline-none"
-                                value={asgn?.number ?? ghost.squadNumber ?? ""}
-                                onChange={(e) => setGhostAssignments((prev) => ({
-                                  ...prev,
-                                  [ghost.id]: { role: prev[ghost.id]?.role ?? "starter", number: e.target.value },
-                                }))}
-                              />
-                              <select
-                                className="h-9 border border-gray-200/70 bg-white px-2 text-[10px] font-black uppercase text-gray-700 focus:outline-none"
-                                value={asgn?.role ?? "none"}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setGhostAssignments((prev) => {
-                                    const next = { ...prev };
-                                    if (v === "none") delete next[ghost.id];
-                                    else next[ghost.id] = {
-                                      number: prev[ghost.id]?.number ?? ghost.squadNumber ?? "",
-                                      role: v as "starter" | "substitute",
-                                    };
-                                    return next;
-                                  });
-                                }}
-                              >
-                                <option value="none">Hors feuille</option>
-                                <option value="starter">Titu</option>
-                                <option value="substitute">Sub</option>
-                              </select>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <button
-                        onClick={async () => {
-                          if (!match) return;
-                          setSavingGhostLineup(true);
-                          try {
-                            const entries = opponentGhostPlayers
-                              .filter((g) => ghostAssignments[g.id])
-                              .map((g) => ({
-                                playerId: g.id,
-                                name: `${g.firstName} ${g.lastName}`.trim(),
-                                number: ghostAssignments[g.id].number || g.squadNumber || "",
-                                role: ghostAssignments[g.id].role,
-                              }));
-                            await setGhostLineup(match.id, !myTeamIsHome, entries);
-                            toast.success("Feuille de l'adversaire enregistrée");
-                          } catch (err) {
-                            console.error(err);
-                            toast.error("Erreur lors de l'enregistrement");
-                          } finally {
-                            setSavingGhostLineup(false);
-                          }
-                        }}
-                        disabled={savingGhostLineup}
-                        className="mt-2 flex w-full items-center justify-center gap-2 bg-gray-900 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-800 disabled:opacity-50"
-                      >
-                        {savingGhostLineup ? <RefreshCcw size={14} className="animate-spin" /> : <Save size={14} />}
-                        Enregistrer la feuille adverse
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* La feuille de match de l'adversaire hors plateforme se tenait
+                  ici. Elle n'y est plus : son onze est généré avec le match et
+                  vit dans la console live, seul endroit où il sert. Le composer
+                  d'avance sur cette page demandait un travail de saisie à
+                  quelqu'un qui, le jour venu, refait tout dans la console. */}
 
               <div className="space-y-8">
-                {/* Home Squad */}
+                {/* Home Squad. Deux raisons de ne pas l'afficher.
+                    Le camp hors plateforme d'abord : ses joueurs n'ont pas de
+                    compte, donc pas de convocation, et une colonne « 0
+                    confirmés » laissait croire à une équipe qui ne répond pas.
+                    L'auto-acceptation ensuite : cette liste EST le suivi des
+                    convocations, et il n'y a pas de convocation à suivre quand
+                    tout le monde est accepté d'office. La composition, elle, se
+                    tient dans l'éditeur de feuille au-dessus. */}
+                {!ghostIsHome && !match.autoAcceptPlayers && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-400 italic">{match.homeTeamName}</h3>
-                    <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-200/70">
-                      {homeSquad.filter(p => p.status === 'confirmed').length} Confirmés
-                    </span>
+                    {/* Le compteur de confirmations ne veut rien dire quand
+                        l'auto-acceptation est active : tout le monde est
+                        confirmé d'office, il n'y a aucune réponse à attendre. */}
+                    {!match.autoAcceptPlayers && (
+                      <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-200/70">
+                        {homeSquad.filter(p => p.status === 'confirmed').length} Confirmés
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-2">
                     {homeSquad.map(player => (
@@ -1086,8 +1131,11 @@ export default function MatchDetailPage() {
                           <div>
                             <p className="text-sm font-black text-gray-900 line-clamp-1">{player.playerName}</p>
                             <div className="flex items-center gap-2">
+                              {/* Même raison que le compteur : avec le bypass,
+                                  « Présent » est vrai pour tout le monde par
+                                  construction et n'apprend rien. */}
                               <p className={`text-[10px] font-black uppercase tracking-widest ${player.status === 'confirmed' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                {player.status === 'confirmed' ? 'Présent' : 'Invité'}
+                                {match.autoAcceptPlayers ? 'Sur la feuille' : player.status === 'confirmed' ? 'Présent' : 'Invité'}
                               </p>
                               {player.matchRole && (
                                 <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${
@@ -1142,14 +1190,18 @@ export default function MatchDetailPage() {
                     )}
                   </div>
                 </div>
+                )}
 
-                {/* Away Squad */}
+                {/* Away Squad. Mêmes deux raisons, voir Home Squad. */}
+                {!(estAmical && !ghostIsHome) && !match.autoAcceptPlayers && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-400 italic">{match.awayTeamName}</h3>
-                    <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-200/70">
-                      {awaySquad.filter(p => p.status === 'confirmed').length} Confirmés
-                    </span>
+                    {!match.autoAcceptPlayers && (
+                      <span className="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 border border-gray-200/70">
+                        {awaySquad.filter(p => p.status === 'confirmed').length} Confirmés
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-2">
                     {awaySquad.map(player => (
@@ -1161,8 +1213,11 @@ export default function MatchDetailPage() {
                           <div>
                             <p className="text-sm font-black text-gray-900 line-clamp-1">{player.playerName}</p>
                             <div className="flex items-center gap-2">
+                              {/* Même raison que le compteur : avec le bypass,
+                                  « Présent » est vrai pour tout le monde par
+                                  construction et n'apprend rien. */}
                               <p className={`text-[10px] font-black uppercase tracking-widest ${player.status === 'confirmed' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                {player.status === 'confirmed' ? 'Présent' : 'Invité'}
+                                {match.autoAcceptPlayers ? 'Sur la feuille' : player.status === 'confirmed' ? 'Présent' : 'Invité'}
                               </p>
                               {player.matchRole && (
                                 <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase border ${
@@ -1217,10 +1272,17 @@ export default function MatchDetailPage() {
                     )}
                   </div>
                 </div>
+                )}
               </div>
 
-              {/* Recruitment CTA if not full */}
-              {!myParticipation && myTeamId && (
+              {/* Convocation */}
+              {/* Le seul à qui l'on demande de confirmer sa présence, c'est
+                  celui qui a été convoqué et qui n'a pas encore répondu.
+                  Ce bloc partait de `myTeamId`, qui désigne les équipes qu'on
+                  GÈRE : « Rejoins le combat » s'affichait donc pour le manager,
+                  et pour lui seul, pendant que les joueurs convoqués n'avaient
+                  aucun bouton pour répondre. */}
+              {myParticipation && myParticipation.status === "pending" && (
                 <div className="mt-6 sm:mt-8 bg-emerald-600 p-5 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-10 group-hover:scale-110 transition-transform">
                     <Trophy size={72} className="sm:hidden" />
@@ -1229,12 +1291,23 @@ export default function MatchDetailPage() {
                   <div className="relative z-10 max-w-sm">
                     <h4 className="text-xl sm:text-2xl font-black mb-2">Rejoins le combat !</h4>
                     <p className="text-emerald-100 text-xs sm:text-sm font-medium mb-4 sm:mb-6">Ta team a besoin de renforts. Confirme ta présence pour porter fièrement tes couleurs.</p>
-                    <button
-                      onClick={handleJoin}
-                      className="flex items-center gap-2 bg-white px-5 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-emerald-600 transition-all hover:scale-105 active:scale-95"
-                    >
-                      Confirmer ma présence
-                    </button>
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
+                      <button
+                        onClick={() => handleRepondreConvocation(true)}
+                        disabled={repondEnCours}
+                        className="flex items-center gap-2 bg-white px-5 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-emerald-600 transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
+                      >
+                        {repondEnCours ? <RefreshCcw size={14} className="animate-spin" /> : null}
+                        Confirmer ma présence
+                      </button>
+                      <button
+                        onClick={() => handleRepondreConvocation(false)}
+                        disabled={repondEnCours}
+                        className="px-5 sm:px-6 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-white/70 transition-colors hover:text-white disabled:opacity-60"
+                      >
+                        Je ne peux pas
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1337,8 +1410,24 @@ export default function MatchDetailPage() {
         </AnimatePresence>
       </div>
 
-      {/* Post-Match Feedback Section for Managers */}
-      {isManager && match?.status === "completed" && (
+      {/* Qui tient la console. Reserve aux managers : c'est une delegation de
+          pouvoir, pas une information de match. Cache une fois le match
+          annule, ou il n'y a plus rien a couvrir. */}
+      {isManager && match && match.status !== "cancelled" && (
+        <div className="mb-6 mt-6 sm:mt-8">
+          <MatchModerators
+            matchId={match.id}
+            moderatorIds={match.moderatorIds ?? []}
+            disabled={match.status === "completed"}
+          />
+        </div>
+      )}
+
+      {/* Post-Match Feedback Section for Managers.
+          Retiré sur un amical : « valider » ou « contester » n'ont de sens que
+          face à un second manager. Sur un match hors plateforme, le geste de
+          confirmation est l'attribution des statistiques, juste au-dessus. */}
+      {isManager && match?.status === "completed" && !estAmical && (
         <motion.div
            initial={{ opacity: 0, y: 20 }}
            animate={{ opacity: 1, y: 0 }}
@@ -1458,8 +1547,10 @@ export default function MatchDetailPage() {
         </motion.div>
       )}
 
-      {/* Floating Action for Managers */}
-      {isManager && match?.status !== "completed" && (
+      {/* Floating Action for Managers. Le raccourci vers la console disparaît
+          aussi sur un match annulé : elle est close des deux côtés, autant ne
+          pas y envoyer. */}
+      {isManager && match?.status !== "completed" && match?.status !== "cancelled" && (
         <div className="fixed bottom-20 sm:bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-3 sm:px-4 flex gap-2 z-40">
             <button
               onClick={() => setActiveTab("squad")}
