@@ -12,6 +12,7 @@ import {
   Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
   Flag,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
 import { shareInviteLink } from "@/lib/invite-link";
@@ -230,6 +231,9 @@ export default function AppSidebar() {
     if (result === "copied") {
       setInviteCopied(true);
       setTimeout(() => setInviteCopied(false), 2500);
+    } else if (result === "failed") {
+      // Sans ça, le bouton s'enfonce et il ne se passe rien.
+      toast.error("Le partage n'a pas pu s'ouvrir. Copie koppafoot.com à la main.");
     }
   };
 

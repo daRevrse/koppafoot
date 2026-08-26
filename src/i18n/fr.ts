@@ -56,6 +56,7 @@ export const fr = {
     "Le foot se suit à plusieurs. Partage KoppaFoot à ceux qui jouent avec toi.",
   "invite.partager": "Partager le lien",
   "invite.copie": "Lien copié",
+  "invite.echec": "Le partage n'a pas pu s'ouvrir. Copie l'adresse koppafoot.com à la main.",
   "invite.message":
     "{prenom} t'invite à suivre les compétitions de football en direct sur Koppafoot ⚽",
   "invite.messageAnonyme":

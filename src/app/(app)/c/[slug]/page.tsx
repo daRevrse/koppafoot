@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, SearchX, Trophy, ClipboardList } from "lucide-react";
+import { Loader2, SearchX, Trophy, ClipboardList, Share2 } from "lucide-react";
+import toast from "react-hot-toast";
+import { lienAbsolu, partagerLien } from "@/lib/partage";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
 import { getCompetitionBySlug, onCompMatches, onCompTeams } from "@/lib/competition-firestore";
@@ -172,6 +174,28 @@ export default function PublicCompetitionHome() {
     window.history.replaceState(null, "", url.toString());
   };
 
+  /**
+   * Partager la compétition.
+   *
+   * Vers la page des scores, et non vers /rejoindre : le supporter qui
+   * partage veut faire suivre un tournoi, pas inscrire une équipe. La carte
+   * de l'organisateur, elle, continue d'envoyer vers l'inscription, parce
+   * que ce qu'il cherche est exactement l'inverse.
+   */
+  const partagerLaCompetition = async () => {
+    const ou = competition.venueCity ? ` à ${competition.venueCity}` : "";
+    const resultat = await partagerLien({
+      title: competition.name,
+      text:
+        competition.status === "registration"
+          ? `${competition.name}${ou} : les inscriptions sont ouvertes.`
+          : `Suis ${competition.name}${ou} en direct sur KoppaFoot.`,
+      url: lienAbsolu(`/c/${competition.slug}`),
+    });
+    if (resultat === "copie") toast.success("Lien de la compétition copié !");
+    else if (resultat === "echec") toast.error("Le partage a échoué.");
+  };
+
   return (
     <div className="mx-auto max-w-6xl pb-24">
       {/* Fil d'ariane. Il dit ou l'on est sans repeter le titre, qui arrive
@@ -189,6 +213,20 @@ export default function PublicCompetitionHome() {
           </>
         )}
         <span className="truncate text-gray-600">{competition.name}</span>
+
+        {/* LA PAGE LA PLUS PARTAGEABLE DU PRODUIT n'avait pas de bouton
+            partager : celui de CompetitionShareCard ne vit que dans l'espace
+            organisateur, donc invisible pour les supporters, qui sont
+            pourtant ceux qui font circuler un lien de compétition. */}
+        <button
+          type="button"
+          onClick={partagerLaCompetition}
+          aria-label="Partager la compétition"
+          className="ml-auto flex items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-1.5 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+        >
+          <Share2 size={13} />
+          <span className="hidden sm:inline">Partager</span>
+        </button>
       </nav>
 
       {/* Hero compact et collant sous le header : sur cette page on vient lire

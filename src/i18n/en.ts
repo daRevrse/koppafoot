@@ -53,6 +53,7 @@ export const en: Partial<Record<CleTraduction, string>> = {
     "Football is better followed together. Share KoppaFoot with the people you play with.",
   "invite.partager": "Share the link",
   "invite.copie": "Link copied",
+  "invite.echec": "Sharing could not open. Copy the koppafoot.com address by hand.",
   "invite.message":
     "{prenom} invites you to follow live football on Koppafoot ⚽",
   "invite.messageAnonyme": "Follow live football on Koppafoot ⚽",

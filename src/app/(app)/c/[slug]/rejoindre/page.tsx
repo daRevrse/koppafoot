@@ -56,8 +56,14 @@ export async function generateMetadata({ params }: PageProps<"/c/[slug]/rejoindr
     openGraph: {
       title: competition.name,
       description,
-      images: competition.bannerUrl ? [competition.bannerUrl] : undefined,
+      // LA CLÉ N'EST POSÉE QUE S'IL Y A UNE BANNIÈRE. Écrite en dur avec
+      // `undefined` pour valeur, elle suffisait à écarter l'affiche du
+      // segment (c/[slug]/opengraph-image) : cette page — celle qu'un
+      // organisateur envoie à un président de club — partait donc sans
+      // aucune vignette dès que la compétition n'avait pas de bannière.
+      ...(competition.bannerUrl ? { images: [competition.bannerUrl] } : {}),
     },
+    twitter: { card: "summary_large_image", title: competition.name, description },
   };
 }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Share2, Check, ExternalLink, Users, UserPlus, Radio, Copy,
 } from "lucide-react";
+import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import type { Competition } from "@/types";
 
 // ============================================
@@ -23,8 +24,6 @@ import type { Competition } from "@/types";
 // The scores page stays one tap away for whoever only wants to watch.
 // ============================================
 
-const APP_URL = "https://www.koppafoot.com";
-
 export default function CompetitionShareCard({
   competition, teamCount,
 }: {
@@ -34,7 +33,7 @@ export default function CompetitionShareCard({
   const [feedback, setFeedback] = useState<"copied" | null>(null);
 
   const path = `/c/${competition.slug}/rejoindre`;
-  const url = `${APP_URL}${path}`;
+  const url = lienAbsolu(path);
   const open = competition.status === "registration";
 
   const share = async () => {
@@ -42,32 +41,19 @@ export default function CompetitionShareCard({
       ? `${competition.name}, les inscriptions sont ouvertes. Inscris ton équipe :`
       : `Suis ${competition.name} en direct sur KoppaFoot :`;
 
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: competition.name, text, url });
-        return;
-      } catch (err) {
-        // AbortError = the share sheet was dismissed, not a failure.
-        if ((err as DOMException)?.name === "AbortError") return;
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(`${text}\n${url}`);
+    const resultat = await partagerLien({ title: competition.name, text, url });
+    if (resultat === "copie") {
       setFeedback("copied");
       setTimeout(() => setFeedback(null), 2500);
-    } catch {
-      /* nothing more to offer, the address is on screen to copy by hand */
     }
+    // Un échec ne laisse pas l'organisateur sans rien : l'adresse est écrite
+    // en toutes lettres juste à côté, il lui reste à la copier à la main.
   };
 
   const copyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setFeedback("copied");
-      setTimeout(() => setFeedback(null), 2500);
-    } catch {
-      /* ignore */
-    }
+    if (!(await copierDansLePressePapier(url))) return;
+    setFeedback("copied");
+    setTimeout(() => setFeedback(null), 2500);
   };
 
   return (

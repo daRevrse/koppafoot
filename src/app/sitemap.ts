@@ -6,8 +6,9 @@ import { getWorldCompetitions } from "@/lib/football-data";
 // lets guests reach (isPublicPath): the direct home, the directory, each
 // Koppafoot competition with its tabs, and each world competition page.
 //
-// Same canonical origin the transactional links use (lib/email, lib/invite-link).
-const APP_URL = "https://www.koppafoot.com";
+// Same canonical origin the transactional links use, declaree une seule fois
+// dans lib/partage.
+import { APP_URL } from "@/lib/partage";
 
 // Tabs every public competition has. /bracket is added only for the ones
 

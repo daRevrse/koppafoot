@@ -5,8 +5,9 @@ const FROM_EMAIL = "notifications@koppafoot.com";
 const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 // Canonical host. The apex 307-redirects here, so links built on it made
 // every recipient take an extra hop, and the sitemap advertised URLs that
-// were all redirects.
-const APP_URL = "https://www.koppafoot.com";
+// were all redirects. Une seule declaration desormais, dans lib/partage :
+// elle en avait cinq, et rien ne garantissait qu'elles restent d'accord.
+import { APP_URL } from "@/lib/partage";
 
 // ── Transport ──────────────────────────────────────────────
 // Provider-agnostic send: Brevo (BREVO_API_KEY) wins when configured,
