@@ -88,15 +88,15 @@ const ROLE_FEATURES: Record<EvolutionRole, {
     { label: "Défis & matchs amicaux", desc: "Défie d'autres équipes et planifie tes matchs", Icon: Swords, href: "/matches" },
     { label: "Mon calendrier", desc: "Tes matchs et entraînements en un coup d'œil", Icon: CalendarDays, href: "/calendar" },
   ],
-  // L'arbitre vient d'etre degele : sa fiche et sa visibilite existent
-  // aujourd'hui, ses ecrans propres (designations, rapports) sont encore au
-  // placard, d'ou l'absence de `href`, qui les affiche en « Bientot » plutot
+  // L'arbitre dirige maintenant de bout en bout : ses désignations et la
+  // console du match sont ouvertes. Seul le rapport d'après-match reste au
+  // placard, d'ou l'absence de `href`, qui l'affiche en « Bientot » plutot
   // que de promettre une page qui n'ouvre pas.
   referee: [
+    { label: "Mes désignations", desc: "Invitations reçues, matchs à arbitrer et console du match", Icon: ClipboardCheck, href: "/designations" },
     { label: "Ma fiche d'arbitre", desc: "Licence, niveau et coordonnées visibles par les organisateurs", Icon: User, href: "/profile" },
     { label: "Être trouvé", desc: "Tu apparais dans la recherche, catégorie Arbitres", Icon: Search, href: "/" },
     { label: "Mon calendrier", desc: "Tes matchs et rendez-vous en un coup d'œil", Icon: CalendarDays, href: "/calendar" },
-    { label: "Mes désignations", desc: "Les matchs sur lesquels on te désigne", Icon: ClipboardCheck },
     { label: "Mes rapports de match", desc: "Feuille de match et rapport après rencontre", Icon: FileText },
   ],
 };

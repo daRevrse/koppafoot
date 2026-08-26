@@ -3,10 +3,12 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import {
-  ChevronLeft, ChevronRight, Trophy, MapPin, Clock, Shield, Loader2,
+  ChevronLeft, ChevronRight, Trophy, MapPin, Clock, Shield, Loader2, Flag,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMatchesByTeamIds, getTeamsIManage, getTeamsByPlayer } from "@/lib/firestore";
+import {
+  getMatchesByTeamIds, getTeamsIManage, getTeamsByPlayer, getMatchesByReferee,
+} from "@/lib/firestore";
 import type { Match, Team } from "@/types";
 
 // ============================================
@@ -143,22 +145,34 @@ export default function CalendarPage() {
   const selectedTrainings = selectedDate ? (trainingEventsByDate[selectedDate] ?? []) : [];
 
   // Fetch matches for user's teams
+  //
+  // L'ARBITRE N'A PAS D'ÉQUIPE, et ce calendrier ne lisait que les équipes.
+  // Son espace lui proposait pourtant « Mon calendrier » : il ouvrait une
+  // grille vide, tous les mois, y compris les jours où il arbitrait. Ses
+  // matchs se lisent sur `referee_id`, ils s'ajoutent donc ici, sans se
+  // substituer aux autres — un arbitre peut aussi jouer.
   const fetchMatches = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
       const isManager = user.userType === "manager";
+      const isReferee = user.evolutionRole === "referee" || user.userType === "referee";
       const userTeams = isManager
         ? await getTeamsIManage(user.uid)
         : await getTeamsByPlayer(user.uid);
       const teamIds = [...new Set(userTeams.map((t) => t.id))];
       setTeams(userTeams);
-      if (teamIds.length > 0) {
-        const result = await getMatchesByTeamIds(teamIds);
-        setMatches(result);
-      } else {
-        setMatches([]);
-      }
+
+      const [teamMatches, refereeMatches] = await Promise.all([
+        teamIds.length > 0 ? getMatchesByTeamIds(teamIds) : Promise.resolve([]),
+        isReferee ? getMatchesByReferee(user.uid) : Promise.resolve([]),
+      ]);
+
+      // Dédoublonnage par id : le même match peut arriver des deux côtés,
+      // celui qui arbitre l'équipe d'à côté n'a pas à le voir deux fois.
+      const parId = new Map<string, Match>();
+      for (const m of [...teamMatches, ...refereeMatches]) parId.set(m.id, m);
+      setMatches([...parId.values()]);
     } catch (err) {
       console.error("Error fetching matches:", err);
     } finally {
@@ -339,6 +353,14 @@ export default function CalendarPage() {
                         <span className="text-xs font-semibold text-gray-500 uppercase">
                           {style.label} {match.format && `· ${match.format}`}
                         </span>
+                        {/* Dire pourquoi ce match est là : sans ça, un
+                            arbitre voit apparaître deux équipes dont
+                            aucune n'est la sienne. */}
+                        {match.refereeId === user.uid && (
+                          <span className="flex items-center gap-1 bg-white/70 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">
+                            <Flag size={10} /> Arbitrage
+                          </span>
+                        )}
                       </div>
                       <div className="mt-2">
                         <div className="flex items-center gap-2">

@@ -151,3 +151,54 @@ export function playerOnboarding(
     },
   ]);
 }
+
+// ============================================
+// Arbitre
+// ============================================
+
+export interface RefereeContext {
+  /** Matchs où ce compte est inscrit comme arbitre, quel que soit le statut. */
+  designationCount: number;
+}
+
+/**
+ * L'arbitre n'avait pas de liste à lui, et `useRoleOnboarding` faisait
+ * tomber tout ce qui n'est pas joueur dans la branche manager : un arbitre
+ * fraîchement activé se voyait donc réclamer « Créer ton équipe », étape
+ * bloquante, dans un espace qui ne parle jamais d'équipe.
+ *
+ * Sa vraie séquence tient en trois gestes : être reconnaissable, être
+ * crédible, être sur un match.
+ */
+export function refereeOnboarding(
+  user: UserProfile,
+  ctx: RefereeContext,
+): OnboardingProgress {
+  return progressOf([
+    {
+      key: "profile",
+      label: "Compléter ton profil",
+      description: "Photo, ville et contact : c'est ce que voit un manager avant de te confier son match.",
+      href: "/profile",
+      cta: "Compléter mon profil",
+      done: profileDone(user),
+    },
+    {
+      key: "licence",
+      label: "Renseigner ta licence",
+      description: "Niveau et numéro de licence, pour apparaître dans la recherche à la catégorie Arbitres.",
+      href: "/profile",
+      cta: "Renseigner ma licence",
+      done: !!user.licenseLevel,
+    },
+    {
+      key: "designation",
+      label: "Prendre ton premier match",
+      description:
+        "Réponds à une invitation, ou porte-toi candidat sur un match qui cherche encore un arbitre.",
+      href: "/designations",
+      cta: "Voir les désignations",
+      done: ctx.designationCount > 0,
+    },
+  ]);
+}

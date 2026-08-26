@@ -1830,6 +1830,26 @@ export async function respondToRefereeInvitation(matchId: string, accepted: bool
   }
 }
 
+/**
+ * L'arbitre retire sa candidature d'un match où le manager n'a pas encore
+ * tranché.
+ *
+ * L'écriture est celle d'une invitation déclinée — on efface le nom, le
+ * match repart sans arbitre — mais le geste n'est pas le même : décliner
+ * répond à quelqu'un, se retirer revient sur sa propre demande. Les deux
+ * appels s'écrivent donc en clair là où on les lit, plutôt qu'un
+ * `respondToRefereeInvitation(id, false)` dont le nom mentirait sur ce que
+ * l'arbitre vient de faire.
+ */
+export async function withdrawRefereeApplication(matchId: string): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    referee_id: null,
+    referee_name: null,
+    referee_status: "none",
+    updated_at: serverTimestamp(),
+  });
+}
+
 export async function startMatchTimer(matchId: string): Promise<void> {
   await updateDoc(doc(db, "matches", matchId), {
     "live_state.is_timer_running": true,
