@@ -1,7 +1,10 @@
 // "Inviter un ami", share (or copy) the public app link. Client-only:
 // only ever called from click handlers, so navigator is always defined.
+//
+// Le geste lui-même vit dans lib/partage, avec celui de la Tribune, du match
+// et de la compétition : ce module ne garde que le TEXTE de l'invitation.
 
-const APP_URL = "https://www.koppafoot.com";
+import { APP_URL, partagerLien } from "@/lib/partage";
 
 /**
  * Partage le lien public de l'appli.
@@ -19,21 +22,6 @@ export async function shareInviteLink(
       ? `${firstName} t'invite à suivre les compétitions de football en direct sur Koppafoot ⚽`
       : "Suis les compétitions de football en direct sur Koppafoot ⚽");
 
-  if (typeof navigator !== "undefined" && navigator.share) {
-    try {
-      await navigator.share({ title: "Koppafoot", text, url: APP_URL });
-      return "shared";
-    } catch (err) {
-      // AbortError = user closed the share sheet, not a failure to report.
-      if ((err as DOMException)?.name === "AbortError") return "shared";
-      // fall through to clipboard
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(`${text}\n${APP_URL}`);
-    return "copied";
-  } catch {
-    return "failed";
-  }
+  const resultat = await partagerLien({ title: "Koppafoot", text, url: APP_URL });
+  return resultat === "partage" ? "shared" : resultat === "copie" ? "copied" : "failed";
 }

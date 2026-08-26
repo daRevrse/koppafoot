@@ -22,6 +22,7 @@ import {
   getGhostPlayersByTeam, getTeamsIManage, creditGhostMatchStats,
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { lienAbsolu, partagerLien } from "@/lib/partage";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
 import MatchRail from "@/components/match/MatchRail";
 
@@ -184,15 +185,21 @@ export default function MatchDetailPage() {
   }, [id]);
 
   // 2. Fetch Participations (Real-time)
+  //
+  // `user` EST UNE CONDITION, pas un confort : les règles Firestore ne
+  // laissent lire `participations` qu'à un compte authentifié. Depuis que la
+  // fiche s'ouvre aux invités, brancher l'écoute sans compte ne remplirait
+  // rien et laisserait une erreur de permission dans la console à chaque
+  // lien partagé.
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) { setParticipations([]); return; }
     const q = query(collection(db, "participations"), where("match_id", "==", id));
     const unsub = onSnapshot(q, (snap) => {
       const parts = snap.docs.map(d => toParticipation(d.id, d.data() as FirestoreParticipation));
       setParticipations(parts);
     });
     return () => unsub();
-  }, [id]);
+  }, [id, user]);
 
   // 3. Fetch Team Members for invitations (if manager)
   useEffect(() => {
@@ -260,6 +267,37 @@ export default function MatchDetailPage() {
   const awaySquad = participations.filter(p => p.teamId === match?.awayTeamId);
 
   // 6. Actions
+
+  /**
+   * Partager le match.
+   *
+   * Le texte suit l'état de la rencontre : on n'envoie pas la même chose
+   * avant le coup d'envoi, pendant, et une fois le score connu. Un message
+   * unique du genre « Regarde ce match » obligerait le destinataire à ouvrir
+   * le lien pour savoir s'il est encore temps de venir.
+   */
+  const partagerLeMatch = async () => {
+    if (!match) return;
+    const affiche = `${match.homeTeamName} — ${match.awayTeamName}`;
+    const score = `${match.scoreHome ?? 0}-${match.scoreAway ?? 0}`;
+    const ou = [match.venueName, match.venueCity].filter(Boolean).join(", ");
+
+    const text =
+      match.status === "live"
+        ? `${affiche}, ${score} en direct sur KoppaFoot`
+        : match.status === "completed"
+          ? `${affiche}, score final ${score}`
+          : `${affiche}, le ${match.date}${match.time ? ` à ${match.time}` : ""}${ou ? ` — ${ou}` : ""}`;
+
+    const resultat = await partagerLien({
+      title: affiche,
+      text,
+      url: lienAbsolu(`/matches/${match.id}`),
+    });
+    if (resultat === "copie") toast.success("Lien du match copié !");
+    else if (resultat === "echec") toast.error("Le partage a échoué.");
+  };
+
   const handleJoin = async () => {
     if (!match || !user || !myTeamId) return;
     try {
@@ -353,7 +391,14 @@ export default function MatchDetailPage() {
           <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Match ID:</span>
           <span className="text-[10px] font-mono font-bold text-gray-900">{id.slice(0, 8)}</span>
         </div>
-        <button className="flex h-12 w-12 items-center justify-center bg-white shadow-gray-100/50 border border-gray-200/70 text-gray-600 transition-all hover:scale-105 active:scale-95">
+        {/* Ce bouton n'avait aucun `onClick` : il s'enfonçait, et c'est
+            tout. Le partage d'un match était l'un des rares gestes que le
+            produit montre sans savoir le faire. */}
+        <button
+          onClick={partagerLeMatch}
+          aria-label="Partager ce match"
+          className="flex h-12 w-12 items-center justify-center bg-white shadow-gray-100/50 border border-gray-200/70 text-gray-600 transition-all hover:scale-105 active:scale-95"
+        >
           <Share2 size={20} />
         </button>
       </div>
@@ -450,7 +495,11 @@ export default function MatchDetailPage() {
       <div className="flex p-1.5 gap-1 bg-white shadow-gray-100/50 border border-gray-200/70">
         {[
           { id: "center", label: "Match Center", icon: Activity },
-          { id: "squad", label: "Feuille de Match", icon: ClipboardList },
+          // La feuille de match ne s'affiche pas sans compte : les règles
+          // Firestore ne servent pas `participations` à un invité, l'onglet
+          // n'aurait donc que deux colonnes vides à montrer. Mieux vaut ne
+          // pas l'annoncer que l'annoncer creux.
+          ...(user ? [{ id: "squad", label: "Feuille de Match", icon: ClipboardList }] : []),
           { id: "info", label: "Informations", icon: Info },
         ].map((tab) => (
           <button

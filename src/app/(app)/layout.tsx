@@ -26,6 +26,16 @@ function isPublicPath(pathname: string): boolean {
     // actions (suivre, ajouter au mercato) ouvrent la modale d'elles-memes.
     /^\/profile\/[^/]+$/.test(pathname) ||
     /^\/teams\/[^/]+$/.test(pathname) ||
+    // La fiche d'un match, pour la même raison, et parce que c'est ce qu'on
+    // envoie sur WhatsApp quand on veut faire venir quelqu'un. Le lien
+    // tombait sur « Connexion requise », c'est-à-dire exactement sur le mur
+    // que le partage sert à contourner.
+    //
+    // LA FICHE SEULE : `/matches/<id>/live` et `/matches/<id>/manage` ont un
+    // segment de plus et ne passent pas ce test, la console reste fermée. Ce
+    // qu'un invité lit ici est l'affiche, l'heure, le terrain et le score —
+    // la feuille de match, elle, demande un compte (voir la page).
+    /^\/matches\/[^/]+$/.test(pathname) ||
     // Invitation links arrive by email, guests must see them to sign in/up.
     pathname.startsWith("/invitations/") ||
     // Staff access codes arrive by WhatsApp: the volunteer must reach the

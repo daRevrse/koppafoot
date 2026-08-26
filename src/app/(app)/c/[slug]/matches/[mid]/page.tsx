@@ -7,8 +7,10 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import {
   History, Loader2, Activity, MapPin, Calendar, Clock, SearchX, Users,
-  Goal, ArrowRightLeft, BarChart3, ListOrdered, Swords,
+  Goal, ArrowRightLeft, BarChart3, ListOrdered, Swords, Share2,
 } from "lucide-react";
+import toast from "react-hot-toast";
+import { lienAbsolu, partagerLien } from "@/lib/partage";
 import type { LineupEntry } from "@/types";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
@@ -228,6 +230,35 @@ export default function PublicCompMatchView() {
       ? `Poule ${match.group}`
       : null;
   const contextLabel = [compName, roundLabel].filter(Boolean).join(" · ");
+
+  /**
+   * Partager le match.
+   *
+   * C'est le lien qui circule avant une rencontre, et il n'y avait aucun
+   * bouton pour l'obtenir : il fallait aller chercher l'adresse dans la
+   * barre du navigateur, geste que personne ne fait sur un téléphone.
+   *
+   * Le texte suit l'état : rendez-vous avant, score pendant et après.
+   */
+  const partagerLeMatch = async () => {
+    const affiche = `${match.homeTeamName} — ${match.awayTeamName}`;
+    const score = `${match.scoreHome ?? 0}-${match.scoreAway ?? 0}`;
+    const quand = [match.date, match.time].filter(Boolean).join(" à ");
+    const texte =
+      match.status === "live"
+        ? `${affiche}, ${score} en direct${compName ? ` — ${compName}` : ""}`
+        : match.status === "completed"
+          ? `${affiche}, score final ${score}${compName ? ` — ${compName}` : ""}`
+          : `${affiche}${quand ? `, le ${quand}` : ""}${compName ? ` — ${compName}` : ""}`;
+
+    const resultat = await partagerLien({
+      title: affiche,
+      text: texte,
+      url: lienAbsolu(`/c/${compSlug}/matches/${match.id}`),
+    });
+    if (resultat === "copie") toast.success("Lien du match copié !");
+    else if (resultat === "echec") toast.error("Le partage a échoué.");
+  };
   // While the clock runs, show the ticking value; otherwise the frozen offset.
   const shownTime =
     match.liveState?.isTimerRunning && match.liveState.timerStartAt
@@ -261,6 +292,18 @@ export default function PublicCompMatchView() {
         <span className="truncate text-gray-600">
           {match.homeTeamName}, {match.awayTeamName}
         </span>
+
+        {/* Le partage se range au bout du fil d'ariane, pas sur le tableau
+            d'affichage : c'est un geste sur la PAGE, pas sur le match. */}
+        <button
+          type="button"
+          onClick={partagerLeMatch}
+          aria-label="Partager ce match"
+          className="ml-auto flex items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-1.5 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+        >
+          <Share2 size={13} />
+          <span className="hidden sm:inline">Partager</span>
+        </button>
       </nav>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">

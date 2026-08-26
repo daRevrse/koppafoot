@@ -13,6 +13,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { onCompetition, onCompMatches, onCompTeams } from "@/lib/competition-firestore";
 import { onStaffGrants } from "@/lib/staff-access";
+import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import {
   describeStaffScope,
   explainStaffScope,
@@ -193,32 +194,31 @@ export default function CompetitionStaffPage() {
   );
   const hasGroupMatches = useMemo(() => matches.some((m) => m.stage === "group"), [matches]);
 
-  const linkFor = (code: string) =>
-    `${typeof window === "undefined" ? "" : window.location.origin}/staff/rejoindre?code=${code}`;
+  // Adresse canonique, pas `window.location.origin` : ce lien part sur
+  // WhatsApp à un bénévole. Émis depuis une préversion, il l'envoyait sur un
+  // domaine auquel il n'a pas accès.
+  const linkFor = (code: string) => lienAbsolu(`/staff/rejoindre?code=${code}`);
 
   const handleCopy = async (code: string, what: "code" | "link") => {
     const text = what === "code" ? formatStaffCode(code) : linkFor(code);
-    try {
-      await navigator.clipboard.writeText(text);
+    if (await copierDansLePressePapier(text)) {
       setCopiedCode(`${code}:${what}`);
       setTimeout(() => setCopiedCode(null), 2000);
       toast.success(what === "code" ? "Code copié" : "Lien copié");
-    } catch {
+    } else {
       toast.error("Copie impossible, sélectionne le code à la main");
     }
   };
 
   const handleShare = async (row: CodeRow) => {
-    const text = `Accès staff « ${row.label} », ${describeStaffScope(row.scope)}\nCode : ${formatStaffCode(row.code)}\n${linkFor(row.code)}`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "Accès staff KoppaFoot", text });
-        return;
-      } catch (err) {
-        if ((err as DOMException)?.name === "AbortError") return;
-      }
-    }
-    handleCopy(row.code, "link");
+    const text = `Accès staff « ${row.label} », ${describeStaffScope(row.scope)}\nCode : ${formatStaffCode(row.code)}`;
+    const resultat = await partagerLien({
+      title: "Accès staff KoppaFoot",
+      text,
+      url: linkFor(row.code),
+    });
+    if (resultat === "copie") toast.success("Lien copié");
+    else if (resultat === "echec") toast.error("Partage impossible, copie le code à la main");
   };
 
   const handleCreateCode = async () => {

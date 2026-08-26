@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { deletePost, updatePostContent, createPost } from "@/lib/firestore";
+import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import { auth } from "@/lib/firebase";
 import { CommentSection } from "./CommentSection";
 import { SYSTEM_AUTHOR_ID } from "@/types";
@@ -187,28 +188,17 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     }
   };
 
-  const postUrl = () => `${window.location.origin}/feed?post=${post.id}`;
+  // `lienAbsolu` et non `window.location.origin` : un post copié depuis une
+  // préversion portait l'adresse de la préversion, illisible pour celui à qui
+  // on l'envoyait.
+  const postUrl = () => lienAbsolu(`/feed?post=${post.id}`);
 
-  // clipboard.writeText rejects outside a secure context and on some mobile
-  // browsers. It used to have no catch at all, so the copy just did nothing.
+  // clipboard.writeText échoue hors contexte sûr et sur certains navigateurs
+  // mobiles ; le repli qui marche encore vit dans lib/partage.
   const handleCopyLink = async () => {
     shareDropdown.close();
-    const url = postUrl();
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Lien copié !");
-    } catch {
-      const field = document.createElement("textarea");
-      field.value = url;
-      field.style.position = "fixed";
-      field.style.opacity = "0";
-      document.body.appendChild(field);
-      field.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(field);
-      if (ok) toast.success("Lien copié !");
-      else toast.error("Copie impossible sur ce navigateur.");
-    }
+    if (await copierDansLePressePapier(postUrl())) toast.success("Lien copié !");
+    else toast.error("Copie impossible sur ce navigateur.");
   };
 
   // The share sheet people expect on a phone. Absent on desktop browsers,
@@ -217,18 +207,13 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
 
   const handleNativeShare = async () => {
     shareDropdown.close();
-    try {
-      await navigator.share({
-        title: `${post.authorName} sur KoppaFoot`,
-        text: post.content.slice(0, 160),
-        url: postUrl(),
-      });
-    } catch (err) {
-      // Cancelling the sheet rejects with AbortError, not a failure.
-      if ((err as Error)?.name !== "AbortError") {
-        toast.error("Le partage a échoué.");
-      }
-    }
+    const resultat = await partagerLien({
+      title: `${post.authorName} sur KoppaFoot`,
+      text: post.content.slice(0, 160),
+      url: postUrl(),
+    });
+    if (resultat === "copie") toast.success("Lien copié !");
+    else if (resultat === "echec") toast.error("Le partage a échoué.");
   };
 
   // Commenting is optional: a bare repost is a normal thing to want.

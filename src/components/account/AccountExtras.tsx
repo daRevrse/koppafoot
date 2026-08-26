@@ -6,6 +6,7 @@ import {
   Share2, Check, Megaphone, HelpCircle, MessageSquare, ChevronRight,
   Sun, Moon, Languages, Bell, BellOff, Download, Share,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { shareInviteLink } from "@/lib/invite-link";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLangue, useT } from "@/i18n";
@@ -107,10 +108,13 @@ export function InviteCard({ firstName }: { firstName?: string }) {
       firstName ? t("invite.message", { prenom: firstName }) : t("invite.messageAnonyme"),
     );
     // La feuille de partage native parle d'elle-même ; une copie silencieuse
-    // dans le presse-papier, non.
+    // dans le presse-papier, non. Et un échec encore moins : le bouton
+    // s'enfonçait, rien ne se passait, on cliquait à nouveau.
     if (resultat === "copied") {
       setCopie(true);
       setTimeout(() => setCopie(false), 2500);
+    } else if (resultat === "failed") {
+      toast.error(t("invite.echec"));
     }
   };
 

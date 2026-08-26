@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendNotificationEmail, teamManagerInviteHtml } from "@/lib/email";
+import { APP_URL } from "@/lib/partage";
 import type { FirestoreCompetition } from "@/types";
 
-const APP_URL = "https://www.koppafoot.com";
+
 
 /**
  * Team-manager invitations, an organizer hands the management of one of
