@@ -39,12 +39,32 @@ const formatTime = (ms: number) => {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
 
+/**
+ * Le nom tel qu'il tient dans une case de grille : le patronyme, seul.
+ *
+ * Une case fait un cinquième de la largeur d'un téléphone. « Sergio Ramos » n'y
+ * entre pas, « RAMOS » si — et c'est de toute façon ce qu'on lit sur un maillot
+ * et ce qu'on crie depuis la touche.
+ */
+const nomDeMaillot = (nomComplet: string, numero?: string): string => {
+  const mots = nomComplet.trim().split(/\s+/).filter(Boolean);
+  const nom = (mots.length > 1 ? mots[mots.length - 1] : mots[0] ?? "").toUpperCase();
+  // « Joueur 9 » donne « 9 », soit le numéro déjà écrit juste au-dessus. Les
+  // joueurs d'un adversaire hors plateforme s'appellent tous ainsi : la case
+  // afficherait deux fois le même chiffre.
+  return nom === (numero ?? "").trim().toUpperCase() ? "" : nom;
+};
+
 const PERIODS = [
   { id: 1, label: "1ère Mi-temps" },
   { id: 2, label: "Mi-temps" },
   { id: 3, label: "2ème Mi-temps" },
   { id: 4, label: "Fin de match" }
 ];
+
+/** Une mi-temps, puis le match entier. Mêmes durées que la pause automatique. */
+const MI_TEMPS_MS = 45 * 60_000;
+const MATCH_MS = MI_TEMPS_MS * 2;
 
 // Un joueur tel que la console le manipule, qu'il ait un compte (participation)
 // ou non (feuille de match d'une équipe hors plateforme).
@@ -72,6 +92,35 @@ export default function LiveMatchManage() {
   const [selectedPlayer, setSelectedPlayer] = useState<{ player: ConsolePlayer, teamId: string, teamName: string } | null>(null);
   const [subInPlayer, setSubInPlayer] = useState("");
   const [subOutPlayer, setSubOutPlayer] = useState("");
+  /**
+   * Verrou du bouton BUT : soixante secondes après chaque but.
+   *
+   * Un but se saisit dans la seconde qui suit, au bord du terrain, sur un
+   * téléphone tenu d'une main — et c'est précisément là qu'on tape deux fois.
+   * Le score d'un match ne se rattrape pas : `addMatchEvent` incrémente, il ne
+   * corrige pas. Une minute est plus long qu'un doigt qui tremble, et plus
+   * court que le temps qu'il faut au jeu pour produire le but suivant.
+   *
+   * La console de compétition a ce verrou depuis toujours (voir
+   * LiveMatchConsole) ; celle-ci ne l'a jamais eu.
+   */
+  const [goalCooldown, setGoalCooldown] = useState(0);
+  useEffect(() => {
+    if (goalCooldown <= 0) return;
+    const t = setTimeout(() => setGoalCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [goalCooldown]);
+
+  /**
+   * Quel panneau occupe l'écran sur mobile.
+   *
+   * La console empilait tout à la verticale : tableau d'affichage, les deux
+   * grilles d'équipe, le déroulé du match, les événements. Sur un téléphone,
+   * saisir un but demandait de faire défiler pendant que le jeu continue.
+   * Un seul panneau à la fois, le reste à un geste. Au-delà de `md`, la
+   * disposition d'origine reprend : l'écran y tient tout.
+   */
+  const [panneau, setPanneau] = useState<"home" | "away" | "events">("home");
 
   // Subscribe to match changes
   useEffect(() => {
@@ -85,18 +134,20 @@ export default function LiveMatchManage() {
     return () => unsub();
   }, [id]);
 
-  // Only the two managers and a confirmed referee may operate the match. The
-  // console had no guard at all while it lived in the shelved referee panel,
-  // reachable by URL alone. Server-side enforcement is the Firestore rules'
-  // job (lot 2); this just keeps the wrong people out of the controls.
+  // Only the two managers, a confirmed referee and the match's own moderators
+  // may operate it. The console had no guard at all while it lived in the
+  // shelved referee panel, reachable by URL alone. Server-side enforcement is
+  // the Firestore rules' job; this just keeps the wrong people out of the
+  // controls.
   useEffect(() => {
     if (!match || !user) return;
     const canOperate =
       user.uid === match.managerId ||
       user.uid === match.awayManagerId ||
+      (match.moderatorIds ?? []).includes(user.uid) ||
       (match.refereeId === user.uid && match.refereeStatus === "confirmed");
     if (!canOperate) {
-      toast.error("Seuls les managers du match peuvent le diriger.");
+      toast.error("Tu n'es pas chargé de couvrir ce match.");
       router.replace(`/matches/${id}`);
     }
   }, [match, user, router, id]);
@@ -128,20 +179,20 @@ export default function LiveMatchManage() {
   // Timer logic
   useEffect(() => {
     if (!match?.liveState) return;
-    
+
     let interval: ReturnType<typeof setInterval>;
-    
+
     if (match.liveState.isTimerRunning && match.liveState.timerStartAt) {
       const start = new Date(match.liveState.timerStartAt).getTime();
       const offset = match.liveState.timerOffset || 0;
-      
+
       interval = setInterval(() => {
         const now = Date.now();
         const elapsed = now - start + offset;
-        
+
         // Auto-pause logic
         const totalSecs = Math.floor(elapsed / 1000);
-        
+
         if (match.liveState?.currentPeriod === 1 && totalSecs >= 2700) {
           handlePauseTimer();
           toast("Mi-temps ! Pause automatique à 45:00.", { icon: '⏰', duration: 5000 });
@@ -155,7 +206,7 @@ export default function LiveMatchManage() {
     } else {
       setDisplayTime(match.liveState.timerOffset || 0);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -194,7 +245,7 @@ export default function LiveMatchManage() {
         detail: detail || null,
         isHome: teamId === match.homeTeamId
       });
-      
+
       if (type === "goal") toast.success("BUT !");
       else if (type === "substitution") toast.success("Changement effectué");
       else toast.success("Événement enregistré");
@@ -207,12 +258,13 @@ export default function LiveMatchManage() {
 
   const handleSubstitution = async () => {
     if (!showSubModal || !subInPlayer || !subOutPlayer) return;
-    
+
     // Le sortant/entrant peut venir d'une participation ou de la feuille d'une
     // équipe hors plateforme.
     const nameOf = (playerId: string) =>
       participations.find(p => p.playerId === playerId)?.playerName
-      ?? match?.ghostLineup?.find(e => e.playerId === playerId)?.name;
+      ?? [...(match?.homeGhostLineup ?? []), ...(match?.awayGhostLineup ?? [])]
+           .find(e => e.playerId === playerId)?.name;
 
     const inName = nameOf(subInPlayer);
     const outName = nameOf(subOutPlayer);
@@ -226,24 +278,53 @@ export default function LiveMatchManage() {
       undefined,
       `${outName} ➔ ${inName}`
     );
-    
+
     setShowSubModal(null);
     setSubInPlayer("");
     setSubOutPlayer("");
   };
 
+  /**
+   * Changer de période, c'est piloter le chronomètre.
+   *
+   * Il ne suivait pas : la transition se contentait de mettre en pause SI le
+   * chrono tournait. Passer de la mi-temps à la seconde période ne relançait
+   * donc rien — le chrono était déjà arrêté — et le match repartait sur le
+   * terrain pendant que la console restait figée à 45:00, jusqu'à ce que
+   * quelqu'un pense à rappuyer sur lecture.
+   *
+   * Les trois transitions, avec les mêmes conventions que la console de
+   * compétition (voir LiveMatchConsole) :
+   *   → Mi-temps      : le chrono se cale sur 45:00 et s'arrête. On le cale
+   *                     plutôt que de le figer où il est, parce que le coup de
+   *                     sifflet tombe rarement à la seconde près et que la
+   *                     seconde période doit repartir de 45:00.
+   *   → 2ème mi-temps : il repart de là, tout seul.
+   *   → Fin de match  : il se cale sur 90:00 et s'arrête.
+   */
   const handleNextPeriod = async () => {
     if (!match?.liveState) return;
     const next = match.liveState.currentPeriod + 1;
     if (next > 4) return;
-    
+
     try {
       await updateMatchPeriod(id, next);
-      if (match.liveState.isTimerRunning) {
-        await pauseMatchTimer(id, displayTime);
+
+      if (next === 2) {
+        await pauseMatchTimer(id, MI_TEMPS_MS);
+        toast.success("Mi-temps · chrono arrêté à 45:00");
+      } else if (next === 3) {
+        // Déjà lancé (quelqu'un a rappuyé sur lecture avant de changer de
+        // période) : on n'y retouche pas, redémarrer perdrait le temps écoulé
+        // depuis ce départ.
+        if (!match.liveState.isTimerRunning) await startMatchTimer(id);
+        toast.success("2ème mi-temps · chrono relancé");
+      } else {
+        await pauseMatchTimer(id, MATCH_MS);
+        toast.success("Fin du temps réglementaire · chrono arrêté à 90:00");
       }
-      toast.success("Période mise à jour");
     } catch (err) {
+      console.error(err);
       toast.error("Erreur technique");
     }
   };
@@ -274,10 +355,56 @@ export default function LiveMatchManage() {
 
   if (!match) return <div>Match non trouvé</div>;
 
+  /**
+   * Un match terminé n'a plus de console.
+   *
+   * La garde ci-dessous laissait passer « completed » vers la console
+   * COMPLÈTE : chronomètre, grilles de joueurs, « Siffler la fin ». Un match
+   * fini rouvrait donc comme s'il était en cours, et un but ajouté par
+   * mégarde incrémentait son score pour de bon — `addMatchEvent` ajoute, il
+   * ne corrige pas. Le résultat était déjà consolidé sur les clubs et les
+   * joueurs à ce moment-là.
+   *
+   * Même chose pour un match annulé : il n'y a rien à couvrir.
+   *
+   * Ce n'est pas une redirection muette : on arrive ici par un lien gardé
+   * dans un fil de discussion ou par l'historique du navigateur, et il vaut
+   * mieux dire pourquoi la porte est fermée que de renvoyer sans un mot.
+   */
+  if (match.status === "completed" || match.status === "cancelled") {
+    const termine = match.status === "completed";
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-50/30 p-8 text-center">
+        <div className="flex h-20 w-20 items-center justify-center bg-white text-gray-300">
+          {termine ? <CheckCircle2 size={40} /> : <AlertTriangle size={40} />}
+        </div>
+        <h2 className="mt-8 font-display text-3xl font-black tracking-tight text-gray-900">
+          {termine ? "Match terminé" : "Match annulé"}
+        </h2>
+        <p className="mt-3 max-w-sm text-base font-medium leading-relaxed text-gray-500">
+          {termine ? (
+            <>
+              {match.homeTeamName} {match.scoreHome ?? 0} – {match.scoreAway ?? 0} {match.awayTeamName}.
+              {" "}Le direct est clos : la feuille, le déroulé et le rapport se lisent sur la fiche du match.
+            </>
+          ) : (
+            <>Cette rencontre n&apos;aura pas lieu, il n&apos;y a rien à couvrir.</>
+          )}
+        </p>
+        <button
+          onClick={() => router.push(`/matches/${id}`)}
+          className="mt-10 inline-flex items-center gap-2 bg-gray-900 px-6 py-3 text-[11px] font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
+        >
+          <ChevronLeft size={16} /> Voir la fiche du match
+        </button>
+      </div>
+    );
+  }
+
   // Initialize if not live
-  if (match.status !== "live" && match.status !== "completed") {
+  if (match.status !== "live") {
     const lineupsReady = match.homeLineupReady && match.awayLineupReady;
-    
+
     return (
       <div className="flex h-screen flex-col items-center justify-center p-8 text-center bg-gray-50/30">
         <div className="relative mb-12">
@@ -318,13 +445,19 @@ export default function LiveMatchManage() {
         </div>
 
         {!lineupsReady ? (
-          <div className="mt-12 p-8 bg-amber-50 border border-amber-100/50 text-amber-800 text-sm font-bold flex flex-col items-center gap-4 max-w-sm">
-             <div className="h-14 w-14 bg-white flex items-center justify-center text-amber-500">
+          /* Cet écran occupe tout l'affichage et n'offrait AUCUNE sortie quand
+             les feuilles n'étaient pas prêtes : on arrivait sur la console, on
+             apprenait qu'elle ne pouvait pas démarrer, et il fallait la touche
+             retour du navigateur pour s'en extraire. */
+          <div className="mt-12 flex w-full max-w-sm flex-col items-center gap-4">
+            <div className="flex w-full flex-col items-center gap-4 border border-amber-100/50 bg-amber-50 p-8 text-sm font-bold text-amber-800">
+              <div className="flex h-14 w-14 items-center justify-center bg-white text-amber-500">
                 <AlertTriangle size={24} />
-             </div>
-             <p className="leading-relaxed">
-               L&apos;arbitre ne peut lancer le match que lorsque les deux managers ont <span className="text-amber-900 underline decoration-amber-500/30 underline-offset-4">validé leurs feuilles de match</span>.
-             </p>
+              </div>
+              <p className="leading-relaxed">
+                L&apos;arbitre ne peut lancer le match que lorsque les deux managers ont <span className="text-amber-900 underline decoration-amber-500/30 underline-offset-4">validé leurs feuilles de match</span>.
+              </p>
+            </div>
           </div>
         ) : (
           <button
@@ -336,53 +469,80 @@ export default function LiveMatchManage() {
             <Flame size={28} className="relative transition-transform group-hover:scale-125 group-hover:rotate-12" />
           </button>
         )}
+
+        {/* La sortie vaut pour tout l'écran d'avant-match, pas seulement quand
+            les feuilles bloquent : tant que le direct n'a pas commencé, on peut
+            très bien être venu voir et vouloir repartir. Cet écran occupe la
+            hauteur entière, il ne laissait que la touche retour du navigateur. */}
+        <button
+          onClick={() => router.push(`/matches/${id}`)}
+          className="mt-8 inline-flex items-center gap-2 px-6 py-3 text-[11px] font-black uppercase tracking-widest text-gray-400 transition-colors hover:text-gray-900"
+        >
+          <ChevronLeft size={16} /> Retour au match
+        </button>
       </div>
     );
   }
 
-  // Un adversaire hors plateforme n'a pas de participations : sa grille vient
-  // de la feuille de match dénormalisée sur le match. Sans ça son panneau
-  // restait vide et aucun de ses buts n'était attribuable à un joueur.
-  const isGhostMatch = !match.awayManagerId;
-  const ghostIsHome = isGhostMatch && !match.isHome;
+  /**
+   * La grille d'un camp, ses DEUX origines réunies.
+   *
+   * Les joueurs qui ont un compte viennent des participations confirmées ; ceux
+   * qui n'en ont pas viennent de la feuille dénormalisée sur le match. On
+   * additionne au lieu de choisir : un adversaire hors plateforme n'a que la
+   * seconde, mais une vraie équipe a souvent les deux — et ses joueurs sans
+   * compte n'apparaissaient nulle part dans la console, donc aucun de leurs
+   * buts n'était attribuable.
+   */
+  const playersOf = (teamId: string, ghostEntries: typeof match.homeGhostLineup): ConsolePlayer[] => [
+    ...participations
+      .filter((p) => p.teamId === teamId && p.status === "confirmed")
+      .map((p) => ({
+        playerId: p.playerId, playerName: p.playerName,
+        squadNumber: p.squadNumber, isStarter: p.matchRole === "starter",
+      })),
+    ...ghostEntries.map((e) => ({
+      playerId: e.playerId, playerName: e.name,
+      squadNumber: e.number, isStarter: e.role === "starter",
+    })),
+  ];
 
-  const playersOf = (teamId: string, sideIsGhost: boolean): ConsolePlayer[] =>
-    sideIsGhost
-      ? (match.ghostLineup ?? []).map((e) => ({
-          playerId: e.playerId, playerName: e.name,
-          squadNumber: e.number, isStarter: e.role === "starter",
-        }))
-      : participations
-          .filter((p) => p.teamId === teamId && p.status === "confirmed")
-          .map((p) => ({
-            playerId: p.playerId, playerName: p.playerName,
-            squadNumber: p.squadNumber, isStarter: p.matchRole === "starter",
-          }));
+  /** Le camp hors plateforme : ses joueurs sont anonymes, son club ne l'est pas. */
+  const estAmical = !match.awayManagerId;
+  const idEquipeFantome = !estAmical ? null : match.isHome ? match.awayTeamId : match.homeTeamId;
 
-  const homePlayers = playersOf(match.homeTeamId, ghostIsHome);
-  const awayPlayers = playersOf(match.awayTeamId, isGhostMatch && !ghostIsHome);
+  const homePlayers = playersOf(match.homeTeamId, match.homeGhostLineup);
+  const awayPlayers = playersOf(match.awayTeamId, match.awayGhostLineup);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-32">
+    /* Mobile : une hauteur d'écran, pas une de plus. La console est un poste
+       de commande qu'on tient d'une main pendant que le match se joue ; ce qui
+       dépasse du pli n'existe pas.
+       Les 10.5rem retirées sont mesurées, pas devinées : en-tête collant du
+       shell 78px, marge haute du <main> 12px, marge basse 72px — celle-là même
+       qui réserve la place de la barre de navigation (55px). Sous-estimer ce
+       retrait glisse le déroulé du match SOUS la barre du bas, hors d'atteinte
+       au moment où on en a le plus besoin. */
+    <div className="mx-auto flex h-[calc(100dvh-10.5rem)] max-w-6xl flex-col gap-2 overflow-hidden md:block md:h-auto md:space-y-8 md:overflow-visible md:pb-32">
       {/* Header */}
-      <div className="flex items-center justify-between px-4">
-        <button 
-          onClick={() => router.back()} 
-          className="group flex h-12 w-12 items-center justify-center bg-white shadow-gray-200/50 transition-all hover:scale-110 active:scale-90"
+      <div className="flex shrink-0 items-center justify-between gap-2 px-1 md:px-4">
+        <button
+          onClick={() => router.back()}
+          className="group flex h-9 w-9 shrink-0 items-center justify-center bg-white shadow-gray-200/50 transition-all hover:scale-110 active:scale-90 md:h-12 md:w-12"
         >
-          <ChevronLeft size={24} className="text-gray-400 group-hover:text-gray-900" />
+          <ChevronLeft size={20} className="text-gray-400 group-hover:text-gray-900 md:h-6 md:w-6" />
         </button>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
+        <div className="min-w-0 text-center">
+          <div className="flex items-center justify-center gap-2 md:mb-1">
              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Match en Direct</span>
+             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-600 md:text-[10px]">Match en Direct</span>
           </div>
-          <h1 className="text-2xl font-black text-gray-900 font-display tracking-tight">
-            {match.homeTeamName} <span className="text-gray-300 mx-2">vs</span> {match.awayTeamName}
+          <h1 className="truncate text-sm font-black text-gray-900 font-display tracking-tight md:text-2xl">
+            {match.homeTeamName} <span className="mx-1 text-gray-300 md:mx-2">vs</span> {match.awayTeamName}
           </h1>
         </div>
-        <button className="flex h-12 w-12 items-center justify-center bg-white shadow-gray-200/50 text-gray-400 transition-all hover:text-gray-900">
-          <Settings2 size={22} />
+        <button className="flex h-9 w-9 shrink-0 items-center justify-center bg-white shadow-gray-200/50 text-gray-400 transition-all hover:text-gray-900 md:h-12 md:w-12">
+          <Settings2 size={18} className="md:h-[22px] md:w-[22px]" />
         </button>
       </div>
 
@@ -390,69 +550,69 @@ export default function LiveMatchManage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden bg-[#0A0A0B] p-10 text-white"
+        className="relative shrink-0 overflow-hidden bg-[#0A0A0B] p-3 text-white md:p-10"
       >
         {/* Background Effects */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-full bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.3),transparent)] pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/5 blur-[100px] rounded-full pointer-events-none" />
-        
+
         <div className="relative z-10 grid grid-cols-3 items-center">
           {/* Home Team */}
-          <div className="flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-1.5 md:gap-6">
             <div className="relative">
               <div className="absolute inset-0 blur-xl bg-white/10 rounded-full" />
-              <div className="relative flex h-24 w-24 items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-4xl font-black border border-white/10 shadow-2xl backdrop-blur-md">
+              <div className="relative flex h-10 w-10 items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-base font-black border border-white/10 shadow-2xl backdrop-blur-md md:h-24 md:w-24 md:text-4xl">
                 {match.homeTeamName[0]}
               </div>
             </div>
             <div className="text-center">
-              <h2 className="text-sm font-black uppercase tracking-tight text-white/50 mb-1 truncate max-w-[120px]">{match.homeTeamName}</h2>
-              <div className="text-8xl font-black tracking-tighter drop-shadow-2xl">{match.scoreHome || 0}</div>
+              <h2 className="max-w-[80px] truncate text-[9px] font-black uppercase tracking-tight text-white/50 md:mb-1 md:max-w-[120px] md:text-sm">{match.homeTeamName}</h2>
+              <div className="text-4xl font-black tracking-tighter drop-shadow-2xl md:text-8xl">{match.scoreHome || 0}</div>
             </div>
           </div>
 
           {/* Center Info */}
           <div className="flex flex-col items-center">
-            <div className="mb-6 rounded-full border border-white/5 bg-white/10 px-6 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-400 backdrop-blur-xl">
+            <div className="mb-1.5 rounded-full border border-white/5 bg-white/10 px-2.5 py-0.5 text-center text-[8px] font-black uppercase leading-tight tracking-[0.15em] text-emerald-400 backdrop-blur-xl md:mb-6 md:px-6 md:py-2 md:text-[11px] md:tracking-[0.2em]">
               {PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label || "Match"}
             </div>
             <div className="relative flex flex-col items-center">
                <div className="absolute -inset-10 blur-3xl bg-emerald-500/10 rounded-full" />
-               <div className="relative text-[5.5rem] font-mono font-black tracking-tighter text-emerald-500 tabular-nums leading-none">
+               <div className="relative font-mono text-2xl font-black leading-none tracking-tighter text-emerald-500 tabular-nums md:text-[5.5rem]">
                  {formatTime(displayTime)}
                </div>
             </div>
-            <div className="mt-10 flex gap-6">
+            <div className="mt-2 flex gap-6 md:mt-10">
               {match.liveState?.isTimerRunning ? (
                 <button
                   onClick={handlePauseTimer}
-                  className="group relative flex h-20 w-20 items-center justify-center bg-amber-500 text-white transition-all hover:bg-amber-600 hover:scale-110 active:scale-95"
+                  className="group relative flex h-11 w-11 items-center justify-center bg-amber-500 text-white transition-all hover:bg-amber-600 hover:scale-110 active:scale-95 md:h-20 md:w-20"
                 >
-                  <Pause size={32} fill="currentColor" />
+                  <Pause size={20} fill="currentColor" className="md:h-8 md:w-8" />
                 </button>
               ) : (
                 <button
                   onClick={handleStartTimer}
-                  className="group relative flex h-20 w-20 items-center justify-center bg-emerald-500 text-white transition-all hover:bg-emerald-600 hover:scale-110 active:scale-95"
+                  className="group relative flex h-11 w-11 items-center justify-center bg-emerald-500 text-white transition-all hover:bg-emerald-600 hover:scale-110 active:scale-95 md:h-20 md:w-20"
                 >
-                  <Play size={32} fill="currentColor" className="ml-1" />
+                  <Play size={20} fill="currentColor" className="ml-0.5 md:ml-1 md:h-8 md:w-8" />
                 </button>
               )}
             </div>
           </div>
 
           {/* Away Team */}
-          <div className="flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-1.5 md:gap-6">
             <div className="relative">
               <div className="absolute inset-0 blur-xl bg-white/10 rounded-full" />
-              <div className="relative flex h-24 w-24 items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-4xl font-black border border-white/10 shadow-2xl backdrop-blur-md">
+              <div className="relative flex h-10 w-10 items-center justify-center bg-gradient-to-br from-white/10 to-white/5 text-base font-black border border-white/10 shadow-2xl backdrop-blur-md md:h-24 md:w-24 md:text-4xl">
                 {match.awayTeamName[0]}
               </div>
             </div>
             <div className="text-center">
-              <h2 className="text-sm font-black uppercase tracking-tight text-white/50 mb-1 truncate max-w-[120px]">{match.awayTeamName}</h2>
-              <div className="text-8xl font-black tracking-tighter drop-shadow-2xl">{match.scoreAway || 0}</div>
+              <h2 className="max-w-[80px] truncate text-[9px] font-black uppercase tracking-tight text-white/50 md:mb-1 md:max-w-[120px] md:text-sm">{match.awayTeamName}</h2>
+              <div className="text-4xl font-black tracking-tighter drop-shadow-2xl md:text-8xl">{match.scoreAway || 0}</div>
             </div>
           </div>
         </div>
@@ -460,58 +620,127 @@ export default function LiveMatchManage() {
 
       {/* Match Lock Banner */}
       {match.status === 'live' && (
-        <div className="mx-4 sm:mx-0 p-4 bg-amber-500 text-white flex items-center justify-between shadow-amber-500/20">
-           <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-white/20 flex items-center justify-center">
-                 <Shield size={20} />
+        <div className="flex shrink-0 items-center justify-between bg-amber-500 p-1.5 text-white shadow-amber-500/20 md:mx-0 md:p-4">
+           <div className="flex min-w-0 items-center gap-2 md:gap-3">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center bg-white/20 md:h-10 md:w-10">
+                 <Shield size={13} className="md:h-5 md:w-5" />
               </div>
-              <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Session Arbitrage Active</p>
-                 <p className="text-xs font-bold font-display italic">Veuillez ne pas quitter cette page avant le coup de sifflet final</p>
+              <div className="min-w-0">
+                 <p className="text-[8px] font-black uppercase tracking-widest text-white/70 md:text-[10px]">Session Arbitrage Active</p>
+                 {/* Le rappel complet ne tient pas sur un téléphone sans manger
+                     la place des grilles : le titre dit déjà l'essentiel. */}
+                 <p className="hidden text-xs font-bold font-display italic md:block">Veuillez ne pas quitter cette page avant le coup de sifflet final</p>
               </div>
            </div>
-           <div className="hidden sm:block px-4 py-1.5 rounded-full bg-black/10 text-[10px] font-black uppercase tracking-widest border border-white/10">
-              Contrôles verrouillés
-           </div>
+           {/* Le compte à rebours du bouton BUT, à l'écran.
+               Il ne vivait que dans la fiche d'un joueur : on tapait, rien ne
+               se passait, et il fallait deviner pourquoi. La pastille qui
+               occupait cette place annonçait « Contrôles verrouillés » en
+               permanence, alors que rien ne l'était jamais. */}
+           {goalCooldown > 0 && (
+             <div className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest md:px-4 md:py-1.5 md:text-[10px]">
+               But dans {goalCooldown}s
+             </div>
+           )}
         </div>
       )}
 
-      {/* Control Panel: 2 Grids */}
-      <div className="grid gap-6 md:grid-cols-2 px-4 sm:px-0">
+      {/* Sélecteur de panneau, mobile seulement. Les flèches font défiler les
+          trois panneaux dans l'ordre : on change de camp d'un pouce, sans viser
+          un onglet de six millimètres pendant qu'une action se joue. */}
+      <div className="flex shrink-0 items-stretch gap-1 md:hidden">
+        {(() => {
+          const PANNEAUX = [
+            { id: "home" as const, label: match.homeTeamName },
+            { id: "away" as const, label: match.awayTeamName },
+            { id: "events" as const, label: "Événements" },
+          ];
+          const index = PANNEAUX.findIndex((x) => x.id === panneau);
+          const glisser = (pas: number) =>
+            setPanneau(PANNEAUX[(index + pas + PANNEAUX.length) % PANNEAUX.length].id);
+          return (
+            <>
+              <button
+                onClick={() => glisser(-1)}
+                aria-label="Panneau précédent"
+                className="flex w-9 shrink-0 items-center justify-center border border-gray-200/70 bg-white text-gray-400 active:bg-gray-100"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div className="flex min-w-0 flex-1 gap-1">
+                {PANNEAUX.map((x) => (
+                  <button
+                    key={x.id}
+                    onClick={() => setPanneau(x.id)}
+                    className={`min-w-0 flex-1 truncate px-1 py-2 text-[9px] font-black uppercase tracking-wider transition-colors ${
+                      panneau === x.id
+                        ? "bg-gray-900 text-white"
+                        : "border border-gray-200/70 bg-white text-gray-400"
+                    }`}
+                  >
+                    {x.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => glisser(1)}
+                aria-label="Panneau suivant"
+                className="flex w-9 shrink-0 items-center justify-center border border-gray-200/70 bg-white text-gray-400 active:bg-gray-100"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Control Panel: 2 Grids. `contents` sur mobile : les deux grilles
+          deviennent des enfants directs de la colonne, chacune pilotée par le
+          sélecteur ci-dessus. Au-delà de `md`, la grille à deux colonnes
+          d'origine reprend. */}
+      <div className="contents md:grid md:gap-6 md:grid-cols-2 md:px-0">
         {/* Home Team Grid */}
-        <div className=" border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/40 relative group overflow-hidden">
+        <div className={`relative border border-gray-200/70 bg-white p-3 shadow-2xl shadow-gray-200/40 group md:block md:overflow-hidden md:p-8 ${
+          panneau === "home" ? "min-h-0 flex-1 overflow-y-auto" : "hidden"
+        }`}>
           <div className="absolute top-0 right-0 w-32 h-32 blur-[80px] rounded-full opacity-50 bg-emerald-100" />
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-8">
-               <div className="flex flex-col">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-1">Dominateurs (Grille)</h3>
-                 <h2 className="text-xl font-black text-gray-900 tracking-tighter truncate max-w-[200px]">{match.homeTeamName}</h2>
+            <div className="mb-3 flex items-center justify-between md:mb-8">
+               <div className="flex min-w-0 flex-col">
+                 <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-600 md:mb-1 md:text-[10px]">Dominateurs (Grille)</h3>
+                 <h2 className="max-w-[200px] truncate text-sm font-black tracking-tighter text-gray-900 md:text-xl">{match.homeTeamName}</h2>
                </div>
-               <div className="h-12 w-12 bg-emerald-50 flex items-center justify-center text-emerald-600 font-black">
+               <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-emerald-50 font-black text-emerald-600 md:h-12 md:w-12">
                  {match.scoreHome || 0}
                </div>
             </div>
 
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-5 gap-2 md:gap-3">
               {homePlayers.map(p => (
                 <button
                   key={p.playerId}
                   onClick={() => setSelectedPlayer({ player: p, teamId: match.homeTeamId, teamName: match.homeTeamName })}
-                  className="group relative h-16 border-2 border-gray-200/70 bg-gray-50/50 text-sm font-black transition-all flex items-center justify-center hover:border-emerald-500 hover:bg-white hover:text-emerald-600 hover:scale-105 active:scale-95"
+                  className="group relative flex h-14 flex-col items-center justify-center gap-0.5 overflow-hidden border-2 border-gray-200/70 bg-gray-50/50 px-0.5 text-sm font-black transition-all hover:border-emerald-500 hover:bg-white hover:text-emerald-600 hover:scale-105 active:scale-95 md:h-[4.5rem]"
                 >
-                  <span className="text-lg">{p.squadNumber || p.playerName[0].toUpperCase()}</span>
+                  <span className="text-base leading-none md:text-xl">{p.squadNumber || p.playerName[0].toUpperCase()}</span>
+                  {/* Le nom était une infobulle en position absolue sous la
+                      case. Sur un téléphone il n'y a pas de survol, donc pas de
+                      nom du tout ; et quand elles s'affichaient, chacune était
+                      plus large que sa case et débordait sur les voisines. Il
+                      est dans la case, comme sur un maillot. */}
+                  {nomDeMaillot(p.playerName, p.squadNumber) && (
+                    <span className="w-full truncate text-center text-[8px] font-bold uppercase leading-none tracking-tight text-gray-400 md:text-[10px]">
+                      {nomDeMaillot(p.playerName, p.squadNumber)}
+                    </span>
+                  )}
                   {p.isStarter && (
                     <div className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full border-2 border-white bg-emerald-500" />
                   )}
-                  {/* Subtle Tooltip-like label */}
-                  <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-[8px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                    {p.playerName}
-                  </div>
                 </button>
               ))}
-              <button 
+              <button
                 onClick={() => setShowSubModal({ teamId: match.homeTeamId, teamName: match.homeTeamName })}
-                className="h-16 border border-dashed border-gray-200/70 text-gray-400 flex flex-col items-center justify-center gap-1 hover:border-emerald-500 hover:text-emerald-500 transition-all"
+                className="flex h-14 flex-col items-center justify-center gap-1 border border-dashed border-gray-200/70 text-gray-400 md:h-[4.5rem] hover:border-emerald-500 hover:text-emerald-500 transition-all"
               >
                 <Plus size={16} />
                 <span className="text-[8px] font-black uppercase">Sub</span>
@@ -521,38 +750,47 @@ export default function LiveMatchManage() {
         </div>
 
         {/* Away Team Grid */}
-        <div className=" border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/40 relative group overflow-hidden">
+        <div className={`relative border border-gray-200/70 bg-white p-3 shadow-2xl shadow-gray-200/40 group md:block md:overflow-hidden md:p-8 ${
+          panneau === "away" ? "min-h-0 flex-1 overflow-y-auto" : "hidden"
+        }`}>
           <div className="absolute top-0 right-0 w-32 h-32 blur-[80px] rounded-full opacity-50 bg-blue-100" />
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-8">
-               <div className="flex flex-col">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 mb-1">Visiteurs (Grille)</h3>
-                 <h2 className="text-xl font-black text-gray-900 tracking-tighter truncate max-w-[200px]">{match.awayTeamName}</h2>
+            <div className="mb-3 flex items-center justify-between md:mb-8">
+               <div className="flex min-w-0 flex-col">
+                 <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 md:mb-1 md:text-[10px]">Visiteurs (Grille)</h3>
+                 <h2 className="max-w-[200px] truncate text-sm font-black tracking-tighter text-gray-900 md:text-xl">{match.awayTeamName}</h2>
                </div>
-               <div className="h-12 w-12 bg-blue-50 flex items-center justify-center text-blue-600 font-black">
+               <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-blue-50 font-black text-blue-600 md:h-12 md:w-12">
                  {match.scoreAway || 0}
                </div>
             </div>
 
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-5 gap-2 md:gap-3">
               {awayPlayers.map(p => (
                 <button
                   key={p.playerId}
                   onClick={() => setSelectedPlayer({ player: p, teamId: match.awayTeamId, teamName: match.awayTeamName })}
-                  className="group relative h-16 border-2 border-gray-200/70 bg-gray-50/50 text-sm font-black transition-all flex items-center justify-center hover:border-blue-600 hover:bg-white hover:text-blue-600 hover:scale-105 active:scale-95"
+                  className="group relative flex h-14 flex-col items-center justify-center gap-0.5 overflow-hidden border-2 border-gray-200/70 bg-gray-50/50 px-0.5 text-sm font-black transition-all hover:border-blue-600 hover:bg-white hover:text-blue-600 hover:scale-105 active:scale-95 md:h-[4.5rem]"
                 >
-                  <span className="text-lg">{p.squadNumber || p.playerName[0].toUpperCase()}</span>
+                  <span className="text-base leading-none md:text-xl">{p.squadNumber || p.playerName[0].toUpperCase()}</span>
+                  {/* Le nom était une infobulle en position absolue sous la
+                      case. Sur un téléphone il n'y a pas de survol, donc pas de
+                      nom du tout ; et quand elles s'affichaient, chacune était
+                      plus large que sa case et débordait sur les voisines. Il
+                      est dans la case, comme sur un maillot. */}
+                  {nomDeMaillot(p.playerName, p.squadNumber) && (
+                    <span className="w-full truncate text-center text-[8px] font-bold uppercase leading-none tracking-tight text-gray-400 md:text-[10px]">
+                      {nomDeMaillot(p.playerName, p.squadNumber)}
+                    </span>
+                  )}
                   {p.isStarter && (
                     <div className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full border-2 border-white bg-blue-600" />
                   )}
-                  <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-[8px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                    {p.playerName}
-                  </div>
                 </button>
               ))}
-              <button 
+              <button
                 onClick={() => setShowSubModal({ teamId: match.awayTeamId, teamName: match.awayTeamName })}
-                className="h-16 border border-dashed border-gray-200/70 text-gray-400 flex flex-col items-center justify-center gap-1 hover:border-blue-600 hover:text-blue-600 transition-all"
+                className="flex h-14 flex-col items-center justify-center gap-1 border border-dashed border-gray-200/70 text-gray-400 md:h-[4.5rem] hover:border-blue-600 hover:text-blue-600 transition-all"
               >
                 <Plus size={16} />
                 <span className="text-[8px] font-black uppercase">Sub</span>
@@ -588,16 +826,18 @@ export default function LiveMatchManage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                  <EventButton 
-                    label="BUT !"
+                  <EventButton
+                    label={goalCooldown > 0 ? `${goalCooldown}s` : "BUT !"}
                     icon={<Trophy size={20} />}
                     color="amber"
+                    disabled={goalCooldown > 0}
                     onClick={() => {
                         handleAddEvent("goal", selectedPlayer.teamId, selectedPlayer.player.playerId, selectedPlayer.player.playerName);
+                        setGoalCooldown(60);
                         setSelectedPlayer(null);
                     }}
                   />
-                  <EventButton 
+                  <EventButton
                     label="JAUNE"
                     icon={<div className="h-6 w-4 bg-amber-400 border border-amber-500/20" />}
                     color="gray"
@@ -606,7 +846,7 @@ export default function LiveMatchManage() {
                         setSelectedPlayer(null);
                     }}
                   />
-                  <EventButton 
+                  <EventButton
                     label="ROUGE"
                     icon={<div className="h-6 w-4 bg-red-600 border border-red-700/20 shadow-inner" />}
                     color="red"
@@ -615,7 +855,7 @@ export default function LiveMatchManage() {
                         setSelectedPlayer(null);
                     }}
                   />
-                  <EventButton 
+                  <EventButton
                     label="CANCEL"
                     icon={<Minus size={20} />}
                     color="light"
@@ -627,51 +867,31 @@ export default function LiveMatchManage() {
         )}
       </AnimatePresence>
 
-      {/* Timeline & Flow Control */}
-      <div className="grid gap-8 md:grid-cols-3 px-2">
-        {/* Flow Control */}
-        <div className=" border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/50 backdrop-blur-sm">
-           <div className="flex items-center gap-3 mb-6">
-              <Clock className="text-gray-400" size={20} />
-              <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Match Workflow</h3>
-           </div>
-           <div className="space-y-4">
-              <button
-                disabled={match.liveState?.currentPeriod === 4}
-                onClick={handleNextPeriod}
-                className="group flex w-full items-center justify-between bg-gray-900 px-6 py-5 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
-              >
-                <span>Passer à la période suivante</span>
-                <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
-              </button>
-              <button
-                 onClick={handleFinishMatch}
-                 className="flex w-full items-center justify-between border-2 border-red-50 bg-red-50/50 px-6 py-5 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98]"
-              >
-                <span>Siffler la fin du match</span>
-                <CheckCircle2 size={20} />
-              </button>
-           </div>
-        </div>
-
+      {/* Timeline & Flow Control. `contents` sur mobile, pour la même raison
+          que les grilles : le déroulé se colle en bas de l'écran et reste
+          atteignable quel que soit le panneau ouvert, les événements deviennent
+          l'un des panneaux. */}
+      <div className="contents md:grid md:gap-8 md:grid-cols-3 md:px-2">
         {/* Timeline */}
-        <div className="md:col-span-2 border border-gray-200/70 bg-white p-8 shadow-2xl shadow-gray-200/50">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <History className="text-gray-400" size={20} />
-              <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Événements</h3>
+        <div className={`border border-gray-200/70 bg-white p-3 shadow-2xl shadow-gray-200/50 md:order-2 md:col-span-2 md:block md:p-8 ${
+          panneau === "events" ? "flex min-h-0 flex-1 flex-col" : "hidden"
+        }`}>
+          <div className="mb-3 flex items-center justify-between md:mb-8">
+            <div className="flex items-center gap-2 md:gap-3">
+              <History className="text-gray-400" size={16} />
+              <h3 className="text-xs font-black uppercase tracking-tight text-gray-900 italic md:text-sm">Événements</h3>
             </div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1 rounded-full">
+            <div className="rounded-full bg-gray-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 md:px-3 md:py-1 md:text-[10px]">
               {match.liveState?.events?.length || 0} Total
             </div>
           </div>
-          <div className="max-h-[350px] overflow-y-auto pr-4 space-y-4 custom-scrollbar">
+          <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto pr-2 md:max-h-[350px] md:space-y-4 md:pr-4">
             {match.liveState?.events && match.liveState.events.length > 0 ? (
               [...match.liveState.events].reverse().map((event, i) => (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  key={event.id} 
+                  key={event.id}
                   className="flex items-center gap-6 group"
                 >
                   <div className="relative flex h-12 w-12 shrink-0 items-center justify-center bg-gray-50 text-xs font-black border border-gray-200/70 transition-colors group-hover:bg-emerald-50/50 group-hover:border-emerald-100 group-hover:text-emerald-600">
@@ -690,6 +910,11 @@ export default function LiveMatchManage() {
                     <p className="mt-1 text-xs font-bold text-gray-400 uppercase tracking-tighter">
                       {event.detail ? (
                         <span className="text-blue-600">{event.detail}</span>
+                      ) : event.teamId === idEquipeFantome ? (
+                        /* « Joueur 9 • FC BALL » : le nom générique de
+                           l'adversaire hors plateforme n'apporte rien à côté du
+                           nom de son club. Voir la fiche du match. */
+                        <span>{event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName}</span>
                       ) : (
                         <span>{event.playerName || "Joueur Inconnu"} • {event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName}</span>
                       )}
@@ -698,14 +923,43 @@ export default function LiveMatchManage() {
                 </motion.div>
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="h-16 w-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
-                   <History size={32} className="text-gray-200" />
+              <div className="flex flex-col items-center justify-center py-8 text-center md:py-16">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-50 md:mb-4 md:h-16 md:w-16">
+                   <History size={22} className="text-gray-200 md:h-8 md:w-8" />
                 </div>
-                <p className="text-sm font-bold text-gray-300 uppercase tracking-widest italic">Le match attend ses premiers coups d&apos;éclat</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-300 italic md:text-sm">Le match attend ses premiers coups d&apos;éclat</p>
               </div>
             )}
           </div>
+        </div>
+
+        {/* Flow Control. Toujours visible sur mobile, sous les panneaux : c'est
+            le geste qu'on ne doit jamais avoir à chercher, et il ne dépend
+            d'aucun camp. */}
+        <div className="shrink-0 border border-gray-200/70 bg-white p-2 shadow-2xl shadow-gray-200/50 backdrop-blur-sm md:order-1 md:p-8">
+           <div className="mb-6 hidden items-center gap-3 md:flex">
+              <Clock className="text-gray-400" size={20} />
+              <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Match Workflow</h3>
+           </div>
+           <div className="flex gap-2 md:block md:space-y-4">
+              <button
+                disabled={match.liveState?.currentPeriod === 4}
+                onClick={handleNextPeriod}
+                className="group flex flex-1 items-center justify-center gap-1.5 bg-gray-900 px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50 md:w-full md:justify-between md:px-6 md:py-5 md:text-sm md:normal-case md:tracking-normal"
+              >
+                <span className="md:hidden">Période suivante</span>
+                <span className="hidden md:inline">Passer à la période suivante</span>
+                <ChevronRight size={16} className="transition-transform group-hover:translate-x-1 md:h-[18px] md:w-[18px]" />
+              </button>
+              <button
+                 onClick={handleFinishMatch}
+                 className="flex flex-1 items-center justify-center gap-1.5 border-2 border-red-50 bg-red-50/50 px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] md:w-full md:justify-between md:px-6 md:py-5 md:text-sm md:normal-case md:tracking-normal"
+              >
+                <span className="md:hidden">Fin du match</span>
+                <span className="hidden md:inline">Siffler la fin du match</span>
+                <CheckCircle2 size={16} className="md:h-5 md:w-5" />
+              </button>
+           </div>
         </div>
       </div>
 
@@ -728,7 +982,7 @@ export default function LiveMatchManage() {
             >
               <h2 className="mb-2 text-2xl font-black text-gray-900">Nouveau changement</h2>
               <p className="mb-8 text-sm font-bold text-gray-400 italic uppercase tracking-tight">{showSubModal.teamName}</p>
-              
+
               <div className="space-y-6">
                 <div>
                   <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Joueur Sortant</label>
@@ -796,7 +1050,7 @@ export default function LiveMatchManage() {
   );
 }
 
-function EventButton({ label, icon, color, onClick }: { label: string; icon: any; color: string; onClick: () => void }) {
+function EventButton({ label, icon, color, onClick, disabled }: { label: string; icon: any; color: string; onClick: () => void; disabled?: boolean }) {
   const colorBgs: Record<string, string> = {
     amber: "bg-amber-500 text-white shadow-amber-500/20",
     red: "bg-red-600 text-white shadow-red-600/20",
@@ -807,7 +1061,8 @@ function EventButton({ label, icon, color, onClick }: { label: string; icon: any
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-2 p-6 transition-all hover:scale-105 active:scale-95 ${colorBgs[color] || colorBgs.gray}`}
+      disabled={disabled}
+      className={`flex flex-col items-center justify-center gap-2 p-6 transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 ${colorBgs[color] || colorBgs.gray}`}
     >
       {icon}
       <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>

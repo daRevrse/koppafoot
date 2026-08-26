@@ -6,13 +6,15 @@ import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
+import { getMatchesIModerate } from "@/lib/firestore";
 import ScoreShell from "@/components/layout/v2/ScoreShell";
 import AuthRequired from "@/components/auth/AuthRequired";
 
 // "Live ops" space for moderators. Access is CONTROLLED: besides
-// authentication, the user must moderate at least one competition (or be
-// a superadmin), everyone else is sent home. Per-competition membership
-// stays enforced on the pages + by Firestore rules.
+// authentication, the user must moderate at least one competition OR be
+// charged with covering at least one match, everyone else is sent home.
+// Per-competition and per-match membership stays enforced on the pages + by
+// Firestore rules.
 //
 // The list screens render inside the SHARED app shell (they used to have
 // their own header and no sidebar, which felt like a separate product).
@@ -42,13 +44,17 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
     if (user.userType === "superadmin") return;
 
     let cancelled = false;
-    listModeratedCompetitions(user.uid)
-      .then((comps) => {
+    Promise.all([
+      listModeratedCompetitions(user.uid),
+      getMatchesIModerate(user.uid),
+    ])
+      .then(([comps, matchs]) => {
         if (cancelled) return;
-        setModeratesOk(comps.length > 0);
+        const ouvert = comps.length > 0 || matchs.length > 0;
+        setModeratesOk(ouvert);
         setChecked(true);
-        if (comps.length === 0) {
-          toast.error("Accès réservé aux modérateurs de compétition.");
+        if (!ouvert) {
+          toast.error("Accès réservé à ceux qui couvrent un match.");
           router.replace("/");
         }
       })

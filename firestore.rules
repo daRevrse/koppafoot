@@ -155,6 +155,28 @@ service cloud.firestore {
              .data.get('staff_manager_ids', []);
     }
 
+    // Celui qu'on a chargé de couvrir CE match dans la console.
+    //
+    // Prend le document du match déjà chargé, comme equipeDuMatchDeleguee :
+    // la liste vit sur le match, aucune lecture supplémentaire n'est due.
+    function moderateurDuMatch(m) {
+      return isAuthenticated()
+        && request.auth.uid in m.get('moderator_ids', []);
+    }
+
+    // Ce qu'un modérateur a le droit de toucher : la couverture du direct, et
+    // rien d'autre. La date, le terrain, l'adversaire, les convocations et la
+    // liste des modérateurs elle-même restent hors de sa portée — sans quoi
+    // quelqu'un ajouté par un email pourrait s'ajouter des complices ou
+    // déplacer le match.
+    function champsDeLaConsole() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'status', 'live_state', 'score_home', 'score_away',
+          'result', 'completed_at', 'updated_at',
+        ]);
+    }
+
     function equipeGeree(teamId) {
       let equipe = get(/databases/$(database)/documents/teams/$(teamId)).data;
       return isAuthenticated()
@@ -381,6 +403,13 @@ service cloud.firestore {
                     || resource.data.referee_id == request.auth.uid
                   )
              )
+
+          // 3 bis. Modérateur du match, borné aux champs de la console.
+          //    C'est la seule façon de couvrir un amical : il n'a pas de
+          //    manager adverse, et la modération de compétition ne s'applique
+          //    qu'aux matchs d'une compétition, qui vivent ailleurs
+          //    (competitions/{cid}/comp_matches).
+          || (moderateurDuMatch(resource.data) && champsDeLaConsole())
 
           // 4. Compteurs de confirmation joueur (respondToParticipation).
           //    On ne peut pas vérifier en règles que l'appelant est convoqué :

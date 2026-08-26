@@ -56,6 +56,7 @@ export function categorieDuType(type: NotificationType): PushCategory {
     case "invitation":
     case "join_request":
     case "match_challenge":
+    case "match_update":
     case "participation_request":
       return "perso";
     case "team_activity":

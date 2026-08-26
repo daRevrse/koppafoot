@@ -28,6 +28,7 @@ import {
 import { TITRES_STAFF, estProprietaireEquipe, peutGererEquipe } from "@/lib/team-access";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
+import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
 
@@ -739,15 +740,28 @@ function GhostStatsModal({
           {ghost.firstName} {ghost.lastName}
         </h3>
         <p className="mb-5 text-xs text-gray-400">{POSITION_LABELS[ghost.position] ?? ghost.position}</p>
-        {/* Pas de statistiques ici, et ce n'est pas un oubli : une équipe hors
-            plateforme est l'adversaire du jeu vidéo. Personne ne la
-            représente, personne ne contresigne ses buts, et lui tenir une
-            carrière reviendrait à publier un palmarès saisi par son seul
-            adversaire. Sa feuille de match reste générique. */}
-        <p className="bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
-          Équipe hors plateforme : ses joueurs ne cumulent pas de statistiques.
-          Cette fiche sert à composer la feuille de match, et à dire qui a marqué
-          en face pendant la rencontre.
+        {/* Un joueur sans compte de SA PROPRE équipe tient bien une carrière :
+            il joue les mêmes matchs que les autres, il n'a qu'un smartphone de
+            moins. Elle vit sur `ghost_players` faute de document `users`, et
+            se crédite aux mêmes conditions (voir /api/matches/complete).
+            L'équipe hors plateforme, elle, ne cumule toujours rien — mais sa
+            fiche n'existe plus. */}
+        <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
+          {[
+            { label: "Matchs", valeur: ghost.matchesPlayed },
+            { label: "Buts", valeur: ghost.goals },
+            { label: "Passes", valeur: ghost.assists },
+          ].map((s) => (
+            <div key={s.label} className="bg-white p-3 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">{s.label}</p>
+              <p className="mt-1 font-display text-2xl font-black tabular-nums text-gray-900">{s.valeur}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
+          Ce joueur n&apos;a pas de compte KoppaFoot : sa carrière est tenue par le
+          club. Le jour où il en crée un, le coin fusion de l&apos;onglet Effectif la
+          lui transfère.
         </p>
 
         <button onClick={onClose}
@@ -908,6 +922,18 @@ export default function TeamDetailPage() {
   useEffect(() => {
     fetchTeam();
   }, [fetchTeam]);
+
+  // Une équipe hors plateforme n'a pas de fiche.
+  //
+  // Elle n'est pas un club qu'on gère : c'est le nom d'un adversaire, né avec
+  // un amical et qui ne sert qu'à le raconter. Elle avait pourtant ici une
+  // fiche complète — en-tête, onglets, effectif modifiable, suppression — soit
+  // tout un espace de gestion pour quelque chose qui n'a personne derrière.
+  // Elle vit désormais dans l'historique des matchs, et nulle part ailleurs.
+  useEffect(() => {
+    if (!team?.isGhost) return;
+    router.replace("/matches");
+  }, [team?.isGhost, router]);
 
   // Sync lineup and squad numbers from team data
   useEffect(() => {
@@ -1257,18 +1283,78 @@ export default function TeamDetailPage() {
 
   const colors = COLOR_MAP[team.color] ?? COLOR_MAP.emerald;
   const winRate = team.matchesPlayed > 0 ? Math.round((team.wins / team.matchesPlayed) * 100) : 0;
-  const upcomingMatches = matches.filter((m) => m.status === "upcoming");
+  // « live » et « delayed » comptent parmi les matchs à venir : un match en
+  // cours disparaissait de la fiche de son équipe, qui est justement l'endroit
+  // où on va le chercher ce jour-là.
+  const upcomingMatches = matches.filter(
+    (m) => m.status === "upcoming" || m.status === "live" || m.status === "delayed",
+  );
   const completedMatches = matches.filter((m) => m.status === "completed");
   const pendingCount = joinRequests.filter((r) => r.status === "pending").length;
   // Squad size = accounts on the roster + ghost players. The manager is not
   // in member_ids (createTeam starts it empty), so this is the real count,
   // memberIds alone silently dropped every player without a smartphone.
   const squadCount = team.memberIds.length + ghostPlayers.length;
-  // Adversaire hors plateforme : un doc `teams` sans compte derrière. Tout ce
-  // qui est social (suivre, recruter, candidatures, entraînements, palmarès)
-  // n'a pas de sens sur une équipe qui n'existe pas ici, et laisser le
-  // recrutement joignable la ferait entrer dans searchTeams, donc au mercato.
-  const isGhostTeam = !!team.isGhost;
+
+  // ------------------------------------------------------------------
+  // Le bilan détaillé, calculé depuis les matchs plutôt que stocké.
+  //
+  // `teams` ne porte que victoires/nuls/défaites. Tout le reste — les buts, la
+  // forme, les matchs sans encaisser — se lit sur les rencontres terminées, que
+  // cette page charge déjà. Ajouter des compteurs en base aurait signifié les
+  // tenir à jour à chaque clôture, à chaque correction de score et à chaque
+  // suppression de match : trois occasions de dériver pour une addition.
+  const matchsTermines = matches
+    .filter((m) => m.status === "completed")
+    .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+
+  const bilan = matchsTermines.reduce(
+    (acc, m) => {
+      const nous = m.homeTeamId === teamId ? m.scoreHome : m.scoreAway;
+      const eux = m.homeTeamId === teamId ? m.scoreAway : m.scoreHome;
+      if (nous == null || eux == null) return acc;
+      acc.pour += nous;
+      acc.contre += eux;
+      if (eux === 0) acc.sansEncaisser += 1;
+      acc.comptes += 1;
+      return acc;
+    },
+    { pour: 0, contre: 0, sansEncaisser: 0, comptes: 0 },
+  );
+
+  /** Les cinq derniers résultats, du plus récent au plus ancien. */
+  const forme = matchsTermines.slice(0, 5).map((m) => {
+    const nous = m.homeTeamId === teamId ? m.scoreHome : m.scoreAway;
+    const eux = m.homeTeamId === teamId ? m.scoreAway : m.scoreHome;
+    if (nous == null || eux == null) return "?" as const;
+    return nous > eux ? ("V" as const) : nous < eux ? ("D" as const) : ("N" as const);
+  });
+
+  /**
+   * Le classement interne, comptes ET joueurs sans compte confondus.
+   *
+   * Les seconds ne sont pas des sous-joueurs : ils tiennent la même carrière,
+   * sur `ghost_players` faute de document `users`. Les séparer en deux
+   * classements aurait fait deux moitiés d'équipe.
+   */
+  const classementInterne = [
+    ...members.map((m) => ({
+      id: m.uid,
+      nom: `${m.firstName} ${m.lastName}`.trim(),
+      buts: m.goals ?? 0,
+      passes: m.assists ?? 0,
+      sansCompte: false,
+    })),
+    ...ghostPlayers.map((g) => ({
+      id: g.id,
+      nom: `${g.firstName} ${g.lastName}`.trim(),
+      buts: g.goals,
+      passes: g.assists,
+      sansCompte: true,
+    })),
+  ];
+  const meilleurButeur = [...classementInterne].sort((a, b) => b.buts - a.buts)[0];
+  const meilleurPasseur = [...classementInterne].sort((a, b) => b.passes - a.passes)[0];
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -1306,7 +1392,7 @@ export default function TeamDetailPage() {
           
           {/* Top Actions overlay */}
           <div className="absolute right-4 top-4 flex gap-2">
-             {!isTeamManager && !isGhostTeam && (
+             {!isTeamManager && (
                 <button onClick={handleFollowToggle} disabled={followLoading}
                   className={`flex items-center gap-1.5 rounded-full backdrop-blur-md px-4 py-2 text-xs font-bold transition-all ${
                     isFollowing 
@@ -1343,11 +1429,7 @@ export default function TeamDetailPage() {
               <div className="mb-1 flex-1 text-white">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
-                  {isGhostTeam ? (
-                    <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md">
-                      Hors plateforme
-                    </span>
-                  ) : (
+                  {(
                     <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
                       team.level === "advanced" ? "bg-red-500/80" :
                       team.level === "intermediate" ? "bg-amber-500/80" :
@@ -1364,12 +1446,9 @@ export default function TeamDetailPage() {
                   )}
                   <span className="flex items-center gap-1.5">
                     <Users size={14} className="text-blue-400" />
-                    {/* max_members vaut 0 sur un fantôme : « 5/0 joueurs » n'a aucun sens. */}
-                    {isGhostTeam ? `${squadCount} joueurs` : `${squadCount}/${team.maxMembers} joueurs`}
+                    {`${squadCount}/${team.maxMembers} joueurs`}
                   </span>
-                  {!isGhostTeam && (
-                    <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
-                  )}
+                  <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
                 </div>
               </div>
             </div>
@@ -1403,14 +1482,10 @@ export default function TeamDetailPage() {
           { id: "roster", label: "Effectif", icon: Users, count: members.length },
           { id: "matches", label: "Matchs", icon: Calendar, count: matches.length },
           { id: "stats", label: "Stats", icon: BarChart3, count: 0 },
-          // Sur un fantôme il ne reste que l'effectif, les matchs joués contre
-          // lui et de quoi le supprimer.
-          ...(isGhostTeam ? [] : [
-            { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
-            { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
-            { id: "gallery", label: "Galerie", icon: Image, count: (team.galleryUrls ?? []).length },
-          ]),
-          ...(isTeamManager && !isGhostTeam ? [{ id: "candidatures", label: "Candidatures", icon: ClipboardList, count: pendingCount, isBadge: true }] : []),
+          { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
+          { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
+          { id: "gallery", label: "Galerie", icon: Image, count: (team.galleryUrls ?? []).length },
+          ...(isTeamManager ? [{ id: "candidatures", label: "Candidatures", icon: ClipboardList, count: pendingCount, isBadge: true }] : []),
           ...(isTeamManager ? [{ id: "settings", label: "Paramètres", icon: Settings, count: 0 }] : []),
         ].map((tab) => (
           <button
@@ -1648,6 +1723,19 @@ export default function TeamDetailPage() {
               </AnimatePresence>
             );
           })()}
+          {/* Le coin fusion : quand un joueur sans compte finit par en créer un,
+              il repartait de zéro pendant que son double gardait tout son
+              passé. Ne s'affiche que s'il y a des deux côtés de quoi
+              rapprocher. */}
+          {isTeamManager && (
+            <GhostMergeCorner
+              teamId={team.id}
+              ghostPlayers={ghostPlayers}
+              members={members}
+              onMerged={fetchTeam}
+            />
+          )}
+
           {isTeamManager && (
             <div className="flex gap-2">
               <button
@@ -1655,16 +1743,13 @@ export default function TeamDetailPage() {
                 className="flex flex-1 items-center justify-center gap-2 border border-gray-200/70 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <Plus size={16} /> Ajouter un joueur
               </button>
-              {/* Recruter ouvre le mercato côté manager, sur l'onglet joueurs.
-                  Une équipe hors plateforme n'a personne pour recruter. */}
-              {!isGhostTeam && (
-                <Link
-                  href="/mercato?tab=players"
-                  className="flex flex-1 items-center justify-center gap-2 bg-emerald-500 py-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
-                >
-                  <UserPlus size={16} /> Recruter
-                </Link>
-              )}
+              {/* Recruter ouvre le mercato côté manager, sur l'onglet joueurs. */}
+              <Link
+                href="/mercato?tab=players"
+                className="flex flex-1 items-center justify-center gap-2 bg-emerald-500 py-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+              >
+                <UserPlus size={16} /> Recruter
+              </Link>
             </div>
           )}
         </motion.div>
@@ -1751,19 +1836,28 @@ export default function TeamDetailPage() {
             <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Trophy size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucun match programme</p>
+              {/* Ce bouton est resté « bientôt » et grisé alors que le parcours
+                  de création existe : le manager arrivait sur l'onglet Matchs de
+                  sa propre équipe et n'avait aucun moyen d'en programmer un. */}
               {isTeamManager && (
-                <span className="mt-4 inline-flex cursor-not-allowed items-center gap-2 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400">
-                  <Calendar size={14} /> Programmer un match, bientôt
-                </span>
+                <Link
+                  href="/matches"
+                  className="mt-4 inline-flex items-center gap-2 bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                >
+                  <Calendar size={14} /> Programmer un match
+                </Link>
               )}
             </div>
           )}
 
           {/* CTA for manager */}
           {isTeamManager && matches.length > 0 && (
-            <span className="flex cursor-not-allowed items-center justify-center gap-2 border border-gray-200/70 bg-gray-50 py-4 text-sm font-medium text-gray-400">
-              <Calendar size={16} /> Programmer un match, bientôt
-            </span>
+            <Link
+              href="/matches"
+              className="flex items-center justify-center gap-2 border border-gray-200/70 bg-white py-4 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
+            >
+              <Calendar size={16} /> Programmer un match
+            </Link>
           )}
         </motion.div>
       )}
@@ -1800,6 +1894,97 @@ export default function TeamDetailPage() {
               </p>
             </div>
           </div>
+
+          {/* Buts, forme et clean sheets : tout se lit sur les matchs terminés
+              dont on connaît le score. Un match clôturé sans score ne compte
+              nulle part plutôt que de compter pour zéro. */}
+          {bilan.comptes > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
+                <div className="bg-white p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Buts marqués</p>
+                  <p className="mt-2 font-display text-3xl font-black tabular-nums text-emerald-700">{bilan.pour}</p>
+                </div>
+                <div className="bg-white p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Encaissés</p>
+                  <p className="mt-2 font-display text-3xl font-black tabular-nums text-red-600">{bilan.contre}</p>
+                </div>
+                <div className="bg-white p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Différence</p>
+                  <p className={`mt-2 font-display text-3xl font-black tabular-nums ${
+                    bilan.pour - bilan.contre > 0 ? "text-emerald-700"
+                    : bilan.pour - bilan.contre < 0 ? "text-red-600" : "text-gray-900"
+                  }`}>
+                    {bilan.pour - bilan.contre > 0 ? "+" : ""}{bilan.pour - bilan.contre}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
+                <div className="bg-white p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Forme récente</p>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {forme.map((r, i) => (
+                      <span
+                        key={i}
+                        title={r === "V" ? "Victoire" : r === "D" ? "Défaite" : r === "N" ? "Nul" : "Score inconnu"}
+                        className={`flex h-8 w-8 items-center justify-center font-display text-sm font-black ${
+                          r === "V" ? "bg-emerald-100 text-emerald-700"
+                          : r === "D" ? "bg-red-100 text-red-600"
+                          : r === "N" ? "bg-gray-100 text-gray-600"
+                          : "bg-gray-50 text-gray-300"
+                        }`}
+                      >
+                        {r}
+                      </span>
+                    ))}
+                    <span className="ml-1 text-[11px] font-bold text-gray-400">
+                      du plus récent
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Matchs sans encaisser</p>
+                  <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">
+                    {bilan.sansEncaisser}
+                    <span className="ml-2 text-base font-bold text-gray-400">
+                      / {bilan.comptes} · {Math.round((bilan.sansEncaisser / bilan.comptes) * 100)}%
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Le classement interne. Les joueurs sans compte y figurent comme les
+              autres : ils tiennent la même carrière, ailleurs. */}
+          {(meilleurButeur?.buts > 0 || meilleurPasseur?.passes > 0) && (
+            <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
+              {[
+                { label: "Meilleur buteur", j: meilleurButeur, valeur: meilleurButeur?.buts ?? 0, unite: "but" },
+                { label: "Meilleur passeur", j: meilleurPasseur, valeur: meilleurPasseur?.passes ?? 0, unite: "passe" },
+              ].map((bloc) => (
+                <div key={bloc.label} className="bg-white p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{bloc.label}</p>
+                  {bloc.valeur > 0 ? (
+                    <>
+                      <p className="mt-2 truncate font-display text-xl font-black text-gray-900">{bloc.j.nom}</p>
+                      <p className="mt-0.5 text-sm font-bold text-gray-500">
+                        {bloc.valeur} {bloc.unite}{bloc.valeur > 1 ? "s" : ""}
+                        {bloc.j.sansCompte && (
+                          <span className="ml-2 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                            sans compte
+                          </span>
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm font-bold text-gray-300 italic">Personne encore</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Un ratio calcule sur zero match affiche 0% et se lit comme une
               equipe qui perd tout. Mieux vaut le dire. */}
@@ -2060,20 +2245,7 @@ export default function TeamDetailPage() {
           transition={{ duration: 0.3 }}
           className="space-y-4"
         >
-          {isGhostTeam && (
-            <div className=" border border-gray-200/70 bg-gray-50 p-4 sm:p-5">
-              <h3 className="font-semibold text-gray-900">Équipe hors plateforme</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Cette équipe n&apos;a pas de compte sur KoppaFoot : tu l&apos;as créée pour pouvoir
-                planifier un match contre elle. Elle n&apos;apparaît ni dans l&apos;annuaire ni dans
-                le mercato, et ses joueurs ne sont pas notifiés.
-              </p>
-            </div>
-          )}
-
-          {/* Recruiting toggle, masqué sur un fantôme : l'activer le ferait
-              entrer dans searchTeams, donc dans le mercato. */}
-          {!isGhostTeam && (
+          {/* Recruiting toggle */}
           <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -2093,10 +2265,8 @@ export default function TeamDetailPage() {
               </button>
             </div>
           </div>
-          )}
 
           {/* Training schedule */}
-          {!isGhostTeam && (
           <div className=" border border-gray-200/70 bg-white p-4 sm:p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Dumbbell size={16} className="text-violet-500" />
@@ -2186,16 +2356,15 @@ export default function TeamDetailPage() {
               </button>
             </div>
           </div>
-          )}
 
           {/* Team info summary */}
           <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">
             <h3 className="font-semibold text-gray-900">Informations</h3>
             <dl className="mt-3 space-y-3">
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
-                <dt className="text-gray-500">{isGhostTeam ? "Effectif" : "Capacite"}</dt>
+                <dt className="text-gray-500">Capacite</dt>
                 <dd className="font-medium text-gray-900 text-right">
-                  {isGhostTeam ? `${squadCount} joueurs` : `${squadCount} / ${team.maxMembers} joueurs`}
+                  {`${squadCount} / ${team.maxMembers} joueurs`}
                 </dd>
               </div>
               <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
@@ -2214,7 +2383,7 @@ export default function TeamDetailPage() {
           </div>
 
           {/* Le staff : nommé par le propriétaire, et par lui seul. */}
-          {!isGhostTeam && isTeamOwner && (
+          {isTeamOwner && (
             <StaffBlock team={team} members={members} onSaved={fetchTeam} />
           )}
 
