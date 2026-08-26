@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Outfit, DM_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
+import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LangueProvider } from "@/i18n";
@@ -136,6 +137,7 @@ export default async function RootLayout({
         </LangueProvider>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
+        <Analytics />
       </body>
     </html>
   );
