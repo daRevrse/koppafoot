@@ -37,6 +37,12 @@ export const ROLE_DESTINATIONS: Partial<Record<EvolutionRole, RoleDestination[]>
     { href: "/calendar", label: "Calendrier", hint: "Tes matchs et entraînements", Icon: CalendarDays },
     { href: "/mon-equipe", label: "Mes compétitions", hint: "Effectif engagé et classements", Icon: Trophy },
   ],
-  // L'arbitre n'a pas encore d'écran à lui : ses désignations et ses rapports
-  // sont au placard. Son espace suffit tant que c'est le cas.
+  // L'arbitre n'avait rien ici tant que ses écrans étaient au placard, ce qui
+  // donnait un rôle activable dont le menu s'ouvrait vide. « Mes
+  // désignations » est maintenant une vraie page, elle porte tout ce qu'il
+  // fait : répondre aux invitations, se porter candidat, ouvrir la console.
+  referee: [
+    { href: "/designations", label: "Mes désignations", hint: "Invitations, matchs à arbitrer et console", Icon: ClipboardCheck },
+    { href: "/calendar", label: "Calendrier", hint: "Les matchs que tu diriges", Icon: CalendarDays },
+  ],
 };

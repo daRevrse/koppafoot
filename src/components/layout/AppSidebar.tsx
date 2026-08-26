@@ -10,6 +10,7 @@ import {
   Home, Flame, Trophy, Star, Settings, ChevronRight,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
   Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
+  Flag,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listPublicCompetitions, listModeratedCompetitions } from "@/lib/competition-firestore";
@@ -58,9 +59,8 @@ interface Space {
   items: SpaceItem[];
 }
 
-// `Partial` : l'arbitre est un role activable mais ses destinations propres
-// (designations, rapports) sont encore au placard, il n'a donc pas d'entree
-// ici, et le `?? []` en aval rend la liste vide sans casser.
+// `Partial` reste : un role peut arriver ici avant ses destinations, et le
+// `?? []` en aval rend la liste vide sans casser.
 const ROLE_SPACE_ITEMS: Partial<Record<EvolutionRole, SpaceItem[]>> = {
   player: [
     // /teams serves both sides: getTeamsByManager for a manager,
@@ -77,6 +77,12 @@ const ROLE_SPACE_ITEMS: Partial<Record<EvolutionRole, SpaceItem[]>> = {
     { path: "/calendar", icon: CalendarDays, label: "Calendrier" },
     { path: "/mon-equipe", icon: Trophy, label: "Mes compétitions" },
     { path: "/mercato", icon: Store, label: "Mercato" },
+  ],
+  // Pas de mercato pour l'arbitre : il ne recrute ni ne se fait recruter,
+  // on va le chercher match par match.
+  referee: [
+    { path: "/designations", icon: ClipboardCheck, label: "Mes désignations" },
+    { path: "/calendar", icon: CalendarDays, label: "Calendrier" },
   ],
 };
 
@@ -228,12 +234,18 @@ export default function AppSidebar() {
   };
 
   // Évolution entry: label follows the activated role.
+  //
+  // L'arbitre manquait à cette liste : il activait son rôle et gardait
+  // « Évolution » dans la barre, c'est-à-dire le nom de l'écran qui propose
+  // de choisir, alors qu'il avait déjà choisi.
   const evolution = user
     ? user.evolutionRole === "player"
       ? { label: "Espace joueur", Icon: User }
       : user.evolutionRole === "manager"
         ? { label: "Espace manager", Icon: Briefcase }
-        : { label: "Évolution", Icon: Rocket }
+        : user.evolutionRole === "referee"
+          ? { label: "Espace arbitre", Icon: Flag }
+          : { label: "Évolution", Icon: Rocket }
     : null;
 
   const isOrganizer = organizes(user);
