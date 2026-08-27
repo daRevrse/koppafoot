@@ -121,7 +121,9 @@ export async function createCompetition(input: {
   };
   if (input.description !== undefined) payload.description = input.description;
 
-  const ref = await addDoc(collection(db, "competitions"), payload);
+  // Non validée à la naissance : c'est l'administration qui ouvre la porte du
+  // public, l'organisateur prépare tout le reste sans attendre.
+  const ref = await addDoc(collection(db, "competitions"), { ...payload, is_validated: false });
   return ref.id;
 }
 
@@ -154,7 +156,8 @@ export async function listPublicCompetitions(): Promise<Competition[]> {
   const snap = await getDocs(collection(db, "competitions"));
   const comps = snap.docs
     .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
-    .filter((c) => c.status !== "draft");
+    // Voir getPublicCompetitions : la validation décide du public.
+    .filter((c) => c.status !== "draft" && c.isValidated);
   comps.sort((a, b) => {
     const r = PUBLIC_STATUS_RANK[a.status] - PUBLIC_STATUS_RANK[b.status];
     if (r !== 0) return r;

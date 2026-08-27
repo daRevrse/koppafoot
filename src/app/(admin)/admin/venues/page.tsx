@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { motion } from "motion/react";
 import { MapPin, Search, Star, Loader2, Check, X as XIcon } from "lucide-react";
 import { getAllVenues } from "@/lib/admin-firestore";
+import Pagination, { usePagination } from "@/components/admin/Pagination";
 import type { Venue } from "@/types";
 
 const SIZE_LABELS: Record<string, string> = { "5v5": "5v5", "7v7": "7v7", "11v11": "11v11", futsal: "Futsal" };
@@ -21,6 +22,8 @@ export default function AdminVenuesPage() {
     const s = search.toLowerCase();
     return venues.filter((v) => v.name.toLowerCase().includes(s) || v.city.toLowerCase().includes(s));
   }, [venues, search]);
+
+  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtered, 24);
 
   return (
     <div className="space-y-6">
@@ -40,7 +43,7 @@ export default function AdminVenuesPage() {
         <div className="flex flex-col items-center py-20 text-gray-400"><MapPin size={40} className="mb-3 opacity-40" /><p className="text-sm">Aucun terrain</p></div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((v, i) => (
+          {tranche.map((v, i) => (
             <motion.div key={v.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} whileHover={{ y: -2 }} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -67,6 +70,10 @@ export default function AdminVenuesPage() {
           ))}
         </div>
       )}
+      <Pagination
+        page={page} pages={pages} total={total} parPage={parPage}
+        onPage={setPage} nom="terrain"
+      />
     </div>
   );
 }

@@ -140,6 +140,13 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     playersTotal: d.players_total ?? 0,
     awayManagerId: d.away_manager_id ?? "",
     moderatorIds: d.moderator_ids ?? [],
+    penaltyHome: d.penalty_home ?? null,
+    penaltyAway: d.penalty_away ?? null,
+    recordedAt: d.recorded_at ?? null,
+    recordedScorers: (d.recorded_scorers ?? []).map((b) => ({
+      playerId: b.player_id, sansCompte: b.sansCompte,
+      nom: b.nom, buts: b.buts, passes: b.passes,
+    })),
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
     homeLineupReady: d.home_lineup_ready ?? false,
@@ -448,97 +455,41 @@ export async function createTeam(data: {
   return ref.id;
 }
 
-/**
- * Crée une équipe adverse qui n'est pas sur KoppaFoot.
- *
- * C'est un vrai doc `teams`, pas un nom libre sur le match : la clôture d'un
- * match incrémente `teams/{away_team_id}` et un update sur un doc absent fait
- * échouer tout le batch. Le doc appartient à son créateur (`manager_id`), ce
- * qui lui donne au passage le droit d'écriture sur la sous-collection
- * `ghost_players`, l'effectif de l'adversaire.
- *
- * `is_recruiting: false` la tient hors de `searchTeams`, donc hors du mercato
- * et hors du sélecteur d'adversaire, où seules les vraies équipes ont leur place.
- */
-export async function createGhostTeam(data: {
-  name: string; managerId: string; city?: string; color?: string;
-}): Promise<string> {
-  const ref = await addDoc(collection(db, "teams"), {
-    name: data.name, manager_id: data.managerId, city: data.city ?? "",
-    description: "", level: "amateur",
-    looking_for: [], member_ids: [],
-    max_members: 0, color: data.color ?? "#6B7280",
-    wins: 0, losses: 0, draws: 0, matches_played: 0,
-    is_recruiting: false,
-    is_ghost: true,
-    created_at: serverTimestamp(), updated_at: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-/** Combien de joueurs porte un onze de départ, selon le format. */
 export const TAILLE_EFFECTIF: Record<string, number> = { "5v5": 5, "7v7": 7, "11v11": 11 };
 
 /**
- * Un adversaire hors plateforme, prêt à jouer.
+ * L'onze d'un adversaire hors plateforme, SANS RIEN ÉCRIRE EN BASE.
  *
- * Personne ne va saisir onze noms avant un amical, et sans effectif la console
- * live n'a qu'un camp : le direct devient inutilisable pour la moitié du
- * terrain. On génère donc un onze anonyme — « Joueur 1 » à « Joueur N » — que
- * le manager renomme depuis la fiche de l'équipe s'il connaît les vrais noms.
+ * Il existait un document `teams` pour chaque adversaire d'amical, avec sa
+ * sous-collection de joueurs. C'était un mensonge commode : ces « équipes »
+ * n'ont ni compte, ni membre, ni personne derrière, et elles s'accumulaient
+ * dans une collection réservée aux vrais clubs — jusqu'à polluer l'annuaire de
+ * l'administration, seul endroit qui les montrait encore.
  *
- * Renvoie aussi la feuille de match correspondante, que `createMatch` pose
- * directement sur le match : le camp fantôme est prêt sans qu'on ait rien
- * demandé.
+ * Tout ce dont on avait besoin d'elles vit déjà sur le match : le nom dans
+ * `away_team_name`, l'onze dans `away_ghost_lineup`. Le document ne servait
+ * plus qu'à porter des joueurs que personne ne relisait, la compo étant
+ * dénormalisée depuis. On génère donc la feuille en mémoire, et le camp
+ * adverse n'a plus d'identifiant d'équipe du tout.
+ *
+ * Les identifiants de joueurs sont locaux au match, ce qui suffit : ils ne
+ * servent qu'à rattacher un but ou un carton à une ligne de cette feuille-là.
  */
-export async function createGhostOpponent(data: {
-  name: string; managerId: string; format: string; city?: string;
-}): Promise<{ teamId: string; lineup: LineupEntry[] }> {
-  const teamId = await createGhostTeam({
-    name: data.name, managerId: data.managerId, city: data.city,
-  });
-  return { teamId, lineup: await prepareGhostLineup(teamId, data.format) };
-}
-
-/**
- * La feuille de match d'un adversaire fantôme, quitte à la remplir soi-même.
- *
- * Complète l'effectif jusqu'à l'onze du format avec des joueurs anonymes, puis
- * renvoie la compo : les `taille` premiers titulaires, le reste sur le banc.
- * Un fantôme réutilisé d'un match à l'autre garde donc les noms que le manager
- * lui a donnés entre-temps.
- */
-export async function prepareGhostLineup(
-  teamId: string,
-  format: string,
-): Promise<LineupEntry[]> {
+export function ghostOpponentLineup(format: string): LineupEntry[] {
   const taille = TAILLE_EFFECTIF[format] ?? 11;
-  const existants = await getGhostPlayersByTeam(teamId);
-  const joueurs = [...existants];
-
-  for (let i = existants.length + 1; i <= taille; i++) {
+  const lignes: LineupEntry[] = [];
+  for (let i = 1; i <= taille; i++) {
     const numero = String(i);
-    // Séquentiel et non parallèle : l'ordre des joueurs est le seul repère
-    // qu'aura le manager dans une liste où ils s'appellent tous pareil.
-    const id = await createGhostPlayer(teamId, {
-      firstName: "Joueur", lastName: numero,
-      position: i === 1 ? "goalkeeper" : "midfielder",
-      squadNumber: numero,
-    });
-    joueurs.push({
-      id, teamId, firstName: "Joueur", lastName: numero,
-      position: i === 1 ? "goalkeeper" : "midfielder", squadNumber: numero,
-      goals: 0, assists: 0, matchesPlayed: 0,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    lignes.push({
+      // Suffixe aléatoire : deux matchs du même jour ne doivent pas partager
+      // un identifiant de joueur, la timeline les confondrait.
+      playerId: `ext-${Math.random().toString(36).slice(2, 8)}-${numero}`,
+      name: `Joueur ${numero}`,
+      number: numero,
+      role: "starter",
     });
   }
-
-  return joueurs.map((j, index) => ({
-    playerId: j.id,
-    name: `${j.firstName} ${j.lastName}`.trim(),
-    number: j.squadNumber || String(index + 1),
-    role: index < taille ? "starter" : "substitute",
-  }));
+  return lignes;
 }
 
 export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
@@ -1195,6 +1146,89 @@ export async function removeMatchModerator(matchId: string, uid: string): Promis
   await appelerRouteModerateurs("DELETE", { matchId, uid });
 }
 
+/**
+ * Le résultat des tirs au but.
+ *
+ * Écrit À PART du score : `score_home` / `score_away` restent le temps
+ * réglementaire, et c'est bien ce 2-2 qui doit compter au bilan des deux
+ * clubs. Les tirs au but ne disent que qui a passé.
+ *
+ * `null` efface la séance, pour le cas où on l'a saisie par erreur.
+ */
+export async function setPenaltyShootout(
+  matchId: string,
+  home: number | null,
+  away: number | null,
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    penalty_home: home,
+    penalty_away: away,
+    updated_at: serverTimestamp(),
+  });
+}
+
+// ============================================
+// Renseigner un match déjà joué
+//
+// Le troisième parcours. Tout passe par /api/matches/record : la saisie écrit
+// dans le bilan de deux clubs et dans la carrière de joueurs, c'est-à-dire des
+// documents que le manager ne possède pas. La seule règle Firestore qui
+// l'aurait permis est « tout compte connecté peut réécrire les statistiques de
+// n'importe qui ».
+// ============================================
+
+export interface ButeurSaisi {
+  playerId: string;
+  sansCompte: boolean;
+  nom: string;
+  buts: number;
+  passes: number;
+}
+
+async function appelerRouteRecord(methode: "POST" | "PATCH" | "DELETE", corps: unknown): Promise<any> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/matches/record", {
+    method: methode,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify(corps),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "L'opération a échoué");
+  return data;
+}
+
+export async function recordPlayedMatch(input: {
+  teamId: string;
+  isHome: boolean;
+  opponentTeamId?: string;
+  opponentManagerId?: string;
+  opponentName: string;
+  date: string;
+  time?: string;
+  venueName?: string;
+  venueCity?: string;
+  format: string;
+  scoreUs: number;
+  scoreThem: number;
+  buteurs: ButeurSaisi[];
+}): Promise<{ id: string; enAttente: boolean }> {
+  return appelerRouteRecord("POST", input);
+}
+
+/** Contresigner, ou contester, un résultat saisi par l'adversaire. */
+export async function confirmRecordedMatch(matchId: string, accepte: boolean): Promise<void> {
+  await appelerRouteRecord("PATCH", { matchId, accepte });
+}
+
+/** Supprimer un match renseigné : la route reprend ce qu'il avait crédité. */
+export async function deleteRecordedMatch(matchId: string): Promise<void> {
+  await appelerRouteRecord("DELETE", { matchId });
+}
+
 export async function cancelMatch(matchId: string): Promise<void> {
   await cancelMatchParticipations(matchId);
   await updateDoc(doc(db, "matches", matchId), {
@@ -1211,12 +1245,9 @@ export async function cancelMatch(matchId: string): Promise<void> {
  * pointait dessus, si bien qu'un match supprimé restait à l'écran pour
  * toujours, sans aucun moyen de s'en débarrasser.
  *
- * TROIS CHOSES PARTENT ENSEMBLE, sinon la suppression laisse des orphelins que
+ * DEUX CHOSES PARTENT ENSEMBLE, sinon la suppression laisse des orphelins que
  * plus aucun écran ne montre :
  *   - les convocations, qui pendent au match par `match_id` ;
- *   - l'équipe hors plateforme créée pour ce match, avec son effectif —
- *     seulement si aucun autre match ne s'y rattache, les fantômes d'avant
- *     pouvant être partagés ;
  *   - le match lui-même, en dernier : tant qu'il existe, les règles Firestore
  *     s'appuient dessus pour autoriser la suppression de ses convocations.
  */
@@ -1232,27 +1263,9 @@ export async function deleteMatch(matchId: string): Promise<void> {
   parts.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
 
-  // Le fantôme est le camp opposé au créateur (`is_home`), et seulement sur un
-  // match sans manager adverse.
-  const idFantome = m.away_manager_id ? null : (m.is_home ? m.away_team_id : m.home_team_id);
-  if (idFantome) {
-    const equipe = await getDoc(doc(db, "teams", idFantome));
-    if (equipe.exists() && (equipe.data() as FirestoreTeam).is_ghost) {
-      const [surDomicile, surExterieur] = await Promise.all([
-        getDocs(query(collection(db, "matches"), where("home_team_id", "==", idFantome))),
-        getDocs(query(collection(db, "matches"), where("away_team_id", "==", idFantome))),
-      ]);
-      const autres = [...surDomicile.docs, ...surExterieur.docs].filter((d) => d.id !== matchId);
-      if (autres.length === 0) {
-        const joueurs = await getDocs(collection(db, "teams", idFantome, "ghost_players"));
-        const lot = writeBatch(db);
-        joueurs.docs.forEach((d) => lot.delete(d.ref));
-        lot.delete(doc(db, "teams", idFantome));
-        await lot.commit();
-      }
-    }
-  }
-
+  // L'adversaire hors plateforme n'a plus rien à supprimer : il n'existe que
+  // sur le match, dans son nom et sa feuille (voir ghostOpponentLineup). Les
+  // équipes fantômes d'avant restent en base, sans écran pour les montrer.
   await deleteDoc(doc(db, "matches", matchId));
 }
 

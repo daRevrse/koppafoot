@@ -149,8 +149,16 @@ service cloud.firestore {
     // appartiennent, et il n'y a pas d'alternative sans dupliquer la liste
     // sur chaque candidature et chaque entraînement — qui dériverait.
     // ============================================
+    // `exists()` AVANT `get()`, et pas par prudence de principe : le camp
+    // adverse d'un amical n'a plus d'équipe du tout (`away_team_id` vaut ""),
+    // et `get()` sur un chemin vide ou sur un document absent fait ÉCHOUER
+    // l'évaluation — pas seulement cette branche, la requête entière. Un
+    // modérateur de match aurait vu chacune de ses écritures refusée, la
+    // branche qui l'autorise venant après celle-ci.
     function equipeDeleguee(teamId) {
       return isAuthenticated()
+        && teamId is string && teamId != ''
+        && exists(/databases/$(database)/documents/teams/$(teamId))
         && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId))
              .data.get('staff_manager_ids', []);
     }
@@ -177,11 +185,15 @@ service cloud.firestore {
         ]);
     }
 
+    // Même garde que `equipeDeleguee` : un identifiant vide ou périmé ne doit
+    // pas faire échouer toute l'évaluation.
     function equipeGeree(teamId) {
-      let equipe = get(/databases/$(database)/documents/teams/$(teamId)).data;
       return isAuthenticated()
-        && (equipe.manager_id == request.auth.uid
-            || request.auth.uid in equipe.get('staff_manager_ids', []));
+        && teamId is string && teamId != ''
+        && exists(/databases/$(database)/documents/teams/$(teamId))
+        && (get(/databases/$(database)/documents/teams/$(teamId)).data.manager_id == request.auth.uid
+            || request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId))
+                 .data.get('staff_manager_ids', []));
     }
 
     // Le staff d'une des deux équipes d'un match. Prend le document du match

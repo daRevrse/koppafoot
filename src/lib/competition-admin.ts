@@ -21,7 +21,9 @@ export async function getPublicCompetitions(): Promise<Competition[]> {
     const snap = await adminDb.collection("competitions").get();
     const comps = snap.docs
       .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
-      .filter((c) => c.status !== "draft");
+      // `isValidated` autant que `status` : une compétition que
+      // l'administration n'a pas validée n'entre nulle part dans le public.
+      .filter((c) => c.status !== "draft" && c.isValidated);
     comps.sort((a, b) => {
       const r = STATUS_RANK[a.status] - STATUS_RANK[b.status];
       if (r !== 0) return r;

@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
 import MatchRail from "@/components/match/MatchRail";
+import TirsAuBut from "@/components/match/TirsAuBut";
 import MatchModerators from "@/components/match/MatchModerators";
 
 // ============================================
@@ -516,6 +517,9 @@ export default function MatchDetailPage() {
             ) : (
                <div className="text-2xl sm:text-4xl font-black text-white/10 italic">VS</div>
             )}
+            {/* La rencontre s'est décidée aux tirs au but : sans cette mention,
+                le score affiché se lit comme un nul. */}
+            <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} taille="long" className="mt-3" />
             {!isLive && match.status !== "completed" && (
                 <div className="mt-5 sm:mt-8 flex flex-col items-center">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Coup d'envoi</p>

@@ -28,6 +28,7 @@ import {
 import { TITRES_STAFF, estProprietaireEquipe, peutGererEquipe } from "@/lib/team-access";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
+import TirsAuBut from "@/components/match/TirsAuBut";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
@@ -1811,6 +1812,7 @@ export default function TeamDetailPage() {
                     <div className="min-w-0 flex-1">
                       <h4 className="font-semibold text-gray-900 font-display text-sm sm:text-base">
                         {match.homeTeamName} {match.scoreHome ?? "?"} - {match.scoreAway ?? "?"} {match.awayTeamName}
+                        <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="ml-2 align-middle" />
                       </h4>
                       <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
                         <span>{match.date}</span>

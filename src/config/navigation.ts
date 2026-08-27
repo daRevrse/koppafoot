@@ -77,6 +77,7 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
       { path: "/admin/tribune", icon: "Megaphone", label: "Tribune" },
       { path: "/admin/teams", icon: "Shield", label: "Équipes" },
       { path: "/admin/matches", icon: "Trophy", label: "Matchs" },
+      { path: "/admin/competitions", icon: "Trophy", label: "Compétitions" },
     ],
   },
   {

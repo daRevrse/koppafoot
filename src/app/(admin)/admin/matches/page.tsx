@@ -7,6 +7,8 @@ import {
   Clock, CheckCircle, XCircle, AlertCircle, Zap,
 } from "lucide-react";
 import { getAllMatches } from "@/lib/admin-firestore";
+import Pagination, { usePagination } from "@/components/admin/Pagination";
+import TirsAuBut from "@/components/match/TirsAuBut";
 import RecordActions from "@/components/admin/RecordActions";
 import type { Match, MatchStatus } from "@/types";
 
@@ -52,6 +54,8 @@ export default function AdminMatchesPage() {
       return true;
     });
   }, [matches, search, statusFilter]);
+
+  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtered, 25);
 
   const statusCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -161,7 +165,7 @@ export default function AdminMatchesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map((m, i) => {
+                {tranche.map((m, i) => {
                   const statusConf = STATUS_CONFIG[m.status] ?? STATUS_CONFIG.pending;
                   const StatusIcon = statusConf.icon;
                   return (
@@ -205,6 +209,7 @@ export default function AdminMatchesPage() {
                         {m.status === "completed" && m.scoreHome != null ? (
                           <span className="text-sm font-bold text-gray-900 font-display">
                             {m.scoreHome} - {m.scoreAway}
+                            <TirsAuBut home={m.penaltyHome} away={m.penaltyAway} className="ml-1.5" />
                           </span>
                         ) : (
                           <span className="text-xs text-gray-400">,</span>
@@ -259,9 +264,10 @@ export default function AdminMatchesPage() {
         </div>
       )}
 
-      <p className="text-xs text-gray-400 text-right">
-        {filtered.length} match{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""}
-      </p>
+      <Pagination
+        page={page} pages={pages} total={total} parPage={parPage}
+        onPage={setPage} nom="match"
+      />
     </div>
   );
 }

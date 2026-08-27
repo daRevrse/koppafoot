@@ -6,9 +6,11 @@ import {
   Users, Search, Filter, ChevronDown, MoreVertical,
   UserCheck, UserX, Shield, ShieldCheck, ClipboardList, UserMinus,
   Mail, Phone, MapPin, Calendar,
-  Eye, Ban, CheckCircle, XCircle, Loader2,
+  Eye, Ban, CheckCircle, XCircle, Loader2, BarChart3,
 } from "lucide-react";
 import { getAllUsers, getModeratorIds, toggleUserActive } from "@/lib/admin-firestore";
+import Pagination, { usePagination } from "@/components/admin/Pagination";
+import AdminUserActivityPanel from "@/components/admin/AdminUserActivityPanel";
 import {
   ESPACE_LABELS, espacesDuCompte, roleEffectif, roleHerite, type EspaceAcces,
 } from "@/lib/espaces-acces";
@@ -147,6 +149,11 @@ export default function AdminUsersPage() {
       return true;
     });
   }, [users, search, roleFilter, statusFilter, espaceFilter, moderateurs]);
+
+  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtered, 25);
+
+  /** Le compte dont on regarde l'activité détaillée. */
+  const [activite, setActivite] = useState<UserProfile | null>(null);
 
   const roleCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -339,7 +346,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map((u, i) => {
+                {tranche.map((u, i) => {
                   const role = roleEffectif(u);
                   const roleConf = role ? ROLE_CONFIG[role] : null;
                   const herite = roleHerite(u);
@@ -467,6 +474,15 @@ export default function AdminUsersPage() {
                             </>
                           )}
                         </button>
+                        {/* Ce que ce compte a réellement fait, casquette par
+                            casquette : la colonne « rôle » dit ce qu'il
+                            déclare, jamais ce qu'il en fait. */}
+                        <button
+                          onClick={() => setActivite(u)}
+                          className="ml-2 inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-500 align-middle transition-colors hover:bg-gray-50 hover:text-gray-900"
+                        >
+                          <BarChart3 size={12} /> Activité
+                        </button>
                         {/* La correction d'identité et l'effacement d'un compte
                             vivent à côté de la suspension : trois gestes de la
                             même colonne, du plus réversible au moins. Le rôle,
@@ -499,12 +515,23 @@ export default function AdminUsersPage() {
         )}
       </motion.div>
 
-      {/* Footer count */}
       {!loading && (
-        <p className="text-xs text-gray-400 text-right">
-          {filtered.length} résultat{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""}
-        </p>
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+          <Pagination
+            page={page} pages={pages} total={total} parPage={parPage}
+            onPage={setPage} nom="compte"
+          />
+        </div>
       )}
+
+      {/* L'activité réelle d'un compte, par casquette. Un rôle affiché ne dit
+          pas ce qu'on en fait : la colonne annonce « manager » aussi bien pour
+          celui qui dirige trois clubs que pour celui qui n'a jamais rien créé. */}
+      <AnimatePresence>
+        {activite && (
+          <AdminUserActivityPanel user={activite} onClose={() => setActivite(null)} />
+        )}
+      </AnimatePresence>
 
       {/* Role change modal */}
       <AnimatePresence>

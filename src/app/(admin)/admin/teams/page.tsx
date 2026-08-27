@@ -6,8 +6,10 @@ import {
   Shield, Search, Users, MapPin, Trophy, TrendingUp,
   Loader2, ChevronRight, Star,
 } from "lucide-react";
+import Link from "next/link";
 import { getAllTeams } from "@/lib/admin-firestore";
 import RecordActions from "@/components/admin/RecordActions";
+import Pagination, { usePagination } from "@/components/admin/Pagination";
 import type { Team } from "@/types";
 
 const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -44,6 +46,8 @@ export default function AdminTeamsPage() {
       return true;
     });
   }, [teams, search, levelFilter]);
+
+  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtered, 24);
 
   const avgMembers = teams.length > 0
     ? Math.round(teams.reduce((a, t) => a + t.memberIds.length, 0) / teams.length)
@@ -132,7 +136,7 @@ export default function AdminTeamsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((team, i) => {
+          {tranche.map((team, i) => {
             const lvl = LEVEL_CONFIG[team.level] ?? LEVEL_CONFIG.beginner;
             const winRate = team.matchesPlayed > 0 ? Math.round((team.wins / team.matchesPlayed) * 100) : 0;
             return (
@@ -153,7 +157,15 @@ export default function AdminTeamsPage() {
                       {team.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-gray-900">{team.name}</h3>
+                      {/* Le nom mène au détail : l'administration ne voyait
+                          qu'une ligne de tableau, sans moyen de savoir qui
+                          compose l'équipe ni ce qu'elle a joué. */}
+                      <Link
+                        href={`/admin/teams/${team.id}`}
+                        className="text-sm font-bold text-gray-900 hover:text-emerald-700 hover:underline"
+                      >
+                        {team.name}
+                      </Link>
                       <p className="text-xs text-gray-500 flex items-center gap-1">
                         <MapPin size={11} /> {team.city}
                       </p>
@@ -224,9 +236,10 @@ export default function AdminTeamsPage() {
         </div>
       )}
 
-      <p className="text-xs text-gray-400 text-right">
-        {filtered.length} équipe{filtered.length > 1 ? "s" : ""} affichée{filtered.length > 1 ? "s" : ""}
-      </p>
+      <Pagination
+        page={page} pages={pages} total={total} parPage={parPage}
+        onPage={setPage} nom="équipe"
+      />
     </div>
   );
 }

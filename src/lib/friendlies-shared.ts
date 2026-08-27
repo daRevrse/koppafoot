@@ -162,8 +162,10 @@ export function amicalVersCompMatch(id: string, d: Row): CompMatch | null {
     status,
     scoreHome: num(d.score_home),
     scoreAway: num(d.score_away),
-    penaltyHome: null,
-    penaltyAway: null,
+    // La séance, quand la rencontre s'y est décidée : sans elle, le tableau
+    // affiche un nul sur un match qu'une équipe a passé.
+    penaltyHome: num(d.penalty_home),
+    penaltyAway: num(d.penalty_away),
     winnerTeamId: null,
     forfeitByTeamId: null,
     feedsIntoMatchId: null,
