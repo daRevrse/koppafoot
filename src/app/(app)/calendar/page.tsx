@@ -10,6 +10,7 @@ import {
   getMatchesByTeamIds, getTeamsIManage, getTeamsByPlayer, getMatchesByReferee,
 } from "@/lib/firestore";
 import type { Match, Team } from "@/types";
+import TirsAuBut from "@/components/match/TirsAuBut";
 
 // ============================================
 // Training types & helpers
@@ -373,6 +374,7 @@ export default function CalendarPage() {
                           <div className="mt-1 flex items-center gap-2 ml-6">
                             <span className="text-sm font-bold text-gray-700 font-display">
                               {match.scoreHome} - {match.scoreAway}
+                              <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="ml-1.5" />
                             </span>
                           </div>
                         )}

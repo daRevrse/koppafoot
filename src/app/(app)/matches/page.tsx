@@ -22,8 +22,10 @@ import {
   createMatch,
   cancelMatch,
   deleteMatch,
+  confirmRecordedMatch,
+  deleteRecordedMatch,
   searchOpponentTeams,
-  createGhostOpponent,
+  ghostOpponentLineup,
   updateMatchSchedule,
   getTeamMembers,
   getTeamById,
@@ -38,6 +40,8 @@ import {
   ratePlayer,
 } from "@/lib/firestore";
 import type { Match, Team, Venue, PlayerRating, LineupEntry } from "@/types";
+import TirsAuBut from "@/components/match/TirsAuBut";
+import RecordMatchForm from "@/components/match/RecordMatchForm";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -137,7 +141,10 @@ type Tab = "live" | "upcoming" | "completed" | "draft" | "challenges";
  * Les mélanger dans un seul formulaire laissait le manager découvrir au
  * troisième champ dans lequel des deux il se trouvait.
  */
-type CreateMode = "challenge" | "friendly";
+type CreateMode = "challenge" | "friendly" | "recorded";
+
+/** Un match saisi à la main plutôt que couvert en direct. */
+const estRenseigne = (m: Match) => !!m.recordedAt;
 
 /** Un match sans manager en face : l'adversaire n'est pas sur la plateforme. */
 const estAmical = (m: Match) => !m.awayManagerId;
@@ -397,19 +404,14 @@ export default function MatchesPage() {
 
     setCreating(true);
     try {
-      // L'équipe hors plateforme naît ici, avec le match, et pas avant : la
-      // créer au clic dans le sélecteur laissait une équipe orpheline dès qu'on
-      // abandonnait le formulaire. Son effectif est généré dans la foulée, au
-      // gabarit du format, et sert directement de feuille de match adverse.
-      let opponentTeamId = awayTeamId;
-      let ghostLineup: LineupEntry[] | undefined;
-      if (isFriendly) {
-        const cree = await createGhostOpponent({
-          name: awayTeamName, managerId: user.uid, format,
-        });
-        opponentTeamId = cree.teamId;
-        ghostLineup = cree.lineup;
-      }
+      // L'adversaire hors plateforme n'a PAS d'équipe en base : son nom et son
+      // onze vivent sur le match, et rien d'autre n'était jamais relu du
+      // document `teams` qu'on lui créait. Son camp n'a donc pas
+      // d'identifiant d'équipe du tout.
+      const opponentTeamId = isFriendly ? "" : awayTeamId;
+      const ghostLineup: LineupEntry[] | undefined = isFriendly
+        ? ghostOpponentLineup(format)
+        : undefined;
 
       // Face à un fantôme personne n'acceptera le défi : c'est la création qui
       // doit convoquer notre effectif.
@@ -463,19 +465,48 @@ export default function MatchesPage() {
    * jamais, et rien ne permettait de le faire partir.
    */
   const handleDeleteMatch = async (match: Match) => {
-    const estAmicalSansCompte = estAmical(match);
-    const message = estAmicalSansCompte
+    const estAmicalSansCompte = estAmical(match) && !estRenseigne(match);
+    const message = estRenseigne(match)
+      ? `Supprimer ${match.homeTeamName} ${match.scoreHome} – ${match.scoreAway} ${match.awayTeamName} ? Les buts, passes et bilans que ce match a crédités seront repris.`
+      : estAmicalSansCompte
       ? `Supprimer définitivement ${match.homeTeamName} vs ${match.awayTeamName} ? Les convocations et l'adversaire hors plateforme créé pour ce match partent avec lui.`
       : `Supprimer définitivement ${match.homeTeamName} vs ${match.awayTeamName} ? Les convocations partent avec lui.`;
     if (!window.confirm(message)) return;
     setCompleting(match.id);
     try {
-      await deleteMatch(match.id);
+      // Un match renseigné a crédité des compteurs : sa suppression passe par
+      // la route qui les REPREND, sans quoi supprimer puis ressaisir doublerait
+      // tout — et c'est exactement le geste de quelqu'un qui s'est trompé.
+      if (estRenseigne(match)) await deleteRecordedMatch(match.id);
+      else await deleteMatch(match.id);
       setMatches((prev) => prev.filter((m) => m.id !== match.id));
       toast.success("Match supprimé");
     } catch (err) {
       console.error(err);
       toast.error("Impossible de supprimer ce match");
+    } finally {
+      setCompleting(null);
+    }
+  };
+
+  /**
+   * Contresigner, ou contester, un score saisi par l'adversaire.
+   *
+   * C'est ici seulement que les compteurs bougent pour un match renseigné
+   * contre une équipe KoppaFoot : accepter, c'est valider un résultat qui
+   * entre dans son propre bilan.
+   */
+  const handleContresigner = async (match: Match, accepte: boolean) => {
+    if (!accepte && !window.confirm(
+      `Contester ${match.homeTeamName} ${match.scoreHome} – ${match.scoreAway} ${match.awayTeamName} ?\n\nLe match restera affiché, marqué contesté, et ne comptera pour personne.`
+    )) return;
+    setCompleting(match.id);
+    try {
+      await confirmRecordedMatch(match.id, accepte);
+      toast.success(accepte ? "Résultat confirmé" : "Résultat contesté");
+      await fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "L'opération a échoué");
     } finally {
       setCompleting(null);
     }
@@ -793,13 +824,38 @@ export default function MatchesPage() {
             >
               <Plus size={16} /> Programmer un amical
             </button>
+            {/* Le seul parcours qui regarde en arrière. Les deux autres
+                programment et refusent une date passée : un club n'avait aucun
+                moyen de porter son historique. */}
+            <button
+              onClick={() => openCreateForm("recorded")}
+              className={`inline-flex items-center gap-2 border px-4 py-2.5 text-sm font-medium transition-all ${
+                createMode === "recorded"
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <History size={16} /> Renseigner un match joué
+            </button>
           </div>
         </motion.div>
       </div>
 
+      {/* Renseigner un match joué : formulaire à part, il n'a ni convocation,
+          ni terrain à réserver, ni adversaire à prévenir — et il se relit avant
+          de valider, parce qu'il ne se modifie plus après. */}
+      {createMode === "recorded" && user && (
+        <RecordMatchForm
+          teams={teams}
+          managerId={user.uid}
+          onClose={() => setCreateMode(null)}
+          onRecorded={fetchData}
+        />
+      )}
+
       {/* Create match form */}
       <AnimatePresence>
-        {createMode && (
+        {createMode && createMode !== "recorded" && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -1316,6 +1372,7 @@ export default function MatchesPage() {
                             <span className="text-lg font-bold text-gray-900 font-display">{match.scoreHome}</span>
                             <span className="text-xs text-gray-400">-</span>
                             <span className="text-lg font-bold text-gray-900 font-display">{match.scoreAway}</span>
+                            <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="ml-2" />
                           </div>
                         ) : (
                           <span className="shrink-0 text-xs font-medium text-gray-400">
@@ -1479,6 +1536,44 @@ export default function MatchesPage() {
                         <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                           <Award size={12} /> Arbitre local : {match.localRefereeName}
                         </div>
+                      )}
+
+                      {/* Un score saisi par l'adversaire, en attente de notre
+                          parole. Tant qu'on n'a pas tranché, il ne compte pour
+                          personne — ni pour lui, ni pour nous. */}
+                      {estRenseigne(match) && match.validationStatus === "pending" && (
+                        match.managerId === user?.uid ? (
+                          <div className="mt-3 flex items-center gap-2 border border-amber-200 bg-amber-50 px-3 py-2">
+                            <Clock size={13} className="shrink-0 text-amber-600" />
+                            <p className="text-[11px] font-semibold text-amber-800">
+                              En attente de la confirmation de l&apos;adversaire. Rien n&apos;est encore compté.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="mt-3 border border-amber-200 bg-amber-50 p-3">
+                            <p className="mb-2 text-[11px] font-semibold leading-relaxed text-amber-900">
+                              <strong>{match.homeTeamName} {match.scoreHome} – {match.scoreAway} {match.awayTeamName}</strong>,
+                              le {match.date}. Ce résultat a été saisi par l&apos;adversaire : il ne comptera
+                              qu&apos;une fois que tu l&apos;auras confirmé.
+                            </p>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleContresigner(match, true); }}
+                                disabled={completing === match.id}
+                                className="flex-1 bg-emerald-600 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                {completing === match.id ? "..." : "Confirmer ce score"}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleContresigner(match, false); }}
+                                disabled={completing === match.id}
+                                className="flex-1 border border-amber-300 py-2 text-xs font-bold text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                              >
+                                Contester
+                              </button>
+                            </div>
+                          </div>
+                        )
                       )}
 
                       {/* Player rating button (completed) */}

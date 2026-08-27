@@ -31,6 +31,7 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     moderatorIds: d.moderator_ids ?? [],
     createdBy: d.created_by,
     status: d.status,
+    isValidated: d.is_validated ?? true,
     // Pre-dates competition types: every existing competition is a group
     // stage feeding a bracket.
     competitionType: d.competition_type ?? "groups_knockout",

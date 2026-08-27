@@ -5,6 +5,7 @@ import {
 } from "@/lib/predictions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
+import TirsAuBut from "@/components/match/TirsAuBut";
 import {
   useState, useEffect, useMemo, useCallback, useSyncExternalStore,
 } from "react";
@@ -948,6 +949,7 @@ function Spotlight({
                     >
                       {isLive ? `${liveMinute(match)}′` : "Terminé"}
                     </span>
+                    <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="mt-0.5" />
                   </>
                 ) : (
                   <>

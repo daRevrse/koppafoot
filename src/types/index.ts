@@ -439,6 +439,31 @@ export interface FirestoreMatch {
    */
   home_ghost_lineup?: FirestoreLineupEntry[];
   away_ghost_lineup?: FirestoreLineupEntry[];
+  /**
+   * Les tirs au but, quand la rencontre s'y est décidée.
+   *
+   * `score_home` / `score_away` restent le score du temps réglementaire — un
+   * 2-2 aux tirs au but reste un 2-2 au bilan des clubs, et c'est bien ce
+   * qu'il faut compter. Ces deux champs-là ne disent que qui a passé.
+   *
+   * Ils existaient déjà sur les matchs de compétition et nulle part ailleurs :
+   * un amical ou un match simple décidé aux tirs au but n'avait aucun moyen de
+   * le faire savoir.
+   */
+  penalty_home?: number | null;
+  penalty_away?: number | null;
+  /**
+   * Un match RENSEIGNÉ à la main, après coup, plutôt que couvert en direct.
+   *
+   * Ce n'est pas une nuance d'affichage : un match renseigné n'a pas de
+   * console derrière lui, ne se modifie plus une fois validé, et se supprime
+   * en reprenant ce qu'il avait crédité. Voir /api/matches/record.
+   */
+  recorded_at?: string | null;
+  recorded_by?: string | null;
+  /** Qui a marqué et fait marquer, tels que saisis. La seule trace de joueurs
+   *  qu'un match renseigné possède : il n'a pas de feuille de match. */
+  recorded_scorers?: FirestoreRecordedScorer[];
   /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
   post_match_feedback?: {
@@ -519,6 +544,12 @@ export interface Match {
   /** Voir `FirestoreMatch.home_ghost_lineup`. */
   homeGhostLineup: LineupEntry[];
   awayGhostLineup: LineupEntry[];
+  /** Voir `FirestoreMatch.penalty_home`. */
+  penaltyHome: number | null;
+  penaltyAway: number | null;
+  /** Voir `FirestoreMatch.recorded_at`. */
+  recordedAt: string | null;
+  recordedScorers: RecordedScorer[];
   postMatchFeedback?: {
     [managerId: string]: {
       validation: "validated" | "contested";
@@ -1106,6 +1137,19 @@ export interface FirestoreCompetition {
   organizer_ids: string[];
   moderator_ids: string[];
   created_by: string;
+  /**
+   * Une compétition validée par l'administration.
+   *
+   * Sans ce drapeau, n'importe quel organisateur publiait au Direct, dans
+   * l'annuaire et dans les liens de partage sans que personne n'ait rien à
+   * dire. La validation ne bloque RIEN de la préparation : l'organisateur
+   * inscrit ses équipes, génère son calendrier et voit tout chez lui. Elle
+   * décide seulement de ce qui est montré au public.
+   *
+   * ABSENT VAUT VALIDÉ, pour les compétitions d'avant ce champ : les faire
+   * disparaître d'un coup aurait vidé le Direct.
+   */
+  is_validated?: boolean;
   status: CompetitionStatus;
   /** Absent on competitions created before types existed → groups_knockout. */
   competition_type?: CompetitionType;
@@ -1154,6 +1198,8 @@ export interface Competition {
   organizerIds: string[];
   moderatorIds: string[];
   createdBy: string;
+  /** Voir `FirestoreCompetition.is_validated`. */
+  isValidated: boolean;
   status: CompetitionStatus;
   competitionType: CompetitionType;
   /** Training sandbox, see FirestoreCompetition.is_sandbox. */
@@ -1225,6 +1271,24 @@ export interface FirestoreLineupEntry {
   name: string;
   number: string;
   role: "starter" | "substitute";
+}
+
+/** Une ligne de la saisie « qui a marqué » d'un match renseigné. */
+export interface FirestoreRecordedScorer {
+  player_id: string;
+  /** Un joueur sans compte vit sur `teams/{id}/ghost_players`, pas sur `users`. */
+  sansCompte: boolean;
+  nom: string;
+  buts: number;
+  passes: number;
+}
+
+export interface RecordedScorer {
+  playerId: string;
+  sansCompte: boolean;
+  nom: string;
+  buts: number;
+  passes: number;
 }
 
 export interface LineupEntry {

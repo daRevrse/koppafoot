@@ -27,7 +27,11 @@ import type {
   Match, FirestoreMatch, MatchStatus,
   Venue, FirestoreVenue,
   Post, FirestorePost,
+  Competition, FirestoreCompetition,
+  GhostPlayer, FirestoreGhostPlayer,
 } from "@/types";
+import { toCompetition } from "@/lib/competition-mappers";
+import { getUsersByIds, toGhostPlayer } from "@/lib/firestore";
 
 // ============================================
 // Converters (re-export-compatible)
@@ -98,6 +102,13 @@ function toMatch(id: string, d: FirestoreMatch): Match {
     playersTotal: d.players_total ?? 0,
     awayManagerId: d.away_manager_id ?? "",
     moderatorIds: d.moderator_ids ?? [],
+    penaltyHome: d.penalty_home ?? null,
+    penaltyAway: d.penalty_away ?? null,
+    recordedAt: d.recorded_at ?? null,
+    recordedScorers: (d.recorded_scorers ?? []).map((b) => ({
+      playerId: b.player_id, sansCompte: b.sansCompte,
+      nom: b.nom, buts: b.buts, passes: b.passes,
+    })),
     // Repli sur `ghost_lineup` pour les matchs créés avant les champs par
     // camp : ce champ-là ne concernait que l'adversaire hors plateforme, donc
     // le camp opposé à celui du créateur (`is_home`).
@@ -256,10 +267,159 @@ export async function getAllMatches(max = 200): Promise<Match[]> {
 // All Teams
 // ============================================
 
-export async function getAllTeams(max = 200): Promise<Team[]> {
+export async function getAllTeams(max = 500): Promise<Team[]> {
   const q = query(collection(db, "teams"), orderBy("created_at", "desc"), firestoreLimit(max));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam));
+  return snap.docs
+    .map((d) => toTeam(d.id, d.data() as FirestoreTeam))
+    // Les adversaires d'amical ne sont plus écrits en base (voir
+    // ghostOpponentLineup), mais ceux d'avant y restent. Ce ne sont pas des
+    // clubs : ni compte, ni membre, ni personne derrière. L'annuaire de
+    // l'administration était le dernier endroit à les montrer.
+    .filter((t) => !t.isGhost);
+}
+
+// ============================================
+// Compétitions, vues de l'administration
+// ============================================
+
+/** Toutes les compétitions, validées ou non, la plus récente d'abord. */
+export async function getAllCompetitions(max = 500): Promise<Competition[]> {
+  const q = query(collection(db, "competitions"), firestoreLimit(max));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
+    // Les bacs à sable de la console live appartiennent à leur créateur et ne
+    // sont le travail de personne : ils n'ont rien à faire dans une liste
+    // qu'on valide.
+    .filter((c) => !c.isSandbox)
+    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+}
+
+/**
+ * Ouvrir ou fermer la porte du public.
+ *
+ * Ne touche à rien d'autre : l'organisateur garde sa compétition, ses équipes
+ * et son calendrier. Seul ce qui est montré au public change.
+ */
+export async function setCompetitionValidated(cid: string, validated: boolean): Promise<void> {
+  await updateDoc(doc(db, "competitions", cid), {
+    is_validated: validated,
+    updated_at: serverTimestamp(),
+  });
+}
+
+// ============================================
+// Le détail d'une équipe, tel que l'administration doit le voir
+// ============================================
+
+export interface AdminTeamDetail {
+  team: Team;
+  manager: UserProfile | null;
+  members: UserProfile[];
+  ghostPlayers: GhostPlayer[];
+  matches: Match[];
+}
+
+/**
+ * Tout ce qu'il y a à savoir sur une équipe, en une lecture.
+ *
+ * L'administration ne voyait qu'une ligne de tableau : nom, ville, niveau,
+ * nombre de membres. Impossible de répondre à « qui est dans cette équipe »,
+ * « qui la dirige », « qu'a-t-elle joué » sans ouvrir la console Firebase.
+ */
+export async function getAdminTeamDetail(teamId: string): Promise<AdminTeamDetail | null> {
+  const snap = await getDoc(doc(db, "teams", teamId));
+  if (!snap.exists()) return null;
+  const team = toTeam(snap.id, snap.data() as FirestoreTeam);
+
+  const [membres, fantomes, domicile, exterieur, manager] = await Promise.all([
+    team.memberIds.length > 0 ? getUsersByIds(team.memberIds) : Promise.resolve([]),
+    getDocs(collection(db, "teams", teamId, "ghost_players")),
+    getDocs(query(collection(db, "matches"), where("home_team_id", "==", teamId))),
+    getDocs(query(collection(db, "matches"), where("away_team_id", "==", teamId))),
+    getDoc(doc(db, "users", team.managerId)),
+  ]);
+
+  const matches = [...domicile.docs, ...exterieur.docs]
+    .map((d) => toMatch(d.id, d.data() as FirestoreMatch))
+    .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+
+  return {
+    team,
+    manager: manager.exists() ? toUserProfile(manager.id, manager.data() as FirestoreUser) : null,
+    members: membres,
+    ghostPlayers: fantomes.docs.map((d) => toGhostPlayer(d.id, teamId, d.data() as FirestoreGhostPlayer)),
+    matches,
+  };
+}
+
+// ============================================
+// Ce qu'un compte a réellement fait, selon sa casquette
+// ============================================
+
+export interface AdminUserActivity {
+  /** Joueur */
+  matchesPlayed: number;
+  goals: number;
+  assists: number;
+  noteMoyenne: number | null;
+  equipesRejointes: Team[];
+  /** Manager */
+  equipesDirigees: Team[];
+  matchsProgrammes: number;
+  amicauxHorsPlateforme: number;
+  /** Arbitre */
+  matchsArbitres: number;
+  designationsEnAttente: number;
+  /** Organisateur */
+  competitions: Competition[];
+}
+
+/**
+ * L'activité d'un compte, toutes casquettes confondues.
+ *
+ * Un rôle affiché ne dit pas ce qu'on en fait : la colonne « rôle » d'un
+ * tableau annonce « manager » aussi bien pour celui qui dirige trois clubs
+ * que pour celui qui n'a jamais rien créé. Les compteurs vivent chacun dans
+ * leur collection, il faut aller les chercher.
+ */
+export async function getAdminUserActivity(uid: string): Promise<AdminUserActivity> {
+  const [profil, notes, membreDe, dirigeant, crees, arbitres, comps] = await Promise.all([
+    getDoc(doc(db, "users", uid)),
+    getDocs(query(collection(db, "player_ratings"), where("player_id", "==", uid))),
+    getDocs(query(collection(db, "teams"), where("member_ids", "array-contains", uid))),
+    getDocs(query(collection(db, "teams"), where("manager_id", "==", uid))),
+    getDocs(query(collection(db, "matches"), where("manager_id", "==", uid))),
+    getDocs(query(collection(db, "matches"), where("referee_id", "==", uid))),
+    getDocs(query(collection(db, "competitions"), where("organizer_ids", "array-contains", uid))),
+  ]);
+
+  const p = profil.exists() ? toUserProfile(profil.id, profil.data() as FirestoreUser) : null;
+  const scores = notes.docs.map((d) => (d.data().score as number) ?? 0).filter((n) => n > 0);
+  const matchsCrees = crees.docs.map((d) => d.data() as FirestoreMatch);
+
+  return {
+    matchesPlayed: p?.matchesPlayed ?? 0,
+    goals: p?.goals ?? 0,
+    assists: p?.assists ?? 0,
+    noteMoyenne: scores.length > 0
+      ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+      : null,
+    equipesRejointes: membreDe.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam)).filter((t) => !t.isGhost),
+    equipesDirigees: dirigeant.docs.map((d) => toTeam(d.id, d.data() as FirestoreTeam)).filter((t) => !t.isGhost),
+    matchsProgrammes: matchsCrees.length,
+    // Un amical se reconnaît à l'absence de manager en face.
+    amicauxHorsPlateforme: matchsCrees.filter((m) => !m.away_manager_id).length,
+    matchsArbitres: arbitres.docs.filter((d) => (d.data() as FirestoreMatch).status === "completed").length,
+    designationsEnAttente: arbitres.docs.filter((d) => {
+      const m = d.data() as FirestoreMatch;
+      return m.referee_status === "pending" || m.referee_status === "invited";
+    }).length,
+    competitions: comps.docs
+      .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
+      .filter((c) => !c.isSandbox),
+  };
 }
 
 // ============================================

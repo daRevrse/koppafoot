@@ -19,6 +19,7 @@ import {
   addMatchEvent,
   updateMatchPeriod,
   initLiveMatch,
+  setPenaltyShootout,
   getParticipationsForMatch,
   toMatch,
   toParticipation
@@ -92,6 +93,10 @@ export default function LiveMatchManage() {
   const [selectedPlayer, setSelectedPlayer] = useState<{ player: ConsolePlayer, teamId: string, teamName: string } | null>(null);
   const [subInPlayer, setSubInPlayer] = useState("");
   const [subOutPlayer, setSubOutPlayer] = useState("");
+  /** La séance de tirs au but, quand le score est de parité au coup de sifflet. */
+  const [tabOuvert, setTabOuvert] = useState(false);
+  const [tabHome, setTabHome] = useState("");
+  const [tabAway, setTabAway] = useState("");
   /**
    * Verrou du bouton BUT : soixante secondes après chaque but.
    *
@@ -329,7 +334,20 @@ export default function LiveMatchManage() {
     }
   };
 
+  /**
+   * Le coup de sifflet final.
+   *
+   * Si les deux camps sont à égalité, on ne clôt pas sans demander : une
+   * rencontre à élimination se décide aux tirs au but, et le score seul ne
+   * permet plus de dire qui a passé. On propose donc la séance — et on laisse
+   * la sauter, un amical nul restant un amical nul.
+   */
   const handleFinishMatch = async () => {
+    const egalite = (match?.scoreHome ?? 0) === (match?.scoreAway ?? 0);
+    if (egalite && match?.penaltyHome == null && !tabOuvert) {
+      setTabOuvert(true);
+      return;
+    }
     if (!window.confirm("Confirmer la fin du match ? Les scores seront définitifs.")) return;
     setIsSubmitting(true);
     try {
@@ -339,6 +357,50 @@ export default function LiveMatchManage() {
     } catch (err) {
       console.error("Match finish error:", err);
       toast.error("Erreur technique : " + (err instanceof Error ? err.message : "Inconnue"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /** Enregistrer la séance, puis clore. */
+  const handleTirsAuBut = async () => {
+    const h = parseInt(tabHome, 10);
+    const a = parseInt(tabAway, 10);
+    if (!Number.isFinite(h) || !Number.isFinite(a) || h < 0 || a < 0) {
+      toast.error("Renseigne les deux totaux");
+      return;
+    }
+    if (h === a) {
+      toast.error("Une séance de tirs au but ne finit pas à égalité");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await setPenaltyShootout(id, h, a);
+      await updateMatchStatus(id, "completed");
+      toast.success(`Match terminé aux tirs au but, ${h} – ${a}`);
+      router.push(`/matches/${id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur technique");
+    } finally {
+      setIsSubmitting(false);
+      setTabOuvert(false);
+    }
+  };
+
+  /** Clore sans séance : le match reste nul. */
+  const handleSauterLesTirs = async () => {
+    setTabOuvert(false);
+    if (!window.confirm("Terminer sur un score nul, sans tirs au but ?")) return;
+    setIsSubmitting(true);
+    try {
+      await updateMatchStatus(id, "completed");
+      toast.success("Match terminé");
+      router.push(`/matches/${id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur technique");
     } finally {
       setIsSubmitting(false);
     }
@@ -962,6 +1024,80 @@ export default function LiveMatchManage() {
            </div>
         </div>
       </div>
+
+      {/* Tirs au but. S'ouvre au coup de sifflet quand les deux camps sont à
+          égalité : c'est le seul moment où la question se pose, et l'oublier
+          laisse une rencontre à élimination sans vainqueur. */}
+      <AnimatePresence>
+        {tabOuvert && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setTabOuvert(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-sm bg-white p-6 text-center shadow-3xl sm:p-8"
+            >
+              <h2 className="font-display text-xl font-black text-gray-900">Tirs au but</h2>
+              <p className="mt-1.5 text-sm font-medium text-gray-500">
+                {match.homeTeamName} {match.scoreHome ?? 0} – {match.scoreAway ?? 0} {match.awayTeamName}.
+                {" "}Qui a passé ?
+              </p>
+
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <div className="flex-1">
+                  <p className="mb-1.5 truncate text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    {match.homeTeamName}
+                  </p>
+                  <input
+                    type="number" min={0} inputMode="numeric"
+                    value={tabHome} onChange={(e) => setTabHome(e.target.value)}
+                    className="w-full border-2 border-gray-200/70 py-3 text-center font-display text-3xl font-black text-gray-900 outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <span className="pt-6 text-2xl font-black text-gray-300">–</span>
+                <div className="flex-1">
+                  <p className="mb-1.5 truncate text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    {match.awayTeamName}
+                  </p>
+                  <input
+                    type="number" min={0} inputMode="numeric"
+                    value={tabAway} onChange={(e) => setTabAway(e.target.value)}
+                    className="w-full border-2 border-gray-200/70 py-3 text-center font-display text-3xl font-black text-gray-900 outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <p className="mt-4 text-[11px] leading-relaxed text-gray-400">
+                Le score du temps réglementaire ne bouge pas : c&apos;est lui qui compte
+                au bilan des clubs.
+              </p>
+
+              <div className="mt-6 space-y-2">
+                <button
+                  onClick={handleTirsAuBut}
+                  disabled={isSubmitting}
+                  className="flex w-full items-center justify-center gap-2 bg-emerald-600 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                  Enregistrer et terminer
+                </button>
+                <button
+                  onClick={handleSauterLesTirs}
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 text-[11px] font-black uppercase tracking-widest text-gray-400 transition-colors hover:text-gray-900 disabled:opacity-50"
+                >
+                  Pas de tirs au but, terminer sur un nul
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Substitution Modal */}
       <AnimatePresence>
