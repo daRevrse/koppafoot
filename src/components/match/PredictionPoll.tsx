@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Trophy, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, type PredictionCounts, pourcentages } from "@/lib/predictions";
 
 // ============================================
-// « Qui va gagner ? », le pronostic du rail.
+// « Qui va gagner ? », le pronostic de la fiche match.
 //
 // Deux états et un seul geste : tant qu'on n'a pas voté on voit trois choix,
 // une fois voté on voit le résultat. Les totaux restent cachés avant le vote,
@@ -16,6 +16,18 @@ import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, 
 // Un compte est nécessaire pour voter, sans quoi le sondage se remplit de
 // rechargements de page, mais le RÉSULTAT est visible de tous, y compris
 // sans compte : c'est une information publique, comme le score.
+//
+// IL A CHANGÉ DE MAISON, ET DE TAILLE. C'était une carte blanche dans la
+// colonne de droite, c'est-à-dire, sur un téléphone, un bloc tout en bas de
+// page que personne n'atteignait. Il vit désormais DANS le tableau d'affichage
+// (MatchHero), juste sous l'affiche : d'où le fond sombre.
+//
+// ET IL TIENT SUR UNE SEULE LIGNE. Il en occupait trois — la question, les
+// trois choix, le décompte — soit une centaine de pixels d'un écran qui doit
+// tenir l'affiche, le score et les onglets. La question devient une étiquette
+// à gauche, le décompte un simple nombre à droite, et le résultat du vote ne
+// prend plus de place du tout : le pourcentage REMPLIT le segment de chaque
+// issue. Voter ne change donc plus la hauteur du bloc, seulement sa couleur.
 // ============================================
 
 interface Side {
@@ -83,78 +95,80 @@ export default function PredictionPoll({
     { key: "away", label: away.label, logo: away.logo, pct: parts.away },
   ];
 
+
   return (
-    <section aria-labelledby="rail-pronostic" className="border border-gray-200/70 bg-white p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 id="rail-pronostic" className="font-display text-lg font-black tracking-tight text-gray-900">
-            Qui va gagner ?
-          </h2>
-          <p className="mt-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-            {closed ? "Pronostics fermés" : mine ? "Ton pronostic est enregistré" : "Donne ton pronostic"}
-          </p>
-        </div>
-        <Trophy size={20} strokeWidth={1.5} className="shrink-0 text-gray-300" />
-      </div>
+    <section aria-labelledby="pronostic" className="flex items-center gap-2 sm:gap-4">
+      <h2
+        id="pronostic"
+        className="shrink-0 text-[10px] font-black uppercase leading-tight tracking-[0.12em] text-white/40 sm:text-[11px]"
+      >
+        {closed ? "Pronostics" : "Qui gagne ?"}
+      </h2>
 
       {counts === null ? (
-        <div className="flex justify-center py-8">
-          <Loader2 size={20} className="animate-spin text-gray-300" />
+        <div className="flex flex-1 justify-center py-2">
+          <Loader2 size={16} className="animate-spin text-white/30" />
         </div>
-      ) : showResult ? (
-        <ul className="mt-5 space-y-3">
+      ) : (
+        <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-white/10 border border-white/15 bg-white/5">
           {OPTIONS.map((o) => {
-            const p = o.pct;
             const isMine = mine === o.key;
             return (
-              <li key={o.key}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className={`truncate text-sm font-bold ${isMine ? "text-emerald-700" : "text-gray-700"}`}>
-                    {o.label}
-                    {isMine && <span className="ml-1.5 text-[10px] font-black uppercase tracking-[0.12em]">ton choix</span>}
-                  </span>
-                  <span className="shrink-0 font-display text-sm font-black tabular-nums text-gray-900">{p}%</span>
-                </div>
-                {/* La barre porte le chiffre, elle ne le remplace pas. */}
-                <div className="mt-1.5 h-1.5 bg-gray-100">
-                  <div
-                    className={`h-full transition-all ${isMine ? "bg-emerald-700" : "bg-gray-900"}`}
-                    style={{ width: `${p}%` }}
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => vote(o.key)}
+                disabled={showResult || sending !== null}
+                aria-label={o.key === "draw" ? "Match nul" : `Victoire de ${o.label}`}
+                className={`relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-1.5 py-2 transition-colors disabled:cursor-default ${
+                  showResult ? "" : "hover:bg-white/10"
+                } ${sending !== null && !showResult ? "opacity-40" : ""}`}
+              >
+                {showResult && (
+                  <span
+                    aria-hidden
+                    className={`absolute inset-y-0 left-0 transition-all ${isMine ? "bg-emerald-500/35" : "bg-white/10"}`}
+                    style={{ width: `${o.pct}%` }}
                   />
-                </div>
-              </li>
+                )}
+                {sending === o.key ? (
+                  <Loader2 size={14} className="relative animate-spin text-white/60" />
+                ) : (
+                  <>
+                    {o.logo && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={o.logo} alt="" className="relative hidden h-4 w-4 shrink-0 object-contain sm:block" />
+                    )}
+                    <span
+                      className={`relative truncate text-[10px] font-black uppercase tracking-wide sm:text-[11px] ${
+                        isMine ? "text-emerald-300" : "text-white/80"
+                      }`}
+                    >
+                      {o.key === "draw" ? "Nul" : o.label}
+                    </span>
+                    {showResult && (
+                      <span className="relative shrink-0 text-[10px] font-black tabular-nums text-white sm:text-[11px]">
+                        {o.pct}%
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
             );
           })}
-        </ul>
-      ) : (
-        <div className="mt-5 grid grid-cols-3 gap-2">
-          {OPTIONS.map((o) => (
-            <button
-              key={o.key}
-              type="button"
-              onClick={() => vote(o.key)}
-              disabled={sending !== null}
-              aria-label={o.key === "draw" ? "Match nul" : `Victoire de ${o.label}`}
-              className="flex h-16 items-center justify-center border border-gray-200/70 transition-colors hover:border-gray-900 disabled:opacity-40"
-            >
-              {sending === o.key ? (
-                <Loader2 size={18} className="animate-spin text-gray-400" />
-              ) : o.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={o.logo} alt="" className="h-9 w-9 object-contain" />
-              ) : (
-                <span className="font-display text-xl font-black text-gray-400">
-                  {o.key === "draw" ? "X" : o.label.slice(0, 3).toUpperCase()}
-                </span>
-              )}
-            </button>
-          ))}
         </div>
       )}
 
-      <p className="mt-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-        {total === 0 ? "Aucun pronostic" : `${total} pronostic${total > 1 ? "s" : ""}`}
-      </p>
+      {/* Le nombre de votes, et seulement s'il y en a. « 0 » n'apprend rien et
+          coûtait une colonne sur une ligne déjà serrée à 375px. */}
+      {total > 0 && (
+        <span
+          title={`${total} pronostic${total > 1 ? "s" : ""}`}
+          className="shrink-0 text-[10px] font-black tabular-nums leading-tight text-white/30"
+        >
+          {total}
+        </span>
+      )}
     </section>
   );
 }

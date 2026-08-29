@@ -7,7 +7,7 @@ import {
   Trophy, Calendar, MapPin, Clock, Users, Shield,
   Plus, CheckCircle, XCircle, Timer, ChevronRight,
   Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send, Star, ClipboardList,
-  Activity, MonitorPlay, CheckCircle2, ArrowRight, History, Settings, Filter, ShieldCheck, Ban, Info,
+  Activity, CheckCircle2, ArrowRight, History, Settings, Filter, ShieldCheck, Ban, Info,
   Swords, CalendarPlus
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -1584,27 +1584,24 @@ export default function MatchesPage() {
                         </button>
                       )}
 
-                      {/* Actions */}
+                      {/* Actions.
+                          Le direct pointait vers /matches/[id]/live, une
+                          seconde fiche du meme match : la carte menait donc a
+                          deux endroits differents selon qu'on cliquait dessus
+                          ou sur son bouton. Cette route redirige maintenant
+                          ici, et « Acceder au direct » sur un match qui n'a
+                          pas commence promettait un direct qui n'existait
+                          pas — la fiche suffit. */}
                       {(match.status === "upcoming" || match.status === "live") && (
                         <div className="mt-3 sm:mt-4 flex flex-col gap-2 sm:gap-3">
                           {match.status === "live" && (
                              <Link
-                              href={`/matches/${match.id}/live`}
+                              href={`/matches/${match.id}`}
                               onClick={(e) => e.stopPropagation()}
                               className="flex items-center justify-center gap-2 bg-red-600 px-4 py-3 text-sm font-black uppercase tracking-tight text-white shadow-red-100 transition-all hover:bg-red-700 animate-pulse"
                             >
                               <Activity size={18} />
                               Suivre en direct
-                             </Link>
-                          )}
-                          {match.status === "upcoming" && (
-                             <Link
-                              href={`/matches/${match.id}/live`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center justify-center gap-2 bg-gray-900 px-4 py-3 text-sm font-black uppercase tracking-tight text-white transition-all hover:bg-black"
-                            >
-                              <MonitorPlay size={18} />
-                              Accéder au direct
                              </Link>
                           )}
                           {match.modificationRequest ? (

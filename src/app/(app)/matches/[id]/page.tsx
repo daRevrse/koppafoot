@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Timer, Shield, History, ChevronLeft, Trophy, Activity,
-  MapPin, Calendar, Clock, UserPlus, Users, Info, 
-  CheckCircle2, XCircle, AlertCircle, Share2, MoreVertical,
-  ChevronRight, Star, Save, ClipboardList, RefreshCcw, BarChart2, Loader2
+  Trophy, Activity, Clock, UserPlus, Info,
+  CheckCircle2, XCircle, AlertCircle,
+  Star, Save, ClipboardList, RefreshCcw, BarChart2, Loader2
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { db } from "@/lib/firebase";
@@ -23,9 +22,13 @@ import {
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
-import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer } from "@/types";
-import MatchRail from "@/components/match/MatchRail";
-import TirsAuBut from "@/components/match/TirsAuBut";
+import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry } from "@/types";
+import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
+import MatchTabs from "@/components/match/MatchTabs";
+import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
+import MatchTimeline from "@/components/match/MatchTimeline";
+import MatchLineups from "@/components/match/MatchLineups";
+import PredictionPoll from "@/components/match/PredictionPoll";
 import MatchModerators from "@/components/match/MatchModerators";
 
 // ============================================
@@ -60,10 +63,15 @@ export default function MatchDetailPage() {
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"center" | "squad" | "info">("info");
-  /** L'onglet d'ouverture n'est choisi qu'une fois, sinon un rafraîchissement
-   *  du match ramènerait l'utilisateur là où il n'était plus. */
-  const ongletInitialise = useRef(false);
+  // Deux onglets, et le MÊME vocabulaire que sur une fiche de compétition :
+  // « Résumé » et « Composition ». Il y en avait trois — Informations, Match
+  // Center, Feuille de Match — dont un, Informations, ne contenait que la
+  // date, le terrain et l'arbitre. Ces trois faits ouvrent maintenant le
+  // résumé (MatchInfoList), ce qui règle du même coup le problème que
+  // l'onglet Informations existait pour contourner : le Match Center d'un
+  // match à venir était une coquille, il fallait donc ouvrir la fiche
+  // ailleurs selon l'état du match. Le résumé n'est plus jamais vide.
+  const [activeTab, setActiveTab] = useState<"center" | "squad">("center");
   const [displayTime, setDisplayTime] = useState(0);
   const [inviting, setInviting] = useState(false);
   const [lineupMode, setLineupMode] = useState(false);
@@ -273,16 +281,6 @@ export default function MatchDetailPage() {
   }, [myTeamId]);
 
 
-  // Un match en cours s'ouvre sur le Match Center : c'est le direct qu'on vient
-  // chercher ce jour-là. Le reste du temps il n'a rien à montrer — pas de
-  // timeline, pas de score — et c'est la fiche d'informations qui répond à la
-  // vraie question : c'est quand, c'est où.
-  useEffect(() => {
-    if (!match || ongletInitialise.current) return;
-    ongletInitialise.current = true;
-    setActiveTab(match.status === "live" ? "center" : "info");
-  }, [match]);
-
   // 3. Timer Logic
   useEffect(() => {
     if (!match?.liveState) return;
@@ -306,6 +304,27 @@ export default function MatchDetailPage() {
   // 5. Build Squads
   const homeSquad = participations.filter(p => p.teamId === match?.homeTeamId);
   const awaySquad = participations.filter(p => p.teamId === match?.awayTeamId);
+
+  /**
+   * La composition d'un camp, pour le terrain.
+   *
+   * Un amical mélange deux sources : les joueurs AVEC un compte, qui vivent
+   * dans `participations` et n'y figurent qu'une fois leur présence
+   * confirmée ; et ceux SANS compte, posés directement sur le match par leur
+   * manager (`home_ghost_lineup`). Les deux tiennent la même place sur le
+   * terrain, ils sont donc ramenés à la même forme.
+   */
+  const compoDeLEquipe = (teamId: string, fantomes: LineupEntry[]): LineupEntry[] => [
+    ...participations
+      .filter((p) => p.teamId === teamId && p.status === "confirmed")
+      .map((p) => ({
+        playerId: p.playerId,
+        name: p.playerName,
+        number: p.squadNumber || "",
+        role: p.matchRole ?? "starter",
+      })),
+    ...fantomes,
+  ];
 
   // 6. Actions
 
@@ -405,197 +424,110 @@ export default function MatchDetailPage() {
 
   const isLive = match.status === "live";
 
+  // Il ne reste ici que ce que le tableau d'affichage ne porte pas : qui
+  // arbitre, et a combien on joue. La date, l'heure et le terrain sont dans le
+  // hero, une seule fois. Ils etaient auparavant ecrits DEUX fois — l'onglet
+  // « Informations » et le rail — et se contredisaient deja : l'onglet
+  // annoncait « Arbitre Officiel » quand personne n'etait designe.
+  const infoDuMatch: MatchInfo = {
+    format: match.format,
+    referee: { name: match.refereeName, confirmed: match.refereeStatus === "confirmed" },
+  };
+
   return (
-    <div className="mx-auto max-w-[1400px] pb-24">
-      {/* Fil d'ariane. Un amical n'appartient a aucune competition : la
-          branche du milieu est donc la liste des amicaux, pas un tournoi. */}
-      <nav
-        aria-label="Fil d'ariane"
-        className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400 sm:px-0"
-      >
-        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <Link href="/matches" className="transition-colors hover:text-emerald-700">Matchs amicaux</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <span className="truncate text-gray-600">
-          {match.homeTeamName}, {match.awayTeamName}
-        </span>
-      </nav>
+    <div className="pb-24">
+      {/* Le tableau d'affichage, partage avec la fiche de competition. Il porte
+          le fil d'ariane, le contexte, le lieu, la date et le pronostic. */}
+      <MatchHero
+        fil={[
+          { label: "Direct", href: "/" },
+          { label: "Amicaux", href: "/matches" },
+          { label: `${match.homeTeamName}, ${match.awayTeamName}` },
+        ]}
+        onShare={partagerLeMatch}
+        context={{
+          label: estAmical ? "Match amical" : "Défi",
+          sub: match.format,
+        }}
+        status={match.status as HeroStatus}
+        home={{ name: match.homeTeamName, logo: null, score: match.scoreHome }}
+        away={{ name: match.awayTeamName, logo: null, score: match.scoreAway }}
+        date={match.date}
+        time={match.time}
+        venueName={match.venueName}
+        venueCity={match.venueCity}
+        // « Terminé » l'emporte sur la période : un match fini gardait sinon le
+        // libellé de la derniere periode traversee, qui se lit comme un match
+        // encore en cours.
+        periodLabel={
+          match.status === "completed"
+            ? "Terminé"
+            : PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label
+        }
+        clock={isLive && match.liveState ? formatTime(displayTime) : null}
+        penaltyHome={match.penaltyHome}
+        penaltyAway={match.penaltyAway}
+        badges={match.status === "completed" && !estAmical ? (
+          <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
+            match.validationStatus === 'validated' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+            match.validationStatus === 'contested' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
+            match.validationStatus === 'unverified' ? 'bg-white/5 border-white/15 text-gray-300' :
+            'bg-amber-500/10 border-amber-500/20 text-amber-400'
+          }`}>
+            {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
+             match.validationStatus === 'contested' ? <AlertCircle size={10} /> :
+             match.validationStatus === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
+            <span className="text-[10px] font-black uppercase tracking-[0.14em]">
+              {match.validationStatus === 'validated' ? 'Validé' :
+               match.validationStatus === 'contested' ? 'Contesté' :
+               match.validationStatus === 'unverified' ? 'Non vérifié' : 'En attente'}
+            </span>
+          </span>
+        ) : null}
+        poll={
+          <PredictionPoll
+            matchId={id}
+            home={{ label: match.homeTeamName, logo: null }}
+            away={{ label: match.awayTeamName, logo: null }}
+            closed={match.effectiveStatus !== "upcoming"}
+          />
+        }
+      />
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
-        <div className="min-w-0 space-y-4 px-0 sm:space-y-6 sm:px-6 lg:px-0">
-      {/* Back Button & Share */}
-      <div className="flex items-center justify-between">
-        <button 
-          onClick={() => router.back()} 
-          className="group flex h-12 w-12 items-center justify-center bg-white shadow-gray-100/50 border border-gray-200/70 text-gray-600 transition-all hover:scale-105 active:scale-95"
-        >
-          <ChevronLeft size={24} className="transition-transform group-hover:-translate-x-0.5" />
-        </button>
-        <div className="hidden sm:flex items-center gap-2 px-6 py-2 bg-white border border-gray-200/70">
-          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Match ID:</span>
-          <span className="text-[10px] font-mono font-bold text-gray-900">{id.slice(0, 8)}</span>
-        </div>
-        {/* Ce bouton n'avait aucun `onClick` : il s'enfonçait, et c'est
-            tout. Le partage d'un match était l'un des rares gestes que le
-            produit montre sans savoir le faire. */}
-        <button
-          onClick={partagerLeMatch}
-          aria-label="Partager ce match"
-          className="flex h-12 w-12 items-center justify-center bg-white shadow-gray-100/50 border border-gray-200/70 text-gray-600 transition-all hover:scale-105 active:scale-95"
-        >
-          <Share2 size={20} />
-        </button>
-      </div>
-
-      {/* Main Scoreboard Hero */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-black p-5 sm:p-12 text-white shadow-2xl"
-      >
-        {/* Background Accents */}
-        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-[100px]" />
-        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-blue-500/10 blur-[100px]" />
-        
-        {/* Match Header */}
-        <div className="relative z-10 flex flex-col items-center mb-6 sm:mb-10">
-          <div className="flex flex-wrap justify-center gap-2 mb-4">
-            <div className={`flex items-center gap-2 px-4 py-1 rounded-full border border-white/5 backdrop-blur-md ${isLive ? 'bg-red-500/10' : 'bg-white/5'}`}>
-              {isLive ? (
-                <>
-                  <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">En Direct</span>
-                </>
-              ) : (
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                  {match.status === "completed" ? "Terminé" : "A venir"}
-                </span>
-              )}
-            </div>
-            {match.status === "completed" && !estAmical && (
-              <div className={`flex items-center gap-2 px-4 py-1 rounded-full border backdrop-blur-md ${
-                match.validationStatus === 'validated' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                match.validationStatus === 'contested' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
-                match.validationStatus === 'unverified' ? 'bg-white/5 border-white/15 text-gray-300' :
-                'bg-amber-500/10 border-amber-500/20 text-amber-400'
-              }`}>
-                {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
-                 match.validationStatus === 'contested' ? <AlertCircle size={10} /> :
-                 match.validationStatus === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-                  {match.validationStatus === 'validated' ? 'Validé' :
-                   match.validationStatus === 'contested' ? 'Contesté' :
-                   match.validationStatus === 'unverified' ? 'Non vérifié' : 'En attente'}
-                </span>
-              </div>
-            )}
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 italic">{match.format} • {match.venueCity}</p>
-        </div>
-
-        <div className="relative z-10 grid grid-cols-3 items-center gap-4 sm:gap-8">
-          {/* Home Team */}
-          <div className="text-center group">
-            <div className="relative mx-auto mb-6 flex h-16 w-16 sm:h-24 sm:w-24 items-center justify-center bg-white/5 backdrop-blur-2xl border border-white/10 shadow-inner transition-transform group-hover:scale-105">
-               <span className="text-2xl sm:text-4xl font-black">{match.homeTeamName?.[0] || "?"}</span>
-               {match.status === "live" && <Activity className="absolute -right-2 -top-2 text-emerald-500 animate-pulse" size={16} />}
-            </div>
-            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider mb-2 text-white/90 line-clamp-1">{match.homeTeamName}</h2>
-            <div className="text-4xl sm:text-8xl font-black tracking-tighter text-white tabular-nums">{match.scoreHome || 0}</div>
-          </div>
-
-          {/* Center Info */}
-          <div className="flex flex-col items-center justify-center">
-            <div className={`mb-4 sm:mb-6 ${isLive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'} border px-3 sm:px-4 py-1.5 sm:py-2 text-[9px] sm:text-xs font-black uppercase tracking-widest`}>
-               {PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label || "Prép."}
-            </div>
-            {match.liveState ? (
-              <div className="text-3xl sm:text-6xl font-mono font-black text-emerald-500 drop-">
-                {formatTime(displayTime)}
-              </div>
-            ) : (
-               <div className="text-2xl sm:text-4xl font-black text-white/10 italic">VS</div>
-            )}
-            {/* La rencontre s'est décidée aux tirs au but : sans cette mention,
-                le score affiché se lit comme un nul. */}
-            <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} taille="long" className="mt-3" />
-            {!isLive && match.status !== "completed" && (
-                <div className="mt-5 sm:mt-8 flex flex-col items-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Coup d'envoi</p>
-                    <p className="text-lg font-black text-white/80">{match.time}</p>
-                </div>
-            )}
-          </div>
-
-          {/* Away Team */}
-          <div className="text-center group">
-            <div className="relative mx-auto mb-6 flex h-16 w-16 sm:h-24 sm:w-24 items-center justify-center bg-white/5 backdrop-blur-2xl border border-white/10 shadow-inner transition-transform group-hover:scale-105">
-               <span className="text-2xl sm:text-4xl font-black">{match.awayTeamName?.[0] || "?"}</span>
-            </div>
-            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider mb-2 text-white/90 line-clamp-1">{match.awayTeamName}</h2>
-            <div className="text-4xl sm:text-8xl font-black tracking-tighter text-white tabular-nums">{match.scoreAway || 0}</div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Tabs Control */}
-      <div className="flex p-1.5 gap-1 bg-white shadow-gray-100/50 border border-gray-200/70">
-        {[
-          // L'ordre suit ce qu'on est venu voir. Match en cours : le direct
-          // d'abord. Sinon, les informations d'abord — le Match Center d'un
-          // match à venir est une coquille.
-          ...(match.status === "live"
-            ? [
-                { id: "center", label: "Match Center", icon: Activity },
-                { id: "info", label: "Informations", icon: Info },
-              ]
-            : [
-                { id: "info", label: "Informations", icon: Info },
-                { id: "center", label: "Match Center", icon: Activity },
-              ]),
+      {/* Une colonne unique et centree. Le rail de droite portait les infos du
+          match, qui vivent maintenant dans le hero : garder la gouttiere de
+          320px aurait ete garder une colonne pour rien. */}
+      <div className="mx-auto max-w-4xl space-y-4">
+      {/* Barre d'onglets partagee. Les libelles etaient masques en dessous de
+          `sm` : sur un telephone on ne voyait que trois icones grises. */}
+      <MatchTabs
+        active={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        tabs={[
+          { id: "center", label: "Résumé", Icon: Activity },
           // La feuille de match ne s'affiche pas sans compte : les règles
           // Firestore ne servent pas `participations` à un invité, l'onglet
           // n'aurait donc que deux colonnes vides à montrer. Mieux vaut ne
           // pas l'annoncer que l'annoncer creux.
-          ...(user ? [{ id: "squad", label: "Feuille de Match", icon: ClipboardList }] : []),
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`relative flex flex-1 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3.5 text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === tab.id ? "text-emerald-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {activeTab === tab.id && (
-              <motion.div
-                layoutId="activeTabBadge"
-                className="absolute inset-0 bg-emerald-50 border border-emerald-100"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-            <tab.icon size={16} className="relative z-10" />
-            <span className="relative z-10 hidden sm:block">{tab.label}</span>
-            {tab.id === "squad" && isManager && (
-              (() => {
-                const isHomeManager = user?.uid === match.managerId;
-                const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
-                return !isReady ? (
-                  <span className="relative z-20 flex h-2.5 w-2.5 ml-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-                  </span>
-                ) : (
-                  <CheckCircle2 size={12} className="relative z-20 text-emerald-500 ml-1.5 bg-white rounded-full" />
-                );
-              })()
-            )}
-          </button>
-        ))}
-
-      </div>
-
-
+          ...(user ? [{
+            id: "squad",
+            label: "Composition",
+            Icon: ClipboardList,
+            badge: isManager ? (() => {
+              const isHomeManager = user?.uid === match.managerId;
+              const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
+              return !isReady ? (
+                <span className="ml-1 flex h-2 w-2">
+                  <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                </span>
+              ) : (
+                <CheckCircle2 size={12} className="ml-1 text-emerald-500" />
+              );
+            })() : undefined,
+          }] : []),
+        ]}
+      />
 
       {/* Tab Content */}
       <div className="min-h-[400px]">
@@ -606,8 +538,13 @@ export default function MatchDetailPage() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
-              className="space-y-6"
+              className="space-y-4"
             >
+              {/* Ce que le tableau d'affichage ne dit pas : qui arbitre, et a
+                  combien on joue. Deux cellules cote a cote. Le reste — date,
+                  heure, terrain — est dans le hero, une seule fois. */}
+              <MatchInfoList info={infoDuMatch} />
+
               {/* Manager LINEUP Validation Banner */}
               {isManager && (match.status === "upcoming" || match.status === "delayed") && !isMyTeamReady && (
                 <div className=" bg-amber-50 border border-amber-200 p-4 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
@@ -788,98 +725,51 @@ export default function MatchDetailPage() {
                 </div>
               )}
 
-              {/* Event Timeline. Un match qui n'a pas commencé n'a pas
-                  d'histoire : le bloc n'apparaît qu'une fois le direct lancé,
-                  et reste ensuite comme récit de la rencontre. */}
+              {/* L'historique, en deux camps : chaque evenement du cote de
+                  son acteur, les reperes communs au centre. Voir
+                  MatchTimeline. Un match qui n'a pas commence n'a pas
+                  d'histoire, le bloc n'apparait qu'une fois le direct lance. */}
               {(match.status === "live" || match.status === "completed") && (
-              <div className=" bg-white border border-gray-200/70 p-4 sm:p-8">
-                <div className="flex items-center justify-between mb-4 sm:mb-8">
-                  <h3 className="text-lg font-black text-gray-900 font-display">Timeline</h3>
-                  <History className="text-gray-200" size={24} />
-                </div>
-
-                <div className="relative">
-                  <div className="absolute left-[21px] top-4 bottom-4 w-0.5 bg-gray-50" />
-                  <div className="space-y-8 relative">
+                <div className="border border-gray-200/70 bg-white p-4 sm:p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+                      Historique
+                    </h3>
                     {match.status === "completed" && (
-                         <div className="flex items-start gap-6 group">
-                           <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center border-2 bg-gray-900 border-black text-white transition-all group-hover:scale-110">
-                             <CheckCircle2 size={16} />
-                           </div>
-                           <div className="flex-1 pt-1">
-                             <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-black text-gray-900 uppercase tracking-wide">
-                                  Match Terminé
-                                </span>
-                             </div>
-                             <div className="flex items-center justify-between">
-                               <p className="text-[11px] font-bold text-gray-500">
-                                 Score final : {match.scoreHome} - {match.scoreAway}
-                               </p>
-                             </div>
-                           </div>
-                         </div>
+                      <span className="text-[11px] font-black tabular-nums text-gray-900">
+                        Score final {match.scoreHome} – {match.scoreAway}
+                      </span>
                     )}
-                    {match.liveState?.events && match.liveState.events.length > 0 ? (
-                      [...match.liveState.events].reverse().map((event, i) => (
-                        <div key={event.id} className="flex items-start gap-6 group">
-                          <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center border-2 transition-all group-hover:scale-110 ${
-                            event.type === "goal" ? "bg-emerald-50 border-emerald-100 text-emerald-500" : 
-                            event.type === "yellow_card" || event.type === "red_card" ? "bg-red-50 border-red-100 text-red-500" :
-                            "bg-gray-50 border-gray-200/70 text-gray-400"
-                          }`}>
-                            <span className="text-[10px] font-black">{event.minute}'</span>
-                          </div>
-
-                          <div className="flex-1 pt-1">
-                            <div className="flex items-center gap-2 mb-1">
-                               <span className="text-sm font-black text-gray-900 uppercase tracking-wide">
-                                 {event.type === "goal" ? "BUT !" : event.type === "yellow_card" ? "Carton Jaune" : event.type === "red_card" ? "Carton Rouge" : event.type === "substitution" ? "Changement" : "Action"}
-                               </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] font-bold text-gray-500">
-                                {auteurDeLEvenement(event.teamId, event.playerName)} {event.detail && `• ${event.detail}`}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                {/* Le rappel de l'équipe ne sert plus à rien
-                                    quand c'est déjà elle qu'on vient de nommer. */}
-                                {event.teamId !== idEquipeFantome && (
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 italic">
-                                    {event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName}
-                                  </p>
-                                )}
-                                {match.status === "completed" && match.validationStatus !== "validated" && isManager && (
-                                  <>
-                                    {event.contestedByManagerId ? (
-                                      <span className="flex items-center gap-1 rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-500">
-                                        <AlertCircle size={10} />
-                                        Contesté
-                                      </span>
-                                    ) : (
-                                      <button 
-                                        onClick={() => setContestingEventId(event.id)}
-                                        className="rounded border border-gray-200/70 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                                      >
-                                        Contester
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : match.status !== "completed" ? (
-                      <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
-                         <Activity size={48} className="text-gray-200 mb-4" />
-                         <p className="max-w-[200px] text-xs font-bold text-gray-400 italic">En attente des premiers éclats de génie sur le terrain...</p>
-                      </div>
-                    ) : null}
                   </div>
+
+                  <MatchTimeline
+                    events={match.liveState?.events ?? []}
+                    homeTeamId={match.homeTeamId}
+                    vide="En attente du premier fait de jeu"
+                    // Un amical contre une equipe hors plateforme n'a aucun nom
+                    // de joueur en face : le nom de l'equipe tient lieu d'auteur.
+                    auteur={(e) => auteurDeLEvenement(e.teamId, e.playerName)}
+                    action={(e) =>
+                      match.status === "completed"
+                      && match.validationStatus !== "validated"
+                      && isManager
+                        ? e.contestedByManagerId ? (
+                            <span className="inline-flex items-center gap-1 border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-500">
+                              <AlertCircle size={10} />
+                              Contesté
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setContestingEventId(e.id)}
+                              className="border border-gray-200/70 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50"
+                            >
+                              Contester
+                            </button>
+                          )
+                        : null
+                    }
+                  />
                 </div>
-              </div>
               )}
             </motion.div>
           )}
@@ -890,8 +780,20 @@ export default function MatchDetailPage() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
-              className="space-y-8"
+              className="space-y-4"
             >
+              {/* La composition, sur un terrain, avant les outils du manager.
+                  Elle repond a la question que TOUT LE MONDE se pose en
+                  ouvrant cet onglet — qui joue, et a quel poste — la ou les
+                  colonnes de noms plus bas servent a la remplir. Voir
+                  MatchLineups. */}
+              <div className="border border-gray-200/70 bg-white p-4 sm:p-5">
+                <MatchLineups
+                  home={{ name: match.homeTeamName, entries: compoDeLEquipe(match.homeTeamId, match.homeGhostLineup) }}
+                  away={{ name: match.awayTeamName, entries: compoDeLEquipe(match.awayTeamId, match.awayGhostLineup) }}
+                />
+              </div>
+
               {isManager && (
                 (() => {
                   const isHomeManager = user?.uid === match.managerId;
@@ -1358,59 +1260,6 @@ export default function MatchDetailPage() {
               )}
             </motion.div>
           )}
-
-          {activeTab === "info" && (
-            <motion.div
-              key="info"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              className="space-y-6"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-5 sm:p-8 bg-white border border-gray-200/70 flex flex-col items-center text-center">
-                  <div className="h-14 w-14 bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
-                    <MapPin size={24} />
-                  </div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Terrain</h4>
-                  <p className="font-black text-gray-900 break-words">{match.venueName}</p>
-                  <p className="text-xs font-bold text-gray-400">{match.venueCity}</p>
-                </div>
-
-                <div className="p-5 sm:p-8 bg-white border border-gray-200/70 flex flex-col items-center text-center">
-                  <div className="h-14 w-14 bg-gray-50 flex items-center justify-center text-gray-400 mb-3 sm:mb-4">
-                    <Shield size={24} />
-                  </div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Arbitre</h4>
-                  <p className="font-black text-gray-900 break-words">{match.refereeName || "Arbitre Officiel"}</p>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter truncate w-full">{match.refereeStatus === 'confirmed' ? '📋 Officiellement désigné' : '⏳ En attente de désignation'}</p>
-                </div>
-              </div>
-
-              {/* Match Calendar Entry */}
-              <div className="p-5 sm:p-8 bg-white border border-gray-200/70">
-                <div className="flex items-center gap-4 sm:gap-6">
-                  <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 bg-emerald-50 flex flex-col items-center justify-center border border-emerald-100">
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{match.date.split('-')[1]}</span>
-                    <span className="text-xl sm:text-2xl font-black text-emerald-700">{match.date.split('-')[2]}</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-lg sm:text-xl font-black text-gray-900 mb-1 truncate">{match.date}</h4>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-bold text-gray-400">
-                      <div className="flex items-center gap-1.5 sm:border-r sm:border-gray-200/70 sm:pr-4">
-                        <Clock size={14} />
-                        <span>{match.time}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={14} />
-                        <span>Calendrier Match</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
 
@@ -1551,25 +1400,24 @@ export default function MatchDetailPage() {
         </motion.div>
       )}
 
-      {/* Floating Action for Managers. Le raccourci vers la console disparaît
-          aussi sur un match annulé : elle est close des deux côtés, autant ne
-          pas y envoyer. */}
+      {/* L'acces a la console, pour les managers.
+          ELLE NE FLOTTE PLUS. C'etait une barre `fixed bottom-20` posee juste
+          au-dessus de la barre de navigation du bas : deux bandes empilees,
+          une centaine de pixels de contenu masques en permanence sur un
+          telephone. Et son bouton principal, « Gerer l'effectif », ne faisait
+          que changer d'onglet — un onglet deguise en action flottante, alors
+          que l'onglet existait a trois centimetres au-dessus.
+          Reste ce qu'une barre d'action doit porter : le seul geste que la
+          page ne sait pas faire elle-meme. Cache sur un match termine ou
+          annule, la console est close des deux cotes. */}
       {isManager && match?.status !== "completed" && match?.status !== "cancelled" && (
-        <div className="fixed bottom-20 sm:bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-3 sm:px-4 flex gap-2 z-40">
-            <button
-              onClick={() => setActiveTab("squad")}
-              className="flex-1 flex items-center justify-center gap-2 h-14 sm:h-16 bg-gray-900 text-white font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95"
-            >
-              <UserPlus size={18} />
-              Gérer l'effectif
-            </button>
-            <button
-              onClick={() => router.push(`/matches/${id}/manage`)}
-              className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center bg-emerald-500 text-white shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-90"
-            >
-              <Activity size={24} />
-            </button>
-        </div>
+        <button
+          onClick={() => router.push(`/matches/${id}/manage`)}
+          className="mt-6 flex h-14 w-full items-center justify-center gap-2 bg-emerald-500 text-[11px] font-black uppercase tracking-widest text-white transition-colors hover:bg-emerald-600 sm:mt-8"
+        >
+          <Activity size={18} />
+          Ouvrir la console du match
+        </button>
       )}
 
       {/* Contestation Modal */}
@@ -1643,30 +1491,6 @@ export default function MatchDetailPage() {
           </div>
         )}
       </AnimatePresence>
-        </div>
-
-        {/* Meme rail que sur un match de competition, moins ce qu'un amical
-            n'a pas : pas de ligne competition, et aucun classement a montrer
-            puisqu'il n'y a rien a classer. Les equipes d'un amical n'ont pas
-            de logo dans le modele de donnees, le sondage retombe alors sur
-            les initiales. */}
-        <aside className="mt-6 px-3 sm:px-6 lg:sticky lg:top-6 lg:mt-0 lg:px-0">
-          <MatchRail
-            match={{
-              id,
-              homeTeamName: match.homeTeamName,
-              awayTeamName: match.awayTeamName,
-              homeTeamLogo: null,
-              awayTeamLogo: null,
-              date: match.date,
-              time: match.time,
-              venueName: match.venueName,
-              venueCity: match.venueCity,
-              started: match.effectiveStatus !== "upcoming",
-              competition: null,
-            }}
-          />
-        </aside>
       </div>
     </div>
   );
