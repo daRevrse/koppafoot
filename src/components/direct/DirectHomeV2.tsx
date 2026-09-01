@@ -66,6 +66,10 @@ const FAV_KEY = "kf:direct:favs";
 const COMP_FAV_KEY = "kf:direct:compfavs";
 const PICK_KEY = "kf:direct:picks";
 
+// Le nombre d'affiches du carrousel. Cinq points de pagination se lisent d'un
+// coup d'oeil ; au-dela on ne sait plus ou l'on en est.
+const AFFICHES_MAX = 5;
+
 // ---- date helpers -------------------------------------------------------------
 
 function dayKey(d: Date): string {
@@ -135,9 +139,11 @@ function matchHref(e: Entry): string {
   // Un amical n'appartient a aucune competition : sa page est /matches/[id].
   // Le fanion vient de FRIENDLY_COMP_ID (voir friendlies-admin).
   if (e.competition.id === FRIENDLY_COMP_ID) return `/matches/${e.match.id}`;
-  // Un match du fournisseur externe n'a pas de page detail chez nous, et il
-  // ne doit pas en avoir : c'est la que vivrait le pronostic, qui ne
-  // s'applique qu'aux matchs qu'on gere. On renvoie vers sa competition.
+  // Un match du fournisseur externe n'a pas de page detail chez nous : on n'a
+  // ni sa feuille de match, ni ses buteurs, ni de console pour le suivre, et
+  // une fiche vide vaut moins que la page de sa competition. Il se pronostique
+  // en revanche depuis l'affiche du Direct, un pronostic ne demandant qu'un
+  // identifiant de match. On renvoie donc vers sa competition.
   if (isWorldComp(e.competition.id)) return competitionHref(e.competition);
   return `/c/${e.competition.slug}/matches/${e.match.id}`;
 }
@@ -771,7 +777,7 @@ function CompetitionGroup({
 // ---- Spotlight: the featured match, with a pronostic ------------------------------
 
 function PickButton({
-  children, selected, correct, missed, disabled, onClick, label,
+  children, selected, correct, missed, disabled, onClick, label, pct,
 }: {
   children: React.ReactNode;
   selected: boolean;
@@ -780,6 +786,16 @@ function PickButton({
   disabled: boolean;
   onClick: () => void;
   label: string;
+  /**
+   * Le pourcentage de cette issue, une fois le pronostic donne, sinon rien.
+   *
+   * IL S'AFFICHE DANS LE BOUTON, et non plus sous lui. Voter ouvrait trois
+   * barres de plus, une par issue, avec le nom de l'equipe deja lisible
+   * au-dessus : le bloc doublait de hauteur pour redire ce qu'on voyait, et
+   * poussait le pager hors de l'ecran sur un telephone. Le blason porte deja
+   * l'identite de l'issue, il ne lui manquait que son chiffre.
+   */
+  pct?: number | null;
 }) {
   const tone = correct
     ? "border-emerald-500 bg-emerald-50"
@@ -795,10 +811,16 @@ function PickButton({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
-      aria-label={label}
-      className={`flex h-10 items-center justify-center rounded-full border-2 transition-colors disabled:cursor-default ${tone}`}
+      // Un aria-label remplace le contenu du bouton : sans le pourcentage
+      // dedans, un lecteur d'ecran serait le seul a ne pas connaitre le
+      // resultat du vote.
+      aria-label={pct == null ? label : `${label}, ${pct} %`}
+      className={`flex h-10 items-center justify-center gap-1.5 rounded-full border-2 px-1.5 transition-colors disabled:cursor-default ${tone}`}
     >
       {children}
+      {pct != null && (
+        <span className="text-[13px] font-black tabular-nums text-gray-900">{pct}%</span>
+      )}
     </button>
   );
 }
@@ -817,7 +839,10 @@ function Spotlight({
   // Sliding it away a few seconds later would move the pronostic out from
   // under the tap.
   const [locked, setLocked] = useState(false);
-  const [counts, setCounts] = useState<PredictionCounts | null>(null);
+  // Les totaux, etiquetes du match qui les a demandes : le carrousel change
+  // d'affiche plus vite qu'une reponse reseau, et les pourcentages du match
+  // precedent se seraient poses une seconde sur les blasons du suivant.
+  const [counts, setCounts] = useState<{ matchId: string; valeurs: PredictionCounts } | null>(null);
   const { user: utilisateur } = useAuth();
 
   const count = entries.length;
@@ -853,7 +878,9 @@ function Spotlight({
     const relire = () =>
       fetch(`/api/matches/${encodeURIComponent(idCourant)}/predictions`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (vivant && d) setCounts(d as PredictionCounts); })
+        .then((d) => {
+          if (vivant && d) setCounts({ matchId: idCourant, valeurs: d as PredictionCounts });
+        })
         .catch(() => {});
 
     // Rattrapage des votes d'avant, restés en mémoire locale sans jamais
@@ -890,7 +917,9 @@ function Spotlight({
     onPick(match.id, p);
   };
 
-  const parts = counts ? pourcentages(counts) : null;
+  // Les pourcentages ne s'ouvrent qu'une fois qu'on a vote : avant, le premier
+  // chiffre affiche deciderait pour tout le monde.
+  const parts = pick && counts?.matchId === match.id ? pourcentages(counts.valeurs) : null;
 
   return (
     <div className="overflow-hidden border border-gray-200/70 bg-white">
@@ -978,16 +1007,15 @@ function Spotlight({
         </motion.div>
       </AnimatePresence>
 
-      {/* Pronostic, device-local, no account needed */}
+      {/* Le pronostic. Le choix se retient en local pour se rafficher sans
+          attendre, mais il s'ecrit dans la base, et demande donc un compte
+          (voir usePicks). */}
       <div className="px-4 pb-3 pt-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[13px] font-black text-gray-900">Qui va gagner ?</p>
-            <p className="text-[11px] font-bold text-gray-400">
-              {finished ? "Le match est joué" : "Donne ton pronostic"}
-            </p>
-          </div>
-          <Trophy size={16} className="shrink-0 text-amber-400" />
+        <div className="min-w-0">
+          <p className="text-[13px] font-black text-gray-900">Qui va gagner ?</p>
+          <p className="text-[11px] font-bold text-gray-400">
+            {finished ? "Le match est joué" : "Donne ton pronostic"}
+          </p>
         </div>
 
         <div className="mt-2.5 grid grid-cols-3 gap-2">
@@ -998,6 +1026,7 @@ function Spotlight({
             missed={finished && pick === "home" && outcome !== "home"}
             disabled={finished}
             onClick={() => vote("home")}
+            pct={parts?.home}
           >
             <Crest
               name={match.homeTeamName}
@@ -1012,6 +1041,7 @@ function Spotlight({
             missed={finished && pick === "draw" && outcome !== "draw"}
             disabled={finished}
             onClick={() => vote("draw")}
+            pct={parts?.draw}
           >
             <span className="text-[13px] font-black text-gray-500">X</span>
           </PickButton>
@@ -1022,6 +1052,7 @@ function Spotlight({
             missed={finished && pick === "away" && outcome !== "away"}
             disabled={finished}
             onClick={() => vote("away")}
+            pct={parts?.away}
           >
             <Crest
               name={match.awayTeamName}
@@ -1030,37 +1061,6 @@ function Spotlight({
             />
           </PickButton>
         </div>
-
-        {/* Une fois qu'on a vote, on veut savoir ce que pensent les autres,
-            pas s'entendre dire que son clic a ete enregistre. */}
-        {pick && !finished && parts && (
-          <div className="mt-3 space-y-1.5">
-            {([
-              { cle: "home" as const, libelle: match.homeTeamName, valeur: parts.home },
-              { cle: "draw" as const, libelle: "Match nul", valeur: parts.draw },
-              { cle: "away" as const, libelle: match.awayTeamName, valeur: parts.away },
-            ]).map((o) => (
-              <div key={o.cle}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className={`truncate text-[11px] font-bold ${
-                    pick === o.cle ? "text-emerald-700" : "text-gray-500"
-                  }`}>
-                    {o.libelle}
-                  </span>
-                  <span className="shrink-0 text-[11px] font-black tabular-nums text-gray-900">
-                    {o.valeur}%
-                  </span>
-                </div>
-                <div className="mt-1 h-1 bg-gray-100">
-                  <div
-                    className={`h-full ${pick === o.cle ? "bg-emerald-500" : "bg-gray-300"}`}
-                    style={{ width: `${o.valeur}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {pick && finished && (
           <p className="mt-2 text-center text-[10px] font-bold text-gray-300">
@@ -1311,50 +1311,81 @@ export default function DirectHomeV2({
 
   const liveEntries = useMemo(() => scoped.filter((e) => e.match.status === "live"), [scoped]);
 
-  // Spotlight: live first, then the soonest kickoff, then the freshest result
-  //, a short highlight reel, not a second fixture list.
-  // L'affiche et son pronostic : uniquement les competitions de la
-  // plateforme. Un match du fournisseur externe n'a pas de page chez nous et
-  // ne se pronostique pas ; un amical n'a pas de console de score.
-  //
-  // Une entree par competition, et non les cinq prochains matchs : la fleche
-  // fait alors passer d'une competition a l'autre, ce qui est la navigation
-  // utile quand plusieurs tournois tournent en meme temps. Dans chacune, le
-  // match en cours d'abord, sinon le prochain, sinon le dernier joue.
-  const spotlightEntries = useMemo(() => {
-    const local = scoped.filter(
-      (e) => e.competition.id !== FRIENDLY_COMP_ID && !isWorldComp(e.competition.id),
-    );
+  // Recalcule a chaque rendu, donc juste apres minuit : une chaine identique
+  // ne relance aucun memo, une chaine differente les relance tous.
+  const todayKey = dayKey(new Date());
 
-    const byComp = new Map<string, Entry[]>();
-    for (const e of local) {
-      const list = byComp.get(e.competition.id) ?? [];
-      list.push(e);
-      byComp.set(e.competition.id, list);
+  // L'affiche : ce qui se joue maintenant, puis ce qui vient. Un carrousel de
+  // matchs du jour et a venir, pas un second tableau de resultats.
+  //
+  // ELLE RESTAIT FIGEE SUR UN MATCH JOUE, PARFOIS VIEUX DE PLUSIEURS
+  // SEMAINES, et pour deux raisons qui se renforcaient. Le repli d'abord :
+  // faute de match en cours ou programme, on montrait le DERNIER JOUE de la
+  // competition, si bien qu'un tournoi termine gardait l'affiche pour lui
+  // indefiniment, avec un pronostic mort-ne dessous. Le perimetre ensuite :
+  // seules les competitions de la plateforme y entraient, donc souvent une
+  // seule affiche — et rien a faire defiler, le pager ne s'affichant meme pas.
+  //
+  // Desormais TOUTES les competitions y passent, locales comme mondiales, les
+  // amicaux avec. Le pronostic ne demande rien de plus qu'un identifiant de
+  // match (voir lib/predictions), il vaut donc pour un match du fournisseur
+  // externe comme pour les notres ; seul le lien change, un match mondial
+  // n'ayant pas de fiche chez nous et renvoyant vers sa competition.
+  const spotlightEntries = useMemo(() => {
+    // Le jour et l'avenir, rien d'autre. Un match programme a une date deja
+    // passee (report jamais corrige, fixture oubliee) n'est pas « a venir »
+    // non plus : il tombait dans le meme piege que le resultat perime.
+    const aVenir = scoped
+      .filter((e) => e.match.status === "live"
+        || (e.match.status === "scheduled" && e.match.date != null && e.match.date >= todayKey))
+      .sort((a, b) => {
+        const rang = (e: Entry) => (e.match.status === "live" ? 0 : 1);
+        return rang(a) - rang(b) || kickoff(a).localeCompare(kickoff(b));
+      });
+
+    // Repli du jour, et du jour seulement : quand tout est deja joue ce soir,
+    // l'affiche montre le resultat du soir plutot que de disparaitre. Elle ne
+    // remonte pas plus loin, c'est precisement ce qui la figeait.
+    const jouesDuJour = scoped
+      .filter((e) => e.match.status === "completed" && e.match.date === todayKey)
+      .sort((a, b) => kickoff(b).localeCompare(kickoff(a)));
+
+    // Une competition par tour : la fleche fait d'abord passer d'un tournoi a
+    // l'autre, ce qui est la navigation utile quand plusieurs jouent en meme
+    // temps. Les tours suivants completent avec les matchs restants, sans quoi
+    // une soiree a une seule competition n'aurait de nouveau qu'une affiche
+    // immobile.
+    const parCompetition = new Map<string, Entry[]>();
+    for (const e of [...aVenir, ...jouesDuJour]) {
+      const file = parCompetition.get(e.competition.id) ?? [];
+      file.push(e);
+      parCompetition.set(e.competition.id, file);
     }
 
-    const pickOne = (list: Entry[]): Entry | null => {
-      const live = list.find((e) => e.match.status === "live");
-      if (live) return live;
-      const next = list
-        .filter((e) => e.match.status === "scheduled" && e.match.date != null)
-        .sort((a, b) => kickoff(a).localeCompare(kickoff(b)))[0];
-      if (next) return next;
-      return list
-        .filter((e) => e.match.status === "completed")
-        .sort((a, b) => kickoff(b).localeCompare(kickoff(a)))[0] ?? null;
-    };
+    // L'ordre des competitions dans le carrousel, comme celui du tableau : ce
+    // qui se joue maintenant devant, puis LE FOOTBALL D'ICI avant le football
+    // mondial. Une soiree de Ligue 1 remplit cinq affiches en un clin d'oeil,
+    // et le tournoi du quartier n'a alors plus sa place sur l'ecran d'accueil
+    // d'un produit qui parle d'abord de lui.
+    const files = [...parCompetition.values()].sort((a, b) => {
+      const enCours = (f: Entry[]) => (f.some((e) => e.match.status === "live") ? 0 : 1);
+      const dIci = (f: Entry[]) => (isWorldComp(f[0].competition.id) ? 1 : 0);
+      return enCours(a) - enCours(b)
+        || dIci(a) - dIci(b)
+        || kickoff(a[0]).localeCompare(kickoff(b[0]));
+    });
 
-    return [...byComp.values()]
-      .map(pickOne)
-      .filter((e): e is Entry => e !== null)
-      // Les competitions qui jouent maintenant passent devant.
-      .sort((a, b) => {
-        const rank = (e: Entry) => (e.match.status === "live" ? 0 : e.match.status === "scheduled" ? 1 : 2);
-        return rank(a) - rank(b) || kickoff(a).localeCompare(kickoff(b));
-      })
-      .slice(0, 5);
-  }, [scoped]);
+    const affiches: Entry[] = [];
+    for (let tour = 0; affiches.length < AFFICHES_MAX; tour++) {
+      const avant = affiches.length;
+      for (const file of files) {
+        if (tour < file.length) affiches.push(file[tour]);
+        if (affiches.length >= AFFICHES_MAX) break;
+      }
+      if (affiches.length === avant) break;
+    }
+    return affiches;
+  }, [scoped, todayKey]);
 
   // The list is day-driven, except Favoris, a followed match is worth seeing
   // whatever day it falls on, and day-scoping it would show an empty tab.
@@ -1471,7 +1502,6 @@ export default function DirectHomeV2({
   }, [feed, compFilter]);
 
   const liveCount = liveEntries.length;
-  const todayKey = dayKey(new Date());
 
   if (feed.length === 0) {
     return (
