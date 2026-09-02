@@ -20,19 +20,21 @@ import type { LineupEntry } from "@/types";
 //
 // Le placement suit le POSTE, désormais porté par la feuille de match (voir
 // lib/postes). Il ne l'était pas quand ce terrain a été dessiné, d'où le
-// GK-4-3-3 imposé à tout le monde qu'on lisait ici : il reste, mais comme
-// repli, pour les feuilles où personne n'a de poste déclaré. La géométrie
-// vit dans lib/terrain, partagée avec la console live — un joueur doit se
-// trouver au même endroit qu'on regarde le match ou qu'on le tienne.
+// GK-4-3-3 imposé à tout le monde qu'on lisait ici. Faute de poste déclaré, le
+// repli suit maintenant la TAILLE de l'équipe : une compétition se joue en
+// NvN, et un 5v5 dessinait six emplacements vides. La géométrie vit dans
+// lib/terrain, partagée avec la console live — un joueur doit se trouver au
+// même endroit qu'on regarde le match ou qu'on le tienne.
 // ============================================
 
 /**
  * « Jean-Baptiste Mensah » → « J. Mensah ». Un nom entier ne tient pas sous une
  * pastille de terrain ; l'initiale plus le nom de famille, si.
  *
- * `max` coupe ce qui reste trop long : deux joueurs de la même ligne sont
- * séparés de 22 unités sur le terrain, et un texte SVG ne se tronque pas tout
- * seul — il déborde sur son voisin, ou hors du cadre.
+ * `max` coupe ce qui reste trop long : un texte SVG ne se tronque pas tout
+ * seul, il déborde sur son voisin ou hors du cadre. L'écart entre deux
+ * pastilles dépend du rang le plus chargé (voir lib/terrain), donc la limite
+ * est prise au plus serré.
  */
 function nomCourt(nom: string, max = 11): string {
   const bouts = nom.trim().split(/\s+/).filter(Boolean);
@@ -126,7 +128,10 @@ export default function MatchLineups({
   );
 
   const equipe = cote === "home" ? home : away;
-  const titulaires = equipe.entries.filter((e) => e.role === "starter").slice(0, 11);
+  // Tous les titulaires, sans plafond a onze : une competition se joue en NvN
+  // (voir lib/terrain), et couper a onze aurait fait disparaitre des joueurs
+  // d'un match a quatorze autant qu'il inventait des trous dans un 5v5.
+  const titulaires = equipe.entries.filter((e) => e.role === "starter");
   const remplacants = equipe.entries.filter((e) => e.role === "substitute");
 
   return (

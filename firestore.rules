@@ -177,11 +177,30 @@ service cloud.firestore {
     // liste des modérateurs elle-même restent hors de sa portée — sans quoi
     // quelqu'un ajouté par un email pourrait s'ajouter des complices ou
     // déplacer le match.
+    // Ce qu'un modérateur de match peut toucher : ce que la console écrit, et
+    // rien d'autre. La liste a GRANDI avec elle — depuis que les amicaux et
+    // les matchs de compétition partagent une seule console (voir
+    // lib/console-pilote), la console valide aussi la feuille de match, pose
+    // qui est sur le terrain, et enregistre les tirs au but. Sans ces clés, un
+    // modérateur voyait les commandes et chaque geste était refusé, ce qui est
+    // pire que de ne rien lui montrer.
+    //
+    // Ce qui n'y est TOUJOURS PAS, et ne doit pas y être : les managers, les
+    // équipes, la date, le lieu, l'arbitre. Un modérateur couvre un match, il
+    // ne le rédige pas.
     function champsDeLaConsole() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly([
           'status', 'live_state', 'score_home', 'score_away',
           'result', 'completed_at', 'updated_at',
+          // La feuille de match, validée depuis la console avant le coup d'envoi.
+          'home_lineup', 'away_lineup',
+          'home_lineup_ready', 'away_lineup_ready',
+          // Qui est sur la pelouse : posé au coup d'envoi, tenu à jour par les
+          // remplacements et les expulsions.
+          'home_on_pitch', 'away_on_pitch',
+          // La séance de tirs au but, quand la rencontre s'y décide.
+          'penalty_home', 'penalty_away',
         ]);
     }
 
