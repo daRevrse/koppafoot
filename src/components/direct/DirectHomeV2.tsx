@@ -13,11 +13,10 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Flame, ChevronLeft, ChevronRight, ChevronDown, Star, Trophy,
-  MapPin, CalendarDays, Goal, Handshake,
+  MapPin, CalendarDays, Goal, Footprints, ArrowUp, ArrowDown,
 } from "lucide-react";
-import {
-  onCompMatches, listCompTeams, computePlayerContributions,
-} from "@/lib/competition-firestore";
+import { onCompMatches, listCompTeams } from "@/lib/competition-firestore";
+import type { LigneClassement, LignePubliee } from "@/lib/classement";
 import { stageLabel } from "@/lib/competition-format";
 import type { CompetitionFeed } from "@/lib/competition-admin";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/lib/friendlies-shared";
@@ -1116,49 +1115,48 @@ function stageTagLabel(match: CompMatch): string | null {
 
 // ---- Top performances ---------------------------------------------------------------
 
-export interface PerformanceRow {
-  playerName: string;
-  teamId: string;
-  goals: number;
-  assists: number;
-  total: number;
-  competition: Competition;
-}
-
 /**
- * Best offensive contributions of the week, every competition mixed: goals
- * plus assists, ranked on the sum. The passer rides on the goal event (see
- * `setCompGoalAssist`), so a goal scored before the console started asking
- * simply carries none, those players still rank on their goals.
+ * Les cinq meilleures contributions de la plateforme, sur les cinq derniers
+ * matchs de chacun.
+ *
+ * ELLE NE CALCULE PLUS RIEN. Elle le faisait, sur les seuls matchs que le
+ * tableau du Direct avait sous la main, et ce raccourci mentait doublement :
+ * il ignorait les compétitions hors écran, et il déduisait la présence d'un
+ * joueur de ses buts — un joueur muet depuis six journées disparaissait, un
+ * joueur qui n'a pas joué mais dont un homonyme a marqué apparaissait.
+ *
+ * Le classement vient maintenant du serveur, calculé sur la feuille de match
+ * à la fin de chaque rencontre (voir lib/classement). La carte l'affiche,
+ * c'est tout.
  */
-function TopPerformancesCard({
-  rows, scope, teamsById,
-}: {
-  rows: PerformanceRow[];
-  scope: "week" | "all" | "last5";
-  teamsById: Map<string, CompTeam>;
-}) {
-  if (rows.length === 0) return null;
-
+function TopPerformancesCard({ lignes }: { lignes: LignePubliee<LigneClassement>[] }) {
   return (
-    <div className=" border border-gray-200/70 bg-white">
+    <div className="border border-gray-200/70 bg-white">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <p className="flex items-center gap-1.5 font-display text-sm font-black text-gray-900">
           <Flame size={15} className="text-amber-500" />
           Top performances
         </p>
         <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-600">
-          {scope === "last5" ? "5 derniers matchs" : scope === "week" ? "Cette semaine" : "Depuis le début"}
+          5 derniers matchs
         </span>
       </div>
 
-      <div className="px-4">
-        {rows.map((row, i) => {
-          const team = teamsById.get(row.teamId);
-          return (
+      {lignes.length === 0 ? (
+        /* Le classement se remplit match après match : tant que les feuilles
+           ne sont pas saisies, il n'a personne à montrer. Mieux vaut le dire
+           que d'afficher une carte vide, qui se lit comme une panne. */
+        <p className="border-t border-gray-200/70 px-4 py-8 text-center text-[11px] font-bold leading-relaxed text-gray-400">
+          Le classement se remplit à la fin de chaque match.
+          <br />
+          Personne n&apos;y figure encore.
+        </p>
+      ) : (
+        <div className="px-4">
+          {lignes.map((row, i) => (
             <div
-              key={`${row.competition.id}-${row.teamId}-${row.playerName}`}
-              className="flex items-center gap-2.5 border-t border-gray-200/70 py-2 first:border-0"
+              key={row.cle}
+              className="flex items-center gap-3 border-t border-gray-200/70 py-2.5 first:border-0"
             >
               <span
                 className={`w-4 shrink-0 text-center text-[11px] font-black tabular-nums ${
@@ -1167,36 +1165,37 @@ function TopPerformancesCard({
               >
                 {i + 1}
               </span>
+
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-bold text-gray-900">
-                  {row.playerName}
+                <span className="block truncate text-[13px] font-black text-gray-900">
+                  {row.nom}
                 </span>
-                <span className="flex items-center gap-1 truncate text-[11px] font-bold text-gray-400">
-                  <Crest name={team?.name ?? "?"} logo={team?.logoUrl} size={12} />
-                  {team?.name ?? row.competition.name}
-                </span>
-              </span>
-              <span className="flex shrink-0 items-center gap-1">
-                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-black tabular-nums text-emerald-600">
-                  <Goal size={11} />
-                  {row.goals}
-                </span>
-                {/* Only once there is one to show: an old goal has no passer,
-                    and a column of zeros would just look like missing data. */}
-                {row.assists > 0 && (
-                  <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-black tabular-nums text-blue-600">
-                    <Handshake size={11} />
-                    {row.assists}
+                {/* Le détail sous le nom : d'où viennent les G/A. Sans lui,
+                    « 22 » ne dit pas si le joueur marque ou fait marquer. */}
+                <span className="mt-0.5 flex items-center gap-2.5 text-[11px] font-black tabular-nums text-gray-500">
+                  <span className="flex items-center gap-1">
+                    {row.buts}
+                    <Goal size={12} className="text-emerald-600" />
                   </span>
-                )}
+                  <span className="flex items-center gap-1">
+                    {row.passes}
+                    <Footprints size={12} className="text-orange-500" />
+                  </span>
+                </span>
               </span>
+
+              <span className="shrink-0 text-[13px] font-black tabular-nums text-gray-900">
+                {row.total} <span className="text-gray-400">G/A</span>
+              </span>
+
+              <MouvementBadge mouvement={row.mouvement} />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       <Link
-        href={`/c/${rows[0].competition.slug}?tab=scorers`}
+        href="/top-players"
         className="flex items-center justify-center gap-1 border-t border-gray-200/70 py-2.5 text-[10px] font-black uppercase tracking-wide text-emerald-500 transition-colors hover:bg-gray-50 hover:text-emerald-600"
       >
         Classement complet
@@ -1206,15 +1205,53 @@ function TopPerformancesCard({
   );
 }
 
+/**
+ * La flèche : ce que le joueur a gagné ou perdu depuis le calcul précédent.
+ *
+ * Rien du tout sur une entrée nouvelle. Elle n'a pas grimpé de vingt places,
+ * elle vient d'arriver, et une flèche verte géante le raconterait de travers.
+ */
+export function MouvementBadge({ mouvement }: { mouvement: number | null }) {
+  if (mouvement === null) return <span className="w-9 shrink-0" />;
+  if (mouvement === 0) {
+    return (
+      <span className="flex w-9 shrink-0 items-center justify-center text-[11px] font-black text-gray-300">
+        –
+      </span>
+    );
+  }
+  const monte = mouvement > 0;
+  return (
+    <span
+      className={`flex w-9 shrink-0 items-center justify-center gap-0.5 rounded-full py-0.5 text-[11px] font-black tabular-nums ${
+        monte ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+      }`}
+    >
+      {monte ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+      {Math.abs(mouvement)}
+    </span>
+  );
+}
+
+
 // ---- Page ---------------------------------------------------------------------------
 
 export default function DirectHomeV2({
   initialFeed,
   worldCompetitions = [],
+  topPerformances = [],
 }: {
   initialFeed: CompetitionFeed[];
   /** Le football mondial, lu chez football-data.org cote serveur. */
   worldCompetitions?: FootballCompetition[];
+  /**
+   * Le classement, calcule cote serveur a la fin de chaque match.
+   *
+   * Il ne se recalcule PAS ici : la carte le calculait sur les seuls matchs
+   * que le tableau avait sous la main, ce qui ignorait les competitions hors
+   * ecran et deduisait la presence d'un joueur de ses buts.
+   */
+  topPerformances?: LignePubliee<LigneClassement>[];
 }) {
   const [feed, setFeed] = useState<CompetitionFeed[]>(initialFeed);
   const [teams, setTeams] = useState<CompTeam[]>([]);
@@ -1436,70 +1473,6 @@ export default function DirectHomeV2({
     const dates = [...new Set(scoped.map((e) => e.match.date).filter((d): d is string => d != null))].sort();
     return dates.find((d) => d > day) ?? [...dates].reverse().find((d) => d < day) ?? null;
   }, [scoped, day]);
-
-  // Top performances : les cinq derniers matchs de chaque joueur, toutes
-  // competitions LOCALES confondues, le fournisseur externe ne donne pas le
-  // detail des buteurs par match, et les amicaux n'ont pas de console de
-  // score, donc ni l'un ni l'autre n'a de contribution a apporter ici.
-  //
-  // « Ses cinq derniers matchs » se lit sur les matchs ou il a marque ou fait
-  // marquer : c'est la seule trace qu'on ait de sa presence sur le terrain,
-  // faute de feuille de match systematique. Un joueur muet depuis six
-  // journees sort donc du classement, ce qui est le comportement voulu.
-  const performances = useMemo(() => {
-    const local = feed.filter(
-      (f) => f.competition.id !== FRIENDLY_COMP_ID && !isWorldComp(f.competition.id),
-    );
-    const source = compFilter ? local.filter((f) => f.competition.id === compFilter) : local;
-
-    // Par joueur : ses matchs, du plus recent au plus ancien.
-    const byPlayer = new Map<string, {
-      playerName: string;
-      teamId: string;
-      competition: Competition;
-      games: { date: string; goals: number; assists: number }[];
-    }>();
-
-    for (const f of source) {
-      for (const match of f.matches) {
-        if (!match.date) continue;
-        for (const row of computePlayerContributions([match])) {
-          const key = `${f.competition.id}::${row.teamId}::${row.playerName.toLowerCase()}`;
-          const entry = byPlayer.get(key) ?? {
-            playerName: row.playerName,
-            teamId: row.teamId,
-            competition: f.competition,
-            games: [],
-          };
-          entry.games.push({ date: match.date, goals: row.goals, assists: row.assists });
-          byPlayer.set(key, entry);
-        }
-      }
-    }
-
-    const rows: PerformanceRow[] = [...byPlayer.values()].map((p) => {
-      const last5 = [...p.games].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-      const goals = last5.reduce((n, g) => n + g.goals, 0);
-      const assists = last5.reduce((n, g) => n + g.assists, 0);
-      return {
-        playerName: p.playerName,
-        teamId: p.teamId,
-        competition: p.competition,
-        goals,
-        assists,
-        total: goals + assists,
-      };
-    });
-
-    return {
-      rows: rows
-        .filter((r) => r.total > 0)
-        .sort((a, b) => b.total - a.total || b.goals - a.goals
-          || a.playerName.localeCompare(b.playerName))
-        .slice(0, 5),
-      scope: "last5" as const,
-    };
-  }, [feed, compFilter]);
 
   const liveCount = liveEntries.length;
 
@@ -1731,11 +1704,7 @@ export default function DirectHomeV2({
         {/* ---- Top performances: under the board on a phone, under the
              affiche on desktop ---- */}
         <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
-          <TopPerformancesCard
-            rows={performances.rows}
-            scope={performances.scope}
-            teamsById={teamsById}
-          />
+          <TopPerformancesCard lignes={topPerformances} />
         </div>
       </div>
     </div>

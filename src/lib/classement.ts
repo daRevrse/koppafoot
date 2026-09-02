@@ -63,6 +63,24 @@ export interface LigneGardien extends LigneClassement {
   note: number;
 }
 
+/** Une ligne publiee : le calcul, plus sa fleche. */
+export type LignePubliee<T> = T & {
+  /**
+   * Places gagnees depuis le calcul precedent. Negatif pour une descente,
+   * `null` pour une entree qui n'etait pas la — elle n'a pas grimpe de vingt
+   * places, elle vient d'arriver, et la fleche ne s'affiche pas.
+   */
+  mouvement: number | null;
+};
+
+export interface ClassementsPublies {
+  performances: LignePubliee<LigneClassement>[];
+  gardiens: LignePubliee<LigneGardien>[];
+  matchsRetenus: number;
+  /** ISO. Null quand le classement n'a jamais ete calcule. */
+  calculeLe: string | null;
+}
+
 export interface Classements {
   performances: LigneClassement[];
   gardiens: LigneGardien[];

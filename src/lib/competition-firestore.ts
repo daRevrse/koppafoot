@@ -33,7 +33,7 @@ import type {
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { listGrantedCompetitionIds } from "./staff-access";
-import type { TypeEvenement } from "@/lib/evenements";
+import { OWN_GOAL_DETAIL, type TypeEvenement } from "@/lib/evenements";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -1457,8 +1457,10 @@ async function propagateBracketWinner(
  * never climbs the scoring chart for a mistake.
  */
 // Deplace dans lib/evenements, qui n'importe aucun SDK et que le calcul du
-// classement peut donc lire cote serveur. Re-exporte ici pour ses appelants.
-export { OWN_GOAL_DETAIL } from "@/lib/evenements";
+// classement peut donc lire cote serveur. Re-exporte ici pour ses appelants,
+// et importe pour les siens : un `export ... from` ne met rien dans la portee
+// locale, et ce fichier s'en sert trois fois plus bas.
+export { OWN_GOAL_DETAIL };
 
 /** One goal of a result entered after the fact (see `setCompMatchResult`). */
 export interface ResultGoal {

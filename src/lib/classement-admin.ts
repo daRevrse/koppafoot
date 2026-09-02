@@ -14,31 +14,16 @@
 // ============================================
 
 import { adminDb } from "@/lib/firebase-admin";
-import { getPublicCompetitions, toCompMatch } from "@/lib/competition-admin";
+import { getPublicCompetitions } from "@/lib/competition-admin";
+import { toCompMatch } from "@/lib/competition-mappers";
 import { calculerClassements, mouvements } from "@/lib/classement";
-import type { LigneClassement, LigneGardien } from "@/lib/classement";
+import type {
+  ClassementsPublies, LigneClassement, LigneGardien, LignePubliee,
+} from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
 import type { CompMatch, FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
 
 const DOC = "rankings/top_players";
-
-/** Une ligne publiée : le calcul, plus sa flèche. */
-export type LignePubliee<T> = T & {
-  /**
-   * Places gagnées depuis le calcul précédent. Négatif pour une descente,
-   * `null` pour une entrée qui n'était pas là — elle n'a pas grimpé de vingt
-   * places, elle vient d'arriver.
-   */
-  mouvement: number | null;
-};
-
-export interface ClassementsPublies {
-  performances: LignePubliee<LigneClassement>[];
-  gardiens: LignePubliee<LigneGardien>[];
-  matchsRetenus: number;
-  /** ISO. Null quand le classement n'a jamais été calculé. */
-  calculeLe: string | null;
-}
 
 const VIDE: ClassementsPublies = {
   performances: [], gardiens: [], matchsRetenus: 0, calculeLe: null,
