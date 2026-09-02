@@ -1,5 +1,6 @@
 import type { PushPrefs } from "@/lib/push-categories";
 import type { Poste } from "@/lib/postes";
+import type { TypeEvenement } from "@/lib/evenements";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -380,7 +381,7 @@ export interface FirestoreMatch {
     is_timer_running: boolean;
     events: {
       id: string;
-      type: "goal" | "yellow_card" | "red_card" | "substitution" | "period_start" | "period_end";
+      type: TypeEvenement;
       period: number;
       minute: number;
       team_id: string;
@@ -393,6 +394,9 @@ export interface FirestoreMatch {
        */
       assist_player_id?: string | null;
       assist_player_name?: string | null;
+      /** Fautes uniquement : celui qui l'a subie, dans le camp d'en face. */
+      victim_player_id?: string | null;
+      victim_player_name?: string | null;
       contested_by_manager_id?: string | null;
       contestation_reason?: string | null;
       /**
@@ -520,7 +524,7 @@ export interface Match {
     isTimerRunning: boolean;
     events: {
       id: string;
-      type: "goal" | "yellow_card" | "red_card" | "substitution" | "period_start" | "period_end";
+      type: TypeEvenement;
       period: number;
       minute: number;
       teamId: string;
@@ -530,6 +534,9 @@ export interface Match {
       /** See `FirestoreMatch.live_state.events[].assist_player_id`. */
       assistPlayerId?: string | null;
       assistPlayerName?: string | null;
+      /** Voir `FirestoreMatch.live_state.events[].victim_player_id`. */
+      victimPlayerId?: string | null;
+      victimPlayerName?: string | null;
       contestedByManagerId?: string | null;
       contestationReason?: string | null;
       /** See `FirestoreMatch.live_state.events[].var_status`. */

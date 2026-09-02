@@ -33,6 +33,7 @@ import type {
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { listGrantedCompetitionIds } from "./staff-access";
+import type { TypeEvenement } from "@/lib/evenements";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -1065,7 +1066,7 @@ export async function scheduleCompMatch(
 /** Stored shape of a single live event (one entry of `live_state.events`). */
 type StoredCompEvent = {
   id: string;
-  type: "goal" | "yellow_card" | "red_card" | "substitution";
+  type: TypeEvenement;
   period: number;
   minute: number;
   team_id: string;
@@ -1075,6 +1076,15 @@ type StoredCompEvent = {
   /** Goals only, the passer, when the console was told. See `setCompGoalAssist`. */
   assist_player_id?: string | null;
   assist_player_name?: string | null;
+  /**
+   * Fautes uniquement : celui qui l'a subie, dans le camp d'en face.
+   *
+   * Une faute a toujours deux acteurs, et n'en compter qu'un rendrait la
+   * statistique inutilisable — « fautes subies » est ce qui distingue un
+   * joueur qu'on cherche a arreter d'un joueur qui arrete les autres.
+   */
+  victim_player_id?: string | null;
+  victim_player_name?: string | null;
   /** Goals only, see `setCompGoalVarStatus`. Absent on an unreviewed goal. */
   var_status?: GoalVarStatus | null;
   created_at: string;
@@ -1150,7 +1160,7 @@ export async function addCompEvent(
   cid: string,
   mid: string,
   event: {
-    type: "goal" | "yellow_card" | "red_card" | "substitution";
+    type: TypeEvenement;
     side: "home" | "away";
     team_id: string;
     period: number;
@@ -1158,6 +1168,8 @@ export async function addCompEvent(
     player_id?: string | null;
     player_name?: string | null;
     detail?: string | null;
+    victim_player_id?: string | null;
+    victim_player_name?: string | null;
   },
 ): Promise<string> {
   const newEvent: StoredCompEvent = {
@@ -1169,6 +1181,8 @@ export async function addCompEvent(
     player_id: event.player_id ?? null,
     player_name: event.player_name ?? null,
     detail: event.detail ?? null,
+    victim_player_id: event.victim_player_id ?? null,
+    victim_player_name: event.victim_player_name ?? null,
     created_at: new Date().toISOString(),
   };
 
@@ -1223,6 +1237,50 @@ export async function setCompGoalAssist(
               ...e,
               assist_player_id: assist?.playerId ?? null,
               assist_player_name: assist?.playerName ?? null,
+            }
+          : e,
+      ),
+      updated_at: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Attacher (ou effacer) la victime d'une faute deja posee dans l'historique.
+ *
+ * Meme raison d'etre que `setCompGoalAssist`, et meme mecanique : la faute
+ * s'ecrit des qu'elle est signalee, et la question « sur qui ? » vient apres.
+ * Une console qui retiendrait la faute en attendant la reponse perdrait les
+ * deux si le scoreur est appele ailleurs — et la faute, elle, est certaine.
+ *
+ * La victime appartient au camp d'en face : c'est le seul evenement joueur
+ * qui traverse la ligne mediane, et le seul dont l'auteur et le sujet ne
+ * portent pas le meme maillot.
+ */
+export async function setCompFoulVictim(
+  cid: string,
+  mid: string,
+  eventId: string,
+  victime: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = compMatchRef(cid, mid);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
+    const d = snap.data() as FirestoreCompMatch;
+
+    const events = d.live_state?.events ?? [];
+    const index = events.findIndex((e) => e.id === eventId);
+    if (index === -1) throw new Error("Événement introuvable");
+    if (events[index].type !== "foul") throw new Error("Seule une faute a une victime");
+
+    tx.update(ref, {
+      "live_state.events": events.map((e, i) =>
+        i === index
+          ? {
+              ...e,
+              victim_player_id: victime?.playerId ?? null,
+              victim_player_name: victime?.playerName ?? null,
             }
           : e,
       ),

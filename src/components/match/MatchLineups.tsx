@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS } from "@/lib/terrain";
 import type { LineupEntry } from "@/types";
 
 // ============================================
@@ -17,21 +18,13 @@ import type { LineupEntry } from "@/types";
 // On montre une équipe à la fois, et on bascule. Le terrain garde la même
 // place quel que soit le camp regardé, donc rien ne saute sous le doigt.
 //
-// Le dispositif est un GK-4-3-3 quelle que soit la vraie organisation : la
-// plateforme ne stocke pas de poste, seulement un ordre et un rôle
-// (titulaire / remplaçant). Le 4-3-3 est le dispositif le plus lisible d'un
-// coup d'œil, et il place les onze titulaires sans jamais mentir sur autre
-// chose que leur rôle exact — que personne n'a saisi.
+// Le placement suit le POSTE, désormais porté par la feuille de match (voir
+// lib/postes). Il ne l'était pas quand ce terrain a été dessiné, d'où le
+// GK-4-3-3 imposé à tout le monde qu'on lisait ici : il reste, mais comme
+// repli, pour les feuilles où personne n'a de poste déclaré. La géométrie
+// vit dans lib/terrain, partagée avec la console live — un joueur doit se
+// trouver au même endroit qu'on regarde le match ou qu'on le tienne.
 // ============================================
-
-/** Le GK-4-3-3, en coordonnées relatives : x de 0 (gauche) à 100, y de 0 à 100. */
-const FORMATION = [
-  { x: 50, y: 91, poste: "G" },
-  { x: 16, y: 73, poste: "D" }, { x: 38, y: 77, poste: "D" },
-  { x: 62, y: 77, poste: "D" }, { x: 84, y: 73, poste: "D" },
-  { x: 26, y: 55, poste: "M" }, { x: 50, y: 59, poste: "M" }, { x: 74, y: 55, poste: "M" },
-  { x: 22, y: 33, poste: "A" }, { x: 50, y: 26, poste: "A" }, { x: 78, y: 33, poste: "A" },
-];
 
 /**
  * « Jean-Baptiste Mensah » → « J. Mensah ». Un nom entier ne tient pas sous une
@@ -51,6 +44,11 @@ function nomCourt(nom: string, max = 11): string {
 }
 
 function Terrain({ titulaires }: { titulaires: LineupEntry[] }) {
+  const { places, ecart } = disposerSurTerrain(titulaires);
+  // La pastille rapetisse quand le rang se charge, plutot que de mordre sur
+  // sa voisine. 4.2 reste le confort de lecture visé.
+  const r = rayonPastille(ecart, Math.min(4.2, RAYON_MAX_RANGS));
+
   return (
     <svg viewBox="0 0 100 104" role="img" aria-label="Composition sur le terrain" className="w-full">
       {/* La pelouse et ses lignes. Un vert très pâle : le terrain est un
@@ -67,14 +65,14 @@ function Terrain({ titulaires }: { titulaires: LineupEntry[] }) {
       </g>
       <circle cx="50" cy="52" r="1.2" fill="#bbf7d0" />
 
-      {FORMATION.map((place, i) => {
-        const joueur = titulaires[i];
+      {places.map((place, i) => {
+        const joueur = place.entry;
         return (
           <g key={i}>
             <circle
               cx={place.x}
               cy={place.y}
-              r="4.2"
+              r={r}
               fill={joueur ? "#065f46" : "#ffffff"}
               stroke={joueur ? "#065f46" : "#d1d5db"}
               strokeWidth="0.7"
@@ -85,13 +83,13 @@ function Terrain({ titulaires }: { titulaires: LineupEntry[] }) {
                 qu'il manque un joueur, pas que le terrain est cassé. */}
             <text
               x={place.x}
-              y={place.y + 1.5}
+              y={place.y + r * 0.36}
               textAnchor="middle"
               className="font-black"
-              style={{ fontSize: "4px" }}
+              style={{ fontSize: `${(r * 0.95).toFixed(2)}px` }}
               fill={joueur ? "#ffffff" : "#9ca3af"}
             >
-              {joueur ? (joueur.number || "–") : place.poste}
+              {joueur ? (joueur.number || "–") : place.etiquette}
             </text>
             {joueur && (
               <text
@@ -99,7 +97,7 @@ function Terrain({ titulaires }: { titulaires: LineupEntry[] }) {
                 // dessus sortirait du cadre. On ramène l'ancre vers l'intérieur
                 // plutôt que de rétrécir tout le terrain pour deux joueurs.
                 x={Math.min(Math.max(place.x, 13), 87)}
-                y={place.y + 8}
+                y={place.y + r + 3.8}
                 textAnchor="middle"
                 className="font-bold"
                 style={{ fontSize: "2.7px" }}

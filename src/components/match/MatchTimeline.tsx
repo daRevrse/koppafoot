@@ -1,6 +1,6 @@
 "use client";
 
-import { Goal, ArrowRightLeft, Flag } from "lucide-react";
+import { Goal, ArrowRightLeft, Flag, Hand, AlertTriangle } from "lucide-react";
 import { OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
 import type { Match } from "@/types";
 
@@ -48,6 +48,14 @@ function libelle(e: Evt): string {
       return e.detail === "2e carton jaune" ? "Expulsion (2e jaune)" : "Carton rouge";
     case "substitution":
       return "Changement";
+    case "save":
+      return "Arrêt";
+    case "foul":
+      // La faute se lit avec sa victime : « Faute sur Mensah » raconte
+      // l'action, « Faute » ne dit que la moitié de ce qui s'est passé.
+      return e.victimPlayerName ? `Faute sur ${e.victimPlayerName}` : "Faute";
+    case "offside":
+      return "Hors-jeu";
     default:
       return "Événement";
   }
@@ -60,6 +68,9 @@ function Marqueur({ e, annule }: { e: Evt; annule: boolean }) {
   if (e.type === "yellow_card") return <span className="h-3.5 w-2.5 shrink-0 bg-amber-400" />;
   if (e.type === "red_card") return <span className="h-3.5 w-2.5 shrink-0 bg-red-500" />;
   if (e.type === "substitution") return <ArrowRightLeft size={13} className="shrink-0 text-blue-500" />;
+  if (e.type === "save") return <Hand size={13} className="shrink-0 text-emerald-600" />;
+  if (e.type === "foul") return <AlertTriangle size={13} className="shrink-0 text-orange-500" />;
+  if (e.type === "offside") return <Flag size={13} className="shrink-0 text-gray-400" />;
   return null;
 }
 
