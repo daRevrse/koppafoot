@@ -1509,6 +1509,24 @@ export default function DirectHomeV2({
             <Flame size={13} className={compFilter === null ? "text-amber-300" : "text-gray-300"} />
             Tout le direct
           </button>
+
+          {/* Le classement, en raccourci — et SEULEMENT la ou sa carte n'est
+              pas. Sur un telephone, celle-ci tombait sous le tableau, donc
+              sous une trentaine de matchs : personne ne descendait jusque-la.
+              A partir de `lg` elle est dans le rail, a hauteur d'oeil, et
+              cette pastille ferait double emploi.
+
+              Teinte ambre, et non blanche comme les competitions : ce n'est
+              pas un filtre du tableau, c'est un depart vers une autre page. */}
+          <Link
+            href="/top-players"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[12px] font-black text-amber-700 transition-colors hover:bg-amber-100 lg:hidden"
+          >
+            <Flame size={13} className="text-amber-500" />
+            Top performances
+            <ChevronRight size={13} className="text-amber-400" />
+          </Link>
+
           {competitions.map((c) => (
             <button
               key={c.id}
@@ -1701,9 +1719,14 @@ export default function DirectHomeV2({
           )}
         </div>
 
-        {/* ---- Top performances: under the board on a phone, under the
-             affiche on desktop ---- */}
-        <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
+        {/* ---- Top performances, dans le rail, a partir de `lg` ----
+
+             MASQUEE SUR TELEPHONE. Empilee, elle tombait sous le tableau des
+             matchs — soit apres une trentaine de rencontres — et personne ne
+             defilait jusque-la. Le raccourci de la barre de filtres la
+             remplace : une pastille qu'on voit tout de suite vaut mieux qu'une
+             carte complete qu'on ne voit jamais. ---- */}
+        <div className="order-3 hidden min-w-0 lg:col-start-2 lg:row-start-2 lg:block">
           <TopPerformancesCard lignes={topPerformances} />
         </div>
       </div>
