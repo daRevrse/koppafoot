@@ -9,7 +9,7 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { getMatchesIModerate } from "@/lib/firestore";
-import { isOrganizer, isVenueOwner } from "@/lib/hats";
+import { isOrganizer, isScorer, isVenueOwner } from "@/lib/hats";
 import { ROLE_DESTINATIONS } from "@/config/role-destinations";
 import { useT } from "@/i18n";
 import type { EvolutionRole } from "@/types";
@@ -107,7 +107,10 @@ export function useEspaces(): Espaces | null {
     // de navigation qui propose de creer quelque chose melange deux gestes.
     hatItems.push({ href: "/organizer", label: t("espace.competitionsOrganisees"), Icon: ClipboardList });
   }
-  if (moderates) {
+  // Deux chemins vers la console, comme dans lib/espaces-acces : moderer une
+  // competition, ou porter la casquette de scoreur — qui donne acces aux
+  // amicaux que personne ne couvre, meme sans moderer quoi que ce soit.
+  if (moderates || isScorer(user)) {
     hatItems.push({ href: "/live-ops", label: t("espace.consoleLive"), Icon: Radio });
   }
   if (isVenueOwner(user)) {

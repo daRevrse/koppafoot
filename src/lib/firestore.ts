@@ -1129,6 +1129,38 @@ export async function getMatchesIModerate(uid: string): Promise<Match[]> {
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 }
 
+/**
+ * Les amicaux que PERSONNE ne couvre, ouverts au premier scoreur qui les prend.
+ *
+ * FILTRE EN MEMOIRE, et pas dans la requete : Firestore ne sait pas demander
+ * « ce tableau est vide ». `where("moderator_ids", "==", [])` ne trouverait
+ * que les documents qui portent explicitement un tableau vide — or les
+ * amicaux crees avant la moderation par match n'ont pas le champ du tout, et
+ * ce sont justement ceux qui n'ont personne. On filtre donc apres coup, ce
+ * que le volume permet largement.
+ *
+ * Seuls les matchs A VENIR : un match en cours a deja quelqu'un devant la
+ * console ou il ne se passe rien, et un match passe n'a plus de score a
+ * saisir.
+ */
+export function onAmicauxSansScoreur(callback: (data: Match[]) => void): Unsubscribe {
+  const q = query(
+    collection(db, "matches"),
+    where("status", "in", ["upcoming", "pending"]),
+  );
+  return onSnapshot(q, (snap) => {
+    callback(
+      snap.docs
+        .map((d) => toMatch(d.id, d.data() as FirestoreMatch))
+        .filter((m) => (m.moderatorIds ?? []).length === 0)
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)),
+    );
+  }, (err) => {
+    console.error("onAmicauxSansScoreur failed:", err);
+    callback([]);
+  });
+}
+
 /** Idem, en direct : la console doit apparaître sans recharger la page. */
 export function onMatchesIModerate(
   uid: string,
