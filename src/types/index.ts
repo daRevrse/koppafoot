@@ -458,6 +458,15 @@ export interface FirestoreMatch {
   home_on_pitch?: string[];
   away_on_pitch?: string[];
   /**
+   * Quand on a prévenu le créateur que personne ne couvre ce match.
+   *
+   * Marque le passage de la relance de la veille (voir
+   * /api/cron/scoreur-manquant) : sans elle, une exécution rejouée enverrait
+   * deux fois la même alerte, et c'est le genre de détail qui fait couper les
+   * notifications.
+   */
+  scoreur_relance_le?: string | null;
+  /**
    * Ceux qui peuvent tenir la console de CE match, en plus des managers.
    *
    * La modération vivait uniquement sur `competitions.moderator_ids`, donc à

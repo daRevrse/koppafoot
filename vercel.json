@@ -1,11 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["cdg1"],
+  "regions": [
+    "cdg1"
+  ],
   "crons": [
     {
       "path": "/api/cron/auto-validate",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/scoreur-manquant",
+      "schedule": "0 6 * * *"
     }
   ]
 }
