@@ -101,6 +101,13 @@ export interface SignupData {
   userType: UserRole;
   locationCity: string;
   bio?: string;
+  /**
+   * Le role active des la creation, quand il vient d'un choix public.
+   *
+   * Sans lui, quelqu'un qui clique « Devenir manager » sur /roles arrivait sur
+   * un compte sans role et devait refaire le choix qu'il venait de faire.
+   */
+  evolutionRole?: EvolutionRole;
   // Player-specific
   position?: "goalkeeper" | "defender" | "midfielder" | "forward" | "any";
   skillLevel?: "beginner" | "amateur" | "intermediate" | "advanced";

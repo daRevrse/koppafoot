@@ -157,6 +157,8 @@ function buildFirestoreUser(
   };
 
   if (data.bio) base.bio = data.bio;
+  // Le role choisi avant l'inscription, s'il y en a eu un.
+  if (data.evolutionRole) base.evolution_role = data.evolutionRole;
 
   if (data.userType === "player") {
     if (data.position) base.position = data.position;

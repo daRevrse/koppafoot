@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -14,6 +14,8 @@ import { Eye, EyeOff, Loader2, Mail, Lock, Phone, MapPin, User, ArrowRight, Arro
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { roleDepuisURL } from "@/lib/onboarding";
+import type { EvolutionRole } from "@/types";
 
 // ============================================
 // Signup, onboarded wizard, limited to the essentials.
@@ -50,6 +52,14 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [essentials, setEssentials] = useState<EssentialsForm | null>(null);
+  /**
+   * Le role choisi sur /roles, arrive en `?role=`.
+   *
+   * Lu apres le montage : `window` n'existe pas au rendu serveur, et le lire
+   * dans l'initialiseur d'etat ferait diverger les deux rendus.
+   */
+  const [roleChoisi, setRoleChoisi] = useState<EvolutionRole | null>(null);
+  useEffect(() => setRoleChoisi(roleDepuisURL()), []);
   const { signupWithEmail, loginWithGoogle } = useAuth();
   const router = useRouter();
 
@@ -78,6 +88,9 @@ export default function SignupPage() {
         userType: "player",
         locationCity: optional.locationCity ?? "",
         phone: optional.phone,
+        // Le compte nait avec le role qu'on venait de choisir, plutot que de
+        // renvoyer vers un ecran qui repose la meme question.
+        ...(roleChoisi ? { evolutionRole: roleChoisi } : {}),
       });
       toast.success("Compte créé ! Vérifiez votre email.");
     } catch (err) {
@@ -94,7 +107,10 @@ export default function SignupPage() {
     try {
       const { isNewUser } = await loginWithGoogle();
       if (isNewUser) {
-        router.push("/get-started");
+        // Google cree le compte sans passer par notre formulaire : le role ne
+        // peut pas y etre pose. On le transporte jusqu'a l'ecran qui sait
+        // l'activer, qui l'appliquera sans reposer la question.
+        router.push(roleChoisi ? `/evolution?role=${roleChoisi}` : "/get-started");
         return;
       }
       toast.success("Connexion réussie");

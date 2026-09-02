@@ -48,7 +48,7 @@ const OPEN: Role[] = [
     line: "Tu joues, on tient le compte",
     body:
       "Ta fiche, tes équipes, tes convocations. Tes buts et tes cartons en compétition sont comptés à ta place, match après match, et le mercato te met en face des équipes qui recrutent près de chez toi.",
-    cta: { label: "Devenir joueur", href: "/evolution" },
+    cta: { label: "Devenir joueur", href: "/signup?role=player" },
   },
   {
     name: "Manager",
@@ -56,7 +56,7 @@ const OPEN: Role[] = [
     line: "Tu tiens l'effectif",
     body:
       "L'équipe, son effectif permanent, ses entraînements, son palmarès. Côté marché : une sélection de joueurs repérés, les candidatures reçues et les invitations envoyées, au même endroit.",
-    cta: { label: "Devenir manager", href: "/evolution" },
+    cta: { label: "Devenir manager", href: "/signup?role=manager" },
   },
   {
     name: "Arbitre",
@@ -64,7 +64,7 @@ const OPEN: Role[] = [
     line: "Tu tiens le sifflet",
     body:
       "Ta fiche d'arbitre avec ton niveau de licence, et ta place dans la recherche : ceux qui cherchent quelqu'un pour siffler te trouvent. L'activation est libre, personne ne vérifie la licence aujourd'hui, elle sert à te présenter, pas à te valider.",
-    cta: { label: "Devenir arbitre", href: "/evolution" },
+    cta: { label: "Devenir arbitre", href: "/signup?role=referee" },
   },
 ];
 

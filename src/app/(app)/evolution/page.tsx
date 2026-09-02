@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { roleDepuisURL } from "@/lib/onboarding";
 import { useRoleOnboarding } from "@/hooks/useRoleOnboarding";
 import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
 import type { EvolutionRole, FirestoreUser } from "@/types";
@@ -168,6 +169,27 @@ export default function EvolutionPage() {
 
   // null = show role home (if activated) or selection; otherwise onboarding.
   const [picking, setPicking] = useState<EvolutionRole | null>(null);
+
+  /**
+   * Le role choisi sur /roles, quand on arrive ici en `?role=`.
+   *
+   * Le cas vient de Google : l'inscription par Google cree le compte sans
+   * passer par notre formulaire, le role ne peut donc pas y etre pose. On
+   * ouvre directement son formulaire d'activation plutot que de reposer la
+   * question a quelqu'un qui vient d'y repondre.
+   *
+   * Une seule fois, et seulement sur un compte sans role : revenir ici plus
+   * tard avec la meme adresse en favori ne doit pas rouvrir un formulaire
+   * qu'on n'a pas demande.
+   */
+  const reprisFait = useRef(false);
+  useEffect(() => {
+    if (reprisFait.current || !user || user.evolutionRole) return;
+    const role = roleDepuisURL();
+    if (!role) return;
+    reprisFait.current = true;
+    setPicking(role);
+  }, [user]);
   const [switching, setSwitching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
