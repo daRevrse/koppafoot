@@ -637,6 +637,7 @@ export async function setCompMatchLineup(
     name: e.name,
     number: e.number,
     role: e.role,
+    user_id: e.userId ?? null,
     // `null` et non `undefined` : Firestore refuse `undefined` dans un
     // document, et un poste absent doit s'ecrire pour rester absent.
     position: e.position ?? null,
@@ -1455,7 +1456,9 @@ async function propagateBracketWinner(
  * a player of the OTHER team. `computeTopScorers` skips these so a defender
  * never climbs the scoring chart for a mistake.
  */
-export const OWN_GOAL_DETAIL = "csc";
+// Deplace dans lib/evenements, qui n'importe aucun SDK et que le calcul du
+// classement peut donc lire cote serveur. Re-exporte ici pour ses appelants.
+export { OWN_GOAL_DETAIL } from "@/lib/evenements";
 
 /** One goal of a result entered after the fact (see `setCompMatchResult`). */
 export interface ResultGoal {

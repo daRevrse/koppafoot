@@ -157,10 +157,12 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     // `home_ghost_lineup`. Une feuille validee par la console prime.
     homeLineup: (d.home_lineup ?? d.home_ghost_lineup ?? []).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
     })),
     awayLineup: (d.away_lineup ?? d.away_ghost_lineup ?? []).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
     })),
     homeLineupReady: d.home_lineup_ready ?? false,
@@ -174,12 +176,14 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       ?? (!d.away_manager_id && !d.is_home ? d.ghost_lineup ?? [] : [])
     ).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
     })),
     awayGhostLineup: (d.away_ghost_lineup
       ?? (!d.away_manager_id && d.is_home ? d.ghost_lineup ?? [] : [])
     ).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
     })),
     modificationRequest: d.modification_request ? {
@@ -2299,6 +2303,7 @@ export async function setMatchLineup(
     name: e.name,
     number: e.number,
     role: e.role,
+    user_id: e.userId ?? null,
     // `null` et non `undefined` : Firestore refuse `undefined`, et un poste
     // absent doit s'ecrire pour rester absent.
     position: e.position ?? null,

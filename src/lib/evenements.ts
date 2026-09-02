@@ -82,3 +82,12 @@ export const EMOJI_EVENEMENT: Record<TypeEvenement, string> = {
 export function demandeUneVictime(type: TypeEvenementJoueur): boolean {
   return type === "foul";
 }
+
+/**
+ * Ce que porte le `detail` d'un but contre son camp.
+ *
+ * Il vit ici, et non dans `competition-firestore`, parce que le classement en
+ * a besoin et qu'il doit tourner cote serveur : ce module n'importe aucun SDK,
+ * celui-la tire tout le client Firebase avec lui.
+ */
+export const OWN_GOAL_DETAIL = "csc";

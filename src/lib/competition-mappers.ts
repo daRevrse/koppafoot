@@ -107,12 +107,14 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     feedsIntoSlot: d.feeds_into_slot,
     homeLineup: (d.home_lineup ?? []).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
       // Normalise a la lecture : les lignes d'effectif portent le poste
       // en trois orthographes (voir lib/postes), les feuilles aussi.
       position: normaliserPoste(e.position),
     })),
     awayLineup: (d.away_lineup ?? []).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
       // Normalise a la lecture : les lignes d'effectif portent le poste
       // en trois orthographes (voir lib/postes), les feuilles aussi.
       position: normaliserPoste(e.position),

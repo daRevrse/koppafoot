@@ -71,6 +71,25 @@ interface AssistPickerState {
   scorerName: string;
 }
 
+/**
+ * Demande au serveur de refaire le classement des joueurs.
+ *
+ * Silencieuse de bout en bout : l'appelant n'attend rien et ne veut rien
+ * savoir. Le calcul se refait au match suivant de toute façon.
+ */
+async function recalculerLeClassement(fbUser: { getIdToken: () => Promise<string> } | null) {
+  if (!fbUser) return;
+  try {
+    const token = await fbUser.getIdToken();
+    await fetch("/api/rankings/rebuild", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // Voir plus haut : rien à faire, et surtout rien à dire au scoreur.
+  }
+}
+
 // ============================================
 // Component
 // ============================================
@@ -88,7 +107,7 @@ export default function LiveMatchConsole({
   returnHref: string;
 }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [competition, setCompetition] = useState<Competition | null>(null);
@@ -340,6 +359,9 @@ export default function LiveMatchConsole({
         name: p.name,
         number: p.number,
         role: (sheet[p.id] as "starter" | "substitute"),
+        // Le compte, quand la ligne a ete revendiquee : c'est lui qui permet
+        // de reconnaitre le joueur d'une equipe a l'autre (voir lib/types).
+        userId: p.user_id ?? null,
         // Le poste suit le joueur sur la feuille, sous sa forme canonique. La
         // console en a besoin pour savoir qui est le gardien, et le terrain
         // pour placer les maillots. La ligne d'effectif l'ecrit en trois
@@ -726,6 +748,11 @@ export default function LiveMatchConsole({
           competition,
         );
       }
+      // Le classement des joueurs se recalcule à la fin de chaque match : c'est
+      // le seul moment où il change. En arrière-plan et SANS BLOQUER — un
+      // classement en retard d'un match est un désagrément, un coup de sifflet
+      // final qui échoue est une perte.
+      void recalculerLeClassement(firebaseUser);
       toast.success("Match terminé !");
       router.push(returnHref);
     } catch (err) {

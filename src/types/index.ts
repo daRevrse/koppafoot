@@ -1302,6 +1302,20 @@ export interface FirestoreLineupEntry {
   number: string;
   role: "starter" | "substitute";
   /**
+   * Le COMPTE derriere cette ligne, quand il y en a un.
+   *
+   * Recopie depuis `CompPlayer.user_id` a la validation, pour la meme raison
+   * que le poste. Mais il sert a autre chose : c'est la SEULE facon de
+   * reconnaitre un joueur d'une equipe a l'autre. `player_id` designe une
+   * ligne d'effectif, propre a une equipe dans une competition — le meme
+   * homme inscrit dans deux clubs y porte deux identifiants differents, et un
+   * classement de plateforme en ferait deux joueurs.
+   *
+   * Absent quand personne n'a revendique la ligne : le classement retombe
+   * alors sur le nom, faute de mieux.
+   */
+  user_id?: string | null;
+  /**
    * Le poste, recopie depuis la ligne d'effectif au moment ou la feuille est
    * validee. Sous sa forme canonique (voir lib/postes), mais type `string` :
    * les feuilles deja ecrites n'en portent aucun, et une ligne d'effectif mal
@@ -1340,6 +1354,8 @@ export interface LineupEntry {
   name: string;
   number: string;
   role: "starter" | "substitute";
+  /** Voir `FirestoreLineupEntry.user_id`. Null si la ligne n'est revendiquee par personne. */
+  userId?: string | null;
   /** Voir `FirestoreLineupEntry.position`. Null quand personne ne l'a saisi. */
   position?: Poste | null;
 }
