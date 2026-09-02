@@ -41,7 +41,12 @@ const VIDE: ClassementsPublies = {
 async function matchsDeLaPlateforme(): Promise<MatchAClasser[]> {
   const matchs: MatchAClasser[] = [];
 
-  const comps = await getPublicCompetitions();
+  // PAS LES COMPETITIONS D'ENTRAINEMENT. La console leur affiche un bandeau
+  // qui promet « aucune statistique n'est comptée », et cette promesse doit
+  // tenir ici. `getPublicCompetitions` ne les écarte qu'incidemment, parce
+  // qu'elles sont en brouillon : le jour où l'une sort du brouillon, ses buts
+  // fictifs entreraient dans un classement public.
+  const comps = (await getPublicCompetitions()).filter((c) => !c.isSandbox);
   const parCompetition = await Promise.all(
     comps.map(async (c) => {
       const snap = await adminDb
