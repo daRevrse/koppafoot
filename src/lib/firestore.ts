@@ -43,6 +43,8 @@ import type {
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste } from "@/lib/postes";
+import type { TypeEvenement } from "@/lib/evenements";
+import type { FirestoreLineupEntry } from "@/types";
 
 // ============================================
 // Converters
@@ -150,8 +152,21 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     })),
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
+    // La feuille de match, ou son heritage. Voir `FirestoreMatch.home_lineup` :
+    // l'ecran de compo d'avant n'ecrivait que le camp hors plateforme, dans
+    // `home_ghost_lineup`. Une feuille validee par la console prime.
+    homeLineup: (d.home_lineup ?? d.home_ghost_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      position: normaliserPoste(e.position),
+    })),
+    awayLineup: (d.away_lineup ?? d.away_ghost_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      position: normaliserPoste(e.position),
+    })),
     homeLineupReady: d.home_lineup_ready ?? false,
     awayLineupReady: d.away_lineup_ready ?? false,
+    homeOnPitch: d.home_on_pitch ?? [],
+    awayOnPitch: d.away_on_pitch ?? [],
     // Repli sur `ghost_lineup` pour les matchs créés avant les champs par
     // camp : ce champ-là ne concernait que l'adversaire hors plateforme, donc
     // le camp opposé à celui du créateur (`is_home`).
@@ -2215,28 +2230,6 @@ export async function pauseMatchTimer(matchId: string, currentOffset: number): P
   });
 }
 
-export async function addMatchEvent(matchId: string, event: any): Promise<void> {
-  const matchRef = doc(db, "matches", matchId);
-  const eventId = Math.random().toString(36).substring(2, 11);
-  const newEvent = {
-    ...event,
-    id: eventId,
-    created_at: new Date().toISOString(),
-  };
-
-  const updates: any = {
-    "live_state.events": arrayUnion(newEvent),
-    updated_at: serverTimestamp(),
-  };
-
-  if (event.type === "goal") {
-    const field = event.team_id === "home" || event.isHome ? "score_home" : "score_away";
-    updates[field] = increment(1);
-  }
-
-  await updateDoc(matchRef, updates);
-}
-
 export async function updateMatchPeriod(matchId: string, period: number): Promise<void> {
   await updateDoc(doc(db, "matches", matchId), {
     "live_state.current_period": period,
@@ -2257,6 +2250,183 @@ export async function initLiveMatch(matchId: string): Promise<void> {
     score_home: 0,
     score_away: 0,
     updated_at: serverTimestamp(),
+  });
+}
+
+// ============================================
+// Amical : la feuille de match et les evenements, dans la forme de la
+// competition.
+//
+// Ces ecritures sont les jumelles de celles de `competition-firestore`
+// (setCompMatchLineup, addCompEvent, setCompGoalAssist, setCompFoulVictim).
+// Elles existent parce que les deux types de match partagent DESORMAIS UNE
+// SEULE CONSOLE (voir lib/console-pilote) : ce qui differe n'est plus l'ecran,
+// seulement l'endroit ou l'on ecrit. Un amical vit dans `matches/{id}`, une
+// rencontre de competition dans une sous-collection — c'est tout.
+//
+// `addMatchEvent`, l'ancienne, disparait avec la console qui l'appelait : elle
+// ne rendait pas l'identifiant de l'evenement, donc rien ne pouvait s'y
+// raccrocher ensuite, ni passeur ni victime. Et elle devinait le camp en
+// comparant `team_id` a la chaine « home », ce qu'aucun identifiant d'equipe
+// ne vaut.
+// ============================================
+
+/**
+ * Un amical, en direct.
+ *
+ * La console s'abonnait au document depuis son propre composant, avec un
+ * `onSnapshot` ecrit sur place. Il vit ici, a cote des autres lectures de
+ * `matches`, pour que le pilote n'ait pas a connaitre Firestore.
+ */
+export function onMatchLive(matchId: string, cb: (m: Match | null) => void): () => void {
+  return onSnapshot(doc(db, "matches", matchId), (snap) => {
+    cb(snap.exists() ? toMatch(snap.id, snap.data() as FirestoreMatch) : null);
+  }, (err) => {
+    console.error("onMatchLive failed:", err);
+    cb(null);
+  });
+}
+
+/** La feuille d'un camp sur un amical, et son drapeau. */
+export async function setMatchLineup(
+  matchId: string,
+  side: "home" | "away",
+  entries: LineupEntry[],
+  ready: boolean,
+): Promise<void> {
+  const lignes: FirestoreLineupEntry[] = entries.map((e) => ({
+    player_id: e.playerId,
+    name: e.name,
+    number: e.number,
+    role: e.role,
+    // `null` et non `undefined` : Firestore refuse `undefined`, et un poste
+    // absent doit s'ecrire pour rester absent.
+    position: e.position ?? null,
+  }));
+  await updateDoc(doc(db, "matches", matchId), {
+    [side === "home" ? "home_lineup" : "away_lineup"]: lignes,
+    [side === "home" ? "home_lineup_ready" : "away_lineup_ready"]: ready,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/** Qui est sur la pelouse, apres un coup d'envoi, une sortie ou un changement. */
+export async function setMatchOnPitch(
+  matchId: string,
+  side: "home" | "away",
+  ids: string[],
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    [side === "home" ? "home_on_pitch" : "away_on_pitch"]: ids,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Un evenement, et son identifiant en retour.
+ *
+ * C'est le retour qui compte : sans lui, la console ne peut raccrocher ni le
+ * passeur a son but, ni la victime a sa faute.
+ */
+export async function addMatchLiveEvent(
+  matchId: string,
+  event: {
+    type: TypeEvenement;
+    side: "home" | "away";
+    team_id: string;
+    period: number;
+    minute: number;
+    player_id?: string | null;
+    player_name?: string | null;
+    detail?: string | null;
+    victim_player_id?: string | null;
+    victim_player_name?: string | null;
+  },
+): Promise<string> {
+  const id = Math.random().toString(36).substring(2, 11);
+  const nouveau = {
+    id,
+    type: event.type,
+    period: event.period,
+    minute: event.minute,
+    team_id: event.team_id,
+    player_id: event.player_id ?? null,
+    player_name: event.player_name ?? null,
+    detail: event.detail ?? null,
+    victim_player_id: event.victim_player_id ?? null,
+    victim_player_name: event.victim_player_name ?? null,
+    created_at: new Date().toISOString(),
+  };
+
+  const updates: Record<string, unknown> = {
+    "live_state.events": arrayUnion(nouveau),
+    updated_at: serverTimestamp(),
+  };
+  if (event.type === "goal") {
+    updates[event.side === "home" ? "score_home" : "score_away"] = increment(1);
+  }
+
+  await updateDoc(doc(db, "matches", matchId), updates);
+  return id;
+}
+
+/** Le passeur d'un but deja pose. Voir `setCompGoalAssist` pour le pourquoi. */
+export async function setMatchGoalAssist(
+  matchId: string,
+  eventId: string,
+  assist: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  await modifierEvenementAmical(matchId, eventId, "goal", "Seul un but a un passeur", (e) => ({
+    ...e,
+    assist_player_id: assist?.playerId ?? null,
+    assist_player_name: assist?.playerName ?? null,
+  }));
+}
+
+/** La victime d'une faute deja posee. Voir `setCompFoulVictim`. */
+export async function setMatchFoulVictim(
+  matchId: string,
+  eventId: string,
+  victime: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  await modifierEvenementAmical(matchId, eventId, "foul", "Seule une faute a une victime", (e) => ({
+    ...e,
+    victim_player_id: victime?.playerId ?? null,
+    victim_player_name: victime?.playerName ?? null,
+  }));
+}
+
+/**
+ * Reecrit UNE entree de `live_state.events`.
+ *
+ * Le tableau est ajoute par `arrayUnion` partout ailleurs, donc modifier une
+ * entree demande de le relire en entier : d'ou la transaction, qui laisse la
+ * console poser d'autres evenements pendant qu'on repond a la question.
+ */
+type EntreeEvenement = NonNullable<FirestoreMatch["live_state"]>["events"][number];
+
+async function modifierEvenementAmical(
+  matchId: string,
+  eventId: string,
+  typeAttendu: TypeEvenement,
+  messageSiMauvaisType: string,
+  transformer: (e: EntreeEvenement) => EntreeEvenement,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = doc(db, "matches", matchId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error(`Match ${matchId} introuvable`);
+    const d = snap.data() as FirestoreMatch;
+
+    const events = d.live_state?.events ?? [];
+    const index = events.findIndex((e) => e.id === eventId);
+    if (index === -1) throw new Error("Événement introuvable");
+    if (events[index].type !== typeAttendu) throw new Error(messageSiMauvaisType);
+
+    tx.update(ref, {
+      "live_state.events": events.map((e, i) => (i === index ? transformer(e) : e)),
+      updated_at: serverTimestamp(),
+    });
   });
 }
 

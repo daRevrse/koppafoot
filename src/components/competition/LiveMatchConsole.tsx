@@ -10,27 +10,8 @@ import {
   MonitorPlay, Ban, Check, Hand, Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  onCompMatch,
-  onCompetition,
-  getCompTeam,
-  setCompMatchLineup,
-  initLiveCompMatch,
-  startCompTimer,
-  pauseCompTimer,
-  updateCompPeriod,
-  addCompEvent,
-  setCompGoalAssist,
-  setCompFoulVictim,
-  setCompGoalVarStatus,
-  finishCompMatch,
-  updateCompMatch,
-} from "@/lib/competition-firestore";
 import { useAuth } from "@/contexts/AuthContext";
-import { notifyCompetitionFollowers } from "@/lib/competition-notify";
-import {
-  DEFAULT_HALF_DURATION, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
-} from "@/lib/competition-format";
+import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
 import { gardienDe } from "@/lib/terrain";
 import { LIBELLE_EVENEMENT, demandeUneVictime, type TypeEvenementJoueur } from "@/lib/evenements";
@@ -94,7 +75,18 @@ interface AssistPickerState {
 // Component
 // ============================================
 
-export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string; mid: string; returnHref: string }) {
+export default function LiveMatchConsole({
+  pilote, returnHref,
+}: {
+  /**
+   * Ou et comment ecrire : competition ou amical (voir lib/console-pilote).
+   *
+   * DOIT ETRE MEMOISE par l'appelant. Il est en dependance des abonnements,
+   * et un objet neuf a chaque rendu les demonterait et remonterait en boucle.
+   */
+  pilote: PiloteConsole;
+  returnHref: string;
+}) {
   const router = useRouter();
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,28 +131,28 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   // Subscribe to match changes
   useEffect(() => {
-    if (!cid || !mid) return;
-    const unsub = onCompMatch(cid, mid, (m) => {
+    const unsub = pilote.onMatch((m) => {
       setMatch(m);
       setLoading(false);
     });
     return () => unsub();
-  }, [cid, mid]);
+  }, [pilote]);
 
   // Subscribe to the competition (for role-based exit/lock logic).
   useEffect(() => {
-    if (!cid) return;
-    const unsub = onCompetition(cid, setCompetition);
+    const unsub = pilote.onCompetition(setCompetition);
     return () => unsub();
-  }, [cid]);
+  }, [pilote]);
 
-  const isOrganizer = !!(user && competition && competition.organizerIds.includes(user.uid));
+  // Qui peut sortir sans terminer : l'organisateur en competition, le manager
+  // sur un amical. Le pilote repond, la console ne connait pas les roles.
+  const isOrganizer = pilote.autoriseAQuitter(user?.uid ?? null, competition, match);
 
   // Règles de jeu de la compétition : le NvN plafonne les titulaires, la durée
   // d'une mi-temps cale l'horloge (pause, puis coup de sifflet final à 2×).
   // La compétition arrive une frame après le match, d'où les valeurs par défaut.
-  const startersMax = competition ? teamSize(competition.format) : DEFAULT_TEAM_SIZE;
-  const halfMinutes = competition ? halfDuration(competition.format) : DEFAULT_HALF_DURATION;
+  const { titulairesMax: startersMax, dureeMiTempsMin: halfMinutes } =
+    pilote.regles(competition, match);
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
 
@@ -179,18 +171,15 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const awayTeamId = match?.awayTeamId ?? null;
 
   useEffect(() => {
-    if (!isPreKickoff || !cid) return;
+    if (!isPreKickoff || !match) return;
     let cancelled = false;
     setRostersLoading(true);
     (async () => {
       try {
-        const [home, away] = await Promise.all([
-          homeTeamId ? getCompTeam(cid, homeTeamId) : Promise.resolve(null),
-          awayTeamId ? getCompTeam(cid, awayTeamId) : Promise.resolve(null),
-        ]);
+        const { home, away } = await pilote.effectifs(match);
         if (cancelled) return;
-        setHomeRoster(home?.players ?? []);
-        setAwayRoster(away?.players ?? []);
+        setHomeRoster(home);
+        setAwayRoster(away);
       } catch {
         if (!cancelled) {
           setHomeRoster([]);
@@ -204,7 +193,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     return () => {
       cancelled = true;
     };
-  }, [isPreKickoff, cid, homeTeamId, awayTeamId]);
+    // `match` est lu mais volontairement hors dependances : il change a chaque
+    // but, et les effectifs, eux, ne bougent pas d'un evenement a l'autre.
+  }, [isPreKickoff, pilote, homeTeamId, awayTeamId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed each draft from the saved lineup whenever the match's lineup changes.
   useEffect(() => {
@@ -232,12 +223,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const handlePauseTimer = useCallback(async () => {
     try {
-      await pauseCompTimer(cid, mid, displayTime);
+      await pilote.pauserChrono(displayTime);
       toast.success("Chronomètre arrêté");
     } catch {
       toast.error("Erreur technique");
     }
-  }, [cid, mid, displayTime]);
+  }, [pilote, displayTime]);
 
   // Timer logic, copied verbatim from the referee console. The live_state
   // shapes are identical (timerStartAt / timerOffset / isTimerRunning), so the
@@ -270,7 +261,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const handleStartTimer = async () => {
     try {
-      await startCompTimer(cid, mid);
+      await pilote.demarrerChrono();
       toast.success("Chronomètre lancé");
     } catch {
       toast.error("Erreur technique");
@@ -281,15 +272,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // move to break (period 2).
   const handleHalfTime = async () => {
     try {
-      await pauseCompTimer(cid, mid, halfMs);
-      await updateCompPeriod(cid, mid, 2);
+      await pilote.pauserChrono(halfMs);
+      await pilote.changerPeriode(2);
       if (match) {
-        notifyCompetitionFollowers({
-          cid,
-          title: "⏸️ Mi-temps",
-          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-        });
+        pilote.notifier(
+          { title: "⏸️ Mi-temps", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}` },
+          competition,
+        );
       }
       toast.success("Mi-temps");
     } catch {
@@ -301,15 +290,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // half (period 3).
   const handleResume = async () => {
     try {
-      await startCompTimer(cid, mid);
-      await updateCompPeriod(cid, mid, 3);
+      await pilote.demarrerChrono();
+      await pilote.changerPeriode(3);
       if (match) {
-        notifyCompetitionFollowers({
-          cid,
-          title: "▶️ Reprise du match",
-          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps`,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-        });
+        pilote.notifier(
+          { title: "▶️ Reprise du match", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps` },
+          competition,
+        );
       }
       toast.success("Reprise du jeu");
     } catch {
@@ -372,7 +359,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
     setSavingSide(side);
     try {
-      await setCompMatchLineup(cid, mid, side, entries, true);
+      await pilote.poserFeuille(side, entries, true);
       toast.success("Feuille validée");
     } catch {
       toast.error("Erreur lors de la validation");
@@ -386,14 +373,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const homeOnPitch = match.homeLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     const awayOnPitch = match.awayLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     try {
-      await initLiveCompMatch(cid, mid);
-      await updateCompMatch(cid, mid, { home_on_pitch: homeOnPitch, away_on_pitch: awayOnPitch });
-      notifyCompetitionFollowers({
-        cid,
-        title: "🔴 C'est parti !",
-        body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !`,
-        link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-      });
+      await pilote.lancer({ home: homeOnPitch, away: awayOnPitch });
+      pilote.notifier(
+        { title: "🔴 C'est parti !", body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !` },
+        competition,
+      );
     } catch {
       toast.error("Erreur technique");
     }
@@ -416,35 +400,28 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     if (!match) return;
     const teamName = event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName;
     const who = event.playerName ? `${event.playerName} (${teamName})` : teamName;
-    const matchLink = competition ? `/c/${competition.slug}/matches/${mid}` : "/";
 
     setVarPendingId(event.id);
     try {
-      await setCompGoalVarStatus(cid, mid, event.id, status);
+      await pilote.poserVar?.(event.id, status);
       if (status === "checking") {
         toast("But en cours de vérification");
-        notifyCompetitionFollowers({
-          cid,
-          title: "📺 VAR en cours",
-          body: `Le but de ${who} est en cours de vérification`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: "📺 VAR en cours", body: `Le but de ${who} est en cours de vérification` },
+          competition,
+        );
       } else if (status === "cancelled") {
         toast.success("But refusé");
-        notifyCompetitionFollowers({
-          cid,
-          title: "❌ But refusé",
-          body: `Le but de ${who} est annulé`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: "❌ But refusé", body: `Le but de ${who} est annulé` },
+          competition,
+        );
       } else {
         toast.success("But accordé");
-        notifyCompetitionFollowers({
-          cid,
-          title: "✅ But accordé",
-          body: `Le but de ${who} est validé`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: "✅ But accordé", body: `Le but de ${who} est validé` },
+          competition,
+        );
       }
     } catch (err) {
       console.error("VAR verdict error:", err);
@@ -471,7 +448,6 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   ) => {
     if (!match?.liveState) return;
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
-    const matchLink = competition ? `/c/${competition.slug}/matches/${mid}` : "/";
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
     if (!teamId) {
       toast.error("Équipe non définie");
@@ -480,13 +456,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const period = match.liveState.currentPeriod ?? 1;
     const minute = Math.floor(displayTime / 60000) + 1;
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
-    const onPitchField = side === "home" ? "home_on_pitch" : "away_on_pitch";
     const events = match.liveState.events ?? [];
 
     setIsSubmitting(true);
     try {
       if (type === "goal") {
-        const goalId = await addCompEvent(cid, mid, {
+        const goalId = await pilote.ajouterEvenement({
           type: "goal",
           side,
           team_id: teamId,
@@ -497,12 +472,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         });
         const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
         const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
-        notifyCompetitionFollowers({
-          cid,
-          title: `⚽ BUT ! ${entry.name} (${minute}')`,
-          body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: `⚽ BUT ! ${entry.name} (${minute}')`, body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}` },
+          competition,
+        );
         toast.success("BUT !");
         setGoalCooldown(60);
         // The goal is on the board; now the optional question.
@@ -517,7 +490,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         const priorYellows = events.filter(
           (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
         ).length;
-        await addCompEvent(cid, mid, {
+        await pilote.ajouterEvenement({
           type: "yellow_card",
           side,
           team_id: teamId,
@@ -528,7 +501,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         });
         if (priorYellows >= 1) {
           // Second yellow → automatic send-off.
-          await addCompEvent(cid, mid, {
+          await pilote.ajouterEvenement({
             type: "red_card",
             side,
             team_id: teamId,
@@ -538,28 +511,22 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             player_name: entry.name,
             detail: "2e carton jaune",
           });
-          await updateCompMatch(cid, mid, {
-            [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
-          });
-          notifyCompetitionFollowers({
-            cid,
-            title: `🟥 Expulsion (${minute}')`,
-            body: `${entry.name} (${teamName}), 2e carton jaune`,
-            link: matchLink,
-          });
+          await pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId));
+          pilote.notifier(
+            { title: `🟥 Expulsion (${minute}')`, body: `${entry.name} (${teamName}), 2e carton jaune` },
+            competition,
+          );
           toast("2e jaune → exclusion", { icon: "🟥" });
         } else {
-          notifyCompetitionFollowers({
-            cid,
-            title: `🟨 Carton jaune (${minute}')`,
-            body: `${entry.name} (${teamName})`,
-            link: matchLink,
-          });
+          pilote.notifier(
+            { title: `🟨 Carton jaune (${minute}')`, body: `${entry.name} (${teamName})` },
+            competition,
+          );
           toast.success("Carton jaune enregistré");
         }
       } else if (type === "red_card") {
         // Direct red card.
-        await addCompEvent(cid, mid, {
+        await pilote.ajouterEvenement({
           type: "red_card",
           side,
           team_id: teamId,
@@ -568,15 +535,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           player_id: entry.playerId,
           player_name: entry.name,
         });
-        await updateCompMatch(cid, mid, {
-          [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
-        });
-        notifyCompetitionFollowers({
-          cid,
-          title: `🟥 Carton rouge (${minute}')`,
-          body: `${entry.name} (${teamName})`,
-          link: matchLink,
-        });
+        await pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId));
+        pilote.notifier(
+          { title: `🟥 Carton rouge (${minute}')`, body: `${entry.name} (${teamName})` },
+          competition,
+        );
         toast("Carton rouge → exclusion", { icon: "🟥" });
       } else {
         // Arrêt, faute, hors-jeu : l'historique du match, et rien d'autre.
@@ -585,7 +548,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         // supporter pour un but ou une expulsion, pas pour un hors-jeu à la
         // 12e. Ces trois-là existent pour les statistiques et pour le récit
         // d'après-match ; les pousser noierait les deux qui comptent.
-        const id = await addCompEvent(cid, mid, {
+        const id = await pilote.ajouterEvenement({
           type,
           side,
           team_id: teamId,
@@ -626,7 +589,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     if (!assistPicker) return;
     setIsSubmitting(true);
     try {
-      await setCompGoalAssist(cid, mid, assistPicker.eventId, {
+      await pilote.poserPasseur(assistPicker.eventId, {
         playerId: entry.playerId,
         playerName: entry.name,
       });
@@ -647,7 +610,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     if (!victime) return;
     setIsSubmitting(true);
     try {
-      await setCompFoulVictim(cid, mid, victime.eventId, {
+      await pilote.poserVictime(victime.eventId, {
         playerId: entry.playerId,
         playerName: entry.name,
       });
@@ -698,12 +661,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       return;
     }
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
-    const onPitchField = side === "home" ? "home_on_pitch" : "away_on_pitch";
 
     setIsSubmitting(true);
     try {
       const subMinute = Math.floor(displayTime / 60000) + 1;
-      await addCompEvent(cid, mid, {
+      await pilote.ajouterEvenement({
         type: "substitution",
         side,
         team_id: teamId,
@@ -713,15 +675,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         player_name: inEntry.name,
         detail: `${outEntry.name} → ${inEntry.name}`,
       });
-      await updateCompMatch(cid, mid, {
-        [onPitchField]: [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
-      });
-      notifyCompetitionFollowers({
-        cid,
-        title: `🔄 Changement (${subMinute}')`,
-        body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})`,
-        link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-      });
+      await pilote.poserSurLeTerrain(
+        side,
+        [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
+      );
+      pilote.notifier(
+        { title: `🔄 Changement (${subMinute}')`, body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})` },
+        competition,
+      );
       toast.success("Changement effectué");
       setSubModal(null);
       setSubOut("");
@@ -738,7 +699,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const handleFinishClick = async () => {
     if (!match) return;
     try {
-      await pauseCompTimer(cid, mid, fullMs);
+      await pilote.pauserChrono(fullMs);
     } catch {
       // Best-effort clock snap; the finish flow still freezes the clock.
     }
@@ -757,15 +718,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const finishMatch = async (opts?: { penaltyHome: number; penaltyAway: number }) => {
     setIsSubmitting(true);
     try {
-      await finishCompMatch(cid, mid, opts);
+      await pilote.terminer(opts);
       if (match) {
         const scoreLine = `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`;
-        notifyCompetitionFollowers({
-          cid,
-          title: "🏁 Score final",
-          body: opts ? `${scoreLine} (${opts.penaltyHome} – ${opts.penaltyAway} t.a.b.)` : scoreLine,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-        });
+        pilote.notifier(
+          { title: "🏁 Score final", body: opts ? `${scoreLine} (${opts.penaltyHome} – ${opts.penaltyAway} t.a.b.)` : scoreLine },
+          competition,
+        );
       }
       toast.success("Match terminé !");
       router.push(returnHref);

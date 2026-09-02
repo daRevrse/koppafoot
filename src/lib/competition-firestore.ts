@@ -1056,7 +1056,7 @@ export async function scheduleCompMatch(
 //
 // Timer + period + event writers ported from the referee flow in firestore.ts
 // (initLiveMatch / startMatchTimer / pauseMatchTimer / updateMatchPeriod /
-// addMatchEvent), retargeted to the comp_matches subcollection. The stored
+// addMatchLiveEvent), retargeted to the comp_matches subcollection. The stored
 // shapes mirror firestore.ts EXACTLY so the shared live view (which reads
 // `timerStartAt` and does `new Date(timerStartAt).getTime()`) keeps working:
 // `timer_start_at` is an ISO string (new Date().toISOString()), never a
@@ -1149,7 +1149,7 @@ export async function updateCompPeriod(cid: string, mid: string, period: number)
 
 /**
  * Append a goal/card event to `live_state.events` and, for goals, bump the
- * scoreboard. Mirrors `addMatchEvent`: same id scheme, `arrayUnion`, ISO
+ * scoreboard. Mirrors `addMatchLiveEvent`: same id scheme, `arrayUnion`, ISO
  * `created_at`. There is no roster here, so the scorer is free text
  * (`player_name`, may be null) and `player_id` is always null. Never writes
  * `undefined` into the event (all optionals are coerced to null). The score

@@ -417,8 +417,24 @@ export interface FirestoreMatch {
     reason: string;
     requested_by: string;
   } | null;
+  /**
+   * La feuille de match, telle que la console la valide avant le coup
+   * d'envoi. MEME FORME QUE `FirestoreCompMatch.home_lineup` : depuis que les
+   * deux types de match partagent une seule console, ils partagent aussi la
+   * feuille — c'est elle qui dit qui a joué, et c'est sur elle que reposent
+   * les classements.
+   *
+   * `home_ghost_lineup` reste, mais comme héritage : il ne portait que le
+   * camp hors plateforme, et l'écran de compo d'avant continue de l'écrire.
+   * La lecture retombe dessus quand `home_lineup` est absent.
+   */
+  home_lineup?: FirestoreLineupEntry[];
+  away_lineup?: FirestoreLineupEntry[];
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
+  /** Qui est sur la pelouse en ce moment. Voir `FirestoreCompMatch`. */
+  home_on_pitch?: string[];
+  away_on_pitch?: string[];
   /**
    * Ceux qui peuvent tenir la console de CE match, en plus des managers.
    *
@@ -545,8 +561,14 @@ export interface Match {
     }[];
   } | null;
   modificationRequest?: MatchModificationRequest | null;
+  /** Voir `FirestoreMatch.home_lineup`. */
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
   homeLineupReady?: boolean;
   awayLineupReady?: boolean;
+  /** Voir `FirestoreMatch.home_on_pitch`. */
+  homeOnPitch: string[];
+  awayOnPitch: string[];
   /** Voir `FirestoreMatch.moderator_ids`. */
   moderatorIds: string[];
   /** Voir `FirestoreMatch.home_ghost_lineup`. */
