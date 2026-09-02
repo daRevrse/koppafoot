@@ -4,6 +4,7 @@ import { getWorldCompetitions } from "@/lib/football-data";
 import { getPublicFriendlies } from "@/lib/friendlies-admin";
 import { FRIENDLY_COMPETITION } from "@/lib/friendlies-shared";
 import { getWorldBoard } from "@/lib/world-board";
+import { lireClassements } from "@/lib/classement-admin";
 
 // Public home: the live-score "Direct" board, inside the scores shell
 // (ScoreShell) rather than the general app shell. Every public competition
@@ -20,11 +21,14 @@ export default async function Home() {
   // Les deux lectures sont independantes, donc lancees de front. Chacune
   // degrade en liste vide de son cote (quota football-data atteint, Firestore
   // injoignable) sans emporter l'autre.
-  const [feed, world, friendlies, worldBoard] = await Promise.all([
+  const [feed, world, friendlies, worldBoard, classements] = await Promise.all([
     getDirectFeed(),
     getWorldCompetitions(),
     getPublicFriendlies(),
     getWorldBoard(),
+    // Le classement est deja calcule : on le lit, on ne le refait pas. Il ne
+    // change qu'a la fin d'un match (voir lib/classement-admin).
+    lireClassements(),
   ]);
 
   // Les amicaux entrent dans le tableau comme une competition de plus. Ils
@@ -40,5 +44,11 @@ export default async function Home() {
     ...worldBoard,
   ];
 
-  return <DirectHomeV2 initialFeed={board} worldCompetitions={world} />;
+  return (
+    <DirectHomeV2
+      initialFeed={board}
+      worldCompetitions={world}
+      topPerformances={classements.performances.slice(0, 5)}
+    />
+  );
 }

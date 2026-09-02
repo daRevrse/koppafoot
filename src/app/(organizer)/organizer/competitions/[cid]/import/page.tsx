@@ -21,6 +21,7 @@ import {
 } from "@/lib/competition-firestore";
 import type { Competition, CompTeam } from "@/types";
 import toast from "react-hot-toast";
+import { normaliserPoste, libellePoste } from "@/lib/postes";
 
 type TabKey = "teams" | "players" | "matches";
 
@@ -69,7 +70,11 @@ function parseRoster(text: string, skipHeader: boolean): ParsedRosterPlayer[] {
   return bodyRows(text, skipHeader).map((cells) => {
     const name = (cells[0] ?? "").trim();
     const number = (cells[1] ?? "").trim();
-    const position = (cells[2] ?? "").trim();
+    // La troisieme colonne est du texte libre tape par un organisateur : elle
+    // a deja fait entrer « goalkeeper » a cote de « Gardien » en base. On la
+    // ramene a la forme canonique, et on laisse tomber ce qui n'est pas un
+    // poste plutot que de le recopier tel quel.
+    const position = normaliserPoste(cells[2]);
     const row: ImportRosterRow = {
       name,
       number,
@@ -480,7 +485,7 @@ export default function CompetitionImportPage() {
                           </span>
                         </td>
                         <td className="px-3 py-1.5">{p.row.number || ","}</td>
-                        <td className="px-3 py-1.5 text-gray-500">{p.row.position ?? ","}</td>
+                        <td className="px-3 py-1.5 text-gray-500">{libellePoste(p.row.position) ?? ","}</td>
                       </tr>
                     ))}
                   </tbody>

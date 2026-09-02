@@ -120,8 +120,18 @@ function toMatch(id: string, d: FirestoreMatch): Match {
     ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
+    // Voir la meme lecture dans lib/firestore : la feuille validee prime sur
+    // l'heritage du camp hors plateforme.
+    homeLineup: (d.home_lineup ?? d.home_ghost_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+    })),
+    awayLineup: (d.away_lineup ?? d.away_ghost_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+    })),
     homeLineupReady: d.home_lineup_ready ?? false,
     awayLineupReady: d.away_lineup_ready ?? false,
+    homeOnPitch: d.home_on_pitch ?? [],
+    awayOnPitch: d.away_on_pitch ?? [],
     modificationRequest: d.modification_request
       ? {
           date: d.modification_request.date,

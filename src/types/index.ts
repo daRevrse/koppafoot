@@ -1,4 +1,6 @@
 import type { PushPrefs } from "@/lib/push-categories";
+import type { Poste } from "@/lib/postes";
+import type { TypeEvenement } from "@/lib/evenements";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -379,7 +381,7 @@ export interface FirestoreMatch {
     is_timer_running: boolean;
     events: {
       id: string;
-      type: "goal" | "yellow_card" | "red_card" | "substitution" | "period_start" | "period_end";
+      type: TypeEvenement;
       period: number;
       minute: number;
       team_id: string;
@@ -392,6 +394,9 @@ export interface FirestoreMatch {
        */
       assist_player_id?: string | null;
       assist_player_name?: string | null;
+      /** Fautes uniquement : celui qui l'a subie, dans le camp d'en face. */
+      victim_player_id?: string | null;
+      victim_player_name?: string | null;
       contested_by_manager_id?: string | null;
       contestation_reason?: string | null;
       /**
@@ -412,8 +417,24 @@ export interface FirestoreMatch {
     reason: string;
     requested_by: string;
   } | null;
+  /**
+   * La feuille de match, telle que la console la valide avant le coup
+   * d'envoi. MEME FORME QUE `FirestoreCompMatch.home_lineup` : depuis que les
+   * deux types de match partagent une seule console, ils partagent aussi la
+   * feuille — c'est elle qui dit qui a joué, et c'est sur elle que reposent
+   * les classements.
+   *
+   * `home_ghost_lineup` reste, mais comme héritage : il ne portait que le
+   * camp hors plateforme, et l'écran de compo d'avant continue de l'écrire.
+   * La lecture retombe dessus quand `home_lineup` est absent.
+   */
+  home_lineup?: FirestoreLineupEntry[];
+  away_lineup?: FirestoreLineupEntry[];
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
+  /** Qui est sur la pelouse en ce moment. Voir `FirestoreCompMatch`. */
+  home_on_pitch?: string[];
+  away_on_pitch?: string[];
   /**
    * Ceux qui peuvent tenir la console de CE match, en plus des managers.
    *
@@ -519,7 +540,7 @@ export interface Match {
     isTimerRunning: boolean;
     events: {
       id: string;
-      type: "goal" | "yellow_card" | "red_card" | "substitution" | "period_start" | "period_end";
+      type: TypeEvenement;
       period: number;
       minute: number;
       teamId: string;
@@ -529,6 +550,9 @@ export interface Match {
       /** See `FirestoreMatch.live_state.events[].assist_player_id`. */
       assistPlayerId?: string | null;
       assistPlayerName?: string | null;
+      /** Voir `FirestoreMatch.live_state.events[].victim_player_id`. */
+      victimPlayerId?: string | null;
+      victimPlayerName?: string | null;
       contestedByManagerId?: string | null;
       contestationReason?: string | null;
       /** See `FirestoreMatch.live_state.events[].var_status`. */
@@ -537,8 +561,14 @@ export interface Match {
     }[];
   } | null;
   modificationRequest?: MatchModificationRequest | null;
+  /** Voir `FirestoreMatch.home_lineup`. */
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
   homeLineupReady?: boolean;
   awayLineupReady?: boolean;
+  /** Voir `FirestoreMatch.home_on_pitch`. */
+  homeOnPitch: string[];
+  awayOnPitch: string[];
   /** Voir `FirestoreMatch.moderator_ids`. */
   moderatorIds: string[];
   /** Voir `FirestoreMatch.home_ghost_lineup`. */
@@ -1271,6 +1301,34 @@ export interface FirestoreLineupEntry {
   name: string;
   number: string;
   role: "starter" | "substitute";
+  /**
+   * Le COMPTE derriere cette ligne, quand il y en a un.
+   *
+   * Recopie depuis `CompPlayer.user_id` a la validation, pour la meme raison
+   * que le poste. Mais il sert a autre chose : c'est la SEULE facon de
+   * reconnaitre un joueur d'une equipe a l'autre. `player_id` designe une
+   * ligne d'effectif, propre a une equipe dans une competition — le meme
+   * homme inscrit dans deux clubs y porte deux identifiants differents, et un
+   * classement de plateforme en ferait deux joueurs.
+   *
+   * Absent quand personne n'a revendique la ligne : le classement retombe
+   * alors sur le nom, faute de mieux.
+   */
+  user_id?: string | null;
+  /**
+   * Le poste, recopie depuis la ligne d'effectif au moment ou la feuille est
+   * validee. Sous sa forme canonique (voir lib/postes), mais type `string` :
+   * les feuilles deja ecrites n'en portent aucun, et une ligne d'effectif mal
+   * saisie peut encore en poser un illisible. On relit toujours au
+   * normaliseur.
+   *
+   * POURQUOI LE RECOPIER plutot que d'aller le chercher sur l'effectif : une
+   * feuille de match est un constat, elle doit rester vraie apres coup. Un
+   * organisateur qui corrige un poste en cours de saison ne doit pas changer
+   * qui etait gardien il y a trois journees. Meme raison que
+   * `home_team_name`, deja denormalise sur le match.
+   */
+  position?: string | null;
 }
 
 /** Une ligne de la saisie « qui a marqué » d'un match renseigné. */
@@ -1296,6 +1354,10 @@ export interface LineupEntry {
   name: string;
   number: string;
   role: "starter" | "substitute";
+  /** Voir `FirestoreLineupEntry.user_id`. Null si la ligne n'est revendiquee par personne. */
+  userId?: string | null;
+  /** Voir `FirestoreLineupEntry.position`. Null quand personne ne l'a saisi. */
+  position?: Poste | null;
 }
 
 export interface FirestoreCompTeam {

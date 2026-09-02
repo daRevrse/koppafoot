@@ -16,10 +16,13 @@ import {
   removeCompPlayer,
 } from "@/lib/competition-firestore";
 import RosterClaimsPanel from "@/components/competition/RosterClaimsPanel";
+import { POSTES, LIBELLE_POSTE, libellePoste, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompTeam, CompPlayer } from "@/types";
 import toast from "react-hot-toast";
 
-const POSITIONS = ["Gardien", "Défenseur", "Milieu", "Attaquant"] as const;
+// Le <select> ECRIT la forme canonique et AFFICHE le francais. Il ecrivait le
+// francais dans les deux roles, ce qui donnait trois vocabulaires en base pour
+// la meme information (voir lib/postes).
 
 interface PlayerFormState {
   name: string;
@@ -110,7 +113,7 @@ export default function CompetitionRosterPage() {
     setForm({
       name: player.name,
       number: player.number,
-      position: player.position ?? "",
+      position: normaliserPoste(player.position) ?? "",
     });
     setModalOpen(true);
   };
@@ -297,9 +300,9 @@ export default function CompetitionRosterPage() {
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>
-                {player.position && (
+                {libellePoste(player.position) && (
                   <span className="mt-0.5 inline-block text-xs font-medium text-gray-500">
-                    {player.position}
+                    {libellePoste(player.position)}
                   </span>
                 )}
               </div>
@@ -397,9 +400,9 @@ export default function CompetitionRosterPage() {
                     onChange={(e) => update("position", e.target.value)}
                   >
                     <option value="">,</option>
-                    {POSITIONS.map((pos) => (
+                    {POSTES.map((pos) => (
                       <option key={pos} value={pos}>
-                        {pos}
+                        {LIBELLE_POSTE[pos]}
                       </option>
                     ))}
                   </select>

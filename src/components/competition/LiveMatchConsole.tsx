@@ -7,29 +7,15 @@ import {
   Play, Pause, ChevronLeft, ChevronRight, History, Clock,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
-  MonitorPlay, Ban, Check,
+  MonitorPlay, Ban, Check, Hand, Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  onCompMatch,
-  onCompetition,
-  getCompTeam,
-  setCompMatchLineup,
-  initLiveCompMatch,
-  startCompTimer,
-  pauseCompTimer,
-  updateCompPeriod,
-  addCompEvent,
-  setCompGoalAssist,
-  setCompGoalVarStatus,
-  finishCompMatch,
-  updateCompMatch,
-} from "@/lib/competition-firestore";
 import { useAuth } from "@/contexts/AuthContext";
-import { notifyCompetitionFollowers } from "@/lib/competition-notify";
-import {
-  DEFAULT_HALF_DURATION, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
-} from "@/lib/competition-format";
+import type { PiloteConsole } from "@/lib/console-pilote";
+import { normaliserPoste } from "@/lib/postes";
+import { gardienDe } from "@/lib/terrain";
+import { LIBELLE_EVENEMENT, demandeUneVictime, type TypeEvenementJoueur } from "@/lib/evenements";
+import TerrainConsole, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 
 /** One entry of the live feed. */
@@ -59,14 +45,21 @@ const PERIODS = [
 ];
 
 type Side = "home" | "away";
-type EventType = "goal" | "yellow_card" | "red_card";
 type SheetRole = "out" | "starter" | "substitute";
 
-// Player-picker modal (goal / card): pick a scorer from a side's match sheet.
-interface PickerState {
-  type: EventType;
+/** Le joueur qu'on vient de toucher, et le camp d'ou il vient. */
+interface ActionsState {
+  side: Side;
+  entry: LineupEntry;
+}
+
+/** La faute est posee, reste a nommer celui qui l'a subie, en face. */
+interface VictimeState {
+  eventId: string;
+  /** Le camp de la VICTIME, donc l'oppose de celui de l'auteur. */
   side: Side;
   teamName: string;
+  auteur: string;
 }
 
 // Follow-up modal: the passer on a goal that is already recorded.
@@ -78,13 +71,43 @@ interface AssistPickerState {
   scorerName: string;
 }
 
+/**
+ * Demande au serveur de refaire le classement des joueurs.
+ *
+ * Silencieuse de bout en bout : l'appelant n'attend rien et ne veut rien
+ * savoir. Le calcul se refait au match suivant de toute façon.
+ */
+async function recalculerLeClassement(fbUser: { getIdToken: () => Promise<string> } | null) {
+  if (!fbUser) return;
+  try {
+    const token = await fbUser.getIdToken();
+    await fetch("/api/rankings/rebuild", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // Voir plus haut : rien à faire, et surtout rien à dire au scoreur.
+  }
+}
+
 // ============================================
 // Component
 // ============================================
 
-export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string; mid: string; returnHref: string }) {
+export default function LiveMatchConsole({
+  pilote, returnHref,
+}: {
+  /**
+   * Ou et comment ecrire : competition ou amical (voir lib/console-pilote).
+   *
+   * DOIT ETRE MEMOISE par l'appelant. Il est en dependance des abonnements,
+   * et un objet neuf a chaque rendu les demonterait et remonterait en boucle.
+   */
+  pilote: PiloteConsole;
+  returnHref: string;
+}) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [competition, setCompetition] = useState<Competition | null>(null);
@@ -107,8 +130,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // is ignored.
   const [sheetSide, setSheetSide] = useState<Side>("home");
 
-  // Player-picker modal (goal / card)
-  const [picker, setPicker] = useState<PickerState | null>(null);
+  // Le camp regarde sur le terrain, et le joueur touche.
+  const [coteTerrain, setCoteTerrain] = useState<Side>("home");
+  const [actions, setActions] = useState<ActionsState | null>(null);
+  const [victime, setVictime] = useState<VictimeState | null>(null);
   // Second question, asked only after a goal: who laid it on. Optional by
   // design, the scoreboard is already right, this only enriches it.
   const [assistPicker, setAssistPicker] = useState<AssistPickerState | null>(null);
@@ -125,28 +150,28 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   // Subscribe to match changes
   useEffect(() => {
-    if (!cid || !mid) return;
-    const unsub = onCompMatch(cid, mid, (m) => {
+    const unsub = pilote.onMatch((m) => {
       setMatch(m);
       setLoading(false);
     });
     return () => unsub();
-  }, [cid, mid]);
+  }, [pilote]);
 
   // Subscribe to the competition (for role-based exit/lock logic).
   useEffect(() => {
-    if (!cid) return;
-    const unsub = onCompetition(cid, setCompetition);
+    const unsub = pilote.onCompetition(setCompetition);
     return () => unsub();
-  }, [cid]);
+  }, [pilote]);
 
-  const isOrganizer = !!(user && competition && competition.organizerIds.includes(user.uid));
+  // Qui peut sortir sans terminer : l'organisateur en competition, le manager
+  // sur un amical. Le pilote repond, la console ne connait pas les roles.
+  const isOrganizer = pilote.autoriseAQuitter(user?.uid ?? null, competition, match);
 
   // Règles de jeu de la compétition : le NvN plafonne les titulaires, la durée
   // d'une mi-temps cale l'horloge (pause, puis coup de sifflet final à 2×).
   // La compétition arrive une frame après le match, d'où les valeurs par défaut.
-  const startersMax = competition ? teamSize(competition.format) : DEFAULT_TEAM_SIZE;
-  const halfMinutes = competition ? halfDuration(competition.format) : DEFAULT_HALF_DURATION;
+  const { titulairesMax: startersMax, dureeMiTempsMin: halfMinutes } =
+    pilote.regles(competition, match);
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
 
@@ -165,18 +190,15 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const awayTeamId = match?.awayTeamId ?? null;
 
   useEffect(() => {
-    if (!isPreKickoff || !cid) return;
+    if (!isPreKickoff || !match) return;
     let cancelled = false;
     setRostersLoading(true);
     (async () => {
       try {
-        const [home, away] = await Promise.all([
-          homeTeamId ? getCompTeam(cid, homeTeamId) : Promise.resolve(null),
-          awayTeamId ? getCompTeam(cid, awayTeamId) : Promise.resolve(null),
-        ]);
+        const { home, away } = await pilote.effectifs(match);
         if (cancelled) return;
-        setHomeRoster(home?.players ?? []);
-        setAwayRoster(away?.players ?? []);
+        setHomeRoster(home);
+        setAwayRoster(away);
       } catch {
         if (!cancelled) {
           setHomeRoster([]);
@@ -190,7 +212,9 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     return () => {
       cancelled = true;
     };
-  }, [isPreKickoff, cid, homeTeamId, awayTeamId]);
+    // `match` est lu mais volontairement hors dependances : il change a chaque
+    // but, et les effectifs, eux, ne bougent pas d'un evenement a l'autre.
+  }, [isPreKickoff, pilote, homeTeamId, awayTeamId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed each draft from the saved lineup whenever the match's lineup changes.
   useEffect(() => {
@@ -218,12 +242,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const handlePauseTimer = useCallback(async () => {
     try {
-      await pauseCompTimer(cid, mid, displayTime);
+      await pilote.pauserChrono(displayTime);
       toast.success("Chronomètre arrêté");
     } catch {
       toast.error("Erreur technique");
     }
-  }, [cid, mid, displayTime]);
+  }, [pilote, displayTime]);
 
   // Timer logic, copied verbatim from the referee console. The live_state
   // shapes are identical (timerStartAt / timerOffset / isTimerRunning), so the
@@ -256,7 +280,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
   const handleStartTimer = async () => {
     try {
-      await startCompTimer(cid, mid);
+      await pilote.demarrerChrono();
       toast.success("Chronomètre lancé");
     } catch {
       toast.error("Erreur technique");
@@ -267,15 +291,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // move to break (period 2).
   const handleHalfTime = async () => {
     try {
-      await pauseCompTimer(cid, mid, halfMs);
-      await updateCompPeriod(cid, mid, 2);
+      await pilote.pauserChrono(halfMs);
+      await pilote.changerPeriode(2);
       if (match) {
-        notifyCompetitionFollowers({
-          cid,
-          title: "⏸️ Mi-temps",
-          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-        });
+        pilote.notifier(
+          { title: "⏸️ Mi-temps", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}` },
+          competition,
+        );
       }
       toast.success("Mi-temps");
     } catch {
@@ -287,15 +309,13 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   // half (period 3).
   const handleResume = async () => {
     try {
-      await startCompTimer(cid, mid);
-      await updateCompPeriod(cid, mid, 3);
+      await pilote.demarrerChrono();
+      await pilote.changerPeriode(3);
       if (match) {
-        notifyCompetitionFollowers({
-          cid,
-          title: "▶️ Reprise du match",
-          body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps`,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-        });
+        pilote.notifier(
+          { title: "▶️ Reprise du match", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps` },
+          competition,
+        );
       }
       toast.success("Reprise du jeu");
     } catch {
@@ -339,6 +359,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         name: p.name,
         number: p.number,
         role: (sheet[p.id] as "starter" | "substitute"),
+        // Le compte, quand la ligne a ete revendiquee : c'est lui qui permet
+        // de reconnaitre le joueur d'une equipe a l'autre (voir lib/types).
+        userId: p.user_id ?? null,
+        // Le poste suit le joueur sur la feuille, sous sa forme canonique. La
+        // console en a besoin pour savoir qui est le gardien, et le terrain
+        // pour placer les maillots. La ligne d'effectif l'ecrit en trois
+        // orthographes, d'ou le normaliseur.
+        position: normaliserPoste(p.position),
       }));
 
     const starters = entries.filter((e) => e.role === "starter").length;
@@ -353,7 +381,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
 
     setSavingSide(side);
     try {
-      await setCompMatchLineup(cid, mid, side, entries, true);
+      await pilote.poserFeuille(side, entries, true);
       toast.success("Feuille validée");
     } catch {
       toast.error("Erreur lors de la validation");
@@ -367,14 +395,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const homeOnPitch = match.homeLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     const awayOnPitch = match.awayLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     try {
-      await initLiveCompMatch(cid, mid);
-      await updateCompMatch(cid, mid, { home_on_pitch: homeOnPitch, away_on_pitch: awayOnPitch });
-      notifyCompetitionFollowers({
-        cid,
-        title: "🔴 C'est parti !",
-        body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !`,
-        link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-      });
+      await pilote.lancer({ home: homeOnPitch, away: awayOnPitch });
+      pilote.notifier(
+        { title: "🔴 C'est parti !", body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !` },
+        competition,
+      );
     } catch {
       toast.error("Erreur technique");
     }
@@ -397,35 +422,28 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     if (!match) return;
     const teamName = event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName;
     const who = event.playerName ? `${event.playerName} (${teamName})` : teamName;
-    const matchLink = competition ? `/c/${competition.slug}/matches/${mid}` : "/";
 
     setVarPendingId(event.id);
     try {
-      await setCompGoalVarStatus(cid, mid, event.id, status);
+      await pilote.poserVar?.(event.id, status);
       if (status === "checking") {
         toast("But en cours de vérification");
-        notifyCompetitionFollowers({
-          cid,
-          title: "📺 VAR en cours",
-          body: `Le but de ${who} est en cours de vérification`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: "📺 VAR en cours", body: `Le but de ${who} est en cours de vérification` },
+          competition,
+        );
       } else if (status === "cancelled") {
         toast.success("But refusé");
-        notifyCompetitionFollowers({
-          cid,
-          title: "❌ But refusé",
-          body: `Le but de ${who} est annulé`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: "❌ But refusé", body: `Le but de ${who} est annulé` },
+          competition,
+        );
       } else {
         toast.success("But accordé");
-        notifyCompetitionFollowers({
-          cid,
-          title: "✅ But accordé",
-          body: `Le but de ${who} est validé`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: "✅ But accordé", body: `Le but de ${who} est validé` },
+          competition,
+        );
       }
     } catch (err) {
       console.error("VAR verdict error:", err);
@@ -435,18 +453,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
-  // ----- Live scoring (player picker) -----
+  // ----- La saisie, joueur par joueur -----
 
-  const openPicker = (type: EventType, side: Side) => {
-    if (!match) return;
+  /**
+   * Enregistre ce qu'un joueur vient de faire.
+   *
+   * Un seul point d'entrée pour les six événements joueur : ils partagent
+   * tout ce qui compte — la période, la minute, le camp, et le fait qu'une
+   * erreur d'écriture doive laisser le match en état. Ce qui les distingue
+   * tient dans les branches : le score, la notification, l'expulsion.
+   */
+  const enregistrerAction = async (
+    side: Side,
+    entry: LineupEntry,
+    type: TypeEvenementJoueur,
+  ) => {
+    if (!match?.liveState) return;
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
-    setPicker({ type, side, teamName });
-  };
-
-  const recordEvent = async (entry: LineupEntry) => {
-    if (!match?.liveState || !picker) return;
-    const { type, side, teamName } = picker;
-    const matchLink = competition ? `/c/${competition.slug}/matches/${mid}` : "/";
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
     if (!teamId) {
       toast.error("Équipe non définie");
@@ -455,13 +478,12 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     const period = match.liveState.currentPeriod ?? 1;
     const minute = Math.floor(displayTime / 60000) + 1;
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
-    const onPitchField = side === "home" ? "home_on_pitch" : "away_on_pitch";
     const events = match.liveState.events ?? [];
 
     setIsSubmitting(true);
     try {
       if (type === "goal") {
-        const goalId = await addCompEvent(cid, mid, {
+        const goalId = await pilote.ajouterEvenement({
           type: "goal",
           side,
           team_id: teamId,
@@ -472,12 +494,10 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         });
         const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
         const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
-        notifyCompetitionFollowers({
-          cid,
-          title: `⚽ BUT ! ${entry.name} (${minute}')`,
-          body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
-          link: matchLink,
-        });
+        pilote.notifier(
+          { title: `⚽ BUT ! ${entry.name} (${minute}')`, body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}` },
+          competition,
+        );
         toast.success("BUT !");
         setGoalCooldown(60);
         // The goal is on the board; now the optional question.
@@ -492,7 +512,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         const priorYellows = events.filter(
           (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
         ).length;
-        await addCompEvent(cid, mid, {
+        await pilote.ajouterEvenement({
           type: "yellow_card",
           side,
           team_id: teamId,
@@ -503,7 +523,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         });
         if (priorYellows >= 1) {
           // Second yellow → automatic send-off.
-          await addCompEvent(cid, mid, {
+          await pilote.ajouterEvenement({
             type: "red_card",
             side,
             team_id: teamId,
@@ -513,28 +533,22 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
             player_name: entry.name,
             detail: "2e carton jaune",
           });
-          await updateCompMatch(cid, mid, {
-            [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
-          });
-          notifyCompetitionFollowers({
-            cid,
-            title: `🟥 Expulsion (${minute}')`,
-            body: `${entry.name} (${teamName}), 2e carton jaune`,
-            link: matchLink,
-          });
+          await pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId));
+          pilote.notifier(
+            { title: `🟥 Expulsion (${minute}')`, body: `${entry.name} (${teamName}), 2e carton jaune` },
+            competition,
+          );
           toast("2e jaune → exclusion", { icon: "🟥" });
         } else {
-          notifyCompetitionFollowers({
-            cid,
-            title: `🟨 Carton jaune (${minute}')`,
-            body: `${entry.name} (${teamName})`,
-            link: matchLink,
-          });
+          pilote.notifier(
+            { title: `🟨 Carton jaune (${minute}')`, body: `${entry.name} (${teamName})` },
+            competition,
+          );
           toast.success("Carton jaune enregistré");
         }
-      } else {
+      } else if (type === "red_card") {
         // Direct red card.
-        await addCompEvent(cid, mid, {
+        await pilote.ajouterEvenement({
           type: "red_card",
           side,
           team_id: teamId,
@@ -543,18 +557,44 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
           player_id: entry.playerId,
           player_name: entry.name,
         });
-        await updateCompMatch(cid, mid, {
-          [onPitchField]: onPitch.filter((id) => id !== entry.playerId),
-        });
-        notifyCompetitionFollowers({
-          cid,
-          title: `🟥 Carton rouge (${minute}')`,
-          body: `${entry.name} (${teamName})`,
-          link: matchLink,
-        });
+        await pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId));
+        pilote.notifier(
+          { title: `🟥 Carton rouge (${minute}')`, body: `${entry.name} (${teamName})` },
+          competition,
+        );
         toast("Carton rouge → exclusion", { icon: "🟥" });
+      } else {
+        // Arrêt, faute, hors-jeu : l'historique du match, et rien d'autre.
+        //
+        // AUCUNE NOTIFICATION, volontairement. On réveille le téléphone d'un
+        // supporter pour un but ou une expulsion, pas pour un hors-jeu à la
+        // 12e. Ces trois-là existent pour les statistiques et pour le récit
+        // d'après-match ; les pousser noierait les deux qui comptent.
+        const id = await pilote.ajouterEvenement({
+          type,
+          side,
+          team_id: teamId,
+          period,
+          minute,
+          player_id: entry.playerId,
+          player_name: entry.name,
+        });
+        toast.success(LIBELLE_EVENEMENT[type]);
+
+        // La faute a deux acteurs. On la pose d'abord — elle est certaine —
+        // puis on bascule sur le camp d'en face pour nommer la victime.
+        if (demandeUneVictime(type)) {
+          const autre: Side = side === "home" ? "away" : "home";
+          setCoteTerrain(autre);
+          setVictime({
+            eventId: id,
+            side: autre,
+            teamName: autre === "home" ? match.homeTeamName : match.awayTeamName,
+            auteur: entry.name,
+          });
+        }
       }
-      setPicker(null);
+      setActions(null);
     } catch {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
@@ -571,7 +611,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     if (!assistPicker) return;
     setIsSubmitting(true);
     try {
-      await setCompGoalAssist(cid, mid, assistPicker.eventId, {
+      await pilote.poserPasseur(assistPicker.eventId, {
         playerId: entry.playerId,
         playerName: entry.name,
       });
@@ -584,13 +624,42 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     }
   };
 
+  /**
+   * Nommer celui qui a subi la faute. Jamais bloquant : la faute est déjà
+   * dans l'historique, la victime ne fait que l'enrichir.
+   */
+  const enregistrerVictime = async (entry: LineupEntry) => {
+    if (!victime) return;
+    setIsSubmitting(true);
+    try {
+      await pilote.poserVictime(victime.eventId, {
+        playerId: entry.playerId,
+        playerName: entry.name,
+      });
+      toast.success(`Faute sur ${entry.name}`);
+      setVictime(null);
+    } catch {
+      toast.error("Victime non enregistrée");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // ----- Substitutions -----
 
-  const openSubModal = (side: Side) => {
+  /**
+   * `prerempli` vient du terrain : on touche le joueur qui sort (ou celui qui
+   * entre, depuis le banc), et la modale s'ouvre avec la moitié de la réponse
+   * déjà donnée. Ouverte sans lui, elle pose les deux questions.
+   */
+  const openSubModal = (
+    side: Side,
+    prerempli?: { sort?: string; entre?: string },
+  ) => {
     if (!match) return;
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
-    setSubOut("");
-    setSubIn("");
+    setSubOut(prerempli?.sort ?? "");
+    setSubIn(prerempli?.entre ?? "");
     setSubModal({ side, teamName });
   };
 
@@ -614,12 +683,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       return;
     }
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
-    const onPitchField = side === "home" ? "home_on_pitch" : "away_on_pitch";
 
     setIsSubmitting(true);
     try {
       const subMinute = Math.floor(displayTime / 60000) + 1;
-      await addCompEvent(cid, mid, {
+      await pilote.ajouterEvenement({
         type: "substitution",
         side,
         team_id: teamId,
@@ -629,15 +697,14 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         player_name: inEntry.name,
         detail: `${outEntry.name} → ${inEntry.name}`,
       });
-      await updateCompMatch(cid, mid, {
-        [onPitchField]: [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
-      });
-      notifyCompetitionFollowers({
-        cid,
-        title: `🔄 Changement (${subMinute}')`,
-        body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})`,
-        link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-      });
+      await pilote.poserSurLeTerrain(
+        side,
+        [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
+      );
+      pilote.notifier(
+        { title: `🔄 Changement (${subMinute}')`, body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})` },
+        competition,
+      );
       toast.success("Changement effectué");
       setSubModal(null);
       setSubOut("");
@@ -654,7 +721,7 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const handleFinishClick = async () => {
     if (!match) return;
     try {
-      await pauseCompTimer(cid, mid, fullMs);
+      await pilote.pauserChrono(fullMs);
     } catch {
       // Best-effort clock snap; the finish flow still freezes the clock.
     }
@@ -673,16 +740,19 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
   const finishMatch = async (opts?: { penaltyHome: number; penaltyAway: number }) => {
     setIsSubmitting(true);
     try {
-      await finishCompMatch(cid, mid, opts);
+      await pilote.terminer(opts);
       if (match) {
         const scoreLine = `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`;
-        notifyCompetitionFollowers({
-          cid,
-          title: "🏁 Score final",
-          body: opts ? `${scoreLine} (${opts.penaltyHome} – ${opts.penaltyAway} t.a.b.)` : scoreLine,
-          link: competition ? `/c/${competition.slug}/matches/${mid}` : "/",
-        });
+        pilote.notifier(
+          { title: "🏁 Score final", body: opts ? `${scoreLine} (${opts.penaltyHome} – ${opts.penaltyAway} t.a.b.)` : scoreLine },
+          competition,
+        );
       }
+      // Le classement des joueurs se recalcule à la fin de chaque match : c'est
+      // le seul moment où il change. En arrière-plan et SANS BLOQUER — un
+      // classement en retard d'un match est un désagrément, un coup de sifflet
+      // final qui échoue est une perte.
+      void recalculerLeClassement(firebaseUser);
       toast.success("Match terminé !");
       router.push(returnHref);
     } catch (err) {
@@ -875,6 +945,88 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
     return lineup.filter(
       (e) => e.role === "substitute" && !onPitch.has(e.playerId) && !sentOff.has(e.playerId),
     );
+  };
+
+  /**
+   * Les actions proposées pour ce joueur.
+   *
+   * Elles dépendent de lui, et c'est tout l'intérêt d'être parti du joueur :
+   * l'arrêt n'a de sens que pour un gardien, le hors-jeu n'en a aucun pour
+   * lui, et un remplaçant ne peut ni marquer ni sortir — il entre.
+   *
+   * L'ARRÊT S'OUVRE À TOUT LE MONDE QUAND AUCUN GARDIEN N'EST DÉCLARÉ. Deux
+   * tiers des lignes d'effectif n'ont pas de poste : réserver l'arrêt au
+   * gardien déclaré le rendrait impossible à saisir sur la plupart des
+   * feuilles. Le scoreur touche alors le bon joueur lui-même.
+   */
+  const actionsPour = (side: Side, entry: LineupEntry): ActionJoueur[] => {
+    const surLeTerrain = new Set(
+      side === "home" ? match.homeOnPitch : match.awayOnPitch,
+    ).has(entry.playerId);
+    const gardien = gardienDe(side === "home" ? homeLineup : awayLineup);
+    const estLeGardien = gardien?.playerId === entry.playerId;
+
+    const evenement = (
+      cle: TypeEvenementJoueur,
+      emoji: string,
+      ton?: ActionJoueur["ton"],
+    ): ActionJoueur => ({
+      cle,
+      libelle: LIBELLE_EVENEMENT[cle],
+      emoji,
+      ton,
+      onClick: () => void enregistrerAction(side, entry, cle),
+    });
+
+    const jaune = evenement("yellow_card", "🟨", "jaune");
+    const rouge = evenement("red_card", "🟥", "rouge");
+
+    // Sur le banc : il ne joue pas, donc il n'a rien pu faire sur le terrain.
+    // Il peut en revanche entrer, et prendre un carton en attendant.
+    if (!surLeTerrain) {
+      return [
+        {
+          cle: "entrer",
+          libelle: "Faire entrer",
+          emoji: "🔄",
+          ton: "vert",
+          onClick: () => {
+            setActions(null);
+            openSubModal(side, { entre: entry.playerId });
+          },
+        },
+        jaune,
+        rouge,
+      ];
+    }
+
+    return [
+      {
+        ...evenement("goal", "⚽", "vert"),
+        // Le délai anti-double-appui du but, hérité des cartes d'équipe : un
+        // but tapé deux fois est un score faux, et le corriger demande une
+        // intervention d'organisateur.
+        libelle: goalCooldown > 0 ? `But (${goalCooldown}s)` : "But",
+        onClick: () => {
+          if (goalCooldown > 0) return;
+          void enregistrerAction(side, entry, "goal");
+        },
+      },
+      ...(estLeGardien || gardien === null ? [evenement("save", "🧤")] : []),
+      ...(estLeGardien ? [] : [evenement("offside", "🚩")]),
+      evenement("foul", "⚠️"),
+      jaune,
+      rouge,
+      {
+        cle: "remplacer",
+        libelle: "Remplacer",
+        emoji: "🔄",
+        onClick: () => {
+          setActions(null);
+          openSubModal(side, { sort: entry.playerId });
+        },
+      },
+    ];
   };
 
   // Exit affordance: live → organizer only ("Quitter"); moderator locked out.
@@ -1115,27 +1267,23 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         </div>
       ) : (
         <>
-          {/* Scoring controls */}
-          <div className="grid gap-3 px-1 sm:gap-5 md:grid-cols-2">
-            <TeamScoringCard
-              teamName={match.homeTeamName}
-              accent="primary"
-              disabled={homeDisabled}
-              goalCooldown={goalCooldown}
-              onGoal={() => openPicker("goal", "home")}
-              onYellow={() => openPicker("yellow_card", "home")}
-              onRed={() => openPicker("red_card", "home")}
-              onSub={() => openSubModal("home")}
-            />
-            <TeamScoringCard
-              teamName={match.awayTeamName}
-              accent="amber"
-              disabled={awayDisabled}
-              goalCooldown={goalCooldown}
-              onGoal={() => openPicker("goal", "away")}
-              onYellow={() => openPicker("yellow_card", "away")}
-              onRed={() => openPicker("red_card", "away")}
-              onSub={() => openSubModal("away")}
+          {/* Le terrain : on touche un joueur, on dit ce qu'il a fait. */}
+          <div className="px-1">
+            <TerrainConsole
+              home={{
+                name: match.homeTeamName,
+                surLeTerrain: homeDisabled ? [] : onPitchEntries("home"),
+                banc: homeDisabled ? [] : benchEntries("home"),
+              }}
+              away={{
+                name: match.awayTeamName,
+                surLeTerrain: awayDisabled ? [] : onPitchEntries("away"),
+                banc: awayDisabled ? [] : benchEntries("away"),
+              }}
+              cote={coteTerrain}
+              onCote={setCoteTerrain}
+              jaunes={yellowCardedIds}
+              onJoueur={(side, entry) => setActions({ side, entry })}
             />
           </div>
 
@@ -1164,17 +1312,34 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       </div>
       </div>
 
-      {/* Player-picker modal (goal / card, only players currently on the pitch) */}
+      {/* Ce qu'un joueur vient de faire. La liste dépend de lui : son poste,
+          et s'il est sur le terrain ou sur le banc. */}
       <AnimatePresence>
-        {picker && (
-          <PlayerPickerModal
-            picker={picker}
-            entries={onPitchEntries(picker.side)}
-            yellowSet={yellowCardedIds}
+        {actions && (
+          <ModaleActionsJoueur
+            entry={actions.entry}
+            teamName={actions.side === "home" ? match.homeTeamName : match.awayTeamName}
             minute={Math.floor(displayTime / 60000) + 1}
             isSubmitting={isSubmitting}
-            onPick={recordEvent}
-            onClose={() => setPicker(null)}
+            actions={actionsPour(actions.side, actions.entry)}
+            onClose={() => setActions(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* La victime de la faute, dans le camp d'en face. Facultative. */}
+      <AnimatePresence>
+        {victime && (
+          <PlayerPickerModal
+            titre={`Faute de ${victime.auteur}`}
+            sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Sur qui ?`}
+            teamName={victime.teamName}
+            entries={onPitchEntries(victime.side)}
+            yellowSet={yellowCardedIds}
+            isSubmitting={isSubmitting}
+            onPick={enregistrerVictime}
+            onClose={() => setVictime(null)}
+            ignorer="Victime inconnue"
           />
         )}
       </AnimatePresence>
@@ -1183,16 +1348,17 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
       <AnimatePresence>
         {assistPicker && (
           <PlayerPickerModal
-            picker={{ type: "goal", side: assistPicker.side, teamName: assistPicker.teamName }}
+            titre="Passe décisive"
+            sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Qui a servi ${assistPicker.scorerName} ?`}
+            teamName={assistPicker.teamName}
             entries={onPitchEntries(assistPicker.side).filter(
               (e) => e.playerId !== assistPicker.scorerId,
             )}
             yellowSet={yellowCardedIds}
-            minute={Math.floor(displayTime / 60000) + 1}
             isSubmitting={isSubmitting}
             onPick={recordAssist}
             onClose={() => setAssistPicker(null)}
-            assist={{ scorerName: assistPicker.scorerName }}
+            ignorer="Aucune passe décisive"
           />
         )}
       </AnimatePresence>
@@ -1435,103 +1601,34 @@ function RoleBadge({ role }: { role: SheetRole }) {
   );
 }
 
-function TeamScoringCard({
-  teamName,
-  accent,
-  disabled,
-  goalCooldown,
-  onGoal,
-  onYellow,
-  onRed,
-  onSub,
-}: {
-  teamName: string;
-  accent: "primary" | "amber";
-  disabled: boolean;
-  goalCooldown: number;
-  onGoal: () => void;
-  onYellow: () => void;
-  onRed: () => void;
-  onSub: () => void;
-}) {
-  const goalCls =
-    accent === "primary"
-      ? "bg-gray-900 hover:bg-emerald-700"
-      : "bg-amber-500 hover:bg-amber-600 shadow-amber-200";
-
-  return (
-    <div className="relative overflow-hidden border border-gray-200/70 bg-white p-4 shadow-gray-200/40 sm:p-7">
-      <h3 className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
-        {accent === "primary" ? "Domicile" : "Extérieur"}
-      </h3>
-      <h2 className="mb-6 max-w-full truncate text-lg font-black tracking-tight text-gray-900">{teamName}</h2>
-
-      {disabled ? (
-        <div className=" border border-dashed border-gray-200/70 px-4 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-300">
-          Feuille de match vide
-        </div>
-      ) : (
-        <>
-          <button
-            onClick={onGoal}
-            disabled={goalCooldown > 0}
-            className={`flex w-full items-center justify-center gap-3 py-4 text-base font-black uppercase tracking-widest text-white sm:py-6 sm:text-lg transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${goalCls}`}
-          >
-            <Goal size={24} />
-            {goalCooldown > 0 ? `Buts dans ${goalCooldown}s` : "+1 BUT"}
-          </button>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <button
-              onClick={onYellow}
-              className="flex items-center justify-center gap-2 bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
-            >
-              <span className="h-4 w-3 border border-amber-500/20 bg-amber-400" />
-              Jaune
-            </button>
-            <button
-              onClick={onRed}
-              className="flex items-center justify-center gap-2 bg-gray-50 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
-            >
-              <span className="h-4 w-3 border border-red-700/20 bg-red-600" />
-              Rouge
-            </button>
-          </div>
-          <button
-            onClick={onSub}
-            className="mt-3 flex w-full items-center justify-center gap-2 border border-gray-200/70 py-3 text-xs font-black uppercase tracking-wider text-gray-600 transition-all hover:border-gray-200/70 hover:bg-gray-50 active:scale-95"
-          >
-            <ArrowRightLeft size={16} />
-            Remplacement
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
 function PlayerPickerModal({
-  picker,
+  titre,
+  sousTitre,
+  teamName,
   entries,
   yellowSet,
-  minute,
   isSubmitting,
   onPick,
   onClose,
-  assist,
+  ignorer,
 }: {
-  picker: PickerState;
+  /** Ce qu'on demande. La modale ne devine plus rien du type d'événement. */
+  titre: string;
+  sousTitre: string;
+  teamName: string;
   entries: LineupEntry[];
   yellowSet: Set<string>;
-  minute: number;
   isSubmitting: boolean;
   onPick: (entry: LineupEntry) => void;
   onClose: () => void;
-  /** Present when the modal is asking for the passer instead of the actor. */
-  assist?: { scorerName: string };
+  /**
+   * Le libellé du bouton qui referme sans répondre. Présent uniquement sur les
+   * questions FACULTATIVES — la passe décisive, la victime d'une faute : le
+   * fait principal est déjà enregistré, la console ne doit pas retenir le
+   * scoreur pour un détail.
+   */
+  ignorer?: string;
 }) {
-  const title = assist
-    ? "Passe décisive"
-    : picker.type === "goal" ? "But" : picker.type === "yellow_card" ? "Carton jaune" : "Carton rouge";
 
   // Starters first, then substitutes, for a natural reading order.
   const ordered = [...entries].sort((a, b) => {
@@ -1561,12 +1658,10 @@ function PlayerPickerModal({
           <X size={18} />
         </button>
         <h2 className="text-xl font-black text-gray-900">
-          {title}, {picker.teamName}
+          {titre}
         </h2>
         <p className="mb-6 mt-1 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
-          {assist
-            ? `${minute}' · Qui a servi ${assist.scorerName} ?`
-            : `${minute}' · Choisis le joueur`}
+          {teamName} · {sousTitre}
         </p>
 
         <div className="custom-scrollbar grid max-h-[55vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -1595,16 +1690,14 @@ function PlayerPickerModal({
           ))}
         </div>
 
-        {/* A goal often has no assist, and the console must never hold the
-            scorer hostage over a detail. */}
-        {assist && (
+        {ignorer && (
           <button
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
             className="mt-3 w-full border border-gray-200/70 py-2.5 text-sm font-bold text-gray-400 transition-colors hover:border-gray-200/70 hover:text-gray-600 disabled:opacity-50"
           >
-            Aucune passe décisive
+            {ignorer}
           </button>
         )}
 
@@ -1815,18 +1908,15 @@ function EventTimeline({
                   <span className="h-5 w-3.5 border border-red-700/20 bg-red-600" />
                 )}
                 {isSub && <ArrowRightLeft size={16} className="text-sky-500" />}
+                {event.type === "save" && <Hand size={16} className="text-emerald-600" />}
+                {event.type === "foul" && <AlertTriangle size={16} className="text-orange-500" />}
+                {event.type === "offside" && <Flag size={16} className="text-gray-400" />}
                 <span
                   className={`text-sm font-black uppercase tracking-tight ${
                     cancelled ? "text-gray-400 line-through" : "text-gray-900"
                   }`}
                 >
-                  {isGoal
-                    ? "BUT !"
-                    : event.type === "yellow_card"
-                      ? "Carton Jaune"
-                      : event.type === "red_card"
-                        ? "Carton Rouge"
-                        : "Changement"}
+                  {isGoal ? "BUT !" : LIBELLE_EVENEMENT[event.type]}
                 </span>
 
                 {checking && (
@@ -1855,6 +1945,11 @@ function EventTimeline({
                   <>
                     {event.playerName ? `${event.playerName} • ` : ""}
                     {isHome ? homeTeamName : awayTeamName}
+                    {/* Une faute a deux acteurs : la nommer sans sa victime
+                        n'apprend que la moitié de ce qui s'est passé. */}
+                    {event.type === "foul" && event.victimPlayerName
+                      ? ` • sur ${event.victimPlayerName}`
+                      : ""}
                   </>
                 )}
               </p>

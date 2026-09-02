@@ -8,6 +8,7 @@
 // plain serializable object (ISO string dates), safe to pass server->client.
 // ============================================
 
+import { normaliserPoste } from "@/lib/postes";
 import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
@@ -104,8 +105,20 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     forfeitByTeamId: d.forfeit_by_team_id ?? null,
     feedsIntoMatchId: d.feeds_into_match_id,
     feedsIntoSlot: d.feeds_into_slot,
-    homeLineup: (d.home_lineup ?? []).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
-    awayLineup: (d.away_lineup ?? []).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    homeLineup: (d.home_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
+      // Normalise a la lecture : les lignes d'effectif portent le poste
+      // en trois orthographes (voir lib/postes), les feuilles aussi.
+      position: normaliserPoste(e.position),
+    })),
+    awayLineup: (d.away_lineup ?? []).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      userId: e.user_id ?? null,
+      // Normalise a la lecture : les lignes d'effectif portent le poste
+      // en trois orthographes (voir lib/postes), les feuilles aussi.
+      position: normaliserPoste(e.position),
+    })),
     homeLineupReady: d.home_lineup_ready ?? false,
     awayLineupReady: d.away_lineup_ready ?? false,
     homeOnPitch: d.home_on_pitch ?? [],
@@ -126,6 +139,8 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
         detail: e.detail,
         assistPlayerId: e.assist_player_id ?? null,
         assistPlayerName: e.assist_player_name ?? null,
+        victimPlayerId: e.victim_player_id ?? null,
+        victimPlayerName: e.victim_player_name ?? null,
         contestedByManagerId: e.contested_by_manager_id,
         contestationReason: e.contestation_reason,
         varStatus: e.var_status ?? null,
