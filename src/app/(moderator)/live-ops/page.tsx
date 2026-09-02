@@ -3,18 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Trophy, Loader2, ChevronRight, Radio, Calendar, MapPin } from "lucide-react";
+import { Trophy, Loader2, ChevronRight, Radio, Calendar, MapPin, Hand } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
-import { onMatchesIModerate } from "@/lib/firestore";
+import { onMatchesIModerate, onAmicauxSansScoreur } from "@/lib/firestore";
+import { isScorer } from "@/lib/hats";
+import toast from "react-hot-toast";
 import LiveTrainingCard from "@/components/competition/LiveTrainingCard";
 import type { Competition, Match } from "@/types";
 
 export default function LiveOpsHome() {
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Les amicaux que personne ne couvre, ouverts au premier qui les prend. */
+  const [aPrendre, setAPrendre] = useState<Match[]>([]);
+  const [enCours, setEnCours] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -33,6 +38,45 @@ export default function LiveOpsHome() {
     if (!user) return;
     return onMatchesIModerate(user.uid, setMatches);
   }, [user]);
+
+  // Les amicaux orphelins, réservés aux scoreurs validés. En direct aussi :
+  // c'est du premier arrivé, et voir disparaître un match qu'un autre vient de
+  // prendre vaut mieux que d'apprendre au clic qu'il est parti.
+  const scoreur = isScorer(user);
+  useEffect(() => {
+    if (!scoreur) return;
+    return onAmicauxSansScoreur(setAPrendre);
+  }, [scoreur]);
+
+  /**
+   * Prendre un match en charge.
+   *
+   * Passe par une route serveur et non par une écriture directe : les règles
+   * Firestore ne savent pas lire `is_scorer` sur le profil de l'appelant sans
+   * une lecture par évaluation, et surtout elles ne savent pas vérifier qu'il
+   * n'est pas sur la feuille de match.
+   */
+  const couvrir = async (matchId: string) => {
+    if (!firebaseUser) return;
+    setEnCours(matchId);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch(`/api/matches/${matchId}/couvrir`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Impossible de prendre ce match");
+        return;
+      }
+      toast.success("C'est à toi. Le match apparaît dans « Matchs à couvrir ».");
+    } catch {
+      toast.error("Erreur réseau");
+    } finally {
+      setEnCours(null);
+    }
+  };
 
   // Un match terminé n'a plus de console à tenir ; il reste consultable
   // depuis sa fiche, pas depuis un poste de commande.
@@ -112,6 +156,71 @@ export default function LiveOpsHome() {
               </Link>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Les amicaux que personne ne couvre.
+          
+          APRES les matchs qu'on tient deja, et avant les competitions : ce
+          sont des matchs a prendre, pas des matchs a faire. On ne propose pas
+          du travail supplementaire a quelqu'un qui n'a pas encore vu le sien.
+          
+          Reserve aux scoreurs valides : sans la casquette, la section n'existe
+          pas — un bouton qu'on ne peut pas actionner ne fait qu'expliquer ce
+          qu'on n'a pas le droit de faire. */}
+      {scoreur && (
+        <div className="space-y-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+            Amicaux sans scoreur
+          </h2>
+
+          {aPrendre.length === 0 ? (
+            /* Il n'y a pas toujours des matchs a prendre, et une liste vide se
+               lit comme une panne si on ne dit pas pourquoi. */
+            <p className="border border-dashed border-gray-200/70 bg-white px-4 py-8 text-center text-[12px] font-bold leading-relaxed text-gray-400">
+              Aucun amical ne cherche de scoreur en ce moment.
+              <br />
+              Reviens y jeter un œil, la liste se remplit quand des matchs se
+              programment.
+            </p>
+          ) : (
+            aPrendre.map((m, i) => (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="flex items-center gap-4 border border-gray-200/70 bg-white p-4"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 text-amber-500">
+                  <Hand size={20} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-gray-900">
+                    {m.homeTeamName} <span className="text-gray-300">vs</span> {m.awayTeamName}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={11} /> {m.date} à {m.time}
+                    </span>
+                    {m.venueName && (
+                      <span className="flex items-center gap-1">
+                        <MapPin size={11} /> {m.venueName}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => couvrir(m.id)}
+                  disabled={enCours !== null}
+                  className="shrink-0 bg-gray-900 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
+                >
+                  {enCours === m.id ? "…" : "Je couvre"}
+                </button>
+              </motion.div>
+            ))
+          )}
         </div>
       )}
 

@@ -10,6 +10,7 @@ import AdminSidebar from "@/components/layout/AdminSidebar";
 
 const PAGE_TITLES: Record<string, string> = {
   "/admin": "Centre de contrôle",
+  "/admin/scorers": "Scoreurs",
   "/admin/users": "Utilisateurs",
   "/admin/teams": "Équipes",
   "/admin/matches": "Matchs",

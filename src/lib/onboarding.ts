@@ -10,7 +10,27 @@
 // Adding a role = adding one builder function below.
 // ============================================
 
-import type { CompTeam, Team, UserProfile } from "@/types";
+import type { CompTeam, EvolutionRole, Team, UserProfile } from "@/types";
+
+/**
+ * Le role choisi sur la page publique, lu dans l'URL.
+ *
+ * LA DEMANDE DE COMPTE EST REPOUSSEE AU DERNIER MOMENT : on presente les roles
+ * a qui n'a pas de compte, et on ne demande de s'inscrire qu'au clic sur
+ * « Devenir joueur ». Encore faut-il que le choix survive au trajet — sans
+ * quoi l'inscription se termine sur un profil sans role, et il faut recommencer
+ * ce qu'on venait de faire.
+ *
+ * Lu depuis `window.location` et non `useSearchParams` : c'est le parti pris
+ * du produit (voir /feed et /mercato), il evite une frontiere Suspense pour un
+ * seul parametre.
+ */
+export function roleDepuisURL(recherche?: string): EvolutionRole | null {
+  const brut = new URLSearchParams(
+    recherche ?? (typeof window === "undefined" ? "" : window.location.search),
+  ).get("role");
+  return brut === "player" || brut === "manager" || brut === "referee" ? brut : null;
+}
 
 export interface OnboardingStep {
   key: string;

@@ -397,6 +397,24 @@ export default function MobileBottomNav() {
                 qui n'existait pas ici. C'est la porte vers tout le reste du
                 produit : la laisser au fond d'une feuille revenait a la
                 cacher a qui ne l'ouvre jamais. */}
+            {/* SANS COMPTE, la place restait vide : un visiteur ne voyait
+                nulle part qu'il peut etre autre chose qu'un spectateur. Elle
+                mene a /roles, la page PUBLIQUE des roles — surtout pas a
+                /evolution, qui est murée et l'aurait accueilli par « Connecte-
+                toi » posé sur une page vide. La demande de compte attend le
+                clic sur « Devenir joueur », et le choix voyage avec. */}
+            {!user && (
+              <Link
+                href="/roles"
+                className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5"
+              >
+                <Rocket size={22} className="text-amber-300" />
+                <span className="text-[10px] font-black leading-tight text-amber-300">
+                  Evolution
+                </span>
+              </Link>
+            )}
+
             {user && !user.evolutionRole && (
               <Link
                 href="/evolution"

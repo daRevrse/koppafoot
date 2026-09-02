@@ -72,6 +72,19 @@ export interface UserProfile {
    */
   isOrganizer?: boolean;
   isVenueOwner?: boolean;
+  /**
+   * Scoreur validé : celui qui peut couvrir un amical qui n'est pas le sien.
+   *
+   * S'obtient sur candidature, comme la casquette d'organisateur, et pour la
+   * même raison — tenir le score d'un match qu'on ne joue pas est une
+   * responsabilité, pas une case à cocher : ce qu'on y saisit alimente les
+   * statistiques des joueurs et le classement de la plateforme.
+   *
+   * Un ORGANISATEUR n'en a pas besoin sur SES compétitions : les règles lui
+   * ouvrent déjà leurs matchs. Ce drapeau ne parle que des amicaux, qui
+   * n'appartiennent à personne.
+   */
+  isScorer?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
   /** Préférences de notification push, par catégorie. Absent = tout accepté. */
@@ -101,6 +114,13 @@ export interface SignupData {
   userType: UserRole;
   locationCity: string;
   bio?: string;
+  /**
+   * Le role active des la creation, quand il vient d'un choix public.
+   *
+   * Sans lui, quelqu'un qui clique « Devenir manager » sur /roles arrivait sur
+   * un compte sans role et devait refaire le choix qu'il venait de faire.
+   */
+  evolutionRole?: EvolutionRole;
   // Player-specific
   position?: "goalkeeper" | "defender" | "midfielder" | "forward" | "any";
   skillLevel?: "beginner" | "amateur" | "intermediate" | "advanced";
@@ -162,6 +182,8 @@ export interface FirestoreUser {
   evolution_role?: EvolutionRole | null;
   is_organizer?: boolean;
   is_venue_owner?: boolean;
+  /** Voir `UserProfile.isScorer`. */
+  is_scorer?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followed_competition_ids?: string[];
   /** Nom public de la structure organisatrice, voir UserProfile. */
@@ -435,6 +457,15 @@ export interface FirestoreMatch {
   /** Qui est sur la pelouse en ce moment. Voir `FirestoreCompMatch`. */
   home_on_pitch?: string[];
   away_on_pitch?: string[];
+  /**
+   * Quand on a prévenu le créateur que personne ne couvre ce match.
+   *
+   * Marque le passage de la relance de la veille (voir
+   * /api/cron/scoreur-manquant) : sans elle, une exécution rejouée enverrait
+   * deux fois la même alerte, et c'est le genre de détail qui fait couper les
+   * notifications.
+   */
+  scoreur_relance_le?: string | null;
   /**
    * Ceux qui peuvent tenir la console de CE match, en plus des managers.
    *

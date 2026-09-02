@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin,
+  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin, Radio,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -78,6 +78,10 @@ const ENTRIES: NavEntry[] = [
   {
     href: "/roles", label: "Koppafoot Evolution", Icon: Sparkles, newTab: true,
     blurb: "Choisir ce qu'on devient ici : joueur, manager, arbitre, organisateur.",
+  },
+  {
+    href: "/scoreurs", label: "Koppafoot Score", Icon: Radio, newTab: true,
+    blurb: "Tenir la console d'un match, et faire vivre le direct pour ceux qui n'y sont pas.",
   },
   {
     href: "/terrains", label: "MyFields", Icon: MapPin, newTab: true,

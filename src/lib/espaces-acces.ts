@@ -1,4 +1,4 @@
-import { isOrganizer, isSuperAdmin, isVenueOwner } from "@/lib/hats";
+import { isOrganizer, isScorer, isSuperAdmin, isVenueOwner } from "@/lib/hats";
 import type { EvolutionRole, UserProfile } from "@/types";
 
 // ============================================
@@ -105,7 +105,10 @@ export function espacesDuCompte(
   if (duRole) espaces.push(duRole);
 
   if (isOrganizer(user)) espaces.push("organisateur");
-  if (moderateurs?.has(user.uid)) espaces.push("live");
+  // La console live s'ouvre par DEUX chemins : moderer une competition, ou
+  // porter la casquette de scoreur, qui donne acces aux amicaux que personne
+  // ne couvre. `push` une seule fois : quelqu'un peut etre les deux.
+  if (moderateurs?.has(user.uid) || isScorer(user)) espaces.push("live");
   if (isVenueOwner(user)) espaces.push("terrains");
   if (isSuperAdmin(user)) espaces.push("administration");
 
