@@ -72,6 +72,19 @@ export interface UserProfile {
    */
   isOrganizer?: boolean;
   isVenueOwner?: boolean;
+  /**
+   * Scoreur validé : celui qui peut couvrir un amical qui n'est pas le sien.
+   *
+   * S'obtient sur candidature, comme la casquette d'organisateur, et pour la
+   * même raison — tenir le score d'un match qu'on ne joue pas est une
+   * responsabilité, pas une case à cocher : ce qu'on y saisit alimente les
+   * statistiques des joueurs et le classement de la plateforme.
+   *
+   * Un ORGANISATEUR n'en a pas besoin sur SES compétitions : les règles lui
+   * ouvrent déjà leurs matchs. Ce drapeau ne parle que des amicaux, qui
+   * n'appartiennent à personne.
+   */
+  isScorer?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followedCompetitionIds?: string[];
   /** Préférences de notification push, par catégorie. Absent = tout accepté. */
@@ -169,6 +182,8 @@ export interface FirestoreUser {
   evolution_role?: EvolutionRole | null;
   is_organizer?: boolean;
   is_venue_owner?: boolean;
+  /** Voir `UserProfile.isScorer`. */
+  is_scorer?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
   followed_competition_ids?: string[];
   /** Nom public de la structure organisatrice, voir UserProfile. */
