@@ -42,6 +42,7 @@ import type {
   Notification, FirestoreNotification, NotificationType,
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
+import { normaliserPoste } from "@/lib/postes";
 
 // ============================================
 // Converters
@@ -156,10 +157,16 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     // le camp opposé à celui du créateur (`is_home`).
     homeGhostLineup: (d.home_ghost_lineup
       ?? (!d.away_manager_id && !d.is_home ? d.ghost_lineup ?? [] : [])
-    ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    ).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      position: normaliserPoste(e.position),
+    })),
     awayGhostLineup: (d.away_ghost_lineup
       ?? (!d.away_manager_id && d.is_home ? d.ghost_lineup ?? [] : [])
-    ).map((e) => ({ playerId: e.player_id, name: e.name, number: e.number, role: e.role })),
+    ).map((e) => ({
+      playerId: e.player_id, name: e.name, number: e.number, role: e.role,
+      position: normaliserPoste(e.position),
+    })),
     modificationRequest: d.modification_request ? {
       date: d.modification_request.date,
       time: d.modification_request.time,
@@ -954,6 +961,7 @@ export async function createMatch(data: {
     auto_accept_players: !!data.autoAcceptPlayers,
     [ghostIsHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostLineup.map((e) => ({
       player_id: e.playerId, name: e.name, number: e.number, role: e.role,
+      position: e.position ?? null,
     })),
     [ghostIsHome ? "home_lineup_ready" : "away_lineup_ready"]: ghostLineup.length > 0,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
@@ -1046,6 +1054,7 @@ export async function updateMatchLineup(
   batch.update(matchRef, {
     [isHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostEntries.map((e) => ({
       player_id: e.playerId, name: e.name, number: e.number, role: e.role,
+      position: e.position ?? null,
     })),
     [isHome ? "home_lineup_ready" : "away_lineup_ready"]: titulaires > 0,
     updated_at: serverTimestamp(),

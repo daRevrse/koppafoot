@@ -16,6 +16,7 @@ import {
 } from "@/lib/competition-firestore";
 import { getTeamsByManager } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
+import { POSTES, LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
 // ============================================
@@ -188,7 +189,7 @@ export default function MyTeamPage() {
     setEditing(player);
     setFName(player.name);
     setFNumber(player.number);
-    setFPosition(player.position ?? "");
+    setFPosition(normaliserPoste(player.position) ?? "");
   };
 
   const closeEditor = () => {
@@ -457,13 +458,19 @@ export default function MyTeamPage() {
                   placeholder="Nom du joueur"
                   className={inputClass}
                 />
-                <input
-                  type="text"
+                <select
                   value={fPosition}
                   onChange={(e) => setFPosition(e.target.value)}
-                  placeholder="Poste"
+                  aria-label="Poste"
                   className={inputClass}
-                />
+                >
+                  <option value="">Poste (optionnel)</option>
+                  {POSTES.map((poste) => (
+                    <option key={poste} value={poste}>
+                      {LIBELLE_POSTE[poste]}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-end gap-2">
                 <button

@@ -1,4 +1,5 @@
 import type { PushPrefs } from "@/lib/push-categories";
+import type { Poste } from "@/lib/postes";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -1271,6 +1272,20 @@ export interface FirestoreLineupEntry {
   name: string;
   number: string;
   role: "starter" | "substitute";
+  /**
+   * Le poste, recopie depuis la ligne d'effectif au moment ou la feuille est
+   * validee. Sous sa forme canonique (voir lib/postes), mais type `string` :
+   * les feuilles deja ecrites n'en portent aucun, et une ligne d'effectif mal
+   * saisie peut encore en poser un illisible. On relit toujours au
+   * normaliseur.
+   *
+   * POURQUOI LE RECOPIER plutot que d'aller le chercher sur l'effectif : une
+   * feuille de match est un constat, elle doit rester vraie apres coup. Un
+   * organisateur qui corrige un poste en cours de saison ne doit pas changer
+   * qui etait gardien il y a trois journees. Meme raison que
+   * `home_team_name`, deja denormalise sur le match.
+   */
+  position?: string | null;
 }
 
 /** Une ligne de la saisie « qui a marqué » d'un match renseigné. */
@@ -1296,6 +1311,8 @@ export interface LineupEntry {
   name: string;
   number: string;
   role: "starter" | "substitute";
+  /** Voir `FirestoreLineupEntry.position`. Null quand personne ne l'a saisi. */
+  position?: Poste | null;
 }
 
 export interface FirestoreCompTeam {

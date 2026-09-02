@@ -636,6 +636,9 @@ export async function setCompMatchLineup(
     name: e.name,
     number: e.number,
     role: e.role,
+    // `null` et non `undefined` : Firestore refuse `undefined` dans un
+    // document, et un poste absent doit s'ecrire pour rester absent.
+    position: e.position ?? null,
   }));
   const patch: Partial<FirestoreCompMatch> =
     side === "home"

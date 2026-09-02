@@ -30,6 +30,7 @@ import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import {
   DEFAULT_HALF_DURATION, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
 } from "@/lib/competition-format";
+import { normaliserPoste } from "@/lib/postes";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 
 /** One entry of the live feed. */
@@ -339,6 +340,11 @@ export default function LiveMatchConsole({ cid, mid, returnHref }: { cid: string
         name: p.name,
         number: p.number,
         role: (sheet[p.id] as "starter" | "substitute"),
+        // Le poste suit le joueur sur la feuille, sous sa forme canonique. La
+        // console en a besoin pour savoir qui est le gardien, et le terrain
+        // pour placer les maillots. La ligne d'effectif l'ecrit en trois
+        // orthographes, d'ou le normaliseur.
+        position: normaliserPoste(p.position),
       }));
 
     const starters = entries.filter((e) => e.role === "starter").length;

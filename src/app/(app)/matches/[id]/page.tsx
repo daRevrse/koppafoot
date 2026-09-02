@@ -22,6 +22,7 @@ import {
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
+import { normaliserPoste } from "@/lib/postes";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry } from "@/types";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
@@ -970,6 +971,10 @@ export default function MatchDetailPage() {
                                 name: `${g.firstName} ${g.lastName}`.trim(),
                                 number: val.squadNumber || g.squadNumber || "",
                                 role: val.role,
+                                // Le poste d'un joueur sans compte est typé et
+                                // obligatoire : c'est la source la plus sûre
+                                // qu'on ait pour savoir qui garde les buts.
+                                position: normaliserPoste(g.position),
                               };
                             });
 
