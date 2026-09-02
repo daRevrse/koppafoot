@@ -22,7 +22,7 @@ import type {
   LignePubliee, MatchAClasser,
 } from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
-import type { CompMatch, FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
+import type { FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
 
 const DOC = "rankings/top_players";
 
