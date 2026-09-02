@@ -18,7 +18,8 @@ import { getPublicCompetitions } from "@/lib/competition-admin";
 import { toCompMatch } from "@/lib/competition-mappers";
 import { calculerClassements, mouvements } from "@/lib/classement";
 import type {
-  ClassementsPublies, LigneClassement, LigneGardien, LignePubliee,
+  ClassementsPublies, ContributionDirecte, LigneClassement, LigneGardien,
+  LignePubliee, MatchAClasser,
 } from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
 import type { CompMatch, FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
@@ -37,8 +38,8 @@ const VIDE: ClassementsPublies = {
  * joueur, et ses matchs n'ont pas de feuille chez nous. Un classement de
  * joueurs togolais n'a de toute façon rien à voir avec la Ligue 1.
  */
-async function matchsDeLaPlateforme(): Promise<CompMatch[]> {
-  const matchs: CompMatch[] = [];
+async function matchsDeLaPlateforme(): Promise<MatchAClasser[]> {
+  const matchs: MatchAClasser[] = [];
 
   const comps = await getPublicCompetitions();
   const parCompetition = await Promise.all(
@@ -85,8 +86,26 @@ function feuille(
   }));
 }
 
+/**
+ * Les buteurs d'un match renseigné après coup.
+ *
+ * Vide sur un match tenu à la console : celui-là a une feuille et des
+ * événements, qui valent mieux.
+ */
+function contributionsDirectes(d: FirestoreMatch): ContributionDirecte[] {
+  return (d.recorded_scorers ?? []).map((b) => ({
+    playerId: b.player_id ?? "",
+    nom: b.nom ?? "",
+    // `sansCompte` dit exactement ce qu'il dit : l'identifiant n'est alors pas
+    // un compte, et le classement retombera sur le nom.
+    userId: b.sansCompte ? null : (b.player_id ?? null),
+    buts: b.buts ?? 0,
+    passes: b.passes ?? 0,
+  }));
+}
+
 /** Un amical réduit à ce que le calcul du classement lit. */
-function amicalEnCompMatch(id: string, d: FirestoreMatch): CompMatch {
+function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
   return {
     id,
     competitionId: "friendly",
@@ -127,7 +146,8 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): CompMatch {
           })),
         }
       : null,
-  } as unknown as CompMatch;
+    contributionsDirectes: contributionsDirectes(d),
+  } as unknown as MatchAClasser;
 }
 
 /**

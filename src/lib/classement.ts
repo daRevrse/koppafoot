@@ -81,6 +81,33 @@ export interface ClassementsPublies {
   calculeLe: string | null;
 }
 
+/**
+ * Ce qu'un match RENSEIGNE APRES COUP apporte.
+ *
+ * Un match saisi depuis « Renseigner un match joue » n'a ni feuille ni
+ * evenements : il n'a jamais eu de console. Il porte en revanche la liste de
+ * ses buteurs et passeurs, et c'est tout ce que le classement demande. Les
+ * joueurs nommes la comptent donc un match chacun — a defaut de feuille, la
+ * liste des buteurs EST la seule trace de qui etait sur le terrain.
+ *
+ * Ce que ca coute, et il faut le dire : un joueur qui a joue ce match sans
+ * marquer ni faire marquer n'y figure pas, donc ce match ne compte pas dans SA
+ * fenetre de cinq. Un match renseigne apres coup vaut moins qu'un match tenu a
+ * la console — c'est le prix du raccourci, pas un defaut du calcul.
+ */
+export interface ContributionDirecte {
+  playerId: string;
+  nom: string;
+  userId: string | null;
+  buts: number;
+  passes: number;
+}
+
+/** Un match, avec ce que la console n'a pas pu enregistrer. */
+export type MatchAClasser = CompMatch & {
+  contributionsDirectes?: ContributionDirecte[];
+};
+
 export interface Classements {
   performances: LigneClassement[];
   gardiens: LigneGardien[];
@@ -120,7 +147,7 @@ interface Cumul {
  * jamais le football mondial — le fournisseur externe ne donne pas le detail
  * par joueur, et ses matchs n'ont pas de feuille chez nous.
  */
-export function calculerClassements(matchs: CompMatch[]): Classements {
+export function calculerClassements(matchs: MatchAClasser[]): Classements {
   const termines = matchs
     .filter((m) => m.status === "completed")
     .sort(parDateDecroissante);
@@ -141,6 +168,37 @@ export function calculerClassements(matchs: CompMatch[]): Classements {
     // cinq matchs plus recents ne compte plus, et ses buts de ce soir-la non
     // plus : la fenetre porte sur le joueur, pas sur le match.
     const retenus = new Map<string, Cumul>();
+
+    // Un match renseigne apres coup n'a ni feuille ni evenements : ses buteurs
+    // et passeurs sont sa seule trace. Traite ICI, dans la meme boucle
+    // chronologique, et non a part : la fenetre de cinq est une fenetre de
+    // DATES, et compter les feuilles d'abord la remplirait dans le desordre.
+    if (match.contributionsDirectes?.length) {
+      let compte = false;
+      for (const c of match.contributionsDirectes) {
+        const nom = c.nom.trim();
+        const cle = c.userId ? `uid:${c.userId}` : `nom:${nom.toLowerCase()}`;
+        if (cle === "nom:") continue;
+        const deja = vus.get(cle) ?? 0;
+        if (deja >= FENETRE) continue;
+        vus.set(cle, deja + 1);
+        compte = true;
+
+        const cumul = cumuls.get(cle) ?? {
+          cle, nom, uid: c.userId,
+          buts: 0, passes: 0, arrets: 0, cleanSheets: 0, matchs: 0, estGardien: false,
+        };
+        cumul.matchs += 1;
+        cumul.buts += c.buts;
+        cumul.passes += c.passes;
+        if (cumul.nom === "" && nom !== "") cumul.nom = nom;
+        if (!cumul.uid && c.userId) cumul.uid = c.userId;
+        cumuls.set(cle, cumul);
+      }
+      if (compte) matchsRetenus += 1;
+      // Il n'a pas de feuille : rien d'autre a lire sur ce match.
+      continue;
+    }
 
     for (const { entries, encaisses } of camps) {
       for (const entry of entries) {
