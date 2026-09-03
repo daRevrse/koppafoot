@@ -141,16 +141,22 @@ function EditTeamModal({ team, onClose, onSaved }: {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md border border-gray-200/70 bg-white"
+        /* UN MODAL QUI DÉBORDE DOIT DÉFILER. Le panneau n'avait aucune
+           hauteur maximale : sur un écran court, le formulaire sortait de la
+           fenêtre par les deux bouts — titre coupé en haut, « Enregistrer »
+           hors d'atteinte en bas — et le fond fixe empêchait de faire défiler
+           quoi que ce soit. On plafonne le panneau, l'en-tête reste en place,
+           et seul le corps défile. */
+        className="flex max-h-[90dvh] w-full max-w-md flex-col border border-gray-200/70 bg-white"
       >
-        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Modifier l&apos;equipe</h2>
           <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100">
             <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-5">
           {/* Media uploads */}
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">Bannière</label>
@@ -311,12 +317,12 @@ function AddAchievementModal({ teamId, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm border border-gray-200/70 bg-white">
-        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
+        className="flex max-h-[90dvh] w-full max-w-sm flex-col border border-gray-200/70 bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Ajouter un trophée</h2>
           <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-5">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Titre</label>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -557,12 +563,12 @@ function CreateTrainingModal({ teamId, managerId, memberIds, onClose, onSaved }:
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-sm border border-gray-200/70 bg-white">
-        <div className="flex items-center justify-between border-b border-gray-200/70 p-5">
+        className="flex max-h-[90dvh] w-full max-w-sm flex-col border border-gray-200/70 bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200/70 p-5">
           <h2 className="text-lg font-bold text-gray-900 font-display">Créer un entraînement</h2>
           <button onClick={onClose} className=" p-1 text-gray-400 hover:bg-gray-100"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-5">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Titre</label>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -652,7 +658,7 @@ function GhostPlayerModal({
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="w-full max-w-md bg-white p-6"
+        className="max-h-[90dvh] w-full max-w-md overflow-y-auto bg-white p-6"
       >
         <h3 className="mb-4 text-lg font-bold text-gray-900">
           {ghost ? "Modifier le joueur" : "Ajouter un joueur"}
