@@ -156,6 +156,26 @@ function kickoff(e: Entry): string {
   return `${e.match.date ?? "9999-99-99"}T${e.match.time ?? "99:99"}`;
 }
 
+/**
+ * L'ORDRE DES COMPÉTITIONS, LE MÊME POUR LE CARROUSEL ET POUR LE TABLEAU.
+ *
+ * Ce qui se joue maintenant devant, puis LE FOOTBALL D'ICI avant le football
+ * mondial, puis l'heure du coup d'envoi.
+ *
+ * La règle vivait dans le carrousel, dont le commentaire affirmait qu'elle
+ * était « comme celle du tableau » — le tableau, lui, ne connaissait que le
+ * direct et l'heure. Une soirée de Ligue 1 passait donc devant le tournoi du
+ * quartier sur l'écran d'accueil d'un produit qui parle d'abord de lui. Une
+ * seule fonction désormais, les deux surfaces ne peuvent plus diverger.
+ */
+function ordreDesCompetitions(a: Entry[], b: Entry[]): number {
+  const enCours = (f: Entry[]) => (f.some((e) => e.match.status === "live") ? 0 : 1);
+  const dIci = (f: Entry[]) => (isWorldComp(f[0].competition.id) ? 1 : 0);
+  return enCours(a) - enCours(b)
+    || dIci(a) - dIci(b)
+    || kickoff(a[0]).localeCompare(kickoff(b[0]));
+}
+
 /** Who actually won, once the match is over (penalties included). */
 function finalOutcome(m: CompMatch): Pick | null {
   if (m.status !== "completed") return null;
@@ -1399,18 +1419,10 @@ export default function DirectHomeV2({
       parCompetition.set(e.competition.id, file);
     }
 
-    // L'ordre des competitions dans le carrousel, comme celui du tableau : ce
-    // qui se joue maintenant devant, puis LE FOOTBALL D'ICI avant le football
-    // mondial. Une soiree de Ligue 1 remplit cinq affiches en un clin d'oeil,
-    // et le tournoi du quartier n'a alors plus sa place sur l'ecran d'accueil
-    // d'un produit qui parle d'abord de lui.
-    const files = [...parCompetition.values()].sort((a, b) => {
-      const enCours = (f: Entry[]) => (f.some((e) => e.match.status === "live") ? 0 : 1);
-      const dIci = (f: Entry[]) => (isWorldComp(f[0].competition.id) ? 1 : 0);
-      return enCours(a) - enCours(b)
-        || dIci(a) - dIci(b)
-        || kickoff(a[0]).localeCompare(kickoff(b[0]));
-    });
+    // Le meme ordre que le tableau, voir ordreDesCompetitions. Une soiree de
+    // Ligue 1 remplit cinq affiches en un clin d'oeil, et le tournoi du
+    // quartier n'a alors plus sa place sur l'ecran d'accueil.
+    const files = [...parCompetition.values()].sort(ordreDesCompetitions);
 
     const affiches: Entry[] = [];
     for (let tour = 0; affiches.length < AFFICHES_MAX; tour++) {
@@ -1449,7 +1461,8 @@ export default function DirectHomeV2({
     return [...list].sort((a, b) => kickoff(a).localeCompare(kickoff(b)));
   }, [scoped, tab, day, chip, favs, compFavs]);
 
-  // Group by competition, live competitions first, then by earliest kickoff.
+  // Les groupes du tableau : ce qui se joue maintenant, puis le football
+  // d'ici, puis l'heure (voir ordreDesCompetitions).
   const groups = useMemo(() => {
     const byComp = new Map<string, { competition: Competition; entries: Entry[] }>();
     for (const e of listEntries) {
@@ -1457,12 +1470,7 @@ export default function DirectHomeV2({
       g.entries.push(e);
       byComp.set(e.competition.id, g);
     }
-    return [...byComp.values()].sort((a, b) => {
-      const aLive = a.entries.some((e) => e.match.status === "live") ? 0 : 1;
-      const bLive = b.entries.some((e) => e.match.status === "live") ? 0 : 1;
-      if (aLive !== bLive) return aLive - bLive;
-      return kickoff(a.entries[0]).localeCompare(kickoff(b.entries[0]));
-    });
+    return [...byComp.values()].sort((a, b) => ordreDesCompetitions(a.entries, b.entries));
   }, [listEntries]);
 
   // When the chosen day is empty, point at the nearest day that is not, an
@@ -1556,18 +1564,34 @@ export default function DirectHomeV2({
           (affiche → tableau → buteurs), two columns from lg where the board
           runs full height on the left and the rail stacks on the right. */}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
-        {/* ---- The affiche: first thing a phone sees ---- */}
-        <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1">
+        {/* ---- Le rail : l'affiche, puis les buteurs. UNE SEULE CELLULE.
+             Les deux cartes occupaient deux rangees de la grille, que le
+             tableau enjambait — et une grille repartit le surplus d'un element
+             qui enjambe entre les rangees qu'il couvre. Chaque match ajoute a
+             la liste grandissait donc la premiere rangee, et « Top
+             performances » descendait d'autant, laissant un trou sous
+             l'affiche. Empilees dans la meme cellule, les deux cartes se
+             suivent, quelle que soit la longueur du tableau. ---- */}
+        <div className="order-1 min-w-0 space-y-3 lg:col-start-2 lg:row-start-1">
           <Spotlight
             entries={spotlightEntries}
             teamsById={teamsById}
             picks={picks}
             onPick={choosePick}
           />
+
+          {/* MASQUEE SUR TELEPHONE. Empilee, elle tombait sous le tableau des
+              matchs — soit apres une trentaine de rencontres — et personne ne
+              defilait jusque-la. Le raccourci de la barre de filtres la
+              remplace : une pastille qu'on voit tout de suite vaut mieux
+              qu'une carte complete qu'on ne voit jamais. */}
+          <div className="hidden lg:block">
+            <TopPerformancesCard lignes={topPerformances} />
+          </div>
         </div>
 
         {/* ---- The fixture board ---- */}
-        <div className="order-2 min-w-0 overflow-hidden border border-gray-200/70 bg-white lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <div className="order-2 min-w-0 overflow-hidden border border-gray-200/70 bg-white lg:col-start-1 lg:row-start-1">
           {/* Tabs + day pager */}
           <div className="flex items-center justify-between gap-2 border-b border-gray-200/70 px-3">
             <div className="flex min-w-0 gap-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1719,16 +1743,6 @@ export default function DirectHomeV2({
           )}
         </div>
 
-        {/* ---- Top performances, dans le rail, a partir de `lg` ----
-
-             MASQUEE SUR TELEPHONE. Empilee, elle tombait sous le tableau des
-             matchs — soit apres une trentaine de rencontres — et personne ne
-             defilait jusque-la. Le raccourci de la barre de filtres la
-             remplace : une pastille qu'on voit tout de suite vaut mieux qu'une
-             carte complete qu'on ne voit jamais. ---- */}
-        <div className="order-3 hidden min-w-0 lg:col-start-2 lg:row-start-2 lg:block">
-          <TopPerformancesCard lignes={topPerformances} />
-        </div>
       </div>
     </div>
   );
