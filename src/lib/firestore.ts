@@ -1145,12 +1145,55 @@ export async function updateMatchLineup(
     assignments.filter((a) => a.role === "starter").length +
     ghostsDemeles.filter((e) => e.role === "starter").length;
 
+  /**
+   * LA FEUILLE ENTIÈRE, RECOPIÉE SUR LE MATCH.
+   *
+   * Le rôle d'un joueur avec un compte vivait UNIQUEMENT sur sa participation,
+   * et le match ne portait que la liste des joueurs sans compte. Or la console
+   * live lit la feuille sur le document du match (`home_lineup`) : elle ne
+   * voyait donc rien de ce qu'un manager avait composé, et deux choses en
+   * découlaient.
+   *
+   * Elle redemandait de composer une feuille déjà validée — le drapeau disait
+   * « prête », la grille était vide. Et pire, le coup d'envoi posait sur le
+   * terrain les titulaires lus dans ce même champ : un amical composé par ses
+   * deux managers démarrait avec un terrain vide.
+   *
+   * La console ne peut pas lire les participations au vol, elle suit le match
+   * document par document. C'est donc au moment où l'on valide, ici, que la
+   * feuille doit devenir lisible — dans la même écriture atomique que les
+   * rôles, pour que les deux ne puissent pas se contredire.
+   */
+  const lignesDesComptes = assignments.flatMap((a) => {
+    const d = snap.docs.find((x) => x.data().player_id === a.playerId);
+    if (!d) return [];
+    return [{
+      player_id: a.playerId,
+      name: (d.data().player_name as string) ?? "",
+      number: a.squadNumber,
+      role: a.role,
+      position: a.position ?? null,
+      user_id: a.playerId,
+    }];
+  });
+
   const matchRef = doc(db, "matches", matchId);
   batch.update(matchRef, {
     [isHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostsDemeles.map((e) => ({
       player_id: e.playerId, name: e.name, number: e.number, role: e.role,
       position: e.position ?? null,
     })),
+    // Les deux moitiés de l'effectif dans un seul champ : c'est la feuille
+    // telle que la console la lit. Les fantômes gardent aussi leur champ à
+    // eux, que la fiche du match utilise de son côté.
+    [isHome ? "home_lineup" : "away_lineup"]: [
+      ...lignesDesComptes,
+      ...ghostsDemeles.map((e) => ({
+        player_id: e.playerId, name: e.name, number: e.number, role: e.role,
+        position: e.position ?? null,
+        user_id: e.userId ?? null,
+      })),
+    ],
     [isHome ? "home_lineup_ready" : "away_lineup_ready"]: titulaires > 0,
     updated_at: serverTimestamp(),
   });
