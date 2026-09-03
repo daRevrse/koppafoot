@@ -38,7 +38,11 @@ import {
   respondToRefereeApplication,
   getRatingsForMatch,
   ratePlayer,
+  tailleEffectif,
+  totalJoueurs,
+  quotaMinimum,
 } from "@/lib/firestore";
+import { TEAM_SIZE_OPTIONS } from "@/lib/competition-format";
 import type { Match, Team, Venue, PlayerRating, LineupEntry } from "@/types";
 import TirsAuBut from "@/components/match/TirsAuBut";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
@@ -81,12 +85,9 @@ const aujourdhui = (): string => {
 /** Une date de match antérieure à aujourd'hui. */
 const dateDepassee = (date: string): boolean => !!date && date < aujourdhui();
 
-const FORMAT_TOTAL_PLAYERS: Record<string, number> = { "5v5": 10, "7v7": 14, "11v11": 22 };
-// Miroir de TAILLE_EFFECTIF (firestore.ts) : sert uniquement à annoncer au
-// manager combien de joueurs génériques il va récupérer.
-const TAILLE_EFFECTIF_FORMAT: Record<string, number> = { "5v5": 5, "7v7": 7, "11v11": 11 };
-const FORMAT_MIN_PER_TEAM: Record<string, number> = { "5v5": 3, "7v7": 5, "11v11": 8 };
-const getMinConfirmed = (format: string) => FORMAT_MIN_PER_TEAM[format] || 3;
+// L'effectif, le total de joueurs et le quota se lisent dans le NvN du match
+// (voir tailleEffectif dans lib/firestore) : le formulaire laisse la main sur
+// ce N, il n'y a donc plus trois formats connus mais huit.
 
 // ============================================
 // Loading skeleton
@@ -202,7 +203,17 @@ export default function MatchesPage() {
   // Local referee state
   const [refereeMode, setRefereeMode] = useState<"none" | "local">("none");
   const [localRefereeName, setLocalRefereeName] = useState("");
-  const [autoAcceptPlayers, setAutoAcceptPlayers] = useState(false);
+  /**
+   * Le quota de joueurs, DÉSACTIVÉ PAR DÉFAUT.
+   *
+   * Un match ne partait pas tant que les deux camps n'avaient pas atteint
+   * leur quota de confirmés, et personne ne confirme : le manager sait qui
+   * vient, il l'a organisé au téléphone. Ces matchs restaient en brouillon à
+   * vie (voir handleProgramFriendly, qui existe pour les débloquer à la
+   * main). Le quota reste disponible d'un geste pour qui veut compter ses
+   * présents avant de jouer.
+   */
+  const [autoAcceptPlayers, setAutoAcceptPlayers] = useState(true);
 
   // Player rating modal state
   const [ratingMatch, setRatingMatch] = useState<Match | null>(null);
@@ -342,7 +353,7 @@ export default function MatchesPage() {
     setIsHome(true);
     setRefereeMode("none");
     setLocalRefereeName("");
-    setAutoAcceptPlayers(false);
+    setAutoAcceptPlayers(true);
   };
 
   const openCreateForm = (mode: CreateMode) => {
@@ -400,7 +411,7 @@ export default function MatchesPage() {
     const venueCity = venue?.city ?? customVenueCity.trim();
     const homeTeamName = isHome ? team.name : awayTeamName;
     const awayTeamNameFinal = isHome ? awayTeamName : team.name;
-    const playersTotal = FORMAT_TOTAL_PLAYERS[format] ?? 22;
+    const playersTotal = totalJoueurs(format);
 
     setCreating(true);
     try {
@@ -966,7 +977,7 @@ export default function MatchesPage() {
                     <p className="text-xs text-gray-600">
                       <strong className="font-semibold text-gray-800">{awayTeamName}</strong>{" "}
                       n&apos;est pas sur KoppaFoot : le match est programmé directement, et son
-                      camp reçoit {TAILLE_EFFECTIF_FORMAT[format] ?? 11} joueurs numérotés pour
+                      camp reçoit {tailleEffectif(format)} joueurs numérotés pour
                       que le direct soit couvrable des deux côtés.
                     </p>
                   </div>
@@ -1031,31 +1042,43 @@ export default function MatchesPage() {
                     </div>
                   )}
                 </div>
-                {/* Format */}
+                {/* Format.
+                    Trois choix seulement — 5v5, 7v7, 11v11 — pour un football
+                    qui se joue à quatre comme à onze : le manager d'un 6v6 ou
+                    d'un 8v8 devait déclarer un format qui n'était pas le sien,
+                    et l'effectif convoqué comme le quota s'alignaient sur ce
+                    mensonge. On lui laisse la main sur le N, la même liste
+                    qu'un organisateur (TEAM_SIZE_OPTIONS). */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Format</label>
-                  <div className="flex gap-2">
-                    {["5v5", "7v7", "11v11"].map((f) => (
-                      <label
-                        key={f}
-                        className={`flex flex-1 cursor-pointer items-center justify-center border px-3 py-2.5 text-sm font-medium transition-colors ${
-                          format === f
-                            ? "border-primary-600 bg-primary-50 text-primary-700"
-                            : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="format"
-                          value={f}
-                          checked={format === f}
-                          onChange={() => setFormat(f)}
-                          className="sr-only"
-                        />
-                        {f}
-                      </label>
-                    ))}
+                  <div className="grid grid-cols-4 gap-2">
+                    {TEAM_SIZE_OPTIONS.map((n) => {
+                      const f = `${n}v${n}`;
+                      return (
+                        <label
+                          key={f}
+                          className={`flex cursor-pointer items-center justify-center border px-2 py-2.5 text-sm font-medium transition-colors ${
+                            format === f
+                              ? "border-primary-600 bg-primary-50 text-primary-700"
+                              : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="format"
+                            value={f}
+                            checked={format === f}
+                            onChange={() => setFormat(f)}
+                            className="sr-only"
+                          />
+                          {f}
+                        </label>
+                      );
+                    })}
                   </div>
+                  <p className="mt-1.5 text-xs text-gray-400">
+                    Joueurs par équipe sur le terrain, gardien compris
+                  </p>
                 </div>
                 {/* Home/Away */}
                 <div>
@@ -1107,7 +1130,11 @@ export default function MatchesPage() {
               <div className="mt-3 sm:mt-4 flex items-center justify-between border border-primary-100 bg-primary-50/50 p-3 sm:p-4">
                 <div>
                   <p className="text-sm font-bold text-gray-900">Auto-acceptation des joueurs</p>
-                  <p className="text-xs text-gray-500">Bypass le quota de joueurs et confirme tout le monde immédiatement</p>
+                  <p className="text-xs text-gray-500">
+                    {autoAcceptPlayers
+                      ? "Tout le monde est sur la feuille tout de suite, le match est programmé sans attendre de quota"
+                      : `Le match attend ${quotaMinimum(format)} confirmés par équipe avant d'être programmé`}
+                  </p>
                 </div>
                 <button
                   onClick={() => setAutoAcceptPlayers(!autoAcceptPlayers)}
@@ -1197,8 +1224,11 @@ export default function MatchesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.06 }}
-                onClick={() => router.push(`/matches/${match.id}`)}
-                className="overflow-hidden border border-dashed border-amber-300 bg-white transition-shadow cursor-pointer"
+                /* Pas de fiche derrière un défi reçu : rien n'est encore
+                   programmé, personne n'est convoqué, et la page de détail
+                   s'ouvrait sur un match vide. Les deux seuls gestes qui ont
+                   un sens ici — accepter, refuser — sont sur la carte. */
+                className="overflow-hidden border border-dashed border-amber-300 bg-white transition-shadow"
               >
                 <div className="flex flex-col sm:flex-row">
                   {/* Status strip */}
@@ -1246,7 +1276,7 @@ export default function MatchesPage() {
                     {/* Actions */}
                     <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleAcceptChallenge(match); }}
+                        onClick={() => handleAcceptChallenge(match)}
                         disabled={accepting === match.id}
                         className="inline-flex items-center gap-1.5 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1257,7 +1287,7 @@ export default function MatchesPage() {
                         )}
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleRejectChallenge(match); }}
+                        onClick={() => handleRejectChallenge(match)}
                         disabled={accepting === match.id}
                         className="inline-flex items-center gap-1.5 border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1302,6 +1332,21 @@ export default function MatchesPage() {
                 match.status === "challenge" ||
                 match.status === "pending" ||
                 match.status === "cancelled";
+              /**
+               * AUCUNE CARTE DE CET ONGLET N'OUVRE DE FICHE.
+               *
+               * Brouillon, défi envoyé, accepté, annulé : aucun de ces matchs
+               * n'a de fiche qui tienne debout. Il n'y a ni date honorée, ni
+               * feuille de match, ni rien à lire — le clic ouvrait une page
+               * vide — et tout ce qu'on peut faire d'un match en attente est
+               * déjà sur sa carte : le compléter, l'annuler, le supprimer.
+               * Même règle vue d'en face, dans l'onglet « Défis reçus » plus
+               * haut.
+               *
+               * Un match reparaît cliquable dès qu'il est programmé, c'est-à-
+               * dire dès qu'il quitte cet onglet pour « À venir ».
+               */
+              const ouvreLaFiche = !isDraft;
 
               return (
                 <motion.div
@@ -1311,10 +1356,10 @@ export default function MatchesPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.06 }}
-                  onClick={() => router.push(`/matches/${match.id}`)}
-                  className={`group overflow-hidden border bg-white transition-shadow cursor-pointer ${
-                    isDraft ? "border-dashed border-gray-200/70" : "border-gray-200/70"
-                  }`}
+                  onClick={ouvreLaFiche ? () => router.push(`/matches/${match.id}`) : undefined}
+                  className={`group overflow-hidden border bg-white transition-shadow ${
+                    ouvreLaFiche ? "cursor-pointer" : ""
+                  } ${isDraft ? "border-dashed border-gray-200/70" : "border-gray-200/70"}`}
                 >
                   <div className="flex flex-col sm:flex-row">
                     {/* Result / Status strip */}
@@ -1464,25 +1509,25 @@ export default function MatchesPage() {
                             {estAmical(match) ? (
                               <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 border border-gray-200/70">
                                 <span className="text-[10px] uppercase font-bold text-gray-400">Mon équipe</span>
-                                <span className={`text-xs font-bold ${(match.isHome ? match.confirmedHome : match.confirmedAway) >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
+                                <span className={`text-xs font-bold ${(match.isHome ? match.confirmedHome : match.confirmedAway) >= quotaMinimum(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
                                   {match.isHome ? match.confirmedHome : match.confirmedAway}
                                 </span>
                                 <span className="text-gray-300 ml-0.5 sm:ml-1">|</span>
-                                <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Onze {TAILLE_EFFECTIF_FORMAT[match.format] || 0}</span>
+                                <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Effectif {tailleEffectif(match.format)}</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 border border-gray-200/70">
                                 <span className="text-[10px] uppercase font-bold text-gray-400">Dom.</span>
-                                <span className={`text-xs font-bold ${match.confirmedHome >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
+                                <span className={`text-xs font-bold ${match.confirmedHome >= quotaMinimum(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
                                   {match.confirmedHome}
                                 </span>
                                 <span className="text-gray-300">/</span>
                                 <span className="text-[10px] uppercase font-bold text-gray-400">Ext.</span>
-                                <span className={`text-xs font-bold ${match.confirmedAway >= getMinConfirmed(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
+                                <span className={`text-xs font-bold ${match.confirmedAway >= quotaMinimum(match.format) ? "text-emerald-600" : "text-amber-600"}`}>
                                   {match.confirmedAway}
                                 </span>
                                 <span className="text-gray-300 ml-0.5 sm:ml-1">|</span>
-                                <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Total {FORMAT_TOTAL_PLAYERS[match.format] || 0}</span>
+                                <span className="text-[10px] font-medium text-gray-400 ml-0.5 sm:ml-1">Total {totalJoueurs(match.format)}</span>
                               </div>
                             )}
                           </div>
@@ -1679,7 +1724,7 @@ export default function MatchesPage() {
                           {match.status === "pending" && !estAmical(match) && (
                              <div className="mb-2 p-3 bg-amber-50 border border-amber-100 italic">
                                <p className="text-[11px] text-amber-700">
-                                 En attente du quota minimum de joueurs ({getMinConfirmed(match.format)} confirmés par équipe).
+                                 En attente du quota minimum de joueurs ({quotaMinimum(match.format)} confirmés par équipe).
                                </p>
                              </div>
                           )}
@@ -1693,8 +1738,8 @@ export default function MatchesPage() {
                                     // Sur un amical, le quota ne protège personne :
                                     // le manager est le seul témoin du match.
                                     (!estAmical(match) && (
-                                      match.confirmedHome < getMinConfirmed(match.format) ||
-                                      match.confirmedAway < getMinConfirmed(match.format)
+                                      match.confirmedHome < quotaMinimum(match.format) ||
+                                      match.confirmedAway < quotaMinimum(match.format)
                                     ))
                                   }
                                   className="flex-1 flex items-center justify-center gap-2 bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

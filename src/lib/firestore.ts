@@ -42,7 +42,7 @@ import type {
   Notification, FirestoreNotification, NotificationType,
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
-import { normaliserPoste } from "@/lib/postes";
+import { normaliserPoste, type Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
 import type { FirestoreLineupEntry } from "@/types";
 
@@ -324,6 +324,7 @@ export function toParticipation(id: string, d: FirestoreParticipation): Particip
     status: d.status, goals: d.goals ?? 0, assists: d.assists ?? 0,
     matchFormat: d.match_format ?? "", isHome: d.is_home ?? false,
     squadNumber: d.squad_number, matchRole: d.match_role,
+    matchPosition: d.match_position ?? null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -481,7 +482,38 @@ export async function createTeam(data: {
   return ref.id;
 }
 
-export const TAILLE_EFFECTIF: Record<string, number> = { "5v5": 5, "7v7": 7, "11v11": 11 };
+/**
+ * LE NvN D'UN MATCH, LU DANS SON FORMAT, plutôt que cherché dans une table.
+ *
+ * Trois tables figées traduisaient « 5v5 », « 7v7 » et « 11v11 » — effectif,
+ * total de joueurs, quota minimum — et retombaient sur onze pour tout le
+ * reste. Or le formulaire de création laisse maintenant la main sur le N,
+ * comme une compétition (voir TEAM_SIZE_OPTIONS) : un 6v6 comptait donc onze
+ * titulaires côté fantôme et vingt-deux joueurs attendus.
+ *
+ * Le N est déjà écrit dans le format, il n'y a rien à mémoriser.
+ */
+export function tailleEffectif(format: string | undefined): number {
+  const n = Number.parseInt(String(format ?? ""), 10);
+  return Number.isFinite(n) && n > 0 ? n : 11;
+}
+
+/** Joueurs attendus sur la feuille, les deux camps réunis. */
+export function totalJoueurs(format: string | undefined): number {
+  return tailleEffectif(format) * 2;
+}
+
+/**
+ * Confirmés minimum par équipe pour qu'un match se programme.
+ *
+ * La règle reproduit exactement les trois valeurs de l'ancienne table
+ * (5v5 → 3, 7v7 → 5, 11v11 → 8) et sait répondre pour les autres formats :
+ * il faut de quoi aligner une équipe, pas l'équipe entière.
+ */
+export function quotaMinimum(format: string | undefined): number {
+  const n = tailleEffectif(format);
+  return Math.max(2, n <= 7 ? n - 2 : n - 3);
+}
 
 /**
  * L'onze d'un adversaire hors plateforme, SANS RIEN ÉCRIRE EN BASE.
@@ -502,7 +534,7 @@ export const TAILLE_EFFECTIF: Record<string, number> = { "5v5": 5, "7v7": 7, "11
  * servent qu'à rattacher un but ou un carton à une ligne de cette feuille-là.
  */
 export function ghostOpponentLineup(format: string): LineupEntry[] {
-  const taille = TAILLE_EFFECTIF[format] ?? 11;
+  const taille = tailleEffectif(format);
   const lignes: LineupEntry[] = [];
   for (let i = 1; i <= taille; i++) {
     const numero = String(i);
@@ -1032,7 +1064,18 @@ export async function updateMatchLineup(
   matchId: string,
   teamId: string,
   isHome: boolean,
-  assignments: { playerId: string; squadNumber: string; role: "starter" | "substitute" }[],
+  assignments: {
+    playerId: string;
+    squadNumber: string;
+    role: "starter" | "substitute";
+    /**
+     * Le poste tenu sur CE match. Absent de cette signature jusqu'ici : seuls
+     * les joueurs sans compte en portaient un, et le terrain n'avait donc
+     * jamais de poste à lire pour les autres — il repliait tout le monde sur
+     * un 4-3-3 par ordre de feuille (voir lib/terrain).
+     */
+    position?: Poste | null;
+  }[],
   ghostEntries: LineupEntry[] = [],
 ): Promise<void> {
   const batch = writeBatch(db);
@@ -1044,9 +1087,13 @@ export async function updateMatchLineup(
   );
   const snap = await getDocs(q);
 
+  // La feuille se réécrit en entier : on efface d'abord le rôle ET le poste de
+  // tout le monde, sinon un joueur retiré de la composition y gardait le poste
+  // de la version précédente et le terrain continuait de l'aligner.
   snap.docs.forEach(d => {
     batch.update(d.ref, {
       match_role: null,
+      match_position: null,
       updated_at: serverTimestamp(),
     });
   });
@@ -1057,21 +1104,44 @@ export async function updateMatchLineup(
       batch.update(doc.ref, {
         squad_number: asgn.squadNumber,
         match_role: asgn.role,
+        match_position: asgn.position ?? null,
         updated_at: serverTimestamp(),
       });
     }
   });
+
+  /**
+   * DEUX JOUEURS, UN DOSSARD : LE COMPTE L'EMPORTE SUR LE FANTÔME.
+   *
+   * Les deux moitiés d'un effectif se numérotent séparément — le dossard d'un
+   * joueur avec un compte vit sur sa convocation (et par défaut sur celui que
+   * son équipe lui a donné), celui d'un joueur sans compte sur sa fiche — et
+   * rien ne les confrontait. Un même numéro pouvait donc partir en double sur
+   * la feuille, ce qui n'est pas un détail d'affichage : un but attribué au
+   * « 7 » depuis la console ne désigne plus personne.
+   *
+   * On tranche du côté du compte : c'est lui qui porte une carrière, des
+   * statistiques et un profil public, là où la ligne fantôme ne vit que le
+   * temps de ce match. Le fantôme perd donc son numéro plutôt que la feuille
+   * son sens ; le manager le voit vide et lui en donne un autre.
+   */
+  const dossardsDesComptes = new Set(
+    assignments.map((a) => a.squadNumber.trim()).filter((n) => n !== ""),
+  );
+  const ghostsDemeles = ghostEntries.map((e) =>
+    dossardsDesComptes.has(e.number.trim()) ? { ...e, number: "" } : e,
+  );
 
   // Une feuille sans un seul titulaire n'est pas une feuille prête. Le drapeau
   // partait à `true` quoi qu'il arrive, et la console annonçait « validée » sur
   // une grille vide.
   const titulaires =
     assignments.filter((a) => a.role === "starter").length +
-    ghostEntries.filter((e) => e.role === "starter").length;
+    ghostsDemeles.filter((e) => e.role === "starter").length;
 
   const matchRef = doc(db, "matches", matchId);
   batch.update(matchRef, {
-    [isHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostEntries.map((e) => ({
+    [isHome ? "home_ghost_lineup" : "away_ghost_lineup"]: ghostsDemeles.map((e) => ({
       player_id: e.playerId, name: e.name, number: e.number, role: e.role,
       position: e.position ?? null,
     })),
@@ -1614,12 +1684,6 @@ export async function getParticipationsForPlayer(playerId: string): Promise<Part
   return snap.docs.map((d) => toParticipation(d.id, d.data() as FirestoreParticipation));
 }
 
-const MATCH_QUOTAS: Record<string, number> = {
-  "5v5": 3,
-  "7v7": 5,
-  "11v11": 8,
-};
-
 export async function respondToParticipation(
   participationId: string,
   accepted: boolean,
@@ -1686,7 +1750,7 @@ export async function respondToParticipation(
     });
 
     // Auto-confirm logic
-    const minQuota = MATCH_QUOTAS[format] ?? 3;
+    const minQuota = quotaMinimum(format);
     if (
       matchData.status === "pending" &&
       h >= minQuota &&

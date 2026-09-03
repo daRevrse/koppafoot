@@ -341,6 +341,17 @@ export type MatchStatus = "challenge" | "pending" | "draft" | "upcoming" | "live
 export type MatchResult = "win" | "loss" | "draw" | null;
 
 /**
+ * Le NvN d'un match, écrit « 7v7 ».
+ *
+ * Trois valeurs étaient énumérées ici — 5v5, 7v7, 11v11 —, celles que le
+ * formulaire de création proposait. Il laisse maintenant la main sur le N, de
+ * quatre à onze comme une compétition (voir TEAM_SIZE_OPTIONS), et le type
+ * doit dire la vérité sur ce qu'un match porte. Le N se lit dans la chaîne,
+ * il n'y a pas de table à tenir à jour (voir tailleEffectif, lib/firestore).
+ */
+export type MatchFormat = `${number}v${number}`;
+
+/**
  * Fate of a goal once the video assistant gets involved. A goal carries no
  * status at all until someone reviews it, only a reviewed goal is flagged,
  * and only a "cancelled" one leaves the scoreboard.
@@ -374,7 +385,7 @@ export interface FirestoreMatch {
   referee_name: string | null;
   referee_status: "confirmed" | "pending" | "invited" | "none";
   local_referee_name?: string | null;
-  format: "5v5" | "7v7" | "11v11";
+  format: MatchFormat;
   is_home: boolean;
   players_confirmed: number;
   players_total: number;
@@ -550,7 +561,7 @@ export interface Match {
   refereeName: string | null;
   refereeStatus: "confirmed" | "pending" | "invited" | "none";
   localRefereeName?: string | null;
-  format: "5v5" | "7v7" | "11v11";
+  format: MatchFormat;
   isHome: boolean;
   playersConfirmed: number;
   playersTotal: number;
@@ -645,6 +656,20 @@ export interface FirestoreParticipation {
   is_home: boolean;
   squad_number?: string;
   match_role?: "starter" | "substitute" | null;
+  /**
+   * LE POSTE TENU SUR CE MATCH-LÀ, choisi par le manager en remplissant la
+   * feuille — et pas le poste naturel du joueur, qui vit sur son profil
+   * (`users.position`).
+   *
+   * Les deux ne sont pas le même fait : un milieu dépanne dans les buts, un
+   * défenseur monte en pointe pour finir un match, et rien de tout cela ne
+   * change ce qu'il est le reste de la saison. Le terrain lisait donc un
+   * poste que personne n'avait choisi pour ce match, quand il en lisait un.
+   *
+   * Null est normal : personne n'est obligé de renseigner un poste, et le
+   * terrain sait placer une ligne sans (voir lib/terrain).
+   */
+  match_position?: Poste | null;
   created_at: string;
   updated_at: string;
 }
@@ -666,6 +691,8 @@ export interface Participation {
   isHome: boolean;
   squadNumber?: string;
   matchRole?: "starter" | "substitute" | null;
+  /** Voir `FirestoreParticipation.match_position`. */
+  matchPosition?: Poste | null;
   createdAt: string;
   updatedAt: string;
 }
