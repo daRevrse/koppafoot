@@ -3,8 +3,9 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Lock } from "lucide-react";
+import { X, Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
@@ -19,9 +20,12 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 // The ONE redirect kept is onboarding: a brand-new Google account has no
 // Firestore profile yet, and /get-started is a form, not a dialog.
 //
-// Only Google is offered here. Email/password and phone still exist on
-// /login, this dialog is deliberately one button, because every extra field
-// is a reason to give up.
+// Google first: one tap, no password to remember. Email and password come
+// second, folded away behind one line, because every field shown up front is
+// a reason to give up — but a folded field is not a missing one. Accounts
+// created by /signup have a password and no Google identity, and this dialog
+// is now the front door: offering them Google alone was offering them
+// nothing. Phone sign-in still lives on /login only.
 // ============================================
 
 interface AuthModalApi {
@@ -61,10 +65,21 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+const inputClass =
+  "w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
+
 function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void }) {
-  const { loginWithGoogle } = useAuth();
+  const { loginWithGoogle, loginWithEmail } = useAuth();
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
+  // Quelle voie est en cours, plutot qu'un simple booleen : les deux boutons
+  // se desactivent ensemble, mais seul celui sur lequel on a clique tourne.
+  const [enCours, setEnCours] = useState<"google" | "email" | null>(null);
+  // Le formulaire email reste replie tant qu'on ne le demande pas : le
+  // dialogue s'ouvre sur un seul bouton, comme avant.
+  const [emailOuvert, setEmailOuvert] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -74,8 +89,23 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const handleEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+    setEnCours("email");
+    try {
+      await loginWithEmail(email.trim(), password);
+      toast.success("Connexion réussie");
+      onClose();
+    } catch (err) {
+      toast.error(getAuthErrorMessage(err));
+    } finally {
+      setEnCours(null);
+    }
+  };
+
   const handleGoogle = async () => {
-    setSubmitting(true);
+    setEnCours("google");
     try {
       const { isNewUser } = await loginWithGoogle();
       if (isNewUser) {
@@ -89,7 +119,7 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
     } catch (err) {
       toast.error(getAuthErrorMessage(err));
     } finally {
-      setSubmitting(false);
+      setEnCours(null);
     }
   };
 
@@ -129,10 +159,10 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
         <button
           type="button"
           onClick={handleGoogle}
-          disabled={submitting}
+          disabled={enCours !== null}
           className="mt-8 flex w-full items-center justify-center gap-3 border border-gray-900 bg-gray-900 px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-colors hover:bg-emerald-700 hover:border-emerald-700 disabled:opacity-50"
         >
-          {submitting ? (
+          {enCours === "google" ? (
             <Loader2 size={18} className="animate-spin text-white" />
           ) : (
             <svg viewBox="0 0 24 24" width="18" height="18">
@@ -145,8 +175,85 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
           Continuer avec Google
         </button>
 
+        {/* L'email, replie. Le lien tient sur une ligne, le formulaire
+            prend sa place au clic : personne ne lit deux champs avant
+            d'avoir decide de s'en servir. */}
+        {!emailOuvert ? (
+          <button
+            type="button"
+            onClick={() => setEmailOuvert(true)}
+            className="mt-3 flex w-full items-center justify-center gap-2 border border-gray-200/70 bg-white px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-gray-900 transition-colors hover:bg-gray-50"
+          >
+            <Mail size={18} />
+            Continuer avec un email
+          </button>
+        ) : (
+          <form onSubmit={handleEmail} className="mt-6 space-y-3">
+            <div className="relative">
+              <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+              <input
+                type="email"
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="votre@email.com"
+                aria-label="Email"
+                className={inputClass}
+              />
+            </div>
+            <div className="relative">
+              <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mot de passe"
+                aria-label="Mot de passe"
+                className={`${inputClass} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-300 transition-colors hover:text-gray-500"
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <button
+              type="submit"
+              disabled={enCours !== null || !email.trim() || !password}
+              className="flex w-full items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {enCours === "email" && <Loader2 size={16} className="animate-spin" />}
+              Se connecter
+            </button>
+            {/* LES DEUX SORTIES SE FERMENT DERRIÈRE ELLES.
+                Le fournisseur vit dans le layout racine : naviguer ne le
+                démonte pas, et le dialogue restait posé par-dessus la page
+                d'arrivée — on lisait « Mot de passe oublié » sous une modale
+                qui redemandait de se connecter, sans savoir quoi fermer. Ces
+                deux liens quittent le dialogue, ils le referment donc. */}
+            <div className="text-right">
+              <Link
+                href="/forgot-password"
+                onClick={onClose}
+                className="text-xs font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
+          </form>
+        )}
+
         <p className="mt-4 text-center text-xs text-gray-400">
-          Pas encore de compte ? Google en crée un pour toi.
+          Pas encore de compte ?{" "}
+          <Link href="/signup" onClick={onClose} className="font-bold text-emerald-600 transition-colors hover:text-emerald-700">
+            Créer un compte
+          </Link>{" "}
+          — ou Google en crée un pour toi.
         </p>
       </div>
     </div>

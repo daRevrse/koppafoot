@@ -584,14 +584,17 @@ export default function ScoreHeader() {
             );
           })}
 
-          {/* Un compte sans role choisi : l'invitation passe devant, en
-              plein contraste. Elle vivait jusqu'ici au fond du menu avatar,
-              c'est-a-dire nulle part pour qui ne l'ouvre jamais, alors que
-              c'est le geste qui donne acces a tout le reste du produit.
-              Elle disparait d'elle-meme des qu'un role est actif. */}
-          {user && !user.evolutionRole && (
+          {/* L'invitation a choisir un role, en jaune plein contraste : c'est
+              le geste qui donne acces au reste du produit. Elle vaut pour un
+              visiteur (-> /roles, la page PUBLIQUE) comme pour un compte sans
+              role encore choisi (-> /evolution) — mais s'efface des qu'un
+              role est actif, remplacee plus loin par l'espace du compte
+              (EspaceMenu) : le sujet est alors traite, le repeter serait du
+              bruit. Meme regle qu'en bas d'un telephone, voir
+              MobileBottomNav. */}
+          {(!user || !user.evolutionRole) && (
             <Link
-              href="/evolution"
+              href={user ? "/evolution" : "/roles"}
               className="flex shrink-0 items-center gap-2 border border-amber-300 bg-amber-300 px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-gray-900 transition-colors hover:border-white hover:bg-white"
             >
               <Rocket size={16} />
