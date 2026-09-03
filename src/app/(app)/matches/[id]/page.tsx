@@ -88,7 +88,19 @@ export default function MatchDetailPage() {
    */
   const [tempAssignments, setTempAssignments] = useState<Record<string, {
     squadNumber: string;
-    role: "starter" | "substitute";
+    /**
+     * « out » = RETIRÉ DE LA FEUILLE, ni titulaire ni remplaçant.
+     *
+     * Il manquait, et un manager ne pouvait donc pas laisser un joueur de
+     * côté : tout l'effectif confirmé partait sur la feuille, au mieux sur le
+     * banc. Or une feuille de match est un choix — on ne convoque pas
+     * quatorze personnes pour un 4v4.
+     *
+     * Le stockage sait déjà le faire : `updateMatchLineup` efface le rôle de
+     * tout le monde avant de le reposer sur ceux qu'on lui passe, si bien
+     * qu'un joueur absent de la liste sort de la feuille de lui-même.
+     */
+    role: "starter" | "substitute" | "out";
     position: Poste | null;
   }>>({});
   const [savingLineup, setSavingLineup] = useState(false);
@@ -292,15 +304,20 @@ export default function MatchDetailPage() {
    * l'éditeur — voir le 4-4-2 se former, plutôt que valider et découvrir.
    */
   const compoEnCours = useMemo<LineupEntry[]>(
-    () => monEffectifDeMatch.map((j) => {
+    () => monEffectifDeMatch.flatMap((j) => {
       const a = tempAssignments[j.id];
-      return {
+      // Un joueur retiré ne fait pas partie de la feuille : il ne se dessine
+      // pas sur le terrain, ne compte pas dans les titulaires, et ne part pas
+      // à l'enregistrement. Il reste dans la LISTE de l'éditeur, pour qu'on
+      // puisse le rappeler.
+      if (a?.role === "out") return [];
+      return [{
         playerId: j.id,
         name: j.nom,
         number: a?.squadNumber ?? j.dossardParDefaut,
         role: a?.role ?? "starter",
         position: a?.position ?? null,
-      };
+      }];
     }),
     [monEffectifDeMatch, tempAssignments],
   );
@@ -1019,12 +1036,28 @@ export default function MatchDetailPage() {
                                 // composition du manager ; sinon on prend les
                                 // N premiers et le reste va au banc.
                                 let restants = tailleEffectif(match.format);
+                                // UNE FEUILLE DÉJÀ VALIDÉE SE ROUVRE TELLE
+                                // QUELLE. Sans rôle enregistré, deux cas
+                                // opposés se ressemblent : un joueur qu'on
+                                // n'a pas encore placé, et un joueur qu'on a
+                                // délibérément retiré — les deux ont un rôle
+                                // vide. Le drapeau de la feuille les
+                                // sépare : si elle a été validée, un rôle
+                                // vide est un retrait qu'on respecte, sinon
+                                // c'est une composition à faire.
+                                const feuilleValidee = myTeamIsHome
+                                  ? match.homeLineupReady
+                                  : match.awayLineupReady;
                                 setTempAssignments(Object.fromEntries(
                                   monEffectifDeMatch.map((j) => {
-                                    let role = j.roleEnregistre;
+                                    let role = j.roleEnregistre as "starter" | "substitute" | "out" | null;
                                     if (!role) {
-                                      role = restants > 0 ? "starter" : "substitute";
-                                      if (restants > 0) restants -= 1;
+                                      if (feuilleValidee) {
+                                        role = "out";
+                                      } else {
+                                        role = restants > 0 ? "starter" : "substitute";
+                                        if (restants > 0) restants -= 1;
+                                      }
                                     }
                                     return [j.id, {
                                       squadNumber: j.dossardParDefaut,
@@ -1171,7 +1204,7 @@ export default function MatchDetailPage() {
                         joueur.sansCompte
                         && dossard.trim() !== ""
                         && dossardsPrisParLesComptes.has(dossard.trim());
-                      const poser = (patch: Partial<{ squadNumber: string; role: "starter" | "substitute"; position: Poste | null }>) =>
+                      const poser = (patch: Partial<{ squadNumber: string; role: "starter" | "substitute" | "out"; position: Poste | null }>) =>
                         setTempAssignments((prev) => ({
                           ...prev,
                           // dossard/role/poste SONT deja les valeurs
@@ -1186,10 +1219,18 @@ export default function MatchDetailPage() {
                             role === "starter"
                               ? "border-white/10 bg-white/5"
                               : "border-white/5 bg-transparent"
+                          } ${
+                            // Un retiré s'éteint : il reste dans la liste pour
+                            // qu'on le rappelle, mais il ne fait plus partie
+                            // de la feuille, et ça se voit sans lire le
+                            // sélecteur.
+                            role === "out" ? "opacity-45" : ""
                           }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-black text-white">{joueur.nom}</p>
+                            <p className={`truncate text-sm font-black text-white ${role === "out" ? "line-through decoration-white/40" : ""}`}>
+                              {joueur.nom}
+                            </p>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
                               {joueur.sansCompte ? "Sans compte" : "Compte joueur"}
                               {joueur.posteNaturel ? ` · ${LIBELLE_POSTE[joueur.posteNaturel]} de métier` : ""}
@@ -1231,21 +1272,28 @@ export default function MatchDetailPage() {
                             ))}
                           </select>
 
-                          {/* « Titu » se ferme quand l'équipe est au
-                              complet : le match se joue à N, et rien
-                              n'empêchait d'en aligner le double. Il faut
-                              d'abord sortir quelqu'un — c'est le geste
-                              qu'on ferait au bord du terrain. */}
+                          {/* TROIS PLACES, DONT LA SORTIE. « Titu » se ferme
+                              quand l'équipe est au complet : le match se joue
+                              à N, et rien n'empêchait d'en aligner le double.
+                              « Retiré » sort le joueur de la feuille sans le
+                              sortir de la liste — un manager ne convoque pas
+                              quatorze personnes pour un 4v4, et il doit
+                              pouvoir le rappeler d'un clic. */}
                           <select
                             aria-label={`Rôle de ${joueur.nom}`}
-                            className="h-9 border border-white/10 bg-white/10 px-2 text-[10px] font-black uppercase text-white focus:outline-none"
+                            className={`h-9 border px-2 text-[10px] font-black uppercase focus:outline-none ${
+                              role === "out"
+                                ? "border-white/5 bg-transparent text-white/40"
+                                : "border-white/10 bg-white/10 text-white"
+                            }`}
                             value={role}
-                            onChange={(e) => poser({ role: e.target.value as "starter" | "substitute" })}
+                            onChange={(e) => poser({ role: e.target.value as "starter" | "substitute" | "out" })}
                           >
                             <option value="starter" disabled={onzeComplet && role !== "starter"}>
                               Titu
                             </option>
                             <option value="substitute">Sub</option>
+                            <option value="out">Retiré</option>
                           </select>
                         </div>
                       );
@@ -1269,14 +1317,20 @@ export default function MatchDetailPage() {
                           // la feuille du camp, sur le match. Les mélanger
                           // revenait à les jeter (voir updateMatchLineup).
                           const idsSansCompte = new Set(ghostPlayers.map(g => g.id));
-                          const entrees = Object.entries(tempAssignments);
+                          // LES RETIRÉS NE PARTENT PAS. `updateMatchLineup`
+                          // efface le rôle de tout le monde avant de le
+                          // reposer sur ceux qu'on lui passe : les omettre
+                          // suffit à les sortir de la feuille, côté comptes
+                          // comme côté joueurs sans compte.
+                          const entrees = Object.entries(tempAssignments)
+                            .filter(([, val]) => val.role !== "out");
 
                           const assignments = entrees
                             .filter(([playerId]) => !idsSansCompte.has(playerId))
                             .map(([playerId, val]) => ({
                               playerId,
                               squadNumber: val.squadNumber,
-                              role: val.role,
+                              role: val.role as "starter" | "substitute",
                               // Le poste tenu sur CE match. Il n'était pas
                               // transmis : seuls les joueurs sans compte en
                               // portaient un, et le terrain repliait donc tous
@@ -1292,7 +1346,7 @@ export default function MatchDetailPage() {
                                 playerId,
                                 name: `${g.firstName} ${g.lastName}`.trim(),
                                 number: val.squadNumber || g.squadNumber || "",
-                                role: val.role,
+                                role: val.role as "starter" | "substitute",
                                 // Le poste CHOISI pour ce match s'il l'a été,
                                 // sinon celui de sa fiche, qui est typé et
                                 // obligatoire. Ce dernier était pris d'office :

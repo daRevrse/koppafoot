@@ -129,6 +129,10 @@ export default function LiveMatchConsole({
   // button several screens down. On md+ the two sit side by side and this
   // is ignored.
   const [sheetSide, setSheetSide] = useState<Side>("home");
+  // « Revoir les feuilles » : quand les deux camps ont validé, l'étape est
+  // franchie et la console va au coup d'envoi. Ce drapeau la rouvre à la
+  // demande, pour une dernière retouche.
+  const [revoirLesFeuilles, setRevoirLesFeuilles] = useState(false);
 
   // Le camp regarde sur le terrain, et le joueur touche.
   const [coteTerrain, setCoteTerrain] = useState<Side>("home");
@@ -801,6 +805,22 @@ export default function LiveMatchConsole({
   if (match.status !== "live" && match.status !== "completed") {
     const lineupsReady = match.homeLineupReady && match.awayLineupReady;
 
+    /**
+     * ON NE REDEMANDE PAS UNE FEUILLE DÉJÀ FAITE.
+     *
+     * La console ouvrait l'atelier des feuilles dès que le match n'était pas
+     * commencé, même quand les deux managers avaient composé et validé la
+     * leur depuis la fiche du match : l'opérateur arrivait devant un travail
+     * déjà fait, et devait deviner qu'il n'avait qu'à lancer.
+     *
+     * L'atelier ne s'ouvre donc que s'il reste une feuille à faire — ou si
+     * on demande à revoir celles qui existent.
+     */
+    const montrerLAtelier = !lineupsReady || revoirLesFeuilles;
+    const titulairesDe = (side: Side) =>
+      (side === "home" ? match.homeLineup : match.awayLineup)
+        .filter((e) => e.role === "starter").length;
+
     // Full-height column: header and kickoff bar are pinned, only the roster
     // scrolls. `pt-safe` keeps the header clear of the status bar, the
     // console renders without the app shell, so nothing else provides it.
@@ -834,7 +854,7 @@ export default function LiveMatchConsole({
 
         {/* Team switch, mobile only. Carries each side's validation state,
             since only one sheet is visible at a time. */}
-        {!rostersLoading && (
+        {!rostersLoading && montrerLAtelier && (
           <div className="mx-2 mt-3 flex shrink-0 gap-1 bg-gray-200/70 p-1 md:hidden">
             {([
               { side: "home" as Side, label: "Domicile", name: match.homeTeamName, ready: match.homeLineupReady },
@@ -854,7 +874,45 @@ export default function LiveMatchConsole({
           </div>
         )}
 
-        {rostersLoading ? (
+        {/* LES DEUX FEUILLES SONT FAITES : on le dit, et on laisse la
+            barre du coup d'envoi faire le reste. */}
+        {!montrerLAtelier ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-10">
+            <div className="flex items-center gap-2 text-emerald-600">
+              <CheckCircle2 size={20} className="shrink-0" />
+              <p className="text-sm font-black uppercase tracking-[0.15em]">
+                Les deux feuilles sont validées
+              </p>
+            </div>
+            <div className="grid w-full max-w-md gap-2">
+              {([
+                { nom: match.homeTeamName, cote: "home" as Side, label: "Domicile" },
+                { nom: match.awayTeamName, cote: "away" as Side, label: "Extérieur" },
+              ]).map((t) => (
+                <div
+                  key={t.cote}
+                  className="flex items-center justify-between gap-3 border border-gray-200/70 bg-white px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                      {t.label}
+                    </p>
+                    <p className="truncate text-sm font-black text-gray-900">{t.nom}</p>
+                  </div>
+                  <p className="shrink-0 text-xs font-black tabular-nums text-gray-500">
+                    {titulairesDe(t.cote)} titulaire{titulairesDe(t.cote) > 1 ? "s" : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setRevoirLesFeuilles(true)}
+              className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 underline transition-colors hover:text-gray-900"
+            >
+              Revoir les feuilles
+            </button>
+          </div>
+        ) : rostersLoading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-emerald-700" />
             <p className="text-sm font-bold text-gray-400 italic">Chargement des effectifs...</p>
