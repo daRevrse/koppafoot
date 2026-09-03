@@ -83,16 +83,47 @@ export async function copierDansLePressePapier(texte: string): Promise<boolean> 
  * À N'APPELER QUE DEPUIS UN CLIC, sans `await` avant : `navigator.share`
  * exige une activation utilisateur fraîche, et la moindre attente asynchrone
  * en amont la consomme — le partage est alors refusé sans que rien ne
- * l'explique.
+ * l'explique. C'est aussi pourquoi `fichier` est un fichier DÉJÀ PRÊT et non
+ * une adresse à aller chercher : le télécharger au clic coûterait
+ * l'activation, donc le partage.
  */
 export async function partagerLien(contenu: {
   title: string;
   text?: string;
   url: string;
+  /**
+   * Une image à joindre — l'affiche du match. Quand le navigateur sait la
+   * prendre, elle part AVEC le message : c'est elle qu'on voit dans un statut
+   * WhatsApp, là où un lien seul n'est qu'une ligne bleue.
+   */
+  fichier?: File | null;
 }): Promise<ResultatPartage> {
-  const { title, text, url } = contenu;
+  const { title, text, url, fichier } = contenu;
 
   if (typeof navigator !== "undefined" && navigator.share) {
+    // L'IMAGE D'ABORD, quand elle est là et que le navigateur l'accepte.
+    // `canShare` est la seule façon de le savoir : partager des fichiers est
+    // refusé sur la plupart des navigateurs de bureau, et une tentative
+    // ratée nous ferait retomber sur le presse-papier alors qu'un partage de
+    // lien, lui, aurait marché.
+    if (fichier && navigator.canShare?.({ files: [fichier] })) {
+      try {
+        // L'ADRESSE VA DANS LE TEXTE. Avec un fichier, plusieurs navigateurs
+        // ignorent `url` en silence : le lien disparaîtrait du message, et
+        // l'affiche renverrait vers nulle part.
+        await navigator.share({
+          title,
+          text: text ? `${text}\n${url}` : url,
+          files: [fichier],
+        });
+        return "partage";
+      } catch (err) {
+        if ((err as DOMException)?.name === "AbortError") return "partage";
+        // Refus de l'image : on retente sans elle, plutôt que d'abandonner
+        // le partage tout entier.
+      }
+    }
+
     try {
       await navigator.share({ title, text, url });
       return "partage";

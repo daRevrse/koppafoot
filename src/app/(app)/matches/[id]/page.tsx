@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { motion, AnimatePresence } from "motion/react";
@@ -120,6 +120,19 @@ export default function MatchDetailPage() {
   const [refereeRating, setRefereeRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [ghostPlayers, setGhostPlayers] = useState<GhostPlayer[]>([]);
+
+  /**
+   * L'AFFICHE DU MATCH, TÉLÉCHARGÉE D'AVANCE.
+   *
+   * `navigator.share` exige une activation utilisateur fraîche : aller
+   * chercher l'image au moment du clic la consomme, et le partage est refusé
+   * sans rien dire (voir lib/partage). On la prépare donc dès que le match
+   * est connu, et le bouton n'a plus qu'à la tendre.
+   *
+   * Un `ref` et non un état : sa présence ne change rien à l'écran, et un
+   * rendu de plus pour une image qu'on ne montre pas ne sert à rien.
+   */
+  const afficheDuMatch = useRef<File | null>(null);
   // Attribution des stats d'un amical fantôme : irréversible, donc en deux
   // temps. Un bouton unique se clique par réflexe, et rien ne se déduit
   // ensuite d'un compteur de carrière.
@@ -409,6 +422,27 @@ export default function MatchDetailPage() {
     getGhostPlayersByTeam(myTeamId).then(setGhostPlayers).catch(console.error);
   }, [myTeamId]);
 
+  // L'affiche, préparée pendant qu'on lit la fiche. Silencieuse en cas
+  // d'échec : le partage retombe alors sur le lien seul, ce qu'il a toujours
+  // fait — une image manquante ne doit pas coûter le partage.
+  useEffect(() => {
+    if (!id) return;
+    let vivant = true;
+    afficheDuMatch.current = null;
+    (async () => {
+      try {
+        const reponse = await fetch(`/api/matches/${id}/affiche`);
+        if (!reponse.ok) return;
+        const png = await reponse.blob();
+        if (!vivant) return;
+        afficheDuMatch.current = new File([png], `koppafoot-${id}.png`, { type: "image/png" });
+      } catch {
+        // Hors ligne, ou route indisponible : on partagera le lien seul.
+      }
+    })();
+    return () => { vivant = false; };
+  }, [id]);
+
 
   // 3. Timer Logic
   useEffect(() => {
@@ -487,6 +521,9 @@ export default function MatchDetailPage() {
       title: affiche,
       text,
       url: lienAbsolu(`/matches/${match.id}`),
+      // Préparée au chargement, voir plus haut : la chercher ici coûterait
+      // l'activation utilisateur, donc le partage lui-même.
+      fichier: afficheDuMatch.current,
     });
     if (resultat === "copie") toast.success("Lien du match copié !");
     else if (resultat === "echec") toast.error("Le partage a échoué.");

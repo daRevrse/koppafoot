@@ -27,6 +27,9 @@ export interface MatchPublic {
   venueName: string;
   venueCity: string;
   format: string;
+  /** L'écusson des deux camps, recopié sur le match (voir FirestoreMatch). */
+  homeTeamLogo: string | null;
+  awayTeamLogo: string | null;
 }
 
 /**
@@ -53,6 +56,8 @@ export const getMatchPublic = cache(async (id: string): Promise<MatchPublic | nu
       venueName: d.venue_name ?? "",
       venueCity: d.venue_city ?? "",
       format: d.format ?? "",
+      homeTeamLogo: d.home_team_logo ?? null,
+      awayTeamLogo: d.away_team_logo ?? null,
     };
   } catch (err) {
     // Un aperçu manquant vaut mieux qu'une page en 500 : l'appelant retombe
@@ -102,6 +107,10 @@ export const getCompMatchPublic = cache(
         time: d.time ?? "",
         venueName: d.venue_name ?? "",
         venueCity: d.venue_city ?? "",
+        // Une compétition dénormalise déjà l'écusson sur ses matchs, c'est
+        // même ce que resynchronise scripts/backfill-match-logos.ts.
+        homeTeamLogo: d.home_team_logo ?? null,
+        awayTeamLogo: d.away_team_logo ?? null,
         format: "",
       };
     } catch (err) {
