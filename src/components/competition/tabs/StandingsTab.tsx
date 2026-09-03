@@ -19,16 +19,25 @@ import type { Competition, CompMatch, CompTeam } from "@/types";
 // with the team color. Mirrors the crest treatment in the public match view,
 // scaled down for table rows.
 function TeamBadge({ team }: { team: CompTeam }) {
+  // Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG
+  // transparents, et la plaque se voyait au travers.
+  if (team.logoUrl) {
+    return (
+      <Image
+        src={team.logoUrl}
+        alt={team.name}
+        width={28}
+        height={28}
+        className="h-7 w-7 shrink-0 object-contain"
+      />
+    );
+  }
   return (
     <div
       className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-[11px] font-black text-gray-500"
-      style={!team.logoUrl && team.color ? { backgroundColor: team.color, color: "#fff" } : undefined}
+      style={team.color ? { backgroundColor: team.color, color: "#fff" } : undefined}
     >
-      {team.logoUrl ? (
-        <Image src={team.logoUrl} alt={team.name} width={28} height={28} className="h-full w-full object-cover" />
-      ) : (
-        <span>{team.name?.[0]?.toUpperCase() || "?"}</span>
-      )}
+      <span>{team.name?.[0]?.toUpperCase() || "?"}</span>
     </div>
   );
 }

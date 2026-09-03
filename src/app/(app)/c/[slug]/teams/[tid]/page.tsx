@@ -55,13 +55,24 @@ function formatShortDate(date: string): string {
 
 // Team crest: real logo when present, otherwise a first-letter avatar.
 function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
+  // Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG
+  // transparents, et la plaque se voyait au travers.
+  // `contain` plutôt que `cover` : sans plaque, un logo rogné n'a plus rien
+  // qui rattrape la coupe.
+  if (logo) {
+    return (
+      <Image
+        src={logo}
+        alt={name}
+        width={32}
+        height={32}
+        className="h-8 w-8 shrink-0 object-contain"
+      />
+    );
+  }
   return (
     <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-xs font-black text-gray-500">
-      {logo ? (
-        <Image src={logo} alt={name} width={32} height={32} className="h-full w-full object-cover" />
-      ) : (
-        <span>{name?.[0]?.toUpperCase() || "?"}</span>
-      )}
+      <span>{name?.[0]?.toUpperCase() || "?"}</span>
     </div>
   );
 }

@@ -1442,9 +1442,11 @@ export default function TeamDetailPage() {
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
             <div className="flex items-end gap-5">
               <div className="relative shrink-0">
-                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden border-4 border-white bg-white sm:h-24 sm:w-24 ${colors.bg}`}>
+                {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. Le liseré blanc reste : il
+                    détache l'écusson de la bannière, quelle qu'elle soit. */}
+                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden border-4 border-white sm:h-24 sm:w-24 ${team.logoUrl ? "bg-white" : colors.bg}`}>
                   {team.logoUrl
-                    ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+                    ? <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
                     : <Shield size={40} className={colors.icon} />}
                 </div>
                 {team.isRecruiting && (

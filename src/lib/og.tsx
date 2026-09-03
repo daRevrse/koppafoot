@@ -161,21 +161,13 @@ function Ecusson({ nom, logo, taille }: { nom: string; logo: string | null; tail
   };
   // Satori ne sait pas recadrer une image dans un cercle : on la pose dans un
   // cadre rond qui rogne, et l'image remplit ce cadre.
+  // Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG
+  // transparents, et la plaque se voyait au travers. Ni disque, ni rognage : l'écusson est posé tel quel sur le fond
+  // de l'affiche, et garde sa forme.
   if (logo) {
     return (
-      <div style={{ ...commun, backgroundColor: "#0f1a15" }}>
-        {/* Le rayon EST SUR L'IMAGE, pas seulement sur son cadre : Satori ne
-            rogne pas l'enfant d'un parent arrondi, et l'écusson sortait donc
-            carré d'un emplacement rond.
-            eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={logo}
-          alt=""
-          width={taille}
-          height={taille}
-          style={{ objectFit: "cover", borderRadius: taille / 2 }}
-        />
-      </div>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={logo} alt="" width={taille} height={taille} style={{ objectFit: "contain" }} />
     );
   }
   return (

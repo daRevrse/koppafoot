@@ -53,13 +53,22 @@ export interface Fil {
 
 /** Écusson : le vrai logo s'il existe, sinon l'initiale. */
 export function TeamCrest({ name, logo }: { name: string; logo: string | null }) {
+  // Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG
+  // transparents, et la plaque se voyait au travers. Le cadre dépoli reste pour l'initiale, qui a besoin d'un support.
+  if (logo) {
+    return (
+      <Image
+        src={logo}
+        alt={name}
+        width={64}
+        height={64}
+        className="mx-auto mb-2 h-12 w-12 object-contain sm:h-16 sm:w-16"
+      />
+    );
+  }
   return (
     <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center overflow-hidden border border-white/10 bg-white/5 shadow-inner backdrop-blur-xl sm:h-16 sm:w-16">
-      {logo ? (
-        <Image src={logo} alt={name} width={64} height={64} className="h-full w-full object-cover" />
-      ) : (
-        <span className="text-xl font-black sm:text-2xl">{name?.[0]?.toUpperCase() || "?"}</span>
-      )}
+      <span className="text-xl font-black sm:text-2xl">{name?.[0]?.toUpperCase() || "?"}</span>
     </div>
   );
 }

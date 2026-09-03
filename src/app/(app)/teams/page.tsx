@@ -351,9 +351,10 @@ export default function TeamsPage() {
                   {/* Team header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${colors.bg}`}>
+                      {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. */}
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${team.logoUrl ? "" : colors.bg}`}>
                         {team.logoUrl
-                          ? <img src={team.logoUrl} alt={team.name} className="h-full w-full object-cover" />
+                          ? <img src={team.logoUrl} alt={team.name} className="h-full w-full object-contain" />
                           : <Shield size={24} className={colors.icon} />}
                       </div>
                       <div>
