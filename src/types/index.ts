@@ -386,6 +386,27 @@ export interface FirestoreMatch {
   referee_status: "confirmed" | "pending" | "invited" | "none";
   local_referee_name?: string | null;
   format: MatchFormat;
+  /**
+   * L'ÉCUSSON DES DEUX CAMPS, RECOPIÉ SUR LE MATCH.
+   *
+   * Un amical n'en portait pas : le Direct et la fiche affichaient donc deux
+   * initiales grises là où une compétition montre des blasons — alors que les
+   * équipes ont un logo, il vivait seulement dans `teams`.
+   *
+   * Recopié plutôt que lu à l'affichage, comme le fait déjà un match de
+   * compétition (`home_team_logo`), et pour une raison qui n'est pas le
+   * confort : `teams` est fermé aux visiteurs par les règles, un lecteur sans
+   * compte ne PEUT pas résoudre l'équipe. Le tableau du Direct se peint de
+   * surcroît par deux chemins — rendu serveur puis écouteur navigateur — qui
+   * doivent produire la même ligne ; seul un champ posé sur le match le
+   * garantit.
+   *
+   * Le prix de la copie est connu : un club qui change de logo ne le change
+   * pas sur ses matchs passés. `scripts/backfill-amicaux-logos.ts` resynchronise
+   * quand ça compte, comme son jumeau le fait pour les compétitions.
+   */
+  home_team_logo?: string | null;
+  away_team_logo?: string | null;
   is_home: boolean;
   players_confirmed: number;
   players_total: number;
@@ -562,6 +583,9 @@ export interface Match {
   refereeStatus: "confirmed" | "pending" | "invited" | "none";
   localRefereeName?: string | null;
   format: MatchFormat;
+  /** Voir `FirestoreMatch.home_team_logo`. */
+  homeTeamLogo?: string | null;
+  awayTeamLogo?: string | null;
   isHome: boolean;
   playersConfirmed: number;
   playersTotal: number;

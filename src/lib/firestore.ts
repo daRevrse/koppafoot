@@ -133,6 +133,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
   return {
     id, homeTeamId: d.home_team_id, awayTeamId: d.away_team_id,
     homeTeamName: d.home_team_name, awayTeamName: d.away_team_name,
+    homeTeamLogo: d.home_team_logo ?? null, awayTeamLogo: d.away_team_logo ?? null,
     managerId: d.manager_id, date: d.date, time: d.time,
     venueName: d.venue_name, venueCity: d.venue_city, status: d.status,
     effectiveStatus: effectiveStatus as any, // Cast to any until type is fully propagated or updated
@@ -978,6 +979,10 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
 export async function createMatch(data: {
   homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
   managerId: string; awayManagerId: string; date: string; time: string; venueName: string; venueCity: string;
+  // L'écusson des deux camps, recopié ici : voir `FirestoreMatch.home_team_logo`.
+  // Null pour une équipe hors plateforme, qui n'a pas de fiche et donc pas de
+  // blason.
+  homeTeamLogo?: string | null; awayTeamLogo?: string | null;
   format: string; isHome: boolean; playersTotal: number; localRefereeName?: string;
   autoAcceptPlayers?: boolean;
   // Effectif à convoquer côté équipe réelle, requis pour un adversaire fantôme.
@@ -1000,6 +1005,7 @@ export async function createMatch(data: {
   const ref = await addDoc(collection(db, "matches"), {
     home_team_id: data.homeTeamId, away_team_id: data.awayTeamId,
     home_team_name: data.homeTeamName, away_team_name: data.awayTeamName,
+    home_team_logo: data.homeTeamLogo ?? null, away_team_logo: data.awayTeamLogo ?? null,
     manager_id: data.managerId, away_manager_id: data.awayManagerId,
     date: data.date, time: data.time,
     venue_name: data.venueName, venue_city: data.venueCity,

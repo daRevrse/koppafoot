@@ -49,8 +49,17 @@ export function statutAmicalVersCompetition(v: unknown): CompMatch["status"] | n
   switch (v) {
     case "live": return "live";
     case "completed": return "completed";
-    case "cancelled": return "cancelled";
     case "upcoming": return "scheduled";
+    // « cancelled » : UN AMICAL ANNULÉ QUITTE LE TABLEAU. Il y restait, et le
+    // tableau ne sait pas dire « annulé » — il le dessinait comme un match
+    // prévu, à la même heure. Un manager qui annule et reprogramme voyait donc
+    // son affiche en double, dont une qui ne se jouera jamais.
+    //
+    // Ce n'est pas le cas d'une compétition, dont le calendrier est public
+    // d'avance et où l'annulation d'une rencontre est un fait qu'on va lire.
+    // Un amical, lui, est un arrangement entre deux managers jusqu'à ce qu'il
+    // se joue : annulé, il n'a jamais été annoncé à personne.
+    case "cancelled": return null;
     // « challenge », « pending », « draft », « delayed » : un match qui n'est
     // pas encore accepté n'a rien à faire sur un tableau public.
     default: return null;
@@ -150,9 +159,13 @@ export function amicalVersCompMatch(id: string, d: Row): CompMatch | null {
     awayTeamId: str(d.away_team_id),
     homeTeamName: str(d.home_team_name) ?? "Équipe",
     awayTeamName: str(d.away_team_name) ?? "Équipe",
-    // Un amical n'a pas de blason dans le modèle de données.
-    homeTeamLogo: null,
-    awayTeamLogo: null,
+    // L'écusson est recopié sur le match depuis la fiche de l'équipe (voir
+    // FirestoreMatch.home_team_logo). Il valait `null` ici, et le Direct
+    // affichait donc deux initiales grises pour des clubs qui ont un logo.
+    // Reste `null` pour un adversaire hors plateforme, et pour les matchs
+    // créés avant ce champ — d'où le script de reprise.
+    homeTeamLogo: str(d.home_team_logo),
+    awayTeamLogo: str(d.away_team_logo),
     bannerUrl: null,
     // Terminé : le jour où il s'est joué. Sinon, celui où il est prévu.
     date: status === "completed" ? jourDeLaRencontre(date, d.completed_at) : date,

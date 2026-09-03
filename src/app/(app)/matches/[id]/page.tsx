@@ -584,8 +584,8 @@ export default function MatchDetailPage() {
           sub: match.format,
         }}
         status={match.status as HeroStatus}
-        home={{ name: match.homeTeamName, logo: null, score: match.scoreHome }}
-        away={{ name: match.awayTeamName, logo: null, score: match.scoreAway }}
+        home={{ name: match.homeTeamName, logo: match.homeTeamLogo ?? null, score: match.scoreHome }}
+        away={{ name: match.awayTeamName, logo: match.awayTeamLogo ?? null, score: match.scoreAway }}
         date={match.date}
         time={match.time}
         venueName={match.venueName}
@@ -621,8 +621,8 @@ export default function MatchDetailPage() {
         poll={
           <PredictionPoll
             matchId={id}
-            home={{ label: match.homeTeamName, logo: null }}
-            away={{ label: match.awayTeamName, logo: null }}
+            home={{ label: match.homeTeamName, logo: match.homeTeamLogo ?? null }}
+            away={{ label: match.awayTeamName, logo: match.awayTeamLogo ?? null }}
             closed={match.effectiveStatus !== "upcoming"}
           />
         }
