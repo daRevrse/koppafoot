@@ -1291,6 +1291,26 @@ export default function TeamDetailPage() {
     (m) => m.status === "upcoming" || m.status === "live" || m.status === "delayed",
   );
   const completedMatches = matches.filter((m) => m.status === "completed");
+  // Ce que la fiche montre, et rien de plus : un défi pas encore accepté, un
+  // brouillon, un match en attente de quota ou annulé ne regardent que le
+  // manager — ils vivent dans l'onglet Matchs, pas sur la vitrine publique de
+  // l'équipe. Sert au badge de l'onglet et à l'état vide, qui comptaient tous
+  // les statuts et pouvaient annoncer des matchs qu'on ne voyait ensuite
+  // jamais.
+  const visibleMatchCount = upcomingMatches.length + completedMatches.length;
+  /**
+   * LES DOSSARDS DES COMPTES L'EMPORTENT SUR CEUX DES JOUEURS SANS COMPTE.
+   *
+   * Les deux moitiés de l'effectif se numérotent séparément — les comptes dans
+   * `team.squad_numbers`, les autres sur leur fiche — et rien ne les
+   * confrontait : le même numéro pouvait s'afficher deux fois dans une même
+   * liste, sans qu'on sache lequel des deux le porte vraiment. On tranche du
+   * côté du compte, qui porte une carrière et des statistiques, comme le fait
+   * déjà la feuille de match (voir updateMatchLineup).
+   */
+  const dossardsDesComptes = new Set(
+    Object.values(teamSquadNumbers).map((n) => n?.trim()).filter(Boolean),
+  );
   const pendingCount = joinRequests.filter((r) => r.status === "pending").length;
   // Squad size = accounts on the roster + ghost players. The manager is not
   // in member_ids (createTeam starts it empty), so this is the real count,
@@ -1481,7 +1501,7 @@ export default function TeamDetailPage() {
       >
         {[
           { id: "roster", label: "Effectif", icon: Users, count: members.length },
-          { id: "matches", label: "Matchs", icon: Calendar, count: matches.length },
+          { id: "matches", label: "Matchs", icon: Calendar, count: visibleMatchCount },
           { id: "stats", label: "Stats", icon: BarChart3, count: 0 },
           { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
           { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
@@ -1528,6 +1548,17 @@ export default function TeamDetailPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {/* Le dossard, lisible par TOUT LE MONDE. Il n'existait
+                        que dans le champ de saisie du manager : un visiteur
+                        lisait donc un effectif sans numéros, alors que c'est
+                        par son numéro qu'on reconnaît un joueur sur le
+                        terrain — et que les joueurs sans compte, eux,
+                        affichaient déjà le leur. */}
+                    {teamSquadNumbers[manager.uid]?.trim() && (
+                      <span className="border border-blue-200 bg-white px-1.5 py-0.5 text-xs font-black tabular-nums text-blue-700">
+                        N°{teamSquadNumbers[manager.uid].trim()}
+                      </span>
+                    )}
                     <span className="font-semibold text-gray-900 truncate">{manager.firstName} {manager.lastName}</span>
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Manager</span>
                   </div>
@@ -1631,7 +1662,15 @@ export default function TeamDetailPage() {
                           {member.profilePictureUrl ? <img src={member.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : initials}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Voir le bloc du manager : le numéro se lit sans
+                                compte, il ne vivait que dans le champ de
+                                saisie réservé au manager. */}
+                            {teamSquadNumbers[member.uid]?.trim() && (
+                              <span className="border border-gray-200/70 bg-gray-50 px-1.5 py-0.5 text-xs font-black tabular-nums text-gray-700">
+                                N°{teamSquadNumbers[member.uid].trim()}
+                              </span>
+                            )}
                             <Link href={`/profile/${member.uid}`} className="font-semibold text-gray-900 hover:text-emerald-700 transition-colors">
                               {member.firstName} {member.lastName}
                             </Link>
@@ -1680,8 +1719,24 @@ export default function TeamDetailPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold text-gray-900">{ghost.firstName} {ghost.lastName}</h4>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            {ghost.squadNumber && <span className="font-bold text-gray-700">N°{ghost.squadNumber}</span>}
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                            {/* Le numéro d'un joueur sans compte s'efface
+                                quand un compte le porte déjà : voir
+                                dossardsDesComptes. Le manager, lui, lit
+                                pourquoi, et peut en donner un autre. */}
+                            {ghost.squadNumber?.trim() && (
+                              dossardsDesComptes.has(ghost.squadNumber.trim()) ? (
+                                isTeamManager && (
+                                  <span className="border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-black uppercase tracking-wide text-amber-700">
+                                    N°{ghost.squadNumber.trim()} déjà pris
+                                  </span>
+                                )
+                              ) : (
+                                <span className="border border-gray-200/70 bg-gray-50 px-1.5 py-0.5 text-xs font-black tabular-nums text-gray-700">
+                                  N°{ghost.squadNumber.trim()}
+                                </span>
+                              )
+                            )}
                             <span className={` px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[ghost.position] ?? "bg-gray-100 text-gray-600"}`}>
                               {POSITION_LABELS[ghost.position] ?? ghost.position}
                             </span>
@@ -1834,7 +1889,7 @@ export default function TeamDetailPage() {
             </div>
           )}
 
-          {matches.length === 0 && (
+          {visibleMatchCount === 0 && (
             <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Trophy size={32} className="text-gray-300" />
               <p className="mt-3 text-sm text-gray-500">Aucun match programme</p>
@@ -1853,7 +1908,7 @@ export default function TeamDetailPage() {
           )}
 
           {/* CTA for manager */}
-          {isTeamManager && matches.length > 0 && (
+          {isTeamManager && visibleMatchCount > 0 && (
             <Link
               href="/matches"
               className="flex items-center justify-center gap-2 border border-gray-200/70 bg-white py-4 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
