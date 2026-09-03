@@ -27,6 +27,8 @@ import {
   MessageCircle,
   ImageIcon,
   FileText,
+  Shield,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -42,8 +44,49 @@ import {
 } from "@/lib/firestore";
 import { ROLE_BADGE_COLORS } from "@/config/navigation";
 import { ROLE_LABELS } from "@/types";
-import type { UserProfile, Team, Post } from "@/types";
+import type { UserProfile, Post } from "@/types";
 import { PostCard, timeAgo } from "@/components/feed/PostCard";
+
+/**
+ * Une équipe telle que /api/public/profile/[uid] la projette : ce qui
+ * s'affiche, et rien de plus.
+ *
+ * La page castait cette projection en `Team`, qui exige une quinzaine de
+ * champs que l'endpoint ne publie pas — d'où deux données déjà servies mais
+ * jamais lues ici, l'écusson et `isManager`. Le type dit maintenant la
+ * vérité, et la carte peut s'en servir.
+ */
+interface EquipePubliee {
+  id: string;
+  name: string;
+  city: string | null;
+  /** Une CLÉ de palette (« emerald », « blue »…), jamais une couleur CSS. */
+  color: string | null;
+  logoUrl: string | null;
+  wins: number;
+  draws: number;
+  losses: number;
+  matchesPlayed: number;
+  /** Ce joueur dirige-t-il cette équipe ? Calculé par l'endpoint. */
+  isManager?: boolean;
+}
+
+/**
+ * La couleur du club, la même table que l'annuaire des équipes et leur fiche.
+ *
+ * `team.color` est une clé de palette : la carte la passait à
+ * `style={{ backgroundColor: team.color }}`, où « emerald » n'est pas une
+ * couleur CSS valide. L'écusson n'avait donc aucun fond, et son initiale
+ * blanche restait invisible sur du blanc — un trou à gauche du nom.
+ */
+const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string }> = {
+  amber:   { bg: "bg-amber-100",   icon: "text-amber-600",   stripe: "bg-amber-500" },
+  blue:    { bg: "bg-blue-100",    icon: "text-blue-600",    stripe: "bg-blue-500" },
+  red:     { bg: "bg-red-100",     icon: "text-red-600",     stripe: "bg-red-500" },
+  emerald: { bg: "bg-emerald-100", icon: "text-emerald-600", stripe: "bg-emerald-500" },
+  purple:  { bg: "bg-purple-100",  icon: "text-purple-600",  stripe: "bg-purple-500" },
+  orange:  { bg: "bg-orange-100",  icon: "text-orange-600",  stripe: "bg-orange-500" },
+};
 
 // ============================================
 // Constants
@@ -107,33 +150,83 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function TeamCard({ team, showRecord }: { team: Team; showRecord?: boolean }) {
+/**
+ * Une équipe du joueur, sur sa fiche publique.
+ *
+ * ELLE MÈNE À L'ÉQUIPE. C'était un rectangle inerte portant un nom et une
+ * ville : sur la fiche d'un joueur, son club est pourtant le lien qu'on
+ * cherche. Elle reprend donc l'écusson, le filet de couleur et la pastille
+ * « Manager » de l'annuaire des équipes — une équipe se reconnaît au même
+ * dessin partout — et elle dit ce qu'il y a à dire, le bilan, plutôt que de
+ * laisser un cadre aux trois quarts vide.
+ */
+function TeamCard({ team }: { team: EquipePubliee }) {
+  const colors = COLOR_MAP[team.color ?? ""] ?? COLOR_MAP.emerald;
   const total = team.wins + team.losses + team.draws;
   const winRate = total > 0 ? Math.round((team.wins / total) * 100) : 0;
 
   return (
-    <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
-      <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white text-sm font-bold"
-        style={{ backgroundColor: team.color || "#10b981" }}
-      >
-        {team.name.charAt(0).toUpperCase()}
+    <Link
+      href={`/teams/${team.id}`}
+      className="group block overflow-hidden border border-gray-200/70 bg-white transition-shadow hover:shadow-md"
+    >
+      <div className={`h-1 ${colors.stripe}`} />
+      <div className="flex items-center gap-3 p-4">
+        {/* L'écusson, ou le blason par défaut sur la couleur du club. */}
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${colors.bg}`}>
+          {team.logoUrl
+            ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+            : <Shield size={24} className={colors.icon} />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-display font-bold text-gray-900">{team.name}</p>
+            {team.isManager && (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-blue-700">
+                <Shield size={10} /> Manager
+              </span>
+            )}
+          </div>
+          {team.city && (
+            <p className="mt-0.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+              <MapPin size={11} /> {team.city}
+            </p>
+          )}
+        </div>
+        <ChevronRight
+          size={16}
+          className="shrink-0 text-gray-300 transition-colors group-hover:text-emerald-600"
+        />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-gray-900">{team.name}</p>
-        {team.city && (
-          <p className="mt-0.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-            <MapPin size={11} /> {team.city}
-          </p>
-        )}
-        {showRecord && (
-          <p className="mt-1 text-[11px] font-bold tabular-nums text-gray-500">
-            {team.wins}V – {team.draws}N – {team.losses}D
-            <span className="ml-1.5 font-black text-emerald-700">{winRate}%</span>
-          </p>
-        )}
-      </div>
-    </div>
+
+      {/* Le bilan, en pied. Il n'apparaissait que sur la fiche d'un manager,
+          alors que c'est la même équipe et le même bilan quel que soit le
+          joueur qu'on regarde. Sans match joué, on le dit — un cadre vide
+          laisse croire à une donnée qui manque. */}
+      {total > 0 ? (
+        <div className="grid grid-cols-4 border-t border-gray-200/70 text-center">
+          {[
+            { label: "V", value: team.wins, ton: "text-emerald-700" },
+            { label: "N", value: team.draws, ton: "text-gray-600" },
+            { label: "D", value: team.losses, ton: "text-red-600" },
+            { label: "% vict.", value: `${winRate}%`, ton: "text-gray-900" },
+          ].map((c) => (
+            <div key={c.label} className="px-2 py-2.5 [&+&]:border-l [&+&]:border-gray-200/70">
+              <p className={`font-display text-base font-black leading-none tabular-nums ${c.ton}`}>
+                {c.value}
+              </p>
+              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-gray-400">
+                {c.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="border-t border-gray-200/70 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-300">
+          Aucun match joué
+        </p>
+      )}
+    </Link>
   );
 }
 
@@ -176,7 +269,7 @@ function PhysicalInfoCard({ profile }: { profile: UserProfile }) {
 // Role-specific sections
 // ============================================
 
-function PlayerSection({ profile, teams }: { profile: UserProfile; teams: Team[] }) {
+function PlayerSection({ profile, teams }: { profile: UserProfile; teams: EquipePubliee[] }) {
   const position = profile.position ? POSITION_LABELS[profile.position] ?? profile.position : null;
   const level = profile.skillLevel ? SKILL_LEVEL_LABELS[profile.skillLevel] ?? profile.skillLevel : null;
 
@@ -235,7 +328,7 @@ function PlayerSection({ profile, teams }: { profile: UserProfile; teams: Team[]
   );
 }
 
-function ManagerSection({ profile, teams }: { profile: UserProfile; teams: Team[] }) {
+function ManagerSection({ profile, teams }: { profile: UserProfile; teams: EquipePubliee[] }) {
   const totalMatches = teams.reduce((sum, t) => sum + t.matchesPlayed, 0);
   const totalWins = teams.reduce((sum, t) => sum + t.wins, 0);
   const globalWinRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
@@ -261,15 +354,19 @@ function ManagerSection({ profile, teams }: { profile: UserProfile; teams: Team[
       )}
 
       <div>
+        {/* « Équipes gérées » sur-promettait : la projection publique renvoie
+            les DEUX appartenances, l'effectif et la direction, et un manager
+            qui joue ailleurs voyait ce club-là compté parmi ceux qu'il dirige.
+            La pastille « Manager » de la carte dit maintenant lesquels. */}
         <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-gray-400">
-          Équipes gérées ({teams.length})
+          Équipes ({teams.length})
         </h3>
         {teams.length === 0 ? (
-          <p className="text-sm text-gray-400">Aucune équipe gérée.</p>
+          <p className="text-sm text-gray-400">Aucune équipe pour le moment.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {teams.map((team) => (
-              <TeamCard key={team.id} team={team} showRecord />
+              <TeamCard key={team.id} team={team} />
             ))}
           </div>
         )}
@@ -343,7 +440,7 @@ function VenueOwnerSection({ profile }: { profile: UserProfile }) {
  */
 async function fetchPublicProfile(
   uid: string,
-): Promise<{ profile: UserProfile; teams: Team[] } | null> {
+): Promise<{ profile: UserProfile; teams: EquipePubliee[] } | null> {
   try {
     const res = await fetch(`/api/public/profile/${encodeURIComponent(uid)}`);
     if (!res.ok) return null;
@@ -374,7 +471,7 @@ async function fetchPublicProfile(
 
     // Les equipes arrivent deja au format de la page : l'endpoint les projette
     // en camelCase, il n'y a rien a retraduire ici.
-    return { profile: mapped, teams: (teams ?? []) as Team[] };
+    return { profile: mapped, teams: (teams ?? []) as EquipePubliee[] };
   } catch {
     return null;
   }
@@ -386,7 +483,7 @@ export default function PublicProfilePage() {
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<EquipePubliee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shortlistEntryId, setShortlistEntryId] = useState<string | null>(null);

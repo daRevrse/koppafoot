@@ -10,6 +10,7 @@ import {
   searchOpponentTeams, getTeamMembers, getGhostPlayersByTeam, recordPlayedMatch,
   type ButeurSaisi,
 } from "@/lib/firestore";
+import { TEAM_SIZE_OPTIONS } from "@/lib/competition-format";
 import type { Team } from "@/types";
 
 // ============================================
@@ -382,17 +383,22 @@ export default function RecordMatchForm({ teams, managerId, onClose, onRecorded 
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Format</label>
-          <div className="flex gap-2">
-            {["5v5", "7v7", "11v11"].map((f) => (
-              <button
-                key={f} type="button" onClick={() => setFormat(f)}
-                className={`flex-1 border px-3 py-2.5 text-sm font-medium transition-colors ${
-                  format === f ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+          {/* Le même choix qu'à la programmation d'un match : un 6v6 joué se
+              renseigne tel qu'il a été joué, pas arrondi au format voisin. */}
+          <div className="grid grid-cols-4 gap-2">
+            {TEAM_SIZE_OPTIONS.map((n) => {
+              const f = `${n}v${n}`;
+              return (
+                <button
+                  key={f} type="button" onClick={() => setFormat(f)}
+                  className={`border px-2 py-2.5 text-sm font-medium transition-colors ${
+                    format === f ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {f}
+                </button>
+              );
+            })}
           </div>
         </div>
 

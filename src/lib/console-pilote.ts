@@ -269,6 +269,11 @@ export function piloteAmical(matchId: string): PiloteConsole {
             name: p.playerName,
             number: p.squadNumber ?? "",
             user_id: p.playerId,
+            // Le poste choisi par son manager pour CE match. Seuls les joueurs
+            // sans compte en portaient un ici : la console repliait donc tous
+            // les autres sur un 4-3-3 par ordre de feuille, alors que la fiche
+            // du match, elle, lisait le poste. Meme terrain, meme placement.
+            position: p.matchPosition ?? undefined,
           })),
         ...fantomes.map((g) => ({
           id: g.id,

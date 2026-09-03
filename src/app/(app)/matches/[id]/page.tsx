@@ -19,16 +19,19 @@ import {
   updateMatchLineup, submitManagerFeedback,
   contestMatchEvent, getTeamById,
   getGhostPlayersByTeam, getTeamsIManage, creditGhostMatchStats,
+  tailleEffectif,
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
-import { normaliserPoste } from "@/lib/postes";
+import { normaliserPoste, INITIALE_POSTE, LIBELLE_POSTE, POSTES, type Poste } from "@/lib/postes";
 import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry } from "@/types";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
 import MatchLineups from "@/components/match/MatchLineups";
+import TerrainCompo from "@/components/match/TerrainCompo";
+import { dispositif } from "@/lib/terrain";
 import PredictionPoll from "@/components/match/PredictionPoll";
 import MatchModerators from "@/components/match/MatchModerators";
 
@@ -76,7 +79,18 @@ export default function MatchDetailPage() {
   const [displayTime, setDisplayTime] = useState(0);
   const [inviting, setInviting] = useState(false);
   const [lineupMode, setLineupMode] = useState(false);
-  const [tempAssignments, setTempAssignments] = useState<Record<string, { squadNumber: string; role: "starter" | "substitute" }>>({});
+  /**
+   * La feuille en cours de saisie, avant validation.
+   *
+   * Le POSTE s'y ajoute : le manager le choisit match par match, et rien ne
+   * l'oblige à reprendre le poste naturel du joueur (voir `match_position`).
+   * C'est lui qui place les maillots sur le terrain de l'éditeur.
+   */
+  const [tempAssignments, setTempAssignments] = useState<Record<string, {
+    squadNumber: string;
+    role: "starter" | "substitute";
+    position: Poste | null;
+  }>>({});
   const [savingLineup, setSavingLineup] = useState(false);
   const [repondEnCours, setRepondEnCours] = useState(false);
   const [validatingLineup, setValidatingLineup] = useState(false);
@@ -216,6 +230,120 @@ export default function MatchDetailPage() {
     [match, myTeamIsHome],
   );
 
+  /**
+   * MON EFFECTIF DE MATCH, en une seule liste : ceux qui ont un compte et ont
+   * confirmé, et ceux qui n'en ont pas.
+   *
+   * L'éditeur de feuille ne montrait que les seconds. Les premiers avaient
+   * leurs sélecteurs ailleurs, dans les colonnes de convocation plus bas — que
+   * l'auto-acceptation, désormais active par défaut, masque entièrement. La
+   * feuille se remplit donc ici, pour tout le monde, ou pour personne.
+   *
+   * `posteNaturel` n'est qu'une valeur de départ : il vient du profil du joueur
+   * (ou de sa fiche, pour un joueur sans compte) et le manager en fait ce
+   * qu'il veut — un milieu peut prendre les gants d'un match.
+   */
+  const monEffectifDeMatch = useMemo(() => {
+    if (!myTeamId) return [];
+    const avecCompte = participations
+      .filter((p) => p.teamId === myTeamId && p.status === "confirmed")
+      .map((p) => ({
+        id: p.playerId,
+        nom: p.playerName,
+        sansCompte: false,
+        dossardParDefaut: p.squadNumber || myTeam?.squadNumbers?.[p.playerId] || "",
+        posteEnregistre: p.matchPosition ?? null,
+        posteNaturel: normaliserPoste(
+          teamMembers.find((m) => m.uid === p.playerId)?.position,
+        ),
+        roleEnregistre: p.matchRole ?? null,
+      }));
+    const sansCompte = ghostPlayers.map((g) => {
+      const dejaPose = mesEntreesSansCompte.find((e) => e.playerId === g.id);
+      return {
+        id: g.id,
+        nom: `${g.firstName} ${g.lastName}`.trim(),
+        sansCompte: true,
+        dossardParDefaut: dejaPose?.number || g.squadNumber || "",
+        posteEnregistre: dejaPose?.position ?? null,
+        posteNaturel: normaliserPoste(g.position),
+        roleEnregistre: dejaPose?.role ?? null,
+      };
+    });
+    return [...avecCompte, ...sansCompte];
+  }, [myTeamId, participations, ghostPlayers, mesEntreesSansCompte, myTeam, teamMembers]);
+
+  /**
+   * La feuille en cours, sous la forme que le terrain sait lire. Elle suit la
+   * saisie au caractère près : c'est tout l'intérêt d'un terrain dans
+   * l'éditeur — voir le 4-4-2 se former, plutôt que valider et découvrir.
+   */
+  const compoEnCours = useMemo<LineupEntry[]>(
+    () => monEffectifDeMatch.map((j) => {
+      const a = tempAssignments[j.id];
+      return {
+        playerId: j.id,
+        name: j.nom,
+        number: a?.squadNumber ?? j.dossardParDefaut,
+        role: a?.role ?? "starter",
+        position: a?.position ?? null,
+      };
+    }),
+    [monEffectifDeMatch, tempAssignments],
+  );
+
+  /** Ceux qui commencent le match, dans la feuille en cours de saisie. */
+  const titulairesEnCours = useMemo(
+    () => compoEnCours.filter((e) => e.role === "starter"),
+    [compoEnCours],
+  );
+
+  /**
+   * LE TYPE DE JEU COMMANDE LA CONFIGURATION TACTIQUE.
+   *
+   * `taille` est le N du match : un 4v4 aligne quatre joueurs, gardien
+   * compris, pas onze. L'éditeur l'ignorait — il ouvrait avec TOUT l'effectif
+   * en titulaire et laissait valider une feuille de douze titulaires pour un
+   * match à quatre, que le terrain dessinait ensuite tant bien que mal.
+   *
+   * `formeAttendue` est la forme de référence de ce NvN (voir lib/terrain, la
+   * même table qui place les maillots) : elle ne dicte aucune tactique —
+   * personne ne saisit la sienne — mais elle dit au manager combien de
+   * défenseurs, de milieux et d'attaquants tient un match de cette taille.
+   */
+  const tailleDuMatch = tailleEffectif(match?.format);
+  const onzeComplet = titulairesEnCours.length >= tailleDuMatch;
+  const formeAttendue = useMemo(() => {
+    const [d, m, a] = dispositif(tailleDuMatch);
+    return { goalkeeper: Math.min(1, tailleDuMatch), defender: d, midfielder: m, forward: a };
+  }, [tailleDuMatch]);
+
+  /** Combien de titulaires à chaque poste, dans la feuille en cours. */
+  const posesParPoste = useMemo(() => {
+    const compte: Record<string, number> = {
+      goalkeeper: 0, defender: 0, midfielder: 0, forward: 0,
+    };
+    for (const e of titulairesEnCours) {
+      if (e.position) compte[e.position] += 1;
+    }
+    return compte;
+  }, [titulairesEnCours]);
+
+  /**
+   * Les dossards qu'un joueur avec un compte occupe déjà. Un fantôme qui tombe
+   * dessus perdra le sien à l'enregistrement (voir updateMatchLineup) : autant
+   * le dire tout de suite, sur sa ligne, pendant qu'on peut encore en changer.
+   */
+  const dossardsPrisParLesComptes = useMemo(() => {
+    const pris = new Set<string>();
+    for (const j of monEffectifDeMatch) {
+      if (j.sansCompte) continue;
+      const n = (tempAssignments[j.id]?.squadNumber ?? j.dossardParDefaut).trim();
+      if (n !== "") pris.add(n);
+    }
+    return pris;
+  }, [monEffectifDeMatch, tempAssignments]);
+
   const myParticipation = useMemo(() => {
     return participations.find(p => p.playerId === user?.uid);
   }, [participations, user]);
@@ -323,6 +451,11 @@ export default function MatchDetailPage() {
         name: p.playerName,
         number: p.squadNumber || "",
         role: p.matchRole ?? "starter",
+        // Le poste que le manager a choisi pour CE match. On ne retombe pas
+        // sur le poste naturel du joueur faute de mieux : le terrain sait
+        // placer une ligne sans poste, et il ne doit pas annoncer un gardien
+        // que personne n'a désigné (voir lib/terrain).
+        position: p.matchPosition ?? null,
       })),
     ...fantomes,
   ];
@@ -827,28 +960,42 @@ export default function MatchDetailPage() {
                           {!lineupMode && (
                             <button
                               onClick={() => {
-                                const initial: Record<string, any> = {};
-                                participations.forEach(p => {
-                                  if (p.teamId === myTeamId && p.status === 'confirmed') {
-                                    initial[p.playerId] = {
-                                      squadNumber: p.squadNumber || (myTeam?.squadNumbers?.[p.playerId] || ""),
-                                      role: p.matchRole || "starter"
-                                    };
-                                  }
-                                });
-                                // Les joueurs sans compte AUSSI. Leurs lignes
+                                // Une seule liste pour les deux moitiés de
+                                // l'effectif — avec et sans compte (voir
+                                // monEffectifDeMatch). Les joueurs sans compte
+                                // manquaient à cet état, et leurs lignes
                                 // affichaient « Titu » par simple valeur par
-                                // défaut du sélecteur, sans rien poser dans
-                                // l'état : le compteur lisait 1/11 pendant que
-                                // huit lignes annonçaient le contraire.
-                                ghostPlayers.forEach(g => {
-                                  const dejaPose = mesEntreesSansCompte.find(e => e.playerId === g.id);
-                                  initial[g.id] = {
-                                    squadNumber: dejaPose?.number || g.squadNumber || "",
-                                    role: dejaPose?.role || "starter",
-                                  };
-                                });
-                                setTempAssignments(initial);
+                                // défaut du sélecteur : le compteur lisait
+                                // 1/11 pendant que huit lignes annonçaient le
+                                // contraire.
+                                //
+                                // Le poste part de ce qui est déjà sur la
+                                // feuille, sinon du poste naturel du joueur :
+                                // le manager corrige les quelques lignes qui
+                                // changent ce jour-là, il ne resaisit pas onze
+                                // postes.
+                                // LE NvN BORNE L'OUVERTURE. Tout l'effectif
+                                // arrivait en titulaire : douze titulaires
+                                // annoncés pour un match à quatre, qu'il
+                                // fallait rétrograder un par un. Une feuille
+                                // déjà enregistrée garde SES rôles, c'est la
+                                // composition du manager ; sinon on prend les
+                                // N premiers et le reste va au banc.
+                                let restants = tailleEffectif(match.format);
+                                setTempAssignments(Object.fromEntries(
+                                  monEffectifDeMatch.map((j) => {
+                                    let role = j.roleEnregistre;
+                                    if (!role) {
+                                      role = restants > 0 ? "starter" : "substitute";
+                                      if (restants > 0) restants -= 1;
+                                    }
+                                    return [j.id, {
+                                      squadNumber: j.dossardParDefaut,
+                                      role,
+                                      position: j.posteEnregistre ?? j.posteNaturel,
+                                    }];
+                                  }),
+                                ));
                                 setLineupMode(true);
                               }}
                               className={`px-5 sm:px-8 py-3 sm:py-3.5 text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] ${
@@ -872,7 +1019,7 @@ export default function MatchDetailPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg sm:text-xl font-black italic tracking-tight">Configuration Tactique</h3>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mt-1">Assignez les dossiers et rôles</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mt-1">Dossards, postes et rôles</p>
                     </div>
                     <div className="h-14 w-14 bg-white/5 border border-white/10 flex items-center justify-center">
                        <Trophy className="text-emerald-400" size={24} />
@@ -881,59 +1028,192 @@ export default function MatchDetailPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-white/5 border border-white/5 flex flex-col items-center text-center">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-2">Titulaires</p>
+                       <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-2">
+                         Titulaires · {match.format}
+                       </p>
                        <span className={`text-2xl font-black ${
-                         Object.values(tempAssignments).filter(a => a.role === 'starter').length === (match?.format ? parseInt(match.format.split('v')[0]) : 0) ? 'text-emerald-400' : 'text-amber-400'
+                         titulairesEnCours.length === tailleDuMatch ? "text-emerald-400" : "text-amber-400"
                        }`}>
-                         {Object.values(tempAssignments).filter(a => a.role === 'starter').length} / {match?.format ? parseInt(match.format.split('v')[0]) : "?"}
+                         {titulairesEnCours.length} / {tailleDuMatch}
                        </span>
                     </div>
                     <div className="p-4 bg-white/5 border border-white/5 flex flex-col items-center text-center">
                        <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-2">Remplaçants</p>
                        <span className="text-2xl font-black text-white/80">
-                         {Object.values(tempAssignments).filter(a => a.role === 'substitute').length}
+                         {compoEnCours.filter((e) => e.role === "substitute").length}
                        </span>
                     </div>
                   </div>
 
-                  {/* Ghost players section in lineup mode */}
-                  {ghostPlayers.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Joueurs sans compte</p>
-                      {ghostPlayers.map((ghost) => (
-                        <div key={ghost.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5">
-                          <div>
-                            <p className="text-sm font-black text-white">{ghost.firstName} {ghost.lastName}</p>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{ghost.position}{ghost.squadNumber ? ` · N°${ghost.squadNumber}` : ""}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              placeholder="N°"
-                              maxLength={3}
-                              className="w-12 h-9 bg-white/10 border border-white/10 text-center text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                              value={tempAssignments[ghost.id]?.squadNumber || ghost.squadNumber || ""}
-                              onChange={(e) => setTempAssignments(prev => ({
-                                ...prev,
-                                [ghost.id]: { ...prev[ghost.id], squadNumber: e.target.value }
-                              }))}
-                            />
-                            <select
-                              className="h-9 px-2 bg-white/10 border border-white/10 text-[10px] font-black uppercase text-white focus:outline-none"
-                              value={tempAssignments[ghost.id]?.role || "starter"}
-                              onChange={(e) => setTempAssignments(prev => ({
-                                ...prev,
-                                [ghost.id]: { ...prev[ghost.id], role: e.target.value as "starter" | "substitute" }
-                              }))}
-                            >
-                              <option value="starter">Titu</option>
-                              <option value="substitute">Sub</option>
-                            </select>
-                          </div>
+                  {/* LA FORME DE CE NvN, poste par poste. Elle n'impose
+                      rien — un manager range ses joueurs comme il l'entend —
+                      mais elle donne l'échelle du match qu'on prépare : un
+                      5v5 n'est pas un 11v11 avec des trous, et l'éditeur ne
+                      disait nulle part combien de défenseurs y tiennent. Le
+                      chiffre passe au vert quand il tombe juste. */}
+                  <div className="grid grid-cols-4 border border-white/5">
+                    {POSTES.map((code) => {
+                      const pose = posesParPoste[code];
+                      const attendu = formeAttendue[code];
+                      return (
+                        <div
+                          key={code}
+                          className="px-2 py-2.5 text-center [&+&]:border-l [&+&]:border-white/5"
+                        >
+                          <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                            {LIBELLE_POSTE[code]}
+                          </p>
+                          <p className="mt-1 font-black tabular-nums">
+                            <span className={pose === attendu ? "text-emerald-400" : "text-white/80"}>
+                              {pose}
+                            </span>
+                            <span className="text-white/25"> / {attendu}</span>
+                          </p>
                         </div>
-                      ))}
+                      );
+                    })}
+                  </div>
+
+                  {/* LE TERRAIN, PENDANT QU'ON REMPLIT. Le manager choisissait
+                      des rôles dans une liste et découvrait le placement une
+                      fois la feuille validée, sur la fiche publique — c'est-à-
+                      dire trop tard pour corriger un 2-5-3 involontaire. Même
+                      dessin et même géométrie que la fiche (TerrainCompo),
+                      donc ce qu'il voit ici est ce que tout le monde verra. */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                        Sur le terrain
+                      </p>
+                      {titulairesEnCours.some((e) => !e.position) && (
+                        <p className="text-[9px] font-black uppercase tracking-widest text-amber-400/70">
+                          {titulairesEnCours.filter((e) => !e.position).length} sans poste
+                        </p>
+                      )}
                     </div>
-                  )}
+                    {titulairesEnCours.length === 0 ? (
+                      <p className="border border-dashed border-white/10 py-10 text-center text-[10px] font-black uppercase tracking-[0.15em] text-white/30">
+                        Aucun titulaire
+                      </p>
+                    ) : (
+                      <div className="mx-auto w-full max-w-xs border border-white/10">
+                        <TerrainCompo
+                          titulaires={titulairesEnCours}
+                          taille={tailleEffectif(match.format)}
+                          variante="sombre"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* L'EFFECTIF DU MATCH, EN ENTIER. Trois réglages par ligne :
+                      le dossard, le poste tenu ce jour-là, et titulaire ou
+                      remplaçant. Seuls les joueurs sans compte figuraient ici,
+                      les autres n'avaient leurs sélecteurs que dans les
+                      colonnes de convocation plus bas — invisibles dès que
+                      l'auto-acceptation est active, ce qui est désormais le
+                      cas par défaut. */}
+                  <div className="space-y-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                      Effectif du match ({monEffectifDeMatch.length})
+                    </p>
+                    {monEffectifDeMatch.length === 0 && (
+                      <p className="border border-dashed border-white/10 p-4 text-center text-[11px] font-bold italic text-white/40">
+                        Personne n&apos;a encore confirmé sa présence.
+                      </p>
+                    )}
+                    {monEffectifDeMatch.map((joueur) => {
+                      const pose = tempAssignments[joueur.id];
+                      const dossard = pose?.squadNumber ?? joueur.dossardParDefaut;
+                      const poste = pose?.position ?? null;
+                      const role = pose?.role ?? "starter";
+                      // Le dossard qu'un compte occupe déjà : ce joueur sans
+                      // compte le perdra à l'enregistrement (voir
+                      // updateMatchLineup), autant qu'il le sache ici.
+                      const dossardEnDouble =
+                        joueur.sansCompte
+                        && dossard.trim() !== ""
+                        && dossardsPrisParLesComptes.has(dossard.trim());
+                      const poser = (patch: Partial<{ squadNumber: string; role: "starter" | "substitute"; position: Poste | null }>) =>
+                        setTempAssignments((prev) => ({
+                          ...prev,
+                          // dossard/role/poste SONT deja les valeurs
+                          // courantes, valeur par defaut comprise : la ligne
+                          // se reecrit entiere, sans relire l'etat.
+                          [joueur.id]: { squadNumber: dossard, role, position: poste, ...patch },
+                        }));
+                      return (
+                        <div
+                          key={joueur.id}
+                          className={`flex flex-wrap items-center gap-2 border p-3 sm:flex-nowrap ${
+                            role === "starter"
+                              ? "border-white/10 bg-white/5"
+                              : "border-white/5 bg-transparent"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-black text-white">{joueur.nom}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                              {joueur.sansCompte ? "Sans compte" : "Compte joueur"}
+                              {joueur.posteNaturel ? ` · ${LIBELLE_POSTE[joueur.posteNaturel]} de métier` : ""}
+                            </p>
+                            {dossardEnDouble && (
+                              <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-amber-400">
+                                Dossard {dossard.trim()} déjà pris par un compte
+                              </p>
+                            )}
+                          </div>
+
+                          <input
+                            type="text"
+                            placeholder="N°"
+                            maxLength={3}
+                            aria-label={`Dossard de ${joueur.nom}`}
+                            className={`h-9 w-12 border bg-white/10 text-center text-xs font-black text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 ${
+                              dossardEnDouble ? "border-amber-400/60" : "border-white/10"
+                            }`}
+                            value={dossard}
+                            onChange={(e) => poser({ squadNumber: e.target.value })}
+                          />
+
+                          {/* Le poste, indépendant du poste naturel du joueur.
+                              « — » est un choix valide : le terrain sait
+                              aligner une ligne « ? » sans inventer des
+                              défenseurs que personne n'a désignés. */}
+                          <select
+                            aria-label={`Poste de ${joueur.nom}`}
+                            className="h-9 border border-white/10 bg-white/10 px-2 text-[10px] font-black uppercase text-white focus:outline-none"
+                            value={poste ?? ""}
+                            onChange={(e) => poser({ position: (e.target.value || null) as Poste | null })}
+                          >
+                            <option value="">— Poste</option>
+                            {POSTES.map((code) => (
+                              <option key={code} value={code}>
+                                {INITIALE_POSTE[code]} · {LIBELLE_POSTE[code]}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* « Titu » se ferme quand l'équipe est au
+                              complet : le match se joue à N, et rien
+                              n'empêchait d'en aligner le double. Il faut
+                              d'abord sortir quelqu'un — c'est le geste
+                              qu'on ferait au bord du terrain. */}
+                          <select
+                            aria-label={`Rôle de ${joueur.nom}`}
+                            className="h-9 border border-white/10 bg-white/10 px-2 text-[10px] font-black uppercase text-white focus:outline-none"
+                            value={role}
+                            onChange={(e) => poser({ role: e.target.value as "starter" | "substitute" })}
+                          >
+                            <option value="starter" disabled={onzeComplet && role !== "starter"}>
+                              Titu
+                            </option>
+                            <option value="substitute">Sub</option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   <div className="flex items-center gap-3 pt-4">
                     <button
@@ -960,6 +1240,11 @@ export default function MatchDetailPage() {
                               playerId,
                               squadNumber: val.squadNumber,
                               role: val.role,
+                              // Le poste tenu sur CE match. Il n'était pas
+                              // transmis : seuls les joueurs sans compte en
+                              // portaient un, et le terrain repliait donc tous
+                              // les autres sur un 4-3-3 par ordre de feuille.
+                              position: val.position,
                             }));
 
                           const ghostEntries = entrees
@@ -971,10 +1256,12 @@ export default function MatchDetailPage() {
                                 name: `${g.firstName} ${g.lastName}`.trim(),
                                 number: val.squadNumber || g.squadNumber || "",
                                 role: val.role,
-                                // Le poste d'un joueur sans compte est typé et
-                                // obligatoire : c'est la source la plus sûre
-                                // qu'on ait pour savoir qui garde les buts.
-                                position: normaliserPoste(g.position),
+                                // Le poste CHOISI pour ce match s'il l'a été,
+                                // sinon celui de sa fiche, qui est typé et
+                                // obligatoire. Ce dernier était pris d'office :
+                                // un joueur sans compte ne pouvait pas dépanner
+                                // ailleurs qu'à son poste.
+                                position: val.position ?? normaliserPoste(g.position),
                               };
                             });
 
@@ -993,7 +1280,11 @@ export default function MatchDetailPage() {
                         validatingLineup ||
                         // Une feuille sans titulaire se déclarait « validée » et
                         // ouvrait la console sur une grille vide.
-                        Object.values(tempAssignments).filter(a => a.role === "starter").length === 0
+                        titulairesEnCours.length === 0 ||
+                        // Ni plus de titulaires que le match n'en aligne. Le
+                        // sélecteur s'y refuse déjà ; ce garde-fou attrape les
+                        // feuilles enregistrées avant que le format ne change.
+                        titulairesEnCours.length > tailleDuMatch
                       }
                       className="flex-[2] py-4 bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-emerald-500/20 hover:bg-emerald-600 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:scale-100"
                     >
@@ -1059,39 +1350,18 @@ export default function MatchDetailPage() {
                           </div>
                         </div>
                         
-                        {lineupMode && player.teamId === myTeamId && player.status === 'confirmed' ? (
-                          <div className="flex items-center gap-2">
-                             <input 
-                               type="text"
-                               placeholder="N°"
-                               maxLength={3}
-                               className="w-12 h-9 bg-gray-50 border border-gray-200/70 text-center text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                               value={tempAssignments[player.playerId]?.squadNumber || ""}
-                               onChange={(e) => setTempAssignments(prev => ({
-                                 ...prev,
-                                 [player.playerId]: { ...prev[player.playerId], squadNumber: e.target.value }
-                               }))}
-                             />
-                             <select
-                               className="h-9 px-2 bg-gray-50 border border-gray-200/70 text-[10px] font-black uppercase focus:outline-none"
-                               value={tempAssignments[player.playerId]?.role || "starter"}
-                               onChange={(e) => setTempAssignments(prev => ({
-                                 ...prev,
-                                 [player.playerId]: { ...prev[player.playerId], role: e.target.value as any }
-                               }))}
-                             >
-                               <option value="starter">Titu</option>
-                               <option value="substitute">Sub</option>
-                             </select>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            {player.squadNumber && (
-                              <span className="text-lg font-black text-gray-300 tracking-tighter mr-1 self-center">#{player.squadNumber}</span>
-                            )}
-                            {player.status === 'confirmed' && <Star size={14} className="text-emerald-400" />}
-                          </div>
-                        )}
+                        {/* Ces colonnes SUIVENT LES CONVOCATIONS, elles ne
+                            composent plus la feuille : dossard, poste et rôle
+                            se règlent dans l'éditeur au-dessus, en une seule
+                            liste qui couvre aussi les joueurs sans compte. Les
+                            sélecteurs vivaient ici en double, et pour la moitié
+                            de l'effectif seulement. */}
+                        <div className="flex items-center gap-3">
+                          {player.squadNumber && (
+                            <span className="text-lg font-black text-gray-300 tracking-tighter mr-1 self-center">#{player.squadNumber}</span>
+                          )}
+                          {player.status === 'confirmed' && <Star size={14} className="text-emerald-400" />}
+                        </div>
                       </div>
                     ))}
                     {homeSquad.length === 0 && (
@@ -1141,39 +1411,18 @@ export default function MatchDetailPage() {
                           </div>
                         </div>
 
-                        {lineupMode && player.teamId === myTeamId && player.status === 'confirmed' ? (
-                          <div className="flex items-center gap-2">
-                             <input 
-                               type="text"
-                               placeholder="N°"
-                               maxLength={3}
-                               className="w-12 h-9 bg-gray-50 border border-gray-200/70 text-center text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                               value={tempAssignments[player.playerId]?.squadNumber || ""}
-                               onChange={(e) => setTempAssignments(prev => ({
-                                 ...prev,
-                                 [player.playerId]: { ...prev[player.playerId], squadNumber: e.target.value }
-                               }))}
-                             />
-                             <select
-                               className="h-9 px-2 bg-gray-50 border border-gray-200/70 text-[10px] font-black uppercase focus:outline-none"
-                               value={tempAssignments[player.playerId]?.role || "starter"}
-                               onChange={(e) => setTempAssignments(prev => ({
-                                 ...prev,
-                                 [player.playerId]: { ...prev[player.playerId], role: e.target.value as any }
-                               }))}
-                             >
-                               <option value="starter">Titu</option>
-                               <option value="substitute">Sub</option>
-                             </select>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            {player.squadNumber && (
-                              <span className="text-lg font-black text-gray-300 tracking-tighter mr-1 self-center">#{player.squadNumber}</span>
-                            )}
-                            {player.status === 'confirmed' && <Star size={14} className="text-emerald-400" />}
-                          </div>
-                        )}
+                        {/* Ces colonnes SUIVENT LES CONVOCATIONS, elles ne
+                            composent plus la feuille : dossard, poste et rôle
+                            se règlent dans l'éditeur au-dessus, en une seule
+                            liste qui couvre aussi les joueurs sans compte. Les
+                            sélecteurs vivaient ici en double, et pour la moitié
+                            de l'effectif seulement. */}
+                        <div className="flex items-center gap-3">
+                          {player.squadNumber && (
+                            <span className="text-lg font-black text-gray-300 tracking-tighter mr-1 self-center">#{player.squadNumber}</span>
+                          )}
+                          {player.status === 'confirmed' && <Star size={14} className="text-emerald-400" />}
+                        </div>
                       </div>
                     ))}
                     {awaySquad.length === 0 && (

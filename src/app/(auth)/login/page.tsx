@@ -82,17 +82,17 @@ type Tab = "email" | "phone";
 const PHONE_LOGIN_ENABLED = false;
 
 /**
- * Idem pour l'email + mot de passe : masqué, pas supprimé.
+ * L'EMAIL + MOT DE PASSE EST DE RETOUR, à côté de Google.
  *
- * L'authentification passe désormais par une modale (voir AuthModal) qui ne
- * propose que Google, un tap, aucun mot de passe à retrouver, et surtout
- * aucune redirection : on se connecte sans quitter la page qu'on lisait.
- * Cette page reste l'adresse de repli, alignée sur la même offre.
+ * Il avait été masqué au profit de Google seul : un tap, aucun mot de passe à
+ * retrouver. Mais l'inscription, elle, n'a jamais cessé de créer des comptes
+ * par email (voir /signup) — et ces comptes-là n'avaient plus de porte. Un
+ * mot de passe se saisit aussi là où le compte Google n'existe pas : un
+ * téléphone partagé, un navigateur où personne n'est connecté.
  *
- * Le formulaire entier (validation, erreurs, mot de passe oublié) est
- * conservé et reste compilé : repasser à `true` suffit à le remettre.
+ * Google reste en tête : c'est le chemin le plus court, pas le seul.
  */
-const EMAIL_LOGIN_ENABLED = false;
+const EMAIL_LOGIN_ENABLED = true;
 
 /**
  * De quelle fonction vient-on, et que lui promet-on.
