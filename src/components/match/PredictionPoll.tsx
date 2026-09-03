@@ -25,9 +25,9 @@ import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, 
 // ET IL TIENT SUR UNE SEULE LIGNE. Il en occupait trois — la question, les
 // trois choix, le décompte — soit une centaine de pixels d'un écran qui doit
 // tenir l'affiche, le score et les onglets. La question devient une étiquette
-// à gauche, le décompte un simple nombre à droite, et le résultat du vote ne
-// prend plus de place du tout : le pourcentage REMPLIT le segment de chaque
-// issue. Voter ne change donc plus la hauteur du bloc, seulement sa couleur.
+// à gauche, et le résultat du vote ne prend plus de place du tout : le
+// pourcentage REMPLIT le segment de chaque issue. Voter ne change donc plus la
+// hauteur du bloc, seulement sa couleur.
 // ============================================
 
 interface Side {
@@ -80,7 +80,6 @@ export default function PredictionPoll({
     }
   };
 
-  const total = counts?.total ?? 0;
   // Le résultat s'ouvre une fois qu'on a voté, ou quand il n'y a plus rien à
   // pronostiquer, le match ayant commencé.
   const showResult = mine !== null || closed;
@@ -159,16 +158,10 @@ export default function PredictionPoll({
         </div>
       )}
 
-      {/* Le nombre de votes, et seulement s'il y en a. « 0 » n'apprend rien et
-          coûtait une colonne sur une ligne déjà serrée à 375px. */}
-      {total > 0 && (
-        <span
-          title={`${total} pronostic${total > 1 ? "s" : ""}`}
-          className="shrink-0 text-[10px] font-black tabular-nums leading-tight text-white/30"
-        >
-          {total}
-        </span>
-      )}
+      {/* PAS DE DÉCOMPTE. Il tenait la droite de la ligne, et il ne disait
+          rien de bon : sur un amical entre deux clubs de quartier, « 3 »
+          annonce surtout que personne ne regarde. Les pourcentages portent
+          déjà le résultat, qui est ce qu'on vient lire. */}
     </section>
   );
 }
