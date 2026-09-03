@@ -81,11 +81,15 @@ const DISPOSITIFS: Record<number, [number, number, number]> = {
 /**
  * Le dispositif d'une equipe de `taille`, gardien compris.
  *
+ * Exporte : l'editeur de feuille de match s'en sert pour annoncer au manager
+ * la forme attendue de son NvN — un 5v5 n'est pas un 11v11 avec des trous —
+ * et le terrain pour placer les maillots. Une seule table pour les deux.
+ *
  * Au-dela de la table, on repartit a la louche : deux cinquiemes derriere, le
  * reste partage entre le milieu et l'attaque. Un effectif de quatorze sur le
  * terrain n'existe pas au football, mais une feuille mal saisie, si.
  */
-function dispositif(taille: number): [number, number, number] {
+export function dispositif(taille: number): [number, number, number] {
   if (taille <= 0) return [0, 0, 0];
   const connu = DISPOSITIFS[taille];
   if (connu) return connu;
