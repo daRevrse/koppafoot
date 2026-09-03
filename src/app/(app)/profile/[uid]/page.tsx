@@ -173,9 +173,10 @@ function TeamCard({ team }: { team: EquipePubliee }) {
       <div className={`h-1 ${colors.stripe}`} />
       <div className="flex items-center gap-3 p-4">
         {/* L'écusson, ou le blason par défaut sur la couleur du club. */}
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${colors.bg}`}>
+        {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. */}
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${team.logoUrl ? "" : colors.bg}`}>
           {team.logoUrl
-            ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+            ? <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
             : <Shield size={24} className={colors.icon} />}
         </div>
         <div className="min-w-0 flex-1">

@@ -171,6 +171,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Équipe introuvable" }, { status: 404 });
   }
   const nomEquipe = (equipeSnap.data()?.name as string) ?? "Mon équipe";
+  const logoEquipe = (equipeSnap.data()?.logo_url as string) ?? null;
+
+  // L'écusson de l'adversaire, quand c'en est un vrai. Une équipe hors
+  // plateforme n'a pas de fiche, donc pas de blason : le Direct affichera son
+  // initiale, ce qui est la vérité sur elle.
+  const logoAdverse = opponentTeamId
+    ? ((await adminDb.collection("teams").doc(opponentTeamId).get()).data()?.logo_url as string) ?? null
+    : null;
 
   // On ne se renseigne pas un match contre soi-même.
   if (opponentTeamId && opponentTeamId === teamId) {
@@ -185,6 +193,8 @@ export async function POST(req: NextRequest) {
     away_team_id: isHome ? opponentTeamId : teamId,
     home_team_name: isHome ? nomEquipe : opponentName.trim(),
     away_team_name: isHome ? opponentName.trim() : nomEquipe,
+    home_team_logo: isHome ? logoEquipe : logoAdverse,
+    away_team_logo: isHome ? logoAdverse : logoEquipe,
     manager_id: callerUid,
     away_manager_id: contreUnCompte ? opponentManagerId : "",
     date, time,

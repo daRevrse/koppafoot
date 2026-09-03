@@ -28,13 +28,24 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
 // Team crest: real logo when present, otherwise a first-letter avatar. Mirrors
 // the crest treatment used across the public competition pages.
 function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
+  // Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG
+  // transparents, et la plaque se voyait au travers.
+  // `contain` plutôt que `cover` : sans plaque, un logo rogné n'a plus rien
+  // qui rattrape la coupe.
+  if (logo) {
+    return (
+      <Image
+        src={logo}
+        alt={name}
+        width={28}
+        height={28}
+        className="h-7 w-7 shrink-0 object-contain"
+      />
+    );
+  }
   return (
     <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-[11px] font-black text-gray-500">
-      {logo ? (
-        <Image src={logo} alt={name} width={28} height={28} className="h-full w-full object-cover" />
-      ) : (
-        <span>{name?.[0]?.toUpperCase() || "?"}</span>
-      )}
+      <span>{name?.[0]?.toUpperCase() || "?"}</span>
     </div>
   );
 }

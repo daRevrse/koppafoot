@@ -436,11 +436,22 @@ export default function MatchesPage() {
         };
       }
 
+      // L'écusson des deux camps voyage avec le match (voir
+      // FirestoreMatch.home_team_logo). L'équipe adverse vient de la recherche,
+      // qui rend des `Team` complets ; un adversaire hors plateforme n'a pas de
+      // fiche, donc pas de blason.
+      const monLogo = team.logoUrl ?? null;
+      const logoAdverse = awayTeamId
+        ? (awaySearchResults.find((t) => t.id === awayTeamId)?.logoUrl ?? null)
+        : null;
+
       await createMatch({
         homeTeamId: isHome ? team.id : opponentTeamId,
         awayTeamId: isHome ? opponentTeamId : team.id,
         homeTeamName,
         awayTeamName: awayTeamNameFinal,
+        homeTeamLogo: isHome ? monLogo : logoAdverse,
+        awayTeamLogo: isHome ? logoAdverse : monLogo,
         managerId: user.uid,
         awayManagerId: awayManagerId,
         date: matchDate,
