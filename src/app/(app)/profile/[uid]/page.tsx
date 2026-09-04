@@ -1,6 +1,7 @@
 "use client";
 
 import { isVenueOwner as ownsVenue } from "@/lib/hats";
+import { aUnProfilPublic } from "@/lib/espaces-acces";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -439,13 +440,35 @@ function VenueOwnerSection({ profile }: { profile: UserProfile }) {
  * projection en liste blanche, sans email ni telephone. Les champs absents
  * restent indefinis, la page les traite deja comme optionnels.
  */
+/** Le compte existe, mais n'a pas de page : voir aUnProfilPublic. */
+interface ApercuSansPage {
+  uid: string;
+  nom: string;
+  photo: string | null;
+}
+
 async function fetchPublicProfile(
   uid: string,
-): Promise<{ profile: UserProfile; teams: EquipePubliee[] } | null> {
+): Promise<
+  | { profile: UserProfile; teams: EquipePubliee[]; apercu: null }
+  | { profile: null; teams: EquipePubliee[]; apercu: ApercuSansPage }
+  | null
+> {
   try {
     const res = await fetch(`/api/public/profile/${encodeURIComponent(uid)}`);
     if (!res.ok) return null;
-    const { profile, teams } = await res.json();
+    const { profile, teams, sansProfilPublic } = await res.json();
+    if (sansProfilPublic) {
+      return {
+        profile: null,
+        teams: [],
+        apercu: {
+          uid: sansProfilPublic.uid,
+          nom: `${sansProfilPublic.first_name ?? ""} ${sansProfilPublic.last_name ?? ""}`.trim(),
+          photo: sansProfilPublic.profile_picture_url ?? null,
+        },
+      };
+    }
     if (!profile) return null;
     const mapped = {
       uid: profile.uid,
@@ -472,7 +495,7 @@ async function fetchPublicProfile(
 
     // Les equipes arrivent deja au format de la page : l'endpoint les projette
     // en camelCase, il n'y a rien a retraduire ici.
-    return { profile: mapped, teams: (teams ?? []) as EquipePubliee[] };
+    return { profile: mapped, teams: (teams ?? []) as EquipePubliee[], apercu: null };
   } catch {
     return null;
   }
@@ -484,6 +507,7 @@ export default function PublicProfilePage() {
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [apercu, setApercu] = useState<ApercuSansPage | null>(null);
   const [teams, setTeams] = useState<EquipePubliee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -544,6 +568,14 @@ export default function PublicProfilePage() {
         // sans rien supposer du role.
         const pub = await fetchPublicProfile(uid);
 
+        // Pas de page publique : on s'arrete la, sans meme lire la fiche.
+        if (pub?.apercu) {
+          setApercu(pub.apercu);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         // Connecte, la lecture directe reste la source de la FICHE : elle
         // porte les champs de compte que la projection ne publie pas.
         const p = currentUser ? await getUserById(uid) : pub?.profile ?? null;
@@ -552,6 +584,25 @@ export default function PublicProfilePage() {
           setLoading(false);
           return;
         }
+
+        // LA MEME REGLE SUR LE CHEMIN CONNECTE. Un lecteur connecte contourne
+        // la projection publique — sans ce controle, lui seul aurait vu la
+        // fiche vide que la regle retire aux autres.
+        //
+        // Uniquement quand `pub` a repondu : s'il a echoue, on ne sait rien
+        // des equipes, et masquer une fiche legitime serait pire que la
+        // montrer. Ce n'est pas une barriere de confidentialite.
+        if (pub && !aUnProfilPublic(p, { appartientAUneEquipe: pub.teams.length > 0 })) {
+          setApercu({
+            uid: p.uid,
+            nom: `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(),
+            photo: p.profilePictureUrl ?? null,
+          });
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         setProfile(p);
         setFollowerCount(p.followersCount ?? 0);
         setTeams(pub?.teams ?? []);
@@ -685,6 +736,50 @@ export default function PublicProfilePage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 size={32} className="animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  // Le compte existe, mais n'a rien a montrer. On le dit, plutot que de
+  // mentir dans un sens (« introuvable ») ou dans l'autre (une fiche vide).
+  if (apercu) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <div className="border border-gray-200/70 bg-white p-8 text-center sm:p-12">
+          {apercu.photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={apercu.photo} alt="" className="mx-auto h-20 w-20 object-cover" />
+          ) : (
+            <div className="mx-auto flex h-20 w-20 items-center justify-center border border-gray-200/70 bg-gray-50">
+              <Users size={26} className="text-gray-300" strokeWidth={1.5} />
+            </div>
+          )}
+
+          <h1 className="mt-5 font-display text-xl font-black uppercase tracking-tight text-gray-900">
+            {apercu.nom || "Ce membre"}
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-gray-500">
+            Ce compte n&apos;a pas encore de fiche publique : aucun rôle activé,
+            aucune équipe. Il en aura une dès qu&apos;il rejoindra un effectif ou
+            choisira son rôle.
+          </p>
+
+          {isOwnProfile ? (
+            <Link
+              href="/evolution"
+              className="mt-7 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
+            >
+              Choisir mon rôle
+            </Link>
+          ) : (
+            <button
+              onClick={() => router.back()}
+              className="mt-7 inline-flex items-center gap-2 border border-gray-200/70 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+            >
+              <ArrowLeft size={14} /> Retour
+            </button>
+          )}
+        </div>
       </div>
     );
   }

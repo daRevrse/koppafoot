@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { aUnProfilPublic } from "@/lib/espaces-acces";
 
 /**
  * GET /api/public/profile/[uid], la fiche publique d'un joueur.
@@ -73,6 +74,38 @@ export async function GET(
         isManager: t.manager_id === uid,
       }];
     });
+
+    // LA RÈGLE C : une page publique demande d'avoir quelque chose à y
+    // montrer — un rôle activé (ou hérité), ou une équipe. Voir
+    // aUnProfilPublic. Sans ça, on ne renvoie PAS la projection : on renvoie
+    // de quoi dire poliment qu'il n'y a rien, avec le nom et l'avatar, qui
+    // sont de toute façon déjà dénormalisés sur les publications d'où le lien
+    // vient le plus souvent.
+    //
+    // Ce n'est pas un 404 : le lien existe dans la nature (Tribune, partage),
+    // et une page qui explique vaut mieux qu'une page qui n'existe pas.
+    const identite = {
+      uid,
+      evolutionRole: (data.evolution_role as string) ?? null,
+      userType: (data.user_type as string) ?? "user",
+    };
+    const publique = aUnProfilPublic(
+      { evolutionRole: identite.evolutionRole as never, userType: identite.userType as never },
+      { appartientAUneEquipe: teams.length > 0 },
+    );
+
+    if (!publique) {
+      return NextResponse.json({
+        profile: null,
+        teams: [],
+        sansProfilPublic: {
+          uid,
+          first_name: data.first_name ?? "",
+          last_name: data.last_name ?? "",
+          profile_picture_url: data.profile_picture_url ?? null,
+        },
+      });
+    }
 
     return NextResponse.json({ profile: out, teams });
   } catch (err) {
