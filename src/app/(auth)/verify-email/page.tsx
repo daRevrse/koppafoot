@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { Loader2, CheckCircle, Mail, ArrowLeft, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
+import { classeBoutonAuth } from "@/components/auth/auth-ui";
 
 export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
@@ -38,15 +39,15 @@ export default function VerifyEmailPage() {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.15 }}
-          className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50"
+          className="mx-auto mb-5 flex h-16 w-16 items-center justify-center border border-emerald-200 bg-emerald-50"
         >
-          <CheckCircle size={32} className="text-emerald-500" />
+          <CheckCircle size={32} className="text-emerald-600" />
         </motion.div>
-        <h2 className="mb-2 text-xl font-black text-gray-900 font-display">Email vérifié</h2>
+        <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Email vérifié</h1>
         <p className="mb-6 text-sm text-gray-400">Votre adresse email est vérifiée.</p>
         <Link
           href="/"
-          className="inline-flex bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 transition-all"
+          className={classeBoutonAuth}
         >
           Accéder à mon espace
         </Link>
@@ -65,12 +66,12 @@ export default function VerifyEmailPage() {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.15 }}
-        className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50"
+        className="mx-auto mb-5 flex h-16 w-16 items-center justify-center border border-emerald-200 bg-emerald-50"
       >
-        <Mail size={32} className="text-emerald-500" />
+        <Mail size={32} className="text-emerald-600" />
       </motion.div>
 
-      <h2 className="mb-2 text-xl font-black text-gray-900 font-display">Vérifiez votre email</h2>
+      <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Vérifiez votre email</h1>
       <p className="mb-6 text-sm text-gray-400">
         {user?.email
           ? <>Un email de vérification a été envoyé à <span className="font-bold text-gray-600">{user.email}</span>.</>
@@ -83,7 +84,7 @@ export default function VerifyEmailPage() {
         <button
           onClick={handleResend}
           disabled={resending}
-          className="inline-flex items-center gap-2 bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+          className={classeBoutonAuth}
         >
           {resending ? (
             <Loader2 size={16} className="animate-spin" />

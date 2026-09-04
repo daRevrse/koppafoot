@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { Loader2, Mail, ArrowLeft, Send } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
+import { classeChampAuth, classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth } from "@/components/auth/auth-ui";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 const schema = yup.object({
@@ -55,37 +56,37 @@ export default function ForgotPasswordPage() {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.2 }}
           >
-            <h2 className="mb-1 text-2xl font-black text-gray-900 font-display">
+            <h1 className="mb-2 font-display text-3xl font-black uppercase leading-[0.95] tracking-[-0.02em] text-gray-900">
               Mot de passe oublié
-            </h2>
+            </h1>
             <p className="mb-8 text-sm text-gray-400">
               Entrez votre email pour recevoir un lien de réinitialisation.
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-xs font-bold text-gray-600">
+                <label htmlFor="email" className={classeEtiquetteAuth}>
                   Email
                 </label>
                 <div className="relative">
-                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <Mail size={15} className={classeIconeChamp} />
                   <input
                     id="email"
                     type="email"
                     {...register("email")}
-                    className="w-full border border-gray-200/70 bg-gray-50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all"
+                    className={classeChampAuth}
                     placeholder="votre@email.com"
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+                  <p className="mt-1.5 text-[11px] font-bold text-red-600">{errors.email.message}</p>
                 )}
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all"
+                className={classeBoutonAuth}
               >
                 {submitting ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -108,11 +109,11 @@ export default function ForgotPasswordPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50"
+              className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50"
             >
-              <Mail size={28} className="text-emerald-500" />
+              <Mail size={28} className="text-emerald-600" />
             </motion.div>
-            <h2 className="mb-2 text-xl font-black text-gray-900 font-display">Email envoyé</h2>
+            <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Email envoyé</h1>
             <p className="mb-6 text-sm text-gray-400">
               Si un compte existe avec cette adresse, vous recevrez un email avec un lien de
               réinitialisation. Pensez à vérifier vos spams.
