@@ -49,6 +49,25 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Photos de terrain. Lecture publique : une fiche de terrain est une
+    // annonce, elle est faite pour etre vue sans compte.
+    //
+    // L'ecriture est ouverte a tout compte connecte, comme pour les
+    // competitions et pour la meme raison : la seule verification qui
+    // compte — « ce terrain est-il le mien ? » — vit dans les regles
+    // Firestore qui gardent le document `venues`, et une regle Storage ne
+    // peut la refaire qu'avec un firestore.get() inter-service, celui-la
+    // meme qui renvoie 403 en production (voir /branding/tribune ci-dessous).
+    // Sans cette regle, uploadVenuePhoto() tombait dans le refus general :
+    // le champ photo_url existait dans le modele depuis le debut, aucune
+    // photo n'a jamais pu y arriver.
+    match /venues/{venueId}/photos/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     // Picture of the official Tribune account. Public to read, never writable
     // from a browser: the file goes through /api/admin/tribune, whose admin
     // SDK bypasses these rules after checking the caller is a superadmin.

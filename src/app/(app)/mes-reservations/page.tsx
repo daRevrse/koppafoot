@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Loader2, MapPin } from "lucide-react";
+import { CalendarDays, MapPin, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { onBookingsByUser, updateBookingStatus } from "@/lib/firestore";
 import type { Booking } from "@/types";
+import { dateLongue, duree, finCreneau, aujourdhui } from "@/lib/terrains";
+import {
+  Panneau, FilAriane, Fanion, LienBouton, EtatVide, EnCours, Etiquette,
+  useConfirmation, type Ton,
+} from "@/components/venue/venue-ui";
 
 // ============================================
 // Mes réservations, le côté demandeur.
@@ -15,143 +20,183 @@ import type { Booking } from "@/types";
 // voyait, le demandeur non. Il devait retourner sur la fiche du terrain pour
 // deviner si son samedi soir tenait.
 //
-// Annuler reste possible des deux côtés, et c'est délibéré, un match qui
-// tombe à l'eau se dit tout de suite. Confirmer, en revanche, n'appartient
-// qu'au propriétaire : les règles Firestore le tiennent, pas seulement
-// l'absence de bouton.
+// L'ÉTAT VIDE NE MÈNE PLUS DANS LE MUR. Il disait « Trouve un terrain » et
+// renvoyait vers /terrains, qui est la vitrine des PROPRIÉTAIRES : on y
+// lisait « Référencer mon terrain » alors qu'on cherchait où jouer. Il n'y
+// avait alors aucun annuaire, la seule voie était la recherche globale. Il
+// existe désormais, et c'est là que ce bouton envoie.
+//
+// Annuler reste possible des deux côtés, et c'est délibéré : un match qui
+// tombe à l'eau se dit tout de suite, et le propriétaire est prévenu pour
+// pouvoir redonner le créneau. Confirmer, en revanche, n'appartient qu'au
+// propriétaire : les règles Firestore le tiennent, pas seulement l'absence
+// de bouton.
 // ============================================
 
-const STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "En attente", className: "border-amber-200 bg-amber-50 text-amber-700" },
-  confirmed: { label: "Confirmé", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-  cancelled: { label: "Annulé", className: "border-gray-200/70 bg-gray-50 text-gray-500" },
-  completed: { label: "Passé", className: "border-gray-200/70 bg-gray-50 text-gray-500" },
+const ETATS: Record<string, { label: string; ton: Ton; sens: string }> = {
+  pending: { label: "En attente", ton: "attente", sens: "Le propriétaire n'a pas encore répondu." },
+  confirmed: { label: "Confirmé", ton: "ok", sens: "Le terrain est à vous sur ce créneau." },
+  cancelled: { label: "Annulé", ton: "refus", sens: "Ce créneau n'a pas été retenu." },
+  completed: { label: "Passé", ton: "neutre", sens: "" },
 };
-
-/** « samedi 23 août », la date d'un créneau, telle qu'on la dit. */
-function longDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-}
 
 export default function MyBookingsPage() {
   const { user, loading: authLoading } = useAuth();
-  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [demandes, setDemandes] = useState<Booking[] | null>(null);
+  const [agit, setAgit] = useState<string | null>(null);
+  const { demander, Dialogue } = useConfirmation();
 
   useEffect(() => {
     if (!user) return;
-    const unsub = onBookingsByUser(user.uid, setBookings);
-    return unsub;
+    return onBookingsByUser(user.uid, setDemandes);
   }, [user]);
 
-  if (authLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
-      </div>
-    );
-  }
+  const today = aujourdhui();
 
+  const { aVenir, passees } = useMemo(() => {
+    const liste = demandes ?? [];
+    const tri = (a: Booking, b: Booking) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
+    return {
+      aVenir: liste.filter((b) => b.date >= today).sort(tri),
+      passees: liste.filter((b) => b.date < today).sort(tri).reverse(),
+    };
+  }, [demandes, today]);
+
+  if (authLoading) return <EnCours hauteur="h-[60vh] items-center" />;
   if (!user) return null;
 
-  const cancel = async (b: Booking) => {
-    if (!confirm(`Annuler la demande du ${longDate(b.date)} à ${b.time} ?`)) return;
+  const annuler = async (b: Booking) => {
+    const ok = await demander({
+      titre: "Annuler cette demande ?",
+      corps: (
+        <>
+          {b.venueName}, le {dateLongue(b.date)} à {b.time}.
+          {b.status === "confirmed"
+            ? " Le créneau était confirmé : le propriétaire sera prévenu qu'il se libère."
+            : " Le propriétaire n'aura plus à y répondre."}
+        </>
+      ),
+      action: "Annuler la demande",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setAgit(b.id);
     try {
-      await updateBookingStatus(b.id, "cancelled");
+      await updateBookingStatus(b, "cancelled", "demandeur");
       toast.success("Demande annulée");
     } catch (err) {
       console.error("Cancel failed:", err);
       toast.error("L'annulation a échoué");
+    } finally {
+      setAgit(null);
     }
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const Ligne = ({ b, annulable }: { b: Booking; annulable: boolean }) => {
+    const etat = ETATS[b.status] ?? ETATS.pending;
+    return (
+      <li className="flex flex-wrap items-start justify-between gap-4 p-5">
+        <div className="min-w-0">
+          <Link
+            href={`/terrains/${b.venueId}`}
+            className="flex items-center gap-1.5 text-sm font-bold text-gray-900 transition-colors hover:text-emerald-700"
+          >
+            <MapPin size={13} className="shrink-0 text-gray-400" />
+            {b.venueName}
+          </Link>
+          <p className="mt-1.5 text-[11px] font-bold text-gray-500">
+            {dateLongue(b.date)} · {b.time} → {finCreneau(b.time, b.duration)} · {duree(b.duration)}
+          </p>
+          {etat.sens && b.date >= today && (
+            <p className="mt-1 text-[11px] text-gray-400">{etat.sens}</p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          <Fanion ton={etat.ton}>{etat.label}</Fanion>
+          {annulable && (
+            <button
+              type="button"
+              onClick={() => annuler(b)}
+              disabled={agit === b.id}
+              className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
+            >
+              Annuler
+            </button>
+          )}
+        </div>
+      </li>
+    );
+  };
 
   return (
     <div className="mx-auto max-w-4xl pb-24">
-      <nav
-        aria-label="Fil d'ariane"
-        className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
-      >
-        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <Link href="/terrains" className="transition-colors hover:text-emerald-700">MyFields</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <span className="text-gray-600">Mes réservations</span>
-      </nav>
+      <FilAriane
+        items={[
+          { href: "/", label: "Direct" },
+          { href: "/terrains/annuaire", label: "Où jouer" },
+          { label: "Mes réservations" },
+        ]}
+      />
 
-      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-        <div className="relative mx-auto max-w-4xl px-5 py-6 sm:px-8 sm:py-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-            Terrains
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
-            Mes réservations
-          </h1>
-        </div>
-      </section>
+      <Panneau
+        surtitre="Terrains"
+        titre="Mes réservations"
+        actions={
+          <LienBouton href="/terrains/annuaire" Icon={Search} petit>
+            Chercher un terrain
+          </LienBouton>
+        }
+      >
+        Les créneaux que vous avez demandés. Le propriétaire confirme ou
+        refuse, et vous êtes prévenu dès qu&apos;il répond.
+      </Panneau>
 
       <div className="mt-6">
-        {bookings === null ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-7 w-7 animate-spin text-gray-300" />
-          </div>
-        ) : bookings.length === 0 ? (
-          <div className="border border-gray-200/70 bg-white py-16 text-center">
-            <CalendarDays size={30} className="mx-auto text-gray-300" strokeWidth={1.5} />
-            <p className="mt-4 font-display text-lg font-black text-gray-900">Aucune demande</p>
-            <p className="mt-1 text-sm text-gray-500">
-              Trouve un terrain et demande un créneau.
-            </p>
-            <Link
-              href="/terrains"
-              className="mt-6 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
-            >
-              Voir les terrains
-            </Link>
-          </div>
+        {demandes === null ? (
+          <EnCours />
+        ) : (demandes.length === 0 ? (
+          <EtatVide
+            Icon={CalendarDays}
+            titre="Aucune demande"
+            action={<LienBouton href="/terrains/annuaire" Icon={Search}>Trouver un terrain</LienBouton>}
+          >
+            Parcourez les terrains référencés, choisissez une date et demandez
+            le créneau. Le propriétaire répond, et tout se suit ici.
+          </EtatVide>
         ) : (
-          <ul className="divide-y divide-gray-200/70 border border-gray-200/70 bg-white">
-            {bookings.map((b) => {
-              const badge = STATUS[b.status] ?? STATUS.pending;
-              const annulable = b.status !== "cancelled" && b.date >= today;
-              return (
-                <li key={b.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/terrains/${b.venueId}`}
-                      className="flex items-center gap-1.5 text-sm font-bold text-gray-900 transition-colors hover:text-emerald-700"
-                    >
-                      <MapPin size={13} className="shrink-0 text-gray-400" />
-                      {b.venueName}
-                    </Link>
-                    <p className="mt-1 text-[11px] font-bold text-gray-500">
-                      {longDate(b.date)} à {b.time} · {b.duration} h
-                    </p>
-                  </div>
+          <>
+            {aVenir.length > 0 && (
+              <section>
+                <h2 className="border-b border-gray-200/70 pb-3">
+                  <Etiquette className="tracking-[0.15em]">À venir ({aVenir.length})</Etiquette>
+                </h2>
+                <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
+                  {aVenir.map((b) => (
+                    <Ligne key={b.id} b={b} annulable={b.status !== "cancelled"} />
+                  ))}
+                </ul>
+              </section>
+            )}
 
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className={`border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] ${badge.className}`}>
-                      {badge.label}
-                    </span>
-                    {annulable && (
-                      <button
-                        type="button"
-                        onClick={() => cancel(b)}
-                        className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500"
-                      >
-                        Annuler
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+            {passees.length > 0 && (
+              <section className={aVenir.length > 0 ? "mt-8" : ""}>
+                <h2 className="border-b border-gray-200/70 pb-3">
+                  <Etiquette className="tracking-[0.15em]">Passées</Etiquette>
+                </h2>
+                <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
+                  {passees.map((b) => (
+                    <Ligne key={b.id} b={b} annulable={false} />
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        ))}
       </div>
+
+      <Dialogue />
     </div>
   );
 }

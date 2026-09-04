@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useHauteurPubliee } from "@/hooks/useHauteurPubliee";
 import { Menu, X, ArrowRight } from "lucide-react";
 
 // ============================================
@@ -52,9 +53,16 @@ const VITRINES: Record<string, Vitrine> = {
   "/terrains": {
     sections: [
       { href: "#etapes", label: "Comment ça marche" },
-      { href: "#limites", label: "Ce qu'on ne fait pas" },
+      { href: "#cadre", label: "Le cadre" },
     ],
     action: { href: "/terrains/candidature", label: "Référencer" },
+  },
+  // L'annuaire s'adresse au public inverse : celui qui cherche un terrain.
+  // Son action est donc la candidature elle aussi, mais ses ancres n'ont pas
+  // lieu d'être — la page est une liste, on y descend en filtrant.
+  "/terrains/annuaire": {
+    sections: [],
+    action: { href: "/terrains", label: "J'ai un terrain" },
   },
 };
 
@@ -66,8 +74,14 @@ export function MarketingHeader() {
   const pathname = usePathname();
   const { sections, action } = VITRINES[pathname] ?? VITRINE_NEUTRE;
 
+  // L'en-tete publie sa hauteur reelle : l'annuaire des terrains y epingle sa
+  // barre de filtres, et cette hauteur change de 16px entre mobile et
+  // desktop (py-5 / sm:py-7). Un offset devine aurait laisse la barre glisser
+  // sous l'en-tete sur l'un des deux.
+  const ref = useHauteurPubliee<HTMLElement>("--marketing-header-h");
+
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/95 backdrop-blur-md">
+    <header ref={ref} className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-5 sm:px-10 sm:py-7">
         {/* Back into the app proper, this page is a door, not a dead end. */}
         <Link href="/" className="flex shrink-0 items-center gap-3">

@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, X, Loader2, MapPin } from "lucide-react";
+import { CalendarDays, Check, X, MapPin, AlertTriangle, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { onBookingsByOwner, updateBookingStatus } from "@/lib/firestore";
 import { isVenueOwner } from "@/lib/hats";
 import type { Booking } from "@/types";
+import { dateLongue, duree, finCreneau, aujourdhui, seChevauchent } from "@/lib/terrains";
+import {
+  Panneau, FilAriane, Fanion, Bouton, LienBouton, EtatVide, EnCours, Etiquette,
+  useConfirmation, type Ton,
+} from "@/components/venue/venue-ui";
 
 // ============================================
 // Les demandes REÇUES sur ses terrains.
@@ -16,134 +21,86 @@ import type { Booking } from "@/types";
 // demandés ailleurs, en tant que client. Un propriétaire a les deux : il loue
 // son terrain et peut jouer sur celui d'un autre.
 //
-// La confusion était dans le menu : « Réservations » y menait à la page du
-// demandeur, si bien qu'un propriétaire cliquait dessus et ne voyait jamais
-// les demandes qu'on lui adressait. Elles n'existaient qu'en tête de
-// /mes-terrains, mêlées à la gestion des fiches.
+// C'EST DÉSORMAIS LA SEULE PAGE QUI RÉPOND. /mes-terrains affichait la même
+// liste avec les mêmes boutons ; il n'en reste là-bas qu'un compteur.
+//
+// LE CHEVAUCHEMENT EST CALCULÉ AVANT DE CONFIRMER. Deux équipes peuvent
+// parfaitement demander le même samedi 18 h — on ne bloque pas le dépôt — mais
+// accepter les deux est l'erreur qui coûte un client, et elle ne se voyait pas
+// dans une liste triée par date d'arrivée. Le produit la nomme au moment où
+// elle se commet.
 //
 // Confirmer appartient au propriétaire, et les règles Firestore le tiennent :
 // un demandeur ne peut écrire que l'annulation.
 // ============================================
 
-const STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "En attente", className: "border-amber-200 bg-amber-50 text-amber-700" },
-  confirmed: { label: "Confirmé", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-  cancelled: { label: "Annulé", className: "border-gray-200/70 bg-gray-50 text-gray-500" },
-  completed: { label: "Passé", className: "border-gray-200/70 bg-gray-50 text-gray-500" },
+const ETATS: Record<string, { label: string; ton: Ton }> = {
+  pending: { label: "En attente", ton: "attente" },
+  confirmed: { label: "Confirmé", ton: "ok" },
+  cancelled: { label: "Refusé", ton: "refus" },
+  completed: { label: "Passé", ton: "neutre" },
 };
 
-/** « samedi 23 août », la date d'un créneau, telle qu'on la dit. */
-function longDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-}
+function Ligne({
+  b,
+  conflit,
+  actions,
+  onRepondre,
+  occupe,
+}: {
+  b: Booking;
+  conflit: Booking | null;
+  actions: boolean;
+  onRepondre: (b: Booking, statut: "confirmed" | "cancelled") => void;
+  occupe: boolean;
+}) {
+  const etat = ETATS[b.status] ?? ETATS.pending;
 
-export default function ReservationsRecuesPage() {
-  const { user, loading: authLoading } = useAuth();
-  const [bookings, setBookings] = useState<Booking[] | null>(null);
-  const [acting, setActing] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsub = onBookingsByOwner(user.uid, setBookings);
-    return unsub;
-  }, [user]);
-
-  if (authLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
-  if (!isVenueOwner(user)) {
-    return (
-      <div className="mx-auto max-w-2xl py-16">
-        <div className="border border-gray-200/70 bg-white p-8 text-center sm:p-12">
-          <MapPin size={30} className="mx-auto text-gray-300" strokeWidth={1.5} />
-          <h1 className="mt-4 font-display text-xl font-black uppercase tracking-tight text-gray-900">
-            Pas encore de terrain
-          </h1>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">
-            Cette page liste les demandes reçues sur vos terrains. Pour en
-            recevoir, il faut d&apos;abord en référencer un.
-          </p>
-          <Link
-            href="/terrains/candidature"
-            className="mt-6 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
-          >
-            Référencer mon terrain
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const answer = async (b: Booking, status: "confirmed" | "cancelled") => {
-    setActing(b.id);
-    try {
-      await updateBookingStatus(b.id, status);
-      toast.success(status === "confirmed" ? "Créneau confirmé" : "Demande refusée");
-    } catch (err) {
-      console.error("Booking answer failed:", err);
-      toast.error("L'enregistrement a échoué");
-    } finally {
-      setActing(null);
-    }
-  };
-
-  const today = new Date().toISOString().slice(0, 10);
-  const liste = (bookings ?? []).filter((b) => b.date >= today);
-  const pending = liste.filter((b) => b.status === "pending");
-  const autres = liste
-    .filter((b) => b.status !== "pending")
-    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-
-  const Ligne = ({ b, actions }: { b: Booking; actions: boolean }) => {
-    const badge = STATUS[b.status] ?? STATUS.pending;
-    return (
-      <li className="flex flex-wrap items-center justify-between gap-4 p-5">
+  return (
+    <li className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900">{b.userName || "Un joueur"}</p>
-          <p className="mt-1 text-[11px] font-bold text-gray-500">
-            {b.venueName} · {longDate(b.date)} à {b.time} · {b.duration} h
+          <p className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+            <User size={13} className="shrink-0 text-gray-400" />
+            {b.userName || "Une équipe"}
+          </p>
+          <p className="mt-1.5 text-[11px] font-bold text-gray-500">
+            {dateLongue(b.date)} · {b.time} → {finCreneau(b.time, b.duration)} · {duree(b.duration)}
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+            <MapPin size={11} />
+            {b.venueName}
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {actions ? (
             <>
-              <button
-                type="button"
-                onClick={() => answer(b, "confirmed")}
-                disabled={acting === b.id}
-                className="flex items-center gap-1.5 border border-gray-900 bg-gray-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700 disabled:opacity-40"
+              <Bouton
+                petit
+                Icon={Check}
+                occupe={occupe}
+                onClick={() => onRepondre(b, "confirmed")}
               >
-                {acting === b.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                 Confirmer
-              </button>
-              <button
-                type="button"
-                onClick={() => answer(b, "cancelled")}
-                disabled={acting === b.id}
-                className="flex items-center gap-1.5 border border-gray-200/70 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:border-red-500 hover:text-red-500 disabled:opacity-40"
+              </Bouton>
+              <Bouton
+                petit
+                variante="danger"
+                Icon={X}
+                disabled={occupe}
+                onClick={() => onRepondre(b, "cancelled")}
               >
-                <X size={13} /> Refuser
-              </button>
+                Refuser
+              </Bouton>
             </>
           ) : (
             <>
-              <span className={`border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] ${badge.className}`}>
-                {badge.label}
-              </span>
-              {b.status === "confirmed" && (
+              <Fanion ton={etat.ton}>{etat.label}</Fanion>
+              {b.status === "confirmed" && b.date >= aujourdhui() && (
                 <button
                   type="button"
-                  onClick={() => answer(b, "cancelled")}
+                  onClick={() => onRepondre(b, "cancelled")}
                   className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500"
                 >
                   Annuler
@@ -152,76 +109,213 @@ export default function ReservationsRecuesPage() {
             </>
           )}
         </div>
-      </li>
+      </div>
+
+      {conflit && (
+        <p className="mt-4 flex items-start gap-2.5 border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-amber-900">
+          <AlertTriangle size={15} className="mt-px shrink-0 text-amber-600" />
+          <span>
+            Chevauche un créneau déjà confirmé sur {conflit.venueName} :{" "}
+            {conflit.time} → {finCreneau(conflit.time, conflit.duration)} pour{" "}
+            {conflit.userName || "une équipe"}.
+          </span>
+        </p>
+      )}
+    </li>
+  );
+}
+
+export default function ReservationsRecuesPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [demandes, setDemandes] = useState<Booking[] | null>(null);
+  const [agit, setAgit] = useState<string | null>(null);
+  const { demander, Dialogue } = useConfirmation();
+
+  useEffect(() => {
+    if (!user) return;
+    return onBookingsByOwner(user.uid, setDemandes);
+  }, [user]);
+
+  const today = aujourdhui();
+  const liste = useMemo(() => (demandes ?? []).filter((b) => b.date >= today), [demandes, today]);
+
+  const confirmees = useMemo(
+    () => liste.filter((b) => b.status === "confirmed"),
+    [liste],
+  );
+
+  /** Pour chaque demande en attente, le créneau confirmé qu'elle recouvre. */
+  const conflits = useMemo(() => {
+    const map = new Map<string, Booking>();
+    for (const b of liste) {
+      if (b.status !== "pending") continue;
+      const heurt = confirmees.find((c) => c.venueId === b.venueId && seChevauchent(c, b));
+      if (heurt) map.set(b.id, heurt);
+    }
+    return map;
+  }, [liste, confirmees]);
+
+  const parDate = (a: Booking, b: Booking) =>
+    a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
+
+  const attente = useMemo(() => liste.filter((b) => b.status === "pending").sort(parDate), [liste]);
+  const traitees = useMemo(() => liste.filter((b) => b.status !== "pending").sort(parDate), [liste]);
+
+  if (authLoading) return <EnCours hauteur="h-[60vh] items-center" />;
+  if (!user) return null;
+
+  if (!isVenueOwner(user)) {
+    return (
+      <div className="mx-auto max-w-2xl py-16">
+        <EtatVide
+          Icon={MapPin}
+          titre="Pas encore de terrain"
+          action={<LienBouton href="/terrains/candidature">Référencer mon terrain</LienBouton>}
+        >
+          Cette page liste les demandes reçues sur vos terrains. Pour en
+          recevoir, il faut d&apos;abord en référencer un.
+        </EtatVide>
+      </div>
     );
+  }
+
+  const repondre = async (b: Booking, statut: "confirmed" | "cancelled") => {
+    const heurt = conflits.get(b.id);
+
+    // Confirmer par-dessus un créneau déjà pris : on ne l'interdit pas — le
+    // propriétaire connaît son terrain, il peut avoir deux surfaces ou savoir
+    // que l'autre équipe se désiste — mais on le lui dit en toutes lettres.
+    if (statut === "confirmed" && heurt) {
+      const ok = await demander({
+        titre: "Deux équipes sur le même créneau ?",
+        corps: (
+          <>
+            {b.userName || "Cette équipe"} demande {b.time} → {finCreneau(b.time, b.duration)},
+            et {heurt.userName || "une autre équipe"} a déjà{" "}
+            {heurt.time} → {finCreneau(heurt.time, heurt.duration)} de confirmé sur{" "}
+            {heurt.venueName}. Confirmer les deux, c&apos;est en décevoir une.
+          </>
+        ),
+        action: "Confirmer quand même",
+      });
+      if (!ok) return;
+    }
+
+    if (statut === "cancelled" && b.status === "confirmed") {
+      const ok = await demander({
+        titre: "Annuler un créneau confirmé ?",
+        corps: (
+          <>
+            {b.userName || "L'équipe"} avait ce créneau pour le {dateLongue(b.date)}.
+            Elle sera prévenue de l&apos;annulation.
+          </>
+        ),
+        action: "Annuler le créneau",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
+    setAgit(b.id);
+    try {
+      await updateBookingStatus(b, statut, "proprietaire");
+      toast.success(statut === "confirmed" ? "Créneau confirmé, l'équipe est prévenue" : "Demande refusée");
+    } catch (err) {
+      console.error("Booking answer failed:", err);
+      toast.error("L'enregistrement a échoué");
+    } finally {
+      setAgit(null);
+    }
   };
 
   return (
     <div className="mx-auto max-w-4xl pb-24">
-      <nav
-        aria-label="Fil d'ariane"
-        className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
+      <FilAriane
+        items={[
+          { href: "/", label: "Direct" },
+          { href: "/mes-terrains", label: "Mes terrains" },
+          { label: "Réservations reçues" },
+        ]}
+      />
+
+      <Panneau
+        surtitre="Espace terrain"
+        titre="Réservations reçues"
+        compteur={attente.length > 0 ? { valeur: attente.length, libelle: "en attente" } : undefined}
       >
-        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <Link href="/mes-terrains" className="transition-colors hover:text-emerald-700">Mes terrains</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <span className="text-gray-600">Réservations reçues</span>
-      </nav>
+        Les demandes de créneau sur vos terrains. Confirmer bloque le créneau
+        et prévient l&apos;équipe ; refuser le laisse libre.
+      </Panneau>
 
-      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-        <div className="relative mx-auto max-w-4xl px-5 py-6 sm:px-8 sm:py-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-            Espace terrain
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
-            Réservations reçues
-          </h1>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/60">
-            Les demandes de créneau sur vos terrains. Confirmer publie le
-            créneau comme occupé ; refuser le laisse libre.
-          </p>
-        </div>
-      </section>
-
-      {bookings === null ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-7 w-7 animate-spin text-gray-300" />
-        </div>
+      {demandes === null ? (
+        <EnCours />
       ) : liste.length === 0 ? (
-        <div className="mt-6 border border-gray-200/70 bg-white py-16 text-center">
-          <CalendarDays size={30} className="mx-auto text-gray-300" strokeWidth={1.5} />
-          <p className="mt-4 font-display text-lg font-black text-gray-900">Aucune demande</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Rien à venir sur vos terrains pour le moment.
-          </p>
+        <div className="mt-6">
+          <EtatVide
+            Icon={CalendarDays}
+            titre="Aucune demande"
+            action={<LienBouton href="/mes-terrains" variante="contour">Voir mes terrains</LienBouton>}
+          >
+            Rien à venir sur vos terrains. Une fiche avec photo et tarif reçoit
+            plus de demandes qu&apos;une fiche vide.
+          </EtatVide>
         </div>
       ) : (
         <>
-          {pending.length > 0 && (
+          {attente.length > 0 && (
             <section className="mt-6">
-              <h2 className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                En attente de réponse ({pending.length})
+              <h2 className="border-b border-gray-200/70 pb-3">
+                <Etiquette className="tracking-[0.15em]">
+                  En attente de réponse ({attente.length})
+                </Etiquette>
               </h2>
               <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
-                {pending.map((b) => <Ligne key={b.id} b={b} actions />)}
+                {attente.map((b) => (
+                  <Ligne
+                    key={b.id}
+                    b={b}
+                    conflit={conflits.get(b.id) ?? null}
+                    actions
+                    onRepondre={repondre}
+                    occupe={agit === b.id}
+                  />
+                ))}
               </ul>
             </section>
           )}
 
-          {autres.length > 0 && (
+          {traitees.length > 0 && (
             <section className="mt-8">
-              <h2 className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                Déjà traitées
+              <h2 className="border-b border-gray-200/70 pb-3">
+                <Etiquette className="tracking-[0.15em]">Déjà traitées</Etiquette>
               </h2>
               <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
-                {autres.map((b) => <Ligne key={b.id} b={b} actions={false} />)}
+                {traitees.map((b) => (
+                  <Ligne
+                    key={b.id}
+                    b={b}
+                    conflit={null}
+                    actions={false}
+                    onRepondre={repondre}
+                    occupe={agit === b.id}
+                  />
+                ))}
               </ul>
             </section>
           )}
+
+          <p className="mt-8">
+            <Link
+              href="/mes-terrains"
+              className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-emerald-700"
+            >
+              ← Mes terrains
+            </Link>
+          </p>
         </>
       )}
+
+      <Dialogue />
     </div>
   );
 }

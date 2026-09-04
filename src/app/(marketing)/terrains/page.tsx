@@ -1,53 +1,75 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarCheck, Search, Wallet } from "lucide-react";
 
 // ============================================
-// Les terrains, la page des propriétaires de terrain.
+// MyFields, la vitrine des propriétaires de terrain.
 //
-// Ce que la plateforme sait faire aujourd'hui pour un terrain : le référencer
-// et le rendre trouvable dans la recherche (il y est une catégorie à part
-// entière, au même titre que les équipes et les arbitres). Ce qu'elle ne sait
-// PAS faire : réserver un créneau, tenir un calendrier d'occupation,
-// encaisser. La page le dit au lieu de le laisser supposer, une vitrine qui
-// promet une réservation inexistante fabrique des déçus, pas des inscrits.
+// CETTE PAGE DÉMENTAIT LE PRODUIT. Elle annonçait « pas de réservation en
+// ligne, pas de calendrier d'occupation » alors que le formulaire de demande
+// de créneau était en ligne sur chaque fiche, que le propriétaire pouvait
+// confirmer ou refuser, et que les créneaux confirmés étaient publiés. Une
+// vitrine qui sous-vend une fonctionnalité livrée coûte deux fois : elle
+// n'attire pas ceux que la réservation intéresse, et elle laisse ceux qui
+// s'inscrivent découvrir seuls ce qu'ils ont acheté.
 //
-// Le formulaire d'inscription d'un terrain n'existe pas encore : le seul
-// chemin réel est de créer un compte et de nous écrire. C'est ce qui est
-// proposé, tel quel.
+// Ce qui reste vrai, et qu'on continue de dire : la plateforme n'encaisse
+// rien. On met deux parties d'accord sur un créneau, l'argent se règle entre
+// elles. Le dire clairement vaut mieux que de le laisser deviner à la
+// première demande.
 // ============================================
 
 export const metadata = {
   title: "Les terrains, KoppaFoot",
   description:
-    "Référencez votre terrain sur KoppaFoot : être trouvé par les équipes et les organisateurs qui cherchent où jouer.",
+    "Référencez votre terrain sur KoppaFoot : être trouvé par les équipes, recevoir des demandes de créneau et y répondre.",
 };
 
-const STEPS: { n: string; title: string; body: string }[] = [
+const ETAPES: { n: string; titre: string; corps: string }[] = [
   {
     n: "01",
-    title: "Le terrain entre dans la base",
-    body:
-      "Nom, ville, surface, ce qui existe autour. C'est la fiche que verront les équipes qui cherchent où jouer.",
+    titre: "Votre terrain entre dans l'annuaire",
+    corps:
+      "Nom, ville, format, surface, équipements, tarif horaire, photo. C'est la fiche que verront les équipes qui cherchent où jouer, et c'est sur elle qu'elles choisissent.",
   },
   {
     n: "02",
-    title: "Il devient trouvable",
-    body:
-      "La recherche du produit a une catégorie « terrains » : un manager qui cherche un lieu pour un amical, un organisateur qui monte une compétition, tombent dessus au même endroit que les équipes et les arbitres.",
+    titre: "Les équipes demandent un créneau",
+    corps:
+      "Une date, une heure, une durée. La demande arrive dans votre espace, et vous prévient — notification, téléphone, email. Les créneaux déjà confirmés sont affichés publiquement, pour que personne ne demande un samedi déjà pris.",
   },
   {
     n: "03",
-    title: "Les compétitions ont besoin de lieux",
-    body:
-      "Une compétition, c'est un calendrier de matchs qui doivent se jouer quelque part. Être référencé, c'est être dans la liste au moment où quelqu'un cherche.",
+    titre: "Vous confirmez, ou vous refusez",
+    corps:
+      "Confirmer bloque le créneau et prévient l'équipe. Refuser le laisse libre. Rien ne se décide sans vous : le produit vérifie même qu'un créneau n'en chevauche pas un autre avant que vous ne l'acceptiez.",
+  },
+];
+
+const PREUVES: { Icon: typeof Search; titre: string; corps: string }[] = [
+  {
+    Icon: Search,
+    titre: "Trouvable",
+    corps:
+      "Dans l'annuaire des terrains et dans la recherche du produit, filtrable par ville, format et surface.",
+  },
+  {
+    Icon: CalendarCheck,
+    titre: "Réservable",
+    corps:
+      "Demande de créneau, confirmation, annulation. Les deux parties suivent l'état de la demande au même endroit.",
+  },
+  {
+    Icon: Wallet,
+    titre: "Payé entre vous",
+    corps:
+      "La plateforme n'encaisse rien et ne prend aucune commission. Vous annoncez votre tarif, le règlement reste votre affaire.",
   },
 ];
 
 export default function TerrainsPage() {
   return (
     <>
-      {/* Meme hero que Koppafoot Organize. */}
       <section className="relative flex min-h-[88vh] items-end overflow-hidden">
         <div
           aria-hidden
@@ -66,10 +88,10 @@ export default function TerrainsPage() {
             pas de match
           </h1>
 
-          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
-            Les équipes et les compétitions cherchent des lieux où jouer. Un
-            terrain qui n&apos;est référencé nulle part reste vide les jours où
-            quelqu&apos;un le cherchait.
+          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70">
+            Les équipes cherchent où jouer et repartent avec un créneau.
+            Un terrain qui n&apos;est référencé nulle part reste vide les soirs
+            où quelqu&apos;un le cherchait.
           </p>
 
           <Link
@@ -85,44 +107,59 @@ export default function TerrainsPage() {
               className="shrink-0 transition-transform group-hover:translate-x-2"
             />
           </Link>
+
+          {/* L'autre public arrive aussi ici, par le menu : celui qui cherche
+              un terrain, pas celui qui en possède un. Sans cette sortie, il
+              lisait « référencer mon terrain » et repartait. */}
+          <Link
+            href="/terrains/annuaire"
+            className="mt-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-white/60 transition-colors hover:text-white"
+          >
+            Je cherche un terrain, pas en référencer un
+            <ArrowRight size={14} />
+          </Link>
         </div>
       </section>
 
       <section id="etapes" className="scroll-mt-24 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
           <div className="grid gap-px bg-gray-200/70 lg:grid-cols-3">
-            {STEPS.map((s) => (
+            {ETAPES.map((s) => (
               <article key={s.n} className="bg-white p-8 sm:p-10">
                 <p className="font-display text-5xl font-black tabular-nums text-gray-200">{s.n}</p>
                 <h2 className="mt-4 font-display text-2xl font-black leading-tight tracking-tight text-gray-900">
-                  {s.title}
+                  {s.titre}
                 </h2>
-                <p className="mt-4 text-base leading-relaxed text-gray-600">{s.body}</p>
+                <p className="mt-4 text-base leading-relaxed text-gray-600">{s.corps}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Ce que ça ne fait pas. Une vitrine qui laisse croire à une
-          réservation en ligne fabrique des déçus le jour de l'inscription. */}
-      <section id="limites" className="scroll-mt-24 border-y border-gray-200/70 bg-gray-50 py-20 sm:py-28">
+      {/* Ce que ça fait, et la seule limite qui compte : l'argent.
+          L'ancienne version de cette section listait trois choses que le
+          produit ne faisait pas, dont deux qu'il faisait déjà. */}
+      <section id="cadre" className="scroll-mt-24 border-y border-gray-200/70 bg-gray-50 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
           <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-            Ce que la plateforme ne fait pas encore
+            Ce que KoppaFoot fait, et ne fait pas
           </h2>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
-            Pas de réservation en ligne, pas de calendrier d&apos;occupation, pas
-            d&apos;encaissement. Aujourd&apos;hui, KoppaFoot vous rend{" "}
-            <strong className="font-black text-gray-900">trouvable</strong>, la suite
-            se règle entre vous et l&apos;équipe, comme aujourd&apos;hui, mais avec
-            l&apos;équipe qui sait que vous existez.
-          </p>
+
+          <div className="mt-10 grid gap-px bg-gray-200/70 lg:grid-cols-3">
+            {PREUVES.map((p) => (
+              <article key={p.titre} className="bg-white p-8">
+                <p.Icon size={26} strokeWidth={1.5} className="text-emerald-600" />
+                <h3 className="mt-5 font-display text-xl font-black uppercase tracking-tight text-gray-900">
+                  {p.titre}
+                </h3>
+                <p className="mt-3 text-base leading-relaxed text-gray-600">{p.corps}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Un terrain eclaire un soir de semaine : l'image de ce que la page
-          vend, des creneaux remplis plutot qu'une pelouse vide. */}
       <section className="relative overflow-hidden py-24 sm:py-32">
         <div aria-hidden className="absolute inset-0">
           <Image
@@ -141,8 +178,8 @@ export default function TerrainsPage() {
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
             Déposez la fiche de votre terrain : nom, ville, format, surface.
-            On la relit, puis elle entre dans la recherche, là où les équipes
-            cherchent où jouer.
+            On la relit, puis elle entre dans l&apos;annuaire, là où les équipes
+            cherchent où jouer — et d&apos;où elles vous écrivent.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <Link
@@ -153,10 +190,10 @@ export default function TerrainsPage() {
               <ArrowRight size={16} />
             </Link>
             <Link
-              href="/roles"
+              href="/terrains/annuaire"
               className="inline-flex items-center gap-2 border border-white/30 px-8 py-5 text-[11px] font-black uppercase tracking-[0.15em] text-white/80 transition-colors hover:border-white hover:text-white"
             >
-              Voir tous les rôles
+              Voir les terrains référencés
             </Link>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { MapPin, Check, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { libelleFormat, libelleSurface } from "@/lib/terrains";
 
 // ============================================
 // Relecture des candidatures « propriétaire de terrain ».
@@ -30,13 +31,6 @@ interface Application {
   motivation: string | null;
   status: "pending" | "approved" | "rejected";
 }
-
-const SIZES: Record<string, string> = {
-  "5v5": "5 contre 5", "7v7": "7 contre 7", "11v11": "11 contre 11", futsal: "Futsal",
-};
-const SURFACES: Record<string, string> = {
-  natural_grass: "Pelouse", synthetic: "Synthétique", hybrid: "Hybride", indoor: "Intérieur",
-};
 
 const STATUS_STYLE: Record<Application["status"], string> = {
   pending: "border-amber-200 bg-amber-50 text-amber-700",
@@ -91,7 +85,7 @@ export default function AdminVenueApplicationsPage() {
       if (!res.ok) { toast.error(data.error ?? "Erreur."); return; }
       toast.success(
         action === "approve"
-          ? "Candidature acceptée, le terrain est publié."
+          ? "Terrain publié. Le candidat est prévenu (notification, push, email)."
           : "Candidature refusée.",
       );
       setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status: data.status } : a)));
@@ -167,8 +161,8 @@ export default function AdminVenueApplicationsPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-                <span>{SIZES[a.field_size ?? ""] ?? a.field_size}</span>
-                <span>{SURFACES[a.field_surface ?? ""] ?? a.field_surface}</span>
+                <span>{libelleFormat(a.field_size)}</span>
+                <span>{libelleSurface(a.field_surface)}</span>
               </div>
 
               <div className="mt-4 border-t border-gray-200/70 pt-4">

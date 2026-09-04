@@ -58,6 +58,14 @@ export function categorieDuType(type: NotificationType): PushCategory {
     case "match_challenge":
     case "match_update":
     case "participation_request":
+    // Le parcours terrain est PERSONNEL de bout en bout : on me demande mon
+    // terrain, on répond à ma demande, on tranche ma candidature. Rien de
+    // tout cela n'est une annonce, et couper ces trois-là reviendrait à ne
+    // plus pouvoir louer son terrain — c'est la catégorie qu'on garde quand
+    // on coupe tout le reste.
+    case "booking_request":
+    case "booking_answer":
+    case "venue_application":
       return "perso";
     case "team_activity":
       return "equipe";

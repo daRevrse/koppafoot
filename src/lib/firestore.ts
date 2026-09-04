@@ -24,6 +24,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { dateLongue } from "@/lib/terrains";
 import type {
   Team, FirestoreTeam, Achievement,
   Match, FirestoreMatch, MatchStatus,
@@ -3076,6 +3077,20 @@ export async function createBooking(data: {
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
   });
+
+  // LE PROPRIÉTAIRE EST PRÉVENU, sans quoi la demande n'existe que pour qui
+  // pense à ouvrir la page. C'est ce qui manquait au parcours : un créneau
+  // demandé le mardi et découvert le samedi n'est pas une réservation, c'est
+  // un rendez-vous manqué. `catch` silencieux, la demande est déjà écrite et
+  // vaut plus que son accusé de réception.
+  createNotification({
+    userId: data.ownerId,
+    type: "booking_request",
+    title: "Demande de créneau",
+    body: `${data.userName || "Une équipe"} demande ${data.venueName} le ${dateLongue(data.date)} à ${data.time}.`,
+    link: "/mes-terrains/reservations",
+  }).catch(() => {});
+
   return ref.id;
 }
 
@@ -3094,11 +3109,67 @@ export function onBookingsByOwner(ownerId: string, callback: (data: Booking[]) =
   });
 }
 
-export async function updateBookingStatus(bookingId: string, status: Booking["status"]): Promise<void> {
-  await updateDoc(doc(db, "bookings", bookingId), {
+/**
+ * Répondre à une demande de créneau, et le DIRE à l'autre partie.
+ *
+ * La signature prend la demande entière, pas seulement son identifiant : il
+ * faut savoir qui prévenir, et de quoi. La relire ici aurait coûté un aller-
+ * retour de plus alors que les quatre appelants l'ont déjà sous la main.
+ *
+ * `parQui` n'est pas déductible du statut : les deux parties peuvent annuler,
+ * et « le propriétaire a annulé » ne se dit pas comme « l'équipe s'est
+ * désistée ». C'est la même écriture, ce n'est pas la même nouvelle.
+ */
+export async function updateBookingStatus(
+  booking: Pick<Booking, "id" | "venueId" | "venueName" | "ownerId" | "userId" | "userName" | "date" | "time">,
+  status: Booking["status"],
+  parQui: "proprietaire" | "demandeur",
+): Promise<void> {
+  await updateDoc(doc(db, "bookings", booking.id), {
     status,
     updated_at: serverTimestamp(),
   });
+
+  const quand = `${dateLongue(booking.date)} à ${booking.time}`;
+
+  // Le destinataire est toujours l'AUTRE : celui qui agit sait ce qu'il vient
+  // de faire, se le notifier ferait sonner son propre téléphone.
+  const pour = parQui === "proprietaire" ? booking.userId : booking.ownerId;
+
+  const message = (): { title: string; body: string; link: string } | null => {
+    if (parQui === "proprietaire") {
+      if (status === "confirmed") {
+        return {
+          title: "Créneau confirmé",
+          body: `${booking.venueName} est à vous le ${quand}.`,
+          link: "/mes-reservations",
+        };
+      }
+      if (status === "cancelled") {
+        return {
+          title: "Créneau refusé",
+          body: `La demande sur ${booking.venueName} du ${quand} n'a pas été retenue.`,
+          link: "/mes-reservations",
+        };
+      }
+      return null;
+    }
+    // Le demandeur se désiste : le propriétaire doit savoir que son créneau
+    // se libère, c'est une place qu'il peut redonner.
+    if (status === "cancelled") {
+      return {
+        title: "Demande annulée",
+        body: `${booking.userName || "Une équipe"} libère ${booking.venueName} du ${quand}.`,
+        link: "/mes-terrains/reservations",
+      };
+    }
+    return null;
+  };
+
+  const m = message();
+  if (m) {
+    createNotification({ userId: pour, type: "booking_answer", ...m }).catch(() => {});
+  }
 }
 
 /**

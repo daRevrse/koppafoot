@@ -1,75 +1,175 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { motion } from "motion/react";
-import { MapPin, Search, Star, Loader2, Check, X as XIcon } from "lucide-react";
+import Link from "next/link";
+import { MapPin, Search, Loader2, ExternalLink } from "lucide-react";
 import { getAllVenues } from "@/lib/admin-firestore";
 import Pagination, { usePagination } from "@/components/admin/Pagination";
 import type { Venue } from "@/types";
+import { formatCourt, surfaceCourte, prixHeure, aUnPrix } from "@/lib/terrains";
+import { Etiquette, Fanion, LignesDeTerrain } from "@/components/venue/venue-ui";
 
-const SIZE_LABELS: Record<string, string> = { "5v5": "5v5", "7v7": "7v7", "11v11": "11v11", futsal: "Futsal" };
-const SURFACE_LABELS: Record<string, string> = { natural_grass: "Gazon", synthetic: "Synthétique", hybrid: "Hybride", indoor: "Indoor" };
+// ============================================
+// Les terrains référencés, vue d'administration.
+//
+// À NE PAS CONFONDRE AVEC /admin/terrains, qui relit les CANDIDATURES. Les
+// deux pages portaient des noms si voisins qu'on ouvrait l'une pour l'autre,
+// et celle-ci n'était même pas dans le menu : elle n'existait que pour qui
+// tapait l'adresse. Les libellés du menu les séparent désormais —
+// « Candidatures terrain » d'un côté, « Terrains référencés » de l'autre.
+//
+// Elle est repassée à la langue visuelle du reste du parcours : angles
+// francs, filets d'un cheveu, capitales serrées. Elle était restée au style
+// d'avant — coins arrondis, anneaux bleus, pastilles violettes — ce qui la
+// faisait ressembler à un autre produit, et surtout la sortait du thème
+// sombre, dont les règles ne connaissent que le vocabulaire commun.
+//
+// Elle ne MODIFIE rien : un terrain se corrige par son propriétaire, dans son
+// espace. Ce qu'on fait ici, c'est vérifier ce qui est publié — et ouvrir la
+// fiche pour la voir comme une équipe la voit.
+// ============================================
 
 export default function AdminVenuesPage() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [recherche, setRecherche] = useState("");
 
-  useEffect(() => { getAllVenues(300).then(setVenues).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    getAllVenues(300).then(setVenues).finally(() => setLoading(false));
+  }, []);
 
-  const filtered = useMemo(() => {
-    if (!search) return venues;
-    const s = search.toLowerCase();
-    return venues.filter((v) => v.name.toLowerCase().includes(s) || v.city.toLowerCase().includes(s));
-  }, [venues, search]);
+  const filtres = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    if (!q) return venues;
+    return venues.filter(
+      (v) => v.name.toLowerCase().includes(q) || v.city.toLowerCase().includes(q),
+    );
+  }, [venues, recherche]);
 
-  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtered, 24);
+  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtres, 24);
+
+  const ouverts = venues.filter((v) => v.available).length;
+  const complets = venues.filter((v) => v.photoUrl && aUnPrix(v.pricePerHour)).length;
 
   return (
     <div className="space-y-6">
       <div>
-        <motion.h1 initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} className="text-2xl font-extrabold text-gray-900 font-display">Gestion des terrains</motion.h1>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-gray-500 mt-0.5">{venues.length} terrain{venues.length > 1 ? "s" : ""} enregistré{venues.length > 1 ? "s" : ""}</motion.p>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-black uppercase tracking-tight text-gray-900">
+          <MapPin size={22} className="text-emerald-600" />
+          Terrains référencés
+        </h1>
+        <p className="mt-1 text-sm text-gray-500">
+          {venues.length} terrain{venues.length > 1 ? "s" : ""} publié{venues.length > 1 ? "s" : ""},{" "}
+          {ouverts} ouvert{ouverts > 1 ? "s" : ""} aux demandes.
+        </p>
       </div>
 
-      <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input type="text" placeholder="Rechercher par nom ou ville..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-400" /></div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-gray-400"><MapPin size={40} className="mb-3 opacity-40" /><p className="text-sm">Aucun terrain</p></div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tranche.map((v, i) => (
-            <motion.div key={v.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} whileHover={{ y: -2 }} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50"><MapPin size={20} className="text-purple-600" /></div>
-                  <div><h3 className="text-sm font-bold text-gray-900">{v.name}</h3><p className="text-xs text-gray-500">{v.city}</p></div>
-                </div>
-                {v.available ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"><Check size={10} /> Dispo</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700"><XIcon size={10} /> Indispo</span>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 mb-3 truncate">{v.address}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg bg-gray-50 px-3 py-2"><p className="text-[10px] text-gray-500">Format</p><p className="text-xs font-medium text-gray-700">{SIZE_LABELS[v.fieldSize] ?? v.fieldSize}</p></div>
-                <div className="rounded-lg bg-gray-50 px-3 py-2"><p className="text-[10px] text-gray-500">Surface</p><p className="text-xs font-medium text-gray-700">{SURFACE_LABELS[v.fieldSurface] ?? v.fieldSurface}</p></div>
-              </div>
-              {v.rating > 0 && (
-                <div className="flex items-center gap-1 mt-3 pt-3 border-t border-gray-50">
-                  <Star size={13} className="text-amber-400 fill-amber-400" /> <span className="text-xs font-semibold">{v.rating.toFixed(1)}</span> <span className="text-xs text-gray-400">({v.reviewCount})</span>
-                </div>
-              )}
-            </motion.div>
+      {/* Le chiffre qui compte pour la suite : une fiche sans photo ni tarif
+          ne se choisit pas, et c'est elle qu'il faudra aller relancer. */}
+      {venues.length > 0 && (
+        <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-3">
+          {[
+            { label: "Publiés", valeur: venues.length },
+            { label: "Ouverts", valeur: ouverts },
+            { label: "Fiches complètes", valeur: `${complets} / ${venues.length}` },
+          ].map((s) => (
+            <div key={s.label} className="bg-white px-5 py-4">
+              <Etiquette>{s.label}</Etiquette>
+              <p className="mt-1 font-display text-2xl font-black tabular-nums text-gray-900">
+                {s.valeur}
+              </p>
+            </div>
           ))}
         </div>
       )}
+
+      <div className="relative max-w-md">
+        <Search size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="search"
+          placeholder="Nom ou ville…"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          aria-label="Rechercher un terrain"
+          className="w-full border border-gray-200/70 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-900 placeholder:font-medium placeholder:text-gray-300 focus:border-gray-900 focus:outline-none"
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 size={26} className="animate-spin text-gray-300" />
+        </div>
+      ) : filtres.length === 0 ? (
+        <div className="border border-gray-200/70 bg-white py-16 text-center">
+          <MapPin size={30} className="mx-auto text-gray-300" strokeWidth={1.5} />
+          <p className="mt-4 text-sm font-bold text-gray-400">
+            {venues.length === 0 ? "Aucun terrain publié" : "Rien ne correspond"}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2 lg:grid-cols-3">
+          {tranche.map((v) => (
+            <article key={v.id} className="flex flex-col bg-white">
+              <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-900">
+                {v.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={v.photoUrl}
+                    alt=""
+                    loading="lazy"
+                    className={`h-full w-full object-cover ${v.available ? "" : "grayscale"}`}
+                  />
+                ) : (
+                  <>
+                    <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
+                    <LignesDeTerrain className="text-white/15" />
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-1 flex-col p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="font-display text-base font-black uppercase leading-tight tracking-tight text-gray-900">
+                      {v.name}
+                    </h2>
+                    <p className="mt-1 truncate text-[11px] font-bold text-gray-500">
+                      {[v.address, v.city].filter(Boolean).join(", ") || "Adresse non précisée"}
+                    </p>
+                  </div>
+                  <Fanion ton={v.available ? "ok" : "refus"}>
+                    {v.available ? "Ouvert" : "Fermé"}
+                  </Fanion>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                  <span>{formatCourt(v.fieldSize)}</span>
+                  <span>{surfaceCourte(v.fieldSurface)}</span>
+                  <span className={aUnPrix(v.pricePerHour) ? "text-gray-600" : ""}>
+                    {prixHeure(v.pricePerHour)}
+                  </span>
+                </div>
+
+                {(!v.photoUrl || !aUnPrix(v.pricePerHour)) && (
+                  <p className="mt-3 text-[11px] font-bold text-amber-700">
+                    Fiche incomplète : il manque {[!v.photoUrl && "la photo", !aUnPrix(v.pricePerHour) && "le tarif"].filter(Boolean).join(" et ")}.
+                  </p>
+                )}
+
+                <Link
+                  href={`/terrains/${v.id}`}
+                  target="_blank"
+                  className="mt-auto inline-flex w-fit items-center gap-1.5 pt-4 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:text-emerald-700"
+                >
+                  Voir la fiche publique
+                  <ExternalLink size={12} />
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
       <Pagination
         page={page} pages={pages} total={total} parPage={parPage}
         onPage={setPage} nom="terrain"

@@ -67,7 +67,11 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
       { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
       { path: "/admin/organizers", icon: "ClipboardList", label: "Organisateurs" },
       { path: "/admin/scorers", icon: "Radio", label: "Scoreurs" },
-      { path: "/admin/terrains", icon: "MapPin", label: "Terrains" },
+      // « Terrains » tout court désignait CETTE page — la relecture des
+      // candidatures — alors que /admin/venues, qui liste les terrains
+      // publiés, n'était dans aucun menu. Deux pages voisines, un seul nom, et
+      // celle qu'on cherchait était l'invisible.
+      { path: "/admin/terrains", icon: "MapPin", label: "Candidatures terrain" },
     ],
   },
   {
@@ -77,6 +81,7 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
     items: [
       { path: "/admin/tribune", icon: "Megaphone", label: "Tribune" },
       { path: "/admin/teams", icon: "Shield", label: "Équipes" },
+      { path: "/admin/venues", icon: "MapPin", label: "Terrains référencés" },
       { path: "/admin/matches", icon: "Trophy", label: "Matchs" },
       { path: "/admin/competitions", icon: "Trophy", label: "Compétitions" },
     ],
