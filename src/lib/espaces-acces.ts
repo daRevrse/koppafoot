@@ -78,6 +78,40 @@ export function roleHerite(
   return !user.evolutionRole && roleEffectif(user) !== null;
 }
 
+/**
+ * Ce compte a-t-il une page publique ?
+ *
+ * LA RÈGLE : on a une page quand on a quelque chose à y montrer.
+ *
+ * La question s'est posée depuis la fiche d'un terrain, qui menait à la fiche
+ * de PERSONNE de son propriétaire — position, taille, pied fort, équipes —
+ * c'est-à-dire à tout sauf au terrain qu'on regardait. La tentation était de
+ * dire « une casquette ne donne pas de page ». Elle ne tenait pas : depuis que
+ * les casquettes sont des drapeaux, un propriétaire de terrain porte le même
+ * `user_type` qu'un joueur, et rien ne les distingue par le type.
+ *
+ * Ce qui les distingue vraiment, c'est le CONTENU. Un compte sans rôle activé
+ * et sans équipe ouvre une fiche qui affiche un nom et quatre sections vides —
+ * le genre d'écran que ce produit combat partout ailleurs. Ce n'est pas une
+ * page, c'est l'ombre d'une page.
+ *
+ * L'appartenance à une équipe compte à part entière : quelqu'un qui n'a jamais
+ * ouvert Évolution mais que son manager a ajouté à l'effectif est bel et bien
+ * dans le jeu, et sa fiche a un contenu.
+ *
+ * CE N'EST PAS UNE MESURE DE CONFIDENTIALITÉ. Rien de sensible n'a jamais
+ * transité par cette fiche : la projection publique est une liste blanche qui
+ * exclut email et téléphone. C'est une mesure de VÉRITÉ — ne pas promettre une
+ * page derrière un lien qui n'ouvre sur rien.
+ */
+export function aUnProfilPublic(
+  user: Pick<UserProfile, "evolutionRole" | "userType">,
+  options?: { appartientAUneEquipe?: boolean },
+): boolean {
+  if (roleEffectif(user) !== null) return true;
+  return options?.appartientAUneEquipe === true;
+}
+
 /** Ce qui vient du rôle, à ne pas confondre avec ce qui vient d'une casquette. */
 const ESPACE_DU_ROLE: Record<string, EspaceAcces> = {
   player: "joueur",
