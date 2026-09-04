@@ -494,22 +494,44 @@ export default function MatchDetailPage() {
    * manager (`home_ghost_lineup`). Les deux tiennent la même place sur le
    * terrain, ils sont donc ramenés à la même forme.
    */
-  const compoDeLEquipe = (teamId: string, fantomes: LineupEntry[]): LineupEntry[] => [
-    ...participations
-      .filter((p) => p.teamId === teamId && p.status === "confirmed")
-      .map((p) => ({
-        playerId: p.playerId,
-        name: p.playerName,
-        number: p.squadNumber || "",
-        role: p.matchRole ?? "starter",
-        // Le poste que le manager a choisi pour CE match. On ne retombe pas
-        // sur le poste naturel du joueur faute de mieux : le terrain sait
-        // placer une ligne sans poste, et il ne doit pas annoncer un gardien
-        // que personne n'a désigné (voir lib/terrain).
-        position: p.matchPosition ?? null,
-      })),
-    ...fantomes,
-  ];
+  const compoDeLEquipe = (teamId: string, fantomes: LineupEntry[]): LineupEntry[] => {
+    /**
+     * UN JOUEUR RETIRÉ DE LA FEUILLE N'EST PAS SUR LE TERRAIN.
+     *
+     * Son rôle est vide, et le repli sur « titulaire » quelques lignes plus
+     * bas le remettait dans la composition : le retrait s'annulait tout
+     * seul, et le manager retrouvait sur la fiche le joueur qu'il venait
+     * d'écarter.
+     *
+     * Le repli garde du sens TANT QU'AUCUNE FEUILLE N'A ÉTÉ VALIDÉE : il n'y
+     * a alors pas de composition, et la fiche montre qui a confirmé sa
+     * présence — ce qui est l'information du moment. Une fois la feuille
+     * validée, un rôle vide est un choix, pas un manque.
+     */
+    const feuilleValidee = teamId === match?.homeTeamId
+      ? match?.homeLineupReady
+      : match?.awayLineupReady;
+
+    return [
+      ...participations
+        .filter((p) => p.teamId === teamId && p.status === "confirmed")
+        .filter((p) => (feuilleValidee ? p.matchRole != null : true))
+        .map((p) => ({
+          playerId: p.playerId,
+          name: p.playerName,
+          number: p.squadNumber || "",
+          role: p.matchRole ?? "starter",
+          // Le poste que le manager a choisi pour CE match. On ne retombe pas
+          // sur le poste naturel du joueur faute de mieux : le terrain sait
+          // placer une ligne sans poste, et il ne doit pas annoncer un gardien
+          // que personne n'a désigné (voir lib/terrain).
+          position: p.matchPosition ?? null,
+        })),
+      // Les joueurs sans compte retirés ne sont déjà plus là : la validation
+      // réécrit `*_ghost_lineup` avec les seuls joueurs retenus.
+      ...fantomes,
+    ];
+  };
 
   // 6. Actions
 
