@@ -129,14 +129,15 @@ export async function GET(req: Request) {
       };
     });
 
-    // Les terrains referencés, lus dans `venues`.
+    // Les terrains referencés, lus dans `venues` — et seulement la.
     //
-    // La categorie « terrains » ne montrait jusqu'ici que des COMPTES de
-    // proprietaires, avec leurs champs `venue_name`/`venue_city`, un compte
+    // La categorie « terrains » ne montrait au depart que des COMPTES de
+    // proprietaires, avec leurs champs `venue_name`/`venue_city` : un compte
     // ne pouvait donc porter qu'un seul terrain, et la collection `venues`,
-    // pourtant complete, n'etait lue nulle part. Les deux sources coexistent
-    // le temps que les anciens comptes soient repris : un terrain saisi
-    // aujourd'hui arrive ici, un proprietaire d'avant reste trouvable.
+    // pourtant complete, n'etait lue nulle part. Les deux sources ont
+    // coexiste le temps que les anciens comptes soient repris. Ils l'ont ete
+    // (scripts/migrate-user-type.ts), plus aucun `user_type` ne vaut
+    // « venue_owner », et la source unique est desormais `venues`.
     const venueHits: Ranked[] = venuesSnap.docs.map((d) => {
       const x = d.data() as Row;
       const city = s(x.city);
@@ -170,29 +171,14 @@ export async function GET(req: Request) {
       // est aussi autre chose, et la recherche est justement l'endroit ou un
       // organisateur cherche quelqu'un pour siffler.
       //
-      // Repli sur `user_type` pour les comptes d'avant, qui n'ont pas de role
-      // Evolution mais portent deja `referee` ou `venue_owner`.
+      // Repli sur `user_type` pour les comptes d'avant Evolution, qui n'ont
+      // pas de role active mais portent deja `manager` ou `referee`. Il ne
+      // porte plus AUCUNE casquette : celles-ci sont des drapeaux.
       const type = s(x.evolution_role) || s(x.user_type);
       const name = fullName(x);
       const city = s(x.location_city);
       const photo = s(x.profile_picture_url) || null;
       const followers = n(x.followers_count);
-
-      if (type === "venue_owner") {
-        const venue = s(x.venue_name) || s(x.company_name) || name;
-        terrains.push({
-          hit: {
-            id: d.id,
-            title: venue,
-            subtitle: s(x.venue_city) || city || "",
-            href: `/profile/${d.id}`,
-            image: photo,
-          },
-          rank: followers,
-          haystack: fold(`${venue} ${city} ${s(x.venue_city)}`),
-        });
-        return;
-      }
 
       if (type === "referee") {
         const level = s(x.license_level);
@@ -211,7 +197,12 @@ export async function GET(req: Request) {
         return;
       }
 
-      // Everyone else searchable as a person: players, managers, organizers.
+      // Le reste est cherchable comme personne. Un compte « user » — un
+      // spectateur qui n'a activé aucun rôle — n'y entre PAS : il n'a ni
+      // poste, ni statistiques, et le proposer sous « joueurs » remplissait
+      // la recherche de fiches vides.
+      if (type === "user") return;
+
       const pos = POSITION_FR[s(x.position)] ?? s(x.position);
       players.push({
         hit: {

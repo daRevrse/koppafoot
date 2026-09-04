@@ -5,6 +5,7 @@ import { BadgeCheck, Loader2, UserCheck, Clock3 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CompPlayer, RosterClaim } from "@/types";
+import { isSuperAdmin } from "@/lib/hats";
 
 // ============================================
 // Public roster, with a superadmin repair action.
@@ -32,7 +33,7 @@ export default function RosterClaimList({
   // Only the repair path reads claims, so ordinary visitors, the vast
   // majority on a public roster, no longer pay for that request.
   const loadClaims = useCallback(async () => {
-    if (!firebaseUser || user?.userType !== "superadmin") return;
+    if (!firebaseUser || !isSuperAdmin(user)) return;
     try {
       const token = await firebaseUser.getIdToken();
       const res = await fetch("/api/competitions/roster-claims?mine=1", {
@@ -84,7 +85,7 @@ export default function RosterClaimList({
   // into a competition team, so asking players to claim their own line would
   // duplicate a job the system already does, and re-introduce a validation
   // queue for organizers. Superadmins keep it to fix rosters typed by hand.
-  const canRepair = user?.userType === "superadmin";
+  const canRepair = isSuperAdmin(user);
 
   return (
     <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">

@@ -102,7 +102,8 @@ export default function VenueOwnerSignupPage() {
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        userType: "venue_owner",
+        // La casquette est un drapeau : le type reste neutre.
+        userType: "user",
         locationCity: data.venueCity,
         phone: data.phone,
       });

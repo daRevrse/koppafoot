@@ -26,7 +26,7 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       let profile = getProfile();
-      return profile != null && (profile.user_type == 'superadmin' || profile.is_superadmin == true);
+      return profile != null && profile.is_superadmin == true;
     }
 
     function isConfirmedReferee(matchId) {
@@ -63,22 +63,25 @@ service cloud.firestore {
     // Les casquettes : ce qu'un compte FAIT, cumulable, par opposition au
     // rôle Evolution qui dit ce qu'il EST sur le terrain.
     //
-    // Deux signaux lus ensemble. Le drapeau est le modèle actuel ; le
-    // `user_type` hérité couvre les comptes approuvés avant le changement,
-    // qui n'ont jamais reçu de drapeau. Ne lire que le premier aurait coupé
-    // l'accès à tous les organisateurs existants.
-    function hasHat(flag, legacyType) {
+    // UN SEUL SIGNAL DÉSORMAIS. Le repli sur `user_type` couvrait les comptes
+    // approuvés avant que les casquettes deviennent des drapeaux ; ils les
+    // ont tous reçus (scripts/migrate-user-type.ts --flags), et `user_type`
+    // ne porte plus que des rôles — il n'y a donc plus rien à y rattraper.
+    //
+    // CES DRAPEAUX SONT PROTÉGÉS EN ÉCRITURE, voir noProtectedFields() : sans
+    // ça, n'importe qui se posait `is_organizer: true` sur son propre
+    // document et s'ouvrait l'espace organisateur.
+    function hasHat(flag) {
       let profile = getProfile();
-      return profile != null
-        && (profile.get(flag, false) == true || profile.user_type == legacyType);
+      return profile != null && profile.get(flag, false) == true;
     }
 
     function isOrganizerHat() {
-      return hasHat('is_organizer', 'organizer') || isSuperAdmin();
+      return hasHat('is_organizer') || isSuperAdmin();
     }
 
     function isVenueOwnerHat() {
-      return hasHat('is_venue_owner', 'venue_owner');
+      return hasHat('is_venue_owner');
     }
 
     function grantIsLive(g) {
@@ -231,15 +234,27 @@ service cloud.firestore {
         .hasAny(['manager_id', 'staff', 'staff_manager_ids']);
     }
 
+    // Ce qu'un compte ne s'écrit jamais à lui-même.
+    //
+    // LES TROIS DRAPEAUX DE CASQUETTE Y ENTRENT, et c'est un correctif de
+    // sécurité, pas une conséquence de la bascule : `is_organizer`,
+    // `is_venue_owner` et `is_scorer` n'étaient pas listés, alors que la
+    // branche `isOwner(uid) && noProtectedFields()` laisse le propriétaire
+    // écrire tout ce qui n'est pas nommé ici. N'importe quel compte pouvait
+    // donc se poser `is_organizer: true` et s'ouvrir l'espace organisateur —
+    // les candidatures et leur relecture se contournaient d'une écriture.
+    // Ces trois-là ne s'obtiennent que par le SDK admin, qui ignore ces règles.
     function noProtectedFields() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['email', 'user_type', 'is_superadmin', 'is_active', 'created_at']);
+        .hasAny([
+          'email', 'user_type', 'is_active', 'created_at',
+          'is_superadmin', 'is_organizer', 'is_venue_owner', 'is_scorer'
+        ]);
     }
 
-    // Évolution onboarding: the owner may flip their own user_type, but only
-    // between the non-privileged roles (never to/from organizer/superadmin —
-    // those transitions stay admin-SDK only), together with the onboarding
-    // profile fields.
+    // Évolution : le propriétaire change son propre `user_type`, mais
+    // seulement entre les rôles. Les casquettes ne passent plus par ce champ
+    // — elles sont des drapeaux, posés par le SDK admin seul.
     function isRoleEvolution() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasOnly([
@@ -260,7 +275,10 @@ service cloud.firestore {
         // hors de ce chemin, des deux côtés : ces transitions passent par le
         // SDK admin.
         && request.resource.data.user_type in ['player', 'manager', 'referee']
-        && resource.data.user_type in ['player', 'manager', 'referee', 'venue_owner'];
+        // 'user' EN VALEUR DE DÉPART, sinon plus personne n'active de rôle :
+        // c'est désormais le type de tout compte à l'inscription. Les anciens
+        // types restent acceptés au départ, le temps que la migration passe.
+        && resource.data.user_type in ['user', 'player', 'manager', 'referee', 'venue_owner'];
     }
 
     // ============================================

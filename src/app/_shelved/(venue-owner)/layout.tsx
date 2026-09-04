@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { ROLE_REDIRECTS } from "@/types";
 import VenueOwnerSidebar from "@/components/layout/VenueOwnerSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import { isVenueOwner } from "@/lib/hats";
 
 export default function VenueOwnerLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
@@ -16,7 +17,7 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
     if (loading) return;
     if (!firebaseUser) { router.replace("/login"); return; }
     if (!user) { router.replace("/get-started"); return; }
-    if (user.userType !== "venue_owner") {
+    if (!isVenueOwner(user)) {
       router.replace(ROLE_REDIRECTS[user.userType] ?? "/dashboard");
     }
   }, [user, firebaseUser, loading, router]);
@@ -29,7 +30,7 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
     );
   }
 
-  if (!user || user.userType !== "venue_owner") return null;
+  if (!user || !isVenueOwner(user)) return null;
 
   return (
     <div className="flex min-h-screen">

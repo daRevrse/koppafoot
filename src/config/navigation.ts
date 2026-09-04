@@ -40,13 +40,14 @@ export const MEMBER_NAV: NavEntry[] = [
   { path: "/feed", icon: "MessageCircle", label: "La Tribune" },
 ];
 
+// La meme navigation pour tous les roles. Les casquettes n'y figurent plus :
+// elles ne sont plus des valeurs de `user_type`, et ce qu'elles ouvrent passe
+// par le menu MySpace (voir hooks/useEspaces), pas par la barre principale.
 export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
+  user: MEMBER_NAV,
   player: MEMBER_NAV,
   manager: MEMBER_NAV,
   referee: MEMBER_NAV,
-  venue_owner: MEMBER_NAV,
-  organizer: MEMBER_NAV,
-  superadmin: MEMBER_NAV,
 };
 
 // Organizer navigation used to live here, feeding a dedicated
@@ -104,13 +105,19 @@ export const ADMIN_GROUPED_NAV: NavEntry[] = [
 // ============================================
 
 export const ROLE_BADGE_COLORS: Record<UserRole, string> = {
+  user: "bg-gray-100 text-gray-600",
   player: "bg-emerald-100 text-emerald-700",
   manager: "bg-emerald-100 text-emerald-700",
   referee: "bg-emerald-100 text-emerald-700",
-  venue_owner: "bg-emerald-100 text-emerald-700",
-  organizer: "bg-amber-100 text-amber-700",
-  superadmin: "bg-red-100 text-red-700",
 };
+
+/** Les casquettes ont leurs propres couleurs : elles se cumulent au role. */
+export const HAT_BADGE_COLORS = {
+  organisateur: "bg-amber-100 text-amber-700",
+  terrain: "bg-emerald-100 text-emerald-700",
+  scoreur: "bg-blue-100 text-blue-700",
+  admin: "bg-red-100 text-red-700",
+} as const;
 
 // ============================================
 // Mobile Bottom Navigation
@@ -155,10 +162,8 @@ export const MEMBER_BOTTOM: BottomNavItem[] = [
 ];
 
 export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, BottomNavItem[]>> = {
+  user: MEMBER_BOTTOM,
   player: MEMBER_BOTTOM,
   manager: MEMBER_BOTTOM,
   referee: MEMBER_BOTTOM,
-  venue_owner: MEMBER_BOTTOM,
-  organizer: MEMBER_BOTTOM,
-  superadmin: MEMBER_BOTTOM,
 };

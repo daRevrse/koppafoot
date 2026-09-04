@@ -9,7 +9,7 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { getMatchesIModerate } from "@/lib/firestore";
-import { isOrganizer, isScorer, isVenueOwner } from "@/lib/hats";
+import { isOrganizer, isScorer, isVenueOwner, isSuperAdmin } from "@/lib/hats";
 import { ROLE_DESTINATIONS } from "@/config/role-destinations";
 import { useT } from "@/i18n";
 import type { EvolutionRole } from "@/types";
@@ -120,7 +120,7 @@ export function useEspaces(): Espaces | null {
     // tombait sur sa page de client, sans jamais voir ce qu'on lui demandait.
     hatItems.push({ href: "/mes-terrains/reservations", label: t("espace.reservationsRecues"), Icon: Inbox });
   }
-  if (user.userType === "superadmin") {
+  if (isSuperAdmin(user)) {
     hatItems.push({ href: "/admin", label: t("espace.administration"), Icon: Shield });
   }
 

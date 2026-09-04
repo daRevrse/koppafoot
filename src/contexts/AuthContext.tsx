@@ -125,6 +125,7 @@ function firestoreToProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.is_organizer !== undefined && { isOrganizer: data.is_organizer }),
     ...(data.is_venue_owner !== undefined && { isVenueOwner: data.is_venue_owner }),
     ...(data.is_scorer !== undefined && { isScorer: data.is_scorer }),
+    ...(data.is_superadmin !== undefined && { isSuperAdmin: data.is_superadmin }),
     followedCompetitionIds: data.followed_competition_ids ?? [],
     // Un compte d'avant ce réglage n'a pas le champ, et son absence vaut
     // « tout accepté » — voir lib/push-categories.

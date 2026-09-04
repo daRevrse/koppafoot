@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import { ROLE_REDIRECTS } from "@/types";
 import AdminSidebar from "@/components/layout/AdminSidebar";
+import { isSuperAdmin } from "@/lib/hats";
 
 const PAGE_TITLES: Record<string, string> = {
   "/admin": "Centre de contrôle",
@@ -33,8 +34,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (loading) return;
     if (!firebaseUser) { router.replace("/login"); return; }
     if (!user) { router.replace("/get-started"); return; }
-    if (user.userType !== "superadmin") {
-      router.replace(ROLE_REDIRECTS[user.userType] ?? "/dashboard");
+    if (!isSuperAdmin(user)) {
+      router.replace(ROLE_REDIRECTS[user.userType] ?? "/");
     }
   }, [user, firebaseUser, loading, router]);
 
@@ -49,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!user || user.userType !== "superadmin") return null;
+  if (!user || !isSuperAdmin(user)) return null;
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Administration";
 

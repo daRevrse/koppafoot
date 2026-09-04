@@ -9,6 +9,7 @@ import { listModeratedCompetitions } from "@/lib/competition-firestore";
 import { getMatchesIModerate } from "@/lib/firestore";
 import ScoreShell from "@/components/layout/v2/ScoreShell";
 import AuthRequired from "@/components/auth/AuthRequired";
+import { isSuperAdmin } from "@/lib/hats";
 
 // "Live ops" space for moderators. Access is CONTROLLED: besides
 // authentication, the user must moderate at least one competition OR be
@@ -33,7 +34,7 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
 
   // Superadmin access is a property of the profile, not a lookup, derive it
   // rather than writing it into state from inside the effect.
-  const isSuperadmin = user?.userType === "superadmin";
+  const isSuperadmin = isSuperAdmin(user);
   const allowed = isSuperadmin || moderatesOk;
   const ready = isSuperadmin || checked;
 
@@ -41,7 +42,7 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
     if (loading) return;
     if (!firebaseUser) return;   // asked in place, see AuthRequired
     if (!user) { router.replace("/get-started"); return; }
-    if (user.userType === "superadmin") return;
+    if (isSuperAdmin(user)) return;
 
     let cancelled = false;
     Promise.all([

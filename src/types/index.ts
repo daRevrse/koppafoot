@@ -6,7 +6,26 @@ import type { TypeEvenement } from "@/lib/evenements";
 // KOPPAFOOT, Core Types
 // ============================================
 
-export type UserRole = "player" | "manager" | "referee" | "venue_owner" | "organizer" | "superadmin";
+/**
+ * Ce qu'un compte EST sur le terrain. Rien d'autre.
+ *
+ * `user_type` portait deux questions à la fois : le rôle, et les casquettes
+ * — organisateur, propriétaire, administrateur. Un champ à une seule valeur
+ * ne peut pas répondre aux deux : approuver une candidature d'organisateur
+ * écrasait donc le rôle de quelqu'un qui joue, et un organisateur qui jouait
+ * tombait hors de tout ce qui filtre sur les joueurs.
+ *
+ * Les casquettes sont désormais des DRAPEAUX cumulables, à côté
+ * (`is_organizer`, `is_venue_owner`, `is_scorer`, `is_superadmin`, voir
+ * lib/hats). Ce type ne garde que les rôles.
+ *
+ * `user` EST LA VALEUR PAR DÉFAUT, et c'est elle qui manquait. Tout compte
+ * naissait « player » : la moitié des inscrits se retrouvaient étiquetés
+ * joueurs sans l'avoir jamais choisi, et révoquer un organisateur le reposait
+ * en « player » faute d'une valeur neutre où le remettre. On est spectateur
+ * jusqu'à ce qu'on décide d'être autre chose, dans Évolution.
+ */
+export type UserRole = "user" | "player" | "manager" | "referee";
 
 // Role picked in the Évolution onboarding (null/absent = not activated yet;
 // everyone starts as a plain spectator account).
@@ -72,6 +91,16 @@ export interface UserProfile {
    */
   isOrganizer?: boolean;
   isVenueOwner?: boolean;
+  /**
+   * L'administrateur, qui passe partout.
+   *
+   * Il vivait dans `user_type: "superadmin"` — donc dans le champ du RÔLE,
+   * ce qui rendait un administrateur incapable d'être aussi joueur. Les
+   * règles Firestore et l'authentification des routes admin lisaient déjà
+   * `is_superadmin` en parallèle ; le profil le porte désormais lui aussi,
+   * et c'est le seul signal qui reste.
+   */
+  isSuperAdmin?: boolean;
   /**
    * Scoreur validé : celui qui peut couvrir un amical qui n'est pas le sien.
    *
@@ -182,6 +211,8 @@ export interface FirestoreUser {
   evolution_role?: EvolutionRole | null;
   is_organizer?: boolean;
   is_venue_owner?: boolean;
+  /** Voir `UserProfile.isSuperAdmin`. */
+  is_superadmin?: boolean;
   /** Voir `UserProfile.isScorer`. */
   is_scorer?: boolean;
   // Competitions followed (push notifications on kickoff/goal/final)
@@ -205,23 +236,36 @@ export interface FirestoreUser {
 }
 
 // Route protection
+/**
+ * Où atterrit un compte après connexion, selon son RÔLE.
+ *
+ * Tous au Direct : c'est la page d'accueil du produit, et un rôle n'ouvre pas
+ * d'espace à lui seul. Les CASQUETTES, elles, méritaient leur détour —
+ * l'organisateur vers ses compétitions, l'administrateur vers son tableau —
+ * mais elles ne sont plus des valeurs de rôle : ce détour se décide
+ * désormais dans le layout d'authentification, qui lit lib/hats.
+ */
 export const ROLE_REDIRECTS: Record<UserRole, string> = {
+  user: "/",
   player: "/",
   manager: "/",
   referee: "/",
-  venue_owner: "/",
-  organizer: "/organizer",
-  superadmin: "/admin",
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
+  user: "Membre",
   player: "Joueur",
   manager: "Manager",
   referee: "Arbitre",
-  venue_owner: "Propriétaire de terrain",
-  organizer: "Organisateur",
-  superadmin: "Super Admin",
 };
+
+/** Les casquettes se nomment à part, puisqu'elles se cumulent au rôle. */
+export const HAT_LABELS = {
+  organisateur: "Organisateur",
+  terrain: "Propriétaire de terrain",
+  scoreur: "Scoreur",
+  admin: "Super Admin",
+} as const;
 
 // ============================================
 // Teams
