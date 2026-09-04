@@ -888,7 +888,13 @@ function Spotlight({
   useEffect(() => {
     // Pas de setState synchrone au montage : on sort sans toucher a l'etat,
     // et le rendu lit `parts` a null, ce qui masque simplement le bloc.
-    if (!idCourant || !choixCourant || termine) return;
+    //
+    // LES CHIFFRES SE LISENT SANS AVOIR VOTE. Cet effet ne les cherchait
+    // qu'apres le vote (`choixCourant`), ce qui suffisait tant que le
+    // resultat etait reserve au votant. Il s'ouvre maintenant a tout le
+    // monde des qu'un match a des pronostics : sans cette lecture, un
+    // visiteur n'aurait jamais rien a voir.
+    if (!idCourant || termine) return;
     let vivant = true;
 
     // `no-store` : la route pose un cache de dix secondes, largement de quoi
@@ -904,7 +910,8 @@ function Spotlight({
 
     // Rattrapage des votes d'avant, restés en mémoire locale sans jamais
     // atteindre la base. Une fois par match et par session.
-    if (utilisateur && !pronosticsRattrapes.has(idCourant)) {
+    // Le rattrapage ne concerne QUE celui qui a voté ici sans que ça parte.
+    if (utilisateur && choixCourant && !pronosticsRattrapes.has(idCourant)) {
       pronosticsRattrapes.add(idCourant);
       getMyPrediction(idCourant, utilisateur.uid)
         .then((enBase) =>
@@ -936,9 +943,16 @@ function Spotlight({
     onPick(match.id, p);
   };
 
-  // Les pourcentages ne s'ouvrent qu'une fois qu'on a vote : avant, le premier
-  // chiffre affiche deciderait pour tout le monde.
-  const parts = pick && counts?.matchId === match.id ? pourcentages(counts.valeurs) : null;
+  // Un match qui a des votes montre ses chiffres, qu'on ait voté ou non : le
+  // resultat s'ouvrait au seul votant, et un visiteur n'avait donc rien a
+  // lire — or c'est le chiffre qui appelle le vote. Meme regle que la fiche du
+  // match, voir PredictionPoll. « Au moins un vote REEL » : `total` ignore les
+  // voix d'office, sinon un match sans pronostic afficherait un 33/33/33
+  // inventé.
+  const chiffresDuMatch = counts?.matchId === match.id ? counts.valeurs : null;
+  const parts = chiffresDuMatch && (pick || chiffresDuMatch.total > 0)
+    ? pourcentages(chiffresDuMatch)
+    : null;
 
   return (
     <div className="overflow-hidden border border-gray-200/70 bg-white">
