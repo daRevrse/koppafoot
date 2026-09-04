@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, ArrowRight } from "lucide-react";
+import { MapPin, ArrowRight, ArrowDown } from "lucide-react";
 import { adminDb } from "@/lib/firebase-admin";
 import BookingRequest from "@/components/venue/BookingRequest";
 import {
@@ -97,15 +97,19 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-function Fait({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+/**
+ * Un fait, dans le bandeau.
+ *
+ * Ils vivaient dans une grille sous le hero, et cette grille tombait à UNE
+ * colonne sous 640px : quatre informations de trois mots y occupaient 353px,
+ * soit 43% d'un écran de téléphone, et repoussaient la réservation à 1215px —
+ * un écran et demi. Portés par le bandeau, ils ne coûtent plus une ligne.
+ */
+function FaitBandeau({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-t border-gray-200/70 bg-white px-5 py-6 [&+&]:border-l">
-      <Etiquette>{label}</Etiquette>
-      <p
-        className={`mt-1.5 font-display text-lg font-black leading-none ${
-          accent ? "text-emerald-700" : "text-gray-900"
-        }`}
-      >
+    <div>
+      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/40">{label}</p>
+      <p className="mt-1 font-display text-base font-black uppercase leading-none tracking-tight text-white sm:text-lg">
         {value}
       </p>
     </div>
@@ -117,19 +121,20 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
   const venue = await readVenue(id).catch(() => null);
   if (!venue) notFound();
 
-  const faits = [
-    { label: "Format", value: libelleFormat(venue.fieldSize) },
-    { label: "Surface", value: libelleSurface(venue.fieldSurface) },
-    { label: "Tarif", value: prixHeure(venue.pricePerHour), accent: aUnPrix(venue.pricePerHour) },
-    { label: "État", value: venue.available ? "Ouvert aux demandes" : "Fermé" },
-  ];
-
   return (
     <>
-      {/* Le bandeau : la photo si elle existe, le marquage du terrain sinon.
-          Dans les deux cas le nom se lit en blanc sur du sombre, donc la page
-          a la même silhouette avec ou sans photo. */}
-      <section className="relative flex min-h-[46vh] items-end overflow-hidden bg-gray-900 sm:min-h-[56vh]">
+      {/* LE BANDEAU PORTE LA DÉCISION.
+          Il ne montrait qu'un nom et une ville sur 374px de photo, pendant que
+          les faits qui font choisir — format, surface, tarif — s'empilaient
+          plus bas et repoussaient la réservation hors de l'écran. Ils sont
+          ici, avec le tarif en grand et l'ancre vers le formulaire : la
+          réservation s'annonce avant le premier scroll, sans que le
+          formulaire lui-même s'invite dans une photo.
+
+          La photo si elle existe, le marquage du terrain sinon : dans les deux
+          cas le texte se lit en blanc sur du sombre, donc la page a la même
+          silhouette avec ou sans photo. */}
+      <section className="relative flex min-h-[62vh] items-end overflow-hidden bg-gray-900 sm:min-h-[66vh]">
         {venue.photoUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -138,7 +143,10 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               alt=""
               className={`absolute inset-0 h-full w-full object-cover ${venue.available ? "" : "grayscale"}`}
             />
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20" />
+            {/* Dégradé plus appuyé qu'avant : il porte maintenant six lignes
+                de texte, pas deux, et un tarif doit rester lisible sur une
+                pelouse claire comme sur un ciel. */}
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/25" />
           </>
         ) : (
           <>
@@ -147,21 +155,60 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           </>
         )}
 
-        <div className="relative mx-auto w-full max-w-4xl px-6 pb-10 pt-28 sm:px-10 sm:pb-14">
-          {!venue.available && (
-            <span className="mb-5 inline-flex bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-900">
+        <div className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-28 sm:px-10 sm:pb-10">
+          {venue.available ? (
+            <span className="mb-4 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-300">
+              <span aria-hidden className="h-1.5 w-1.5 bg-emerald-400" />
+              Ouvert aux demandes
+            </span>
+          ) : (
+            <span className="mb-4 inline-flex bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-900">
               Fermé pour le moment
             </span>
           )}
+
           <h1 className="font-display text-4xl font-black uppercase leading-[0.9] tracking-[-0.02em] text-white sm:text-6xl">
             {venue.name}
           </h1>
+
           {(venue.address || venue.city) && (
-            <p className="mt-5 flex items-center gap-2 text-lg text-white/70">
-              <MapPin size={18} className="shrink-0" />
+            <p className="mt-4 flex items-center gap-2 text-base text-white/70 sm:text-lg">
+              <MapPin size={17} className="shrink-0" />
               {[venue.address, venue.city].filter(Boolean).join(", ")}
             </p>
           )}
+
+          {/* Format et surface : deux valeurs, pas deux symboles. Un « 11
+              contre 11 » se lit sans légende, une icône de pelouse non. */}
+          <div className="mt-7 flex flex-wrap items-end gap-x-10 gap-y-5 border-t border-white/15 pt-6">
+            <FaitBandeau label="Format" value={libelleFormat(venue.fieldSize)} />
+            <FaitBandeau label="Surface" value={libelleSurface(venue.fieldSurface)} />
+
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/40">Tarif</p>
+              <p
+                className={`mt-1 font-display font-black uppercase leading-none tracking-tight ${
+                  aUnPrix(venue.pricePerHour)
+                    ? "text-2xl text-emerald-300 sm:text-3xl"
+                    : "text-base text-white/70 sm:text-lg"
+                }`}
+              >
+                {prixHeure(venue.pricePerHour)}
+              </p>
+            </div>
+
+            {/* L'ancre, pas le formulaire : elle annonce la réservation dès le
+                premier écran et y emmène d'un geste. */}
+            {venue.available && (
+              <a
+                href="#reserver"
+                className="flex w-full items-center justify-center gap-2 border border-white bg-white px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-400 hover:bg-emerald-400 sm:ml-auto sm:w-auto"
+              >
+                Demander un créneau
+                <ArrowDown size={15} />
+              </a>
+            )}
+          </div>
         </div>
       </section>
 
@@ -175,27 +222,30 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
             ]}
           />
 
-          <div className="grid border-x border-b border-gray-200/70 sm:grid-cols-2 lg:grid-cols-4">
-            {faits.map((f) => (
-              <Fait key={f.label} {...f} />
-            ))}
-          </div>
+          {/* LA RÉSERVATION PASSE DEVANT LES ÉQUIPEMENTS.
+              Ils la précédaient, et leurs dix pastilles la repoussaient de
+              285px de plus. On vérifie les douches APRÈS avoir décidé qu'un
+              terrain nous intéresse, pas avant : l'ordre suit la décision. */}
+          {venue.ownerId && (
+            <div
+              id="reserver"
+              className="scroll-mt-[calc(var(--marketing-header-h,75px)+1.5rem)]"
+            >
+              <BookingRequest
+                venueId={id}
+                venueName={venue.name}
+                ownerId={venue.ownerId}
+                available={venue.available}
+                pricePerHour={venue.pricePerHour}
+              />
+            </div>
+          )}
 
           {venue.amenities.length > 0 && (
             <div className="mt-10">
               <Etiquette className="mb-3">Sur place</Etiquette>
               <ListeEquipements valeurs={venue.amenities} />
             </div>
-          )}
-
-          {venue.ownerId && (
-            <BookingRequest
-              venueId={id}
-              venueName={venue.name}
-              ownerId={venue.ownerId}
-              available={venue.available}
-              pricePerHour={venue.pricePerHour}
-            />
           )}
 
           {venue.owner && (
