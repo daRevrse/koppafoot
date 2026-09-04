@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import {
   Bell, CheckCheck, ChevronRight, Inbox, Loader2, Megaphone,
   Swords, ClipboardCheck, UserPlus, Users, Star, CalendarClock,
+  CalendarPlus, CalendarCheck, MapPin,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { Notification, NotificationType } from "@/types";
@@ -36,6 +37,9 @@ const TYPE_META: Record<
   admin_message:         { label: "Message",     Icon: Megaphone,      tone: "bg-red-50 text-red-600" },
   team_activity:         { label: "Mon équipe",  Icon: Users,          tone: "bg-emerald-50 text-emerald-600" },
   follow_activity:       { label: "Suivi",       Icon: Star,           tone: "bg-sky-50 text-sky-600" },
+  booking_request:       { label: "Créneau",     Icon: CalendarPlus,   tone: "bg-emerald-50 text-emerald-600" },
+  booking_answer:        { label: "Créneau",     Icon: CalendarCheck,  tone: "bg-emerald-50 text-emerald-600" },
+  venue_application:     { label: "Terrain",     Icon: MapPin,         tone: "bg-emerald-50 text-emerald-600" },
 };
 
 const FILTERS = [
@@ -43,11 +47,17 @@ const FILTERS = [
   { key: "unread", label: "Non lues" },
   { key: "team", label: "Mon équipe" },
   { key: "market", label: "Mercato" },
+  { key: "terrains", label: "Terrains" },
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
 
 const MARKET_TYPES: NotificationType[] = ["invitation", "join_request"];
+// Le parcours terrain a son filtre : un propriétaire qui reçoit trois demandes
+// par week-end les perdait dans le flux commun de son équipe.
+const TERRAIN_TYPES: NotificationType[] = [
+  "booking_request", "booking_answer", "venue_application",
+];
 const TEAM_TYPES: NotificationType[] = [
   "team_activity", "follow_activity", "match_challenge", "match_update",
   "participation_request",
@@ -141,6 +151,7 @@ export default function NotificationsPage() {
       case "unread": return notifications.filter((n) => !n.read);
       case "team":   return notifications.filter((n) => TEAM_TYPES.includes(n.type));
       case "market": return notifications.filter((n) => MARKET_TYPES.includes(n.type));
+      case "terrains": return notifications.filter((n) => TERRAIN_TYPES.includes(n.type));
       default:       return notifications;
     }
   }, [notifications, filter]);

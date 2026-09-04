@@ -1169,7 +1169,17 @@ export type NotificationType =
   | "team_activity"
   /** Même événement, mais reçu parce qu'on suit l'équipe ou le joueur,
    *  pas parce qu'on en fait partie. */
-  | "follow_activity";
+  | "follow_activity"
+  /** Une équipe demande un créneau sur un terrain. Envoyée au PROPRIÉTAIRE.
+   *  Sans elle, une demande n'existait que pour qui pensait à ouvrir la
+   *  page : le parcours entier reposait sur la curiosité du destinataire. */
+  | "booking_request"
+  /** Le propriétaire a confirmé, refusé ou annulé. Envoyée au DEMANDEUR,
+   *  qui sinon devait revenir vérifier si son samedi soir tenait. */
+  | "booking_answer"
+  /** Décision sur une candidature « propriétaire de terrain ». Une
+   *  approbation ouvrait un espace dont personne n'était prévenu. */
+  | "venue_application";
 
 export interface FirestoreNotification {
   user_id: string;

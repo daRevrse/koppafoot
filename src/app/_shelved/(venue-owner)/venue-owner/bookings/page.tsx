@@ -23,9 +23,14 @@ export default function BookingsPage() {
     return () => unsub();
   }, [user]);
 
-  const handleStatusUpdate = async (id: string, status: Booking["status"]) => {
+  // NOTE (parcours terrain) : cet ecran est une COPIE de
+  // /mes-terrains/reservations, qui est celui que le produit ouvre. Il est
+  // conserve au placard mais reste compile, d'ou cette mise a jour de
+  // signature ; toute correction faite ici ne profite a personne. A
+  // supprimer plutot qu'a maintenir en double.
+  const handleStatusUpdate = async (booking: Booking, status: Booking["status"]) => {
     try {
-      await updateBookingStatus(id, status);
+      await updateBookingStatus(booking, status, "proprietaire");
     } catch (error) {
       console.error("Error updating booking status:", error);
     }
@@ -152,13 +157,13 @@ export default function BookingsPage() {
                        {booking.status === "pending" && (
                          <>
                            <button 
-                            onClick={() => handleStatusUpdate(booking.id, "confirmed")}
+                            onClick={() => handleStatusUpdate(booking, "confirmed")}
                             className="rounded-lg bg-emerald-50 p-2 text-emerald-600 hover:bg-emerald-100"
                            >
                              <Check size={16} />
                            </button>
                            <button 
-                            onClick={() => handleStatusUpdate(booking.id, "cancelled")}
+                            onClick={() => handleStatusUpdate(booking, "cancelled")}
                             className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"
                            >
                              <X size={16} />

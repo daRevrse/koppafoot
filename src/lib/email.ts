@@ -421,3 +421,68 @@ export function campaignPlayerInactiveHtml(firstName: string): string {
     ${ctaButton("Voir les équipes disponibles", `${APP_URL}/mercato`)}
   `);
 }
+
+// ============================================
+// Le parcours « propriétaire de terrain »
+// ============================================
+
+/**
+ * La décision sur une candidature terrain.
+ *
+ * Elle part par email EN PLUS de la notification et du push : c'est le seul
+ * message du parcours qui peut arriver des jours après le geste, quand la
+ * personne a fermé l'application et ne l'ouvrira que si quelque chose la
+ * rappelle. Un espace ouvert que personne ne sait ouvert reste vide.
+ */
+export function venueApplicationDecisionHtml(
+  firstName: string,
+  venueName: string,
+  approved: boolean,
+): string {
+  return approved
+    ? emailLayout(`
+      <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
+      <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+        ${venueName} est en ligne&nbsp;
+      </h2>
+      <p style="margin:0 0 16px;">
+        Ta fiche a été <strong>validée</strong>. Le terrain est maintenant visible dans
+        la recherche, et les équipes peuvent te demander un créneau. Complète-la&nbsp;:
+        une photo, un tarif et les équipements font la différence au moment du choix.
+      </p>
+      ${ctaButton("Ouvrir mes terrains", `${APP_URL}/mes-terrains`)}
+    `)
+    : emailLayout(`
+      <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
+      <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e293b;">
+        Ta demande pour ${venueName}
+      </h2>
+      <p style="margin:0 0 16px;">
+        Après relecture, nous ne pouvons pas publier cette fiche pour le moment.
+        Référencer un terrain engage celui qui le gère&nbsp;: si tu en es bien le
+        propriétaire ou l'exploitant, redépose ta demande en précisant ton lien
+        avec le lieu.
+      </p>
+      ${ctaButton("Redéposer ma demande", `${APP_URL}/terrains/candidature`, "#1e293b")}
+    `);
+}
+
+/** Une équipe demande un créneau. Part au propriétaire. */
+export function bookingRequestHtml(
+  ownerFirstName: string,
+  venueName: string,
+  demandeur: string,
+  quand: string,
+): string {
+  return emailLayout(`
+    <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${ownerFirstName},</p>
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+      Nouvelle demande sur ${venueName}
+    </h2>
+    <p style="margin:0 0 16px;">
+      <strong>${demandeur}</strong> demande le créneau du <strong>${quand}</strong>.
+      Tant que tu n'as pas répondu, le créneau reste libre pour les autres.
+    </p>
+    ${ctaButton("Répondre à la demande", `${APP_URL}/mes-terrains/reservations`)}
+  `);
+}

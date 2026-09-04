@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { sendNotificationEmail, venueApplicationDecisionHtml } from "@/lib/email";
+import { sendPushToUser } from "@/lib/fcm-server";
 
 /**
  * PATCH /api/venue-applications/[id], décision de l'administrateur.
@@ -60,15 +62,21 @@ export async function PATCH(
       reviewed_at: FieldValue.serverTimestamp(),
     });
 
+    let venueId: string | null = null;
+
     if (approved) {
       const surface = application.field_surface ?? "synthetic";
-      await Promise.all([
+      const [, venueRef] = await Promise.all([
         adminDb.collection("users").doc(application.uid).update({
           is_venue_owner: true,
           updated_at: FieldValue.serverTimestamp(),
         }),
         // Le terrain naît avec la casquette : la candidature portait déjà sa
         // fiche, la redemander aurait fait saisir deux fois la même chose.
+        //
+        // Photo, tarif et équipements naissent VIDES et se complètent dans
+        // l'espace : les demander dans un formulaire de candidature aurait
+        // allongé la seule étape où l'on n'a encore rien reçu en échange.
         adminDb.collection("venues").add({
           name: application.venue_name,
           address: application.address ?? "",
@@ -87,9 +95,60 @@ export async function PATCH(
           updated_at: FieldValue.serverTimestamp(),
         }),
       ]);
+      venueId = venueRef.id;
     }
 
-    return NextResponse.json({ ok: true, status: approved ? "approved" : "rejected" });
+    // ON PRÉVIENT LE CANDIDAT. Sans ça, une candidature approuvée ouvrait un
+    // espace dont personne n'était averti : la personne devait deviner, et
+    // revenir d'elle-même sur une page qui ne lui avait rien promis.
+    //
+    // Trois canaux, tous best-effort : la cloche dans le produit, le push sur
+    // le téléphone, l'email pour celui qui a fermé l'application depuis des
+    // jours. La décision, elle, est déjà écrite et ne dépend d'aucun des trois.
+    //
+    // `await` sur l'ensemble : une instance sans serveur gèle dès la réponse
+    // rendue, un envoi non attendu serait simplement perdu.
+    const prenom = String(application.name ?? "").split(" ")[0] || "toi";
+    const terrain = String(application.venue_name ?? "ton terrain");
+    const lien = approved ? "/mes-terrains" : "/terrains/candidature";
+
+    await Promise.allSettled([
+      adminDb.collection("notifications").add({
+        user_id: application.uid,
+        type: "venue_application",
+        title: approved ? "Terrain publié" : "Candidature terrain",
+        body: approved
+          ? `${terrain} est en ligne. Complète sa fiche pour être choisi.`
+          : `La fiche de ${terrain} n'a pas été publiée cette fois.`,
+        link: lien,
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      }),
+
+      sendPushToUser(application.uid, {
+        title: approved ? "Ton terrain est en ligne" : "Candidature terrain",
+        body: approved
+          ? `${terrain} est visible par les équipes. Ajoute une photo et un tarif.`
+          : "Ta demande n'a pas été retenue pour le moment.",
+        link: lien,
+        // Une réponse à MA candidature, pas une annonce générale.
+        category: "perso",
+      }),
+
+      application.email
+        ? sendNotificationEmail(
+            String(application.email),
+            approved ? `${terrain} est en ligne sur KoppaFoot` : "Ta demande de référencement, KoppaFoot",
+            venueApplicationDecisionHtml(prenom, terrain, approved),
+          )
+        : Promise.resolve(),
+    ]).then((sorts) => {
+      sorts
+        .filter((s): s is PromiseRejectedResult => s.status === "rejected")
+        .forEach((s) => console.warn("[venue-applications PATCH] notification:", s.reason?.message ?? s.reason));
+    });
+
+    return NextResponse.json({ ok: true, status: approved ? "approved" : "rejected", venueId });
   } catch (err) {
     console.error("PATCH venue application failed:", err);
     return NextResponse.json({ error: "Une erreur est survenue" }, { status: 500 });
