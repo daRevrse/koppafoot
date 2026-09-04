@@ -213,11 +213,13 @@ export default function EvolutionPage() {
         evolution_role: role,
         location_city: city.trim() || user.locationCity || "",
       };
-      // Organizer/superadmin keep their privileged user_type; everyone
-      // else's account type follows the activated role (legacy model).
-      if (user.userType !== "organizer" && user.userType !== "superadmin") {
-        patch.user_type = role;
-      }
+      // LE TYPE SUIT TOUJOURS LE ROLE ACTIVE, sans exception.
+      //
+      // Il fallait ici epargner les types « privilegies » : ecrire le role
+      // par-dessus `user_type: "organizer"` aurait efface la casquette, qui
+      // vivait dans ce meme champ. Elle vit dans un drapeau a cote, donc
+      // activer un role ne peut plus rien detruire.
+      patch.user_type = role;
       if (role === "player") {
         if (position) patch.position = position;
         if (strongFoot) patch.strong_foot = strongFoot as FirestoreUser["strong_foot"];

@@ -2022,11 +2022,13 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
 /**
  * Players available on the market.
  *
- * Filters on the ACTIVATED role, not on `user_type`: since the pivot every
- * account is created with `user_type: "player"`, so that field would put
- * every spectator who never opened the player space into the mercato,
- * which is why managers were seeing profiles with no position. Docs without
- * `evolution_role` are excluded by the equality filter, which is the point.
+ * Filtre sur le rôle ACTIVÉ, pas sur `user_type`. Tout compte naissait
+ * autrefois « player », si bien que ce champ versait au mercato chaque
+ * spectateur n'ayant jamais ouvert l'espace joueur — d'où des profils sans
+ * poste sous les yeux des managers. Un compte naît désormais « user », ce
+ * qui rend ce filtre moins vital, mais le rôle activé reste la seule bonne
+ * question : les documents sans `evolution_role` sont écartés, et c'est
+ * exactement le but.
  */
 export async function searchPlayers(filters: { city?: string; position?: string; skillLevel?: string; query?: string }): Promise<UserProfile[]> {
   const constraints: QueryConstraint[] = [where("evolution_role", "==", "player"), where("is_active", "==", true)];

@@ -94,7 +94,10 @@ export default function SignupPage() {
         password: essentials.password,
         firstName: essentials.firstName,
         lastName: essentials.lastName,
-        userType: "player",
+        // Spectateur par defaut : on n'est joueur que si on l'a choisi dans
+        // Evolution. Tout compte naissait « player », ce qui etiquetait la
+        // moitie des inscrits en joueurs sans qu'ils l'aient jamais decide.
+        userType: "user",
         locationCity: optional.locationCity ?? "",
         phone: optional.phone,
         // Le compte nait avec le role qu'on venait de choisir, plutot que de

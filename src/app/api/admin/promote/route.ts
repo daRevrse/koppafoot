@@ -66,45 +66,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const currentType = userDoc.data()?.user_type;
+    // LA PROMOTION POSE UN DRAPEAU, PLUS UN TYPE.
+    //
+    // Elle écrivait `user_type: "organizer"`, donc dans le champ du RÔLE :
+    // promouvoir un joueur effaçait qu'il jouait. Et la révocation le
+    // reposait en « player » — y compris quelqu'un qui n'avait jamais joué,
+    // faute d'une valeur neutre. Les deux symptômes disparaissent avec le
+    // drapeau : le rôle n'est jamais touché, ni dans un sens ni dans l'autre.
+    const DRAPEAU: Record<string, "is_superadmin" | "is_organizer"> = {
+      superadmin: "is_superadmin",
+      organizer: "is_organizer",
+    };
+    const donnees = userDoc.data() ?? {};
+    const drapeau = DRAPEAU[role as string];
+    const dejaPose = donnees[drapeau] === true;
 
     if (action === "promote") {
-      if (currentType === role) {
-        return NextResponse.json({ message: `Déjà ${role}`, user_type: role });
+      if (dejaPose) {
+        return NextResponse.json({ message: `Déjà ${role}`, hat: drapeau });
       }
       await adminDb.collection("users").doc(userRecord.uid).update({
-        user_type: role,
+        [drapeau]: true,
         updated_at: FieldValue.serverTimestamp(),
       });
-      return NextResponse.json({
-        message: `${label} promu ${role}`,
-        user_type: role,
-        previous_type: currentType,
-      });
+      return NextResponse.json({ message: `${label} promu ${role}`, hat: drapeau });
     }
 
     if (action === "revoke") {
-      // Prevent self-revoke
+      // On ne se retire pas ses propres droits.
       if (userRecord.uid === callerUid) {
         return NextResponse.json(
           { error: "Impossible de révoquer vos propres droits" },
           { status: 400 }
         );
       }
-      // Revocation covers both elevated roles, an organizer stripped of
-      // their rights falls back to player, same as a superadmin.
-      if (currentType !== "superadmin" && currentType !== "organizer") {
-        return NextResponse.json({ message: "Aucun droit à révoquer", user_type: currentType });
+      if (!dejaPose) {
+        return NextResponse.json({ message: "Aucun droit à révoquer", hat: drapeau });
       }
+      // Le drapeau tombe, le RÔLE ne bouge pas : un organisateur qui jouait
+      // reste joueur, un organisateur qui ne jouait pas reste « user ».
       await adminDb.collection("users").doc(userRecord.uid).update({
-        user_type: "player", // Fallback to player
+        [drapeau]: false,
         updated_at: FieldValue.serverTimestamp(),
       });
-      return NextResponse.json({
-        message: `${label} rétrogradé`,
-        user_type: "player",
-        previous_type: currentType,
-      });
+      return NextResponse.json({ message: `${label} rétrogradé`, hat: drapeau });
     }
   } catch (err) {
     console.error("Admin promote error:", err);

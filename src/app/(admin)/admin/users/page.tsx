@@ -18,6 +18,7 @@ import RecordActions from "@/components/admin/RecordActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { EvolutionRole, UserProfile, UserRole } from "@/types";
 import toast from "react-hot-toast";
+import { isOrganizer as isOrganizerHat, isSuperAdmin } from "@/lib/hats";
 
 /**
  * Les rôles, et rien d'autre.
@@ -569,7 +570,7 @@ export default function AdminUsersPage() {
                 </p>
               ) : (
                 <div className="mt-5 space-y-2">
-                  {roleTarget.userType !== "organizer" && (
+                  {!isOrganizerHat(roleTarget) && (
                     <RoleOption
                       icon={ClipboardList}
                       label="Promouvoir organisateur"
@@ -580,7 +581,7 @@ export default function AdminUsersPage() {
                       onClick={() => handleRoleChange(roleTarget, "organizer")}
                     />
                   )}
-                  {roleTarget.userType !== "superadmin" && (
+                  {!isSuperAdmin(roleTarget) && (
                     <RoleOption
                       icon={ShieldCheck}
                       label="Promouvoir superadmin"
@@ -591,7 +592,7 @@ export default function AdminUsersPage() {
                       onClick={() => handleRoleChange(roleTarget, "superadmin")}
                     />
                   )}
-                  {(roleTarget.userType === "organizer" || roleTarget.userType === "superadmin") && (
+                  {(isOrganizerHat(roleTarget) || isSuperAdmin(roleTarget)) && (
                     <RoleOption
                       icon={UserMinus}
                       label="Retirer les droits"

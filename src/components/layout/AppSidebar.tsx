@@ -1,6 +1,6 @@
 "use client";
 
-import { isOrganizer as organizes } from "@/lib/hats";
+import { isOrganizer as organizes, isSuperAdmin } from "@/lib/hats";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -284,7 +284,7 @@ export default function AppSidebar() {
       items: LIVE_ITEMS,
     });
   }
-  if (user?.userType === "superadmin") {
+  if (isSuperAdmin(user)) {
     spaces.push({ path: "/admin", icon: Shield, label: "Administration", items: [] });
   }
 

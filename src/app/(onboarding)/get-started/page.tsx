@@ -51,7 +51,10 @@ export default function GetStartedPage() {
       const signupData: SignupData = {
         firstName: data.firstName,
         lastName: data.lastName,
-        userType: "player",
+        // Spectateur par defaut : on n'est joueur que si on l'a choisi dans
+        // Evolution. Tout compte naissait « player », ce qui etiquetait la
+        // moitie des inscrits en joueurs sans qu'ils l'aient jamais decide.
+        userType: "user",
         locationCity: data.locationCity,
         email: firebaseUser?.email ?? undefined,
         phone: firebaseUser?.phoneNumber ?? undefined,

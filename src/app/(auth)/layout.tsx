@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_REDIRECTS } from "@/types";
+import { isOrganizer, isSuperAdmin } from "@/lib/hats";
 import { contexteAuth } from "@/config/auth-contextes";
 import { LignesDeTerrain } from "@/components/ui/socle";
 
@@ -91,11 +92,19 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
   // Un compte déjà connecté repart vers son espace, ou vers la cible `?next=`
   // du lien qui l'a amené ici (les invitations rebondissent par la connexion).
+  //
+  // LE DÉTOUR SUIT LA CASQUETTE, PLUS LE TYPE DE COMPTE. `ROLE_REDIRECTS`
+  // envoyait l'administrateur sur /admin et l'organisateur sur /organizer
+  // parce que « superadmin » et « organizer » étaient des valeurs de
+  // `user_type`. Ce sont des drapeaux maintenant, et un organisateur qui joue
+  // porte `user_type: "player"` : lire la table seule l'aurait renvoyé au
+  // Direct, en lui faisant chercher son espace à la main à chaque connexion.
   useEffect(() => {
     if (!loading && user) {
       const next = new URLSearchParams(window.location.search).get("next");
       const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
-      router.replace(safeNext ?? ROLE_REDIRECTS[user.userType] ?? "/");
+      const parCasquette = isSuperAdmin(user) ? "/admin" : isOrganizer(user) ? "/organizer" : null;
+      router.replace(safeNext ?? parCasquette ?? ROLE_REDIRECTS[user.userType] ?? "/");
     }
   }, [user, loading, router]);
 
