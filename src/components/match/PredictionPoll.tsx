@@ -9,9 +9,9 @@ import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, 
 // ============================================
 // « Qui va gagner ? », le pronostic de la fiche match.
 //
-// Deux états et un seul geste : tant qu'on n'a pas voté on voit trois choix,
-// une fois voté on voit le résultat. Les totaux restent cachés avant le vote,
-// sinon le premier chiffre affiché décide pour tout le monde.
+// Deux états et un seul geste : on voit trois choix tant que le match n'a
+// aucun pronostic, et le résultat dès qu'il en a un — celui de tout le monde,
+// qu'on ait voté ou non. Voir `showResult` pour le pourquoi de ce choix.
 //
 // Un compte est nécessaire pour voter, sans quoi le sondage se remplit de
 // rechargements de page, mais le RÉSULTAT est visible de tous, y compris
@@ -80,9 +80,22 @@ export default function PredictionPoll({
     }
   };
 
-  // Le résultat s'ouvre une fois qu'on a voté, ou quand il n'y a plus rien à
-  // pronostiquer, le match ayant commencé.
-  const showResult = mine !== null || closed;
+  /**
+   * UN MATCH QUI A DES VOTES MONTRE SES CHIFFRES, À TOUT LE MONDE.
+
+ * Le résultat ne s'ouvrait qu'à celui qui avait voté, pour ne pas ancrer les
+ * suivants sur le premier chiffre affiché. La prudence coûtait plus qu'elle ne
+ * protégeait : un visiteur voyait trois barres muettes, donc rien qui donne
+ * envie de participer — or c'est le chiffre lui-même qui appelle le vote, on
+ * clique pour se situer, pas dans le vide.
+ *
+ * « Au moins un vote RÉEL » : `total` ne compte pas les voix d'office, qui
+ * n'existent que pour amortir les pourcentages des premiers votes (voir
+ * lib/predictions). Sans ce garde-fou, un match que personne n'a pronostiqué
+ * afficherait un 33/33/33 inventé de toutes pièces.
+   */
+  const votesReels = counts?.total ?? 0;
+  const showResult = mine !== null || closed || votesReels > 0;
 
   // Une voix d'office par issue : sans elle, le premier votant envoie son
   // camp a 100% et les deux autres a 0%. Voir lib/predictions.
