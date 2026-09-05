@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, Globe, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin, Radio,
+  Flame, Trophy, Newspaper, MessagesSquare, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin, Radio,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -96,7 +96,7 @@ const ENTRIES: NavEntry[] = [
  * door onto an empty room, and the rail behind it spent every page load
  * failing to read authors. Signed in, it takes its place in the menu.
  */
-const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: Globe };
+const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: MessagesSquare };
 
 // The sidebar's role destinations, now reached from the avatar menu.
 
@@ -635,15 +635,10 @@ export default function ScoreHeader() {
         </button>
 
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2 lg:ml-0">
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            aria-label="Rechercher"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
-          >
-            <Search size={22} />
-          </button>
-
+          {/* L'ORDRE DE LA RANGEE, de gauche a droite : Links, la Tribune,
+              les notifications, la recherche. Elle commencait par la
+              recherche, qui est le geste le moins engageant des quatre et
+              occupait la place la plus atteignable du pouce. */}
           {/* Les trois portes : une feuille, puisque la rangee qui les porte
               en desktop est masquee ici. */}
           <button
@@ -667,7 +662,7 @@ export default function ScoreHeader() {
                 : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
                 }`}
             >
-              <Globe size={22} />
+              <MessagesSquare size={22} />
             </Link>
           )}
 
@@ -676,6 +671,15 @@ export default function ScoreHeader() {
               <NotificationDropdown />
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Rechercher"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            <Search size={22} />
+          </button>
+
           {/* Le menu avatar disparait du telephone : la barre du bas porte
               deja « Moi » et « Espace », et le doubler en haut encombrait un
               header qui compte six commandes sur 375px. Ses entrees ont

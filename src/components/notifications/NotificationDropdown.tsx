@@ -44,7 +44,7 @@ function NotificationItem({
         !n.read ? "bg-emerald-50/60" : ""
       }`}
     >
-      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${!n.read ? "bg-emerald-500" : "bg-transparent"}`} />
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${!n.read ? "bg-red-500" : "bg-transparent"}`} />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-gray-900 leading-snug">{n.title}</p>
         <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{n.body}</p>
@@ -83,8 +83,13 @@ export default function NotificationDropdown() {
         className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
       >
         <Bell size={18} className="lg:w-5 lg:h-5" />
+        {/* ROUGE, ET NON VERT. Le vert est la couleur du produit : il habille
+            les liens, les boutons, les états sains. Un compteur de non-lus dit
+            « il y a quelque chose pour toi » : c'est une interpellation, elle
+            doit trancher sur la charte plutôt que s'y fondre — sur le vert du
+            header, une pastille verte disparaissait. */}
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
+          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
