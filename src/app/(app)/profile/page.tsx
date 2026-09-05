@@ -189,10 +189,19 @@ export default function ProfilePage() {
   // Se fier au seul user_type cachait le bloc physique aux deux.
   const effectiveRole: string = user.evolutionRole ?? user.userType;
   const isPlayerRole = effectiveRole === "player";
-  // Taille, poids, pied fort, date de naissance : tout le monde qui descend
-  // sur la pelouse les renseigne, joueur, manager qui joue, arbitre. Seuls
-  // les espaces qui n'y descendent jamais en sont dispensés.
-  const showPhysical = !["organizer", "venue_owner", "superadmin"].includes(effectiveRole);
+  // AUX JOUEURS, ET À EUX SEULS.
+  //
+  // La liste d'exclusion ci-dessus ne défendait plus rien : « organizer »,
+  // « venue_owner » et « superadmin » étaient des `user_type`, et ces valeurs
+  // n'existent plus depuis que les casquettes sont passées en drapeaux. Le
+  // rôle effectif ne peut plus valoir que user, player, manager ou referee :
+  // la condition était donc vraie pour tout le monde, y compris pour un compte
+  // sans rôle, qui ouvrait son profil sur quatre cases vides et une invitation
+  // à renseigner sa taille.
+  //
+  // Un manager ou un arbitre qui joue vraiment a un rôle joueur à activer,
+  // c'est le sens du modèle.
+  const showPhysical = isPlayerRole;
   const physicalComplete = Boolean(user.strongFoot && user.height && user.weight && user.dateOfBirth);
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
@@ -330,9 +339,15 @@ export default function ProfilePage() {
   const age = user.dateOfBirth ? calculateAge(user.dateOfBirth) : null;
 
   // Tab definitions
+  // PAS DE PALMARÈS SANS RÔLE. Un compte qui n'a rien activé ne joue pas, ne
+  // dirige pas et ne siffle pas : son palmarès est vide par construction, et
+  // un onglet qui ne peut rien contenir n'est qu'une case à ouvrir pour rien.
+  // Il revient le jour où un rôle est choisi.
+  const sansRole = effectiveRole === "user";
+
   const tabs: { key: TabType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
     { key: "info", label: "Informations", icon: FileText },
-    { key: "palmares", label: "Palmarès", icon: Trophy },
+    ...(sansRole ? [] : [{ key: "palmares" as TabType, label: "Palmarès", icon: Trophy }]),
     { key: "posts", label: "Posts", icon: FileText },
     { key: "galerie", label: "Galerie", icon: ImageIcon },
     ...((user.evolutionRole ?? user.userType) === "player"

@@ -766,7 +766,7 @@ export default function PublicProfilePage() {
 
           {isOwnProfile ? (
             <Link
-              href="/evolution"
+              href="/roles#choisir"
               className="mt-7 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
             >
               Choisir mon rôle
@@ -814,9 +814,19 @@ export default function PublicProfilePage() {
 
   const initials = `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
 
+  // MÊME RÈGLE QUE SUR SON PROPRE PROFIL : pas de palmarès sans rôle. Une
+  // fiche publique existe dès qu'il y a quelque chose à montrer, et un compte
+  // sans rôle en a une s'il appartient à une équipe — mais il n'a, lui, aucun
+  // titre à exposer.
+  // Lu sur `profile` et non sur les trois indicateurs plus bas : ils sont
+  // déclarés après cette liste, et les remonter déplacerait le commentaire qui
+  // les explique loin d'eux.
+  const roleDuProfil = profile.evolutionRole ?? profile.userType;
+  const sansRole = roleDuProfil !== "player" && roleDuProfil !== "manager" && roleDuProfil !== "referee";
+
   const publicTabs: { key: PublicTab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
     { key: "overview", label: "Aperçu", icon: Users },
-    { key: "palmares", label: "Palmarès", icon: Trophy },
+    ...(sansRole ? [] : [{ key: "palmares" as PublicTab, label: "Palmarès", icon: Trophy }]),
     { key: "posts", label: "Posts", icon: FileText },
     { key: "galerie", label: "Galerie", icon: ImageIcon },
   ];
