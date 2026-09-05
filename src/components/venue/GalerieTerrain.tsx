@@ -70,8 +70,11 @@ export default function GalerieTerrain({
       {/* Une bande qui défile plutôt qu'une grille : sur téléphone, six
           vignettes en grille repoussent tout ce qui suit d'un écran entier. */}
       <ul className="-mx-6 flex snap-x snap-mandatory gap-px overflow-x-auto px-6 pb-1 sm:mx-0 sm:px-0">
+        {/* La clé porte l'index EN PLUS de l'adresse : rien n'interdit à un
+            propriétaire de téléverser deux fois la même image, et deux clés
+            identiques font disparaître une vignette sans un mot. */}
         {photos.map((url, i) => (
-          <li key={url} className="shrink-0 snap-start">
+          <li key={`${url}-${i}`} className="shrink-0 snap-start">
             <button
               type="button"
               onClick={(e) => {

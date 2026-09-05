@@ -660,8 +660,14 @@ export default function MatchDetailPage() {
           sub: match.format,
         }}
         status={match.status as HeroStatus}
-        home={{ name: match.homeTeamName, logo: match.homeTeamLogo ?? null, score: match.scoreHome }}
-        away={{ name: match.awayTeamName, logo: match.awayTeamLogo ?? null, score: match.scoreAway }}
+        home={{
+          name: match.homeTeamName, logo: match.homeTeamLogo ?? null, score: match.scoreHome,
+          href: match.homeTeamId ? `/teams/${match.homeTeamId}` : null,
+        }}
+        away={{
+          name: match.awayTeamName, logo: match.awayTeamLogo ?? null, score: match.scoreAway,
+          href: match.awayTeamId ? `/teams/${match.awayTeamId}` : null,
+        }}
         date={match.date}
         time={match.time}
         venueName={match.venueName}
@@ -714,7 +720,7 @@ export default function MatchDetailPage() {
         active={activeTab}
         onChange={(id) => setActiveTab(id as typeof activeTab)}
         tabs={[
-          { id: "center", label: "Résumé", Icon: Activity },
+          { id: "center", label: "Résumé" },
           // La feuille de match ne s'affiche pas sans compte : les règles
           // Firestore ne servent pas `participations` à un invité, l'onglet
           // n'aurait donc que deux colonnes vides à montrer. Mieux vaut ne
@@ -722,7 +728,6 @@ export default function MatchDetailPage() {
           ...(user ? [{
             id: "squad",
             label: "Composition",
-            Icon: ClipboardList,
             badge: isManager ? (() => {
               const isHomeManager = user?.uid === match.managerId;
               const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;

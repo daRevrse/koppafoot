@@ -147,14 +147,22 @@ export default function PredictionPoll({
                   <Loader2 size={14} className="relative animate-spin text-white/60" />
                 ) : (
                   <>
+                    {/* SUR TÉLÉPHONE, L'ÉCUSSON REMPLACE LE NOM. C'était
+                        l'inverse : le logo était masqué sous `sm` et le nom
+                        seul restait, tronqué à quelques lettres dans un tiers
+                        de rangée — « OLYM… » ne nomme pas une équipe mieux que
+                        son écusson, et coûte la place du pourcentage.
+
+                        « Nul » n'a pas d'écusson : son mot reste, sinon son
+                        tiers serait vide. */}
                     {o.logo && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={o.logo} alt="" className="relative hidden h-4 w-4 shrink-0 object-contain sm:block" />
+                      <img src={o.logo} alt={o.label} className="relative h-5 w-5 shrink-0 object-contain sm:h-4 sm:w-4" />
                     )}
                     <span
                       className={`relative truncate text-[10px] font-black uppercase tracking-wide sm:text-[11px] ${
-                        isMine ? "text-emerald-300" : "text-white/80"
-                      }`}
+                        o.logo ? "hidden sm:inline" : ""
+                      } ${isMine ? "text-emerald-300" : "text-white/80"}`}
                     >
                       {o.key === "draw" ? "Nul" : o.label}
                     </span>

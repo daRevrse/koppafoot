@@ -174,7 +174,11 @@ export default function MatchTimeline({
               {/* La minute, sur l'axe. Un résultat saisi après coup n'en porte
                   pas (stockée à 0) : aucun but n'est marqué à la 0e. */}
               <div className="flex justify-center">
-                <span className="flex h-7 w-7 items-center justify-center border border-gray-200/70 bg-white text-[10px] font-black tabular-nums text-gray-500">
+                {/* La minute, nue sur l'axe. Elle portait un carré bordé : sur
+                    une timeline de quinze événements, quinze cadres alignés
+                    faisaient un tableau là où il ne fallait qu'une graduation.
+                    Le chiffre se détache déjà de l'axe par son fond. */}
+                <span className="flex h-7 w-7 items-center justify-center bg-[#F4F6FA] text-[11px] font-black tabular-nums text-gray-500">
                   {e.minute ? `${e.minute}'` : "·"}
                 </span>
               </div>

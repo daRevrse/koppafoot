@@ -14,6 +14,12 @@
 //    ne voyait que trois icônes grises sans un mot. Une icône seule ne nomme
 //    pas un onglet, elle le devine.
 //
+//    L'ICÔNE A FINI PAR PARTIR TOUT À FAIT. Une fois le libellé rétabli, elle
+//    ne disait plus rien qu'il ne disait déjà — « Résumé » à côté d'une
+//    horloge, « Classement » à côté d'une liste — et elle prenait la place qui
+//    manque à une rangée qui défile. Le mot suffit, et il est plus court à
+//    lire qu'un pictogramme à interpréter.
+//
 // 2. Les deux fiches ne nommaient pas les mêmes choses : « Feuille de match »
 //    d'un côté, « Composition » de l'autre, pour le même contenu. Les libellés
 //    sont maintenant décidés par l'appelant, mais depuis un vocabulaire commun.
@@ -27,7 +33,6 @@
 export interface MatchTab {
   id: string;
   label: string;
-  Icon?: React.ComponentType<{ size?: number; className?: string }>;
   /** Pastille d'alerte, à droite du libellé (feuille de match non validée). */
   badge?: React.ReactNode;
 }
@@ -65,7 +70,6 @@ export default function MatchTabs({
                   : "border-transparent text-gray-400 hover:text-gray-700"
               }`}
             >
-              {tab.Icon && <tab.Icon size={15} className="shrink-0" />}
               {tab.label}
               {tab.badge}
             </button>
