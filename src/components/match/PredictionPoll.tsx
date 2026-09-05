@@ -112,17 +112,17 @@ export default function PredictionPoll({
     <section aria-labelledby="pronostic" className="flex items-center gap-2 sm:gap-4">
       <h2
         id="pronostic"
-        className="shrink-0 text-[10px] font-black uppercase leading-tight tracking-[0.12em] text-white/40 sm:text-[11px]"
+        className="shrink-0 text-[10px] font-black uppercase leading-tight tracking-[0.12em] text-gray-400 sm:text-[11px]"
       >
         {closed ? "Pronostics" : "Qui gagne ?"}
       </h2>
 
       {counts === null ? (
         <div className="flex flex-1 justify-center py-2">
-          <Loader2 size={16} className="animate-spin text-white/30" />
+          <Loader2 size={16} className="animate-spin text-gray-300" />
         </div>
       ) : (
-        <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-white/10 border border-white/15 bg-white/5">
+        <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-white/10 border border-gray-200/70 bg-gray-50">
           {OPTIONS.map((o) => {
             const isMine = mine === o.key;
             return (
@@ -133,18 +133,18 @@ export default function PredictionPoll({
                 disabled={showResult || sending !== null}
                 aria-label={o.key === "draw" ? "Match nul" : `Victoire de ${o.label}`}
                 className={`relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-1.5 py-2 transition-colors disabled:cursor-default ${
-                  showResult ? "" : "hover:bg-white/10"
+                  showResult ? "" : "hover:bg-gray-200/60"
                 } ${sending !== null && !showResult ? "opacity-40" : ""}`}
               >
                 {showResult && (
                   <span
                     aria-hidden
-                    className={`absolute inset-y-0 left-0 transition-all ${isMine ? "bg-emerald-500/35" : "bg-white/10"}`}
+                    className={`absolute inset-y-0 left-0 transition-all ${isMine ? "bg-emerald-100" : "bg-gray-200/60"}`}
                     style={{ width: `${o.pct}%` }}
                   />
                 )}
                 {sending === o.key ? (
-                  <Loader2 size={14} className="relative animate-spin text-white/60" />
+                  <Loader2 size={14} className="relative animate-spin text-gray-500" />
                 ) : (
                   <>
                     {/* SUR TÉLÉPHONE, L'ÉCUSSON REMPLACE LE NOM. C'était
@@ -162,12 +162,12 @@ export default function PredictionPoll({
                     <span
                       className={`relative truncate text-[10px] font-black uppercase tracking-wide sm:text-[11px] ${
                         o.logo ? "hidden sm:inline" : ""
-                      } ${isMine ? "text-emerald-300" : "text-white/80"}`}
+                      } ${isMine ? "text-emerald-700" : "text-gray-600"}`}
                     >
                       {o.key === "draw" ? "Nul" : o.label}
                     </span>
                     {showResult && (
-                      <span className="relative shrink-0 text-[10px] font-black tabular-nums text-white sm:text-[11px]">
+                      <span className="relative shrink-0 text-[10px] font-black tabular-nums text-gray-900 sm:text-[11px]">
                         {o.pct}%
                       </span>
                     )}

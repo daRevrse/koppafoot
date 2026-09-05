@@ -330,12 +330,12 @@ export default function PublicCompMatchView() {
               header : sur une timeline longue, la navigation disparaissait des
               le premier ecran de defilement. */}
           <MatchTabs
-            tabs={TABS.map((t) => ({ id: t.id, label: t.label, Icon: t.Icon }))}
+            tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
             active={activeTab}
             onChange={(id) => setDetailTab(id as typeof detailTab)}
           />
 
-          <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">
+          <div className="bg-white p-4 sm:p-5">
             {/* Stats panel: one row per metric, the two teams facing each
                 other, with a bar showing each side's share. */}
             {activeTab === "stats" && hasStats && (

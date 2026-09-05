@@ -945,7 +945,7 @@ export default function MatchDetailPage() {
                   MatchTimeline. Un match qui n'a pas commence n'a pas
                   d'histoire, le bloc n'apparait qu'une fois le direct lance. */}
               {(match.status === "live" || match.status === "completed") && (
-                <div className="border border-gray-200/70 bg-white p-4 sm:p-5">
+                <div className="bg-white p-4 sm:p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
                       Historique
@@ -1002,7 +1002,7 @@ export default function MatchDetailPage() {
                   ouvrant cet onglet — qui joue, et a quel poste — la ou les
                   colonnes de noms plus bas servent a la remplir. Voir
                   MatchLineups. */}
-              <div className="border border-gray-200/70 bg-white p-4 sm:p-5">
+              <div className="bg-white p-4 sm:p-5">
                 <MatchLineups
                   home={{ name: match.homeTeamName, entries: compoDeLEquipe(match.homeTeamId, match.homeGhostLineup) }}
                   away={{ name: match.awayTeamName, entries: compoDeLEquipe(match.awayTeamId, match.awayGhostLineup) }}

@@ -13,11 +13,17 @@ import TirsAuBut from "./TirsAuBut";
 // compétition, celui de la vue « direct ». Trois hauteurs d'écusson, deux
 // tailles de score, et des correctifs qui ne se portaient que d'un côté.
 //
-// LE FOND EST UNI. Il portait un dégradé sur trois teintes, deux halos
-// colorés en `blur-[100px]`, et par-dessus la bannière du match en opacité
-// 25 % avec son propre dégradé — quatre couches derrière un score. Un
-// tableau d'affichage se lit d'un coup d'œil : ce qui doit ressortir, c'est
-// le chiffre, pas ce qu'il y a derrière.
+// LE FOND EST CELUI DE LA PAGE. Il portait un dégradé sur trois teintes, deux
+// halos colorés en `blur-[100px]`, et par-dessus la bannière du match — quatre
+// couches derrière un score. Puis un aplat sombre, qui découpait encore un
+// bandeau au-dessus du reste.
+//
+// Il n'y a plus de bandeau : le tableau d'affichage est la première chose de
+// la page, pas un bloc pose dessus. D'où le passage AU VOCABULAIRE NEUTRE —
+// `text-gray-900`, `border-gray-200/70`, `bg-[#F4F6FA]` — le seul que
+// styles/dark.css sache réécrire. Le blanc sur fond sombre qu'il employait
+// jusqu'ici ne se retournait pas : en thème clair il aurait fallu l'inverser
+// à la main, classe par classe, et il n'y a pas de main pour ça.
 //
 // CONSÉQUENCE ASSUMÉE : `bannerUrl` a disparu des propriétés. La bannière
 // d'un match n'a plus aucune surface d'affichage dans le produit — elle
@@ -66,7 +72,7 @@ export function TeamCrest({ name, logo }: { name: string; logo: string | null })
     );
   }
   return (
-    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center overflow-hidden border border-white/10 bg-white/5 sm:h-16 sm:w-16">
+    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 sm:h-16 sm:w-16">
       <span className="text-xl font-black sm:text-2xl">{name?.[0]?.toUpperCase() || "?"}</span>
     </div>
   );
@@ -96,21 +102,29 @@ function dateCourte(iso: string): string | null {
   return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 }
 
-/** Une équipe : son écusson, son nom, et le lien vers sa fiche. */
+/**
+ * Une équipe : son écusson et son nom, qui mène à sa fiche.
+ *
+ * Le lien était une ligne « Voir l'équipe » SOUS le nom. Elle disait deux
+ * fois la même chose — le nom d'une équipe est déjà ce sur quoi on clique
+ * pour la voir — et ajoutait une ligne à un bloc qu'on cherche à tenir sur
+ * un écran. Le nom porte le lien.
+ */
 function Camp({ side }: { side: HeroSide }) {
+  const nom = (
+    <h2 className="truncate text-[11px] font-black uppercase tracking-tight sm:text-sm">
+      {side.name}
+    </h2>
+  );
   return (
     <div className="min-w-0 text-center">
       <TeamCrest name={side.name} logo={side.logo} />
-      <h2 className="truncate text-[11px] font-black uppercase tracking-tight sm:text-sm">
-        {side.name}
-      </h2>
-      {side.href && (
-        <Link
-          href={side.href}
-          className="mt-1 inline-block text-[9px] font-black uppercase tracking-[0.12em] text-white/35 transition-colors hover:text-emerald-400 sm:text-[10px]"
-        >
-          Voir l&apos;équipe
+      {side.href ? (
+        <Link href={side.href} className="block min-w-0 transition-colors hover:text-emerald-700">
+          {nom}
         </Link>
+      ) : (
+        nom
       )}
     </div>
   );
@@ -168,12 +182,12 @@ export default function MatchHero({
       return (
         <span className="flex items-center gap-2">
           {periodLabel && (
-            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-400">
+            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-600">
               {periodLabel}
             </span>
           )}
           {clock && (
-            <span className="font-mono text-sm font-black leading-none text-emerald-500">
+            <span className="font-mono text-sm font-black leading-none text-emerald-600">
               {clock}
             </span>
           )}
@@ -182,14 +196,14 @@ export default function MatchHero({
     }
     if (status === "completed") {
       return (
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">
+        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
           {periodLabel || "Terminé"}
         </span>
       );
     }
     if (status === "cancelled") {
       return (
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-red-400">
+        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-red-600">
           Annulé
         </span>
       );
@@ -200,8 +214,8 @@ export default function MatchHero({
   return (
     <section
       // Collé au header et aux bords : `main` porte `p-3 lg:p-5`, on l'annule.
-      // Fond uni : voir l'en-tête du fichier.
-      className="relative -mx-3 -mt-3 bg-gray-950 text-white lg:-mx-5 lg:-mt-5"
+      // Même fond que `main` (voir ScoreShell), donc aucune couture visible.
+      className="relative -mx-3 -mt-3 bg-[#F4F6FA] text-gray-900 lg:-mx-5 lg:-mt-5"
     >
       <div className="mx-auto max-w-4xl px-4 pb-4 pt-3 sm:px-6 sm:pb-5">
         {/* Retour à gauche, actions à droite. */}
@@ -210,7 +224,7 @@ export default function MatchHero({
             <Link
               href={retour.href!}
               aria-label={`Retour vers ${retour.label}`}
-              className="flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 text-white/60 transition-colors hover:border-white/40 hover:text-white"
+              className="flex h-8 w-8 shrink-0 items-center justify-center border border-gray-200/70 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
             >
               <ArrowLeft size={15} />
             </Link>
@@ -225,7 +239,7 @@ export default function MatchHero({
                 type="button"
                 onClick={onShare}
                 aria-label="Partager ce match"
-                className="flex h-8 w-8 items-center justify-center border border-white/15 text-white/60 transition-colors hover:border-white/40 hover:text-white"
+                className="flex h-8 w-8 items-center justify-center border border-gray-200/70 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
               >
                 <Share2 size={14} />
               </button>
@@ -239,18 +253,18 @@ export default function MatchHero({
           {context.href ? (
             <Link
               href={context.href}
-              className="inline-flex items-center gap-0.5 text-[13px] font-black uppercase tracking-[0.06em] transition-colors hover:text-emerald-400"
+              className="inline-flex items-center gap-0.5 text-[13px] font-black uppercase tracking-[0.06em] transition-colors hover:text-emerald-700"
             >
               {context.label}
-              <ChevronRight size={13} className="shrink-0 text-white/30" />
+              <ChevronRight size={13} className="shrink-0 text-gray-300" />
             </Link>
           ) : (
             <span className="text-[13px] font-black uppercase tracking-[0.06em]">{context.label}</span>
           )}
           {context.sub && (
             <>
-              <span aria-hidden className="text-white/20">·</span>
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
+              <span aria-hidden className="text-gray-300">·</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
                 {context.sub}
               </span>
             </>
@@ -266,22 +280,22 @@ export default function MatchHero({
             {aCommence ? (
               <p className="flex items-baseline gap-2 font-display text-4xl font-black tabular-nums leading-none tracking-tight sm:gap-3 sm:text-6xl">
                 <span>{home.score ?? 0}</span>
-                <span className="text-white/25">–</span>
+                <span className="text-gray-300">–</span>
                 <span>{away.score ?? 0}</span>
               </p>
             ) : status === "cancelled" ? (
-              <p className="font-display text-4xl font-black leading-none text-white/20 sm:text-6xl">–</p>
+              <p className="font-display text-4xl font-black leading-none text-gray-200 sm:text-6xl">–</p>
             ) : (
               // Le coup d'envoi, à la place du « VS » : c'est ce qu'on vient
               // vérifier sur la fiche d'un match qui n'a pas commencé.
               <>
                 {relatif && (
-                  <span className="text-[10px] font-black uppercase tracking-[0.1em] text-emerald-400 sm:text-xs">
+                  <span className="text-[10px] font-black uppercase tracking-[0.1em] text-emerald-600 sm:text-xs">
                     {relatif}
                   </span>
                 )}
                 {time && <span className="text-base font-black leading-none sm:text-2xl">{time}</span>}
-                {!relatif && !time && <span className="font-black italic text-white/30">VS</span>}
+                {!relatif && !time && <span className="font-black italic text-gray-300">VS</span>}
               </>
             )}
 
@@ -296,20 +310,20 @@ export default function MatchHero({
 
         {/* Où, et quand si le centre ne le dit plus. Une ligne. */}
         {metaVisible && (
-          <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[11px] font-bold text-white/45">
+          <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[11px] font-bold text-gray-500">
             {lieu && (
               <span className="flex min-w-0 items-center gap-1">
                 <MapPin size={11} className="shrink-0" />
                 <span className="truncate">{lieu}</span>
               </span>
             )}
-            {lieu && quand && <span aria-hidden className="text-white/20">·</span>}
+            {lieu && quand && <span aria-hidden className="text-gray-300">·</span>}
             {quand && <span className="shrink-0">{quand}</span>}
           </p>
         )}
 
         {/* Le pronostic, sur une ligne. */}
-        {poll && <div className="mt-4 border-t border-white/10 pt-3">{poll}</div>}
+        {poll && <div className="mt-4 border-t border-gray-200/70 pt-3">{poll}</div>}
       </div>
     </section>
   );
