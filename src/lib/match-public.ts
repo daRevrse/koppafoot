@@ -30,6 +30,19 @@ export interface MatchPublic {
   /** L'écusson des deux camps, recopié sur le match (voir FirestoreMatch). */
   homeTeamLogo: string | null;
   awayTeamLogo: string | null;
+  /**
+   * LA BANNIÈRE, QUAND L'ORGANISATEUR EN A POSÉ UNE.
+   *
+   * C'est elle qu'on partage quand elle existe : quelqu'un l'a choisie pour
+   * CETTE affiche, et une image choisie bat une image calculée. L'affiche
+   * dessinée reste le repli, pour les matchs — la grande majorité — qui n'en
+   * ont pas.
+   *
+   * Seuls les matchs de compétition en portent une aujourd'hui : le champ est
+   * lu des deux côtés pour que la règle n'ait qu'une écriture, et le jour où
+   * un amical peut recevoir une bannière, il n'y a rien à rebrancher.
+   */
+  bannerUrl: string | null;
 }
 
 /**
@@ -39,6 +52,36 @@ export interface MatchPublic {
  * titre puis la description — et qu'une lecture Firestore par balise serait
  * payée sur chaque partage.
  */
+/**
+ * Les seuls hôtes d'où l'on accepte une bannière.
+ *
+ * MÊME RAISON QUE LE JOKER RETIRÉ DE next.config.ts. `banner_url` est un
+ * champ de document, et deux surfaces du serveur vont le CHERCHER : Satori,
+ * qui télécharge le `<img src>` de l'affiche d'aperçu, et la route qui sert
+ * l'image à partager. Une adresse arbitraire dans ce champ ferait donc
+ * émettre à notre serveur une requête vers où l'on veut — un service interne,
+ * une adresse de métadonnées d'instance — et nous rendrait le corps de la
+ * réponse. Les deux hôtes ci-dessous sont ceux du Storage du projet, les
+ * seuls que `uploadMatchBanner` puisse produire.
+ *
+ * Filtré ICI, à la lecture, et pas chez chaque appelant : c'est le seul
+ * endroit par où le champ entre dans le produit.
+ */
+const HOTES_BANNIERE = new Set([
+  "firebasestorage.googleapis.com",
+  "koppafoot.firebasestorage.app",
+]);
+
+function banniereSure(valeur: unknown): string | null {
+  if (typeof valeur !== "string" || !valeur) return null;
+  try {
+    const u = new URL(valeur);
+    return u.protocol === "https:" && HOTES_BANNIERE.has(u.hostname) ? valeur : null;
+  } catch {
+    return null;
+  }
+}
+
 export const getMatchPublic = cache(async (id: string): Promise<MatchPublic | null> => {
   try {
     const snap = await adminDb.collection("matches").doc(id).get();
@@ -58,6 +101,7 @@ export const getMatchPublic = cache(async (id: string): Promise<MatchPublic | nu
       format: d.format ?? "",
       homeTeamLogo: d.home_team_logo ?? null,
       awayTeamLogo: d.away_team_logo ?? null,
+      bannerUrl: banniereSure(d.banner_url),
     };
   } catch (err) {
     // Un aperçu manquant vaut mieux qu'une page en 500 : l'appelant retombe
@@ -111,6 +155,7 @@ export const getCompMatchPublic = cache(
         // même ce que resynchronise scripts/backfill-match-logos.ts.
         homeTeamLogo: d.home_team_logo ?? null,
         awayTeamLogo: d.away_team_logo ?? null,
+        bannerUrl: banniereSure(d.banner_url),
         format: "",
       };
     } catch (err) {

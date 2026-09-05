@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getCompMatchPublic } from "@/lib/match-public";
-import { AfficheDeMarque, AfficheDeMatch, etatDuMatch, TAILLE_OG } from "@/lib/og";
+import { AfficheBanniere, AfficheDeMarque, AfficheDeMatch, etatDuMatch, TAILLE_OG } from "@/lib/og";
 
 // ============================================
 // L'affiche d'un match de compétition.
@@ -25,6 +25,10 @@ export default async function Image({
   const { slug, mid } = await params;
   const match = await getCompMatchPublic(slug, mid);
   if (!match) return new ImageResponse(<AfficheDeMarque />, size);
+
+  // LA BANNIÈRE PASSE DEVANT. Quand l'organisateur en a posé une sur cette
+  // rencontre, elle EST l'affiche : il n'y a plus rien à dessiner.
+  if (match.bannerUrl) return new ImageResponse(<AfficheBanniere url={match.bannerUrl} />, size);
 
   const { texte, couleur } = etatDuMatch(match.status, match.date, match.time);
   const joue = match.status === "live" || match.status === "completed";
