@@ -18,6 +18,22 @@ const nextConfig: NextConfig = {
       // /live dans la barre du navigateur. Ici c'est un 308 avant tout rendu,
       // l'adresse suit.
       { source: "/matches/:id/live", destination: "/matches/:id", permanent: true },
+      // /evolution NE S'OUVRE PLUS DANS L'APPLICATION. Le choix du rôle se fait
+      // désormais sur la vitrine, sous les affiches qui expliquent chaque rôle,
+      // et on en revient sur le direct — voir components/roles/ChoixDuRole.
+      // La page qui vivait ici demandait de décider sur un écran qui ne
+      // racontait plus rien, la démonstration étant restée une page en arrière.
+      //
+      // La redirection, plutôt qu'une suppression sèche : cette adresse est
+      // partie dans des emails déjà envoyés et dans des campagnes de
+      // notifications, elle dort dans des favoris. Ici la réécriture a lieu
+      // avant tout rendu et le `?role=` suit — les redirections de la config
+      // reportent la chaîne de requête.
+      //
+      // Le fragment `#choisir` ne voyage PAS jusqu'au serveur : le navigateur
+      // le garde et le réapplique à l'arrivée, la destination le porte donc
+      // pour les rares clients qui ne le font pas.
+      { source: "/evolution", destination: "/roles#choisir", permanent: false },
     ];
   },
   images: {

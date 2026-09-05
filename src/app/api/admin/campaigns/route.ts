@@ -63,7 +63,7 @@ const CAMPAIGN_DEFAULTS: Record<
   sans_espace: {
     title: "Vous jouez, vous coachez, vous arbitrez ? ⚽",
     body: "Choisissez votre rôle pour ouvrir votre espace : effectif, feuilles de match, convocations.",
-    link: "/evolution",
+    link: "/roles#choisir",
   },
 };
 

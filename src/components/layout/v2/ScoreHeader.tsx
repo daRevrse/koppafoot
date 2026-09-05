@@ -587,20 +587,18 @@ export default function ScoreHeader() {
 
           {/* L'invitation a choisir un role, en jaune plein contraste : c'est
               le geste qui donne acces au reste du produit. Elle vaut pour un
-              visiteur (-> /roles, la page PUBLIQUE) comme pour un compte sans
-              role encore choisi (-> /evolution) — mais s'efface des qu'un
-              role est actif, remplacee plus loin par l'espace du compte
-              (EspaceMenu) : le sujet est alors traite, le repeter serait du
-              bruit. Meme regle qu'en bas d'un telephone, voir
-              MobileBottomNav. */}
+              visiteur comme pour un compte sans role encore choisi — meme
+              destination pour les deux — mais s'efface des qu'un role est
+              actif, remplacee plus loin par l'espace du compte (EspaceMenu) :
+              le sujet est alors traite, le repeter serait du bruit. Meme regle
+              qu'en bas d'un telephone, voir MobileBottomNav. */}
           {(!user || !user.evolutionRole) && (
             <Link
-              // TOUJOURS /roles, LA PAGE PUBLIQUE, y compris pour un compte
-              // connecté sans rôle. Elle envoyait les comptes directement sur
-              // /evolution, c'est-à-dire sur le formulaire : la vitrine qui
-              // EXPLIQUE les rôles ne recevait donc plus personne, alors que
-              // c'est précisément là qu'on décide. Elle porte son propre bouton
-              // vers /evolution pour qui a déjà choisi.
+              // LA VITRINE, ET C'EST TOUT CE QU'IL Y A. Le choix du rôle s'y
+              // fait désormais, sous les affiches qui l'expliquent : le
+              // formulaire de /evolution y a déménagé, et cette adresse ne
+              // s'ouvre plus. Un visiteur y trouve l'inscription, un compte sans
+              // rôle l'activation, et on repart sur le direct une fois choisi.
               href="/roles"
               className="flex shrink-0 items-center gap-2 border border-amber-300 bg-amber-300 px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-gray-900 transition-colors hover:border-white hover:bg-white"
             >

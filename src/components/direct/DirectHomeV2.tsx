@@ -24,6 +24,7 @@ import { onLiveFriendlies } from "@/lib/firestore";
 import { isWorldComp } from "@/lib/world-board-shared";
 import type { FootballCompetition } from "@/lib/football-data";
 import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
+import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 
 // ============================================
 // DirectHomeV2, the live-score home, a scores board rather than a timeline.
@@ -1516,6 +1517,11 @@ export default function DirectHomeV2({
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-3">
+      {/* « Pour bien démarrer », pour qui vient d'activer un rôle. Le composant
+          se tait de lui-même dès que la liste est finie — ou qu'il n'y a
+          personne à guider. */}
+      <GuideDeDemarrage />
+
       {/* Competition switcher, the board's own filter, under the chrome. */}
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

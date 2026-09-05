@@ -321,7 +321,7 @@ export function campaignSansEspaceHtml(firstName: string): string {
       Le choix se fait en un clic, et rien n'est définitif : on change de rôle
       quand on veut.
     </p>
-    ${ctaButton("Choisir mon rôle", `${APP_URL}/evolution`)}
+    ${ctaButton("Choisir mon rôle", `${APP_URL}/roles#choisir`)}
   `);
 }
 

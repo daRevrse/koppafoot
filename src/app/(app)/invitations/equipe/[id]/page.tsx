@@ -129,13 +129,16 @@ export default function TeamManagerInvitePage() {
                   ? "C'est officiel : tu es propriétaire et manager de cette équipe. 🎉"
                   : "Cette invitation a déjà été acceptée."}
               </p>
+              {/* Vers l'équipe, et non vers un « espace manager » : cette
+                  page-là n'existe plus, le choix du rôle ayant rejoint la
+                  vitrine. Ce qu'on vient d'obtenir, ce sont des équipes. */}
               {accepted && (
                 <Link
-                  href="/evolution"
+                  href="/teams"
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
                 >
                   <Briefcase size={15} />
-                  Ouvrir mon espace manager
+                  Voir mes équipes
                 </Link>
               )}
             </>

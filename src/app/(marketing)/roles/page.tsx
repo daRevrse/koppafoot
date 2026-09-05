@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import ChoixDuRole from "@/components/roles/ChoixDuRole";
 
 // ============================================
 // Les rôles, la page qui explique ce qu'on peut devenir ici.
@@ -10,10 +11,13 @@ import { ArrowRight } from "lucide-react";
 // Direct / Mercato / Tribune serait du mobilier pour un produit qu'il n'a pas
 // encore accepté d'utiliser.
 //
-// La route est /roles et non /evolution : ce dernier chemin est déjà celui du
-// sélecteur de rôle, côté connecté. Deux groupes de routes ne peuvent pas
-// servir la même URL, et c'est tant mieux, la vitrine et l'outil ne sont pas
-// la même page.
+// LE CHOIX SE FAIT ICI, DÉSORMAIS, et plus derrière la porte. Le sélecteur
+// vivait sur /evolution, côté connecté, et cette page se contentait de l'y
+// renvoyer : elle expliquait les rôles à quelqu'un qu'elle envoyait décider
+// ailleurs, sur un écran qui, lui, ne les expliquait plus. Les deux moitiés
+// sont réunies — on lit ce que chaque rôle donne, on choisit dessous, et on
+// repart sur le direct. L'ancienne adresse ne s'ouvre plus dans l'app, elle
+// ramène ici.
 //
 // Cette page ne parle que des ROLES : ce qu'on est sur le terrain, un seul a
 // la fois. Joueur, manager, arbitre.
@@ -142,8 +146,10 @@ export default function RolesPage() {
             terrain, et tu peux en changer sans rien perdre.
           </p>
 
+          {/* Une ancre, et plus un lien vers ailleurs : ce que ce bouton
+              promet est deux sections plus bas, sur cette page. */}
           <Link
-            href="/evolution"
+            href="#choisir"
             className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-amber-400 sm:px-12 sm:py-9"
           >
             <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
@@ -182,15 +188,17 @@ export default function RolesPage() {
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600">
             On crée le compte d&apos;abord, on choisit ensuite, et on peut en
-            activer un second sans en perdre un.
+            changer sans rien perdre.
           </p>
-          <Link
-            href="/evolution"
-            className="mt-10 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-8 py-5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
-          >
-            Choisir mon rôle
-            <ArrowRight size={16} />
-          </Link>
+
+          {/* LE GESTE, ET NON UN LIEN VERS LE GESTE. Cette section renvoyait
+              ailleurs ; elle porte maintenant le choix lui-même, qui sait à
+              qui il parle : l'inscription pour un visiteur, le formulaire
+              d'activation pour un compte, et le retour au direct une fois le
+              rôle actif. */}
+          <div className="mt-12">
+            <ChoixDuRole />
+          </div>
         </div>
       </section>
     </>

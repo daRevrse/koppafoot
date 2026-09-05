@@ -122,7 +122,7 @@ export default function SignupPage() {
         // Google cree le compte sans passer par notre formulaire : le role ne
         // peut pas y etre pose. On le transporte jusqu'a l'ecran qui sait
         // l'activer, qui l'appliquera sans reposer la question.
-        router.push(roleChoisi ? `/evolution?role=${roleChoisi}` : "/get-started");
+        router.push(roleChoisi ? `/roles?role=${roleChoisi}#choisir` : "/get-started");
         return;
       }
       toast.success("Connexion réussie");

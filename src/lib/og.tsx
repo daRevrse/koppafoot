@@ -148,6 +148,42 @@ export function AfficheDeMatch({
   );
 }
 
+/**
+ * LA BANNIÈRE DU MATCH, QUAND IL Y EN A UNE.
+ *
+ * Elle passe devant l'affiche dessinée, et c'est le bon ordre : un
+ * organisateur qui prend la peine d'en poser une a choisi ce qu'il veut
+ * montrer de sa rencontre. Ce que `AfficheDeMatch` sait faire — deux noms,
+ * un score, un lieu — reste le repli des matchs qui n'ont rien à montrer,
+ * c'est-à-dire presque tous.
+ *
+ * RECADRÉE, PAS DÉFORMÉE. `size` d'une image d'aperçu est déclaré en dur
+ * dans les balises `og:image:width/height` : servir l'original tel quel
+ * ferait mentir ces balises à chaque bannière d'un autre format. On la pose
+ * donc en `cover` dans le cadre annoncé — c'est exactement ce que WhatsApp
+ * et Facebook feraient eux-mêmes, mais fait ici, où l'on sait ce qui compte
+ * dans l'image.
+ *
+ * Le fond sombre derrière n'est pas décoratif : une bannière transparente ou
+ * qui échoue à se charger laisserait sinon un rectangle blanc, qui se lit
+ * comme un lien cassé.
+ */
+export function AfficheBanniere({ url }: { url: string }) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        backgroundColor: FOND_KOPPA,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" width="100%" height="100%" style={{ objectFit: "cover" }} />
+    </div>
+  );
+}
+
 /** L'écusson d'un camp, ou son initiale quand le club n'en a pas. */
 function Ecusson({ nom, logo, taille }: { nom: string; logo: string | null; taille: number }) {
   const commun = {

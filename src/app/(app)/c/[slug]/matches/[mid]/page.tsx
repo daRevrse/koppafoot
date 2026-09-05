@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import {
   History, Loader2, SearchX, Users,
@@ -108,6 +108,43 @@ export default function PublicCompMatchView() {
     };
   }, [slug, mid]);
 
+  /**
+   * L'IMAGE DU MATCH, TÉLÉCHARGÉE D'AVANCE.
+   *
+   * `navigator.share` exige une activation utilisateur fraîche : aller
+   * chercher l'image au moment du clic la consomme, et le partage est refusé
+   * sans rien dire (voir lib/partage). On la prépare donc dès que l'adresse
+   * du match est connue, et le bouton n'a plus qu'à la tendre.
+   *
+   * C'est la bannière quand l'organisateur en a posé une, l'affiche dessinée
+   * sinon — la route tranche, la page n'a pas à savoir laquelle elle tient.
+   *
+   * Un `ref` et non un état : sa présence ne change rien à l'écran.
+   */
+  const afficheDuMatch = useRef<File | null>(null);
+
+  // Préparée pendant qu'on lit la fiche, et silencieuse en cas d'échec : le
+  // partage retombe alors sur le lien seul, ce qu'il a toujours fait ici. Une
+  // image manquante ne doit pas coûter le partage.
+  useEffect(() => {
+    if (!slug || !mid) return;
+    let vivant = true;
+    afficheDuMatch.current = null;
+    (async () => {
+      try {
+        const reponse = await fetch(`/api/c/${slug}/matches/${mid}/affiche`);
+        if (!reponse.ok) return;
+        const image = await reponse.blob();
+        if (!vivant) return;
+        const ext = image.type === "image/png" ? "png" : (image.type.split("/")[1] || "png");
+        afficheDuMatch.current = new File([image], `koppafoot-${mid}.${ext}`, { type: image.type });
+      } catch {
+        // Hors ligne, ou route indisponible : on partagera le lien seul.
+      }
+    })();
+    return () => { vivant = false; };
+  }, [slug, mid]);
+
   // Classement et face-a-face : deux lectures de la competition entiere, donc
   // branchees seulement une fois l'identifiant resolu.
   useEffect(() => {
@@ -205,6 +242,9 @@ export default function PublicCompMatchView() {
       title: affiche,
       text: texte,
       url: lienAbsolu(`/c/${compSlug}/matches/${match.id}`),
+      // Préparée au chargement, voir plus haut : la chercher ici coûterait
+      // l'activation utilisateur, donc le partage lui-même.
+      fichier: afficheDuMatch.current,
     });
     if (resultat === "copie") toast.success("Lien du match copié !");
     else if (resultat === "echec") toast.error("Le partage a échoué.");
