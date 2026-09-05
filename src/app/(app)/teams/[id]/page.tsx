@@ -5,8 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Shield, MapPin, Users, Star, ChevronLeft, Settings, BarChart3,
-  Trash2, UserMinus, UserPlus, Edit3, X, Check,
+  Shield, MapPin, Users, Star, ChevronLeft, Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
   Heart, Plus, Camera, UserCheck, BarChart2, ShieldCheck,
@@ -68,7 +67,7 @@ const POSITION_COLORS: Record<string, string> = {
   midfielder: "bg-emerald-100 text-emerald-700", forward: "bg-amber-100 text-amber-700",
 };
 
-type ActiveTab = "roster" | "matches" | "stats" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
+type ActiveTab = "apropos" | "roster" | "matches" | "stats" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
 
 // ============================================
 // Edit Team Modal
@@ -1409,7 +1408,7 @@ export default function TeamDetailPage() {
         className="group relative overflow-hidden border border-gray-200/70 bg-white"
       >
         {/* Banner with gradient overlay */}
-        <div className="relative h-28 w-full overflow-hidden sm:h-56">
+        <div className="relative h-40 w-full overflow-hidden sm:h-72">
           {team.bannerUrl ? (
             <img src={team.bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
           ) : (
@@ -1484,20 +1483,11 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-        <div className="p-3 sm:p-6">
-          {/* Description */}
-          {team.description && (
-            <div className="mb-5 sm:mb-8">
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">À propos</h3>
-              <p className="text-sm leading-relaxed text-gray-600 italic">&ldquo;{team.description}&rdquo;</p>
-            </div>
-          )}
-
-          {/* Les chiffres ne sont plus ici : ils avaient pris le bas de la
-              carte d'identite de l'equipe pour dire quatre nombres qu'on ne
-              lit pas en arrivant. Ils ont leur onglet, juste apres le
-              « A propos ». */}
-        </div>
+        {/* LE « À PROPOS » A SUIVI LES CHIFFRES DANS UN ONGLET.
+            Il occupait le bas de la carte d'identité pour une phrase qu'on lit
+            une fois — celle du jour où l'on découvre le club — et qu'on
+            traverse à chaque visite ensuite. La carte n'a plus de pied : la
+            bannière reprend la hauteur ainsi libérée. */}
       </motion.div>
 
       {/* Tabs */}
@@ -1507,15 +1497,24 @@ export default function TeamDetailPage() {
         transition={{ duration: 0.3, delay: 0.1 }}
         className="flex overflow-x-auto border-b border-gray-200/70 scrollbar-hide"
       >
+        {/* DES TITRES, SANS ICÔNE. Une horloge à côté de « Entraînements » ou
+            une coupe à côté de « Palmarès » ne disent rien que le mot ne dise
+            déjà, et prennent la place qui manque à une rangée qui défile —
+            huit onglets sur 375 pixels.
+
+            « À propos » ouvre la liste : il porte l'identité du club, qui
+            vivait jusqu'ici en haut de page. L'onglet ouvert par défaut reste
+            l'effectif, qui est ce qu'on vient voir. */}
         {[
-          { id: "roster", label: "Effectif", icon: Users, count: members.length },
-          { id: "matches", label: "Matchs", icon: Calendar, count: visibleMatchCount },
-          { id: "stats", label: "Stats", icon: BarChart3, count: 0 },
-          { id: "trainings", label: "Entraînements", icon: Dumbbell, count: 0 },
-          { id: "palmares", label: "Palmarès", icon: Trophy, count: (team.achievements ?? []).length },
-          { id: "gallery", label: "Galerie", icon: Image, count: (team.galleryUrls ?? []).length },
-          ...(isTeamManager ? [{ id: "candidatures", label: "Candidatures", icon: ClipboardList, count: pendingCount, isBadge: true }] : []),
-          ...(isTeamManager ? [{ id: "settings", label: "Paramètres", icon: Settings, count: 0 }] : []),
+          { id: "apropos", label: "À propos", count: 0 },
+          { id: "roster", label: "Effectif", count: members.length },
+          { id: "matches", label: "Matchs", count: visibleMatchCount },
+          { id: "stats", label: "Stats", count: 0 },
+          { id: "trainings", label: "Entraînements", count: 0 },
+          { id: "palmares", label: "Palmarès", count: (team.achievements ?? []).length },
+          { id: "gallery", label: "Galerie", count: (team.galleryUrls ?? []).length },
+          ...(isTeamManager ? [{ id: "candidatures", label: "Candidatures", count: pendingCount, isBadge: true }] : []),
+          ...(isTeamManager ? [{ id: "settings", label: "Paramètres", count: 0 }] : []),
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1524,7 +1523,6 @@ export default function TeamDetailPage() {
               activeTab === tab.id ? "border-gray-900 text-emerald-700" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}
           >
-            <tab.icon size={16} />
             {tab.label}
             {tab.count > 0 && (
               <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
@@ -1540,6 +1538,28 @@ export default function TeamDetailPage() {
           </button>
         ))}
       </motion.div>
+
+      {/* ===================== ONGLET : À PROPOS ===================== */}
+      {activeTab === "apropos" && (
+        <div className="mt-5 border border-gray-200/70 bg-white p-5 sm:p-6">
+          {team.description ? (
+            <>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
+                À propos
+              </h3>
+              <p className="mt-3 text-sm italic leading-relaxed text-gray-600">
+                &ldquo;{team.description}&rdquo;
+              </p>
+            </>
+          ) : (
+            <p className="py-8 text-center text-sm text-gray-400">
+              {isTeamManager
+                ? "Cette équipe n'a pas encore de présentation. Ajoutez-en une dans les paramètres."
+                : "Cette équipe n'a pas encore de présentation."}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ===================== TAB: ROSTER ===================== */}
       {activeTab === "roster" && (
