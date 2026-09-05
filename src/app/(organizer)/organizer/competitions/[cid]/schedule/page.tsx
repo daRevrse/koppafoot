@@ -1139,8 +1139,8 @@ export default function CompetitionSchedulePage() {
                 file={bannerFile}
                 onFile={setBannerFile}
                 aspect="wide"
-                maxMb={5}
-                hint="Affichée sur la carte du match et le centre de match"
+                maxMb={10}
+                hint="Affichée sur la carte du match. Réduite automatiquement."
               />
 
               <div className="mt-5 flex justify-between gap-3">

@@ -457,8 +457,8 @@ export default function CompetitionDashboardPage() {
                   file={fLogoFile}
                   onFile={setFLogoFile}
                   aspect="square"
-                  maxMb={2}
-                  hint="PNG, JPG ou WebP · 2 Mo max"
+                  maxMb={10}
+                  hint="Réduite et convertie en WebP automatiquement"
                 />
                 <ImageUploadField
                   label="Bannière"
@@ -467,7 +467,7 @@ export default function CompetitionDashboardPage() {
                   file={fBannerFile}
                   onFile={setFBannerFile}
                   aspect="wide"
-                  maxMb={5}
+                  maxMb={10}
                   hint="Affichée en haut de la page compétition"
                 />
 

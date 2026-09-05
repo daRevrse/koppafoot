@@ -30,17 +30,22 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "koppafoot.firebasestorage.app",
       },
-      // Competition team logos / flags + competition logo/banner are organizer-entered
-      // free-text URLs from arbitrary hosts, so next/image would otherwise hard-crash the
-      // public pages on an unconfigured hostname. Allow any HTTPS host for these.
-      // TRADEOFF: this opens the Next image optimizer to fetch arbitrary https URLs
-      // (open-proxy/SSRF surface). Acceptable short-term since logos are organizer-entered
-      // (a promoted role), but should be hardened — see follow-up (switch these crests to
-      // plain <img>, or require Firebase Storage uploads).
-      {
-        protocol: "https",
-        hostname: "**",
-      },
+      // LE JOKER `hostname: "**"` A ÉTÉ RETIRÉ, et avec lui un proxy ouvert.
+      //
+      // Il était là parce que logos et bannières pouvaient être des URL libres,
+      // saisies par un organisateur : sans lui, next/image plantait sur un hôte
+      // non déclaré. Le prix était d'ouvrir l'optimiseur d'images à n'importe
+      // quelle adresse https — une surface SSRF que le commentaire d'origine
+      // signalait déjà comme à durcir.
+      //
+      // Le champ « coller une URL » a disparu de ImageUploadField, donc toute
+      // image passe désormais par Firebase Storage. Vérifié avant de couper :
+      // sur les 36 URL d'images de la base, ZÉRO pointait ailleurs, et le
+      // `photoURL` renvoyé par Google n'est jamais stocké (AuthContext écrit
+      // `profile_picture_url: null` à la création).
+      //
+      // Conséquence heureuse : les médias peuvent repasser par next/image, ce
+      // que 71 `<img>` avec `eslint-disable` évitaient jusqu'ici.
     ],
   },
 };

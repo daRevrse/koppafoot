@@ -350,6 +350,7 @@ function toVenue(id: string, d: FirestoreVenue): Venue {
     rating: d.rating ?? 0, reviewCount: d.review_count ?? 0,
     pricePerHour: d.price_per_hour ?? 0, amenities: d.amenities ?? [],
     available: d.available ?? true, photoUrl: d.photo_url ?? null,
+    galleryUrls: d.gallery_urls ?? [],
     createdAt: d.created_at, updatedAt: d.updated_at,
   };
 }
@@ -3016,6 +3017,7 @@ export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "update
     amenities: data.amenities,
     available: data.available,
     photo_url: data.photoUrl,
+    gallery_urls: data.galleryUrls ?? [],
     rating: 0,
     review_count: 0,
     created_at: serverTimestamp(),
@@ -3036,6 +3038,8 @@ export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id
   if (data.amenities) updates.amenities = data.amenities;
   if (data.available !== undefined) updates.available = data.available;
   if (data.photoUrl !== undefined) updates.photo_url = data.photoUrl;
+  // `[]` est une valeur légitime : c'est ainsi qu'on vide une galerie.
+  if (data.galleryUrls !== undefined) updates.gallery_urls = data.galleryUrls;
 
   updates.updated_at = serverTimestamp();
   await updateDoc(doc(db, "venues", venueId), updates);

@@ -173,8 +173,8 @@ export default function NewCompetitionPage() {
               file={logoFile}
               onFile={setLogoFile}
               aspect="square"
-              maxMb={2}
-              hint="PNG, JPG ou WebP · 2 Mo max"
+              maxMb={10}
+              hint="Réduite et convertie en WebP automatiquement"
             />
             <ImageUploadField
               label="Bannière (optionnel)"
@@ -183,7 +183,7 @@ export default function NewCompetitionPage() {
               file={bannerFile}
               onFile={setBannerFile}
               aspect="wide"
-              maxMb={5}
+              maxMb={10}
               hint="Affichée en haut de la page compétition"
             />
           </div>
