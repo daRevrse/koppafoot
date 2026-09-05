@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, MessagesSquare, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin, Radio,
+  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin, Radio,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -96,7 +96,7 @@ const ENTRIES: NavEntry[] = [
  * door onto an empty room, and the rail behind it spent every page load
  * failing to read authors. Signed in, it takes its place in the menu.
  */
-const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: MessagesSquare };
+const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: MessageCircle };
 
 // The sidebar's role destinations, now reached from the avatar menu.
 
@@ -662,7 +662,7 @@ export default function ScoreHeader() {
                 : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
                 }`}
             >
-              <MessagesSquare size={22} />
+              <MessageCircle size={22} />
             </Link>
           )}
 

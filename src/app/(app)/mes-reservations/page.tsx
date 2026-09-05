@@ -148,10 +148,7 @@ export default function MyBookingsPage() {
             Chercher un terrain
           </LienBouton>
         }
-      >
-        Les créneaux que vous avez demandés. Le propriétaire confirme ou
-        refuse, et vous êtes prévenu dès qu&apos;il répond.
-      </Panneau>
+      />
 
       <div className="mt-6">
         {demandes === null ? (
