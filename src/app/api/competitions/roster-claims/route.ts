@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Roster claims, a player says "this line of the roster is me", and the
@@ -45,7 +46,7 @@ async function isStaffOf(uid: string, cid: string, teamId: string): Promise<bool
   if (teamSnap.exists && teamSnap.data()?.claimed_by_manager_id === uid) return true;
 
   const callerDoc = await adminDb.collection("users").doc(uid).get();
-  return callerDoc.exists && callerDoc.data()?.user_type === "superadmin";
+  return callerDoc.exists && estSuperadmin(callerDoc.data());
 }
 
 function toClaimJson(id: string, x: FirebaseFirestore.DocumentData) {

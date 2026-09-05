@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { importClubRoster } from "@/lib/club-import-server";
 import type { FirestoreCompetition } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Import a manager's club squad into their competition team.
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     let isSuperadmin = false;
     if (!isOrganizer) {
       const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      isSuperadmin = callerDoc.exists && callerDoc.data()?.user_type === "superadmin";
+      isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
     }
     if (!((isTeamManager && isClubManager) || isOrganizer || isSuperadmin)) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });

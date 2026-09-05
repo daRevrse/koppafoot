@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, MapPin, Share2 } from "lucide-react";
 import TirsAuBut from "./TirsAuBut";
 
@@ -36,7 +37,15 @@ import TirsAuBut from "./TirsAuBut";
 //
 // LE FIL D'ARIANE EST DEVENU UN BOUTON RETOUR. Trois libellés tronqués sur
 // 375 pixels apprenaient moins qu'une flèche, et coûtaient une ligne pleine
-// largeur. La destination reste celle du fil : son dernier niveau cliquable.
+// largeur.
+//
+// IL REVIENT SUR SES PAS, il ne monte pas d'un cran. Il menait au parent du
+// fil — /matches pour un amical — et envoyait donc un JOUEUR arrivé depuis le
+// Direct sur une page faite pour les managers, qu'il n'avait jamais demandée.
+// Un bouton retour promet l'écran d'avant, pas un rangement théorique.
+//
+// Le parent reste le repli, et il compte : une fiche ouverte depuis un lien
+// partagé n'a pas d'historique où revenir.
 // ============================================
 
 export type HeroStatus =
@@ -161,6 +170,7 @@ export default function MatchHero({
   fil, context, status, home, away, date, time, venueName, venueCity,
   periodLabel, clock, penaltyHome, penaltyAway, badges, poll, suivre, onShare,
 }: Props) {
+  const router = useRouter();
   const isLive = status === "live";
   // Un match à venir n'a pas de score : « 0 » se lit comme un 0-0 en cours.
   const aCommence = status === "live" || status === "completed";
@@ -172,9 +182,16 @@ export default function MatchHero({
   const quand = aCommence && date ? [dateCourte(date), time].filter(Boolean).join(" · ") : null;
   const metaVisible = Boolean(lieu || quand);
 
-  // Le retour : le dernier niveau du fil qui porte une adresse. Sur une fiche
-  // de compétition c'est la compétition, sur un amical la liste des matchs.
+  // Le repli du retour : le dernier niveau du fil qui porte une adresse.
   const retour = [...fil].reverse().find((f) => f.href);
+
+  const revenir = () => {
+    // `history.length > 1` distingue une navigation interne d'une arrivée
+    // directe (lien partagé, onglet neuf), où `back()` sortirait du site.
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else if (retour?.href) router.push(retour.href);
+    else router.push("/");
+  };
 
   /** Ce qui se lit sous le score : la période, le chrono, l'état. */
   const etat = () => {
@@ -220,17 +237,14 @@ export default function MatchHero({
       <div className="mx-auto max-w-4xl px-4 pb-4 pt-3 sm:px-6 sm:pb-5">
         {/* Retour à gauche, actions à droite. */}
         <div className="flex items-center justify-between gap-2">
-          {retour ? (
-            <Link
-              href={retour.href!}
-              aria-label={`Retour vers ${retour.label}`}
-              className="flex h-8 w-8 shrink-0 items-center justify-center border border-gray-200/70 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
-            >
-              <ArrowLeft size={15} />
-            </Link>
-          ) : (
-            <span aria-hidden />
-          )}
+          <button
+            type="button"
+            onClick={revenir}
+            aria-label="Revenir à l'écran précédent"
+            className="flex h-8 w-8 shrink-0 items-center justify-center border border-gray-200/70 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+          >
+            <ArrowLeft size={15} />
+          </button>
 
           <div className="flex shrink-0 items-center gap-1.5">
             {suivre}

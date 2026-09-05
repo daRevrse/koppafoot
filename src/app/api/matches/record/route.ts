@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Renseigner un match DÉJÀ JOUÉ.
@@ -368,7 +369,7 @@ export async function DELETE(req: NextRequest) {
   let autorise = m.manager_id === callerUid || (await peutGererEquipeServeur(equipeReelle, callerUid));
   if (!autorise) {
     const caller = await adminDb.collection("users").doc(callerUid).get();
-    autorise = caller.exists && caller.data()?.user_type === "superadmin";
+    autorise = caller.exists && estSuperadmin(caller.data());
   }
   if (!autorise) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 

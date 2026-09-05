@@ -595,7 +595,13 @@ export default function ScoreHeader() {
               MobileBottomNav. */}
           {(!user || !user.evolutionRole) && (
             <Link
-              href={user ? "/evolution" : "/roles"}
+              // TOUJOURS /roles, LA PAGE PUBLIQUE, y compris pour un compte
+              // connecté sans rôle. Elle envoyait les comptes directement sur
+              // /evolution, c'est-à-dire sur le formulaire : la vitrine qui
+              // EXPLIQUE les rôles ne recevait donc plus personne, alors que
+              // c'est précisément là qu'on décide. Elle porte son propre bouton
+              // vers /evolution pour qui a déjà choisi.
+              href="/roles"
               className="flex shrink-0 items-center gap-2 border border-amber-300 bg-amber-300 px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-gray-900 transition-colors hover:border-white hover:bg-white"
             >
               <Rocket size={16} />

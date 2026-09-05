@@ -5,6 +5,7 @@ import {
   publishOfficialPost, getTribuneIdentity, setTribuneIdentity, storeTribuneAvatar,
 } from "@/lib/tribune-server";
 import { SYSTEM_AUTHOR_ID } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * The superadmin's own voice in the Tribune.
@@ -27,7 +28,7 @@ async function superadminUidOf(req: NextRequest): Promise<string | null> {
   try {
     const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
     const doc = await adminDb.collection("users").doc(decoded.uid).get();
-    return doc.data()?.user_type === "superadmin" ? decoded.uid : null;
+    return estSuperadmin(doc.data()) ? decoded.uid : null;
   } catch {
     return null;
   }

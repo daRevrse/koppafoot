@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { FirestoreCompetition } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Shared auth + authorization for both handlers.
@@ -47,7 +48,7 @@ async function authorize(
   let isSuperadmin = false;
   if (!isOrganizer) {
     const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-    isSuperadmin = callerDoc.exists && callerDoc.data()?.user_type === "superadmin";
+    isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
   }
   if (!isOrganizer && !isSuperadmin) {
     return { error: NextResponse.json({ error: "Accès refusé" }, { status: 403 }) };

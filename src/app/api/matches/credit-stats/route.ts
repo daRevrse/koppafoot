@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch, FirestoreParticipation } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * POST { matchId } — attribuer les statistiques d'un amical joué contre une
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     (await peutGererEquipeServeur(realTeamId, callerUid));
   if (!autorise) {
     const caller = await adminDb.collection("users").doc(callerUid).get();
-    autorise = caller.exists && caller.data()?.user_type === "superadmin";
+    autorise = caller.exists && estSuperadmin(caller.data());
   }
   if (!autorise) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });

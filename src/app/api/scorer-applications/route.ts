@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Les candidatures de scoreur.
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
     }
     const u = userSnap.data()!;
-    if (u.is_scorer === true || u.user_type === "superadmin") {
+    if (u.is_scorer === true || estSuperadmin(u)) {
       return NextResponse.json({ error: "Tu es déjà scoreur." }, { status: 409 });
     }
 
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
     if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const callerSnap = await adminDb.collection("users").doc(uid).get();
-    const isSuperadmin = callerSnap.exists && callerSnap.data()?.user_type === "superadmin";
+    const isSuperadmin = callerSnap.exists && estSuperadmin(callerSnap.data());
 
     const base = adminDb.collection("scorer_applications");
     const snap = isSuperadmin
