@@ -8,7 +8,7 @@ import {
   Shield, MapPin, Users, Star, ChevronLeft, Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
-  Heart, Plus, Camera, UserCheck, BarChart2, ShieldCheck,
+  Plus, Camera, UserCheck, BarChart2, ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1416,28 +1416,45 @@ export default function TeamDetailPage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
           
-          {/* Top Actions overlay */}
+          {/* LES DEUX BOUTONS DU COIN, REMIS D'APLOMB.
+              Ils étaient ronds, floutés et peints en `bg-white/90` — une
+              opacité que la refonte sombre ne remappe pas, alors que le
+              `text-gray-900` posé dessus, lui, l'est : en thème sombre le
+              libellé passait clair sur fond blanc, donc invisible. Ils sont
+              maintenant carrés et pleins, dans le vocabulaire du reste, et le
+              bouton « Suivre » montre enfin qu'il travaille. */}
           <div className="absolute right-4 top-4 flex gap-2">
-             {!isTeamManager && (
-                <button onClick={handleFollowToggle} disabled={followLoading}
-                  className={`flex items-center gap-1.5 rounded-full backdrop-blur-md px-4 py-2 text-xs font-bold transition-all ${
-                    isFollowing 
-                      ? "bg-emerald-500/90 text-white" 
-                      : "bg-white/90 text-gray-900 hover:bg-white"
-                  }`}>
-                  <Heart size={14} className={isFollowing ? "fill-current" : ""} />
-                  {isFollowing ? "Suivi" : "Suivre"}
-                </button>
-              )}
-              {isTeamManager && (
-                <button onClick={() => setShowEditModal(true)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-900 backdrop-blur-md transition-all hover:bg-white">
-                  <Edit3 size={16} />
-                </button>
-              )}
+            {!isTeamManager && (
+              <button
+                type="button"
+                onClick={handleFollowToggle}
+                disabled={followLoading}
+                aria-pressed={isFollowing}
+                className={`flex items-center gap-2 border px-3.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition-colors disabled:opacity-60 ${
+                  isFollowing
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-900 bg-white text-gray-900 hover:bg-gray-900 hover:text-white"
+                }`}
+              >
+                {followLoading
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
+                {isFollowing ? "Suivi" : "Suivre"}
+              </button>
+            )}
+            {isTeamManager && (
+              <button
+                type="button"
+                onClick={() => setShowEditModal(true)}
+                aria-label="Modifier l'équipe"
+                className="flex h-9 w-9 items-center justify-center border border-gray-900 bg-white text-gray-900 transition-colors hover:bg-gray-900 hover:text-white"
+              >
+                <Edit3 size={16} />
+              </button>
+            )}
           </div>
 
-          {/* Bottom Header Info (Glassmorphism Effect) */}
+          {/* Bas de bannière : l'écusson, le nom, la devise. Rien d'autre. */}
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
             <div className="flex items-end gap-5">
               <div className="relative shrink-0">
@@ -1448,36 +1465,26 @@ export default function TeamDetailPage() {
                     ? <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
                     : <Shield size={40} className={colors.icon} />}
                 </div>
-                {team.isRecruiting && (
-                  <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white">
-                    <UserPlus size={12} />
-                  </div>
-                )}
+                {/* PLUS DE PASTILLE « + » SUR L'ÉCUSSON. Elle disait que
+                    l'équipe recrute, mais un rond vert marqué d'un plus, collé
+                    au logo et posé juste sous un bouton « Suivre », se lit
+                    comme un second bouton d'abonnement — et cette page n'offre
+                    aucun formulaire de candidature pour le démentir. Le
+                    recrutement se dit maintenant en toutes lettres, dans
+                    l'onglet À propos. */}
               </div>
               <div className="mb-1 flex-1 text-white">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-black tracking-tight sm:text-3xl font-display uppercase">{team.name}</h1>
-                  {(
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
-                      team.level === "advanced" ? "bg-red-500/80" :
-                      team.level === "intermediate" ? "bg-amber-500/80" :
-                      "bg-blue-500/80"
-                    }`}>
-                      {LEVEL_LABELS[team.level] ?? team.level}
-                    </span>
-                  )}
-                </div>
-                {team.slogan && <p className="mt-1 text-sm font-medium opacity-90 italic">«&nbsp;{team.slogan}&nbsp;»</p>}
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold opacity-80 sm:gap-4">
-                  {team.city && (
-                    <span className="flex items-center gap-1.5"><MapPin size={14} className="text-gray-400" /> {team.city}</span>
-                  )}
-                  <span className="flex items-center gap-1.5">
-                    <Users size={14} className="text-blue-400" />
-                    {`${squadCount}/${team.maxMembers} joueurs`}
-                  </span>
-                  <span className="flex items-center gap-1.5"><Heart size={14} className="text-red-400" /> {team.followersCount ?? 0} abonnés</span>
-                </div>
+                <h1 className="font-display text-lg font-black uppercase tracking-tight sm:text-3xl">{team.name}</h1>
+                {team.slogan && <p className="mt-1 text-sm font-medium italic opacity-90">&laquo;&nbsp;{team.slogan}&nbsp;&raquo;</p>}
+                {/* VILLE, NIVEAU ET ABONNÉS SONT DESCENDUS DANS L'ONGLET.
+                    Ils se lisaient en blanc sur une photo qu'on ne choisit
+                    pas : d'une bannière à l'autre, la ligne passait du lisible
+                    à l'illisible, et un niveau qui compte mérite mieux qu'une
+                    pastille posée sur un ciel clair.
+
+                    L'EFFECTIF, LUI, NE REVIENT NULLE PART : « 12/25 joueurs »
+                    est déjà compté sur l'onglet du même nom, à trois
+                    centimètres de là. */}
               </div>
             </div>
           </div>
@@ -1541,24 +1548,61 @@ export default function TeamDetailPage() {
 
       {/* ===================== ONGLET : À PROPOS ===================== */}
       {activeTab === "apropos" && (
-        <div className="mt-5 border border-gray-200/70 bg-white p-5 sm:p-6">
-          {team.description ? (
-            <>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
-                À propos
-              </h3>
-              <p className="mt-3 text-sm italic leading-relaxed text-gray-600">
-                &ldquo;{team.description}&rdquo;
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-5 space-y-5"
+        >
+          {/* LA CARTE D'IDENTITÉ, RECUEILLIE DE LA BANNIÈRE.
+              En liste et non en grille : « Intermédiaire » ne tient pas dans
+              un tiers de 375 pixels, et une grille de trois cases laisse une
+              case grise vide dès qu'elle repasse sur deux colonnes.
+
+              Le recrutement n'apparaît que s'il est ouvert. Écrire « fermé »
+              à toutes les autres équipes serait bavard : l'absence de la ligne
+              dit déjà la même chose. */}
+          <dl className="divide-y divide-gray-200/70 border border-gray-200/70 bg-white">
+            {[
+              { cle: "ville", Icone: MapPin, label: "Ville", valeur: team.city || "Non renseignée", ton: team.city ? "text-gray-900" : "text-gray-400" },
+              { cle: "niveau", Icone: BarChart2, label: "Niveau", valeur: LEVEL_LABELS[team.level] ?? team.level, ton: "text-gray-900" },
+              { cle: "abonnes", Icone: UserCheck, label: "Abonnés", valeur: String(team.followersCount ?? 0), ton: "text-gray-900" },
+              ...(team.isRecruiting
+                ? [{ cle: "recrutement", Icone: UserPlus, label: "Recrutement", valeur: "Ouvert", ton: "text-emerald-700" }]
+                : []),
+            ].map(({ cle, Icone, label, valeur, ton }) => (
+              <div key={cle} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
+                  <Icone size={14} className="text-gray-300" />
+                  {label}
+                </dt>
+                <dd className={`text-sm font-semibold tabular-nums ${ton}`}>{valeur}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {/* Le bloc s'appelle « Présentation » et non « À propos » : l'onglet
+              porte déjà ce nom, et il y a maintenant deux blocs dessous —
+              chacun a besoin du sien. */}
+          <div className="border border-gray-200/70 bg-white p-5 sm:p-6">
+            {team.description ? (
+              <>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
+                  Présentation
+                </h3>
+                <p className="mt-3 text-sm italic leading-relaxed text-gray-600">
+                  &ldquo;{team.description}&rdquo;
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">
+                {isTeamManager
+                  ? "Cette équipe n'a pas encore de présentation. Ajoutez-en une dans les paramètres."
+                  : "Cette équipe n'a pas encore de présentation."}
               </p>
-            </>
-          ) : (
-            <p className="py-8 text-center text-sm text-gray-400">
-              {isTeamManager
-                ? "Cette équipe n'a pas encore de présentation. Ajoutez-en une dans les paramètres."
-                : "Cette équipe n'a pas encore de présentation."}
-            </p>
-          )}
-        </div>
+            )}
+          </div>
+        </motion.div>
       )}
 
       {/* ===================== TAB: ROSTER ===================== */}
