@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreGhostPlayer, FirestoreTeam } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * POST { teamId, ghostId, playerId } — fusionner un joueur sans compte avec le
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   let autorise = await peutGererEquipeServeur(teamId, callerUid);
   if (!autorise) {
     const caller = await adminDb.collection("users").doc(callerUid).get();
-    autorise = caller.exists && caller.data()?.user_type === "superadmin";
+    autorise = caller.exists && estSuperadmin(caller.data());
   }
   if (!autorise) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });

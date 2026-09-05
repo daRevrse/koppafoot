@@ -97,6 +97,31 @@ body {
 }
 
 /* ============================================
+   LES FILS D'ARIANE, MASQUÉS
+
+   Décision produit du 2026-09-05 : on les retire partout, le temps de
+   décider ce qui les remplace. Le bouton retour du tableau d'affichage
+   (voir MatchHero) est la première réponse ; les autres écrans n'en ont pas
+   encore.
+
+   POURQUOI UNE RÈGLE ET NON DOUZE SUPPRESSIONS. Ils existent en deux
+   familles : le composant partagé `FilAriane` (components/ui/socle, cinq
+   écrans) et des versions écrites à la main dans six autres pages. Les
+   retirer à la main, c'est douze modifications à faire puis à défaire, avec
+   la certitude d'en oublier une. Une règle les prend tous par ce qu'ils ont
+   en commun — leur étiquette d'accessibilité — et se retire en supprimant ce
+   bloc.
+
+   `display: none` et non `visibility` : la première sort aussi le fil de
+   l'arbre d'accessibilité, la seconde le laisserait annoncé aux lecteurs
+   d'écran alors qu'il n'est plus à l'écran.
+   ============================================ */
+
+[aria-label="Fil d'ariane"] {
+  display: none;
+}
+
+/* ============================================
    Animations
    ============================================ */
 

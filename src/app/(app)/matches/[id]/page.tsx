@@ -29,6 +29,8 @@ import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
+import CompteARebours from "@/components/match/CompteARebours";
+import FollowMatchButton from "@/components/match/FollowMatchButton";
 import MatchLineups from "@/components/match/MatchLineups";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
@@ -655,13 +657,22 @@ export default function MatchDetailPage() {
           { label: `${match.homeTeamName}, ${match.awayTeamName}` },
         ]}
         onShare={partagerLeMatch}
+        // Un amical n'appartient a aucune competition : il n'avait donc aucune
+        // cloche, faute d'abonnement a offrir. Le suivi par match lui en donne.
+        suivre={<FollowMatchButton mid={id} />}
         context={{
           label: estAmical ? "Match amical" : "Défi",
           sub: match.format,
         }}
         status={match.status as HeroStatus}
-        home={{ name: match.homeTeamName, logo: match.homeTeamLogo ?? null, score: match.scoreHome }}
-        away={{ name: match.awayTeamName, logo: match.awayTeamLogo ?? null, score: match.scoreAway }}
+        home={{
+          name: match.homeTeamName, logo: match.homeTeamLogo ?? null, score: match.scoreHome,
+          href: match.homeTeamId ? `/teams/${match.homeTeamId}` : null,
+        }}
+        away={{
+          name: match.awayTeamName, logo: match.awayTeamLogo ?? null, score: match.scoreAway,
+          href: match.awayTeamId ? `/teams/${match.awayTeamId}` : null,
+        }}
         date={match.date}
         time={match.time}
         venueName={match.venueName}
@@ -714,7 +725,7 @@ export default function MatchDetailPage() {
         active={activeTab}
         onChange={(id) => setActiveTab(id as typeof activeTab)}
         tabs={[
-          { id: "center", label: "Résumé", Icon: Activity },
+          { id: "center", label: "Résumé" },
           // La feuille de match ne s'affiche pas sans compte : les règles
           // Firestore ne servent pas `participations` à un invité, l'onglet
           // n'aurait donc que deux colonnes vides à montrer. Mieux vaut ne
@@ -722,7 +733,6 @@ export default function MatchDetailPage() {
           ...(user ? [{
             id: "squad",
             label: "Composition",
-            Icon: ClipboardList,
             badge: isManager ? (() => {
               const isHomeManager = user?.uid === match.managerId;
               const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
@@ -910,20 +920,32 @@ export default function MatchDetailPage() {
                   console à ceux qui la tiendront. */}
               {match.status !== "live" && match.status !== "completed" && (
                 <div className="flex flex-col items-center border border-gray-200/70 bg-white px-6 py-12 text-center sm:py-16">
-                  <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
-                    <Clock size={30} className="text-gray-300" />
-                  </div>
-                  <h4 className="mt-5 text-lg font-black text-gray-900">
-                    {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
-                  </h4>
-                  {match.status !== "cancelled" && (
-                    <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
-                      Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
-                      <span className="font-bold text-gray-700">{match.time}</span>
-                      {match.venueName ? <> · {match.venueName}</> : null}.
-                      {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
-                    </p>
-                  )}
+                  {/* LE COMPTE À REBOURS REMPLACE LE PAVÉ, quand il a quelque
+                      chose à dire : dans les 24 h qui précèdent, et seulement
+                      là. Au-delà, il rend `null` et le texte reprend sa place
+                      — « dans 13 jours » n'a pas besoin des secondes. Voir
+                      CompteARebours pour ce que ça coûte. */}
+                  <CompteARebours
+                    date={match.status === "cancelled" ? null : match.date}
+                    time={match.time}
+                  >
+                    <>
+                      <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
+                        <Clock size={30} className="text-gray-300" />
+                      </div>
+                      <h4 className="mt-5 text-lg font-black text-gray-900">
+                        {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
+                      </h4>
+                      {match.status !== "cancelled" && (
+                        <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
+                          Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
+                          <span className="font-bold text-gray-700">{match.time}</span>
+                          {match.venueName ? <> · {match.venueName}</> : null}.
+                          {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
+                        </p>
+                      )}
+                    </>
+                  </CompteARebours>
                   {peutTenirLaConsole && match.status !== "cancelled" && (
                     <button
                       onClick={() => router.push(`/matches/${id}/manage`)}
@@ -940,7 +962,7 @@ export default function MatchDetailPage() {
                   MatchTimeline. Un match qui n'a pas commence n'a pas
                   d'histoire, le bloc n'apparait qu'une fois le direct lance. */}
               {(match.status === "live" || match.status === "completed") && (
-                <div className="border border-gray-200/70 bg-white p-4 sm:p-5">
+                <div className="bg-white p-4 sm:p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
                       Historique
@@ -997,7 +1019,7 @@ export default function MatchDetailPage() {
                   ouvrant cet onglet — qui joue, et a quel poste — la ou les
                   colonnes de noms plus bas servent a la remplir. Voir
                   MatchLineups. */}
-              <div className="border border-gray-200/70 bg-white p-4 sm:p-5">
+              <div className="bg-white p-4 sm:p-5">
                 <MatchLineups
                   home={{ name: match.homeTeamName, entries: compoDeLEquipe(match.homeTeamId, match.homeGhostLineup) }}
                   away={{ name: match.awayTeamName, entries: compoDeLEquipe(match.awayTeamId, match.awayGhostLineup) }}

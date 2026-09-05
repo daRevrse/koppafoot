@@ -19,6 +19,7 @@ import MatchTimeline from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
 import PredictionPoll from "@/components/match/PredictionPoll";
 import type { CompMatch, CompMatchRound, CompTeam, CompetitionFormat } from "@/types";
+import FollowMatchButton from "@/components/match/FollowMatchButton";
 
 // ============================================
 // Helpers
@@ -60,7 +61,6 @@ export default function PublicCompMatchView() {
   const { slug, mid } = useParams() as { slug: string; mid: string };
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [cid, setCid] = useState<string | null>(null);
-  const [compBanner, setCompBanner] = useState<string | null>(null);
   const [compName, setCompName] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<
     "feed" | "lineups" | "stats" | "standings" | "h2h"
@@ -91,7 +91,6 @@ export default function PublicCompMatchView() {
         return;
       }
       setCid(competition.id);
-      setCompBanner(competition.bannerUrl);
       setCompName(competition.name);
       setCompFormat(competition.format);
       setCompSlug(competition.slug ?? slug);
@@ -228,14 +227,24 @@ export default function PublicCompMatchView() {
           { label: `${match.homeTeamName}, ${match.awayTeamName}` },
         ]}
         onShare={partagerLeMatch}
+        // LA CLOCHE SUIT CE MATCH, plus la compétition entière. Suivre la
+        // compétition pour une affiche, c'était recevoir ses quarante autres.
+        // Le suivi de compétition existe toujours, sur sa propre page.
+        suivre={<FollowMatchButton mid={mid} cid={cid} />}
         context={{
           label: compName || "Compétition",
           href: compSlug ? `/c/${compSlug}` : null,
           sub: roundLabel,
         }}
         status={match.status as HeroStatus}
-        home={{ name: match.homeTeamName, logo: match.homeTeamLogo, score: match.scoreHome }}
-        away={{ name: match.awayTeamName, logo: match.awayTeamLogo, score: match.scoreAway }}
+        home={{
+          name: match.homeTeamName, logo: match.homeTeamLogo, score: match.scoreHome,
+          href: compSlug && match.homeTeamId ? `/c/${compSlug}/teams/${match.homeTeamId}` : null,
+        }}
+        away={{
+          name: match.awayTeamName, logo: match.awayTeamLogo, score: match.scoreAway,
+          href: compSlug && match.awayTeamId ? `/c/${compSlug}/teams/${match.awayTeamId}` : null,
+        }}
         date={match.date}
         time={match.time}
         venueName={match.venueName}
@@ -244,7 +253,6 @@ export default function PublicCompMatchView() {
         clock={isLive ? formatTime(shownTime) : null}
         penaltyHome={match.penaltyHome}
         penaltyAway={match.penaltyAway}
-        bannerUrl={match.bannerUrl ?? compBanner ?? null}
         poll={
           <PredictionPoll
             matchId={mid}
@@ -322,12 +330,12 @@ export default function PublicCompMatchView() {
               header : sur une timeline longue, la navigation disparaissait des
               le premier ecran de defilement. */}
           <MatchTabs
-            tabs={TABS.map((t) => ({ id: t.id, label: t.label, Icon: t.Icon }))}
+            tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
             active={activeTab}
             onChange={(id) => setDetailTab(id as typeof detailTab)}
           />
 
-          <div className=" border border-gray-200/70 bg-white p-4 sm:p-5">
+          <div className="bg-white p-4 sm:p-5">
             {/* Stats panel: one row per metric, the two teams facing each
                 other, with a bar showing each side's share. */}
             {activeTab === "stats" && hasStats && (

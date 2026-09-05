@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch, FirestoreParticipation } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * End-of-match stats rollup.
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   let isSuperadmin = false;
   if (!isManager && !isReferee && !isModerateur) {
     const caller = await adminDb.collection("users").doc(callerUid).get();
-    isSuperadmin = caller.exists && caller.data()?.user_type === "superadmin";
+    isSuperadmin = caller.exists && estSuperadmin(caller.data());
   }
   if (!isManager && !isReferee && !isModerateur && !isSuperadmin) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });

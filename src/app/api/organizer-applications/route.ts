@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 import {
   sendNotificationEmail,
   organizerApplicationReceivedHtml,
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
     }
     const u = userSnap.data()!;
-    if (u.user_type === "organizer" || u.user_type === "superadmin") {
+    if (u.user_type === "organizer" || estSuperadmin(u)) {
       return NextResponse.json({ error: "Tu es déjà organisateur." }, { status: 409 });
     }
 
@@ -151,7 +152,7 @@ export async function GET(req: NextRequest) {
     if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const callerSnap = await adminDb.collection("users").doc(uid).get();
-    const isSuperadmin = callerSnap.exists && callerSnap.data()?.user_type === "superadmin";
+    const isSuperadmin = callerSnap.exists && estSuperadmin(callerSnap.data());
 
     const base = adminDb.collection("organizer_applications");
     const snap = isSuperadmin

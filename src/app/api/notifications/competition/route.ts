@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
 import type { FirestoreCompetition, FirestoreStaffGrant } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * POST /api/notifications/competition
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
     }
     if (!isStaff) {
       const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      const isSuperadmin = callerDoc.exists && callerDoc.data()?.user_type === "superadmin";
+      const isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
       if (!isSuperadmin) {
         return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
       }

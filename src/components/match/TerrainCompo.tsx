@@ -84,16 +84,32 @@ export default function TerrainCompo({
     <svg viewBox="0 0 100 104" role="img" aria-label="Composition sur le terrain" className="w-full">
       {/* La pelouse et ses lignes. */}
       <rect x="0" y="0" width="100" height="104" fill={c.pelouse} />
+      {/* UN DEMI-TERRAIN, ET NON UN TERRAIN ENTIER.
+          Le rectangle portait les deux surfaces et la ligne médiane au
+          milieu : la moitié haute — celle de l'adversaire — restait vide,
+          puisqu'on n'y place personne. Une composition se lit sur SON camp.
+          À boîte égale, chaque ligne double donc de taille.
+
+          La boîte reste 100×104 : les joueurs sont placés en pourcentages de
+          ces coordonnées, et les changer aurait déplacé toute l'équipe. */}
       <g stroke={c.lignes} strokeWidth="0.6" fill="none">
         <rect x="3" y="3" width="94" height="98" />
-        <line x1="3" y1="52" x2="97" y2="52" />
-        <circle cx="50" cy="52" r="11" />
-        <rect x="26" y="3" width="48" height="16" />
-        <rect x="26" y="85" width="48" height="16" />
-        <rect x="38" y="3" width="24" height="6" />
-        <rect x="38" y="95" width="24" height="6" />
+
+        {/* En haut, la ligne médiane : le bord du cadre, et le rond central
+            dont on ne voit que la moitié qui entre dans notre camp. */}
+        <path d="M 34 3 A 16 16 0 0 0 66 3" />
+
+        {/* En bas, notre but : surface de réparation, six mètres, cage. */}
+        <rect x="22" y="71" width="56" height="30" />
+        <rect x="36" y="89" width="28" height="12" />
+        <rect x="42" y="101" width="16" height="3" />
+
+        {/* L'arc au sommet de la surface, tracé depuis le point de penalty. */}
+        <path d="M 45.42 71 A 11 11 0 0 1 54.58 71" />
       </g>
-      <circle cx="50" cy="52" r="1.2" fill={c.lignes} />
+
+      <circle cx="50" cy="3" r="1.2" fill={c.lignes} />
+      <circle cx="50" cy="81" r="0.9" fill={c.lignes} />
 
       {places.map((place, i) => {
         const joueur = place.entry;

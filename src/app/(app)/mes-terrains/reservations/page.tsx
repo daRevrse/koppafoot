@@ -242,10 +242,7 @@ export default function ReservationsRecuesPage() {
         surtitre="Espace terrain"
         titre="Réservations reçues"
         compteur={attente.length > 0 ? { valeur: attente.length, libelle: "en attente" } : undefined}
-      >
-        Les demandes de créneau sur vos terrains. Confirmer bloque le créneau
-        et prévient l&apos;équipe ; refuser le laisse libre.
-      </Panneau>
+      />
 
       {demandes === null ? (
         <EnCours />

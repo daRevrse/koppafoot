@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Candidatures « propriétaire de terrain ».
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
     if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const caller = await adminDb.collection("users").doc(uid).get();
-    const isAdmin = caller.data()?.user_type === "superadmin";
+    const isAdmin = estSuperadmin(caller.data());
 
     const q = isAdmin
       ? adminDb.collection("venue_applications").orderBy("created_at", "desc")

@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { sendNotificationEmail, teamManagerInviteHtml } from "@/lib/email";
 import { APP_URL } from "@/lib/partage";
 import type { FirestoreCompetition } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 
 
@@ -51,7 +52,7 @@ async function authorize(
   let isSuperadmin = false;
   if (!isOrganizer) {
     const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-    isSuperadmin = callerDoc.exists && callerDoc.data()?.user_type === "superadmin";
+    isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
   }
   if (!isOrganizer && !isSuperadmin) {
     return { error: NextResponse.json({ error: "Accès refusé" }, { status: 403 }) };

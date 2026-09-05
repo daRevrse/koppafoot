@@ -27,6 +27,7 @@ import {
   finishCompMatch, updateCompMatch,
 } from "@/lib/competition-firestore";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
+import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
   DEFAULT_HALF_DURATION, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
 } from "@/lib/competition-format";
@@ -151,8 +152,13 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     poserVictime: (id, v) => setCompFoulVictim(cid, mid, id, v),
     poserVar: (id, s) => setCompGoalVarStatus(cid, mid, id, s),
 
-    notifier: (n, competition) =>
-      notifyCompetitionFollowers({ cid, title: n.title, body: n.body, link: lien(competition) }),
+    // DEUX PUBLICS, PAS UN. Suivre la competition, c'est recevoir ses quarante
+    // matchs ; suivre CE match, c'est n'en recevoir qu'un. Les deux listes sont
+    // distinctes et se recoupent a peine.
+    notifier: (n, competition) => {
+      notifyCompetitionFollowers({ cid, title: n.title, body: n.body, link: lien(competition) });
+      notifierAbonnesDuMatch({ mid, cid, title: n.title, body: n.body, link: lien(competition) });
+    },
     lien: (competition) => lien(competition),
 
     autoriseAQuitter: (uid, competition) =>
@@ -315,7 +321,10 @@ export function piloteAmical(matchId: string): PiloteConsole {
 
     // Un amical n'a pas de suiveurs a prevenir : ceux que ca concerne sont sur
     // le terrain, ou sur la touche.
-    notifier: () => {},
+    // Il ne prevenait personne : un amical n'appartient a aucune competition,
+    // donc aucun abonne a qui ecrire. Le suivi PAR MATCH lui en donne.
+    notifier: (n) =>
+      notifierAbonnesDuMatch({ mid: matchId, title: n.title, body: n.body, link: lien() }),
     lien: () => lien(),
 
     autoriseAQuitter: (uid) =>

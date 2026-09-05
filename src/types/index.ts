@@ -161,21 +161,6 @@ export interface SignupData {
   experienceYears?: number;
 }
 
-export interface VenueOwnerSignupData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  password: string;
-  venueName: string;
-  venueAddress: string;
-  venueCity: string;
-  fieldType: "outdoor" | "indoor" | "hybrid";
-  fieldSurface: "natural_grass" | "synthetic" | "hybrid" | "indoor";
-  fieldSize: "5v5" | "7v7" | "11v11" | "futsal";
-  acceptTerms: boolean;
-}
-
 // Firestore document shape for /users/{uid}
 export interface FirestoreUser {
   email: string | null;

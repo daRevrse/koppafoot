@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import type { FirestoreMatch } from "@/types";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * POST /api/matches/[mid]/couvrir, un scoreur prend un amical en charge.
@@ -83,7 +84,7 @@ export async function POST(
     const profil = await adminDb.collection("users").doc(uid).get();
     const d = profil.data();
     const estScoreur = profil.exists
-      && (d?.is_scorer === true || d?.user_type === "superadmin");
+      && (d?.is_scorer === true || estSuperadmin(d));
     if (!estScoreur) {
       return NextResponse.json(
         { error: "Il faut être scoreur validé pour couvrir un match." },

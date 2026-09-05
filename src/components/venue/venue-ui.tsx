@@ -6,7 +6,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EQUIPEMENTS, libelleEquipement } from "@/lib/terrains";
-import { LignesDeTerrain } from "@/components/ui/socle";
 
 // ============================================
 // Ce qui n'appartient qu'aux terrains.
@@ -24,29 +23,34 @@ export * from "@/components/ui/socle";
  *
  * Il était recopié trois fois, avec à chaque fois un léger écart : l'un
  * portait une phrase d'explication, l'autre non, le troisième un dégradé
- * inversé. Un seul composant, donc, et la phrase devient facultative plutôt
- * qu'oubliée.
+ * inversé. Un seul composant, donc.
+ *
+ * FOND NOIR UNI, SANS PHRASE. Il portait un dégradé sur trois teintes, le
+ * marquage d'un terrain en filigrane, et cinq lignes de texte qui
+ * expliquaient l'écran. Sur un téléphone, cette explication occupait un tiers
+ * de la hauteur au-dessus du contenu — et on ne la lit qu'une fois, à la
+ * première visite, alors qu'on la traverse à chaque passage. Le titre et le
+ * compteur suffisent à dire où l'on est.
+ *
+ * La phrase disparaît aussi de la signature : une propriété qu'on accepte
+ * sans la rendre est un piège pour le prochain qui la passera. Git garde les
+ * textes si la décision change.
  */
 export function Panneau({
   surtitre,
   titre,
-  children,
   actions,
   compteur,
 }: {
   surtitre: string;
   titre: string;
-  children?: React.ReactNode;
   actions?: React.ReactNode;
   /** Un chiffre qui compte, posé en grand à droite : demandes en attente, terrains. */
   compteur?: { valeur: number | string; libelle: string };
 }) {
   return (
-    <section className="relative -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-      <LignesDeTerrain className="text-white/[0.07]" />
-
-      <div className="relative mx-auto flex max-w-4xl flex-wrap items-end justify-between gap-6 px-5 py-7 sm:px-8 sm:py-9">
+    <section className="relative -mx-3 bg-black text-white lg:-mx-5">
+      <div className="mx-auto flex max-w-4xl flex-wrap items-end justify-between gap-6 px-5 py-7 sm:px-8 sm:py-9">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300">
             {surtitre}
@@ -54,10 +58,7 @@ export function Panneau({
           <h1 className="mt-1.5 font-display text-2xl font-black uppercase leading-[0.95] tracking-[-0.02em] sm:text-4xl">
             {titre}
           </h1>
-          {children && (
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/60">{children}</p>
-          )}
-          {actions && <div className="mt-6 flex flex-wrap gap-2">{actions}</div>}
+          {actions && <div className="mt-5 flex flex-wrap gap-2">{actions}</div>}
         </div>
 
         {compteur && (
@@ -100,21 +101,39 @@ const ICONES_EQUIPEMENT: Record<string, LucideIcon> = {
 /** Un équipement écrit avant que la liste soit fermée garde une coche. */
 export const iconeEquipement = (cle: string): LucideIcon => ICONES_EQUIPEMENT[cle] ?? Check;
 
-/** Ce qu'un terrain propose, en lecture. Rend `null` s'il ne propose rien. */
-export function ListeEquipements({ valeurs, className = "" }: { valeurs: string[]; className?: string }) {
+/**
+ * Ce qu'un terrain propose, en lecture. Rend `null` s'il ne propose rien.
+ *
+ * `dense` sert là où la place manque — la carte d'un terrain dans son espace,
+ * où huit pastilles à taille normale tombaient une par ligne et faisaient de
+ * la fiche une colonne interminable.
+ */
+export function ListeEquipements({
+  valeurs,
+  className = "",
+  dense = false,
+}: {
+  valeurs: string[];
+  className?: string;
+  dense?: boolean;
+}) {
   const connus = valeurs.map((v) => ({ cle: v, label: libelleEquipement(v) })).filter((e) => e.label);
   if (!connus.length) return null;
 
+  const taille = dense
+    ? "gap-1 px-2 py-1 text-[9px] tracking-[0.08em]"
+    : "gap-1.5 px-3 py-2 text-[10px] tracking-[0.12em]";
+
   return (
-    <ul className={`flex flex-wrap gap-2 ${className}`}>
+    <ul className={`flex flex-wrap ${dense ? "gap-1.5" : "gap-2"} ${className}`}>
       {connus.map((e) => {
         const Icon = iconeEquipement(e.cle);
         return (
           <li
             key={e.cle}
-            className="flex items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-600"
+            className={`flex items-center border border-gray-200/70 bg-white font-black uppercase text-gray-600 ${taille}`}
           >
-            <Icon size={13} strokeWidth={2} className="text-emerald-600" />
+            <Icon size={dense ? 11 : 13} strokeWidth={2} className="shrink-0 text-emerald-600" />
             {e.label}
           </li>
         );

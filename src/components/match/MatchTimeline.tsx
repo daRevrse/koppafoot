@@ -174,7 +174,17 @@ export default function MatchTimeline({
               {/* La minute, sur l'axe. Un résultat saisi après coup n'en porte
                   pas (stockée à 0) : aucun but n'est marqué à la 0e. */}
               <div className="flex justify-center">
-                <span className="flex h-7 w-7 items-center justify-center border border-gray-200/70 bg-white text-[10px] font-black tabular-nums text-gray-500">
+                {/* La minute, nue sur l'axe. Elle portait un carré bordé : sur
+                    une timeline de quinze événements, quinze cadres alignés
+                    faisaient un tableau là où il ne fallait qu'une graduation.
+                    Son fond était `bg-[#F4F6FA]`, celui de la PAGE — alors
+                    qu'elle est posée sur le panneau, qui est blanc : d'où un
+                    rectangle gris en clair, et franchement sombre en thème
+                    sombre où `#F4F6FA` devient le fond de page. Il prend la
+                    couleur du panneau, donc il ne se voit plus dans aucun des
+                    deux thèmes, tout en masquant l'axe qui passe derrière —
+                    sans lui, le trait barrerait les chiffres. */}
+                <span className="flex h-7 w-7 items-center justify-center bg-white text-[11px] font-black tabular-nums text-gray-500">
                   {e.minute ? `${e.minute}'` : "·"}
                 </span>
               </div>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  MapPin, Plus, Trash2, Pencil, Check, X, Inbox, ImagePlus, ArrowRight, Eye,
+  MapPin, Plus, Trash2, Pencil, Check, X, ImagePlus, ArrowRight, Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -408,9 +408,15 @@ function CarteTerrain({
   const aCompleter = manques(v);
 
   return (
+    // LA PHOTO PREND TOUTE LA LARGEUR SUR TÉLÉPHONE.
+    //
+    // Elle était une vignette de 128px posée à gauche : sur 375 pixels, il
+    // restait ~180px à la colonne de droite, et les huit pastilles
+    // d'équipement y tombaient UNE PAR LIGNE. La fiche d'un terrain équipé
+    // faisait huit rangées pour dire ce qui tient en deux.
     <article className="border border-gray-200/70 bg-white">
-      <div className="flex flex-wrap gap-5 p-5">
-        <div className="relative h-24 w-32 shrink-0 overflow-hidden bg-gray-900">
+      <div className="sm:flex sm:gap-5 sm:p-5">
+        <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-gray-900 sm:aspect-auto sm:h-24 sm:w-32">
           {v.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -426,7 +432,7 @@ function CarteTerrain({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 p-5 sm:p-0">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="font-display text-lg font-black uppercase tracking-tight text-gray-900">
@@ -465,19 +471,34 @@ function CarteTerrain({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-            <span>{formatCourt(v.fieldSize)}</span>
-            <span>{surfaceCourte(v.fieldSurface)}</span>
-            <span className={aUnPrix(v.pricePerHour) ? "text-gray-600" : ""}>
-              {prixHeure(v.pricePerHour)}
-            </span>
-            <span className={v.available ? "text-emerald-700" : "text-red-500"}>
-              {v.available ? "Ouvert" : "Fermé"}
-            </span>
-          </div>
+          {/* Quatre faits ÉTIQUETÉS plutôt qu'une ligne en vrac. « 11V11
+              SYNTHÉTIQUE 25 000 FCFA / H OUVERT » se lisait comme une seule
+              phrase sans ponctuation : rien ne disait lequel des nombres
+              était le tarif. */}
+          <dl className="mt-4 grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-4">
+            {[
+              { label: "Format", valeur: formatCourt(v.fieldSize) },
+              { label: "Surface", valeur: surfaceCourte(v.fieldSurface) },
+              { label: "Tarif", valeur: prixHeure(v.pricePerHour), fort: aUnPrix(v.pricePerHour) },
+              {
+                label: "État",
+                valeur: v.available ? "Ouvert" : "Fermé",
+                ton: v.available ? "text-emerald-700" : "text-red-500",
+              },
+            ].map((f) => (
+              <div key={f.label} className="bg-white px-3 py-2.5">
+                <dt className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">
+                  {f.label}
+                </dt>
+                <dd className={`mt-0.5 truncate text-[11px] font-black uppercase tracking-tight ${f.ton ?? (f.fort ? "text-gray-900" : "text-gray-600")}`}>
+                  {f.valeur}
+                </dd>
+              </div>
+            ))}
+          </dl>
 
           {v.amenities?.length > 0 && (
-            <ListeEquipements valeurs={v.amenities} className="mt-4" />
+            <ListeEquipements valeurs={v.amenities} dense className="mt-3" />
           )}
         </div>
       </div>
@@ -650,11 +671,7 @@ export default function MyVenuesPage() {
         surtitre="Espace terrain"
         titre="Mes terrains"
         compteur={venues?.length ? { valeur: venues.length, libelle: venues.length > 1 ? "terrains" : "terrain" } : undefined}
-      >
-        Un terrain référencé entre dans l&apos;annuaire, où les équipes le
-        trouvent et vous demandent un créneau. Complétez sa fiche : la photo
-        et le tarif décident plus que le reste.
-      </Panneau>
+      />
 
       {/* Les demandes en attente : un compteur et une porte, pas une liste.
           Elles se traitent sur leur propre page. */}
@@ -667,7 +684,6 @@ export default function MyVenuesPage() {
         }`}
       >
         <div className="flex items-center gap-4">
-          <Inbox size={22} className={enAttente > 0 ? "text-amber-600" : "text-gray-400"} />
           <div>
             <p className={`font-display text-lg font-black uppercase tracking-tight ${enAttente > 0 ? "text-amber-900" : "text-gray-900"}`}>
               {enAttente > 0

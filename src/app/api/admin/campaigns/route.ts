@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendPushToUser } from "@/lib/fcm-server";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 import {
   sendNotificationEmail,
   campaignManagerNoTeamHtml,
@@ -18,7 +19,7 @@ async function verifySuperadmin(req: NextRequest): Promise<string | null> {
   try {
     const decoded = await adminAuth.verifyIdToken(header.split("Bearer ")[1]);
     const doc = await adminDb.collection("users").doc(decoded.uid).get();
-    return doc.data()?.user_type === "superadmin" ? decoded.uid : null;
+    return estSuperadmin(doc.data()) ? decoded.uid : null;
   } catch {
     return null;
   }
@@ -114,7 +115,7 @@ async function getTargetIds(type: CampaignType): Promise<string[]> {
     return snap.docs
       .filter((d) => {
         const data = d.data();
-        if (data.user_type === "superadmin" || data.user_type === "organizer") return false;
+        if (estSuperadmin(data) || data.user_type === "organizer") return false;
         if (data.user_type === "venue_owner") return false;
         if (data.is_organizer === true || data.is_venue_owner === true) return false;
         if (data.is_active === false) return false;

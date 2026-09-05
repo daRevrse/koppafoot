@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * Post reports.
@@ -28,7 +29,7 @@ async function callerUidOf(req: NextRequest): Promise<string | null> {
 
 async function isSuperadmin(uid: string): Promise<boolean> {
   const doc = await adminDb.collection("users").doc(uid).get();
-  return doc.data()?.user_type === "superadmin";
+  return estSuperadmin(doc.data());
 }
 
 export async function POST(req: NextRequest) {
