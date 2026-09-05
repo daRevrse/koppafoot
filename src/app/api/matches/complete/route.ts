@@ -203,12 +203,42 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // FIGER L'HORLOGE FAIT PARTIE DU COUP DE SIFFLET FINAL.
+  //
+  // Sans ça, `live_state` garde is_timer_running=true et un timer_start_at
+  // posé : le chrono de chaque spectateur se calcule en (maintenant - départ +
+  // offset), donc il continue de tourner après la fin du match, indéfiniment.
+  // Le direct d'une compétition le fait depuis `finishCompMatch` ; l'amical,
+  // lui, s'en remettait au seul geste du navigateur — la pause que la console
+  // tente juste avant, sur le mode « au mieux ». Elle échoue (réseau coupé au
+  // bord du terrain, onglet fermé sur le sifflet), et le match reste en
+  // apparence en cours pour tout le monde sauf celui qui l'a terminé.
+  //
+  // Rien n'est écrit quand le match n'a pas de direct : un amical confirmé
+  // sans être couvert n'a pas d'horloge, et poser ces clés lui fabriquerait un
+  // `live_state` partiel, sans période ni événements, que les lecteurs
+  // prendraient pour un match couvert.
+  const ls = match.live_state;
+  const arretDuChrono: Record<string, unknown> = ls
+    ? {
+        "live_state.is_timer_running": false,
+        "live_state.timer_start_at": null,
+        "live_state.timer_offset":
+          ls.is_timer_running && ls.timer_start_at
+            ? Date.now() - new Date(ls.timer_start_at).getTime() + (ls.timer_offset ?? 0)
+            : ls.timer_offset ?? 0,
+        // 4 = fin de match, comme les deux autres chemins de complétion.
+        "live_state.current_period": 4,
+      }
+    : {};
+
   batch.update(matchRef, {
     status: "completed",
     result: homeResult,
     validation_status: isGhostMatch ? "unverified" : "pending",
     completed_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
+    ...arretDuChrono,
     // Le verrou anti-double-comptage se pose ici aussi : un amical crédité par
     // le direct ne doit plus pouvoir l'être une seconde fois à la main.
     ...(isGhostMatch && couvertEnDirect
