@@ -322,8 +322,10 @@ export default function MatchHero({
           </p>
         )}
 
-        {/* Le pronostic, sur une ligne. */}
-        {poll && <div className="mt-4 border-t border-gray-200/70 pt-3">{poll}</div>}
+        {/* Le pronostic, sur une ligne. Sans filet au-dessus : il separait
+            deux choses qui parlent du meme match, et ajoutait un trait a un
+            bloc qui en compte deja assez. */}
+        {poll && <div className="mt-5">{poll}</div>}
       </div>
     </section>
   );

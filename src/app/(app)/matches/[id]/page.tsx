@@ -29,6 +29,7 @@ import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
+import CompteARebours from "@/components/match/CompteARebours";
 import MatchLineups from "@/components/match/MatchLineups";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
@@ -915,20 +916,32 @@ export default function MatchDetailPage() {
                   console à ceux qui la tiendront. */}
               {match.status !== "live" && match.status !== "completed" && (
                 <div className="flex flex-col items-center border border-gray-200/70 bg-white px-6 py-12 text-center sm:py-16">
-                  <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
-                    <Clock size={30} className="text-gray-300" />
-                  </div>
-                  <h4 className="mt-5 text-lg font-black text-gray-900">
-                    {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
-                  </h4>
-                  {match.status !== "cancelled" && (
-                    <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
-                      Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
-                      <span className="font-bold text-gray-700">{match.time}</span>
-                      {match.venueName ? <> · {match.venueName}</> : null}.
-                      {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
-                    </p>
-                  )}
+                  {/* LE COMPTE À REBOURS REMPLACE LE PAVÉ, quand il a quelque
+                      chose à dire : dans les 24 h qui précèdent, et seulement
+                      là. Au-delà, il rend `null` et le texte reprend sa place
+                      — « dans 13 jours » n'a pas besoin des secondes. Voir
+                      CompteARebours pour ce que ça coûte. */}
+                  <CompteARebours
+                    date={match.status === "cancelled" ? null : match.date}
+                    time={match.time}
+                  >
+                    <>
+                      <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
+                        <Clock size={30} className="text-gray-300" />
+                      </div>
+                      <h4 className="mt-5 text-lg font-black text-gray-900">
+                        {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
+                      </h4>
+                      {match.status !== "cancelled" && (
+                        <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
+                          Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
+                          <span className="font-bold text-gray-700">{match.time}</span>
+                          {match.venueName ? <> · {match.venueName}</> : null}.
+                          {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
+                        </p>
+                      )}
+                    </>
+                  </CompteARebours>
                   {peutTenirLaConsole && match.status !== "cancelled" && (
                     <button
                       onClick={() => router.push(`/matches/${id}/manage`)}

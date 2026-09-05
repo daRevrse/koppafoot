@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, Sparkles, MapPin, Radio,
+  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,10 +75,11 @@ const ENTRIES: NavEntry[] = [
     href: "/organisateurs", label: "Koppafoot Organize", Icon: Trophy, newTab: true,
     blurb: "Monter une compétition, tenir son calendrier et la diffuser en direct.",
   },
-  {
-    href: "/roles", label: "Koppafoot Evolution", Icon: Sparkles, newTab: true,
-    blurb: "Choisir ce qu'on devient ici : joueur, manager, arbitre, organisateur.",
-  },
+  // KOPPAFOOT EVOLUTION N'EST PLUS ICI. Son lien vit derriere le bouton jaune
+  // « Evolution » (plus bas), et c'est tout l'interet : ce bouton s'efface des
+  // qu'un role est actif. Dans ce menu, l'entree serait restee a trainer dans
+  // la navigation de quelqu'un qui a deja choisi — une porte vers une decision
+  // qu'il a prise.
   {
     href: "/scoreurs", label: "Koppafoot Score", Icon: Radio, newTab: true,
     blurb: "Tenir la console d'un match, et faire vivre le direct pour ceux qui n'y sont pas.",

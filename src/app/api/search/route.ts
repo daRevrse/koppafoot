@@ -92,7 +92,14 @@ export async function GET(req: Request) {
       }
     });
 
-    const competitions: Ranked[] = compsSnap.docs.map((d) => {
+    // LE BAC A SABLE N'EST PAS UNE COMPETITION. `/api/live-training` en cree
+    // une pour faire tourner la console a blanc, marquee `is_sandbox`. Elle
+    // remontait dans « competitions populaires » sous le nom « Match
+    // d'entrainement », a cote de la CAN : ce qu'elle contient sont des
+    // amicaux, qui ne s'annoncent pas comme une competition.
+    const competitions: Ranked[] = compsSnap.docs
+      .filter((d) => (d.data() as Row).is_sandbox !== true)
+      .map((d) => {
       const x = d.data() as Row;
       const followers = compFollowers.get(d.id) ?? 0;
       return {

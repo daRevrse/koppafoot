@@ -1,6 +1,7 @@
 "use client";
 
-import { Shield, LayoutGrid } from "lucide-react";
+import { Swords } from "lucide-react";
+import { Sifflet } from "@/components/ui/icones-foot";
 
 // ============================================
 // Ce que le tableau d'affichage ne dit pas.
@@ -31,7 +32,10 @@ export interface MatchInfo {
 }
 
 function Cellule({ Icon, label, valeur, note }: {
-  Icon: typeof Shield; label: string; valeur: string; note?: string | null;
+  // Le type d'une icone lucide, qui vaut aussi pour les notres : elles sont
+  // dessinees a la meme signature (voir components/ui/icones-foot).
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  label: string; valeur: string; note?: string | null;
 }) {
   return (
     <div className="flex min-w-0 gap-2.5 px-4 py-3">
@@ -59,7 +63,7 @@ export default function MatchInfoList({
     cellules.push(
       <Cellule
         key="ref"
-        Icon={Shield}
+        Icon={Sifflet}
         label="Arbitre"
         valeur={info.referee.name || "Non désigné"}
         note={info.referee.confirmed ? "Désigné" : "En attente"}
@@ -67,7 +71,7 @@ export default function MatchInfoList({
     );
   }
   if (info.format) {
-    cellules.push(<Cellule key="fmt" Icon={LayoutGrid} label="Format" valeur={info.format} />);
+    cellules.push(<Cellule key="fmt" Icon={Swords} label="Format" valeur={info.format} />);
   }
 
   if (cellules.length === 0) return null;
