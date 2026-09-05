@@ -547,7 +547,7 @@ export default function MercatoPage() {
           trouver une équipe, en <strong className="font-black text-gray-900">manager</strong> pour recruter.
         </p>
         <Link
-          href="/evolution"
+          href="/roles#choisir"
           className="mt-7 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
         >
           Choisir mon rôle

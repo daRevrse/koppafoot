@@ -48,7 +48,9 @@ const VITRINES: Record<string, Vitrine> = {
       { href: "#ouverts", label: "Les rôles" },
       { href: "#choisir", label: "Choisir" },
     ],
-    action: { href: "/evolution", label: "Choisir mon rôle" },
+    // Une ancre, et non /evolution : le choix se fait sur cette page même,
+    // dans la section que la barre désigne deux entrées plus tôt.
+    action: { href: "#choisir", label: "Choisir mon rôle" },
   },
   "/terrains": {
     sections: [

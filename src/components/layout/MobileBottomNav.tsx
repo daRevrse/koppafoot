@@ -399,10 +399,9 @@ export default function MobileBottomNav() {
                 cacher a qui ne l'ouvre jamais. */}
             {/* SANS COMPTE, la place restait vide : un visiteur ne voyait
                 nulle part qu'il peut etre autre chose qu'un spectateur. Elle
-                mene a /roles, la page PUBLIQUE des roles — surtout pas a
-                /evolution, qui est murée et l'aurait accueilli par « Connecte-
-                toi » posé sur une page vide. La demande de compte attend le
-                clic sur « Devenir joueur », et le choix voyage avec. */}
+                mene a /roles, la vitrine des roles, qui porte aussi le choix
+                lui-meme. La demande de compte attend le clic sur « Devenir
+                joueur », et le role choisi voyage avec. */}
             {!user && (
               <Link
                 href="/roles"
@@ -415,9 +414,14 @@ export default function MobileBottomNav() {
               </Link>
             )}
 
+            {/* MEME DESTINATION QUE POUR UN VISITEUR, désormais : le choix du
+                rôle se fait sur la vitrine, sous les affiches qui l'expliquent,
+                et /evolution ne s'ouvre plus. Les deux cas ne diffèrent donc
+                plus que par ce que la page trouve en arrivant — une
+                inscription à proposer, ou un formulaire à remplir. */}
             {user && !user.evolutionRole && (
               <Link
-                href="/evolution"
+                href="/roles#choisir"
                 className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5"
               >
                 <Rocket size={22} className="text-amber-300" />

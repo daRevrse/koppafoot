@@ -310,7 +310,7 @@ export default function DesignationsPage() {
           texte="Active le rôle Arbitre dans Évolution pour recevoir des désignations, te porter candidat sur un match et diriger la rencontre depuis la console."
           action={
             <Link
-              href="/evolution"
+              href="/roles#choisir"
               className="inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
             >
               <Rocket size={14} /> Choisir mon rôle

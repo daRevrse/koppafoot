@@ -662,7 +662,7 @@ export default function MyVenuesPage() {
       <FilAriane
         items={[
           { href: "/", label: "Direct" },
-          { href: "/evolution", label: "Mon rôle" },
+          { href: "/roles#choisir", label: "Mon rôle" },
           { label: "Mes terrains" },
         ]}
       />
