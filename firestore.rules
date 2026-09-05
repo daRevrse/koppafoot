@@ -591,6 +591,30 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ============================================
+    // Suivre un match
+    // ============================================
+    // Un document par (match, abonné), nommé `{mid}__{uid}` : voir
+    // lib/suivi-match pour pourquoi ce n'est pas un tableau sur le profil.
+    //
+    // LECTURE OUVERTE AUX COMPTES : le document ne dit rien de plus que
+    // « ce compte suit ce match ». C'est ce qui permet à la cloche de savoir
+    // son propre état par une lecture directe, sans requête ni index.
+    //
+    // ON NE S'ABONNE QUE SOI-MÊME. Sans la contrainte sur `user_id`,
+    // n'importe qui pourrait inscrire quelqu'un d'autre — et lui envoyer des
+    // notifications qu'il n'a jamais demandées. La diffusion, elle, passe par
+    // le SDK admin (/api/notifications/match), qui ignore ces règles.
+    match /match_follows/{suiviId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.user_id == request.auth.uid
+                    && request.resource.data.match_id is string;
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+      // Rien à mettre à jour : on suit, ou on ne suit plus.
+      allow update: if false;
+    }
+
     match /notifications/{notificationId} {
       allow read, update: if isAuthenticated() && resource.data.user_id == request.auth.uid;
       allow create: if isAuthenticated();

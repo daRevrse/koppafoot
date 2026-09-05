@@ -19,7 +19,7 @@ import MatchTimeline from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
 import PredictionPoll from "@/components/match/PredictionPoll";
 import type { CompMatch, CompMatchRound, CompTeam, CompetitionFormat } from "@/types";
-import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
+import FollowMatchButton from "@/components/match/FollowMatchButton";
 
 // ============================================
 // Helpers
@@ -227,10 +227,10 @@ export default function PublicCompMatchView() {
           { label: `${match.homeTeamName}, ${match.awayTeamName}` },
         ]}
         onShare={partagerLeMatch}
-        // La cloche suit la COMPÉTITION, qui est ce que le produit sait
-        // notifier : coup d'envoi, buts, fin. Un suivi par match demanderait
-        // un champ et un circuit de plus pour la même alerte.
-        suivre={cid ? <FollowCompetitionButton cid={cid} variant="icon" /> : undefined}
+        // LA CLOCHE SUIT CE MATCH, plus la compétition entière. Suivre la
+        // compétition pour une affiche, c'était recevoir ses quarante autres.
+        // Le suivi de compétition existe toujours, sur sa propre page.
+        suivre={<FollowMatchButton mid={mid} cid={cid} />}
         context={{
           label: compName || "Compétition",
           href: compSlug ? `/c/${compSlug}` : null,

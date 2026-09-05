@@ -30,6 +30,7 @@ import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
 import CompteARebours from "@/components/match/CompteARebours";
+import FollowMatchButton from "@/components/match/FollowMatchButton";
 import MatchLineups from "@/components/match/MatchLineups";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
@@ -656,6 +657,9 @@ export default function MatchDetailPage() {
           { label: `${match.homeTeamName}, ${match.awayTeamName}` },
         ]}
         onShare={partagerLeMatch}
+        // Un amical n'appartient a aucune competition : il n'avait donc aucune
+        // cloche, faute d'abonnement a offrir. Le suivi par match lui en donne.
+        suivre={<FollowMatchButton mid={id} />}
         context={{
           label: estAmical ? "Match amical" : "Défi",
           sub: match.format,
