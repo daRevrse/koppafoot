@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import type { CompetitionFeed } from "@/lib/competition-admin";
 import type { Competition, CompMatch, CompTeam } from "@/types";
+import Image from "next/image";
 
 // ============================================
 // DirectHome, the live-score home, served publicly at "/".
@@ -83,10 +84,13 @@ function liveMinute(m: CompMatch): number {
 function TeamBadge({ name, logo, size = 26 }: { name: string; logo?: string | null; size?: number }) {
   if (logo) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      // Un écusson mesuré à 2000x2000 pour 157 Ko, affiché à 26 pixels :
+      // l'optimiseur le sert désormais à la taille demandée.
+      <Image
         src={logo}
         alt={name}
+        width={size}
+        height={size}
         className="shrink-0 rounded-full object-cover"
         style={{ width: size, height: size }}
       />

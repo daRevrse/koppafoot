@@ -11,6 +11,7 @@ import {
   onVenuesByOwner, createVenue, updateVenue, deleteVenue, onBookingsByOwner,
 } from "@/lib/firestore";
 import { uploadVenuePhoto } from "@/lib/storage";
+import { alleger, poidsLisible, REGLAGES } from "@/lib/images";
 import type { Venue, Booking } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
 import {
@@ -48,12 +49,17 @@ interface Brouillon {
   prix: string;
   equipements: string[];
   photoUrl: string | null;
+  /** Les photos deja enregistrees. Les nouvelles arrivent a part, en fichiers. */
+  galerie: string[];
   available: boolean;
 }
 
+/** Au-dela, une fiche devient un album et personne ne fait defiler. */
+const GALERIE_MAX = 6;
+
 const brouillonVide = (city: string): Brouillon => ({
   name: "", address: "", city, fieldSize: "11v11", fieldSurface: "synthetic",
-  prix: "", equipements: [], photoUrl: null, available: true,
+  prix: "", equipements: [], photoUrl: null, galerie: [], available: true,
 });
 
 const depuisTerrain = (v: Venue): Brouillon => ({
@@ -65,6 +71,7 @@ const depuisTerrain = (v: Venue): Brouillon => ({
   prix: v.pricePerHour > 0 ? String(v.pricePerHour) : "",
   equipements: v.amenities ?? [],
   photoUrl: v.photoUrl,
+  galerie: v.galleryUrls ?? [],
   available: v.available,
 });
 
@@ -94,6 +101,8 @@ function Formulaire({
   libelle,
   fichier,
   setFichier,
+  fichiersGalerie,
+  setFichiersGalerie,
 }: {
   brouillon: Brouillon;
   setBrouillon: (b: Brouillon) => void;
@@ -103,8 +112,11 @@ function Formulaire({
   libelle: string;
   fichier: File | null;
   setFichier: (f: File | null) => void;
+  fichiersGalerie: File[];
+  setFichiersGalerie: (f: File[]) => void;
 }) {
   const [apercu, setApercu] = useState<string | null>(null);
+  const [gain, setGain] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // L'URL d'aperçu naît DANS LE GESTIONNAIRE, pas dans un effet.
@@ -127,11 +139,31 @@ function Formulaire({
     setFichier(f);
   };
 
-  const choisir = (f: File | undefined) => {
+  const choisir = async (f: File | undefined) => {
     if (!f) return;
     if (!f.type.startsWith("image/")) { toast.error("Choisis une image (PNG, JPG, WebP)."); return; }
-    if (f.size > 5 * 1024 * 1024) { toast.error("Image trop lourde (5 Mo maximum)."); return; }
-    poser(f);
+    if (f.size > 10 * 1024 * 1024) { toast.error("Image trop lourde (10 Mo maximum)."); return; }
+    // Une photo de telephone fait 3 a 5 Mo pour 4000 pixels de large. Elle est
+    // reduite ICI, avant l'envoi : ce qui part vers Storage est ce qui sera
+    // reellement affiche, pas l'original.
+    const leger = await alleger(f, REGLAGES.photo);
+    poser(leger);
+    setGain(leger.size < f.size * 0.9 ? `${poidsLisible(f.size)} → ${poidsLisible(leger.size)}` : null);
+  };
+
+  /** Les photos supplementaires, choisies plusieurs a la fois. */
+  const ajouterALaGalerie = async (liste: FileList | null) => {
+    if (!liste?.length) return;
+    const place = GALERIE_MAX - (brouillon.galerie.length + fichiersGalerie.length);
+    if (place <= 0) { toast.error(`${GALERIE_MAX} photos au maximum.`); return; }
+
+    const retenus: File[] = [];
+    for (const f of Array.from(liste).slice(0, place)) {
+      if (!f.type.startsWith("image/")) continue;
+      if (f.size > 10 * 1024 * 1024) { toast.error(`${f.name} dépasse 10 Mo.`); continue; }
+      retenus.push(await alleger(f, REGLAGES.photo));
+    }
+    if (retenus.length) setFichiersGalerie([...fichiersGalerie, ...retenus]);
   };
 
   const montree = apercu ?? brouillon.photoUrl;
@@ -141,7 +173,7 @@ function Formulaire({
       {/* La photo d'abord : c'est le champ qui change le plus les demandes,
           et le mettre en dernier revenait à le faire sauter. */}
       <div>
-        <Etiquette className="mb-2">Photo du terrain</Etiquette>
+        <Etiquette className="mb-2">Photo de couverture</Etiquette>
         <div className="flex flex-wrap items-start gap-4">
           <div className="relative h-28 w-40 shrink-0 overflow-hidden border border-gray-200/70 bg-gray-900">
             {montree ? (
@@ -180,12 +212,81 @@ function Formulaire({
                 Retirer la photo
               </button>
             )}
-            <p className="text-[11px] leading-relaxed text-gray-400">
-              5 Mo maximum. Une vue large de la pelouse vaut mieux qu&apos;un
-              gros plan : c&apos;est l&apos;image sur laquelle une équipe choisit.
-            </p>
+            {gain ? (
+              <p className="text-[11px] font-bold text-emerald-700">Allégée : {gain}</p>
+            ) : (
+              <p className="text-[11px] leading-relaxed text-gray-400">
+                Une vue large de la pelouse vaut mieux qu&apos;un gros plan :
+                c&apos;est l&apos;image du bandeau, celle sur laquelle une équipe
+                choisit. Réduite automatiquement avant l&apos;envoi.
+              </p>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* LA GALERIE. Une seule photo pour louer un terrain, c'est peu : une
+          equipe veut voir la pelouse, les vestiaires, l'eclairage de nuit.
+          Les equipes et les profils avaient deja la leur ; le terrain, qui est
+          pourtant ce qu'on loue, n'avait qu'une image. */}
+      <div>
+        <Etiquette className="mb-2">
+          Autres photos ({brouillon.galerie.length + fichiersGalerie.length}/{GALERIE_MAX})
+        </Etiquette>
+
+        <div className="flex flex-wrap gap-3">
+          {brouillon.galerie.map((u) => (
+            <div key={u} className="group relative h-20 w-28 overflow-hidden border border-gray-200/70">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={u} alt="" className="h-full w-full object-cover" />
+              <button
+                type="button"
+                aria-label="Retirer cette photo"
+                onClick={() => setBrouillon({ ...brouillon, galerie: brouillon.galerie.filter((x) => x !== u) })}
+                className="absolute right-0 top-0 bg-gray-900/80 p-1.5 text-white transition-colors hover:bg-red-600"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+
+          {fichiersGalerie.map((f, i) => (
+            <div key={`${f.name}-${i}`} className="group relative h-20 w-28 overflow-hidden border border-emerald-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={URL.createObjectURL(f)} alt="" className="h-full w-full object-cover" />
+              <span className="absolute bottom-0 left-0 bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                Nouvelle
+              </span>
+              <button
+                type="button"
+                aria-label="Retirer cette photo"
+                onClick={() => setFichiersGalerie(fichiersGalerie.filter((_, j) => j !== i))}
+                className="absolute right-0 top-0 bg-gray-900/80 p-1.5 text-white transition-colors hover:bg-red-600"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+
+          {brouillon.galerie.length + fichiersGalerie.length < GALERIE_MAX && (
+            <label className="flex h-20 w-28 cursor-pointer flex-col items-center justify-center gap-1 border border-dashed border-gray-200/70 text-gray-400 transition-colors hover:border-gray-900 hover:text-gray-900">
+              <ImagePlus size={16} />
+              <span className="text-[9px] font-black uppercase tracking-[0.1em]">Ajouter</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => void ajouterALaGalerie(e.target.files)}
+              />
+            </label>
+          )}
+        </div>
+
+        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+          Jusqu&apos;à {GALERIE_MAX} vues, réduites automatiquement. Elles
+          apparaissent sur la fiche publique, sous la réservation.
+        </p>
       </div>
 
       <Champ label="Nom du terrain" htmlFor="v-nom">
@@ -397,6 +498,7 @@ export default function MyVenuesPage() {
   const [edition, setEdition] = useState<string | null>(null);
   const [brouillon, setBrouillon] = useState<Brouillon>(brouillonVide(""));
   const [fichier, setFichier] = useState<File | null>(null);
+  const [fichiersGalerie, setFichiersGalerie] = useState<File[]>([]);
   const [occupe, setOccupe] = useState(false);
   const [demandes, setDemandes] = useState<Booking[]>([]);
   const { demander, Dialogue } = useConfirmation();
@@ -439,6 +541,7 @@ export default function MyVenuesPage() {
   const commencerAjout = () => {
     setBrouillon(brouillonVide(user.locationCity ?? ""));
     setFichier(null);
+    setFichiersGalerie([]);
     setEdition(null);
     setAjout(true);
   };
@@ -446,6 +549,7 @@ export default function MyVenuesPage() {
   const commencerEdition = (v: Venue) => {
     setBrouillon(depuisTerrain(v));
     setFichier(null);
+    setFichiersGalerie([]);
     setAjout(false);
     setEdition(v.id);
   };
@@ -454,6 +558,7 @@ export default function MyVenuesPage() {
     setAjout(false);
     setEdition(null);
     setFichier(null);
+    setFichiersGalerie([]);
   };
 
   const enregistrer = async () => {
@@ -472,17 +577,30 @@ export default function MyVenuesPage() {
         available: brouillon.available,
       };
 
-      // La photo a besoin de l'identifiant du terrain pour son chemin de
+      // Les images ont besoin de l'identifiant du terrain pour leur chemin de
       // stockage : à la création, on écrit d'abord, on téléverse ensuite.
+      //
+      // Les envois de la galerie partent EN PARALLÈLE : les faire à la queue
+      // leu leu ferait attendre six fois de suite quelqu'un qui a choisi six
+      // photos d'un coup.
+      const televerser = async (id: string) => {
+        const [couverture, ajouts] = await Promise.all([
+          fichier ? uploadVenuePhoto(id, fichier) : Promise.resolve(brouillon.photoUrl),
+          Promise.all(fichiersGalerie.map((f) => uploadVenuePhoto(id, f))),
+        ]);
+        return { photoUrl: couverture, galleryUrls: [...brouillon.galerie, ...ajouts] };
+      };
+
       if (edition) {
-        const photoUrl = fichier ? await uploadVenuePhoto(edition, fichier) : brouillon.photoUrl;
-        await updateVenue(edition, { ...commun, photoUrl });
+        const medias = await televerser(edition);
+        await updateVenue(edition, { ...commun, ...medias });
         toast.success("Terrain mis à jour");
       } else {
-        const id = await createVenue({ ...commun, ownerId: user.uid, photoUrl: null });
-        if (fichier) {
-          const photoUrl = await uploadVenuePhoto(id, fichier);
-          await updateVenue(id, { photoUrl });
+        const id = await createVenue({
+          ...commun, ownerId: user.uid, photoUrl: null, galleryUrls: [],
+        });
+        if (fichier || fichiersGalerie.length) {
+          await updateVenue(id, await televerser(id));
         }
         toast.success("Terrain référencé");
       }
@@ -586,6 +704,8 @@ export default function MyVenuesPage() {
             libelle="Référencer"
             fichier={fichier}
             setFichier={setFichier}
+            fichiersGalerie={fichiersGalerie}
+            setFichiersGalerie={setFichiersGalerie}
           />
         )}
 
@@ -612,6 +732,8 @@ export default function MyVenuesPage() {
                 libelle="Enregistrer"
                 fichier={fichier}
                 setFichier={setFichier}
+                fichiersGalerie={fichiersGalerie}
+                setFichiersGalerie={setFichiersGalerie}
               />
             ) : (
               <CarteTerrain

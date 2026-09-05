@@ -1,9 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MapPin, ArrowDown } from "lucide-react";
 import { adminDb } from "@/lib/firebase-admin";
 import BookingRequest from "@/components/venue/BookingRequest";
 import ContactResponsable from "@/components/venue/ContactResponsable";
+import GalerieTerrain from "@/components/venue/GalerieTerrain";
 import {
   libelleFormat, libelleSurface, prixHeure, aUnPrix,
 } from "@/lib/terrains";
@@ -47,6 +49,7 @@ interface VenueView {
   pricePerHour: number;
   amenities: string[];
   photoUrl: string | null;
+  galleryUrls: string[];
   available: boolean;
 }
 
@@ -70,6 +73,9 @@ async function readVenue(id: string): Promise<VenueView | null> {
       ? (v.amenities as unknown[]).filter((a): a is string => typeof a === "string")
       : [],
     photoUrl: s(v.photo_url),
+    galleryUrls: Array.isArray(v.gallery_urls)
+      ? (v.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string")
+      : [],
     available: v.available !== false,
   };
 }
@@ -126,11 +132,13 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
       <section className="relative flex min-h-[62vh] items-end overflow-hidden bg-gray-900 sm:min-h-[66vh]">
         {venue.photoUrl ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={venue.photoUrl}
               alt=""
-              className={`absolute inset-0 h-full w-full object-cover ${venue.available ? "" : "grayscale"}`}
+              fill
+              priority
+              sizes="100vw"
+              className={`object-cover ${venue.available ? "" : "grayscale"}`}
             />
             {/* Dégradé plus appuyé qu'avant : il porte maintenant six lignes
                 de texte, pas deux, et un tarif doit rester lisible sur une
@@ -229,6 +237,8 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               />
             </div>
           )}
+
+          <GalerieTerrain photos={venue.galleryUrls} nomTerrain={venue.name} />
 
           {venue.amenities.length > 0 && (
             <div className="mt-10">

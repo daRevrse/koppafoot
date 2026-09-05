@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
 import FollowCompetitionButton from "./FollowCompetitionButton";
 import type { Competition, CompetitionStatus } from "@/types";
+import Image from "next/image";
 
 // ============================================
 // Helpers
@@ -44,8 +45,12 @@ function formatDateRange(start: string | null, end: string | null): string | nul
 
 // A single directory tile. Presentational + server-safe (no client hooks),
 // sauf le bouton Suivre, une île cliente posée par-dessus.
-// Banners/logos are organizer-entered arbitrary URLs → plain <img>, not
-// next/image. The whole tile links to the public competition home.
+// LES VISUELS PASSENT PAR next/image DEPUIS QUE LE JOKER EST TOMBÉ. Ils
+// étaient des URL libres saisies par l'organisateur, donc `next/image` aurait
+// planté sur un hôte non déclaré : d'où un `<img>` brut, et une couverture de
+// 349px servie à sa taille d'origine — 1254x1254 pour 494 Ko, mesuré. Le
+// collage d'URL a disparu (voir ImageUploadField), tout vient de Firebase
+// Storage, l'optimiseur peut faire son travail.
 export default function CompetitionDirectoryCard({ competition }: { competition: Competition }) {
   const badge = STATUS_BADGE[competition.status];
   const dateRange = formatDateRange(competition.startDate, competition.endDate);
@@ -62,11 +67,12 @@ export default function CompetitionDirectoryCard({ competition }: { competition:
         {/* Cover: banner/logo when present, else a branded gradient with a trophy. */}
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-900">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={cover}
               alt={competition.name}
-              className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-700 via-gray-900 to-black">

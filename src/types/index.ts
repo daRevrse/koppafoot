@@ -830,6 +830,7 @@ export interface FirestoreVenue {
   amenities: string[];
   available: boolean;
   photo_url: string | null;
+  gallery_urls?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -848,7 +849,17 @@ export interface Venue {
   pricePerHour: number;
   amenities: string[];
   available: boolean;
+  /** La photo de couverture : bandeau de la fiche, vignette de l'annuaire. */
   photoUrl: string | null;
+  /**
+   * Les autres vues du terrain.
+   *
+   * Une seule photo pour vendre un terrain, c'est peu — les équipes veulent
+   * voir la pelouse, les vestiaires, l'éclairage de nuit. Les équipes et les
+   * profils avaient déjà leur galerie ; le terrain, qui est pourtant ce qu'on
+   * loue, n'avait qu'une image.
+   */
+  galleryUrls?: string[];
   createdAt: string;
   updatedAt: string;
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, libelleEquipement,
@@ -58,12 +59,15 @@ function Vignette({ terrain }: { terrain: TerrainListe }) {
     <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-900">
       {terrain.photoUrl ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          {/* next/image plutôt qu'`<img>` : la vignette fait 400px de large au
+              plus, la photo stockée en fait 1600. Ce n'est possible que depuis
+              que next.config n'accepte plus que Firebase Storage. */}
+          <Image
             src={terrain.photoUrl}
             alt=""
-            loading="lazy"
-            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className={`object-cover transition-transform duration-500 group-hover:scale-[1.03] ${
               terrain.available ? "" : "grayscale"
             }`}
           />

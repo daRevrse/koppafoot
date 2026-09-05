@@ -8,6 +8,7 @@ import Pagination, { usePagination } from "@/components/admin/Pagination";
 import type { Venue } from "@/types";
 import { formatCourt, surfaceCourte, prixHeure, aUnPrix } from "@/lib/terrains";
 import { Etiquette, Fanion, LignesDeTerrain } from "@/components/venue/venue-ui";
+import Image from "next/image";
 
 // ============================================
 // Les terrains référencés, vue d'administration.
@@ -112,12 +113,12 @@ export default function AdminVenuesPage() {
             <article key={v.id} className="flex flex-col bg-white">
               <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-900">
                 {v.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={v.photoUrl}
                     alt=""
-                    loading="lazy"
-                    className={`h-full w-full object-cover ${v.available ? "" : "grayscale"}`}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 33vw"
+                    className={`object-cover ${v.available ? "" : "grayscale"}`}
                   />
                 ) : (
                   <>
