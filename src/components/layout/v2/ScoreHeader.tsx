@@ -539,7 +539,17 @@ function useHeaderHeight() {
   return ref;
 }
 
-export default function ScoreHeader() {
+export default function ScoreHeader({
+  masqueSurMobile = false,
+}: {
+  /**
+   * Retire le header sous `lg`, pour une page qui tient elle-même le haut de
+   * l'écran (la fiche d'un match, voir ScoreShell). Masqué, il mesure zéro :
+   * `--header-h` tombe à 0 et les barres collantes de la page montent au bord
+   * de l'écran sans rien savoir de plus.
+   */
+  masqueSurMobile?: boolean;
+} = {}) {
   const t = useT();
   const headerRef = useHeaderHeight();
   const { user } = useAuth();
@@ -552,7 +562,10 @@ export default function ScoreHeader() {
     // Colle en haut : sur un tableau de scores on defile beaucoup, et
     // remonter chercher la navigation a chaque fois est un aller-retour
     // inutile. z-40 passe au-dessus du contenu sans couvrir les modales.
-    <header ref={headerRef} className="sticky top-0 z-40 bg-emerald-900 pt-safe">
+    <header
+      ref={headerRef}
+      className={`sticky top-0 z-40 bg-emerald-900 pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
+    >
       <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-5 lg:px-8 lg:py-4">
         <Link href={HOME} className="flex shrink-0 items-center gap-2">
           <Image src="/branding/logo_symbol.png" alt="KoppaFoot" width={34} height={34} priority />
