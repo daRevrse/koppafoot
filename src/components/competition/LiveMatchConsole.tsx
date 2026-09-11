@@ -23,7 +23,6 @@ type LiveEvent = NonNullable<CompMatch["liveState"]>["events"][number];
 
 // Football rule constants. Le nombre de titulaires et la durée des mi-temps
 // viennent du format de la compétition (NvN, durée), voir plus bas.
-const SUBS_MAX = 5;
 
 // ============================================
 // Helpers
@@ -174,8 +173,10 @@ export default function LiveMatchConsole({
   // Règles de jeu de la compétition : le NvN plafonne les titulaires, la durée
   // d'une mi-temps cale l'horloge (pause, puis coup de sifflet final à 2×).
   // La compétition arrive une frame après le match, d'où les valeurs par défaut.
-  const { titulairesMax: startersMax, dureeMiTempsMin: halfMinutes } =
-    pilote.regles(competition, match);
+  const {
+    titulairesMax: startersMax, dureeMiTempsMin: halfMinutes,
+    remplacementsMax, retourAutorise,
+  } = pilote.regles(competition, match);
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
 
@@ -681,10 +682,14 @@ export default function LiveMatchConsole({
     if (!outEntry || !inEntry) return;
 
     const events = match.liveState.events ?? [];
-    const subsUsed = events.filter((e) => e.type === "substitution" && e.teamId === teamId).length;
-    if (subsUsed >= SUBS_MAX) {
-      toast.error(`${SUBS_MAX} remplacements maximum`);
-      return;
+    // `null` : aucun plafond, c'est le cas d'un amical. Le compte n'est meme
+    // pas fait — il n'y a rien a comparer.
+    if (remplacementsMax !== null) {
+      const subsUsed = events.filter((e) => e.type === "substitution" && e.teamId === teamId).length;
+      if (subsUsed >= remplacementsMax) {
+        toast.error(`${remplacementsMax} remplacements maximum`);
+        return;
+      }
     }
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
 
@@ -699,6 +704,11 @@ export default function LiveMatchConsole({
         minute: subMinute,
         player_id: inEntry.playerId,
         player_name: inEntry.name,
+        // Le sortant, par son identifiant et non plus seulement dans le texte
+        // de `detail` : c'est ce qui permet de recoller ses minutes, et un
+        // aller-retour d'amical en produit plusieurs.
+        out_player_id: outEntry.playerId,
+        out_player_name: outEntry.name,
         detail: `${outEntry.name} → ${inEntry.name}`,
       });
       await pilote.poserSurLeTerrain(
@@ -993,7 +1003,18 @@ export default function LiveMatchConsole({
     return lineup.filter((e) => set.has(e.playerId));
   };
 
-  // Available bench: substitutes not on the pitch and not sent off (no red_card event).
+  /**
+   * Le banc : qui peut entrer.
+   *
+   * En competition, les remplacants de la feuille et eux seuls — un titulaire
+   * sorti ne revient pas, et le banc ne le reproposait donc jamais. SUR UN
+   * AMICAL C'EST L'INVERSE : la sortie n'y est pas definitive, donc tout ce
+   * qui est sur la feuille sans etre sur la pelouse peut entrer, un titulaire
+   * parti souffler compris. La regle vient du pilote, pas d'ici.
+   *
+   * Un exclu ne revient dans aucun des deux cas : un carton rouge est un
+   * carton rouge, meme entre copains.
+   */
   const benchEntries = (side: Side): LineupEntry[] => {
     const lineup = side === "home" ? homeLineup : awayLineup;
     const onPitch = new Set(side === "home" ? match.homeOnPitch : match.awayOnPitch);
@@ -1001,7 +1022,9 @@ export default function LiveMatchConsole({
       events.filter((e) => e.type === "red_card" && e.playerId).map((e) => e.playerId as string),
     );
     return lineup.filter(
-      (e) => e.role === "substitute" && !onPitch.has(e.playerId) && !sentOff.has(e.playerId),
+      (e) => !onPitch.has(e.playerId)
+        && !sentOff.has(e.playerId)
+        && (retourAutorise || e.role === "substitute"),
     );
   };
 

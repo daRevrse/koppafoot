@@ -90,6 +90,14 @@ export const SINGLE_GROUP_LETTER = "A";
 
 export const DEFAULT_TEAM_SIZE = 11;
 export const DEFAULT_HALF_DURATION = 45;
+/**
+ * Les changements accordés à une équipe sur un match de COMPÉTITION.
+ *
+ * Le chiffre vivait en dur dans la console, qui l'appliquait donc aussi aux
+ * amicaux — lesquels n'ont pas de plafond. Il est ici parce que c'est une
+ * règle de compétition, et la console la reçoit désormais du pilote.
+ */
+export const DEFAULT_SUBS_MAX = 5;
 
 /** Formats de jeu proposés à l'organisateur, gardien compris. */
 export const TEAM_SIZE_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 11];
