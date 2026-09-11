@@ -32,6 +32,7 @@ import MatchTimeline from "@/components/match/MatchTimeline";
 import CompteARebours from "@/components/match/CompteARebours";
 import FollowMatchButton from "@/components/match/FollowMatchButton";
 import MatchLineups from "@/components/match/MatchLineups";
+import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
 import PredictionPoll from "@/components/match/PredictionPoll";
@@ -719,6 +720,18 @@ export default function MatchDetailPage() {
           match, qui vivent maintenant dans le hero : garder la gouttiere de
           320px aurait ete garder une colonne pour rien. */}
       <div className="mx-auto max-w-4xl space-y-4">
+
+      {/* L'homme du match, sous le score : c'est la distinction du match, elle
+          se lit avant le détail de ce qui s'y est passé. Ne rend rien tant que
+          personne n'a été désigné. */}
+      <MvpDuMatch
+        name={match.mvpPlayerName}
+        teamName={
+          match.mvpTeamId
+            ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
+            : null
+        }
+      />
       {/* Barre d'onglets partagee. Les libelles etaient masques en dessous de
           `sm` : sur un telephone on ne voyait que trois icones grises. */}
       <MatchTabs

@@ -15,6 +15,7 @@ import {
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchLineups from "@/components/match/MatchLineups";
+import MvpDuMatch from "@/components/match/MvpDuMatch";
 import MatchTimeline from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
 import PredictionPoll from "@/components/match/PredictionPoll";
@@ -308,6 +309,18 @@ export default function PublicCompMatchView() {
           match, qui vivent maintenant dans le hero : garder la gouttière de
           320px aurait été garder une colonne pour rien. */}
       <div className="mx-auto max-w-4xl space-y-4">
+
+      {/* L'homme du match, sous le score : c'est la distinction du match, elle
+          se lit avant le détail de ce qui s'y est passé. Ne rend rien tant que
+          personne n'a été désigné. */}
+      <MvpDuMatch
+        name={match.mvpPlayerName}
+        teamName={
+          match.mvpTeamId
+            ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
+            : null
+        }
+      />
 
       {/* Tabs: match feed / lineups */}
       {(() => {
