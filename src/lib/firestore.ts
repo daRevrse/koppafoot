@@ -218,6 +218,8 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
         playerId: e.player_id,
         playerName: e.player_name,
         detail: e.detail,
+        outPlayerId: e.out_player_id ?? null,
+        outPlayerName: e.out_player_name ?? null,
         createdAt: e.created_at,
       })),
     } : null,
@@ -2546,6 +2548,9 @@ export async function addMatchLiveEvent(
     detail?: string | null;
     victim_player_id?: string | null;
     victim_player_name?: string | null;
+    /** Remplacements : celui qui sort. Voir `FirestoreMatch.live_state`. */
+    out_player_id?: string | null;
+    out_player_name?: string | null;
   },
 ): Promise<string> {
   const id = Math.random().toString(36).substring(2, 11);
@@ -2560,6 +2565,8 @@ export async function addMatchLiveEvent(
     detail: event.detail ?? null,
     victim_player_id: event.victim_player_id ?? null,
     victim_player_name: event.victim_player_name ?? null,
+    out_player_id: event.out_player_id ?? null,
+    out_player_name: event.out_player_name ?? null,
     created_at: new Date().toISOString(),
   };
 

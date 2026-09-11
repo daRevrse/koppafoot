@@ -29,7 +29,7 @@ import {
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
-  DEFAULT_HALF_DURATION, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
+  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
 } from "@/lib/competition-format";
 import type { TypeEvenement } from "@/lib/evenements";
 import {
@@ -45,10 +45,28 @@ import type {
 
 export type Cote = "home" | "away";
 
-/** Les regles de jeu que la console applique : titulaires, et horloge. */
+/** Les regles de jeu que la console applique : titulaires, horloge, et banc. */
 export interface ReglesDuJeu {
   titulairesMax: number;
   dureeMiTempsMin: number;
+  /**
+   * Les changements accordes a chaque equipe, ou `null` quand il n'y en a pas.
+   *
+   * UN AMICAL N'A PAS DE PLAFOND. La console en appliquait un de cinq a tout
+   * le monde, parce que le chiffre y vivait en dur : un manager qui faisait
+   * tourner son effectif un dimanche se voyait refuser le sixieme changement,
+   * au nom d'un reglement qui ne s'applique pas a son match.
+   */
+  remplacementsMax: number | null;
+  /**
+   * Un joueur sorti peut-il revenir sur le terrain ?
+   *
+   * Non en competition, ou une sortie est definitive. OUI SUR UN AMICAL, et
+   * c'est souvent le but : on fait jouer tout le monde, on souffle, on
+   * revient. Le banc de la console ne retenait que les remplacants de la
+   * feuille, donc un titulaire sorti n'y reparaissait jamais.
+   */
+  retourAutorise: boolean;
 }
 
 /** Un evenement tel que la console demande de l'ecrire. */
@@ -63,6 +81,9 @@ export interface EvenementAEcrire {
   detail?: string | null;
   victim_player_id?: string | null;
   victim_player_name?: string | null;
+  /** Remplacements : celui qui SORT. `player_id` dit qui entre. */
+  out_player_id?: string | null;
+  out_player_name?: string | null;
 }
 
 export interface PiloteConsole {
@@ -121,6 +142,10 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       // defaut : la console doit savoir compter avant de la connaitre.
       titulairesMax: competition ? teamSize(competition.format) : DEFAULT_TEAM_SIZE,
       dureeMiTempsMin: competition ? halfDuration(competition.format) : DEFAULT_HALF_DURATION,
+      // Le reglement d'une competition : cinq changements, et une sortie est
+      // definitive.
+      remplacementsMax: DEFAULT_SUBS_MAX,
+      retourAutorise: false,
     }),
 
     effectifs: async (match) => {
@@ -251,6 +276,12 @@ export function piloteAmical(matchId: string): PiloteConsole {
       // Un amical ne stocke pas de duree : la mi-temps reglementaire fait foi,
       // comme dans l'ancienne console.
       dureeMiTempsMin: DEFAULT_HALF_DURATION,
+      // LE MATCH DU DIMANCHE, tel qu'il se joue : on change autant qu'on veut,
+      // et celui qui est sorti souffler peut revenir. Aucun reglement ne
+      // l'interdit ici, et l'interdire privait le manager de ce pour quoi il
+      // organise un amical — faire jouer tout le monde.
+      remplacementsMax: null,
+      retourAutorise: true,
     }),
 
     /**

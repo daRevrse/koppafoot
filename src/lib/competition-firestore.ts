@@ -1086,6 +1086,15 @@ type StoredCompEvent = {
    */
   victim_player_id?: string | null;
   victim_player_name?: string | null;
+  /**
+   * Remplacements uniquement : celui qui SORT, quand `player_id` dit qui entre.
+   *
+   * Il ne vivait que dans `detail`, en toutes lettres. Un nom ne se rattache a
+   * aucune fiche et ne se compte pas : ni temps de jeu, ni « entre en jeu » sur
+   * le profil du remplacant.
+   */
+  out_player_id?: string | null;
+  out_player_name?: string | null;
   /** Goals only, see `setCompGoalVarStatus`. Absent on an unreviewed goal. */
   var_status?: GoalVarStatus | null;
   created_at: string;
@@ -1171,6 +1180,9 @@ export async function addCompEvent(
     detail?: string | null;
     victim_player_id?: string | null;
     victim_player_name?: string | null;
+    /** Remplacements : celui qui sort. Voir `StoredCompEvent`. */
+    out_player_id?: string | null;
+    out_player_name?: string | null;
   },
 ): Promise<string> {
   const newEvent: StoredCompEvent = {
@@ -1184,6 +1196,8 @@ export async function addCompEvent(
     detail: event.detail ?? null,
     victim_player_id: event.victim_player_id ?? null,
     victim_player_name: event.victim_player_name ?? null,
+    out_player_id: event.out_player_id ?? null,
+    out_player_name: event.out_player_name ?? null,
     created_at: new Date().toISOString(),
   };
 

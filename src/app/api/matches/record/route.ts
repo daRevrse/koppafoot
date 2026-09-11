@@ -34,11 +34,19 @@ import { refValidation, validationInitiale } from "@/lib/validation-server";
  * score CONTESTÉ, qui n'avait jamais rien crédité, retirait donc à ses
  * joueurs des buts qu'ils n'avaient jamais reçus.
  *
- * CE QUI EST CRÉDITÉ, quand ça l'est : le bilan des clubs (V/N/D), et les buts
- * et passes des joueurs NOMMÉS, comptes et joueurs sans compte confondus. Le
- * reste de l'effectif n'apparaît pas : ce parcours demande le score et les
- * buteurs, pas une feuille de match, et on ne crédite pas une présence qu'on
- * ne connaît pas.
+ * CE QUI EST CRÉDITÉ, quand ça l'est : le bilan des clubs (V/N/D), et LA SEULE
+ * PRÉSENCE des joueurs nommés — un match joué de plus, rien d'autre. Le reste
+ * de l'effectif n'apparaît pas : ce parcours demande le score et les buteurs,
+ * pas une feuille de match, et on ne crédite pas une présence qu'on ne connaît
+ * pas.
+ *
+ * LES BUTS ET LES PASSES NE COMPTENT PAS, et ils comptaient. Un match renseigné
+ * est saisi après coup, à la main, par un manager : c'est une déclaration, pas
+ * un constat. Le direct, lui, est vu et noté minute par minute — c'est ce qui
+ * fait un compteur de buts. Un match renseigné ne concerne donc que les clubs ;
+ * chez un joueur, il ne laisse qu'un match de plus au compteur, même s'il a
+ * marqué. Même règle que « Mes statistiques », qui n'a jamais lu ces matchs
+ * faute de feuille (voir lib/player-stats).
  */
 
 interface Buteur {
@@ -50,7 +58,12 @@ interface Buteur {
   passes: number;
 }
 
-/** Le crédit d'un match renseigné, appliqué ou repris à l'identique. */
+/**
+ * Le crédit d'un match renseigné, appliqué ou repris.
+ *
+ * Repris à hauteur DE CE QUI A ÉTÉ DONNÉ, et non de ce qu'on donnerait
+ * aujourd'hui : la règle a changé en cours de route, voir `reprendreLesStats`.
+ */
 function crediter(
   tx: Transaction,
   m: FirestoreMatch,
@@ -76,12 +89,24 @@ function crediter(
   if (m.home_team_id) tx.update(adminDb.collection("teams").doc(m.home_team_id), bilan(resultatHome));
   if (m.away_team_id) tx.update(adminDb.collection("teams").doc(m.away_team_id), bilan(resultatAway));
 
+  // ON NE CRÉDITE PLUS LES BUTS (voir l'en-tête), MAIS ON REND CE QU'ON A PRIS.
+  // Les matchs renseignés avant ce changement ont bel et bien crédité buts et
+  // passes ; les reprendre à la suppression demande de savoir ce qui a été
+  // donné. Leur document ne porte pas `recorded_scorer_stats`, et cette absence
+  // est la réponse : ancien régime. Un match crédité depuis le porte à `false`,
+  // et sa reprise ne touche donc que la présence — symétrique, comme il faut.
+  const reprendreLesStats = sens === -1 && m.recorded_scorer_stats !== false;
+
   for (const b of buteurs) {
     const compteurs = {
-      goals: FieldValue.increment(b.buts * sens),
-      assists: FieldValue.increment(b.passes * sens),
       matches_played: FieldValue.increment(sens),
       updated_at: FieldValue.serverTimestamp(),
+      ...(reprendreLesStats
+        ? {
+          goals: FieldValue.increment(b.buts * sens),
+          assists: FieldValue.increment(b.passes * sens),
+        }
+        : {}),
     };
     if (b.sansCompte) {
       tx.update(
@@ -222,6 +247,9 @@ export async function POST(req: NextRequest) {
     recorded_at: FieldValue.serverTimestamp(),
     recorded_by: callerUid,
     recorded_scorers: buteursValides,
+    // Ce match ne créditera pas les buts de ses buteurs, et sa suppression ne
+    // devra donc pas les reprendre. Voir `crediter`.
+    recorded_scorer_stats: false,
     // Contre une équipe hors plateforme, tout est crédité d'office, et tout
     // de suite : la trace se pose avec le match.
     ...(contreUnCompte
@@ -331,7 +359,14 @@ export async function PATCH(req: NextRequest) {
       }
       tx.update(ref, {
         ...(accepte
-          ? { stats_credited_at: FieldValue.serverTimestamp(), stats_credited_by: callerUid }
+          ? {
+              stats_credited_at: FieldValue.serverTimestamp(),
+              stats_credited_by: callerUid,
+              // Un match saisi avant ce changement mais contresigné après vient
+              // d'être crédité sous la règle nouvelle : son document doit le dire,
+              // sinon sa suppression reprendrait des buts jamais donnés.
+              recorded_scorer_stats: false,
+            }
           : {}),
         updated_at: FieldValue.serverTimestamp(),
       });

@@ -94,6 +94,11 @@ function etatDuDirect(v: unknown): Match["liveState"] {
       detail: str(e.detail) ?? undefined,
       assistPlayerId: str(e.assist_player_id),
       assistPlayerName: str(e.assist_player_name),
+      // Le sortant d'un remplacement. Un convertisseur qui rend un
+      // `Match["liveState"]` doit le porter : le laisser tomber ici en ferait
+      // un champ qu'on ecrit sans jamais pouvoir le relire par ce chemin.
+      outPlayerId: str(e.out_player_id),
+      outPlayerName: str(e.out_player_name),
       varStatus: (e.var_status ?? null) as NonNullable<Match["liveState"]>["events"][number]["varStatus"],
       createdAt: String(e.created_at ?? ""),
     })),

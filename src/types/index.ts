@@ -489,6 +489,21 @@ export interface FirestoreMatch {
       /** Fautes uniquement : celui qui l'a subie, dans le camp d'en face. */
       victim_player_id?: string | null;
       victim_player_name?: string | null;
+      /**
+       * Remplacements uniquement : CELUI QUI SORT. `player_id` désigne
+       * l'entrant.
+       *
+       * Le sortant n'existait que dans `detail`, en toutes lettres
+       * (« Untel → Untel »). Tant qu'une sortie était définitive, le déduire
+       * suffisait : un titulaire absent de la pelouse était sorti. Depuis
+       * qu'un amical autorise les allers-retours, la déduction ne tient plus,
+       * et un temps de jeu ne se calcule pas sur une chaîne de caractères.
+       *
+       * Absent des remplacements écrits avant ce champ : leur `detail` reste
+       * leur seule trace, et il continue d'être écrit pour tout le monde.
+       */
+      out_player_id?: string | null;
+      out_player_name?: string | null;
       // Les contestations d'un événement ne sont plus ici : voir
       // `FirestoreMatchValidation.contested_events`.
       /**
@@ -586,6 +601,15 @@ export interface FirestoreMatch {
   /** Qui a marqué et fait marquer, tels que saisis. La seule trace de joueurs
    *  qu'un match renseigné possède : il n'a pas de feuille de match. */
   recorded_scorers?: FirestoreRecordedScorer[];
+  /**
+   * Ce match a-t-il crédité les buts et passes de ses buteurs ?
+   *
+   * Il ne le fait plus : un match renseigné ne donne qu'une présence, jamais
+   * un but (voir /api/matches/record). Ceux d'avant, si — et leur suppression
+   * doit reprendre ce qu'ils ont donné. ABSENT VEUT DIRE OUI : les matchs de
+   * l'ancien régime n'ont pas ce champ, et c'est ainsi qu'on les reconnaît.
+   */
+  recorded_scorer_stats?: boolean;
   /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
   created_at: string;
@@ -729,6 +753,9 @@ export interface Match {
       /** Voir `FirestoreMatch.live_state.events[].victim_player_id`. */
       victimPlayerId?: string | null;
       victimPlayerName?: string | null;
+      /** Voir `FirestoreMatch.live_state.events[].out_player_id`. */
+      outPlayerId?: string | null;
+      outPlayerName?: string | null;
       /** See `FirestoreMatch.live_state.events[].var_status`. */
       varStatus?: GoalVarStatus | null;
       createdAt: string;
