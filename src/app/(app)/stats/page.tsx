@@ -421,7 +421,16 @@ export default function StatsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-gray-900">{opponent}</p>
                         <p className="truncate text-[11px] font-semibold text-gray-400">
-                          {mine ?? 0}–{theirs ?? 0} · {a.role === "starter" ? "Titulaire" : "Entré en jeu"} · {a.minutes}&apos;
+                          {/* Rôle et minutes peuvent manquer : une journée de
+                              compétition rattrapée par l'organisateur n'a pas
+                              de feuille de match, donc ni l'un ni l'autre. On
+                              n'écrit pas « Entré en jeu » faute de savoir. */}
+                          {[
+                            `${mine ?? 0}–${theirs ?? 0}`,
+                            a.role === "starter" ? "Titulaire"
+                              : a.role === "substitute" ? "Entré en jeu" : null,
+                            a.minutes > 0 ? `${a.minutes}'` : null,
+                          ].filter(Boolean).join(" · ")}
                         </p>
                       </div>
                       <span className="flex shrink-0 items-center gap-1.5 text-xs font-black">
@@ -445,8 +454,10 @@ export default function StatsPage() {
             et cartons sont ceux saisis en direct par l&apos;organisateur ou ton
             manager. Le temps de jeu se calcule sur les entrées et sorties notées en
             direct : un remplacement enregistré avant que la console retienne le
-            sortant ne peut pas être daté précisément. Les passes décisives ne sont
-            pas encore enregistrées en console live.
+            sortant ne peut pas être daté précisément. Quand l&apos;organisateur
+            rattrape une journée après coup, il n&apos;y a pas de feuille : les
+            buteurs qu&apos;il saisit comptent leur match, sans rôle ni minutes. Les
+            passes décisives ne sont pas encore enregistrées en console live.
           </p>
         </>
       )}

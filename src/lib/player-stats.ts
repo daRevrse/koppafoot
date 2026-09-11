@@ -25,11 +25,11 @@
 // une déclaration de manager sur un match entre copains, pas contre
 // l'organisateur d'une compétition.
 //
-// CE PARCOURS NE POSE AUCUNE FEUILLE, et c'est un trou connu : le but de son
-// buteur compte, mais le match ne compte pas comme joué (`matchesPlayed` tient
-// à la feuille, la boucle des événements non). Le déséquilibre est antérieur
-// au calcul des minutes, et il se referme soit en comptant le match pour les
-// joueurs nommés au résultat, soit en demandant la feuille dans ce parcours.
+// CE PARCOURS NE POSE AUCUNE FEUILLE : son buteur comptait son but sans que le
+// match compte comme joué. Les joueurs NOMMÉS au résultat prennent donc leur
+// match, et eux seuls — voir `priseDePart`. Un joueur qui a joué sans marquer
+// n'y figure pas : ce parcours ne sait pas qu'il était là, et le deviner
+// serait inventer.
 //
 // Note on what is NOT here: assists. The live console records goals, cards
 // and substitutions only (`live_state.events.type`), so there is nothing to
@@ -119,6 +119,44 @@ function ligneDe(lineup: LineupEntry[], playerId: string): LineupEntry | undefin
 }
 
 /**
+ * A-t-il pris part à ce match, et à quel titre ?
+ *
+ * LA FEUILLE DÉCIDE, quand il y en a une : y figurer suffit, ne pas y figurer
+ * disqualifie, même si un événement nomme le joueur. C'est la règle, et rien
+ * ici ne la contourne.
+ *
+ * SANS FEUILLE, ON PREND LES JOUEURS NOMMÉS. Une journée de compétition
+ * rattrapée par l'organisateur (voir `setCompMatchResult`) n'en produit
+ * aucune : elle n'a que le score et les buteurs. Ceux-là, on sait qu'ils
+ * étaient là — ils ont marqué. Sans ce repli, le parcours laissait son buteur
+ * avec « 0 match, 1 but », son but compté et sa présence ignorée.
+ *
+ * Le rôle est alors INCONNU, pas supposé : ni titulaire ni remplaçant, et pas
+ * de minutes non plus — une saisie après match ne dit ni l'un ni l'autre.
+ *
+ * Rend `null` quand il n'a pas pris part.
+ */
+function priseDePart(
+  match: MatchJoue,
+  teamId: string,
+  isHome: boolean,
+  playerId: string,
+): { role: "starter" | "substitute" | null } | null {
+  const feuille = isHome ? match.homeLineup : match.awayLineup;
+  const entry = ligneDe(feuille, playerId);
+  if (entry) return { role: entry.role };
+  if (feuille.length > 0) return null;
+
+  // `teamId` sur l'événement : sans feuille, rien n'a encore prouvé que ce
+  // joueur appartient à ce camp. Un csc en est exclu de fait, son événement
+  // étant rangé dans le camp qui en profite.
+  const nomme = (match.liveState?.events ?? []).some(
+    (e) => e.playerId === playerId && e.teamId === teamId,
+  );
+  return nomme ? { role: null } : null;
+}
+
+/**
  * Stats of one player across a list of matches — those of a competition, or
  * the friendlies they turned out for.
  *
@@ -140,14 +178,14 @@ export function computePlayerStats(
     const isAway = match.awayTeamId === teamId;
     if (!isHome && !isAway) continue;
 
-    const entry = ligneDe(isHome ? match.homeLineup : match.awayLineup, playerId);
+    const part = priseDePart(match, teamId, isHome, playerId);
     // LA FEUILLE VALIDE LE MATCH, POINT. Être dessus suffit : un remplaçant
     // qui n'est jamais entré a bien un match de plus, et zéro minute. Le
     // couple « 1 match, 0' » est donc juste, et ce n'est pas au temps de jeu
     // de décider ce qui compte comme un match.
-    if (match.status === "completed" && entry) {
+    if (match.status === "completed" && part) {
       stats.matchesPlayed += 1;
-      if (entry.role === "starter") stats.starts += 1;
+      if (part.role === "starter") stats.starts += 1;
       // Seulement sur un match terminé : les minutes d'une rencontre en cours
       // bougeraient à chaque rafraîchissement, et un bilan de carrière n'est
       // pas un chronomètre.
@@ -249,7 +287,8 @@ export function computeMinutesPlayed(
 
 export interface PlayerAppearance {
   match: MatchJoue;
-  role: "starter" | "substitute";
+  /** `null` quand le match n'a pas de feuille : voir `priseDePart`. */
+  role: "starter" | "substitute" | null;
   goals: number;
   yellowCards: number;
   redCards: number;
@@ -278,13 +317,13 @@ export function computeAppearances(
     const isAway = match.awayTeamId === teamId;
     if (!isHome && !isAway) continue;
 
-    const entry = ligneDe(isHome ? match.homeLineup : match.awayLineup, playerId);
-    if (!entry) continue;
+    const part = priseDePart(match, teamId, isHome, playerId);
+    if (!part) continue;
 
     const events = (match.liveState?.events ?? []).filter((e) => e.playerId === playerId);
     out.push({
       match,
-      role: entry.role,
+      role: part.role,
       goals: events.filter((e) => e.type === "goal" && e.varStatus !== "cancelled").length,
       yellowCards: events.filter((e) => e.type === "yellow_card").length,
       redCards: events.filter((e) => e.type === "red_card").length,
