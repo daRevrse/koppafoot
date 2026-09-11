@@ -3,12 +3,22 @@
 // records: lineups and match events. Pure and SDK-agnostic so the player's
 // own page and the manager's squad view share one definition.
 //
+// AMICAUX COMPRIS. Ces fonctions ne lisaient que des `CompMatch`, et « Mes
+// statistiques » ne comptait donc que les compétitions : un joueur qui venait
+// de faire un amical voyait quatre zéros, sans rien pour lui dire pourquoi.
+// Un match joué est un match joué. Les deux collections ne se ressemblent pas,
+// mais la feuille et l'horloge, si — c'est tout ce qui est lu ici, d'où
+// `MatchJoue` plus bas.
+//
 // Note on what is NOT here: assists. The live console records goals, cards
 // and substitutions only (`live_state.events.type`), so there is nothing to
 // count. Adding them means adding an assist event to the console first.
 // ============================================
 
-import type { CompMatch, CompPlayer, LinkedCompPlayer } from "@/types";
+import type {
+  CompMatch, CompMatchStatus, CompPlayer, LineupEntry, LinkedCompPlayer,
+  Match, MatchStatus,
+} from "@/types";
 
 export interface PlayerStats {
   matchesPlayed: number;
@@ -31,7 +41,48 @@ export const EMPTY_STATS: PlayerStats = {
 };
 
 /**
- * Stats of one roster line across a competition's matches.
+ * Ce qu'il faut d'un match pour en tirer des statistiques : la feuille, le
+ * tableau d'affichage, et ce que la console a noté.
+ *
+ * Un amical (`Match`) et une rencontre de compétition (`CompMatch`) portent
+ * tous les deux ces champs — sous des types légèrement différents, d'où les
+ * unions. Ils vivent dans deux collections qui n'ont rien en commun, et c'est
+ * bien la seule chose qui les sépare ici : le joueur qui ouvre son bilan ne
+ * fait pas la différence, son bilan ne doit pas la faire non plus.
+ */
+export interface MatchJoue {
+  id: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeamName: string;
+  awayTeamName: string;
+  date: string | null;
+  time: string | null;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  status: MatchStatus | CompMatchStatus;
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
+  liveState?: Match["liveState"];
+}
+
+/**
+ * La ligne de feuille de ce joueur, quand il y en a une.
+ *
+ * `playerId` désigne une LIGNE D'EFFECTIF, propre à une équipe : c'est ce que
+ * porte la feuille d'une compétition. Sur un amical, la feuille est bâtie
+ * depuis les participations, et la ligne est directement le compte du joueur —
+ * les deux identifiants s'y confondent. Tester `userId` en plus rattrape le
+ * second cas sans rien changer au premier : un identifiant de compte n'est
+ * jamais l'identifiant d'une ligne d'effectif.
+ */
+function ligneDe(lineup: LineupEntry[], playerId: string): LineupEntry | undefined {
+  return lineup.find((e) => e.playerId === playerId || e.userId === playerId);
+}
+
+/**
+ * Stats of one player across a list of matches — those of a competition, or
+ * the friendlies they turned out for.
  *
  * A match counts as played when it is completed and the player appears in
  * their team's submitted lineup, a squad member who never made the sheet
@@ -39,7 +90,7 @@ export const EMPTY_STATS: PlayerStats = {
  * typed as free text (no player picked in the console) is not attributed.
  */
 export function computePlayerStats(
-  matches: CompMatch[],
+  matches: MatchJoue[],
   teamId: string,
   playerId: string,
 ): PlayerStats {
@@ -50,8 +101,7 @@ export function computePlayerStats(
     const isAway = match.awayTeamId === teamId;
     if (!isHome && !isAway) continue;
 
-    const lineup = isHome ? match.homeLineup : match.awayLineup;
-    const entry = lineup.find((e) => e.playerId === playerId);
+    const entry = ligneDe(isHome ? match.homeLineup : match.awayLineup, playerId);
     if (match.status === "completed" && entry) {
       stats.matchesPlayed += 1;
       if (entry.role === "starter") stats.starts += 1;
@@ -72,7 +122,7 @@ export function computePlayerStats(
 }
 
 export interface PlayerAppearance {
-  match: CompMatch;
+  match: MatchJoue;
   role: "starter" | "substitute";
   goals: number;
   yellowCards: number;
@@ -87,7 +137,7 @@ export interface PlayerAppearance {
  * Only completed matches the player was on the sheet for are returned.
  */
 export function computeAppearances(
-  matches: CompMatch[],
+  matches: MatchJoue[],
   teamId: string,
   playerId: string,
 ): PlayerAppearance[] {
@@ -99,8 +149,7 @@ export function computeAppearances(
     const isAway = match.awayTeamId === teamId;
     if (!isHome && !isAway) continue;
 
-    const lineup = isHome ? match.homeLineup : match.awayLineup;
-    const entry = lineup.find((e) => e.playerId === playerId);
+    const entry = ligneDe(isHome ? match.homeLineup : match.awayLineup, playerId);
     if (!entry) continue;
 
     const events = (match.liveState?.events ?? []).filter((e) => e.playerId === playerId);

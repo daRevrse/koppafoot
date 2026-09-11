@@ -9,15 +9,16 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listCompMatches } from "@/lib/competition-firestore";
+import { getMatchById, getParticipationsForPlayer } from "@/lib/firestore";
 import {
   computePlayerStats, computeAppearances, totalStats, EMPTY_STATS,
   type PlayerStats, type PlayerAppearance,
 } from "@/lib/player-stats";
-import type { LinkedCompPlayer } from "@/types";
+import type { LinkedCompPlayer, Match } from "@/types";
 
 // ============================================
-// Mes statistiques, the player's own record, aggregated over every
-// competition roster line linked to their account.
+// Mes statistiques, the player's own record: every competition roster line
+// linked to their account, ET SES AMICAUX.
 //
 // Links are now created automatically: when a manager registers their club
 // in a competition (or imports it into an existing team), every member's
@@ -25,10 +26,23 @@ import type { LinkedCompPlayer } from "@/types";
 // player with a linked line but no minutes yet is the NORMAL case, not an
 // edge one, competitions are listed with zeros rather than hidden, because
 // seeing the competition is how the player knows the link worked.
+//
+// LES AMICAUX COMPTAIENT POUR RIEN. Cette page ne lisait que les
+// `linkedCompPlayers`, donc un joueur qui venait de faire un amical voyait
+// quatre zéros — et rien sur l'écran ne lui disait que seules les
+// compétitions y entraient. Un amical n'appartient à aucune compétition et
+// n'a donc aucun lien à suivre : sa trace, c'est la participation du joueur,
+// qui dit aussi sous quel maillot il jouait. Le reste du calcul est le même,
+// les deux formes de match tiennent dans `MatchJoue`.
 // ============================================
 
+/** D'où vient une ligne du bilan : une compétition, ou les amicaux d'un club. */
+type Source =
+  | { genre: "competition"; link: LinkedCompPlayer }
+  | { genre: "amical"; teamId: string; teamName: string };
+
 interface Row {
-  link: LinkedCompPlayer;
+  source: Source;
   stats: PlayerStats;
   appearances: PlayerAppearance[];
 }
@@ -78,16 +92,14 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (!user) return;
+    const uid = user.uid;
     let cancelled = false;
 
     (async () => {
-      if (links.length === 0) {
-        if (!cancelled) setRows([]);
-        return;
-      }
+      const out: Row[] = [];
 
-      // One read per distinct competition; every linked line of that
-      // competition is then computed from the same match list.
+      // 1. Les compétitions. One read per distinct competition; every linked
+      // line of that competition is then computed from the same match list.
       const byCompetition = new Map<string, LinkedCompPlayer[]>();
       for (const link of links) {
         const bucket = byCompetition.get(link.competition_id);
@@ -95,13 +107,12 @@ export default function StatsPage() {
         else byCompetition.set(link.competition_id, [link]);
       }
 
-      const out: Row[] = [];
       for (const [cid, compLinks] of byCompetition) {
         try {
           const matches = await listCompMatches(cid);
           for (const link of compLinks) {
             out.push({
-              link,
+              source: { genre: "competition", link },
               stats: computePlayerStats(matches, link.team_id, link.player_id),
               appearances: computeAppearances(matches, link.team_id, link.player_id),
             });
@@ -110,10 +121,77 @@ export default function StatsPage() {
           console.error("Error loading matches for competition", cid, err);
           // A competition that fails to load must not blank the whole page.
           for (const link of compLinks) {
-            out.push({ link, stats: { ...EMPTY_STATS }, appearances: [] });
+            out.push({
+              source: { genre: "competition", link },
+              stats: { ...EMPTY_STATS },
+              appearances: [],
+            });
           }
         }
       }
+
+      // 2. Les amicaux. Aucun lien ne les désigne — ils n'appartiennent à
+      // aucune compétition — donc on part des participations du joueur, sa
+      // seule trace dans `matches`. Elle porte aussi l'équipe sous laquelle
+      // il jouait ce jour-là, que le match, lui, ne dit pas.
+      //
+      // Confirmées seulement : une invitation refusée ou restée sans réponse
+      // n'est pas un match, et la charger reviendrait à lire des documents
+      // pour les jeter. Figurer sur la feuille reste exigé ensuite, par
+      // `computePlayerStats` — présent au coup d'envoi n'est pas avoir joué.
+      //
+      // Une lecture par amical, là où une compétition n'en coûte qu'une pour
+      // tout son calendrier : les amicaux sont éparpillés dans une collection
+      // commune, sans champ par lequel les demander d'un coup. C'est tenable
+      // à l'échelle d'une carrière amateur, et un plafond ferait mentir le
+      // total — ce qui est précisément ce qu'on corrige ici.
+      try {
+        const equipeParMatch = new Map<string, string>();
+        for (const p of await getParticipationsForPlayer(uid)) {
+          if (p.status !== "confirmed") continue;
+          if (!equipeParMatch.has(p.matchId)) equipeParMatch.set(p.matchId, p.teamId);
+        }
+
+        const amicaux = (
+          await Promise.all([...equipeParMatch.keys()].map((id) => getMatchById(id)))
+        ).filter((m): m is Match => m !== null);
+
+        // Groupés par club, comme les compétitions : un joueur qui a fait des
+        // amicaux sous deux maillots a deux lignes, et son bilan reste lisible.
+        const parEquipe = new Map<string, Match[]>();
+        for (const m of amicaux) {
+          const teamId = equipeParMatch.get(m.id);
+          if (!teamId) continue;
+          const bucket = parEquipe.get(teamId);
+          if (bucket) bucket.push(m);
+          else parEquipe.set(teamId, [m]);
+        }
+
+        for (const [teamId, matchs] of parEquipe) {
+          const stats = computePlayerStats(matchs, teamId, uid);
+          // Une ligne « amicaux » à zéro n'apprend rien : contrairement à une
+          // compétition, il n'y a aucune inscription dont elle prouverait
+          // qu'elle a pris.
+          if (stats.matchesPlayed === 0) continue;
+          const sien = matchs.find((m) => m.homeTeamId === teamId || m.awayTeamId === teamId);
+          out.push({
+            source: {
+              genre: "amical",
+              teamId,
+              teamName: sien
+                ? (sien.homeTeamId === teamId ? sien.homeTeamName : sien.awayTeamName)
+                : "Mon équipe",
+            },
+            stats,
+            appearances: computeAppearances(matchs, teamId, uid),
+          });
+        }
+      } catch (err) {
+        // Comme pour une compétition : les amicaux qui ne se chargent pas ne
+        // doivent pas emporter le reste du bilan.
+        console.error("Error loading friendlies", err);
+      }
+
       if (!cancelled) setRows(out);
     })();
 
@@ -132,7 +210,7 @@ export default function StatsPage() {
 
   const total = totalStats(rows.map((r) => r.stats));
   const recent = rows
-    .flatMap((r) => r.appearances.map((a) => ({ ...a, link: r.link })))
+    .flatMap((r) => r.appearances.map((a) => ({ ...a, source: r.source })))
     .sort((a, b) =>
       `${b.match.date ?? ""}T${b.match.time ?? ""}`.localeCompare(
         `${a.match.date ?? ""}T${a.match.time ?? ""}`,
@@ -160,13 +238,13 @@ export default function StatsPage() {
             <Users size={26} />
           </div>
           <p className="mt-4 font-display text-lg font-black text-gray-900">
-            Pas encore de compétition
+            Pas encore de match joué
           </p>
           <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-relaxed text-gray-500">
-            Tes statistiques se remplissent toutes seules dès que ton équipe est
-            engagée dans une compétition. Rien à faire de ton côté : c&apos;est ton
-            manager qui inscrit l&apos;équipe, et tu apparais automatiquement sur les
-            feuilles de match.
+            Tes statistiques se remplissent toutes seules, amicaux comme
+            compétitions, dès que tu figures sur une feuille de match terminée.
+            Rien à faire de ton côté : c&apos;est ton manager qui engage
+            l&apos;équipe et compose, et tu y apparais automatiquement.
           </p>
           <p className="mx-auto mt-3 max-w-sm text-xs font-semibold text-gray-400">
             Tu n&apos;es dans aucune équipe ? Le mercato est fait pour ça.
@@ -209,31 +287,35 @@ export default function StatsPage() {
             </p>
             {rows.map((row, i) => {
               const noMinutes = row.stats.matchesPlayed === 0;
-              return (
-                <motion.div
-                  // L'equipe fait partie de la cle : un joueur transfere en
-                  // cours de tournoi a DEUX lignes dans la meme competition,
-                  // une par club, et le code plus haut les construit
-                  // deliberement. Sans `team_id` les deux portaient la meme
-                  // cle, et React en omettait une.
-                  key={`${row.link.competition_id}-${row.link.team_id}-${row.link.player_id}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                >
-                  <Link
-                    href={`/c/${row.link.competition_slug}/teams/${row.link.team_id}`}
-                    className="flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-amber-50 text-amber-500">
-                      <Trophy size={20} />
+              // Une ligne d'amicaux ne mene nulle part : la fiche d'equipe et
+              // le tableau des matchs sont des ecrans de manager, absents de
+              // la navigation d'un joueur. Ses rencontres restent accessibles
+              // une par une, dans « Mes derniers matchs » juste dessous.
+              const vue = row.source.genre === "amical"
+                ? {
+                  cle: `amicaux-${row.source.teamId}`,
+                  titre: "Matchs amicaux",
+                  sousTitre: row.source.teamName,
+                  href: null,
+                }
+                : {
+                  cle: `${row.source.link.competition_id}-${row.source.link.team_id}-${row.source.link.player_id}`,
+                  titre: row.source.link.competition_name,
+                  sousTitre: `${row.source.link.team_name} · ${row.source.link.player_name}`,
+                  href: `/c/${row.source.link.competition_slug}/teams/${row.source.link.team_id}`,
+                };
+              const classeCarte = "flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70";
+              const contenu = (
+                <>
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center ${row.source.genre === "amical" ? "bg-emerald-50 text-emerald-500" : "bg-amber-50 text-amber-500"}`}>
+                      {row.source.genre === "amical" ? <Shirt size={20} /> : <Trophy size={20} />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black text-gray-900">
-                        {row.link.competition_name}
+                        {vue.titre}
                       </p>
                       <p className="mt-0.5 truncate text-xs font-semibold text-gray-400">
-                        {row.link.team_name} · {row.link.player_name}
+                        {vue.sousTitre}
                       </p>
                       {noMinutes ? (
                         // Zeros on purpose: this is what tells the player the
@@ -257,8 +339,26 @@ export default function StatsPage() {
                         </p>
                       )}
                     </div>
-                    <ArrowRight size={16} className="shrink-0 text-gray-300" />
-                  </Link>
+                  {vue.href && <ArrowRight size={16} className="shrink-0 text-gray-300" />}
+                </>
+              );
+              return (
+                <motion.div
+                  // L'equipe fait partie de la cle : un joueur transfere en
+                  // cours de tournoi a DEUX lignes dans la meme competition,
+                  // une par club, et le code plus haut les construit
+                  // deliberement. Sans `team_id` les deux portaient la meme
+                  // cle, et React en omettait une.
+                  key={vue.cle}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  {vue.href ? (
+                    <Link href={vue.href} className={classeCarte}>{contenu}</Link>
+                  ) : (
+                    <div className={classeCarte}>{contenu}</div>
+                  )}
                 </motion.div>
               );
             })}
@@ -273,7 +373,15 @@ export default function StatsPage() {
               <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">
                 {recent.map((a) => {
                   const m = a.match;
-                  const isHome = m.homeTeamId === a.link.team_id;
+                  // Un amical se lit sur sa propre fiche, pas sous une
+                  // compétition : il n'en a pas.
+                  const monEquipe = a.source.genre === "amical"
+                    ? a.source.teamId
+                    : a.source.link.team_id;
+                  const href = a.source.genre === "amical"
+                    ? `/matches/${m.id}`
+                    : `/c/${a.source.link.competition_slug}/matches/${m.id}`;
+                  const isHome = m.homeTeamId === monEquipe;
                   const opponent = isHome ? m.awayTeamName : m.homeTeamName;
                   const mine = isHome ? m.scoreHome : m.scoreAway;
                   const theirs = isHome ? m.scoreAway : m.scoreHome;
@@ -281,8 +389,8 @@ export default function StatsPage() {
                   const drew = (mine ?? 0) === (theirs ?? 0);
                   return (
                     <Link
-                      key={`${m.id}-${a.link.player_id}`}
-                      href={`/c/${a.link.competition_slug}/matches/${m.id}`}
+                      key={`${m.id}-${monEquipe}`}
+                      href={href}
                       className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50/70"
                     >
                       <span className="w-11 shrink-0 text-[11px] font-bold text-gray-400">
@@ -316,10 +424,11 @@ export default function StatsPage() {
 
           <p className="flex items-start gap-2 bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
             <Info size={14} className="mt-0.5 shrink-0 text-gray-400" />
-            Un match compte comme joué quand il est terminé et que tu figures sur la
-            feuille de match. Les buts et cartons sont ceux saisis en direct par
-            l&apos;organisateur. Les passes décisives ne sont pas encore enregistrées
-            en console live.
+            Amicaux et compétitions comptent pareil. Un match compte comme joué
+            quand il est terminé et que tu figures sur la feuille de match. Les buts
+            et cartons sont ceux saisis en direct par l&apos;organisateur ou ton
+            manager. Les passes décisives ne sont pas encore enregistrées en console
+            live.
           </p>
         </>
       )}
