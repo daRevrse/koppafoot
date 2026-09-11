@@ -10,13 +10,26 @@
 // mais la feuille et l'horloge, si — c'est tout ce qui est lu ici, d'où
 // `MatchJoue` plus bas.
 //
-// CE QUI NE COMPTE TOUJOURS PAS, ET C'EST VOULU : un match RENSEIGNÉ après
-// coup par son manager. Il n'a pas de feuille — `recorded_scorers` est sa
-// seule trace de joueurs (voir /api/matches/record), et c'est une saisie, pas
-// un constat. Rien ici ne la lit, et rien ne doit la lire. SEUL LE DIRECT
-// COMPTE : exiger la feuille de match est la règle elle-même, pas un effet de
-// bord de l'implémentation. Une participation confirmée ne la remplace pas
-// davantage — dire qu'on vient n'est pas avoir joué.
+// CE QUI NE COMPTE PAS, ET C'EST VOULU : un AMICAL renseigné après coup par
+// son manager. Il n'a pas de feuille — `recorded_scorers` est sa seule trace
+// de joueurs (voir /api/matches/record), et c'est une déclaration, pas un
+// constat. Rien ici ne la lit, et rien ne doit la lire. Une participation
+// confirmée ne remplace pas la feuille davantage : dire qu'on vient n'est pas
+// avoir joué.
+//
+// LA RÈGLE S'ARRÊTE AUX AMICAUX. Une compétition a un parcours légitime de
+// saisie après match — l'organisateur rattrape une journée qui s'est jouée
+// sans console, voir `setCompMatchResult` — et ce qu'il saisit fait foi : ses
+// buts portent de vrais identifiants de joueurs, ils sont écrits dans
+// `live_state.events`, et ils comptent. « Seul le direct compte » vaut contre
+// une déclaration de manager sur un match entre copains, pas contre
+// l'organisateur d'une compétition.
+//
+// CE PARCOURS NE POSE AUCUNE FEUILLE, et c'est un trou connu : le but de son
+// buteur compte, mais le match ne compte pas comme joué (`matchesPlayed` tient
+// à la feuille, la boucle des événements non). Le déséquilibre est antérieur
+// au calcul des minutes, et il se referme soit en comptant le match pour les
+// joueurs nommés au résultat, soit en demandant la feuille dans ce parcours.
 //
 // Note on what is NOT here: assists. The live console records goals, cards
 // and substitutions only (`live_state.events.type`), so there is nothing to
