@@ -16,6 +16,7 @@ import {
 } from "@/lib/competition-firestore";
 import { getTeamsByManager } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
+import { matchDuration } from "@/lib/competition-format";
 import { POSTES, LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
@@ -171,9 +172,14 @@ export default function MyTeamPage() {
     });
   }, [team]);
 
+  // La durée vient du format de la compétition : un temps de jeu calculé sur
+  // 90 minutes serait faux de moitié sur un 5v5 en mi-temps de 25.
   const squadStats = useMemo(
-    () => (team ? computeSquadStats(matches, tid, roster) : []),
-    [matches, team, tid, roster],
+    () => (team
+      ? computeSquadStats(matches, tid, roster,
+        competition ? matchDuration(competition.format) : undefined)
+      : []),
+    [matches, team, tid, roster, competition],
   );
 
   const openAdd = () => {

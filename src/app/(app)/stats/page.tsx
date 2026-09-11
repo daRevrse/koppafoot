@@ -5,13 +5,15 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   BarChart3, Loader2, Trophy, Target, Shirt, Square, ArrowRight, Info,
-  Users,
+  Users, Clock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { listCompMatches } from "@/lib/competition-firestore";
+import { getCompetition, listCompMatches } from "@/lib/competition-firestore";
+import { matchDuration } from "@/lib/competition-format";
 import { getMatchById, getParticipationsForPlayer } from "@/lib/firestore";
 import {
   computePlayerStats, computeAppearances, totalStats, EMPTY_STATS,
+  DUREE_MATCH_DEFAUT,
   type PlayerStats, type PlayerAppearance,
 } from "@/lib/player-stats";
 import type { LinkedCompPlayer, Match } from "@/types";
@@ -109,12 +111,20 @@ export default function StatsPage() {
 
       for (const [cid, compLinks] of byCompetition) {
         try {
-          const matches = await listCompMatches(cid);
+          // La compétition est lue pour son FORMAT : une mi-temps de 25
+          // minutes fait un match de 50, et un temps de jeu calculé sur 90
+          // serait faux de moitié. Une lecture de plus par compétition, en
+          // parallèle du calendrier.
+          const [matches, competition] = await Promise.all([
+            listCompMatches(cid),
+            getCompetition(cid),
+          ]);
+          const duree = competition ? matchDuration(competition.format) : DUREE_MATCH_DEFAUT;
           for (const link of compLinks) {
             out.push({
               source: { genre: "competition", link },
-              stats: computePlayerStats(matches, link.team_id, link.player_id),
-              appearances: computeAppearances(matches, link.team_id, link.player_id),
+              stats: computePlayerStats(matches, link.team_id, link.player_id, duree),
+              appearances: computeAppearances(matches, link.team_id, link.player_id, duree),
             });
           }
         } catch (err) {
@@ -268,7 +278,7 @@ export default function StatsPage() {
       ) : (
         <>
           {/* Career totals */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <StatTile label="Matchs" value={total.matchesPlayed} Icon={Shirt} accent="text-emerald-500" />
             <StatTile label="Titulaire" value={total.starts} Icon={Users} accent="text-emerald-500" />
             <StatTile label="Buts" value={total.goals} Icon={Target} accent="text-emerald-500" />
@@ -278,6 +288,11 @@ export default function StatsPage() {
               Icon={Square}
               accent={total.redCards > 0 ? "text-red-500" : "text-amber-400"}
             />
+            {/* Cinquième tuile : sur deux colonnes en mobile, elle occupe la
+                ligne au lieu de laisser un trou à côté d'elle. */}
+            <div className="col-span-2 sm:col-span-1">
+              <StatTile label="Minutes" value={total.minutesPlayed} Icon={Clock} accent="text-emerald-500" />
+            </div>
           </div>
 
           {/* Per competition */}
@@ -327,6 +342,7 @@ export default function StatsPage() {
                         <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-gray-600">
                           <span>{row.stats.matchesPlayed} match{row.stats.matchesPlayed !== 1 ? "s" : ""}</span>
                           <span>{row.stats.starts} titulaire</span>
+                          <span>{row.stats.minutesPlayed}&apos;</span>
                           <span className="text-emerald-600">
                             {row.stats.goals} but{row.stats.goals !== 1 ? "s" : ""}
                           </span>
@@ -405,7 +421,7 @@ export default function StatsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-gray-900">{opponent}</p>
                         <p className="truncate text-[11px] font-semibold text-gray-400">
-                          {mine ?? 0}–{theirs ?? 0} · {a.role === "starter" ? "Titulaire" : "Entré en jeu"}
+                          {mine ?? 0}–{theirs ?? 0} · {a.role === "starter" ? "Titulaire" : "Entré en jeu"} · {a.minutes}&apos;
                         </p>
                       </div>
                       <span className="flex shrink-0 items-center gap-1.5 text-xs font-black">
@@ -427,8 +443,10 @@ export default function StatsPage() {
             Amicaux et compétitions comptent pareil. Un match compte comme joué
             quand il est terminé et que tu figures sur la feuille de match. Les buts
             et cartons sont ceux saisis en direct par l&apos;organisateur ou ton
-            manager. Les passes décisives ne sont pas encore enregistrées en console
-            live.
+            manager. Le temps de jeu se calcule sur les entrées et sorties notées en
+            direct : un remplacement enregistré avant que la console retienne le
+            sortant ne peut pas être daté précisément. Les passes décisives ne sont
+            pas encore enregistrées en console live.
           </p>
         </>
       )}
