@@ -94,8 +94,6 @@ function etatDuDirect(v: unknown): Match["liveState"] {
       detail: str(e.detail) ?? undefined,
       assistPlayerId: str(e.assist_player_id),
       assistPlayerName: str(e.assist_player_name),
-      contestedByManagerId: str(e.contested_by_manager_id),
-      contestationReason: str(e.contestation_reason),
       varStatus: (e.var_status ?? null) as NonNullable<Match["liveState"]>["events"][number]["varStatus"],
       createdAt: String(e.created_at ?? ""),
     })),

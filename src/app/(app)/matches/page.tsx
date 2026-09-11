@@ -17,6 +17,7 @@ import {
   forceCompleteMatch,
   getMatchesByManager,
   onMatchesByManager,
+  onMesValidations,
   getTeamsIManage,
   getVenues,
   createMatch,
@@ -43,7 +44,7 @@ import {
   quotaMinimum,
 } from "@/lib/firestore";
 import { TEAM_SIZE_OPTIONS } from "@/lib/competition-format";
-import type { Match, Team, Venue, PlayerRating, LineupEntry } from "@/types";
+import type { Match, Team, Venue, PlayerRating, LineupEntry, MatchValidation } from "@/types";
 import TirsAuBut from "@/components/match/TirsAuBut";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
 import Link from "next/link";
@@ -265,6 +266,17 @@ export default function MatchesPage() {
       setLoading(false);
     });
     return unsub;
+  }, [user?.uid]);
+
+  /**
+   * Le statut de validation de mes matchs, par match. Il a quitté le document
+   * public du match pour `match_validations`, que seuls les deux camps lisent :
+   * une seule requête (`managers` contient mon uid) les ramène tous.
+   */
+  const [validations, setValidations] = useState<Map<string, MatchValidation>>(new Map());
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onMesValidations(user.uid, setValidations);
   }, [user?.uid]);
 
   // Real-time challenges listener
@@ -1479,22 +1491,27 @@ export default function MatchesPage() {
 
                         {/* Pas de badge de validation sur un amical hors
                             plateforme : il n'y a pas de second manager pour
-                            contresigner, donc rien à annoncer. */}
-                        {match.status === "completed" && !estAmical(match) && (
-                          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
-                            match.validationStatus === 'validated' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
-                            match.validationStatus === 'contested' ? 'bg-red-50 border-red-100 text-red-600' :
-                            match.validationStatus === 'unverified' ? 'bg-gray-100 border-gray-200/70 text-gray-500' :
-                            'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
-                          }`}>
-                            {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
-                             match.validationStatus === 'contested' ? <AlertCircle size={10} /> :
-                             match.validationStatus === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
-                            {match.validationStatus === 'validated' ? 'Score Validé' :
-                             match.validationStatus === 'contested' ? 'Contesté' :
-                             match.validationStatus === 'unverified' ? 'Amical non vérifié' : 'Validation en attente'}
-                          </div>
-                        )}
+                            contresigner, donc rien à annoncer. Ni tant que la
+                            validation n'est pas chargée : un « en attente »
+                            affiché d'office mentirait sur un match validé. */}
+                        {match.status === "completed" && !estAmical(match) && validations.get(match.id) && (() => {
+                          const statut = validations.get(match.id)!.status;
+                          return (
+                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
+                              statut === 'validated' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                              statut === 'contested' ? 'bg-red-50 border-red-100 text-red-600' :
+                              statut === 'unverified' ? 'bg-gray-100 border-gray-200/70 text-gray-500' :
+                              'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
+                            }`}>
+                              {statut === 'validated' ? <CheckCircle2 size={10} /> :
+                               statut === 'contested' ? <AlertCircle size={10} /> :
+                               statut === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
+                              {statut === 'validated' ? 'Score Validé' :
+                               statut === 'contested' ? 'Contesté' :
+                               statut === 'unverified' ? 'Amical non vérifié' : 'Validation en attente'}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Referee + Players row (upcoming/delayed/draft only) */}
@@ -1597,7 +1614,7 @@ export default function MatchesPage() {
                       {/* Un score saisi par l'adversaire, en attente de notre
                           parole. Tant qu'on n'a pas tranché, il ne compte pour
                           personne — ni pour lui, ni pour nous. */}
-                      {estRenseigne(match) && match.validationStatus === "pending" && (
+                      {estRenseigne(match) && validations.get(match.id)?.status === "pending" && (
                         match.managerId === user?.uid ? (
                           <div className="mt-3 flex items-center gap-2 border border-amber-200 bg-amber-50 px-3 py-2">
                             <Clock size={13} className="shrink-0 text-amber-600" />

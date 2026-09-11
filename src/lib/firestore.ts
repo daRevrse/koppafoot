@@ -41,6 +41,7 @@ import type {
   Booking, FirestoreBooking,
   GhostPlayer, FirestoreGhostPlayer, LineupEntry,
   Notification, FirestoreNotification, NotificationType,
+  MatchValidation, FirestoreMatchValidation,
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
@@ -198,7 +199,8 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     } : null,
     localRefereeName: d.local_referee_name ?? null,
     autoAcceptPlayers: d.auto_accept_players ?? false,
-    validationStatus: d.validation_status ?? "pending",
+    // La validation n'est plus lue ici : elle vit dans `match_validations`,
+    // que seuls les deux camps lisent. Voir onMatchValidation.
     statsCreditedAt: d.stats_credited_at ?? null,
     statsCreditedBy: d.stats_credited_by ?? null,
     completedAt: d.completed_at ?? null,
@@ -216,19 +218,9 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
         playerId: e.player_id,
         playerName: e.player_name,
         detail: e.detail,
-        contestedByManagerId: e.contested_by_manager_id,
-        contestationReason: e.contestation_reason,
         createdAt: e.created_at,
       })),
     } : null,
-    postMatchFeedback: d.post_match_feedback ? Object.fromEntries(
-      Object.entries(d.post_match_feedback).map(([k, v]) => [k, {
-        validation: v.validation,
-        comments: v.comments,
-        refereeRating: v.referee_rating,
-        createdAt: v.created_at,
-      }])
-    ) : null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -1450,52 +1442,111 @@ export async function deleteMatch(matchId: string): Promise<void> {
   await deleteDoc(doc(db, "matches", matchId));
 }
 
+// ============================================
+// La validation d'un match, à l'écart du match.
+//
+// Statut, retours des managers, note de l'arbitre et motifs de contestation
+// vivent dans `match_validations/{matchId}`. Les règles ne la laissent lire
+// qu'aux deux managers, à leur staff délégué et aux super-admins, et ne
+// laissent AUCUN navigateur l'écrire : les gestes passent par
+// /api/matches/validation, qui sait de quel camp parle l'appelant et calcule
+// le statut. Voir lib/validation-server.
+// ============================================
+
+export function toMatchValidation(id: string, d: FirestoreMatchValidation): MatchValidation {
+  const feedback: MatchValidation["feedback"] = {};
+  for (const camp of ["home", "away"] as const) {
+    const r = d.feedback?.[camp];
+    if (!r) continue;
+    feedback[camp] = {
+      validation: r.validation,
+      comments: r.comments,
+      refereeRating: r.referee_rating,
+      by: r.by,
+      at: r.at,
+    };
+  }
+  return {
+    matchId: d.match_id ?? id,
+    status: d.status ?? "pending",
+    feedback,
+    contestedEvents: d.contested_events ?? {},
+    autoValidated: d.auto_validated === true,
+  };
+}
+
+/**
+ * La validation d'un match, en direct, pour qui a le droit de la lire.
+ *
+ * `null` quand elle n'existe pas encore (match pas terminé), ET quand la
+ * lecture est refusée : un compte qui n'est d'aucun des deux camps n'a rien
+ * à en savoir, et la fiche n'a pas à lui montrer une erreur pour ça.
+ */
+export function onMatchValidation(
+  matchId: string,
+  callback: (v: MatchValidation | null) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, "match_validations", matchId),
+    (snap) => callback(snap.exists() ? toMatchValidation(snap.id, snap.data() as FirestoreMatchValidation) : null),
+    () => callback(null),
+  );
+}
+
+/**
+ * Les validations de tous les matchs d'un manager, en une requête : la liste
+ * /matches affiche leur statut sans ouvrir un document par match. La règle
+ * `list` ne l'autorise qu'à ce filtre exact (`managers` contient l'appelant).
+ */
+export function onMesValidations(
+  uid: string,
+  callback: (parMatch: Map<string, MatchValidation>) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "match_validations"), where("managers", "array-contains", uid)),
+    (snap) => callback(new Map(
+      snap.docs.map((d) => [d.id, toMatchValidation(d.id, d.data() as FirestoreMatchValidation)]),
+    )),
+    () => callback(new Map()),
+  );
+}
+
+/** Appelle /api/matches/validation au nom du compte connecté. */
+async function gesteDeValidation(corps: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/matches/validation", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify(corps),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "L'opération a échoué");
+  return data;
+}
+
+/**
+ * Le retour d'un camp sur un match terminé : valider ou contester, noter
+ * l'arbitre, commenter. Le serveur range le retour au camp de l'appelant —
+ * manager ou délégué du staff — et recalcule le statut commun.
+ */
 export async function submitManagerFeedback(
   matchId: string,
-  managerId: string,
   data: {
     validation: "validated" | "contested";
     comments?: string;
     refereeRating?: number;
   },
 ): Promise<void> {
-  const matchRef = doc(db, "matches", matchId);
-  await runTransaction(db, async (transaction) => {
-    const matchSnap = await transaction.get(matchRef);
-    if (!matchSnap.exists()) throw new Error("Match not found");
-    const matchData = matchSnap.data() as FirestoreMatch;
-
-    const feedback = { ...(matchData.post_match_feedback || {}) };
-    const feedbackEntry: any = {
-      validation: data.validation,
-      created_at: new Date().toISOString(),
-    };
-    if (data.comments) feedbackEntry.comments = data.comments;
-    if (data.refereeRating) feedbackEntry.referee_rating = data.refereeRating;
-
-    feedback[managerId] = feedbackEntry;
-
-    // "unverified" (adversaire hors plateforme) est terminal : bothValidated
-    // ne peut pas être vrai sans manager adverse, donc le statut y reste.
-    let validation_status: NonNullable<FirestoreMatch["validation_status"]> =
-      matchData.validation_status ?? "pending";
-    if (data.validation === "contested") {
-      validation_status = "contested";
-    } else if (validation_status !== "contested") {
-      // Check if both managers have provided feedback.
-      const bothValidated =
-        feedback[matchData.manager_id]?.validation === "validated" &&
-        feedback[matchData.away_manager_id]?.validation === "validated";
-      if (bothValidated) {
-        validation_status = "validated";
-      }
-    }
-
-    transaction.update(matchRef, {
-      post_match_feedback: feedback,
-      validation_status,
-      updated_at: serverTimestamp(),
-    });
+  await gesteDeValidation({
+    matchId,
+    action: "retour",
+    validation: data.validation,
+    commentaire: data.comments,
+    noteArbitre: data.refereeRating,
   });
 }
 
@@ -3193,39 +3244,18 @@ export async function updateMatchRefereeStatus(
 }
 
 /**
- * Contests a specific match event
+ * Contester un événement d'un match terminé.
+ *
+ * Le motif s'écrivait DANS l'événement, sur le document public du match : il
+ * se lisait sans compte. Il va dans la validation du match, par
+ * /api/matches/validation (voir submitManagerFeedback).
  */
 export async function contestMatchEvent(
   matchId: string,
   eventId: string,
-  managerId: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
-  const matchRef = doc(db, "matches", matchId);
-  await runTransaction(db, async (transaction) => {
-    const matchSnap = await transaction.get(matchRef);
-    if (!matchSnap.exists()) throw new Error("Match not found");
-    const matchData = matchSnap.data() as FirestoreMatch;
-
-    if (!matchData.live_state || !matchData.live_state.events) {
-      throw new Error("No live state or events found");
-    }
-
-    const eventIndex = matchData.live_state.events.findIndex(e => e.id === eventId);
-    if (eventIndex === -1) throw new Error("Event not found");
-
-    const newEvents = [...matchData.live_state.events];
-    newEvents[eventIndex] = {
-      ...newEvents[eventIndex],
-      contested_by_manager_id: managerId,
-      contestation_reason: reason,
-    };
-
-    transaction.update(matchRef, {
-      "live_state.events": newEvents,
-      updated_at: serverTimestamp(),
-    });
-  });
+  await gesteDeValidation({ matchId, action: "contestation", eventId, motif: reason });
 }
 
 // ============================================

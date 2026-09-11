@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch, FirestoreParticipation } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { DELAI_VALIDATION_TACITE_MS, refValidation, validationInitiale } from "@/lib/validation-server";
 
 /**
  * End-of-match stats rollup.
@@ -235,7 +236,6 @@ export async function POST(req: NextRequest) {
   batch.update(matchRef, {
     status: "completed",
     result: homeResult,
-    validation_status: isGhostMatch ? "unverified" : "pending",
     completed_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
     ...arretDuChrono,
@@ -245,6 +245,21 @@ export async function POST(req: NextRequest) {
       ? { stats_credited_at: FieldValue.serverTimestamp(), stats_credited_by: callerUid }
       : {}),
   });
+
+  // LA VALIDATION S'OUVRE À L'ÉCART DU MATCH, dans un document que seuls les
+  // deux camps lisent (voir lib/validation-server). Entre deux comptes, elle
+  // attend leurs retours, et se fait tacitement douze heures plus tard si
+  // personne n'a rien dit. Face à une équipe hors plateforme, personne ne
+  // contresignera : « non vérifié », d'emblée et pour de bon.
+  batch.set(
+    refValidation(matchId),
+    validationInitiale(
+      matchId,
+      match,
+      isGhostMatch ? "unverified" : "pending",
+      isGhostMatch ? null : new Date(Date.now() + DELAI_VALIDATION_TACITE_MS),
+    ),
+  );
 
   try {
     await batch.commit();

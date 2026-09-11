@@ -17,14 +17,14 @@ import {
   invitePlayerToMatch, respondToParticipation,
   getMatchParticipations, getTeamMembers,
   updateMatchLineup, submitManagerFeedback,
-  contestMatchEvent, getTeamById,
+  contestMatchEvent, getTeamById, onMatchValidation,
   getGhostPlayersByTeam, getTeamsIManage, creditGhostMatchStats,
   tailleEffectif,
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import { normaliserPoste, INITIALE_POSTE, LIBELLE_POSTE, POSTES, type Poste } from "@/lib/postes";
-import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry } from "@/types";
+import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry, MatchValidation, CampDuMatch } from "@/types";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
@@ -119,7 +119,7 @@ export default function MatchDetailPage() {
     if (!match || !user || !contestingEventId || !contestationReason.trim()) return;
     setSubmittingContestation(true);
     try {
-      await contestMatchEvent(match.id, contestingEventId, user.uid, contestationReason);
+      await contestMatchEvent(match.id, contestingEventId, contestationReason);
       toast.success("Événement contesté avec succès");
       setContestingEventId(null);
       setContestationReason("");
@@ -131,6 +131,14 @@ export default function MatchDetailPage() {
   };
 
   const [validation, setValidation] = useState<"validated" | "contested">("validated");
+  /**
+   * LA VALIDATION DU MATCH, lue à part : statut, retours des deux camps,
+   * événements contestés. Elle a quitté le document public du match pour
+   * `match_validations`, que seuls les deux camps lisent (voir
+   * onMatchValidation). `undefined` tant qu'elle n'est pas chargée, `null`
+   * quand il n'y en a pas — ou qu'on n'a pas le droit de la lire.
+   */
+  const [validationDuMatch, setValidationDuMatch] = useState<MatchValidation | null | undefined>(undefined);
   const [managerComments, setManagerComments] = useState("");
   const [refereeRating, setRefereeRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
@@ -411,6 +419,20 @@ export default function MatchDetailPage() {
     });
     return () => unsub();
   }, [id, user]);
+
+  // La validation du match, pour les deux camps seulement, et seulement une
+  // fois le match terminé : avant, il n'y a rien à valider. Un compte d'aucun
+  // des deux camps ne l'écoute même pas — les règles la lui refuseraient.
+  const matchTermine = match?.status === "completed";
+  useEffect(() => {
+    if (!isManager || !matchTermine) { setValidationDuMatch(null); return; }
+    return onMatchValidation(id, setValidationDuMatch);
+  }, [id, isManager, matchTermine]);
+
+  /** Le camp au nom duquel parle ce compte : celui de l'équipe qu'il gère. */
+  const monCamp: CampDuMatch | null = myTeamId ? (myTeamIsHome ? "home" : "away") : null;
+  /** Ce que mon camp a déjà dit du match, s'il l'a dit — moi ou un délégué. */
+  const monRetour = monCamp ? validationDuMatch?.feedback[monCamp] : undefined;
 
   // 3. Fetch Team Members for invitations (if manager)
   useEffect(() => {
@@ -807,13 +829,25 @@ export default function MatchDetailPage() {
                   bandeau vert annonçait « validé par les deux managers » à
                   n'importe quel visiteur. C'est une affaire entre les deux
                   équipes : il n'apparaît plus qu'à ceux qui la règlent. */}
-              {isManager && match.status === "completed" && !estAmical && (() => {
-                const statut = match.validationStatus ?? "pending";
+              {isManager && match.status === "completed" && !estAmical && validationDuMatch && (() => {
+                const statut = validationDuMatch.status;
                 const rendu = {
-                  validated: { mot: "Validé", phrase: "Validé par les deux managers.", Icone: CheckCircle2, teinte: "border-emerald-100 bg-emerald-50 text-emerald-700" },
-                  contested: { mot: "Contesté", phrase: "Un manager a contesté le match.", Icone: AlertCircle, teinte: "border-orange-100 bg-orange-50 text-orange-600" },
+                  validated: {
+                    mot: "Validé",
+                    phrase: validationDuMatch.autoValidated
+                      ? "Validé tacitement : personne n'a contesté dans les 12 heures."
+                      : match.recordedAt ? "Score confirmé par l'adversaire." : "Validé par les deux camps.",
+                    Icone: CheckCircle2, teinte: "border-emerald-100 bg-emerald-50 text-emerald-700",
+                  },
+                  contested: { mot: "Contesté", phrase: "Un des deux camps a contesté le match.", Icone: AlertCircle, teinte: "border-orange-100 bg-orange-50 text-orange-600" },
                   unverified: { mot: "Non vérifié", phrase: "Personne en face pour contresigner.", Icone: Info, teinte: "border-gray-200/70 bg-gray-100 text-gray-500" },
-                  pending: { mot: "En attente", phrase: "En attente de la validation des deux managers.", Icone: Clock, teinte: "border-amber-100 bg-amber-50 text-amber-700" },
+                  pending: {
+                    mot: "En attente",
+                    phrase: match.recordedAt
+                      ? "En attente de la confirmation de l'adversaire."
+                      : "En attente de la validation des deux camps.",
+                    Icone: Clock, teinte: "border-amber-100 bg-amber-50 text-amber-700",
+                  },
                 }[statut];
                 return (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border border-gray-200/70 bg-white px-4 py-3">
@@ -830,8 +864,13 @@ export default function MatchDetailPage() {
                 );
               })()}
 
-              {/* Post-Match Validation Banner */}
-              {isManager && match.status === "completed" && (!match.postMatchFeedback || !match.postMatchFeedback[user?.uid!]) && (
+              {/* Post-Match Validation Banner. Pour un camp qui ne s'est pas
+                  encore prononcé — ni son manager, ni un délégué. Ni sur un
+                  amical sans adversaire inscrit, qui n'a personne à qui
+                  répondre, ni sur un score renseigné, qui se confirme par la
+                  contresignature (liste des matchs). */}
+              {isManager && match.status === "completed" && !estAmical && !match.recordedAt
+                && validationDuMatch !== undefined && !monRetour && (
                 <div className=" bg-primary-50 border border-primary-200 p-4 sm:p-8">
                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-4 sm:mb-6">
                       <div className="h-14 w-14 bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
@@ -847,10 +886,10 @@ export default function MatchDetailPage() {
                          onClick={async () => {
                            if (!user?.uid) return;
                            try {
-                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" });
+                             await submitManagerFeedback(match.id, { validation: "validated" });
                              toast.success("Match validé ! Merci.");
                            } catch (e) {
-                             toast.error("Erreur lors de la validation");
+                             toast.error(e instanceof Error ? e.message : "Erreur lors de la validation");
                            }
                          }}
                          className="px-6 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-emerald-600/20 flex items-center gap-2"
@@ -861,9 +900,9 @@ export default function MatchDetailPage() {
                          onClick={() => {
                            const reason = prompt("Raison de la contestation :");
                            if (reason && user?.uid) {
-                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason })
+                             submitManagerFeedback(match.id, { validation: "contested", comments: reason })
                                .then(() => toast.success("Contestation enregistrée"))
-                               .catch(() => toast.error("Erreur"));
+                               .catch((e) => toast.error(e instanceof Error ? e.message : "Erreur"));
                            }
                          }}
                          className="px-6 py-3 bg-white border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all flex items-center gap-2"
@@ -1004,11 +1043,16 @@ export default function MatchDetailPage() {
                     // Un amical contre une equipe hors plateforme n'a aucun nom
                     // de joueur en face : le nom de l'equipe tient lieu d'auteur.
                     auteur={(e) => auteurDeLEvenement(e.teamId, e.playerName)}
+                    // Les contestations se lisent dans la validation du match,
+                    // réservée aux deux camps : un visiteur ne voit ni le
+                    // bouton, ni qu'un événement a été contesté.
                     action={(e) =>
                       match.status === "completed"
-                      && match.validationStatus !== "validated"
+                      && !estAmical
                       && isManager
-                        ? e.contestedByManagerId ? (
+                      && validationDuMatch
+                      && validationDuMatch.status !== "validated"
+                        ? validationDuMatch.contestedEvents[e.id] ? (
                             <span className="inline-flex items-center gap-1 border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-500">
                               <AlertCircle size={10} />
                               Contesté
@@ -1694,8 +1738,11 @@ export default function MatchDetailPage() {
       {/* Post-Match Feedback Section for Managers.
           Retiré sur un amical : « valider » ou « contester » n'ont de sens que
           face à un second manager. Sur un match hors plateforme, le geste de
-          confirmation est l'attribution des statistiques, juste au-dessus. */}
-      {isManager && match?.status === "completed" && !estAmical && (
+          confirmation est l'attribution des statistiques, juste au-dessus.
+          Retiré aussi sur un score renseigné, qui se confirme par la
+          contresignature de l'adversaire. */}
+      {isManager && match?.status === "completed" && !estAmical && !match.recordedAt
+        && validationDuMatch !== undefined && (
         <motion.div
            initial={{ opacity: 0, y: 20 }}
            animate={{ opacity: 1, y: 0 }}
@@ -1712,26 +1759,28 @@ export default function MatchDetailPage() {
              </div>
           </div>
 
-          {user && match.postMatchFeedback?.[user.uid] ? (
+          {/* Le retour de MON CAMP, qu'il vienne de moi ou d'un délégué :
+              le serveur les range par équipe, pas par compte. */}
+          {monRetour ? (
              <div className="p-4 sm:p-6 bg-gray-50 border border-gray-200/70 space-y-4">
                 <div className="flex items-center gap-2">
-                   {match.postMatchFeedback[user.uid].validation === 'validated' ? (
+                   {monRetour.validation === 'validated' ? (
                      <CheckCircle2 size={20} className="text-emerald-500" />
                    ) : (
                      <AlertCircle size={20} className="text-red-500" />
                    )}
                    <span className="font-black text-gray-900">
-                     {match.postMatchFeedback[user.uid].validation === 'validated' ? 'Match Validé' : 'Match Contesté'}
+                     {monRetour.validation === 'validated' ? 'Match Validé' : 'Match Contesté'}
                    </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-400 uppercase font-black mr-2">Arbitrage :</span>
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={16} className={i < (match.postMatchFeedback?.[user.uid]?.refereeRating || 0) ? "text-amber-400 fill-amber-400" : "text-gray-300"} />
+                    <Star key={i} size={16} className={i < (monRetour.refereeRating || 0) ? "text-amber-400 fill-amber-400" : "text-gray-300"} />
                   ))}
                 </div>
-                {match.postMatchFeedback[user.uid].comments && (
-                  <p className="text-sm text-gray-600 italic">« {match.postMatchFeedback[user.uid].comments} »</p>
+                {monRetour.comments && (
+                  <p className="text-sm text-gray-600 italic">« {monRetour.comments} »</p>
                 )}
              </div>
           ) : (
@@ -1791,7 +1840,7 @@ export default function MatchDetailPage() {
                    if (!user) return;
                    setSubmittingFeedback(true);
                    try {
-                     await submitManagerFeedback(match.id, user.uid, {
+                     await submitManagerFeedback(match.id, {
                        validation,
                        comments: managerComments,
                        refereeRating
