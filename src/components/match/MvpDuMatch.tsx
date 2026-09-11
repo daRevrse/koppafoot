@@ -5,7 +5,9 @@ import { Trophy } from "lucide-react";
  *
  * Un seul composant pour les deux fiches — amical et compétition — parce que
  * c'est la même distinction et qu'elle se lit pareil. Ce qui diffère entre les
- * deux vit dans la collection, pas à l'écran.
+ * deux vit dans la collection, pas à l'écran. Et pour le meilleur joueur d'un
+ * tournoi, qui est le même objet une échelle au-dessus : seul le libellé
+ * change.
  *
  * RIEN QUAND IL N'Y EN A PAS. Un match sans homme du match est un cas normal :
  * le scoreur peut siffler la fin sans désigner, et un bandeau vide annoncerait
@@ -14,9 +16,12 @@ import { Trophy } from "lucide-react";
 export default function MvpDuMatch({
   name,
   teamName,
+  label = "Homme du match",
 }: {
   name: string | null | undefined;
   teamName: string | null | undefined;
+  /** « Meilleur joueur du tournoi » à l'échelle d'une compétition. */
+  label?: string;
 }) {
   if (!name) return null;
 
@@ -27,7 +32,7 @@ export default function MvpDuMatch({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-black uppercase tracking-[0.15em] text-amber-600">
-          Homme du match
+          {label}
         </p>
         <p className="mt-0.5 truncate font-display text-lg font-black text-gray-900">{name}</p>
         {teamName && (

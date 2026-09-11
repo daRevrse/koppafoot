@@ -1353,6 +1353,20 @@ export interface FirestoreCompetition {
   logo_url: string | null;
   banner_url: string | null;
   organizer_ids: string[];
+  /**
+   * LE MEILLEUR JOUEUR DU TOURNOI, désigné par l'organisateur une fois la
+   * compétition terminée — et pas avant : à cette échelle, « l'équipe qui est
+   * allée au bout » est un critère qu'on ne connaît qu'à la fin.
+   *
+   * Mêmes identifiants que sur un match (voir `FirestoreMatch.mvp_player_id`) :
+   * la ligne d'effectif, le compte derrière quand il y en a un, et le nom.
+   */
+  mvp_player_id?: string | null;
+  mvp_user_id?: string | null;
+  mvp_player_name?: string | null;
+  mvp_team_id?: string | null;
+  mvp_awarded_by?: string | null;
+  mvp_awarded_at?: string | null;
   moderator_ids: string[];
   created_by: string;
   /**
@@ -1414,6 +1428,13 @@ export interface Competition {
   logoUrl: string | null;
   bannerUrl: string | null;
   organizerIds: string[];
+  /** Voir `FirestoreCompetition.mvp_player_id`. */
+  mvpPlayerId?: string | null;
+  mvpUserId?: string | null;
+  mvpPlayerName?: string | null;
+  mvpTeamId?: string | null;
+  mvpAwardedBy?: string | null;
+  mvpAwardedAt?: string | null;
   moderatorIds: string[];
   createdBy: string;
   /** Voir `FirestoreCompetition.is_validated`. */

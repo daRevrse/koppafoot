@@ -134,6 +134,28 @@ export async function getCompetition(id: string): Promise<Competition | null> {
   return toCompetition(snap.id, snap.data() as FirestoreCompetition);
 }
 
+/**
+ * Le meilleur joueur d'une compétition, ou `null` pour le retirer.
+ *
+ * Réservé à l'organisateur par les règles, qui lui laissent écrire son propre
+ * document de compétition — rien de particulier n'a eu à s'y ajouter.
+ */
+export async function setCompetitionMVP(
+  cid: string,
+  mvp: { playerId: string; userId: string | null; name: string; teamId: string } | null,
+  parUid: string,
+): Promise<void> {
+  await updateDoc(doc(db, "competitions", cid), {
+    mvp_player_id: mvp?.playerId ?? null,
+    mvp_user_id: mvp?.userId ?? null,
+    mvp_player_name: mvp?.name ?? null,
+    mvp_team_id: mvp?.teamId ?? null,
+    mvp_awarded_by: mvp ? parUid : null,
+    mvp_awarded_at: mvp ? new Date().toISOString() : null,
+    updated_at: serverTimestamp(),
+  });
+}
+
 export async function getCompetitionBySlug(slug: string): Promise<Competition | null> {
   const q = query(collection(db, "competitions"), where("slug", "==", slug), firestoreLimit(1));
   const snap = await getDocs(q);

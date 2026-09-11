@@ -15,7 +15,7 @@
 // ============================================
 
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
-import { computeMinutesPlayed, type MatchJoue } from "@/lib/player-stats";
+import { computeMinutesPlayed, computePlayerStats, type MatchJoue } from "@/lib/player-stats";
 
 /** Un joueur proposé au scoreur, avec de quoi comprendre pourquoi. */
 export interface CandidatMVP {
@@ -154,6 +154,105 @@ export function classerCandidatsMVP(
       Number(a.exclu) - Number(b.exclu) ||
       b.score - a.score ||
       minutesDe(b) - minutesDe(a) ||
+      a.name.localeCompare(b.name),
+  );
+}
+
+// ---- À l'échelle de la compétition -----------------------------------------
+
+/** Un prétendant au titre de meilleur joueur du tournoi. */
+export interface CandidatMVPCompetition {
+  /** La ligne à écrire sur la compétition — la dernière sous laquelle il a été couronné. */
+  playerId: string;
+  userId: string | null;
+  name: string;
+  teamId: string;
+  hommeDuMatch: number;
+  buts: number;
+  minutes: number;
+}
+
+/**
+ * Les prétendants au meilleur joueur d'une compétition, du plus au moins.
+ *
+ * Classés par NOMBRE D'HOMME DU MATCH d'abord — c'est la seule distinction que
+ * quelqu'un ait réellement décernée, match après match — puis aux buts, puis
+ * aux minutes. Comme à l'échelle du match, l'organisateur tranche : cette liste
+ * range des noms, elle ne sacre personne.
+ *
+ * L'AGRÉGATION SE FAIT SUR LE COMPTE quand il y en a un. Une ligne d'effectif
+ * est propre à une équipe dans une compétition, et un joueur transféré en cours
+ * de tournoi en porte deux : compter par ligne couperait ses trophées en deux
+ * et ne lui en laisserait aucun. Ses buts et ses minutes sont additionnés sur
+ * toutes ses lignes, pour la même raison.
+ *
+ * À cette échelle, le critère « équipe finaliste ou victorieuse » retrouve son
+ * sens — on sait enfin qui est allé au bout — mais il appartient au jugement de
+ * l'organisateur, pas à ce calcul.
+ */
+export function classerCandidatsMVPCompetition(
+  matches: MatchJoue[],
+  dureeMatchMin?: number,
+): CandidatMVPCompetition[] {
+  interface Cumul {
+    playerId: string;
+    userId: string | null;
+    name: string;
+    teamId: string;
+    hommeDuMatch: number;
+    /** Toutes les lignes sous lesquelles il a joué, pour additionner le reste. */
+    lignes: { teamId: string; playerId: string }[];
+  }
+  const parJoueur = new Map<string, Cumul>();
+
+  // Triés par date : le dernier couronnement donne le nom et l'équipe retenus,
+  // ceux sous lesquels on l'a vu le plus récemment.
+  const ordonnes = [...matches].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+
+  for (const m of ordonnes) {
+    const playerId = m.mvpPlayerId;
+    if (!playerId) continue;
+    const name = m.mvpPlayerName;
+    const teamId = m.mvpTeamId;
+    if (!name || !teamId) continue;
+
+    const cle = m.mvpUserId ?? playerId;
+    const deja = parJoueur.get(cle);
+    if (deja) {
+      deja.hommeDuMatch += 1;
+      deja.playerId = playerId;
+      deja.name = name;
+      deja.teamId = teamId;
+      if (!deja.lignes.some((l) => l.teamId === teamId && l.playerId === playerId)) {
+        deja.lignes.push({ teamId, playerId });
+      }
+    } else {
+      parJoueur.set(cle, {
+        playerId, userId: m.mvpUserId ?? null, name, teamId,
+        hommeDuMatch: 1, lignes: [{ teamId, playerId }],
+      });
+    }
+  }
+
+  const candidats: CandidatMVPCompetition[] = [...parJoueur.values()].map((c) => {
+    let buts = 0;
+    let minutes = 0;
+    for (const ligne of c.lignes) {
+      const stats = computePlayerStats(matches, ligne.teamId, ligne.playerId, dureeMatchMin);
+      buts += stats.goals;
+      minutes += stats.minutesPlayed;
+    }
+    return {
+      playerId: c.playerId, userId: c.userId, name: c.name, teamId: c.teamId,
+      hommeDuMatch: c.hommeDuMatch, buts, minutes,
+    };
+  });
+
+  return candidats.sort(
+    (a, b) =>
+      b.hommeDuMatch - a.hommeDuMatch ||
+      b.buts - a.buts ||
+      b.minutes - a.minutes ||
       a.name.localeCompare(b.name),
   );
 }

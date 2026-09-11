@@ -11,8 +11,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   onCompetition, updateCompetition, deleteCompetition, duplicateCompetition,
   onCompTeams, onCompMatches,
+  setCompetitionMVP,
 } from "@/lib/competition-firestore";
-import { COMPETITION_TYPE_LABELS, statusFlow } from "@/lib/competition-format";
+import { COMPETITION_TYPE_LABELS, matchDuration, statusFlow } from "@/lib/competition-format";
+import { classerCandidatsMVPCompetition, type CandidatMVPCompetition } from "@/lib/mvp";
 import { announce } from "@/lib/tribune-client";
 import { uploadCompetitionLogo, uploadCompetitionBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
@@ -42,6 +44,7 @@ export default function CompetitionDashboardPage() {
   // state from the real documents rather than from a stored checklist.
   const [teams, setTeams] = useState<CompTeam[]>([]);
   const [matches, setMatches] = useState<CompMatch[]>([]);
+  const [mvpSaving, setMvpSaving] = useState(false);
   const [progressLoading, setProgressLoading] = useState(true);
 
   // Settings modal
@@ -322,6 +325,33 @@ export default function CompetitionDashboardPage() {
         </div>
       </div>
 
+      {/* LE MEILLEUR JOUEUR DU TOURNOI, une fois la compétition terminée.
+          Pas avant : « l'équipe qui est allée au bout » ne se sait qu'à la fin,
+          et c'est le critère qui distingue ce titre de l'homme du match. */}
+      {competition.status === "completed" && (
+        <MVPCompetitionCard
+          candidats={classerCandidatsMVPCompetition(matches, matchDuration(competition.format))}
+          actuel={competition.mvpPlayerName}
+          onDesigner={async (c) => {
+            if (!user) return;
+            setMvpSaving(true);
+            try {
+              await setCompetitionMVP(
+                competition.id,
+                c && { playerId: c.playerId, userId: c.userId, name: c.name, teamId: c.teamId },
+                user.uid,
+              );
+              toast.success(c ? `${c.name} désigné` : "Désignation retirée");
+            } catch {
+              toast.error("La désignation a échoué");
+            } finally {
+              setMvpSaving(false);
+            }
+          }}
+          saving={mvpSaving}
+        />
+      )}
+
       {/* Danger zone */}
       <div className=" border border-gray-200/70 bg-white p-5">
         <p className="text-sm font-bold text-gray-900">Actions</p>
@@ -590,6 +620,88 @@ export default function CompetitionDashboardPage() {
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Le meilleur joueur du tournoi.
+ *
+ * Classé par nombre d'homme du match — la seule distinction que quelqu'un ait
+ * réellement décernée, match après match — puis aux buts. L'organisateur
+ * tranche : la liste range des noms, elle ne sacre personne, et il peut tout
+ * aussi bien choisir hors des cinq premiers ou ne désigner personne.
+ */
+function MVPCompetitionCard({
+  candidats, actuel, onDesigner, saving,
+}: {
+  candidats: CandidatMVPCompetition[];
+  actuel: string | null | undefined;
+  onDesigner: (c: CandidatMVPCompetition | null) => void;
+  saving: boolean;
+}) {
+  const [tout, setTout] = useState(false);
+  const visibles = tout ? candidats : candidats.slice(0, 5);
+
+  return (
+    <div className=" border border-gray-200/70 bg-white p-5">
+      <p className="text-sm font-bold text-gray-900">Meilleur joueur du tournoi</p>
+      <p className="mt-0.5 text-xs text-gray-500">
+        {actuel
+          ? `Désigné : ${actuel}.`
+          : "Classé par nombre d\u2019homme du match, puis par buts. À toi de trancher."}
+      </p>
+
+      {candidats.length === 0 ? (
+        <p className="mt-3 text-xs font-semibold text-gray-400">
+          Aucun homme du match n&apos;a été désigné sur les rencontres de cette compétition.
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 space-y-2">
+            {visibles.map((c) => (
+              <button
+                key={`${c.teamId}-${c.playerId}`}
+                type="button"
+                disabled={saving}
+                onClick={() => onDesigner(c)}
+                className={`flex w-full items-center gap-3 border p-3 text-left transition-colors disabled:opacity-50 ${
+                  actuel === c.name ? "border-amber-300 bg-amber-50/50" : "border-gray-200/70 hover:border-gray-900"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-gray-900">{c.name}</p>
+                  <p className="truncate text-[11px] font-semibold text-gray-400">
+                    {c.hommeDuMatch} fois homme du match · {c.buts} but{c.buts !== 1 ? "s" : ""} · {c.minutes}&apos;
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {!tout && candidats.length > visibles.length && (
+              <button
+                type="button"
+                onClick={() => setTout(true)}
+                className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 underline transition-colors hover:text-gray-900"
+              >
+                Tout le classement
+              </button>
+            )}
+            {actuel && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onDesigner(null)}
+                className="text-[11px] font-black uppercase tracking-[0.15em] text-red-400 underline transition-colors hover:text-red-600 disabled:opacity-50"
+              >
+                Retirer la désignation
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

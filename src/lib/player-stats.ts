@@ -121,6 +121,9 @@ export interface MatchJoue {
    */
   mvpPlayerId?: string | null;
   mvpUserId?: string | null;
+  /** Le nom et le camp du couronné : de quoi bâtir un palmarès de compétition. */
+  mvpPlayerName?: string | null;
+  mvpTeamId?: string | null;
   liveState?: Match["liveState"];
 }
 
