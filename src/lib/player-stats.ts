@@ -10,6 +10,14 @@
 // mais la feuille et l'horloge, si — c'est tout ce qui est lu ici, d'où
 // `MatchJoue` plus bas.
 //
+// CE QUI NE COMPTE TOUJOURS PAS, ET C'EST VOULU : un match RENSEIGNÉ après
+// coup par son manager. Il n'a pas de feuille — `recorded_scorers` est sa
+// seule trace de joueurs (voir /api/matches/record), et c'est une saisie, pas
+// un constat. Rien ici ne la lit, et rien ne doit la lire. SEUL LE DIRECT
+// COMPTE : exiger la feuille de match est la règle elle-même, pas un effet de
+// bord de l'implémentation. Une participation confirmée ne la remplace pas
+// davantage — dire qu'on vient n'est pas avoir joué.
+//
 // Note on what is NOT here: assists. The live console records goals, cards
 // and substitutions only (`live_state.events.type`), so there is nothing to
 // count. Adding them means adding an assist event to the console first.
