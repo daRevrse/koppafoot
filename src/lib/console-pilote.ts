@@ -81,6 +81,9 @@ export interface EvenementAEcrire {
   detail?: string | null;
   victim_player_id?: string | null;
   victim_player_name?: string | null;
+  /** Remplacements : celui qui SORT. `player_id` dit qui entre. */
+  out_player_id?: string | null;
+  out_player_name?: string | null;
 }
 
 export interface PiloteConsole {

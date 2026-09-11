@@ -704,6 +704,11 @@ export default function LiveMatchConsole({
         minute: subMinute,
         player_id: inEntry.playerId,
         player_name: inEntry.name,
+        // Le sortant, par son identifiant et non plus seulement dans le texte
+        // de `detail` : c'est ce qui permet de recoller ses minutes, et un
+        // aller-retour d'amical en produit plusieurs.
+        out_player_id: outEntry.playerId,
+        out_player_name: outEntry.name,
         detail: `${outEntry.name} → ${inEntry.name}`,
       });
       await pilote.poserSurLeTerrain(
