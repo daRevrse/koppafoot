@@ -128,6 +128,10 @@ export function computePlayerStats(
     if (!isHome && !isAway) continue;
 
     const entry = ligneDe(isHome ? match.homeLineup : match.awayLineup, playerId);
+    // LA FEUILLE VALIDE LE MATCH, POINT. Être dessus suffit : un remplaçant
+    // qui n'est jamais entré a bien un match de plus, et zéro minute. Le
+    // couple « 1 match, 0' » est donc juste, et ce n'est pas au temps de jeu
+    // de décider ce qui compte comme un match.
     if (match.status === "completed" && entry) {
       stats.matchesPlayed += 1;
       if (entry.role === "starter") stats.starts += 1;
