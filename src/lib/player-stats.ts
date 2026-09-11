@@ -53,6 +53,16 @@ export interface PlayerStats {
   redCards: number;
   /** Minutes passees sur le terrain. Voir `computeMinutesPlayed`. */
   minutesPlayed: number;
+  /**
+   * Combien de fois homme du match.
+   *
+   * RECALCULÉ, jamais cumulé sur un compteur : le MVP vit sur le match, et
+   * cette page charge déjà tous les matchs du joueur. Un compteur sur le
+   * document `users` aurait demandé un rollup, une migration, et la garantie
+   * de ne jamais compter deux fois — trois problèmes pour une information
+   * qu'on a déjà sous la main.
+   */
+  mvpCount: number;
 }
 
 export interface PlayerCompetitionStats extends PlayerStats {
@@ -66,6 +76,7 @@ export const EMPTY_STATS: PlayerStats = {
   yellowCards: 0,
   redCards: 0,
   minutesPlayed: 0,
+  mvpCount: 0,
 };
 
 /**
@@ -101,6 +112,15 @@ export interface MatchJoue {
    */
   homeOnPitch: string[];
   awayOnPitch: string[];
+  /**
+   * L'homme du match, tel que le scoreur l'a désigné. Voir lib/mvp.
+   *
+   * `mvpUserId` porte le compte derrière la ligne couronnée : c'est lui qui
+   * recolle les trophées d'un match à l'autre, une ligne d'effectif étant
+   * propre à une équipe dans une compétition.
+   */
+  mvpPlayerId?: string | null;
+  mvpUserId?: string | null;
   liveState?: Match["liveState"];
 }
 
@@ -157,6 +177,19 @@ function priseDePart(
 }
 
 /**
+ * Ce match a-t-il couronné ce joueur ?
+ *
+ * Même souplesse que `ligneDe` : `playerId` est une ligne d'effectif en
+ * compétition et directement le compte sur un amical, donc on teste les deux
+ * côtés. Un identifiant de compte n'étant jamais celui d'une ligne, les deux
+ * comparaisons ne peuvent pas se marcher dessus.
+ */
+function estLeMVP(match: MatchJoue, playerId: string): boolean {
+  if (!playerId) return false;
+  return match.mvpPlayerId === playerId || match.mvpUserId === playerId;
+}
+
+/**
  * Stats of one player across a list of matches — those of a competition, or
  * the friendlies they turned out for.
  *
@@ -190,6 +223,7 @@ export function computePlayerStats(
       // bougeraient à chaque rafraîchissement, et un bilan de carrière n'est
       // pas un chronomètre.
       stats.minutesPlayed += computeMinutesPlayed(match, teamId, playerId, dureeMatchMin);
+      if (estLeMVP(match, playerId)) stats.mvpCount += 1;
     }
 
     for (const event of match.liveState?.events ?? []) {
@@ -294,6 +328,8 @@ export interface PlayerAppearance {
   redCards: number;
   /** Minutes jouées sur CE match. Voir `computeMinutesPlayed`. */
   minutes: number;
+  /** Homme du match de cette rencontre-là. */
+  mvp: boolean;
 }
 
 /**
@@ -328,6 +364,7 @@ export function computeAppearances(
       yellowCards: events.filter((e) => e.type === "yellow_card").length,
       redCards: events.filter((e) => e.type === "red_card").length,
       minutes: computeMinutesPlayed(match, teamId, playerId, dureeMatchMin),
+      mvp: estLeMVP(match, playerId),
     });
   }
 
@@ -365,6 +402,7 @@ export function totalStats(rows: PlayerStats[]): PlayerStats {
       yellowCards: acc.yellowCards + r.yellowCards,
       redCards: acc.redCards + r.redCards,
       minutesPlayed: acc.minutesPlayed + r.minutesPlayed,
+      mvpCount: acc.mvpCount + r.mvpCount,
     }),
     { ...EMPTY_STATS },
   );
