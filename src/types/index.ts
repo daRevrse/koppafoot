@@ -577,6 +577,15 @@ export interface FirestoreMatch {
   /** Qui a marqué et fait marquer, tels que saisis. La seule trace de joueurs
    *  qu'un match renseigné possède : il n'a pas de feuille de match. */
   recorded_scorers?: FirestoreRecordedScorer[];
+  /**
+   * Ce match a-t-il crédité les buts et passes de ses buteurs ?
+   *
+   * Il ne le fait plus : un match renseigné ne donne qu'une présence, jamais
+   * un but (voir /api/matches/record). Ceux d'avant, si — et leur suppression
+   * doit reprendre ce qu'ils ont donné. ABSENT VEUT DIRE OUI : les matchs de
+   * l'ancien régime n'ont pas ce champ, et c'est ainsi qu'on les reconnaît.
+   */
+  recorded_scorer_stats?: boolean;
   /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
   post_match_feedback?: {
