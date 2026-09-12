@@ -135,7 +135,7 @@ export default function PredictionPoll({
     ) : i.cle === "draw" ? (
       "N"
     ) : (
-      <MiniEcusson nom={i.nom} logo={i.logo} taille={26} />
+      <MiniEcusson nom={i.nom} logo={i.logo} taille={20} />
     ),
   }));
 

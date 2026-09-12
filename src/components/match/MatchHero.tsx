@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, MapPin, Share2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Goal, Share2 } from "lucide-react";
 import TirsAuBut from "./TirsAuBut";
 import MiniEcusson from "./MiniEcusson";
 import ClocheMatch, { useSuiviMatch } from "./ClocheMatch";
 import { useCompteARebours, formatCompteARebours } from "@/hooks/useCompteARebours";
 import { useHauteurPubliee } from "@/hooks/useHauteurPubliee";
 import { MOT_RESULTAT, type Resultat } from "@/lib/forme";
+import type { Buteur, ButeursDuMatch } from "@/lib/buteurs";
 
 // ============================================
 // Le tableau d'affichage d'un match. LE MÊME pour un amical et pour une
@@ -56,6 +57,12 @@ import { MOT_RESULTAT, type Resultat } from "@/lib/forme";
 // au milieu du fil du match, là où personne ne regarde avant le direct.
 //
 // LE PRONOSTIC EST PARTI en tête de l'onglet Infos (voir PredictionPoll).
+//
+// LE LIEU ET LA DATE AUSSI, dans la carte « Détails » d'Infos. Le tableau ne
+// dit plus que le match : les deux camps, le score, et dessous ses BUTEURS,
+// groupés par joueur avec leurs minutes. Avant le coup d'envoi, il garde
+// l'heure et le compte à rebours — c'est son contenu, pas une information
+// annexe.
 //
 // LE BOUTON RETOUR REVIENT SUR SES PAS, il ne monte pas d'un cran. Il menait
 // au parent du fil — /matches pour un amical — et envoyait donc un JOUEUR
@@ -160,13 +167,6 @@ function jourRelatif(iso: string): string | null {
   return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 }
 
-/** « sam. 29 août », la date sous sa forme courte pour la ligne du lieu. */
-function dateCourte(iso: string): string | null {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-}
-
 /**
  * Une équipe : son écusson, son nom qui mène à sa fiche, et sa forme.
  *
@@ -195,6 +195,28 @@ function Camp({ side }: { side: HeroSide }) {
   );
 }
 
+/**
+ * Les buteurs d'un camp, alignés vers le centre, leurs minutes à la suite.
+ * Un match renseigné n'a pas de minutes : le nombre de buts parle à leur place.
+ */
+function ListeDeButeurs({ buteurs, droite }: { buteurs: Buteur[]; droite: boolean }) {
+  return (
+    <ul className={`min-w-0 space-y-0.5 ${droite ? "text-left" : "text-right"}`}>
+      {buteurs.map((b) => (
+        <li key={`${b.nom}-${b.csc}`} className="break-words">
+          {b.nom}
+          {b.csc && <span className="text-white/45"> (c.s.c.)</span>}
+          {b.minutes.length > 0 ? (
+            <span className="ml-1.5 tabular-nums text-white/45">{b.minutes.join(", ")}</span>
+          ) : b.nombre > 1 ? (
+            <span className="ml-1.5 tabular-nums text-white/45">×{b.nombre}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 const BOUTON =
   "flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 text-white/70 transition-colors hover:border-white hover:text-white";
 
@@ -208,8 +230,8 @@ interface Props {
   away: HeroSide;
   date: string | null;
   time: string | null;
-  venueName?: string | null;
-  venueCity?: string | null;
+  /** Qui a marqué, de chaque côté, avec ses minutes. Voir lib/buteurs. */
+  buteurs?: ButeursDuMatch;
   /** Libellé de période, affiché pendant et après la rencontre. */
   periodLabel?: string | null;
   /** Le chrono déjà formaté, « 12:34 ». Rendu seulement si le match est en cours. */
@@ -222,7 +244,7 @@ interface Props {
 }
 
 export default function MatchHero({
-  fil, context, status, home, away, date, time, venueName, venueCity,
+  fil, context, status, home, away, date, time, buteurs,
   periodLabel, clock, penaltyHome, penaltyAway, suivi, onShare,
 }: Props) {
   const router = useRouter();
@@ -233,12 +255,6 @@ export default function MatchHero({
   const relatif = date ? jourRelatif(date) : null;
   const reste = useCompteARebours(aCommence || status === "cancelled" ? null : date, time);
   const compte = reste !== null ? formatCompteARebours(reste) : null;
-
-  // La ligne lieu/date sous l'affiche. Avant le coup d'envoi le centre porte
-  // déjà le jour et l'heure : les répéter ici ne ferait qu'user une ligne.
-  const lieu = [venueName, venueCity].filter(Boolean).join(", ");
-  const quand = aCommence && date ? [dateCourte(date), time].filter(Boolean).join(" · ") : null;
-  const metaVisible = Boolean(lieu || quand);
 
   // Le repli du retour : le dernier niveau du fil qui porte une adresse.
   const retour = [...fil].reverse().find((f) => f.href);
@@ -483,18 +499,14 @@ export default function MatchHero({
             <Camp side={away} />
           </div>
 
-          {/* Où, et quand si le centre ne le dit plus. Une ligne. */}
-          {metaVisible && (
-            <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[11px] font-bold text-white/60">
-              {lieu && (
-                <span className="flex min-w-0 items-center gap-1">
-                  <MapPin size={11} className="shrink-0" />
-                  <span className="truncate">{lieu}</span>
-                </span>
-              )}
-              {lieu && quand && <span aria-hidden className="text-white/30">·</span>}
-              {quand && <span className="shrink-0">{quand}</span>}
-            </p>
+          {/* LES BUTEURS, sous l'affiche : chacun de son côté, ses minutes à
+              la suite. Le ballon tient l'axe, comme le score au-dessus. */}
+          {buteurs && (buteurs.home.length > 0 || buteurs.away.length > 0) && (
+            <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-3 text-[11px] font-bold text-white/75 sm:text-xs">
+              <ListeDeButeurs buteurs={buteurs.home} droite={false} />
+              <Goal size={13} aria-hidden className="mt-0.5 text-white/35" />
+              <ListeDeButeurs buteurs={buteurs.away} droite />
+            </div>
           )}
         </div>
       </section>

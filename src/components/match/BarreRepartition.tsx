@@ -73,7 +73,7 @@ export default function BarreRepartition({
             </span>
             <span
               aria-hidden={cache}
-              className="flex h-7 items-end font-display text-2xl font-black leading-none tabular-nums sm:h-8 sm:text-3xl"
+              className="flex h-6 items-end font-display text-lg font-black leading-none tabular-nums sm:text-xl"
             >
               {s.bas}
             </span>

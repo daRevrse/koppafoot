@@ -29,6 +29,7 @@ import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
+import { buteursDuMatch, buteursRenseignes } from "@/lib/buteurs";
 import MatchLineups from "@/components/match/MatchLineups";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
@@ -679,12 +680,24 @@ export default function MatchDetailPage() {
   // le coup d'envoi, le fil dès qu'il y a un fil. Voir la fiche compétition.
   const activeTab = choixOnglet ?? (isLive || match.status === "completed" ? "feed" : "infos");
 
-  // Il ne reste ici que ce que le tableau d'affichage ne porte pas : qui
-  // arbitre, et a combien on joue. La date, l'heure et le terrain sont dans le
-  // hero, une seule fois. Ils etaient auparavant ecrits DEUX fois — l'onglet
-  // « Informations » et le rail — et se contredisaient deja : l'onglet
-  // annoncait « Arbitre Officiel » quand personne n'etait designe.
+  // Les buteurs, sous l'affiche. Un match renseigné n'a pas de direct : ses
+  // buteurs sont ceux que la saisie a nommés, tous du camp qui l'a saisi.
+  // Face à une équipe hors plateforme, ses « Joueur 9 » ne nomment personne :
+  // c'est le nom du club qui marque, comme dans l'historique.
+  const buteursDuHero = match.recordedAt
+    ? buteursRenseignes(match.recordedScorers, match.isHome ? "home" : "away")
+    : buteursDuMatch(match.liveState?.events ?? [], match.homeTeamId, (e) =>
+        idEquipeFantome && e.teamId === idEquipeFantome
+          ? (ghostIsHome ? match.homeTeamName : match.awayTeamName)
+          : e.playerName ?? "");
+
+  // Les détails du match, dans l'onglet Infos : où et quand, qui arbitre, et
+  // à combien on joue. La date, l'heure et le terrain ont quitté le tableau
+  // d'affichage pour venir ici — une seule fois, comme avant eux l'arbitre,
+  // que l'onglet « Informations » et le rail écrivaient chacun de leur côté.
   const infoDuMatch: MatchInfo = {
+    coupDEnvoi: { date: match.date, time: match.time },
+    lieu: { nom: match.venueName, ville: match.venueCity },
     format: match.format,
     referee: { name: match.refereeName, confirmed: match.refereeStatus === "confirmed" },
   };
@@ -718,8 +731,9 @@ export default function MatchDetailPage() {
         }}
         date={match.date}
         time={match.time}
-        venueName={match.venueName}
-        venueCity={match.venueCity}
+        // Le lieu et la date sont dans l'onglet Infos ; sous l'affiche,
+        // les buteurs.
+        buteurs={buteursDuHero}
         // « Terminé » l'emporte sur la période : un match fini gardait sinon le
         // libellé de la derniere periode traversee, qui se lit comme un match
         // encore en cours.
@@ -1025,20 +1039,27 @@ export default function MatchDetailPage() {
                   d'histoire, le bloc n'apparait qu'une fois le direct lance. */}
               {(match.status === "live" || match.status === "completed") && (
                 <div className="bg-white p-4 sm:p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                      Historique
-                    </h3>
-                    {match.status === "completed" && (
-                      <span className="text-[11px] font-black tabular-nums text-gray-900">
-                        Score final {match.scoreHome} – {match.scoreAway}
-                      </span>
-                    )}
-                  </div>
+                  {/* Le score final n'est plus répété ici : le repère « Fin du
+                      match » le porte, en tête du fil. */}
+                  <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+                    Historique
+                  </h3>
 
                   <MatchTimeline
                     events={match.liveState?.events ?? []}
                     homeTeamId={match.homeTeamId}
+                    deroule={{
+                      commence: true,
+                      termine: match.status === "completed",
+                      periode: match.liveState?.currentPeriod ?? 0,
+                      heure: match.time,
+                      score: match.status === "completed"
+                        ? { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 }
+                        : null,
+                      tab: match.penaltyHome != null && match.penaltyAway != null
+                        ? { home: match.penaltyHome, away: match.penaltyAway }
+                        : null,
+                    }}
                     vide={match.status === "completed" ? "Aucun fait de jeu enregistré sur ce match" : "En attente du premier fait de jeu"}
                     // Un amical contre une equipe hors plateforme n'a aucun nom
                     // de joueur en face : le nom de l'equipe tient lieu d'auteur.

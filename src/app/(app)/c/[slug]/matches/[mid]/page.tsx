@@ -11,10 +11,11 @@ import {
 } from "@/lib/competition-firestore";
 import { derniersResultats } from "@/lib/forme";
 import { repartirCent } from "@/lib/repartition";
+import { buteursDuMatch } from "@/lib/buteurs";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchLineups from "@/components/match/MatchLineups";
-import MatchTimeline from "@/components/match/MatchTimeline";
+import MatchTimeline, { type Deroule } from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
 import MatchForme from "@/components/match/MatchForme";
 import MatchInfoList from "@/components/match/MatchInfoList";
@@ -261,6 +262,17 @@ export default function PublicCompMatchView() {
 
   const events = match.liveState?.events ?? [];
   const hasStats = events.length > 0;
+  // Le déroulé, d'où le fil tire ses repères : coup d'envoi, mi-temps, fin.
+  const deroule: Deroule = {
+    commence: isLive || match.status === "completed",
+    termine: match.status === "completed",
+    periode: match.liveState?.currentPeriod ?? 0,
+    heure: match.time,
+    score: match.status === "completed" ? { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 } : null,
+    tab: match.penaltyHome != null && match.penaltyAway != null
+      ? { home: match.penaltyHome, away: match.penaltyAway }
+      : null,
+  };
   // Goals come from the scoreboard, not the timeline: an own goal is
   // recorded against the team that conceded it, so counting goal events
   // per team would credit the wrong side.
@@ -372,8 +384,9 @@ export default function PublicCompMatchView() {
         }}
         date={match.date}
         time={match.time}
-        venueName={match.venueName}
-        venueCity={match.venueCity}
+        // Le lieu et la date sont dans l'onglet Infos ; sous l'affiche,
+        // les buteurs.
+        buteurs={buteursDuMatch(events, match.homeTeamId)}
         periodLabel={periodLabel}
         clock={isLive ? formatTime(shownTime) : null}
         penaltyHome={match.penaltyHome}
@@ -409,19 +422,21 @@ export default function PublicCompMatchView() {
               away={{ nom: match.awayTeamName, resultats: formeExt }}
               lien={(id) => `/c/${compSlug}/matches/${id}`}
             />
-            {cid && (
-              <MatchInfoList
-                info={{
-                  competition: {
-                    id: cid,
-                    name: compName || "Compétition",
-                    sub: roundLabel,
-                    logo: compLogo,
-                    href: compSlug ? `/c/${compSlug}` : null,
-                  },
-                }}
-              />
-            )}
+            <MatchInfoList
+              info={{
+                coupDEnvoi: { date: match.date, time: match.time },
+                lieu: { nom: match.venueName, ville: match.venueCity },
+                competition: cid
+                  ? {
+                      id: cid,
+                      name: compName || "Compétition",
+                      sub: roundLabel,
+                      logo: compLogo,
+                      href: compSlug ? `/c/${compSlug}` : null,
+                    }
+                  : null,
+              }}
+            />
           </>
         )}
 
@@ -564,6 +579,7 @@ export default function PublicCompMatchView() {
               <MatchTimeline
                 events={events}
                 homeTeamId={match.homeTeamId}
+                deroule={deroule}
                 // Le message par défaut, « Le match n'a pas encore commencé »,
                 // s'affichait aussi sous un 3-0 joué la semaine d'avant.
                 vide={
