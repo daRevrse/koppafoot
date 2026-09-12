@@ -443,17 +443,26 @@ export interface FirestoreMatch {
   confirmed_home: number;
   confirmed_away: number;
   auto_accept_players?: boolean;
-  // "unverified" = match contre un adversaire hors plateforme : un seul
-  // manager l'a vécu, donc aucune contre-signature possible. État terminal,
-  // il ne deviendra jamais "validated".
-  validation_status?: "pending" | "contested" | "validated" | "unverified";
+  // LA VALIDATION N'EST PLUS ICI. Statut, retours des managers, note de
+  // l'arbitre et motifs de contestation vivaient sur ce document, que les
+  // règles laissent lire à tout le monde : ils sont dans
+  // `match_validations/{id}`, que seuls les deux camps lisent. Voir
+  // FirestoreMatchValidation.
   completed_at?: string | null;
   /**
-   * Un match contre une équipe hors plateforme ne crédite PAS les compteurs de
-   * carrière tout seul : personne en face pour contresigner. Le manager (ou un
-   * délégué) peut décider de les attribuer, et c'est ici qu'on garde la trace
-   * de qui l'a fait, et quand. Sa présence vaut « déjà crédité », ce qui est
-   * la seule protection contre un double comptage irréversible.
+   * LES STATISTIQUES DE CE MATCH ONT ÉTÉ CRÉDITÉES. Un indicateur neutre, et
+   * public parce qu'il ne dit rien de la validation : ni qui a contesté, ni
+   * pourquoi.
+   *
+   * Sur un match contre une équipe hors plateforme, les compteurs de carrière
+   * ne partent pas tout seuls : personne en face pour contresigner. Le manager
+   * (ou un délégué) peut décider de les attribuer, et c'est ici qu'on garde la
+   * trace de qui l'a fait, et quand. Sa présence vaut « déjà crédité », ce qui
+   * est la seule protection contre un double comptage irréversible.
+   *
+   * Un match RENSEIGNÉ le pose au moment où il crédite — d'office contre une
+   * équipe hors plateforme, à la contresignature sinon — et sa suppression ne
+   * reprend les compteurs que s'il est là (voir /api/matches/record).
    */
   stats_credited_at?: string | null;
   stats_credited_by?: string | null;
@@ -495,8 +504,8 @@ export interface FirestoreMatch {
        */
       out_player_id?: string | null;
       out_player_name?: string | null;
-      contested_by_manager_id?: string | null;
-      contestation_reason?: string | null;
+      // Les contestations d'un événement ne sont plus ici : voir
+      // `FirestoreMatchValidation.contested_events`.
       /**
        * Goals only. Absent = a goal nobody reviewed, which is most of them.
        *  - "checking"  : under VAR review, still on the scoreboard
@@ -625,16 +634,89 @@ export interface FirestoreMatch {
   mvp_at?: string | null;
   /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
-  post_match_feedback?: {
-    [manager_id: string]: {
-      validation: "validated" | "contested";
-      comments?: string;
-      referee_rating?: number;
-      created_at: string;
-    };
-  } | null;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================
+// La validation d'un match, à l'écart du match.
+//
+// `match_validations/{matchId}` — même identifiant que le match. Lisible par
+// les deux managers, leur staff délégué et les super-admins ; écrit par le
+// serveur SEULEMENT (routes /api/matches/*), jamais par un navigateur : c'est
+// le serveur qui sait de quel camp parle celui qui valide, et qui calcule le
+// statut. Voir firestore.rules.
+//
+// UNE COLLECTION À PART ENTIÈRE plutôt qu'une sous-collection du match : la
+// validation tacite à 12 h (cron) cherche les documents par échéance, et une
+// requête sur une collection s'appuie sur les index automatiques d'un champ,
+// là où une sous-collection aurait demandé un index de groupe à déployer.
+// ============================================
+
+export type StatutValidation = "pending" | "validated" | "contested" | "unverified";
+
+/** Un camp du match, du point de vue des équipes et non des comptes. */
+export type CampDuMatch = "home" | "away";
+
+export interface FirestoreMatchValidation {
+  match_id: string;
+  /**
+   * Les uid des deux managers. Sert à la liste /matches, qui cherche en une
+   * requête les validations de ses matchs, et à la règle qui l'y autorise.
+   * Le staff délégué, lui, lit document par document (voir les règles).
+   */
+  managers: string[];
+  /**
+   * « pending » en attente, « validated » tranché des deux côtés ou validé
+   * tacitement, « contested » dès qu'un camp conteste, « unverified » face à
+   * une équipe hors plateforme — personne en face pour contresigner, état
+   * terminal.
+   */
+  status: StatutValidation;
+  /**
+   * Un retour par CAMP, pas par compte : un délégué qui valide pour son équipe
+   * vaut son manager. Rangés par uid, ils ne comptaient pour la validation
+   * commune que s'ils venaient des deux comptes créateurs.
+   */
+  feedback: Partial<Record<CampDuMatch, {
+    validation: "validated" | "contested";
+    comments?: string;
+    referee_rating?: number;
+    by: string;
+    at: string;
+  }>>;
+  /** Les événements contestés, par identifiant d'événement. */
+  contested_events: Record<string, {
+    by: string;
+    side: CampDuMatch;
+    reason: string;
+    at: string;
+  }>;
+  /**
+   * L'échéance de la validation tacite, douze heures après la fin d'un match
+   * joué en direct. Effacée dès que le match est tranché : le cron ne trouve
+   * ainsi que ce qu'il lui reste à faire. Absente sur un match renseigné, qui
+   * attend une contresignature et non un délai.
+   */
+  auto_validate_at?: unknown;
+  /** Posé par le cron quand la validation est tacite. */
+  auto_validated?: boolean;
+  created_at?: unknown;
+  updated_at?: unknown;
+}
+
+export interface MatchValidation {
+  matchId: string;
+  status: StatutValidation;
+  feedback: Partial<Record<CampDuMatch, {
+    validation: "validated" | "contested";
+    comments?: string;
+    refereeRating?: number;
+    by: string;
+    at: string;
+  }>>;
+  contestedEvents: Record<string, { by: string; side: CampDuMatch; reason: string; at: string }>;
+  autoValidated: boolean;
 }
 
 export interface Match {
@@ -668,7 +750,6 @@ export interface Match {
   confirmedHome: number;
   confirmedAway: number;
   autoAcceptPlayers?: boolean;
-  validationStatus?: "pending" | "contested" | "validated" | "unverified";
   /** Voir `FirestoreMatch.mvp_player_id`. */
   mvpPlayerId?: string | null;
   mvpUserId?: string | null;
@@ -676,8 +757,8 @@ export interface Match {
   mvpTeamId?: string | null;
   mvpBy?: string | null;
   mvpAt?: string | null;
-  /** Voir `stats_credited_at` : renseigné dès que quelqu'un a attribué les
-   *  statistiques d'un match contre une équipe hors plateforme. */
+  /** Voir `stats_credited_at` : renseigné dès que les statistiques du match
+   *  ont été créditées. La validation, elle, est dans `MatchValidation`. */
   statsCreditedAt?: string | null;
   statsCreditedBy?: string | null;
   completedAt?: string | null;
@@ -704,8 +785,6 @@ export interface Match {
       /** Voir `FirestoreMatch.live_state.events[].out_player_id`. */
       outPlayerId?: string | null;
       outPlayerName?: string | null;
-      contestedByManagerId?: string | null;
-      contestationReason?: string | null;
       /** See `FirestoreMatch.live_state.events[].var_status`. */
       varStatus?: GoalVarStatus | null;
       createdAt: string;
@@ -731,14 +810,6 @@ export interface Match {
   /** Voir `FirestoreMatch.recorded_at`. */
   recordedAt: string | null;
   recordedScorers: RecordedScorer[];
-  postMatchFeedback?: {
-    [managerId: string]: {
-      validation: "validated" | "contested";
-      comments?: string;
-      refereeRating?: number;
-      createdAt: string;
-    };
-  } | null;
   createdAt: string;
   updatedAt: string;
 }

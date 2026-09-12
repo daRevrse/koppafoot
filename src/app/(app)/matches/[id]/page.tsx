@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy, Activity, Clock, UserPlus, Info,
-  CheckCircle2, XCircle, AlertCircle,
+  CheckCircle2, XCircle, AlertCircle, EyeOff,
   Star, Save, ClipboardList, RefreshCcw, BarChart2, Loader2
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -17,20 +17,19 @@ import {
   invitePlayerToMatch, respondToParticipation,
   getMatchParticipations, getTeamMembers,
   updateMatchLineup, submitManagerFeedback,
-  contestMatchEvent, getTeamById,
+  contestMatchEvent, getTeamById, onMatchValidation,
   getGhostPlayersByTeam, getTeamsIManage, creditGhostMatchStats,
   tailleEffectif,
 } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import { normaliserPoste, INITIALE_POSTE, LIBELLE_POSTE, POSTES, type Poste } from "@/lib/postes";
-import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry } from "@/types";
+import type { Match, Participation, Team, FirestoreMatch, FirestoreParticipation, UserProfile, GhostPlayer, LineupEntry, MatchValidation, CampDuMatch } from "@/types";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
-import CompteARebours from "@/components/match/CompteARebours";
-import FollowMatchButton from "@/components/match/FollowMatchButton";
+import { buteursDuMatch, buteursRenseignes } from "@/lib/buteurs";
 import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
@@ -70,15 +69,18 @@ export default function MatchDetailPage() {
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
-  // Deux onglets, et le MÊME vocabulaire que sur une fiche de compétition :
-  // « Résumé » et « Composition ». Il y en avait trois — Informations, Match
-  // Center, Feuille de Match — dont un, Informations, ne contenait que la
-  // date, le terrain et l'arbitre. Ces trois faits ouvrent maintenant le
-  // résumé (MatchInfoList), ce qui règle du même coup le problème que
-  // l'onglet Informations existait pour contourner : le Match Center d'un
-  // match à venir était une coquille, il fallait donc ouvrir la fiche
-  // ailleurs selon l'état du match. Le résumé n'est plus jamais vide.
-  const [activeTab, setActiveTab] = useState<"center" | "squad">("center");
+  /**
+   * Trois onglets, et le MÊME vocabulaire que sur une fiche de compétition :
+   * « Fil du match », « Infos », « Composition ».
+   *
+   * « Résumé » mêlait l'histoire du match et ce qu'on vient vérifier avant :
+   * l'arbitre, le format. Le fil garde l'histoire, Infos le reste — et le
+   * pronostic, descendu du tableau d'affichage.
+   *
+   * `null` tant qu'on n'a rien choisi : l'onglet affiché suit alors le match
+   * (voir `activeTab`, plus bas).
+   */
+  const [choixOnglet, setChoixOnglet] = useState<"feed" | "infos" | "squad" | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
   const [inviting, setInviting] = useState(false);
   const [lineupMode, setLineupMode] = useState(false);
@@ -119,7 +121,7 @@ export default function MatchDetailPage() {
     if (!match || !user || !contestingEventId || !contestationReason.trim()) return;
     setSubmittingContestation(true);
     try {
-      await contestMatchEvent(match.id, contestingEventId, user.uid, contestationReason);
+      await contestMatchEvent(match.id, contestingEventId, contestationReason);
       toast.success("Événement contesté avec succès");
       setContestingEventId(null);
       setContestationReason("");
@@ -131,6 +133,14 @@ export default function MatchDetailPage() {
   };
 
   const [validation, setValidation] = useState<"validated" | "contested">("validated");
+  /**
+   * LA VALIDATION DU MATCH, lue à part : statut, retours des deux camps,
+   * événements contestés. Elle a quitté le document public du match pour
+   * `match_validations`, que seuls les deux camps lisent (voir
+   * onMatchValidation). `undefined` tant qu'elle n'est pas chargée, `null`
+   * quand il n'y en a pas — ou qu'on n'a pas le droit de la lire.
+   */
+  const [validationDuMatch, setValidationDuMatch] = useState<MatchValidation | null | undefined>(undefined);
   const [managerComments, setManagerComments] = useState("");
   const [refereeRating, setRefereeRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
@@ -412,6 +422,20 @@ export default function MatchDetailPage() {
     return () => unsub();
   }, [id, user]);
 
+  // La validation du match, pour les deux camps seulement, et seulement une
+  // fois le match terminé : avant, il n'y a rien à valider. Un compte d'aucun
+  // des deux camps ne l'écoute même pas — les règles la lui refuseraient.
+  const matchTermine = match?.status === "completed";
+  useEffect(() => {
+    if (!isManager || !matchTermine) { setValidationDuMatch(null); return; }
+    return onMatchValidation(id, setValidationDuMatch);
+  }, [id, isManager, matchTermine]);
+
+  /** Le camp au nom duquel parle ce compte : celui de l'équipe qu'il gère. */
+  const monCamp: CampDuMatch | null = myTeamId ? (myTeamIsHome ? "home" : "away") : null;
+  /** Ce que mon camp a déjà dit du match, s'il l'a dit — moi ou un délégué. */
+  const monRetour = monCamp ? validationDuMatch?.feedback[monCamp] : undefined;
+
   // 3. Fetch Team Members for invitations (if manager)
   useEffect(() => {
     if (!myTeamId || !isManager) return;
@@ -536,6 +560,22 @@ export default function MatchDetailPage() {
     ];
   };
 
+  /**
+   * LA COMPOSITION EST PUBLIQUE : c'est la feuille publiée.
+   *
+   * L'onglet était caché aux invités, parce qu'il se construisait depuis
+   * `participations`, que les règles réservent aux comptes. Mais à la
+   * validation, `updateMatchLineup` recopie déjà la feuille entière sur le
+   * document du match (`home_lineup`), que tout le monde peut lire : c'est
+   * elle que l'on montre, comme sur une fiche de compétition.
+   *
+   * Avant la validation, le public n'a rien à voir — une composition
+   * s'annonce, elle ne fuit pas. Un compte connecté garde la vue provisoire :
+   * qui a confirmé sa présence (voir compoDeLEquipe).
+   */
+  const compoDuCamp = (teamId: string, publiee: LineupEntry[], fantomes: LineupEntry[]): LineupEntry[] =>
+    publiee.length > 0 || !user ? publiee : compoDeLEquipe(teamId, fantomes);
+
   // 6. Actions
 
   /**
@@ -637,12 +677,28 @@ export default function MatchDetailPage() {
 
   const isLive = match.status === "live";
 
-  // Il ne reste ici que ce que le tableau d'affichage ne porte pas : qui
-  // arbitre, et a combien on joue. La date, l'heure et le terrain sont dans le
-  // hero, une seule fois. Ils etaient auparavant ecrits DEUX fois — l'onglet
-  // « Informations » et le rail — et se contredisaient deja : l'onglet
-  // annoncait « Arbitre Officiel » quand personne n'etait designe.
+  // L'onglet ouvert suit le match tant qu'on n'en a choisi aucun : Infos avant
+  // le coup d'envoi, le fil dès qu'il y a un fil. Voir la fiche compétition.
+  const activeTab = choixOnglet ?? (isLive || match.status === "completed" ? "feed" : "infos");
+
+  // Les buteurs, sous l'affiche. Un match renseigné n'a pas de direct : ses
+  // buteurs sont ceux que la saisie a nommés, tous du camp qui l'a saisi.
+  // Face à une équipe hors plateforme, ses « Joueur 9 » ne nomment personne :
+  // c'est le nom du club qui marque, comme dans l'historique.
+  const buteursDuHero = match.recordedAt
+    ? buteursRenseignes(match.recordedScorers, match.isHome ? "home" : "away")
+    : buteursDuMatch(match.liveState?.events ?? [], match.homeTeamId, (e) =>
+        idEquipeFantome && e.teamId === idEquipeFantome
+          ? (ghostIsHome ? match.homeTeamName : match.awayTeamName)
+          : e.playerName ?? "");
+
+  // Les détails du match, dans l'onglet Infos : où et quand, qui arbitre, et
+  // à combien on joue. La date, l'heure et le terrain ont quitté le tableau
+  // d'affichage pour venir ici — une seule fois, comme avant eux l'arbitre,
+  // que l'onglet « Informations » et le rail écrivaient chacun de leur côté.
   const infoDuMatch: MatchInfo = {
+    coupDEnvoi: { date: match.date, time: match.time },
+    lieu: { nom: match.venueName, ville: match.venueCity },
     format: match.format,
     referee: { name: match.refereeName, confirmed: match.refereeStatus === "confirmed" },
   };
@@ -650,7 +706,7 @@ export default function MatchDetailPage() {
   return (
     <div className="pb-24">
       {/* Le tableau d'affichage, partage avec la fiche de competition. Il porte
-          le fil d'ariane, le contexte, le lieu, la date et le pronostic. */}
+          le contexte, le lieu et la date. */}
       <MatchHero
         fil={[
           { label: "Direct", href: "/" },
@@ -660,7 +716,7 @@ export default function MatchDetailPage() {
         onShare={partagerLeMatch}
         // Un amical n'appartient a aucune competition : il n'avait donc aucune
         // cloche, faute d'abonnement a offrir. Le suivi par match lui en donne.
-        suivre={<FollowMatchButton mid={id} />}
+        suivi={{ mid: id }}
         context={{
           label: estAmical ? "Match amical" : "Défi",
           sub: match.format,
@@ -676,8 +732,9 @@ export default function MatchDetailPage() {
         }}
         date={match.date}
         time={match.time}
-        venueName={match.venueName}
-        venueCity={match.venueCity}
+        // Le lieu et la date sont dans l'onglet Infos ; sous l'affiche,
+        // les buteurs.
+        buteurs={buteursDuHero}
         // « Terminé » l'emporte sur la période : un match fini gardait sinon le
         // libellé de la derniere periode traversee, qui se lit comme un match
         // encore en cours.
@@ -689,41 +746,49 @@ export default function MatchDetailPage() {
         clock={isLive && match.liveState ? formatTime(displayTime) : null}
         penaltyHome={match.penaltyHome}
         penaltyAway={match.penaltyAway}
-        badges={match.status === "completed" && !estAmical ? (
-          <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
-            match.validationStatus === 'validated' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-            match.validationStatus === 'contested' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
-            match.validationStatus === 'unverified' ? 'bg-white/5 border-white/15 text-gray-300' :
-            'bg-amber-500/10 border-amber-500/20 text-amber-400'
-          }`}>
-            {match.validationStatus === 'validated' ? <CheckCircle2 size={10} /> :
-             match.validationStatus === 'contested' ? <AlertCircle size={10} /> :
-             match.validationStatus === 'unverified' ? <Info size={10} /> : <Clock size={10} />}
-            <span className="text-[10px] font-black uppercase tracking-[0.14em]">
-              {match.validationStatus === 'validated' ? 'Validé' :
-               match.validationStatus === 'contested' ? 'Contesté' :
-               match.validationStatus === 'unverified' ? 'Non vérifié' : 'En attente'}
-            </span>
-          </span>
-        ) : null}
-        poll={
-          <PredictionPoll
-            matchId={id}
-            home={{ label: match.homeTeamName, logo: match.homeTeamLogo ?? null }}
-            away={{ label: match.awayTeamName, logo: match.awayTeamLogo ?? null }}
-            closed={match.effectiveStatus !== "upcoming"}
-          />
-        }
+        // LE STATUT DE VALIDATION N'EST PLUS ICI. Il s'affichait à tout le
+        // monde, sur le tableau : « Contesté » sur la fiche publique d'un
+        // match, c'est une affaire entre deux managers exposée aux
+        // supporters. Il est dans le fil du match, pour les managers et leur
+        // staff seulement.
+      />
+
+      {/* Barre d'onglets partagee, pleine largeur sous le tableau. La
+          composition est ouverte a tous : voir compoDuCamp. */}
+      <MatchTabs
+        active={activeTab}
+        onChange={(id) => setChoixOnglet(id as typeof activeTab)}
+        tabs={[
+          { id: "feed", label: "Fil du match" },
+          { id: "infos", label: "Infos" },
+          {
+            id: "squad",
+            label: "Composition",
+            badge: isManager ? (() => {
+              const isHomeManager = user?.uid === match.managerId;
+              const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
+              return !isReady ? (
+                <span className="relative ml-1 flex h-2 w-2">
+                  <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                </span>
+              ) : (
+                <CheckCircle2 size={12} className="ml-1 text-emerald-400" />
+              );
+            })() : undefined,
+          },
+        ]}
       />
 
       {/* Une colonne unique et centree. Le rail de droite portait les infos du
           match, qui vivent maintenant dans le hero : garder la gouttiere de
           320px aurait ete garder une colonne pour rien. */}
-      <div className="mx-auto max-w-4xl space-y-4">
+      <div className="mx-auto mt-4 max-w-4xl space-y-4">
 
-      {/* L'homme du match, sous le score : c'est la distinction du match, elle
-          se lit avant le détail de ce qui s'y est passé. Ne rend rien tant que
-          personne n'a été désigné. */}
+      {/* L'homme du match, en tete de la colonne : c'est la distinction du
+          match, elle se lit avant le detail de ce qui s'y est passe, et elle
+          reste affichee quel que soit l'onglet ouvert. Ne rend rien tant que
+          personne n'a ete designe. */}
       <MvpDuMatch
         name={match.mvpPlayerName}
         teamName={
@@ -732,53 +797,22 @@ export default function MatchDetailPage() {
             : null
         }
       />
-      {/* Barre d'onglets partagee. Les libelles etaient masques en dessous de
-          `sm` : sur un telephone on ne voyait que trois icones grises. */}
-      <MatchTabs
-        active={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        tabs={[
-          { id: "center", label: "Résumé" },
-          // La feuille de match ne s'affiche pas sans compte : les règles
-          // Firestore ne servent pas `participations` à un invité, l'onglet
-          // n'aurait donc que deux colonnes vides à montrer. Mieux vaut ne
-          // pas l'annoncer que l'annoncer creux.
-          ...(user ? [{
-            id: "squad",
-            label: "Composition",
-            badge: isManager ? (() => {
-              const isHomeManager = user?.uid === match.managerId;
-              const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
-              return !isReady ? (
-                <span className="ml-1 flex h-2 w-2">
-                  <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
-                </span>
-              ) : (
-                <CheckCircle2 size={12} className="ml-1 text-emerald-500" />
-              );
-            })() : undefined,
-          }] : []),
-        ]}
-      />
 
       {/* Tab Content */}
       <div className="min-h-[400px]">
         <AnimatePresence mode="wait">
-          {activeTab === "center" && (
+          {activeTab === "infos" && (
             <motion.div
-              key="center"
+              key="infos"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
               className="space-y-4"
             >
-              {/* Ce que le tableau d'affichage ne dit pas : qui arbitre, et a
-                  combien on joue. Deux cellules cote a cote. Le reste — date,
-                  heure, terrain — est dans le hero, une seule fois. */}
-              <MatchInfoList info={infoDuMatch} />
-
-              {/* Manager LINEUP Validation Banner */}
+              {/* LA FEUILLE À REMPLIR, en tête d'Infos : c'est l'onglet ouvert
+                  avant le coup d'envoi, c'est-à-dire au moment où le manager
+                  doit s'en occuper. Rangée dans le fil, elle serait restée
+                  derrière un onglet qu'on n'ouvre qu'une fois le match lancé. */}
               {isManager && (match.status === "upcoming" || match.status === "delayed") && !isMyTeamReady && (
                 <div className=" bg-amber-50 border border-amber-200 p-4 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                    <div className="h-14 w-14 bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
@@ -786,9 +820,9 @@ export default function MatchDetailPage() {
                    </div>
                    <div className="flex-1">
                       <h4 className="text-lg font-black text-amber-900 leading-tight">Feuille de match non validée !</h4>
-                      <p className="text-sm text-amber-800/70 mb-4 font-bold">Vous devez confirmer votre effectif (numéros & rôles) avant que l'arbitre ne puisse lancer le match.</p>
-                      <button 
-                         onClick={() => setActiveTab("squad")}
+                      <p className="text-sm text-amber-800/70 mb-4 font-bold">Vous devez confirmer votre effectif (numéros & rôles) avant que l&apos;arbitre ne puisse lancer le match.</p>
+                      <button
+                         onClick={() => setChoixOnglet("squad")}
                          className="px-6 py-2.5 bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-amber-600/20"
                       >
                          Remplir la feuille de match
@@ -797,8 +831,74 @@ export default function MatchDetailPage() {
                 </div>
               )}
 
-              {/* Post-Match Validation Banner */}
-              {isManager && match.status === "completed" && (!match.postMatchFeedback || !match.postMatchFeedback[user?.uid!]) && (
+              <PredictionPoll
+                matchId={id}
+                home={{ label: match.homeTeamName, logo: match.homeTeamLogo ?? null }}
+                away={{ label: match.awayTeamName, logo: match.awayTeamLogo ?? null }}
+                closed={match.effectiveStatus !== "upcoming"}
+              />
+
+              {/* Ce que le tableau d'affichage ne dit pas : qui arbitre, et a
+                  combien on joue. */}
+              <MatchInfoList info={infoDuMatch} />
+            </motion.div>
+          )}
+
+          {activeTab === "feed" && (
+            <motion.div
+              key="feed"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="space-y-4"
+            >
+              {/* LE STATUT DE VALIDATION, POUR LES MANAGERS ET LEUR STAFF.
+                  Il était sur le tableau d'affichage, à la vue de tous, et un
+                  bandeau vert annonçait « validé par les deux managers » à
+                  n'importe quel visiteur. C'est une affaire entre les deux
+                  équipes : il n'apparaît plus qu'à ceux qui la règlent. */}
+              {isManager && match.status === "completed" && !estAmical && validationDuMatch && (() => {
+                const statut = validationDuMatch.status;
+                const rendu = {
+                  validated: {
+                    mot: "Validé",
+                    phrase: validationDuMatch.autoValidated
+                      ? "Validé tacitement : personne n'a contesté dans les 12 heures."
+                      : match.recordedAt ? "Score confirmé par l'adversaire." : "Validé par les deux camps.",
+                    Icone: CheckCircle2, teinte: "border-emerald-100 bg-emerald-50 text-emerald-700",
+                  },
+                  contested: { mot: "Contesté", phrase: "Un des deux camps a contesté le match.", Icone: AlertCircle, teinte: "border-orange-100 bg-orange-50 text-orange-600" },
+                  unverified: { mot: "Non vérifié", phrase: "Personne en face pour contresigner.", Icone: Info, teinte: "border-gray-200/70 bg-gray-100 text-gray-500" },
+                  pending: {
+                    mot: "En attente",
+                    phrase: match.recordedAt
+                      ? "En attente de la confirmation de l'adversaire."
+                      : "En attente de la validation des deux camps.",
+                    Icone: Clock, teinte: "border-amber-100 bg-amber-50 text-amber-700",
+                  },
+                }[statut];
+                return (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border border-gray-200/70 bg-white px-4 py-3">
+                    <span className={`inline-flex items-center gap-1.5 border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${rendu.teinte}`}>
+                      <rendu.Icone size={11} />
+                      {rendu.mot}
+                    </span>
+                    <p className="min-w-0 flex-1 text-sm font-bold text-gray-700">{rendu.phrase}</p>
+                    <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                      <EyeOff size={11} />
+                      Managers et staff
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Post-Match Validation Banner. Pour un camp qui ne s'est pas
+                  encore prononcé — ni son manager, ni un délégué. Ni sur un
+                  amical sans adversaire inscrit, qui n'a personne à qui
+                  répondre, ni sur un score renseigné, qui se confirme par la
+                  contresignature (liste des matchs). */}
+              {isManager && match.status === "completed" && !estAmical && !match.recordedAt
+                && validationDuMatch !== undefined && !monRetour && (
                 <div className=" bg-primary-50 border border-primary-200 p-4 sm:p-8">
                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-4 sm:mb-6">
                       <div className="h-14 w-14 bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
@@ -814,10 +914,10 @@ export default function MatchDetailPage() {
                          onClick={async () => {
                            if (!user?.uid) return;
                            try {
-                             await submitManagerFeedback(match.id, user.uid, { validation: "validated" });
+                             await submitManagerFeedback(match.id, { validation: "validated" });
                              toast.success("Match validé ! Merci.");
                            } catch (e) {
-                             toast.error("Erreur lors de la validation");
+                             toast.error(e instanceof Error ? e.message : "Erreur lors de la validation");
                            }
                          }}
                          className="px-6 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-emerald-600/20 flex items-center gap-2"
@@ -828,9 +928,9 @@ export default function MatchDetailPage() {
                          onClick={() => {
                            const reason = prompt("Raison de la contestation :");
                            if (reason && user?.uid) {
-                             submitManagerFeedback(match.id, user.uid, { validation: "contested", comments: reason })
+                             submitManagerFeedback(match.id, { validation: "contested", comments: reason })
                                .then(() => toast.success("Contestation enregistrée"))
-                               .catch(() => toast.error("Erreur"));
+                               .catch((e) => toast.error(e instanceof Error ? e.message : "Erreur"));
                            }
                          }}
                          className="px-6 py-3 bg-white border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all flex items-center gap-2"
@@ -916,49 +1016,26 @@ export default function MatchDetailPage() {
                 )
               )}
 
-              {/* Match Validated State */}
-              {match.status === "completed" && match.validationStatus === "validated" && (
-                <div className=" bg-emerald-50 border border-emerald-100 p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
-                  <div className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                    <CheckCircle2 size={20} />
-                  </div>
-                  <p className="text-sm font-bold text-emerald-800">Ce match a été validé par les deux managers.</p>
-                </div>
-              )}
-
-              {/* Avant le coup d'envoi, le Match Center n'avait plus rien à
-                  montrer depuis que la timeline attend le direct : l'onglet
-                  s'ouvrait sur quatre cents pixels de vide. Il annonce donc ce
-                  qu'on est venu y chercher — quand ça commence — et ouvre la
-                  console à ceux qui la tiendront. */}
+              {/* Avant le coup d'envoi, le fil n'a rien à raconter : il dit
+                  quand il s'ouvrira, et ouvre la console à ceux qui la
+                  tiendront. Le compte à rebours est monté dans le tableau
+                  d'affichage, au-dessus de l'heure. */}
               {match.status !== "live" && match.status !== "completed" && (
                 <div className="flex flex-col items-center border border-gray-200/70 bg-white px-6 py-12 text-center sm:py-16">
-                  {/* LE COMPTE À REBOURS REMPLACE LE PAVÉ, quand il a quelque
-                      chose à dire : dans les 24 h qui précèdent, et seulement
-                      là. Au-delà, il rend `null` et le texte reprend sa place
-                      — « dans 13 jours » n'a pas besoin des secondes. Voir
-                      CompteARebours pour ce que ça coûte. */}
-                  <CompteARebours
-                    date={match.status === "cancelled" ? null : match.date}
-                    time={match.time}
-                  >
-                    <>
-                      <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
-                        <Clock size={30} className="text-gray-300" />
-                      </div>
-                      <h4 className="mt-5 text-lg font-black text-gray-900">
-                        {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
-                      </h4>
-                      {match.status !== "cancelled" && (
-                        <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
-                          Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
-                          <span className="font-bold text-gray-700">{match.time}</span>
-                          {match.venueName ? <> · {match.venueName}</> : null}.
-                          {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
-                        </p>
-                      )}
-                    </>
-                  </CompteARebours>
+                  <div className="flex h-16 w-16 items-center justify-center bg-gray-50">
+                    <Clock size={30} className="text-gray-300" />
+                  </div>
+                  <h4 className="mt-5 text-lg font-black text-gray-900">
+                    {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
+                  </h4>
+                  {match.status !== "cancelled" && (
+                    <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
+                      Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
+                      <span className="font-bold text-gray-700">{match.time}</span>
+                      {match.venueName ? <> · {match.venueName}</> : null}.
+                      {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
+                    </p>
+                  )}
                   {peutTenirLaConsole && match.status !== "cancelled" && (
                     <button
                       onClick={() => router.push(`/matches/${id}/manage`)}
@@ -976,29 +1053,41 @@ export default function MatchDetailPage() {
                   d'histoire, le bloc n'apparait qu'une fois le direct lance. */}
               {(match.status === "live" || match.status === "completed") && (
                 <div className="bg-white p-4 sm:p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                      Historique
-                    </h3>
-                    {match.status === "completed" && (
-                      <span className="text-[11px] font-black tabular-nums text-gray-900">
-                        Score final {match.scoreHome} – {match.scoreAway}
-                      </span>
-                    )}
-                  </div>
+                  {/* Le score final n'est plus répété ici : le repère « Fin du
+                      match » le porte, en tête du fil. */}
+                  <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+                    Historique
+                  </h3>
 
                   <MatchTimeline
                     events={match.liveState?.events ?? []}
                     homeTeamId={match.homeTeamId}
-                    vide="En attente du premier fait de jeu"
+                    deroule={{
+                      commence: true,
+                      termine: match.status === "completed",
+                      periode: match.liveState?.currentPeriod ?? 0,
+                      heure: match.time,
+                      score: match.status === "completed"
+                        ? { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 }
+                        : null,
+                      tab: match.penaltyHome != null && match.penaltyAway != null
+                        ? { home: match.penaltyHome, away: match.penaltyAway }
+                        : null,
+                    }}
+                    vide={match.status === "completed" ? "Aucun fait de jeu enregistré sur ce match" : "En attente du premier fait de jeu"}
                     // Un amical contre une equipe hors plateforme n'a aucun nom
                     // de joueur en face : le nom de l'equipe tient lieu d'auteur.
                     auteur={(e) => auteurDeLEvenement(e.teamId, e.playerName)}
+                    // Les contestations se lisent dans la validation du match,
+                    // réservée aux deux camps : un visiteur ne voit ni le
+                    // bouton, ni qu'un événement a été contesté.
                     action={(e) =>
                       match.status === "completed"
-                      && match.validationStatus !== "validated"
+                      && !estAmical
                       && isManager
-                        ? e.contestedByManagerId ? (
+                      && validationDuMatch
+                      && validationDuMatch.status !== "validated"
+                        ? validationDuMatch.contestedEvents[e.id] ? (
                             <span className="inline-flex items-center gap-1 border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-500">
                               <AlertCircle size={10} />
                               Contesté
@@ -1034,8 +1123,8 @@ export default function MatchDetailPage() {
                   MatchLineups. */}
               <div className="bg-white p-4 sm:p-5">
                 <MatchLineups
-                  home={{ name: match.homeTeamName, entries: compoDeLEquipe(match.homeTeamId, match.homeGhostLineup) }}
-                  away={{ name: match.awayTeamName, entries: compoDeLEquipe(match.awayTeamId, match.awayGhostLineup) }}
+                  home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup) }}
+                  away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup) }}
                 />
               </div>
 
@@ -1457,8 +1546,11 @@ export default function MatchDetailPage() {
                     L'auto-acceptation ensuite : cette liste EST le suivi des
                     convocations, et il n'y a pas de convocation à suivre quand
                     tout le monde est accepté d'office. La composition, elle, se
-                    tient dans l'éditeur de feuille au-dessus. */}
-                {!ghostIsHome && !match.autoAcceptPlayers && (
+                    tient dans l'éditeur de feuille au-dessus.
+                    Et une troisième, depuis que l'onglet est public : sans
+                    compte, les convocations ne se lisent pas (règles
+                    Firestore), et la colonne annoncerait une équipe vide. */}
+                {user && !ghostIsHome && !match.autoAcceptPlayers && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-400 italic">{match.homeTeamName}</h3>
@@ -1522,7 +1614,7 @@ export default function MatchDetailPage() {
                 )}
 
                 {/* Away Squad. Mêmes deux raisons, voir Home Squad. */}
-                {!(estAmical && !ghostIsHome) && !match.autoAcceptPlayers && (
+                {user && !(estAmical && !ghostIsHome) && !match.autoAcceptPlayers && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h3 className="text-xs font-black uppercase tracking-[.2em] text-gray-400 italic">{match.awayTeamName}</h3>
@@ -1681,8 +1773,11 @@ export default function MatchDetailPage() {
       {/* Post-Match Feedback Section for Managers.
           Retiré sur un amical : « valider » ou « contester » n'ont de sens que
           face à un second manager. Sur un match hors plateforme, le geste de
-          confirmation est l'attribution des statistiques, juste au-dessus. */}
-      {isManager && match?.status === "completed" && !estAmical && (
+          confirmation est l'attribution des statistiques, juste au-dessus.
+          Retiré aussi sur un score renseigné, qui se confirme par la
+          contresignature de l'adversaire. */}
+      {isManager && match?.status === "completed" && !estAmical && !match.recordedAt
+        && validationDuMatch !== undefined && (
         <motion.div
            initial={{ opacity: 0, y: 20 }}
            animate={{ opacity: 1, y: 0 }}
@@ -1699,26 +1794,28 @@ export default function MatchDetailPage() {
              </div>
           </div>
 
-          {user && match.postMatchFeedback?.[user.uid] ? (
+          {/* Le retour de MON CAMP, qu'il vienne de moi ou d'un délégué :
+              le serveur les range par équipe, pas par compte. */}
+          {monRetour ? (
              <div className="p-4 sm:p-6 bg-gray-50 border border-gray-200/70 space-y-4">
                 <div className="flex items-center gap-2">
-                   {match.postMatchFeedback[user.uid].validation === 'validated' ? (
+                   {monRetour.validation === 'validated' ? (
                      <CheckCircle2 size={20} className="text-emerald-500" />
                    ) : (
                      <AlertCircle size={20} className="text-red-500" />
                    )}
                    <span className="font-black text-gray-900">
-                     {match.postMatchFeedback[user.uid].validation === 'validated' ? 'Match Validé' : 'Match Contesté'}
+                     {monRetour.validation === 'validated' ? 'Match Validé' : 'Match Contesté'}
                    </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-400 uppercase font-black mr-2">Arbitrage :</span>
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={16} className={i < (match.postMatchFeedback?.[user.uid]?.refereeRating || 0) ? "text-amber-400 fill-amber-400" : "text-gray-300"} />
+                    <Star key={i} size={16} className={i < (monRetour.refereeRating || 0) ? "text-amber-400 fill-amber-400" : "text-gray-300"} />
                   ))}
                 </div>
-                {match.postMatchFeedback[user.uid].comments && (
-                  <p className="text-sm text-gray-600 italic">« {match.postMatchFeedback[user.uid].comments} »</p>
+                {monRetour.comments && (
+                  <p className="text-sm text-gray-600 italic">« {monRetour.comments} »</p>
                 )}
              </div>
           ) : (
@@ -1778,7 +1875,7 @@ export default function MatchDetailPage() {
                    if (!user) return;
                    setSubmittingFeedback(true);
                    try {
-                     await submitManagerFeedback(match.id, user.uid, {
+                     await submitManagerFeedback(match.id, {
                        validation,
                        comments: managerComments,
                        refereeRating

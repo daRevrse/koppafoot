@@ -1442,6 +1442,11 @@ export async function finishCompMatch(
       ls.isTimerRunning && ls.timerStartAt
         ? Date.now() - new Date(ls.timerStartAt).getTime() + (ls.timerOffset ?? 0)
         : ls.timerOffset ?? 0;
+    // La période suit le coup de sifflet : elle restait sur « 2ème mi-temps »
+    // après la fin, alors qu'un résultat saisi après coup, lui, écrit bien la
+    // 4 (voir `setCompMatchResult`). Deux chemins vers le même état final, et
+    // un seul le disait.
+    updates["live_state.current_period"] = 4;
   }
   await updateDoc(compMatchRef(cid, mid), updates);
 

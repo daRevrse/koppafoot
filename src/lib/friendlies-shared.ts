@@ -99,8 +99,6 @@ function etatDuDirect(v: unknown): Match["liveState"] {
       // un champ qu'on ecrit sans jamais pouvoir le relire par ce chemin.
       outPlayerId: str(e.out_player_id),
       outPlayerName: str(e.out_player_name),
-      contestedByManagerId: str(e.contested_by_manager_id),
-      contestationReason: str(e.contestation_reason),
       varStatus: (e.var_status ?? null) as NonNullable<Match["liveState"]>["events"][number]["varStatus"],
       createdAt: String(e.created_at ?? ""),
     })),

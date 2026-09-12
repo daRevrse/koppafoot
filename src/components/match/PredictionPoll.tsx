@@ -1,33 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
+import BarreRepartition, { type SegmentRepartition } from "@/components/match/BarreRepartition";
+import MiniEcusson from "@/components/match/MiniEcusson";
 import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, type PredictionCounts, pourcentages } from "@/lib/predictions";
 
 // ============================================
-// « Qui va gagner ? », le pronostic de la fiche match.
+// « Qui gagne ? », le pronostic de la fiche match.
 //
-// Deux états et un seul geste : on voit trois choix tant que le match n'a
-// aucun pronostic, et le résultat dès qu'il en a un — celui de tout le monde,
-// qu'on ait voté ou non. Voir `showResult` pour le pourquoi de ce choix.
+// UNE BARRE DONT LA LARGEUR EST LE VOTE. Chaque issue — victoire à domicile,
+// nul, victoire à l'extérieur — prend la largeur de sa part, et l'issue en
+// tête se remplit en vert (voir BarreRepartition). Le résultat n'occupe donc
+// aucune place de plus que la question : on lit le rapport de force avant
+// même de lire un chiffre.
+//
+// ELLE A QUITTÉ LE TABLEAU D'AFFICHAGE pour ouvrir l'onglet Infos. Elle y
+// était montée parce qu'en bas de page personne ne l'atteignait ; en tête de
+// l'onglet ouvert par défaut avant le coup d'envoi, elle reste la première
+// chose sous le tableau. Et pendant le direct, close, elle n'a plus rien à
+// faire à côté du score.
 //
 // Un compte est nécessaire pour voter, sans quoi le sondage se remplit de
 // rechargements de page, mais le RÉSULTAT est visible de tous, y compris
 // sans compte : c'est une information publique, comme le score.
 //
-// IL A CHANGÉ DE MAISON, ET DE TAILLE. C'était une carte blanche dans la
-// colonne de droite, c'est-à-dire, sur un téléphone, un bloc tout en bas de
-// page que personne n'atteignait. Il vit désormais DANS le tableau d'affichage
-// (MatchHero), juste sous l'affiche : d'où le fond sombre.
-//
-// ET IL TIENT SUR UNE SEULE LIGNE. Il en occupait trois — la question, les
-// trois choix, le décompte — soit une centaine de pixels d'un écran qui doit
-// tenir l'affiche, le score et les onglets. La question devient une étiquette
-// à gauche, et le résultat du vote ne prend plus de place du tout : le
-// pourcentage REMPLIT le segment de chaque issue. Voter ne change donc plus la
-// hauteur du bloc, seulement sa couleur.
+// PAS DE DÉCOMPTE. Sur un amical entre deux clubs de quartier, « 3 votes »
+// annonce surtout que personne ne regarde. Les pourcentages portent le
+// résultat, qui est ce qu'on vient lire.
 // ============================================
 
 interface Side {
@@ -46,6 +48,7 @@ export default function PredictionPoll({
 }) {
   const { user } = useAuth();
   const { open } = useAuthModal();
+  const titreId = useId();
 
   const [counts, setCounts] = useState<PredictionCounts | null>(null);
   const [mine, setMine] = useState<Pick | null>(null);
@@ -64,8 +67,17 @@ export default function PredictionPoll({
     return () => { alive = false; };
   }, [matchId, user]);
 
+  /**
+   * Voter, ou changer d'avis, jusqu'au coup d'envoi.
+   *
+   * VOIR LES CHIFFRES N'EMPÊCHE PLUS DE VOTER. Depuis que le résultat s'ouvre
+   * à tout le monde dès le premier vote, les boutons se désactivaient en même
+   * temps que les chiffres s'affichaient : le premier votant fermait le
+   * sondage pour tous les autres. C'est le coup d'envoi qui ferme, rien
+   * d'autre — comme sur le Direct, où le choix se change jusqu'au bout.
+   */
   const vote = async (pick: Pick) => {
-    if (closed || sending) return;
+    if (closed || sending || pick === mine) return;
     if (!user) {
       open("Crée ton compte pour donner ton pronostic.");
       return;
@@ -81,108 +93,82 @@ export default function PredictionPoll({
   };
 
   /**
-   * UN MATCH QUI A DES VOTES MONTRE SES CHIFFRES, À TOUT LE MONDE.
-
- * Le résultat ne s'ouvrait qu'à celui qui avait voté, pour ne pas ancrer les
- * suivants sur le premier chiffre affiché. La prudence coûtait plus qu'elle ne
- * protégeait : un visiteur voyait trois barres muettes, donc rien qui donne
- * envie de participer — or c'est le chiffre lui-même qui appelle le vote, on
- * clique pour se situer, pas dans le vide.
- *
- * « Au moins un vote RÉEL » : `total` ne compte pas les voix d'office, qui
- * n'existent que pour amortir les pourcentages des premiers votes (voir
- * lib/predictions). Sans ce garde-fou, un match que personne n'a pronostiqué
- * afficherait un 33/33/33 inventé de toutes pièces.
+   * « Au moins un vote RÉEL » : `total` ne compte pas les voix d'office, qui
+   * n'existent que pour amortir les pourcentages des premiers votes (voir
+   * lib/predictions). Sans ce garde-fou, un match que personne n'a
+   * pronostiqué afficherait un 33/33/34 inventé de toutes pièces.
    */
-  const votesReels = counts?.total ?? 0;
-  const showResult = mine !== null || closed || votesReels > 0;
+  const chiffres = (counts?.total ?? 0) > 0;
 
-  // Une voix d'office par issue : sans elle, le premier votant envoie son
-  // camp a 100% et les deux autres a 0%. Voir lib/predictions.
+  // Clos sans un seul pronostic : il n'y a rien à montrer.
+  if (counts !== null && closed && !chiffres) return null;
+
   const parts = pourcentages(counts ?? EMPTY_COUNTS);
-
-  const OPTIONS: { key: Pick; label: string; logo: string | null; pct: number }[] = [
-    { key: "home", label: home.label, logo: home.logo, pct: parts.home },
-    { key: "draw", label: "Match nul", logo: null, pct: parts.draw },
-    { key: "away", label: away.label, logo: away.logo, pct: parts.away },
+  const issues: { cle: Pick; nom: string; logo: string | null; pct: number; libelle: string }[] = [
+    { cle: "home", nom: home.label, logo: home.logo, pct: parts.home, libelle: `Victoire de ${home.label}` },
+    { cle: "draw", nom: "Nul", logo: null, pct: parts.draw, libelle: "Match nul" },
+    { cle: "away", nom: away.label, logo: away.logo, pct: parts.away, libelle: `Victoire de ${away.label}` },
   ];
 
+  // L'issue en tête, si elle est seule : deux issues à égalité ne dominent pas.
+  const max = Math.max(...issues.map((i) => i.pct));
+  const enTete = issues.filter((i) => i.pct === max);
+  const enAvant = chiffres && enTete.length === 1 ? enTete[0].cle : null;
+
+  const segments: SegmentRepartition[] = issues.map((i) => ({
+    cle: i.cle,
+    pct: i.pct,
+    libelle: chiffres ? `${i.libelle}, ${i.pct} %` : i.libelle,
+    haut: (
+      <>
+        {/* L'écusson descend dans la petite ligne quand le pourcentage prend
+            la grande : il n'y a qu'une grande place par segment. */}
+        {chiffres && i.cle !== "draw" && <MiniEcusson nom={i.nom} logo={i.logo} taille={14} />}
+        <span className="truncate uppercase tracking-wide">{i.nom}</span>
+        {mine === i.cle && <Check size={12} strokeWidth={3} aria-hidden className="shrink-0" />}
+      </>
+    ),
+    bas: sending === i.cle ? (
+      <Loader2 size={20} className="animate-spin" />
+    ) : chiffres ? (
+      `${i.pct}%`
+    ) : i.cle === "draw" ? (
+      "N"
+    ) : (
+      <MiniEcusson nom={i.nom} logo={i.logo} taille={20} />
+    ),
+  }));
+
+  const consigne = closed
+    ? "Clos au coup d'envoi"
+    : mine
+      ? "Modifiable jusqu'au coup d'envoi"
+      : "Touche ton pronostic";
 
   return (
-    <section aria-labelledby="pronostic" className="flex items-center gap-2 sm:gap-4">
-      <h2
-        id="pronostic"
-        className="shrink-0 text-[10px] font-black uppercase leading-tight tracking-[0.12em] text-gray-400 sm:text-[11px]"
-      >
-        {closed ? "Pronostics" : "Qui gagne ?"}
-      </h2>
+    <section aria-labelledby={titreId} className="border border-gray-200/70 bg-white p-4 sm:p-5">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 id={titreId} className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+          {closed ? "Pronostics" : "Qui gagne ?"}
+        </h2>
+        <p className="truncate text-[11px] font-bold text-gray-400">{consigne}</p>
+      </div>
 
       {counts === null ? (
-        <div className="flex flex-1 justify-center py-2">
+        <div className="flex justify-center py-6">
           <Loader2 size={16} className="animate-spin text-gray-300" />
         </div>
       ) : (
-        <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-white/10 border border-gray-200/70 bg-gray-50">
-          {OPTIONS.map((o) => {
-            const isMine = mine === o.key;
-            return (
-              <button
-                key={o.key}
-                type="button"
-                onClick={() => vote(o.key)}
-                disabled={showResult || sending !== null}
-                aria-label={o.key === "draw" ? "Match nul" : `Victoire de ${o.label}`}
-                className={`relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-1.5 py-2 transition-colors disabled:cursor-default ${
-                  showResult ? "" : "hover:bg-gray-200/60"
-                } ${sending !== null && !showResult ? "opacity-40" : ""}`}
-              >
-                {showResult && (
-                  <span
-                    aria-hidden
-                    className={`absolute inset-y-0 left-0 transition-all ${isMine ? "bg-emerald-100" : "bg-gray-200/60"}`}
-                    style={{ width: `${o.pct}%` }}
-                  />
-                )}
-                {sending === o.key ? (
-                  <Loader2 size={14} className="relative animate-spin text-gray-500" />
-                ) : (
-                  <>
-                    {/* SUR TÉLÉPHONE, L'ÉCUSSON REMPLACE LE NOM. C'était
-                        l'inverse : le logo était masqué sous `sm` et le nom
-                        seul restait, tronqué à quelques lettres dans un tiers
-                        de rangée — « OLYM… » ne nomme pas une équipe mieux que
-                        son écusson, et coûte la place du pourcentage.
-
-                        « Nul » n'a pas d'écusson : son mot reste, sinon son
-                        tiers serait vide. */}
-                    {o.logo && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={o.logo} alt={o.label} className="relative h-5 w-5 shrink-0 object-contain sm:h-4 sm:w-4" />
-                    )}
-                    <span
-                      className={`relative truncate text-[10px] font-black uppercase tracking-wide sm:text-[11px] ${
-                        o.logo ? "hidden sm:inline" : ""
-                      } ${isMine ? "text-emerald-700" : "text-gray-600"}`}
-                    >
-                      {o.key === "draw" ? "Nul" : o.label}
-                    </span>
-                    {showResult && (
-                      <span className="relative shrink-0 text-[10px] font-black tabular-nums text-gray-900 sm:text-[11px]">
-                        {o.pct}%
-                      </span>
-                    )}
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <BarreRepartition
+          libelle="Pronostics du match"
+          segments={segments}
+          enAvant={enAvant}
+          choisi={mine}
+          onChoisir={closed ? undefined : (cle) => vote(cle as Pick)}
+          occupe={sending !== null}
+          largeursEgales={!chiffres}
+        />
       )}
-
-      {/* PAS DE DÉCOMPTE. Il tenait la droite de la ligne, et il ne disait
-          rien de bon : sur un amical entre deux clubs de quartier, « 3 »
-          annonce surtout que personne ne regarde. Les pourcentages portent
-          déjà le résultat, qui est ce qu'on vient lire. */}
     </section>
   );
 }
