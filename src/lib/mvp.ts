@@ -10,12 +10,23 @@
 // rencontre ne se déduit ni des buts ni des arrêts, et c'est précisément
 // pourquoi un humain garde la main. Un but se compte, un match se juge.
 //
+// TROIS CHOSES QUI NE SE TAPENT PAS entrent quand même dans le classement,
+// parce que les ignorer revenait à classer la diligence du scoreur plutôt que
+// le match : le temps passé sur le terrain (le socle), ce que le poste rend
+// possible — un gardien n'a qu'une monnaie, et la cage inviolée se lit sur le
+// tableau d'affichage sans qu'on ait rien saisi —, et les fautes commises, la
+// seule prise du fair-play sur une liste de noms. Aucune des trois ne demande
+// une saisie de plus à celui qui tient la console d'une main.
+//
 // Pur et sans SDK, comme player-stats, pour que la console et n'importe quel
 // écran s'en servent sans dupliquer la règle.
 // ============================================
 
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
-import { computeMinutesPlayed, computePlayerStats, type MatchJoue } from "@/lib/player-stats";
+import type { Poste } from "@/lib/postes";
+import {
+  DUREE_MATCH_DEFAUT, computeMinutesPlayed, computePlayerStats, type MatchJoue,
+} from "@/lib/player-stats";
 
 /** Un joueur proposé au scoreur, avec de quoi comprendre pourquoi. */
 export interface CandidatMVP {
@@ -27,6 +38,13 @@ export interface CandidatMVP {
   teamId: string;
   cote: "home" | "away";
   score: number;
+  /**
+   * Minutes passées sur le terrain. Voir `computeMinutesPlayed`.
+   *
+   * Calculées pour tout le monde depuis qu'elles portent le socle — elles ne
+   * servaient qu'à départager les ex æquo.
+   */
+  minutes: number;
   /** « 2 buts · 1 passe · a gagné », à afficher sous le nom. */
   motif: string;
   /** Expulsé : hors de la liste proposée, jamais hors du choix du scoreur. */
@@ -40,16 +58,70 @@ export interface CandidatMVP {
  * La victoire ne pèse qu'un point : l'homme du match peut venir de l'équipe
  * battue, et c'est souvent le gardien qui a tout arrêté. Elle départage deux
  * joueurs à égalité, elle ne filtre pas.
+ *
+ * `matchEntier` EST LE SOCLE, et c'est le seul poids qui ne récompense aucun
+ * geste. Sans lui on partait de zéro, et un défenseur qui tenait 90 minutes
+ * propres sans jamais apparaître dans le fil marquait exactement autant qu'un
+ * remplaçant resté sur le banc : le classement ne disait pas qui avait joué,
+ * il disait qui avait été tapé sur la console. On ne sait pas mesurer un
+ * défenseur, raison de plus pour ne pas le punir d'être immesurable. Il vaut
+ * moins qu'un but, et il se proratise aux minutes.
+ *
+ * `fauteCommise` est le seul poids négatif ordinaire, et il vaut le quart d'un
+ * carton : une faute est du football, un jaune est une faute que l'arbitre a
+ * jugée bonne à punir. C'est la seule prise qu'ait le fair-play — le critère
+ * que l'organisateur citait — sur ce classement, et la donnée était là depuis
+ * le début, jamais lue : sur un événement `foul`, `player_id` est l'auteur et
+ * `victim_player_id` celui qui la subit. On ne comptait que le second.
  */
 const POIDS = {
   but: 3,
   passe: 2,
-  arret: 1,
   fauteSubie: 0.5,
+  fauteCommise: -0.25,
   jaune: -0.5,
   victoire: 1,
   nul: 0.5,
+  matchEntier: 2,
 } as const;
+
+/**
+ * Ce que le poste change, et rien d'autre.
+ *
+ * DEUX CHOSES SEULEMENT, celles qu'on peut défendre. L'arrêt, parce que le
+ * gardien n'a qu'une monnaie là où l'attaquant en a quatre, et qu'à poids égal
+ * il lui faut un match irréel pour remonter. Et la cage inviolée, parce que
+ * c'est le seul travail défensif que la console constate sans qu'on ait rien à
+ * taper : il se lit sur le tableau d'affichage.
+ *
+ * La cage se proratise aux minutes, comme le socle — un gardien entré à la 80ᵉ
+ * n'a pas gardé la cage du match, il en a gardé dix minutes.
+ */
+const PAR_POSTE: Record<Poste, { arret: number; cageInviolee: number }> = {
+  goalkeeper: { arret: 1.5, cageInviolee: 2 },
+  defender:   { arret: 1,   cageInviolee: 1 },
+  midfielder: { arret: 1,   cageInviolee: 0 },
+  forward:    { arret: 1,   cageInviolee: 0 },
+};
+
+/**
+ * Poste non saisi : le barème neutre, et on ne devine pas.
+ *
+ * Deux tiers des lignes d'effectif n'ont pas de poste (voir lib/postes), donc
+ * un gardien anonyme perd son bonus de cage. C'est le bon sens de l'échec :
+ * tout le reste du produit affiche un joueur sans étiquette plutôt que de lui
+ * en inventer une, et un barème qui déduirait « c'est sûrement le gardien » se
+ * tromperait sans que personne le voie.
+ */
+const POSTE_NEUTRE = { arret: 1, cageInviolee: 0 } as const;
+
+/**
+ * À partir de combien de fautes commises ça vaut la peine de l'écrire.
+ *
+ * Une faute ou deux, c'est un match ; trois, c'est une manière de jouer. En
+ * dessous, la mention serait du bruit sur toutes les lignes.
+ */
+const FAUTES_VISIBLES = 3;
 
 /** « 2 buts », « 1 passe » — le pluriel, sans y penser à chaque appel. */
 function morceau(n: number, singulier: string, pluriel = `${singulier}s`): string | null {
@@ -75,6 +147,7 @@ export function classerCandidatsMVP(
   const events = match.liveState?.events ?? [];
   const scoreHome = match.scoreHome ?? 0;
   const scoreAway = match.scoreAway ?? 0;
+  const duree = dureeMatchMin ?? DUREE_MATCH_DEFAUT;
 
   const candidats: CandidatMVP[] = [];
 
@@ -88,6 +161,15 @@ export function classerCandidatsMVP(
     const sien = cote === "home" ? scoreAway : scoreHome;
 
     for (const entry of lineup) {
+      const bareme = entry.position ? PAR_POSTE[entry.position] : POSTE_NEUTRE;
+
+      // Le socle et la cage se comptent en fraction de match jouée. Un temps
+      // additionnel copieux peut dépasser la durée annoncée — `coupDeSifflet`
+      // suit la timeline — d'où le plafond : un match entier vaut un match
+      // entier, pas davantage.
+      const minutes = computeMinutesPlayed(match, teamId, entry.playerId, dureeMatchMin);
+      const part = duree > 0 ? Math.min(1, minutes / duree) : 0;
+
       const siens = events.filter((e) => e.playerId === entry.playerId);
 
       // Un csc ne compte pas pour son auteur, et un but refusé par le VAR
@@ -103,24 +185,35 @@ export function classerCandidatsMVP(
       const fautesSubies = events.filter(
         (e) => e.type === "foul" && e.victimPlayerId === entry.playerId,
       ).length;
+      // L'auteur de la faute, l'autre bout du même événement. Aucun risque de
+      // double compte : personne ne se fait faute à soi-même.
+      const fautesCommises = siens.filter((e) => e.type === "foul").length;
       const jaunes = siens.filter((e) => e.type === "yellow_card").length;
       const exclu = siens.some((e) => e.type === "red_card");
 
       const gagne = mien > sien;
       const nul = mien === sien;
+      // La cage n'est inviolée que pour qui la garde : sans ce garde-fou,
+      // chaque attaquant d'un 3-0 se verrait créditer le clean sheet.
+      const cageInviolee = sien === 0 && bareme.cageInviolee > 0;
 
       const score =
+        part * POIDS.matchEntier +
         buts * POIDS.but +
         passes * POIDS.passe +
-        arrets * POIDS.arret +
+        arrets * bareme.arret +
         fautesSubies * POIDS.fauteSubie +
+        fautesCommises * POIDS.fauteCommise +
         jaunes * POIDS.jaune +
+        (cageInviolee ? part * bareme.cageInviolee : 0) +
         (gagne ? POIDS.victoire : nul ? POIDS.nul : 0);
 
       const motif = [
         morceau(buts, "but"),
         morceau(passes, "passe"),
         morceau(arrets, "arrêt"),
+        cageInviolee ? "cage inviolée" : null,
+        fautesCommises >= FAUTES_VISIBLES ? morceau(fautesCommises, "faute") : null,
         gagne ? "a gagné" : null,
       ].filter(Boolean).join(" · ");
 
@@ -131,6 +224,7 @@ export function classerCandidatsMVP(
         teamId,
         cote,
         score,
+        minutes,
         motif,
         exclu,
       });
@@ -138,22 +232,14 @@ export function classerCandidatsMVP(
   }
 
   // Départage aux minutes jouées : à score égal, celui qui a tenu le match
-  // entier a fait plus que celui entré à la 80ᵉ. Calculé seulement là, sur les
-  // quelques ex æquo, et jamais sur toute la feuille.
-  const minutes = new Map<string, number>();
-  const minutesDe = (c: CandidatMVP) => {
-    const cache = minutes.get(c.playerId);
-    if (cache !== undefined) return cache;
-    const m = computeMinutesPlayed(match, c.teamId, c.playerId, dureeMatchMin);
-    minutes.set(c.playerId, m);
-    return m;
-  };
-
+  // entier a fait plus que celui entré à la 80ᵉ. Elles sont déjà calculées —
+  // le socle en dépend — là où elles ne l'étaient qu'à la demande, sur les
+  // quelques ex æquo.
   return candidats.sort(
     (a, b) =>
       Number(a.exclu) - Number(b.exclu) ||
       b.score - a.score ||
-      minutesDe(b) - minutesDe(a) ||
+      b.minutes - a.minutes ||
       a.name.localeCompare(b.name),
   );
 }
