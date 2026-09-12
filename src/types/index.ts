@@ -610,6 +610,28 @@ export interface FirestoreMatch {
    * l'ancien régime n'ont pas ce champ, et c'est ainsi qu'on les reconnaît.
    */
   recorded_scorer_stats?: boolean;
+  /**
+   * L'HOMME DU MATCH, désigné par le scoreur au coup de sifflet final.
+   *
+   * Jamais calculé : la console propose un classement, un humain tranche. Un
+   * match sans MVP est un cas normal — le scoreur peut siffler la fin sans
+   * désigner, et rien ne doit l'en empêcher.
+   *
+   * `mvp_player_id` désigne la LIGNE de feuille retenue : l'uid du joueur sur
+   * un amical, une ligne d'effectif en compétition, l'identifiant du document
+   * pour un joueur sans compte. `mvp_user_id` porte le compte derrière, quand
+   * il y en a un, et c'est LUI qui permet de recoller les trophées d'un joueur
+   * d'un match à l'autre — une ligne d'effectif est propre à une équipe dans
+   * une compétition, et un transfert en cours de tournoi en crée une seconde.
+   * Le nom est le dernier recours, pour qui n'est rattaché à rien.
+   */
+  mvp_player_id?: string | null;
+  mvp_user_id?: string | null;
+  mvp_player_name?: string | null;
+  mvp_team_id?: string | null;
+  /** Qui a désigné. Sur un amical, c'est souvent un manager en lice. */
+  mvp_by?: string | null;
+  mvp_at?: string | null;
   /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
   created_at: string;
@@ -728,6 +750,13 @@ export interface Match {
   confirmedHome: number;
   confirmedAway: number;
   autoAcceptPlayers?: boolean;
+  /** Voir `FirestoreMatch.mvp_player_id`. */
+  mvpPlayerId?: string | null;
+  mvpUserId?: string | null;
+  mvpPlayerName?: string | null;
+  mvpTeamId?: string | null;
+  mvpBy?: string | null;
+  mvpAt?: string | null;
   /** Voir `stats_credited_at` : renseigné dès que les statistiques du match
    *  ont été créditées. La validation, elle, est dans `MatchValidation`. */
   statsCreditedAt?: string | null;
@@ -1395,6 +1424,20 @@ export interface FirestoreCompetition {
   logo_url: string | null;
   banner_url: string | null;
   organizer_ids: string[];
+  /**
+   * LE MEILLEUR JOUEUR DU TOURNOI, désigné par l'organisateur une fois la
+   * compétition terminée — et pas avant : à cette échelle, « l'équipe qui est
+   * allée au bout » est un critère qu'on ne connaît qu'à la fin.
+   *
+   * Mêmes identifiants que sur un match (voir `FirestoreMatch.mvp_player_id`) :
+   * la ligne d'effectif, le compte derrière quand il y en a un, et le nom.
+   */
+  mvp_player_id?: string | null;
+  mvp_user_id?: string | null;
+  mvp_player_name?: string | null;
+  mvp_team_id?: string | null;
+  mvp_awarded_by?: string | null;
+  mvp_awarded_at?: string | null;
   moderator_ids: string[];
   created_by: string;
   /**
@@ -1456,6 +1499,13 @@ export interface Competition {
   logoUrl: string | null;
   bannerUrl: string | null;
   organizerIds: string[];
+  /** Voir `FirestoreCompetition.mvp_player_id`. */
+  mvpPlayerId?: string | null;
+  mvpUserId?: string | null;
+  mvpPlayerName?: string | null;
+  mvpTeamId?: string | null;
+  mvpAwardedBy?: string | null;
+  mvpAwardedAt?: string | null;
   moderatorIds: string[];
   createdBy: string;
   /** Voir `FirestoreCompetition.is_validated`. */
@@ -1736,6 +1786,28 @@ export interface FirestoreCompMatch {
   penalty_away: number | null;
   winner_team_id: string | null;
   /**
+   * L'HOMME DU MATCH, désigné par le scoreur au coup de sifflet final.
+   *
+   * Jamais calculé : la console propose un classement, un humain tranche. Un
+   * match sans MVP est un cas normal — le scoreur peut siffler la fin sans
+   * désigner, et rien ne doit l'en empêcher.
+   *
+   * `mvp_player_id` désigne la LIGNE de feuille retenue : l'uid du joueur sur
+   * un amical, une ligne d'effectif en compétition, l'identifiant du document
+   * pour un joueur sans compte. `mvp_user_id` porte le compte derrière, quand
+   * il y en a un, et c'est LUI qui permet de recoller les trophées d'un joueur
+   * d'un match à l'autre — une ligne d'effectif est propre à une équipe dans
+   * une compétition, et un transfert en cours de tournoi en crée une seconde.
+   * Le nom est le dernier recours, pour qui n'est rattaché à rien.
+   */
+  mvp_player_id?: string | null;
+  mvp_user_id?: string | null;
+  mvp_player_name?: string | null;
+  mvp_team_id?: string | null;
+  /** Qui a désigné. Sur un amical, c'est souvent un manager en lice. */
+  mvp_by?: string | null;
+  mvp_at?: string | null;
+  /**
    * Set when the score was awarded rather than played, the id of the side
    * that forfeited. Keeps a 3-0 walkover distinguishable from a real 3-0.
    */
@@ -1780,6 +1852,13 @@ export interface CompMatch {
   penaltyHome: number | null;
   penaltyAway: number | null;
   winnerTeamId: string | null;
+  /** Voir `FirestoreMatch.mvp_player_id`. */
+  mvpPlayerId?: string | null;
+  mvpUserId?: string | null;
+  mvpPlayerName?: string | null;
+  mvpTeamId?: string | null;
+  mvpBy?: string | null;
+  mvpAt?: string | null;
   /** Id of the side that forfeited, when the score was awarded not played. */
   forfeitByTeamId: string | null;
   feedsIntoMatchId: string | null;

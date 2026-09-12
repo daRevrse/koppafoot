@@ -278,7 +278,7 @@ export default function StatsPage() {
       ) : (
         <>
           {/* Career totals */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <StatTile label="Matchs" value={total.matchesPlayed} Icon={Shirt} accent="text-emerald-500" />
             <StatTile label="Titulaire" value={total.starts} Icon={Users} accent="text-emerald-500" />
             <StatTile label="Buts" value={total.goals} Icon={Target} accent="text-emerald-500" />
@@ -288,11 +288,15 @@ export default function StatsPage() {
               Icon={Square}
               accent={total.redCards > 0 ? "text-red-500" : "text-amber-400"}
             />
-            {/* Cinquième tuile : sur deux colonnes en mobile, elle occupe la
-                ligne au lieu de laisser un trou à côté d'elle. */}
-            <div className="col-span-2 sm:col-span-1">
-              <StatTile label="Minutes" value={total.minutesPlayed} Icon={Clock} accent="text-emerald-500" />
-            </div>
+            <StatTile label="Minutes" value={total.minutesPlayed} Icon={Clock} accent="text-emerald-500" />
+            {/* Six tuiles : deux colonnes en mobile tombent juste, plus besoin
+                d'en étirer une pour combler un trou. */}
+            <StatTile
+              label="Homme du match"
+              value={total.mvpCount}
+              Icon={Trophy}
+              accent={total.mvpCount > 0 ? "text-amber-500" : "text-gray-300"}
+            />
           </div>
 
           {/* Per competition */}
@@ -343,6 +347,11 @@ export default function StatsPage() {
                           <span>{row.stats.matchesPlayed} match{row.stats.matchesPlayed !== 1 ? "s" : ""}</span>
                           <span>{row.stats.starts} titulaire</span>
                           <span>{row.stats.minutesPlayed}&apos;</span>
+                          {row.stats.mvpCount > 0 && (
+                            <span className="text-amber-600">
+                              {row.stats.mvpCount}&nbsp;🏆
+                            </span>
+                          )}
                           <span className="text-emerald-600">
                             {row.stats.goals} but{row.stats.goals !== 1 ? "s" : ""}
                           </span>
@@ -434,6 +443,7 @@ export default function StatsPage() {
                         </p>
                       </div>
                       <span className="flex shrink-0 items-center gap-1.5 text-xs font-black">
+                        {a.mvp && <span title="Homme du match">🏆</span>}
                         {a.goals > 0 && (
                           <span className="text-emerald-600">{a.goals}&nbsp;⚽</span>
                         )}
@@ -456,8 +466,10 @@ export default function StatsPage() {
             direct : un remplacement enregistré avant que la console retienne le
             sortant ne peut pas être daté précisément. Quand l&apos;organisateur
             rattrape une journée après coup, il n&apos;y a pas de feuille : les
-            buteurs qu&apos;il saisit comptent leur match, sans rôle ni minutes. Les
-            passes décisives ne sont pas encore enregistrées en console live.
+            buteurs qu&apos;il saisit comptent leur match, sans rôle ni minutes.
+            L&apos;homme du match est désigné par le scoreur au coup de sifflet, et
+            peut venir de l&apos;équipe battue. Les passes décisives ne sont pas
+            encore enregistrées en console live.
           </p>
         </>
       )}

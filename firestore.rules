@@ -204,6 +204,11 @@ service cloud.firestore {
           'home_on_pitch', 'away_on_pitch',
           // La séance de tirs au but, quand la rencontre s'y décide.
           'penalty_home', 'penalty_away',
+          // L'homme du match, désigné au coup de sifflet final. C'est un geste
+          // de couverture, comme le score : celui qui a tenu la console est
+          // celui qui a vu le match.
+          'mvp_player_id', 'mvp_user_id', 'mvp_player_name',
+          'mvp_team_id', 'mvp_by', 'mvp_at',
         ]);
     }
 

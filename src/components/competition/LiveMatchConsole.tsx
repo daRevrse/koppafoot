@@ -10,6 +10,7 @@ import {
   MonitorPlay, Ban, Check, Hand, Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
 import { useAuth } from "@/contexts/AuthContext";
 import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
@@ -147,6 +148,9 @@ export default function LiveMatchConsole({
   const [subIn, setSubIn] = useState("");
 
   // Penalty shootout entry (knockout draw)
+  // Non nul = la modale de l'homme du match est ouverte, et elle retient les
+  // tirs au but déjà saisis : le coup de sifflet part quand elle se referme.
+  const [mvpEnAttente, setMvpEnAttente] = useState<{ tab?: { penaltyHome: number; penaltyAway: number } } | null>(null);
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
   const [penaltyHome, setPenaltyHome] = useState("");
   const [penaltyAway, setPenaltyAway] = useState("");
@@ -748,12 +752,29 @@ export default function LiveMatchConsole({
       return;
     }
     if (!window.confirm("Confirmer la fin du match ? Le score sera définitif.")) return;
-    void finishMatch();
+    setMvpEnAttente({});
   };
 
-  const finishMatch = async (opts?: { penaltyHome: number; penaltyAway: number }) => {
+  const finishMatch = async (
+    opts?: { penaltyHome: number; penaltyAway: number },
+    mvp?: CandidatMVP | null,
+  ) => {
     setIsSubmitting(true);
     try {
+      // D'ABORD LE MVP, ET SANS JAMAIS BLOQUER : un homme du match qui ne
+      // s'écrit pas est un désagrément, un coup de sifflet final qui échoue
+      // est une perte. Même arbitrage que le classement plus bas.
+      if (mvp && user?.uid) {
+        try {
+          await pilote.poserMVP(
+            { playerId: mvp.playerId, userId: mvp.userId, name: mvp.name, teamId: mvp.teamId },
+            user.uid,
+          );
+        } catch (err) {
+          console.error("MVP write failed:", err);
+          toast.error("L'homme du match n'a pas pu être enregistré");
+        }
+      }
       await pilote.terminer(opts);
       if (match) {
         const scoreLine = `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}`;
@@ -801,7 +822,7 @@ export default function LiveMatchConsole({
       return;
     }
     setShowPenaltyModal(false);
-    await finishMatch({ penaltyHome: ph, penaltyAway: pa });
+    setMvpEnAttente({ tab: { penaltyHome: ph, penaltyAway: pa } });
   };
 
   if (loading) {
@@ -1484,6 +1505,21 @@ export default function LiveMatchConsole({
         )}
       </AnimatePresence>
 
+      {/* L'homme du match, au coup de sifflet. */}
+      <AnimatePresence>
+        {mvpEnAttente && match && (
+          <ModaleMVP
+            candidats={classerCandidatsMVP(match, pilote.campsEligiblesMVP(), halfMinutes * 2)}
+            homeTeamId={match.homeTeamId}
+            homeTeamName={match.homeTeamName}
+            awayTeamName={match.awayTeamName}
+            isSubmitting={isSubmitting}
+            onChoisir={(c) => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, c); }}
+            onPasser={() => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, null); }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Penalty entry modal (knockout draw) */}
       <AnimatePresence>
         {showPenaltyModal && (
@@ -1819,6 +1855,105 @@ function PlayerPickerModal({
             background: #e5e5e5;
           }
         `}</style>
+      </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Qui a été l'homme du match ?
+ *
+ * Trois noms proposés, classés par ce que la timeline a retenu, et le motif
+ * sous chacun pour que le scoreur voie sur quoi la suggestion repose. IL
+ * TRANCHE, la liste ne décide pas : « Un autre joueur » ouvre toute la feuille,
+ * et « Terminer sans désigner » existe parce qu'un match sans homme du match
+ * est un cas normal — rien ici ne doit retenir un coup de sifflet.
+ */
+function ModaleMVP({
+  candidats, homeTeamId, homeTeamName, awayTeamName, isSubmitting, onChoisir, onPasser,
+}: {
+  candidats: CandidatMVP[];
+  homeTeamId: string | null;
+  homeTeamName: string;
+  awayTeamName: string;
+  isSubmitting: boolean;
+  onChoisir: (c: CandidatMVP) => void;
+  onPasser: () => void;
+}) {
+  const [tout, setTout] = useState(false);
+  const proposes = candidats.filter((c) => !c.exclu);
+  const visibles = tout ? candidats : proposes.slice(0, 3);
+
+  return (
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col bg-white p-5 shadow-2xl sm:p-8"
+      >
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-amber-400 text-white">
+            <Trophy size={20} />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-gray-900">Homme du match</h2>
+            <p className="text-xs font-bold uppercase tracking-tight text-gray-400 italic">
+              Les deux équipes sont éligibles
+            </p>
+          </div>
+        </div>
+
+        <div className="-mx-1 flex-1 overflow-y-auto px-1">
+          {visibles.length === 0 ? (
+            <p className="py-6 text-center text-sm font-semibold text-gray-400">
+              Aucune feuille de match : personne à désigner.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {visibles.map((c) => (
+                <button
+                  key={`${c.teamId}-${c.playerId}`}
+                  onClick={() => onChoisir(c)}
+                  disabled={isSubmitting}
+                  className={`flex w-full items-center gap-3 border p-3 text-left transition-colors disabled:opacity-50 ${
+                    c.exclu ? "border-red-100 bg-red-50/40 hover:border-red-300" : "border-gray-200/70 hover:border-gray-900"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-gray-900">{c.name}</p>
+                    <p className="truncate text-[11px] font-semibold text-gray-400">
+                      {c.teamId === homeTeamId ? homeTeamName : awayTeamName}
+                      {c.motif ? ` · ${c.motif}` : ""}
+                      {c.exclu ? " · Expulsé" : ""}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!tout && candidats.length > visibles.length && (
+            <button
+              onClick={() => setTout(true)}
+              className="mt-3 w-full text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 underline transition-colors hover:text-gray-900"
+            >
+              Un autre joueur
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={onPasser}
+          disabled={isSubmitting}
+          className="mt-4 w-full border border-gray-200/70 px-4 py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+        >
+          {isSubmitting ? "Fin du match..." : "Terminer sans désigner"}
+        </button>
       </motion.div>
     </div>
   );

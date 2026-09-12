@@ -31,6 +31,7 @@ import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList"
 import MatchTimeline from "@/components/match/MatchTimeline";
 import { buteursDuMatch, buteursRenseignes } from "@/lib/buteurs";
 import MatchLineups from "@/components/match/MatchLineups";
+import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
 import PredictionPoll from "@/components/match/PredictionPoll";
@@ -783,6 +784,19 @@ export default function MatchDetailPage() {
           match, qui vivent maintenant dans le hero : garder la gouttiere de
           320px aurait ete garder une colonne pour rien. */}
       <div className="mx-auto mt-4 max-w-4xl space-y-4">
+
+      {/* L'homme du match, en tete de la colonne : c'est la distinction du
+          match, elle se lit avant le detail de ce qui s'y est passe, et elle
+          reste affichee quel que soit l'onglet ouvert. Ne rend rien tant que
+          personne n'a ete designe. */}
+      <MvpDuMatch
+        name={match.mvpPlayerName}
+        teamName={
+          match.mvpTeamId
+            ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
+            : null
+        }
+      />
 
       {/* Tab Content */}
       <div className="min-h-[400px]">

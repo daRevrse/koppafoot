@@ -15,6 +15,7 @@ import { buteursDuMatch } from "@/lib/buteurs";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchLineups from "@/components/match/MatchLineups";
+import MvpDuMatch from "@/components/match/MvpDuMatch";
 import MatchTimeline, { type Deroule } from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
 import MatchForme from "@/components/match/MatchForme";
@@ -405,6 +406,19 @@ export default function PublicCompMatchView() {
 
       {/* Une colonne unique et centrée. */}
       <div className="mx-auto mt-4 max-w-4xl space-y-4">
+        {/* L'homme du match, en tête de la colonne : c'est la distinction du
+            match, elle se lit avant le détail de ce qui s'y est passé, et elle
+            reste affichée quel que soit l'onglet ouvert. Ne rend rien tant que
+            personne n'a été désigné. */}
+        <MvpDuMatch
+          name={match.mvpPlayerName}
+          teamName={
+            match.mvpTeamId
+              ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
+              : null
+          }
+        />
+
         {/* Infos : le pronostic d'abord — c'est l'onglet ouvert avant le coup
             d'envoi, il reste donc la première chose sous le tableau — puis la
             forme des deux équipes, puis la compétition et de quoi la suivre. */}

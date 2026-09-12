@@ -218,11 +218,26 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
         playerId: e.player_id,
         playerName: e.player_name,
         detail: e.detail,
+        // Le passeur, la victime et le VAR etaient ECRITS sans jamais etre
+        // relus par ce chemin : `setMatchGoalAssist` pose un passeur sur un
+        // amical que la console ne pouvait donc pas reafficher. La liste des
+        // candidats au MVP compte les passes decisives, elle a besoin d'eux.
+        assistPlayerId: e.assist_player_id ?? null,
+        assistPlayerName: e.assist_player_name ?? null,
+        victimPlayerId: e.victim_player_id ?? null,
+        victimPlayerName: e.victim_player_name ?? null,
+        varStatus: e.var_status ?? null,
         outPlayerId: e.out_player_id ?? null,
         outPlayerName: e.out_player_name ?? null,
         createdAt: e.created_at,
       })),
     } : null,
+    mvpPlayerId: d.mvp_player_id ?? null,
+    mvpUserId: d.mvp_user_id ?? null,
+    mvpPlayerName: d.mvp_player_name ?? null,
+    mvpTeamId: d.mvp_team_id ?? null,
+    mvpBy: d.mvp_by ?? null,
+    mvpAt: d.mvp_at ?? null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -2513,6 +2528,29 @@ export async function setMatchLineup(
   await updateDoc(doc(db, "matches", matchId), {
     [side === "home" ? "home_lineup" : "away_lineup"]: lignes,
     [side === "home" ? "home_lineup_ready" : "away_lineup_ready"]: ready,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * L'homme du match d'un amical. `null` le retire.
+ *
+ * Ecrit par la console au coup de sifflet, donc borne aux champs que
+ * `champsDeLaConsole()` ouvre au moderateur : c'est ce qui permet a un scoreur
+ * de couvrir un amical qui n'est pas le sien.
+ */
+export async function setMatchMVP(
+  matchId: string,
+  mvp: { playerId: string; userId: string | null; name: string; teamId: string } | null,
+  parUid: string,
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    mvp_player_id: mvp?.playerId ?? null,
+    mvp_user_id: mvp?.userId ?? null,
+    mvp_player_name: mvp?.name ?? null,
+    mvp_team_id: mvp?.teamId ?? null,
+    mvp_by: mvp ? parUid : null,
+    mvp_at: mvp ? new Date().toISOString() : null,
     updated_at: serverTimestamp(),
   });
 }
