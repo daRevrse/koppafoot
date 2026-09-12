@@ -780,8 +780,24 @@ export default function LiveMatchConsole({
   const handlePenaltySubmit = async () => {
     const ph = Number(penaltyHome);
     const pa = Number(penaltyAway);
-    if (!Number.isFinite(ph) || !Number.isFinite(pa) || ph < 0 || pa < 0) {
+    // Un champ laissé vide vaut `Number("") === 0` : « pas saisi » passerait
+    // pour « zéro tir au but marqué », et une séance oubliée d'un côté se
+    // terminerait sur un 0 – 4 que personne n'a tiré.
+    if (penaltyHome.trim() === "" || penaltyAway.trim() === "") {
+      toast.error("Saisissez les tirs au but des deux équipes");
+      return;
+    }
+    if (!Number.isInteger(ph) || !Number.isInteger(pa) || ph < 0 || pa < 0) {
       toast.error("Saisissez des tirs au but valides");
+      return;
+    }
+    // UNE SÉANCE DE TIRS AU BUT DÉPARTAGE, SINON ELLE CONTINUE. À égalité,
+    // `finishCompMatch` ne désigne aucun vainqueur : le match passe quand même
+    // en « terminé », et `propagateBracketWinner` laisse la place du tour
+    // suivant vide. Personne ne s'en aperçoit avant le jour du match d'après,
+    // et la console ne rouvre pas un match terminé pour corriger.
+    if (ph === pa) {
+      toast.error("Les tirs au but doivent départager les deux équipes");
       return;
     }
     setShowPenaltyModal(false);
@@ -1214,7 +1230,13 @@ export default function LiveMatchConsole({
           {/* Center */}
           <div className="flex flex-col items-center">
             <div className="mb-3 rounded-full border border-white/5 bg-white/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-emerald-500 backdrop-blur-xl sm:mb-5 sm:px-5 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]">
-              {PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
+              {/* « Terminé » l'emporte sur la période, comme sur les deux
+                  fiches publiques : un match fini gardait sinon le libellé de
+                  la dernière période traversée — « 2ème mi-temps », en vert,
+                  au-dessus d'un chrono arrêté. */}
+              {isCompleted
+                ? "Terminé"
+                : PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
             </div>
             <div className="relative flex flex-col items-center">
               <div className="absolute -inset-8 rounded-full bg-emerald-50 blur-3xl" />

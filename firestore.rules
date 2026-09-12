@@ -406,6 +406,23 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (resource.data.manager_id == request.auth.uid || isSuperAdmin());
     }
 
+    // Ce qu'aucun navigateur n'écrit sur un match, quelle que soit la branche
+    // qui l'autorise par ailleurs.
+    //
+    // LA VALIDATION — statut, retours des managers, note de l'arbitre — a
+    // quitté ce document public pour `match_validations` (voir plus bas).
+    // L'interdire ici ferme la porte à un client resté sur l'ancien code, qui
+    // la réécrirait en clair, et au manager qui se déclarait « validé » d'une
+    // ligne de console : la branche 1 le laissait écrire n'importe quel champ.
+    //
+    // LE CRÉDIT DES STATISTIQUES : `stats_credited_at` décide si la
+    // suppression d'un match renseigné reprend ses compteurs, et bloque un
+    // second crédit. Seules les routes serveur le posent.
+    function toucheAuxChampsDuServeur() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['validation_status', 'post_match_feedback', 'stats_credited_at', 'stats_credited_by']);
+    }
+
     // ============================================
     // Matches collection
     // ============================================
@@ -418,8 +435,12 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true;
       allow create: if isAuthenticated()
-        && (request.resource.data.manager_id == request.auth.uid || isSuperAdmin());
+        && (request.resource.data.manager_id == request.auth.uid || isSuperAdmin())
+        && !('validation_status' in request.resource.data)
+        && !('post_match_feedback' in request.resource.data)
+        && !('stats_credited_at' in request.resource.data);
       allow update: if isAuthenticated()
+        && !toucheAuxChampsDuServeur()
         && (
           // 1. Managers/Admins — away_manager_id vaut "" pour un adversaire
           //    fantôme (aucun compte en face) ; un uid n'est jamais vide.
@@ -482,6 +503,40 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
       }
+    }
+
+    // ============================================
+    // La validation d'un match — `match_validations/{matchId}`
+    // ============================================
+    // Statut, retours des deux camps (commentaires, note donnée à l'arbitre),
+    // motifs de contestation des événements. Tout cela vivait sur le document
+    // du match, lisible par n'importe qui avec le SDK, sans compte.
+    //
+    // LECTURE : les deux managers, le staff délégué de l'une des deux équipes,
+    // les super-admins. Personne d'autre — ni l'arbitre, ni les joueurs, ni
+    // le public.
+    //
+    // `get` passe par le match, parce que le staff délégué n'est écrit nulle
+    // part sur la validation. `list` ne sert qu'à la liste /matches, qui
+    // cherche les validations de ses matchs d'une requête : elle n'est permise
+    // qu'au filtre qui le garantit (`managers` contient l'appelant).
+    //
+    // ÉCRITURE : jamais depuis un navigateur. Le serveur sait de quel camp
+    // parle celui qui valide et calcule le statut (voir /api/matches/validation) ;
+    // un client qui pourrait écrire ici se validerait lui-même.
+    function concerneParLaValidation(matchId) {
+      let m = /databases/$(database)/documents/matches/$(matchId);
+      return exists(m) && (
+        get(m).data.manager_id == request.auth.uid
+        || get(m).data.get('away_manager_id', '') == request.auth.uid
+        || equipeDuMatchDeleguee(get(m).data)
+      );
+    }
+
+    match /match_validations/{matchId} {
+      allow get: if isAuthenticated() && (concerneParLaValidation(matchId) || isSuperAdmin());
+      allow list: if isAuthenticated() && request.auth.uid in resource.data.managers;
+      allow write: if false;
     }
 
     // ============================================

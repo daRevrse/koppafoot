@@ -38,7 +38,20 @@ import PWAInstallFloating from "@/components/pwa/PWAInstallFloating";
 //
 // `showTribune={false}` closes the gutter for management screens, which
 // need the horizontal room for tables and brackets.
+//
+// LA FICHE D'UN MATCH GARDE LE HAUT DE L'ÉCRAN POUR ELLE, sur téléphone. Son
+// tableau d'affichage se replie en une barre collante qui porte déjà le
+// retour et la cloche : le header de l'app, empilé au-dessus, faisait trois
+// bandes en haut d'un écran de téléphone, et le repli se jouait sous lui
+// plutôt qu'au bord de l'écran. La navigation reste dans la barre du bas. Au-
+// dessus de `lg` le header ne bouge pas : il y porte la navigation et la
+// recherche, que rien d'autre ne porte.
 // ============================================
+
+/** La fiche d'un match, amical ou de compétition — pas sa console. */
+function estUneFicheMatch(pathname: string): boolean {
+  return /^\/matches\/[^/]+$/.test(pathname) || /^\/c\/[^/]+\/matches\/[^/]+$/.test(pathname);
+}
 
 export default function ScoreShell({
   children,
@@ -56,7 +69,7 @@ export default function ScoreShell({
     <div className="flex min-h-screen flex-col">
       <PushNotificationSetup />
       <PWAInstallFloating />
-      <ScoreHeader />
+      <ScoreHeader masqueSurMobile={estUneFicheMatch(pathname)} />
 
       <div className="flex min-w-0 flex-1">
         {/* `overflow-x-clip` et non `hidden` : `hidden` fait de <main> un

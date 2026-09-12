@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
-import type { FirestoreMatch } from "@/types";
+import type { FirestoreMatch, FirestoreMatchValidation } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { refValidation, validationInitiale } from "@/lib/validation-server";
 
 /**
  * Renseigner un match DÉJÀ JOUÉ.
@@ -22,10 +23,16 @@ import { estSuperadmin } from "@/lib/admin-api-auth";
  *    manager n'a pas contresigné. Le match existe, il s'affiche, il ne compte
  *    pour personne.
  *
- * `validation_status` porte cette attente : « pending » tant que la
+ * Le statut de la validation porte cette attente : « pending » tant que la
  * contresignature manque, « validated » une fois obtenue, « unverified » pour
- * un adversaire hors plateforme — les trois valeurs existaient déjà et
- * veulent déjà dire cela.
+ * un adversaire hors plateforme. Il vit dans `match_validations/{id}`, hors
+ * du document public du match (voir lib/validation-server).
+ *
+ * CE QUI A ÉTÉ CRÉDITÉ SE LIT À `stats_credited_at`, posé au moment même où
+ * les compteurs bougent — et non plus déduit du statut. La suppression
+ * reprenait les compteurs de tout match qui n'était pas « pending » : un
+ * score CONTESTÉ, qui n'avait jamais rien crédité, retirait donc à ses
+ * joueurs des buts qu'ils n'avaient jamais reçus.
  *
  * CE QUI EST CRÉDITÉ, quand ça l'est : le bilan des clubs (V/N/D), et LA SEULE
  * PRÉSENCE des joueurs nommés — un match joué de plus, rien d'autre. Le reste
@@ -243,7 +250,11 @@ export async function POST(req: NextRequest) {
     // Ce match ne créditera pas les buts de ses buteurs, et sa suppression ne
     // devra donc pas les reprendre. Voir `crediter`.
     recorded_scorer_stats: false,
-    validation_status: contreUnCompte ? ("pending" as const) : ("unverified" as const),
+    // Contre une équipe hors plateforme, tout est crédité d'office, et tout
+    // de suite : la trace se pose avec le match.
+    ...(contreUnCompte
+      ? {}
+      : { stats_credited_at: FieldValue.serverTimestamp(), stats_credited_by: callerUid }),
     completed_at: FieldValue.serverTimestamp(),
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
@@ -254,6 +265,10 @@ export async function POST(req: NextRequest) {
   try {
     await adminDb.runTransaction(async (tx) => {
       tx.set(ref, doc);
+      tx.set(
+        refValidation(ref.id),
+        validationInitiale(ref.id, doc, contreUnCompte ? "pending" : "unverified", null),
+      );
       // Contre une équipe KoppaFoot, rien ne compte tant qu'elle n'a pas
       // contresigné : on écrit le match, pas ses conséquences.
       if (!contreUnCompte) {
@@ -312,7 +327,8 @@ export async function PATCH(req: NextRequest) {
   if (!m.recorded_at) {
     return NextResponse.json({ error: "Ce match n'attend aucune contresignature" }, { status: 400 });
   }
-  if (m.validation_status !== "pending") {
+  const validation = await refValidation(matchId).get();
+  if ((validation.data() as FirestoreMatchValidation | undefined)?.status !== "pending") {
     return NextResponse.json({ error: "Ce match est déjà tranché" }, { status: 409 });
   }
 
@@ -326,22 +342,43 @@ export async function PATCH(req: NextRequest) {
   }
 
   const equipeQuiSaisit = m.is_home ? m.home_team_id : m.away_team_id;
+  // Le camp de celui qui contresigne : celui d'en face, par construction.
+  const campAdverse = m.is_home ? "away" : "home";
 
   try {
     await adminDb.runTransaction(async (tx) => {
       const frais = await tx.get(ref);
+      const v = await tx.get(refValidation(matchId));
       const d = frais.data() as FirestoreMatch & { recorded_scorers?: Buteur[] };
-      if (d.validation_status !== "pending") throw new Error("DEJA");
+      if ((v.data() as FirestoreMatchValidation | undefined)?.status !== "pending") {
+        throw new Error("DEJA");
+      }
 
       if (accepte) {
         crediter(tx, d, matchId, d.recorded_scorers ?? [], equipeQuiSaisit, 1);
       }
       tx.update(ref, {
-        validation_status: accepte ? "validated" : "contested",
-        // Un match saisi avant ce changement mais contresigné après vient
-        // d'être crédité sous la règle nouvelle : son document doit le dire,
-        // sinon sa suppression reprendrait des buts jamais donnés.
-        ...(accepte ? { recorded_scorer_stats: false } : {}),
+        ...(accepte
+          ? {
+              stats_credited_at: FieldValue.serverTimestamp(),
+              stats_credited_by: callerUid,
+              // Un match saisi avant ce changement mais contresigné après vient
+              // d'être crédité sous la règle nouvelle : son document doit le dire,
+              // sinon sa suppression reprendrait des buts jamais donnés.
+              recorded_scorer_stats: false,
+            }
+          : {}),
+        updated_at: FieldValue.serverTimestamp(),
+      });
+      // La contresignature EST le retour du camp d'en face : on garde qui l'a
+      // donnée, et quand.
+      tx.update(refValidation(matchId), {
+        status: accepte ? "validated" : "contested",
+        [`feedback.${campAdverse}`]: {
+          validation: accepte ? "validated" : "contested",
+          by: callerUid,
+          at: new Date().toISOString(),
+        },
         updated_at: FieldValue.serverTimestamp(),
       });
     });
@@ -410,12 +447,14 @@ export async function DELETE(req: NextRequest) {
       const frais = await tx.get(ref);
       if (!frais.exists) throw new Error("DISPARU");
       const d = frais.data() as FirestoreMatch & { recorded_scorers?: Buteur[] };
-      // On ne reprend que ce qui a été effectivement crédité : un match en
-      // attente de contresignature n'a jamais rien donné à personne.
-      if (d.validation_status !== "pending") {
+      // On ne reprend que ce qui a été effectivement crédité, et c'est
+      // `stats_credited_at` qui le dit : un match en attente de contresignature,
+      // ou contesté, n'a jamais rien donné à personne.
+      if (d.stats_credited_at) {
         crediter(tx, d, matchId, d.recorded_scorers ?? [], equipeReelle, -1);
       }
       tx.delete(ref);
+      tx.delete(refValidation(matchId));
     });
   } catch (err) {
     if (err instanceof Error && err.message === "DISPARU") {

@@ -143,8 +143,6 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
         victimPlayerName: e.victim_player_name ?? null,
         outPlayerId: e.out_player_id ?? null,
         outPlayerName: e.out_player_name ?? null,
-        contestedByManagerId: e.contested_by_manager_id,
-        contestationReason: e.contestation_reason,
         varStatus: e.var_status ?? null,
         createdAt: e.created_at,
       })),

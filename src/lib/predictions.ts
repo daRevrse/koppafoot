@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { repartirCent } from "@/lib/repartition";
 
 // ============================================
 // Pronostics « qui va gagner ? ».
@@ -38,19 +39,19 @@ export const EMPTY_COUNTS: PredictionCounts = { home: 0, draw: 0, away: 0, total
  * Elles ne comptent QUE pour les pourcentages : le nombre de pronostics
  * annonce reste le vrai, sans quoi on afficherait trois votes fantomes sur
  * un match que personne n'a encore joue.
+ *
+ * LES TROIS PARTS FONT CENT. Chacune etait arrondie de son cote, et trois
+ * tiers donnaient 99 : la barre du pronostic prend sa largeur au pourcentage,
+ * le point manquant s'y serait vu. Voir lib/repartition.
  */
 export const VOIX_DE_BASE = 1;
 
 export function pourcentages(counts: PredictionCounts): { home: number; draw: number; away: number } {
-  const h = counts.home + VOIX_DE_BASE;
-  const n = counts.draw + VOIX_DE_BASE;
-  const a = counts.away + VOIX_DE_BASE;
-  const total = h + n + a;
-  return {
-    home: Math.round((h / total) * 100),
-    draw: Math.round((n / total) * 100),
-    away: Math.round((a / total) * 100),
-  };
+  return repartirCent({
+    home: counts.home + VOIX_DE_BASE,
+    draw: counts.draw + VOIX_DE_BASE,
+    away: counts.away + VOIX_DE_BASE,
+  });
 }
 
 const predictionId = (matchId: string, uid: string) => `${matchId}__${uid}`;

@@ -2,24 +2,27 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import {
-  History, Loader2, SearchX, Users,
-  BarChart3, ListOrdered, Swords,
-} from "lucide-react";
+import { Loader2, SearchX } from "lucide-react";
 import toast from "react-hot-toast";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import {
   getCompetitionBySlug, onCompMatch, onCompMatches, onCompTeams,
   computeStandings,
 } from "@/lib/competition-firestore";
+import { derniersResultats } from "@/lib/forme";
+import { repartirCent } from "@/lib/repartition";
+import { buteursDuMatch } from "@/lib/buteurs";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchLineups from "@/components/match/MatchLineups";
-import MatchTimeline from "@/components/match/MatchTimeline";
+import MatchTimeline, { type Deroule } from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
+import MatchForme from "@/components/match/MatchForme";
+import MatchInfoList from "@/components/match/MatchInfoList";
+import BarreRepartition from "@/components/match/BarreRepartition";
+import MiniEcusson from "@/components/match/MiniEcusson";
 import PredictionPoll from "@/components/match/PredictionPoll";
 import type { CompMatch, CompMatchRound, CompTeam, CompetitionFormat } from "@/types";
-import FollowMatchButton from "@/components/match/FollowMatchButton";
 
 // ============================================
 // Helpers
@@ -49,6 +52,8 @@ const PERIODS = [
   { id: 4, label: "Terminé" },
 ];
 
+type Onglet = "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h";
+
 // L'ecusson, la date longue et les colonnes de composition vivaient ici. Ils
 // sont passes dans MatchHero et MatchLineups, qui les rendent a l'identique
 // pour les deux fiches match.
@@ -62,9 +67,12 @@ export default function PublicCompMatchView() {
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [cid, setCid] = useState<string | null>(null);
   const [compName, setCompName] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<
-    "feed" | "lineups" | "stats" | "standings" | "h2h"
-  >("feed");
+  const [compLogo, setCompLogo] = useState<string | null>(null);
+  /**
+   * L'onglet CHOISI, `null` tant qu'on n'a touché à rien. L'onglet affiché
+   * en découle : voir `ongletParDefaut`.
+   */
+  const [choixOnglet, setChoixOnglet] = useState<Onglet | null>(null);
   // Le classement et le face-a-face se calculent sur l'ensemble de la
   // competition, pas sur ce seul match : d'ou ces deux abonnements.
   const [compMatches, setCompMatches] = useState<CompMatch[]>([]);
@@ -92,6 +100,7 @@ export default function PublicCompMatchView() {
       }
       setCid(competition.id);
       setCompName(competition.name);
+      setCompLogo(competition.logoUrl);
       setCompFormat(competition.format);
       setCompSlug(competition.slug ?? slug);
       unsub = onCompMatch(competition.id, mid, (m) => {
@@ -145,8 +154,8 @@ export default function PublicCompMatchView() {
     return () => { vivant = false; };
   }, [slug, mid]);
 
-  // Classement et face-a-face : deux lectures de la competition entiere, donc
-  // branchees seulement une fois l'identifiant resolu.
+  // Classement, face-a-face et forme : trois lectures de la competition
+  // entiere, donc branchees seulement une fois l'identifiant resolu.
   useEffect(() => {
     if (!cid) return;
     const stopMatches = onCompMatches(cid, setCompMatches);
@@ -213,10 +222,6 @@ export default function PublicCompMatchView() {
     : match.group
       ? `Poule ${match.group}`
       : null;
-  // Il n'y a plus de bloc « infos du match » sur cette page : la competition,
-  // la journee, le lieu, la date et l'heure sont dans le tableau d'affichage,
-  // une seule fois. Et la plateforme ne rattache ni arbitre ni format a une
-  // rencontre de competition, donc il ne resterait rien a mettre dessous.
 
   /**
    * Partager le match.
@@ -255,11 +260,101 @@ export default function PublicCompMatchView() {
       ? displayTime
       : match.liveState?.timerOffset || 0;
 
+  const events = match.liveState?.events ?? [];
+  const hasStats = events.length > 0;
+  // Le déroulé, d'où le fil tire ses repères : coup d'envoi, mi-temps, fin.
+  const deroule: Deroule = {
+    commence: isLive || match.status === "completed",
+    termine: match.status === "completed",
+    periode: match.liveState?.currentPeriod ?? 0,
+    heure: match.time,
+    score: match.status === "completed" ? { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 } : null,
+    tab: match.penaltyHome != null && match.penaltyAway != null
+      ? { home: match.penaltyHome, away: match.penaltyAway }
+      : null,
+  };
+  // Goals come from the scoreboard, not the timeline: an own goal is
+  // recorded against the team that conceded it, so counting goal events
+  // per team would credit the wrong side.
+  const countBy = (type: string, teamId: string | null) =>
+    events.filter((e) => e.type === type && e.teamId === teamId).length;
+  const statRows = [
+    { label: "Buts", home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
+    { label: "Cartons jaunes", home: countBy("yellow_card", match.homeTeamId), away: countBy("yellow_card", match.awayTeamId) },
+    { label: "Cartons rouges", home: countBy("red_card", match.homeTeamId), away: countBy("red_card", match.awayTeamId) },
+    { label: "Changements", home: countBy("substitution", match.homeTeamId), away: countBy("substitution", match.awayTeamId) },
+  ];
+  // Classement : la SEULE poule des deux equipes qui jouent. L'onglet
+  // deroulait toutes les poules de la competition, l'une sous l'autre.
+  // Et rien du tout en phase finale : un huitieme ne se joue pas au
+  // nombre de points, et la poule qui y a mene n'explique plus rien.
+  const enPhaseFinale = match.stage !== "group";
+  const standings = compFormat && !enPhaseFinale
+    ? computeStandings(compMatches, compTeams, compFormat)
+    : [];
+  const poule = pouleDuMatch(standings, match.homeTeamId, match.awayTeamId);
+  const hasStandings = Boolean(poule && poule.rows.length > 0);
+
+  // Face-a-face : les rencontres terminees entre ces deux equipes dans
+  // cette competition, celle-ci exclue. On ne remonte pas plus loin,
+  // rien ne relie deux equipes d'une competition a l'autre.
+  const h2h = (match.homeTeamId && match.awayTeamId)
+    ? compMatches.filter((m) =>
+        m.id !== mid
+        && m.status === "completed"
+        && m.scoreHome !== null && m.scoreAway !== null
+        && ((m.homeTeamId === match.homeTeamId && m.awayTeamId === match.awayTeamId)
+          || (m.homeTeamId === match.awayTeamId && m.awayTeamId === match.homeTeamId)))
+    : [];
+  const hasH2H = h2h.length > 0;
+
+  // La forme des deux equipes, avant ce match : sous leur nom dans le
+  // tableau, et en detail dans l'onglet Infos.
+  const formeDom = derniersResultats(compMatches, match.homeTeamId, match);
+  const formeExt = derniersResultats(compMatches, match.awayTeamId, match);
+
+  /**
+   * FIL DU MATCH ET INFOS REMPLACENT « RÉSUMÉ ».
+   *
+   * Le résumé était la timeline, et rien d'autre : avant le coup d'envoi il
+   * s'ouvrait sur une phrase, « Le match n'a pas encore commencé ». Le fil
+   * garde la timeline ; Infos rassemble ce qu'on vient chercher avant — le
+   * pronostic, la forme, la compétition.
+   *
+   * L'ONGLET OUVERT SUIT LE MATCH tant qu'on n'en a choisi aucun : Infos
+   * avant le coup d'envoi, le fil dès qu'il y a un fil. Si la page est ouverte
+   * au moment du coup d'envoi, elle bascule d'elle-même — sauf si l'on a
+   * touché aux onglets, auquel cas on reste où l'on est.
+   *
+   * « Dès qu'il y a un fil » : un match terminé dont personne n'a tenu la
+   * console n'a que son score, et son fil est vide. Il s'ouvre sur Infos.
+   *
+   * Stats, Classement et H2H restent des onglets, affichés seulement quand
+   * ils ont quelque chose à montrer.
+   */
+  const ongletParDefaut: Onglet = isLive || hasStats ? "feed" : "infos";
+  const TABS = [
+    { id: "feed" as const, label: "Fil du match", on: true },
+    { id: "infos" as const, label: "Infos", on: true },
+    // Toujours present, meme sans compo : l'onglet montre alors le terrain
+    // et dit « Pas de compo ». Le faire disparaitre laissait croire que la
+    // fonction n'existe pas.
+    { id: "lineups" as const, label: "Composition", on: true },
+    { id: "stats" as const, label: "Stats", on: hasStats },
+    { id: "standings" as const, label: "Classement", on: hasStandings },
+    { id: "h2h" as const, label: "H2H", on: hasH2H },
+  ].filter((t) => t.on);
+
+  // Un onglet dont la donnee a disparu (compo retiree, classement vide) ne
+  // doit pas laisser la page sur un panneau muet.
+  const activeTab: Onglet =
+    choixOnglet && TABS.some((t) => t.id === choixOnglet) ? choixOnglet : ongletParDefaut;
+
   return (
     <div className="pb-20">
-      {/* Le tableau d'affichage. Il porte le fil d'ariane, le contexte, le
-          lieu, la date et le pronostic : tout ce qui décrit la rencontre
-          elle-même, et il est le seul à le porter. Voir MatchHero. */}
+      {/* Le tableau d'affichage. Il porte le contexte, le lieu, la date et la
+          forme : tout ce qui décrit la rencontre elle-même, et il est le seul
+          à le porter. Voir MatchHero. */}
       <MatchHero
         fil={[
           { label: "Direct", href: "/" },
@@ -269,8 +364,8 @@ export default function PublicCompMatchView() {
         onShare={partagerLeMatch}
         // LA CLOCHE SUIT CE MATCH, plus la compétition entière. Suivre la
         // compétition pour une affiche, c'était recevoir ses quarante autres.
-        // Le suivi de compétition existe toujours, sur sa propre page.
-        suivre={<FollowMatchButton mid={mid} cid={cid} />}
+        // La compétition se suit depuis l'onglet Infos.
+        suivi={{ mid, cid }}
         context={{
           label: compName || "Compétition",
           href: compSlug ? `/c/${compSlug}` : null,
@@ -280,101 +375,72 @@ export default function PublicCompMatchView() {
         home={{
           name: match.homeTeamName, logo: match.homeTeamLogo, score: match.scoreHome,
           href: compSlug && match.homeTeamId ? `/c/${compSlug}/teams/${match.homeTeamId}` : null,
+          forme: formeDom.map((r) => r.resultat),
         }}
         away={{
           name: match.awayTeamName, logo: match.awayTeamLogo, score: match.scoreAway,
           href: compSlug && match.awayTeamId ? `/c/${compSlug}/teams/${match.awayTeamId}` : null,
+          forme: formeExt.map((r) => r.resultat),
         }}
         date={match.date}
         time={match.time}
-        venueName={match.venueName}
-        venueCity={match.venueCity}
+        // Le lieu et la date sont dans l'onglet Infos ; sous l'affiche,
+        // les buteurs.
+        buteurs={buteursDuMatch(events, match.homeTeamId)}
         periodLabel={periodLabel}
         clock={isLive ? formatTime(shownTime) : null}
         penaltyHome={match.penaltyHome}
         penaltyAway={match.penaltyAway}
-        poll={
-          <PredictionPoll
-            matchId={mid}
-            home={{ label: match.homeTeamName, logo: match.homeTeamLogo }}
-            away={{ label: match.awayTeamName, logo: match.awayTeamLogo }}
-            // Le pronostic ferme des que le match n'est plus a venir.
-            closed={match.status !== "scheduled"}
-          />
-        }
       />
 
-      {/* Une colonne unique et centrée. Le rail de droite portait les infos du
-          match, qui vivent maintenant dans le hero : garder la gouttière de
-          320px aurait été garder une colonne pour rien. */}
-      <div className="mx-auto max-w-4xl space-y-4">
+      {/* La barre d'onglets. Pilotee par TABS : un onglet sans donnee derriere
+          ne s'affiche pas du tout, plutot que de s'ouvrir sur un panneau vide.
+          Elle prolonge le tableau, pleine largeur, et s'epingle sous sa barre
+          repliee. */}
+      <MatchTabs
+        tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
+        active={activeTab}
+        onChange={(id) => setChoixOnglet(id as Onglet)}
+      />
 
-      {/* Tabs: match feed / lineups */}
-      {(() => {
-        const events = match.liveState?.events ?? [];
-        const hasStats = events.length > 0;
-        // Goals come from the scoreboard, not the timeline: an own goal is
-        // recorded against the team that conceded it, so counting goal events
-        // per team would credit the wrong side.
-        const countBy = (type: string, teamId: string | null) =>
-          events.filter((e) => e.type === type && e.teamId === teamId).length;
-        const statRows = [
-          { label: "Buts", home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
-          { label: "Cartons jaunes", home: countBy("yellow_card", match.homeTeamId), away: countBy("yellow_card", match.awayTeamId) },
-          { label: "Cartons rouges", home: countBy("red_card", match.homeTeamId), away: countBy("red_card", match.awayTeamId) },
-          { label: "Changements", home: countBy("substitution", match.homeTeamId), away: countBy("substitution", match.awayTeamId) },
-        ];
-        // Classement : la SEULE poule des deux equipes qui jouent. L'onglet
-        // deroulait toutes les poules de la competition, l'une sous l'autre.
-        // Et rien du tout en phase finale : un huitieme ne se joue pas au
-        // nombre de points, et la poule qui y a mene n'explique plus rien.
-        const enPhaseFinale = match.stage !== "group";
-        const standings = compFormat && !enPhaseFinale
-          ? computeStandings(compMatches, compTeams, compFormat)
-          : [];
-        const poule = pouleDuMatch(standings, match.homeTeamId, match.awayTeamId);
-        const hasStandings = Boolean(poule && poule.rows.length > 0);
-
-        // Face-a-face : les rencontres terminees entre ces deux equipes dans
-        // cette competition, celle-ci exclue. On ne remonte pas plus loin,
-        // rien ne relie deux equipes d'une competition a l'autre.
-        const h2h = (match.homeTeamId && match.awayTeamId)
-          ? compMatches.filter((m) =>
-              m.id !== mid
-              && m.status === "completed"
-              && m.scoreHome !== null && m.scoreAway !== null
-              && ((m.homeTeamId === match.homeTeamId && m.awayTeamId === match.awayTeamId)
-                || (m.homeTeamId === match.awayTeamId && m.awayTeamId === match.homeTeamId)))
-          : [];
-        const hasH2H = h2h.length > 0;
-
-        const TABS = [
-          { id: "feed" as const, label: "Résumé", Icon: History, on: true },
-          // Toujours present, meme sans compo : l'onglet montre alors le
-          // terrain et dit « Pas de compo ». Le faire disparaitre laissait
-          // croire que la fonction n'existe pas.
-          { id: "lineups" as const, label: "Composition", Icon: Users, on: true },
-          { id: "stats" as const, label: "Stats", Icon: BarChart3, on: hasStats },
-          { id: "standings" as const, label: "Classement", Icon: ListOrdered, on: hasStandings },
-          { id: "h2h" as const, label: "H2H", Icon: Swords, on: hasH2H },
-        ].filter((t) => t.on);
-
-        // Un onglet dont la donnee a disparu (compo retiree, classement vide)
-        // ne doit pas laisser la page sur un panneau muet.
-        const activeTab = TABS.some((t) => t.id === detailTab) ? detailTab : "feed";
-        return (
+      {/* Une colonne unique et centrée. */}
+      <div className="mx-auto mt-4 max-w-4xl space-y-4">
+        {/* Infos : le pronostic d'abord — c'est l'onglet ouvert avant le coup
+            d'envoi, il reste donc la première chose sous le tableau — puis la
+            forme des deux équipes, puis la compétition et de quoi la suivre. */}
+        {activeTab === "infos" && (
           <>
-          {/* Barre d'onglets. Pilotee par TABS : un onglet sans donnee derriere
-              ne s'affiche pas du tout, plutot que de s'ouvrir sur un panneau
-              vide. Elle est SORTIE de la carte pour pouvoir s'epingler sous le
-              header : sur une timeline longue, la navigation disparaissait des
-              le premier ecran de defilement. */}
-          <MatchTabs
-            tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
-            active={activeTab}
-            onChange={(id) => setDetailTab(id as typeof detailTab)}
-          />
+            <PredictionPoll
+              matchId={mid}
+              home={{ label: match.homeTeamName, logo: match.homeTeamLogo }}
+              away={{ label: match.awayTeamName, logo: match.awayTeamLogo }}
+              // Le pronostic ferme des que le match n'est plus a venir.
+              closed={match.status !== "scheduled"}
+            />
+            <MatchForme
+              home={{ nom: match.homeTeamName, resultats: formeDom }}
+              away={{ nom: match.awayTeamName, resultats: formeExt }}
+              lien={(id) => `/c/${compSlug}/matches/${id}`}
+            />
+            <MatchInfoList
+              info={{
+                coupDEnvoi: { date: match.date, time: match.time },
+                lieu: { nom: match.venueName, ville: match.venueCity },
+                competition: cid
+                  ? {
+                      id: cid,
+                      name: compName || "Compétition",
+                      sub: roundLabel,
+                      logo: compLogo,
+                      href: compSlug ? `/c/${compSlug}` : null,
+                    }
+                  : null,
+              }}
+            />
+          </>
+        )}
 
+        {activeTab !== "infos" && (
           <div className="bg-white p-4 sm:p-5">
             {/* Stats panel: one row per metric, the two teams facing each
                 other, with a bar showing each side's share. */}
@@ -444,31 +510,52 @@ export default function PublicCompMatchView() {
 
             {activeTab === "h2h" && (
               <div className="space-y-5">
-                {/* Le bilan d'abord, les rencontres ensuite. */}
+                {/* Le bilan d'abord, en une barre dont la largeur est la
+                    part de chaque issue — le meme dessin que le pronostic.
+                    Les rencontres ensuite. */}
                 {(() => {
-                  let hw = 0, d = 0, aw = 0;
+                  const bilan = { home: 0, draw: 0, away: 0 };
                   for (const m of h2h) {
                     const hs = m.scoreHome ?? 0, as = m.scoreAway ?? 0;
                     const homeIsOurHome = m.homeTeamId === match.homeTeamId;
                     const ourHome = homeIsOurHome ? hs : as;
                     const ourAway = homeIsOurHome ? as : hs;
-                    if (ourHome > ourAway) hw += 1;
-                    else if (ourHome < ourAway) aw += 1;
-                    else d += 1;
+                    if (ourHome > ourAway) bilan.home += 1;
+                    else if (ourHome < ourAway) bilan.away += 1;
+                    else bilan.draw += 1;
                   }
+                  const parts = repartirCent(bilan);
+                  const max = Math.max(bilan.home, bilan.draw, bilan.away);
+                  const enTete = (["home", "draw", "away"] as const).filter((k) => bilan[k] === max);
+                  const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
                   return (
-                    <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
-                      {[
-                        { label: match.homeTeamName, value: hw },
-                        { label: "Nuls", value: d },
-                        { label: match.awayTeamName, value: aw },
-                      ].map((x) => (
-                        <div key={x.label} className="bg-white p-4 text-center">
-                          <p className="font-display text-3xl font-black tabular-nums text-gray-900">{x.value}</p>
-                          <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">{x.label}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <BarreRepartition
+                      libelle={`Face-à-face, ${pluriel(h2h.length, "rencontre")}`}
+                      enAvant={enTete.length === 1 ? enTete[0] : null}
+                      segments={[
+                        {
+                          cle: "home",
+                          pct: parts.home,
+                          haut: <><MiniEcusson nom={match.homeTeamName} logo={match.homeTeamLogo} taille={14} />V · {parts.home}%</>,
+                          bas: bilan.home,
+                          libelle: `${pluriel(bilan.home, "victoire")} de ${match.homeTeamName}`,
+                        },
+                        {
+                          cle: "draw",
+                          pct: parts.draw,
+                          haut: <>N · {parts.draw}%</>,
+                          bas: bilan.draw,
+                          libelle: `${bilan.draw} ${bilan.draw > 1 ? "matchs nuls" : "match nul"}`,
+                        },
+                        {
+                          cle: "away",
+                          pct: parts.away,
+                          haut: <><MiniEcusson nom={match.awayTeamName} logo={match.awayTeamLogo} taille={14} />V · {parts.away}%</>,
+                          bas: bilan.away,
+                          libelle: `${pluriel(bilan.away, "victoire")} de ${match.awayTeamName}`,
+                        },
+                      ]}
+                    />
                   );
                 })()}
 
@@ -486,18 +573,26 @@ export default function PublicCompMatchView() {
               </div>
             )}
 
-            {/* Resume : chaque evenement du cote de son acteur, les reperes
+            {/* Le fil : chaque evenement du cote de son acteur, les reperes
                 communs au centre. Voir MatchTimeline. */}
             {activeTab === "feed" && (
               <MatchTimeline
-                events={match.liveState?.events ?? []}
+                events={events}
                 homeTeamId={match.homeTeamId}
+                deroule={deroule}
+                // Le message par défaut, « Le match n'a pas encore commencé »,
+                // s'affichait aussi sous un 3-0 joué la semaine d'avant.
+                vide={
+                  match.status === "completed"
+                    ? "Aucun fait de jeu enregistré sur ce match"
+                    : isLive
+                      ? "En attente du premier fait de jeu"
+                      : "Le fil s'ouvre au coup d'envoi"
+                }
               />
             )}
           </div>
-          </>
-          );
-        })()}
+        )}
       </div>
     </div>
   );
