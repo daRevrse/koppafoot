@@ -24,7 +24,7 @@ import {
   onCompMatch, onCompetition, getCompTeam, setCompMatchLineup,
   initLiveCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
-  finishCompMatch, updateCompMatch,
+  finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
 } from "@/lib/competition-firestore";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
@@ -32,11 +32,13 @@ import {
   DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
 } from "@/lib/competition-format";
 import type { TypeEvenement } from "@/lib/evenements";
+import type { PossessionStockee } from "@/lib/possession";
 import {
   onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam,
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist,
   setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
-  updateMatchPeriod, updateMatchStatus, setPenaltyShootout,
+  updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
+  setMatchAddedTime,
 } from "@/lib/firestore";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import type {
@@ -107,6 +109,23 @@ export interface PiloteConsole {
   poserSurLeTerrain(side: Cote, ids: string[]): Promise<void>;
   terminer(tab?: { penaltyHome: number; penaltyAway: number }): Promise<void>;
 
+  /**
+   * Poser la possession de balle.
+   *
+   * Elle n'est pas un evenement : voir `lib/possession`. La console la tient
+   * localement et ne l'ecrit qu'a la bascule et au rythme convenu — c'est la
+   * seule ecriture de la console qui ne corresponde pas a un geste du scoreur.
+   */
+  poserPossession(p: PossessionStockee): Promise<void>;
+
+  /**
+   * Le temps additionnel annonce pour une mi-temps, en minutes.
+   *
+   * Il ne se deduit de rien : c'est l'arbitre qui l'annonce et le scoreur qui
+   * le recopie. Il decide aussi ou l'horloge s'arrete toute seule.
+   */
+  poserTempsAdditionnel(mitemps: "first" | "second", minutes: number): Promise<void>;
+
   ajouterEvenement(e: EvenementAEcrire): Promise<string>;
   poserPasseur(eventId: string, p: { playerId: string; playerName: string } | null): Promise<void>;
   poserVictime(eventId: string, v: { playerId: string; playerName: string } | null): Promise<void>;
@@ -171,6 +190,8 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       updateCompMatch(cid, mid, { [side === "home" ? "home_on_pitch" : "away_on_pitch"]: ids }),
 
     terminer: (tab) => finishCompMatch(cid, mid, tab),
+    poserPossession: (p) => setCompPossession(cid, mid, p),
+    poserTempsAdditionnel: (mt, min) => setCompAddedTime(cid, mid, mt, min),
 
     ajouterEvenement: (e) => addCompEvent(cid, mid, e),
     poserPasseur: (id, p) => setCompGoalAssist(cid, mid, id, p),
@@ -343,6 +364,9 @@ export function piloteAmical(matchId: string): PiloteConsole {
       if (tab) await setPenaltyShootout(matchId, tab.penaltyHome, tab.penaltyAway);
       await updateMatchStatus(matchId, "completed");
     },
+
+    poserPossession: (p) => setMatchPossession(matchId, p),
+    poserTempsAdditionnel: (mt, min) => setMatchAddedTime(matchId, mt, min),
 
     ajouterEvenement: (e) => addMatchLiveEvent(matchId, e),
     poserPasseur: (id, p) => setMatchGoalAssist(matchId, id, p),

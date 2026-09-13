@@ -1,4 +1,5 @@
 import type { Competition, CompMatch, Match } from "@/types";
+import { versPossession, type PossessionStockee } from "@/lib/possession";
 
 // Partagé entre le serveur et le navigateur, donc AUCUN import de
 // firebase-admin ici. Le lecteur qui remplit ces matchs vit dans
@@ -102,6 +103,10 @@ function etatDuDirect(v: unknown): Match["liveState"] {
       varStatus: (e.var_status ?? null) as NonNullable<Match["liveState"]>["events"][number]["varStatus"],
       createdAt: String(e.created_at ?? ""),
     })),
+    possession: ls.possession
+      ? versPossession(ls.possession as PossessionStockee)
+      : null,
+    addedTime: (ls.added_time ?? null) as NonNullable<Match["liveState"]>["addedTime"],
   };
 }
 

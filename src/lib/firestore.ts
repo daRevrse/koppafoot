@@ -46,6 +46,7 @@ import type {
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
+import { versPossession, type PossessionStockee } from "@/lib/possession";
 import type { FirestoreLineupEntry } from "@/types";
 
 // ============================================
@@ -218,10 +219,24 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
         playerId: e.player_id,
         playerName: e.player_name,
         detail: e.detail,
+        // LE PASSEUR, LA VICTIME ET LE VAR MANQUAIENT ICI. La console les
+        // ecrit sur un amical comme sur un match de competition, et ce
+        // convertisseur — le seul chemin de lecture d'un amical — les
+        // laissait tomber : ils partaient en base et n'en revenaient jamais.
+        // Invisible tant que personne ne les relisait ; la note calculee, elle,
+        // les relit (une passe decisive vaut 0,8, une faute subie credite sa
+        // victime), et serait restee muette sur tous les amicaux.
+        assistPlayerId: e.assist_player_id ?? null,
+        assistPlayerName: e.assist_player_name ?? null,
+        victimPlayerId: e.victim_player_id ?? null,
+        victimPlayerName: e.victim_player_name ?? null,
         outPlayerId: e.out_player_id ?? null,
         outPlayerName: e.out_player_name ?? null,
+        varStatus: e.var_status ?? null,
         createdAt: e.created_at,
       })),
+      possession: d.live_state.possession ? versPossession(d.live_state.possession) : null,
+      addedTime: d.live_state.added_time ?? null,
     } : null,
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
@@ -2432,6 +2447,41 @@ export async function pauseMatchTimer(matchId: string, currentOffset: number): P
     "live_state.is_timer_running": false,
     "live_state.timer_start_at": null,
     "live_state.timer_offset": currentOffset,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Poser la possession de balle sur un amical.
+ *
+ * Jumelle de `setCompPossession` : meme forme, meme raison d'ecrire en chemins
+ * pointes plutot qu'en objet entier — un but pose dans la meme seconde ne doit
+ * pas etre efface par une bascule de possession.
+ */
+export async function setMatchPossession(
+  matchId: string, p: PossessionStockee,
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    "live_state.possession.home_ms": p.home_ms,
+    "live_state.possession.away_ms": p.away_ms,
+    "live_state.possession.side": p.side,
+    "live_state.possession.since": p.since,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Le temps additionnel annonce pour une mi-temps, sur un amical.
+ *
+ * En chemins pointes comme la possession, et pour la meme raison : le document
+ * recoit un but dans la meme seconde, et remplacer l'objet entier ecraserait
+ * l'autre mi-temps.
+ */
+export async function setMatchAddedTime(
+  matchId: string, mitemps: "first" | "second", minutes: number,
+): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    [`live_state.added_time.${mitemps}`]: minutes,
     updated_at: serverTimestamp(),
   });
 }
