@@ -17,6 +17,7 @@ import BracketTab from "@/components/competition/tabs/BracketTab";
 import ScorersTab from "@/components/competition/tabs/ScorersTab";
 import { gameTypeLabel, matchDurationLabel, hasGroupStage, hasKnockout } from "@/lib/competition-format";
 import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
+import MvpDuMatch from "@/components/match/MvpDuMatch";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import type { Competition, CompMatch, CompTeam, CompetitionStatus } from "@/types";
 
@@ -298,6 +299,18 @@ export default function PublicCompetitionHome() {
           </div>
         </div>
       </section>
+
+      {/* Le meilleur joueur du tournoi, une fois la compétition terminée. Le
+          même bandeau que sur une fiche de match, une échelle au-dessus. */}
+      {competition.mvpPlayerName && (
+        <div className="mt-6">
+          <MvpDuMatch
+            name={competition.mvpPlayerName}
+            teamName={teams.find((t) => t.id === competition.mvpTeamId)?.name ?? null}
+            label="Meilleur joueur du tournoi"
+          />
+        </div>
+      )}
 
       {/* Inscriptions ouvertes : un manager s&apos;inscrit d&apos;ici plutot que
           d&apos;etre envoye sur un autre ecran. Rien ne rend sans club. */}

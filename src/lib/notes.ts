@@ -16,6 +16,12 @@
 // part. C'est aussi la reponse a ce que l'audit disait du reste — un modele
 // pret, et une saisie qui n'a jamais eu lieu faute d'en voir l'effet.
 //
+// CE MODULE NE DESIGNE PAS D'HOMME DU MATCH. Il l'a fait un temps, en rendant
+// la meilleure note des deux camps — mais le produit en a un vrai, choisi par
+// le scoreur au coup de sifflet (voir lib/mvp). Une distinction decernee par
+// un calcul a cote d'une distinction decernee par quelqu'un, ce sont deux
+// verites concurrentes sur la meme ligne de fiche.
+//
 // ELLE NE PRETEND PAS MESURER UN MATCH DE FOOTBALL. Elle mesure ce qui a ete
 // SAISI. Un milieu qui tient son couloir sans tirer ni faire faute finira a
 // 6,0, et c'est honnete : personne n'a rien note de lui. D'ou le seuil de
@@ -25,6 +31,7 @@
 
 import { OWN_GOAL_DETAIL, type TypeEvenement } from "@/lib/evenements";
 import { normaliserPoste } from "@/lib/postes";
+import { computeMinutesPlayed, type MatchJoue } from "@/lib/player-stats";
 import type { LineupEntry } from "@/types";
 
 /** L'evenement tel que la console et la fiche publique le tiennent. */
@@ -93,52 +100,6 @@ export interface NoteJoueur {
 }
 
 /**
- * Les minutes de chacun, titulaires comme entrants.
- *
- * Elles se lisent dans les remplacements : celui qui entre demarre a la minute
- * de son entree, celui qui sort s'arrete a la sienne. Une expulsion arrete le
- * compteur elle aussi — un expulse ne joue plus, et lui compter le reste du
- * match reviendrait a diluer sa sanction dans du temps qu'il n'a pas passe sur
- * le terrain.
- */
-export function minutesJouees(
-  lineup: LineupEntry[],
-  faits: FaitDeMatch[],
-  minuteCourante: number,
-): Map<string, number> {
-  const fin = Math.max(0, minuteCourante);
-  // Le titulaire joue depuis le debut ; le remplacant n'a rien joue tant
-  // qu'aucune entree ne le nomme.
-  const minutes = new Map<string, number>();
-  for (const e of lineup) {
-    minutes.set(e.playerId, e.role === "starter" ? fin : 0);
-  }
-  // La minute d'entree de chacun, pour savoir quoi retrancher a sa sortie.
-  const entree = new Map<string, number>();
-  for (const e of lineup) if (e.role === "starter") entree.set(e.playerId, 0);
-
-  for (const f of faits) {
-    if (f.type === "substitution") {
-      if (f.playerId && minutes.has(f.playerId)) {
-        entree.set(f.playerId, f.minute);
-        minutes.set(f.playerId, Math.max(0, fin - f.minute));
-      }
-      if (f.outPlayerId && minutes.has(f.outPlayerId)) {
-        const depuis = entree.get(f.outPlayerId);
-        // Jamais entre : sa sortie ne le concerne pas.
-        if (depuis !== undefined) minutes.set(f.outPlayerId, Math.max(0, f.minute - depuis));
-      }
-    }
-    if (f.type === "red_card" && f.playerId && minutes.has(f.playerId)) {
-      const depuis = entree.get(f.playerId);
-      if (depuis !== undefined) minutes.set(f.playerId, Math.max(0, f.minute - depuis));
-    }
-  }
-
-  return minutes;
-}
-
-/**
  * Les notes d'un camp.
  *
  * `teamId` sert a distinguer ce que le joueur a fait de ce qu'il a subi : une
@@ -146,12 +107,29 @@ export function minutesJouees(
  * credite, la meme faute portee par la sienne le penalise.
  */
 export function notesDuCamp(
+  /**
+   * Le match, pour les minutes jouees.
+   *
+   * ELLES NE SE RECALCULENT PAS ICI. Une premiere version le faisait, et elle
+   * etait fausse : elle ecrasait le compteur a chaque remplacement, donc un
+   * joueur sorti puis revenu — ce qu'un amical autorise expressement — perdait
+   * son premier passage. `computeMinutesPlayed` sait le faire, plus le carton
+   * rouge, plus les remplacements ecrits avant que `out_player_id` existe. Une
+   * seconde definition des minutes jouees aurait diverge de celle des
+   * statistiques du joueur des le premier correctif.
+   */
+  match: MatchJoue,
   lineup: LineupEntry[],
   faits: FaitDeMatch[],
   teamId: string | null,
-  minuteCourante: number,
+  dureeMatchMin?: number,
 ): Map<string, NoteJoueur> {
-  const minutes = minutesJouees(lineup, faits, minuteCourante);
+  const minutes = new Map<string, number>(
+    lineup.map((e) => [
+      e.playerId,
+      teamId ? computeMinutesPlayed(match, teamId, e.playerId, dureeMatchMin) : 0,
+    ]),
+  );
   const gardien = lineup.find((e) => normaliserPoste(e.position) === "goalkeeper") ?? null;
 
   const notes = new Map<string, NoteJoueur>();
@@ -243,25 +221,4 @@ export function tonNote(note: number | null): "absente" | "faible" | "moyenne" |
   if (note < 6.5) return "moyenne";
   if (note < 7.5) return "bonne";
   return "excellente";
-}
-
-/**
- * L'homme du match : la meilleure note des deux camps.
- *
- * `null` tant qu'aucune note ne s'appuie sur quoi que ce soit — designer un
- * homme du match parce qu'il est le seul a avoir joue vingt minutes serait une
- * distinction tiree au sort.
- */
-export function hommeDuMatch(
-  camps: { entries: LineupEntry[]; notes: Map<string, NoteJoueur> }[],
-): { entry: LineupEntry; note: NoteJoueur } | null {
-  let meilleur: { entry: LineupEntry; note: NoteJoueur } | null = null;
-  for (const camp of camps) {
-    for (const entry of camp.entries) {
-      const note = camp.notes.get(entry.playerId);
-      if (!note || note.note === null || note.faits === 0) continue;
-      if (!meilleur || note.note > (meilleur.note.note ?? 0)) meilleur = { entry, note };
-    }
-  }
-  return meilleur;
 }

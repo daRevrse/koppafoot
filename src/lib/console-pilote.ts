@@ -35,7 +35,7 @@ import type { TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
 import {
   onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam,
-  setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist,
+  setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
   setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
   setMatchAddedTime,
@@ -126,6 +126,27 @@ export interface PiloteConsole {
    */
   poserTempsAdditionnel(mitemps: "first" | "second", minutes: number): Promise<void>;
 
+  /**
+  * Poser l'homme du match, ou le retirer avec `null`.
+  *
+  * Jamais bloquant pour la console : un match se termine sans MVP, et c'est un
+  * cas normal.
+  */
+  poserMVP(
+    mvp: { playerId: string; userId: string | null; name: string; teamId: string } | null,
+    parUid: string,
+  ): Promise<void>;
+
+  /**
+  * Quels camps peuvent fournir l'homme du match.
+  *
+  * Une competition ouvre les deux feuilles. UN AMICAL ECARTE LE CAMP HORS
+  * PLATEFORME : ses « Joueur 1 » a « Joueur 11 » ne sont personne, pour la
+  * meme raison que ce club-la ne tient aucun bilan. Un joueur sans compte
+  * d'une VRAIE equipe, lui, reste candidat — c'est quelqu'un.
+  */
+  campsEligiblesMVP(): { home: boolean; away: boolean };
+
   ajouterEvenement(e: EvenementAEcrire): Promise<string>;
   poserPasseur(eventId: string, p: { playerId: string; playerName: string } | null): Promise<void>;
   poserVictime(eventId: string, v: { playerId: string; playerName: string } | null): Promise<void>;
@@ -192,6 +213,19 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     terminer: (tab) => finishCompMatch(cid, mid, tab),
     poserPossession: (p) => setCompPossession(cid, mid, p),
     poserTempsAdditionnel: (mt, min) => setCompAddedTime(cid, mid, mt, min),
+
+    poserMVP: (mvp, parUid) => updateCompMatch(cid, mid, {
+      mvp_player_id: mvp?.playerId ?? null,
+      mvp_user_id: mvp?.userId ?? null,
+      mvp_player_name: mvp?.name ?? null,
+      mvp_team_id: mvp?.teamId ?? null,
+      mvp_by: mvp ? parUid : null,
+      mvp_at: mvp ? new Date().toISOString() : null,
+    }),
+
+    // Les deux equipes sont reelles : les deux feuilles sont candidates, y
+    // compris celle qui a perdu.
+    campsEligiblesMVP: () => ({ home: true, away: true }),
 
     ajouterEvenement: (e) => addCompEvent(cid, mid, e),
     poserPasseur: (id, p) => setCompGoalAssist(cid, mid, id, p),
@@ -367,6 +401,14 @@ export function piloteAmical(matchId: string): PiloteConsole {
 
     poserPossession: (p) => setMatchPossession(matchId, p),
     poserTempsAdditionnel: (mt, min) => setMatchAddedTime(matchId, mt, min),
+    poserMVP: (mvp, parUid) => setMatchMVP(matchId, mvp, parUid),
+
+    // `away_manager_id` vide = adversaire hors plateforme, et `is_home` dit de
+    // quel cote joue le CREATEUR : l'equipe fantome est donc en face de lui.
+    campsEligiblesMVP: () => {
+      if (!brut || brut.awayManagerId) return { home: true, away: true };
+      return brut.isHome ? { home: true, away: false } : { home: false, away: true };
+    },
 
     ajouterEvenement: (e) => addMatchLiveEvent(matchId, e),
     poserPasseur: (id, p) => setMatchGoalAssist(matchId, id, p),
