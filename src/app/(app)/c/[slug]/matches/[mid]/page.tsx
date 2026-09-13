@@ -12,6 +12,7 @@ import {
 import { derniersResultats } from "@/lib/forme";
 import { repartirCent } from "@/lib/repartition";
 import { buteursDuMatch } from "@/lib/buteurs";
+import { aDesStats, lignesStats } from "@/lib/stats-match";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchLineups from "@/components/match/MatchLineups";
@@ -20,6 +21,7 @@ import MatchTimeline, { type Deroule } from "@/components/match/MatchTimeline";
 import MatchStandings, { pouleDuMatch } from "@/components/match/MatchStandings";
 import MatchForme from "@/components/match/MatchForme";
 import MatchInfoList from "@/components/match/MatchInfoList";
+import MatchStats from "@/components/match/MatchStats";
 import BarreRepartition from "@/components/match/BarreRepartition";
 import MiniEcusson from "@/components/match/MiniEcusson";
 import PredictionPoll from "@/components/match/PredictionPoll";
@@ -262,7 +264,8 @@ export default function PublicCompMatchView() {
       : match.liveState?.timerOffset || 0;
 
   const events = match.liveState?.events ?? [];
-  const hasStats = events.length > 0;
+  const chronoTourne = isLive && !!match.liveState?.isTimerRunning;
+  const hasStats = aDesStats(events, match.liveState?.possession ?? null, chronoTourne);
   // Le déroulé, d'où le fil tire ses repères : coup d'envoi, mi-temps, fin.
   const deroule: Deroule = {
     commence: isLive || match.status === "completed",
@@ -274,17 +277,18 @@ export default function PublicCompMatchView() {
       ? { home: match.penaltyHome, away: match.penaltyAway }
       : null,
   };
-  // Goals come from the scoreboard, not the timeline: an own goal is
-  // recorded against the team that conceded it, so counting goal events
-  // per team would credit the wrong side.
-  const countBy = (type: string, teamId: string | null) =>
-    events.filter((e) => e.type === type && e.teamId === teamId).length;
-  const statRows = [
-    { label: "Buts", home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
-    { label: "Cartons jaunes", home: countBy("yellow_card", match.homeTeamId), away: countBy("yellow_card", match.awayTeamId) },
-    { label: "Cartons rouges", home: countBy("red_card", match.homeTeamId), away: countBy("red_card", match.awayTeamId) },
-    { label: "Changements", home: countBy("substitution", match.homeTeamId), away: countBy("substitution", match.awayTeamId) },
-  ];
+  // Les compteurs sont calcules ailleurs, et de la meme facon que sur la
+  // fiche d'un amical et dans la console : voir lib/stats-match. Ils etaient
+  // quatre lignes ecrites ici, qui ignoraient tout ce que la console sait
+  // desormais compter — tirs, corners, possession.
+  const statRows = lignesStats(
+    events,
+    match.homeTeamId,
+    match.awayTeamId,
+    { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
+    match.liveState?.possession ?? null,
+    chronoTourne,
+  );
   // Classement : la SEULE poule des deux equipes qui jouent. L'onglet
   // deroulait toutes les poules de la competition, l'une sous l'autre.
   // Et rien du tout en phase finale : un huitieme ne se joue pas au
@@ -456,50 +460,14 @@ export default function PublicCompMatchView() {
 
         {activeTab !== "infos" && (
           <div className="bg-white p-4 sm:p-5">
-            {/* Stats panel: one row per metric, the two teams facing each
-                other, with a bar showing each side's share. */}
+            {/* Les compteurs. Le rendu est partagé avec la fiche d'un
+                amical et avec la console : voir MatchStats. */}
             {activeTab === "stats" && hasStats && (
-              <div className="space-y-5">
-                {statRows.map((row) => {
-                  const total = row.home + row.away;
-                  const homePct = total === 0 ? 50 : (row.home / total) * 100;
-                  return (
-                    <div key={row.label}>
-                      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                        <span className="w-8 text-left text-base font-black tabular-nums text-gray-900">
-                          {row.home}
-                        </span>
-                        <span className="truncate text-[11px] font-black uppercase tracking-wide text-gray-400">
-                          {row.label}
-                        </span>
-                        <span className="w-8 text-right text-base font-black tabular-nums text-gray-900">
-                          {row.away}
-                        </span>
-                      </div>
-                      <div className="flex h-1.5 overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          className="bg-emerald-500 transition-all"
-                          style={{ width: `${homePct}%` }}
-                        />
-                        <div
-                          className="bg-gray-300 transition-all"
-                          style={{ width: `${100 - homePct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="flex items-center justify-between gap-3 pt-1 text-[10px] font-black uppercase tracking-wide">
-                  <span className="flex min-w-0 items-center gap-1.5 text-gray-500">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                    <span className="truncate">{match.homeTeamName}</span>
-                  </span>
-                  <span className="flex min-w-0 items-center gap-1.5 text-gray-500">
-                    <span className="truncate">{match.awayTeamName}</span>
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-gray-300" />
-                  </span>
-                </div>
-              </div>
+              <MatchStats
+                lignes={statRows}
+                homeTeamName={match.homeTeamName}
+                awayTeamName={match.awayTeamName}
+              />
             )}
 
             {/* Composition : un terrain, deux boutons de bascule. Deux colonnes

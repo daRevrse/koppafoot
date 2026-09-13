@@ -1,7 +1,8 @@
 "use client";
 
-import { Goal, ArrowRightLeft, Flag, Hand, AlertTriangle } from "lucide-react";
+import { Goal, ArrowRightLeft, Flag, Hand, AlertTriangle, Target } from "lucide-react";
 import { OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
+import { estStatistique } from "@/lib/evenements";
 import type { Match } from "@/types";
 
 // ============================================
@@ -73,6 +74,10 @@ function libelle(e: Evt): string {
       return e.victimPlayerName ? `Faute sur ${e.victimPlayerName}` : "Faute";
     case "offside":
       return "Hors-jeu";
+    case "penalty":
+      // Le seul des nouveaux qui reste dans le fil : un penalty accordé est
+      // un moment du match, pas une ligne de compteur.
+      return "Penalty";
     default:
       return "Événement";
   }
@@ -88,6 +93,7 @@ function Marqueur({ e, annule }: { e: Evt; annule: boolean }) {
   if (e.type === "save") return <Hand size={13} className="shrink-0 text-emerald-600" />;
   if (e.type === "foul") return <AlertTriangle size={13} className="shrink-0 text-orange-500" />;
   if (e.type === "offside") return <Flag size={13} className="shrink-0 text-gray-400" />;
+  if (e.type === "penalty") return <Target size={13} className="shrink-0 text-emerald-600" />;
   return null;
 }
 
@@ -155,7 +161,12 @@ function composer(
   d: Deroule | undefined,
   vide: string | undefined,
 ): Element[] {
-  const faits = events.filter((e) => !estRepere(e));
+  // Les repères de période se posent tout seuls plus bas ; les comptables
+  // (tir, corner, touche, coup franc) n'ont RIEN à faire ici. Ils existent
+  // pour les compteurs de l'onglet Stats : vingt-cinq tirs et quarante touches
+  // enterreraient l'unique but de la rencontre sous quatre écrans de
+  // défilement. Voir `estStatistique` dans lib/evenements.
+  const faits = events.filter((e) => !estRepere(e) && !estStatistique(e.type));
   const elements: Element[] = [];
 
   if (d?.commence) {

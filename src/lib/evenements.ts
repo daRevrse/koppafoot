@@ -12,6 +12,13 @@
 // d'un supporter pour un but ou une expulsion, pas pour un hors-jeu a la 12e.
 // Ils vivent dans l'historique du match, et ils alimentent les classements :
 // l'arret est la seule chose qu'un gardien produise et qu'on sache compter.
+//
+// PUIS SIX AUTRES, QUI NE RACONTENT RIEN : le tir, le tir cadre, le corner,
+// la touche, le coup franc, le penalty obtenu. Ils existent pour les
+// statistiques et pour la note des joueurs, pas pour le recit — une touche
+// n'a jamais interesse personne, et il y en a quarante par match. D'ou la
+// troisieme categorie ci-dessous, `estStatistique` : le fil public rend TOUT
+// ce qui n'est pas un repere de periode, et les y laisser noierait les buts.
 // ============================================
 
 export type TypeEvenement =
@@ -27,7 +34,15 @@ export type TypeEvenement =
   // Les mineurs, saisis joueur par joueur, jamais notifies.
   | "save"
   | "foul"
-  | "offside";
+  | "offside"
+  // Le penalty obtenu : jamais notifie, mais il fait partie du recit.
+  | "penalty"
+  // Les comptables : ni notification, ni fil. Des compteurs, et rien d'autre.
+  | "shot"
+  | "shot_on_target"
+  | "corner"
+  | "throw_in"
+  | "free_kick";
 
 /**
  * Ceux qu'on saisit en touchant un joueur.
@@ -36,13 +51,48 @@ export type TypeEvenement =
  * et celui qui entre, et elle a son propre enchainement.
  */
 export type TypeEvenementJoueur =
-  | "goal" | "yellow_card" | "red_card" | "save" | "foul" | "offside";
+  | "goal" | "yellow_card" | "red_card" | "save" | "foul" | "offside"
+  | "shot" | "shot_on_target";
+
+/**
+ * Ceux qui n'appartiennent a personne.
+ *
+ * Un corner est obtenu par une equipe, pas par un joueur — demander lequel
+ * couterait un geste de plus pour une reponse que le scoreur n'a pas. Ils se
+ * saisissent depuis le bandeau d'equipe de la console, en un seul appui.
+ */
+export type TypeEvenementEquipe =
+  | "corner" | "throw_in" | "free_kick" | "penalty";
+
+export const EVENEMENTS_EQUIPE: readonly TypeEvenementEquipe[] = [
+  "corner", "free_kick", "throw_in", "penalty",
+] as const;
 
 /** Les mineurs : l'historique du match, et rien d'autre. Aucune notification. */
-const MINEURS = new Set<TypeEvenement>(["save", "foul", "offside"]);
+const MINEURS = new Set<TypeEvenement>([
+  "save", "foul", "offside", "penalty",
+  "shot", "shot_on_target", "corner", "throw_in", "free_kick",
+]);
 
 export function estMineur(type: TypeEvenement): boolean {
   return MINEURS.has(type);
+}
+
+/**
+ * Les comptables : ils n'entrent meme pas dans le fil.
+ *
+ * `estMineur` dit « ne reveille pas les telephones » ; celui-ci dit « ne le
+ * raconte pas du tout ». Un tir cadre est un fait de match, mais il y en a
+ * vingt-cinq, et vingt-cinq lignes de plus dans le fil enterrent le seul but
+ * de la rencontre. Ils ressortent en statistiques et dans la note du joueur,
+ * ou leur nombre est precisement ce qui a du sens.
+ */
+const COMPTABLES = new Set<TypeEvenement>([
+  "shot", "shot_on_target", "corner", "throw_in", "free_kick",
+]);
+
+export function estStatistique(type: TypeEvenement): boolean {
+  return COMPTABLES.has(type);
 }
 
 export const LIBELLE_EVENEMENT: Record<TypeEvenement, string> = {
@@ -55,6 +105,12 @@ export const LIBELLE_EVENEMENT: Record<TypeEvenement, string> = {
   save: "Arrêt",
   foul: "Faute",
   offside: "Hors-jeu",
+  penalty: "Penalty obtenu",
+  shot: "Tir",
+  shot_on_target: "Tir cadré",
+  corner: "Corner",
+  throw_in: "Touche",
+  free_kick: "Coup franc",
 };
 
 /**
@@ -72,6 +128,12 @@ export const EMOJI_EVENEMENT: Record<TypeEvenement, string> = {
   save: "🧤",
   foul: "⚠️",
   offside: "🚩",
+  penalty: "🎯",
+  shot: "👟",
+  shot_on_target: "🥅",
+  corner: "⛳",
+  throw_in: "🙌",
+  free_kick: "🧱",
 };
 
 /**

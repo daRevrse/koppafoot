@@ -1,6 +1,7 @@
 import type { PushPrefs } from "@/lib/push-categories";
 import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
+import type { Possession, PossessionStockee } from "@/lib/possession";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -515,6 +516,33 @@ export interface FirestoreMatch {
       var_status?: GoalVarStatus | null;
       created_at: string;
     }[];
+    /**
+     * La possession de balle, qui est une DUREE et non un evenement.
+     *
+     * Elle vit a cote de `events` plutot que dedans : une possession se
+     * chronometre, elle ne se compte pas, et l'ecrire en evenements aurait
+     * pose trois cents lignes par match. Voir `lib/possession`, qui porte le
+     * modele, le calcul du segment en cours et les regles de bascule.
+     *
+     * Absente de tous les matchs joues avant elle, et de ceux dont le scoreur
+     * n'a jamais touche la bascule : la fiche n'affiche alors aucune barre,
+     * plutot qu'un 50/50 invente.
+     */
+    possession?: PossessionStockee | null;
+    /**
+     * Le temps additionnel annonce, en MINUTES, pour chacune des deux
+     * mi-temps.
+     *
+     * Il ne se deduit de rien. Le chrono de la console monte en continu, il ne
+     * sait pas ce qui s'est arrete pendant le jeu : seul l'arbitre annonce
+     * « trois minutes », et le scoreur le recopie. C'est aussi ce qui decide
+     * ou l'horloge s'arrete toute seule — voir `cibleDeLaPeriode` dans la
+     * console.
+     *
+     * Absent des matchs joues avant lui : zero, donc arret a la minute
+     * reglementaire.
+     */
+    added_time?: { first: number; second: number } | null;
   } | null;
   modification_request?: {
     date: string;
@@ -789,6 +817,10 @@ export interface Match {
       varStatus?: GoalVarStatus | null;
       createdAt: string;
     }[];
+    /** Voir `FirestoreMatch.live_state.possession`. */
+    possession?: Possession | null;
+    /** Voir `FirestoreMatch.live_state.added_time`. */
+    addedTime?: { first: number; second: number } | null;
   } | null;
   modificationRequest?: MatchModificationRequest | null;
   /** Voir `FirestoreMatch.home_lineup`. */

@@ -29,6 +29,8 @@ import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchInfoList, { type MatchInfo } from "@/components/match/MatchInfoList";
 import MatchTimeline from "@/components/match/MatchTimeline";
+import MatchStats from "@/components/match/MatchStats";
+import { aDesStats, lignesStats } from "@/lib/stats-match";
 import { buteursDuMatch, buteursRenseignes } from "@/lib/buteurs";
 import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
@@ -80,7 +82,7 @@ export default function MatchDetailPage() {
    * `null` tant qu'on n'a rien choisi : l'onglet affiché suit alors le match
    * (voir `activeTab`, plus bas).
    */
-  const [choixOnglet, setChoixOnglet] = useState<"feed" | "infos" | "squad" | null>(null);
+  const [choixOnglet, setChoixOnglet] = useState<"feed" | "infos" | "squad" | "stats" | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
   const [inviting, setInviting] = useState(false);
   const [lineupMode, setLineupMode] = useState(false);
@@ -677,9 +679,29 @@ export default function MatchDetailPage() {
 
   const isLive = match.status === "live";
 
+  // LES COMPTEURS, QUI MANQUAIENT ICI. Le même scoreur tient la même console
+  // sur un amical et sur un match de compétition, et écrit les mêmes
+  // événements — mais seule la fiche de compétition savait les relire. Voir
+  // lib/stats-match : le calcul et le rendu sont désormais les mêmes des deux
+  // côtés.
+  const faitsDuMatch = match.liveState?.events ?? [];
+  const chronoTourne = isLive && !!match.liveState?.isTimerRunning;
+  const hasStats = aDesStats(faitsDuMatch, match.liveState?.possession ?? null, chronoTourne);
+  const statRows = lignesStats(
+    faitsDuMatch,
+    match.homeTeamId,
+    match.awayTeamId,
+    { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
+    match.liveState?.possession ?? null,
+    chronoTourne,
+  );
+
   // L'onglet ouvert suit le match tant qu'on n'en a choisi aucun : Infos avant
   // le coup d'envoi, le fil dès qu'il y a un fil. Voir la fiche compétition.
-  const activeTab = choixOnglet ?? (isLive || match.status === "completed" ? "feed" : "infos");
+  const ongletDemande = choixOnglet ?? (isLive || match.status === "completed" ? "feed" : "infos");
+  // Stats a disparu (aucun fait saisi) alors qu'il était ouvert : on ne
+  // laisse pas la page sur un panneau muet.
+  const activeTab = ongletDemande === "stats" && !hasStats ? "feed" : ongletDemande;
 
   // Les buteurs, sous l'affiche. Un match renseigné n'a pas de direct : ses
   // buteurs sont ceux que la saisie a nommés, tous du camp qui l'a saisi.
@@ -761,6 +783,9 @@ export default function MatchDetailPage() {
         tabs={[
           { id: "feed", label: "Fil du match" },
           { id: "infos", label: "Infos" },
+          // Absent tant que rien n'a été saisi : un onglet qui n'affiche que
+          // « Buts 0 – 0 » promet une lecture qu'il n'a pas.
+          ...(hasStats ? [{ id: "stats", label: "Stats" }] : []),
           {
             id: "squad",
             label: "Composition",
@@ -1105,6 +1130,24 @@ export default function MatchDetailPage() {
                   />
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {activeTab === "stats" && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="space-y-4"
+            >
+              <div className="bg-white p-4 sm:p-5">
+                <MatchStats
+                  lignes={statRows}
+                  homeTeamName={match.homeTeamName}
+                  awayTeamName={match.awayTeamName}
+                />
+              </div>
             </motion.div>
           )}
 

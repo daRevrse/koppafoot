@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Play, Pause, ChevronLeft, ChevronRight, History, Clock,
+  Play, Pause, ChevronLeft, ChevronRight, History,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
-  MonitorPlay, Ban, Check, Hand, Flag,
+  MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, ChevronDown, Plus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -15,7 +15,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
 import { gardienDe } from "@/lib/terrain";
-import { LIBELLE_EVENEMENT, demandeUneVictime, type TypeEvenementJoueur } from "@/lib/evenements";
+import {
+  EMOJI_EVENEMENT, EVENEMENTS_EQUIPE, LIBELLE_EVENEMENT, demandeUneVictime,
+  estStatistique, type TypeEvenementEquipe, type TypeEvenementJoueur,
+} from "@/lib/evenements";
+import {
+  POSSESSION_VIDE, basculer, partPossession, reprendre, suspendre, versStockage,
+  type Possession,
+} from "@/lib/possession";
+import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
+import { lignesStats } from "@/lib/stats-match";
+import MatchStats from "@/components/match/MatchStats";
 import TerrainConsole, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 
@@ -90,6 +100,58 @@ async function recalculerLeClassement(fbUser: { getIdToken: () => Promise<string
   }
 }
 
+/**
+ * Ce qui n'appartient a personne : corner, coup franc, touche, penalty.
+ *
+ * Il porte sur le camp REGARDE, celui dont le terrain est affiche — pas de
+ * selecteur a lui. Un selecteur de plus obligerait a choisir deux fois pour un
+ * corner, alors que le scoreur vient justement de basculer sur le camp qui
+ * attaque.
+ */
+function BandeauEquipe({
+  teamName, isSubmitting, desactive, onEvenement,
+}: {
+  teamName: string;
+  isSubmitting: boolean;
+  /** La raison du verrou, ou `null`. Voir `SECONDES_JEU_MORT`. */
+  desactive: string | null;
+  onEvenement: (type: TypeEvenementEquipe) => void;
+}) {
+  return (
+    <div className="border border-gray-200/70 bg-white">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-200/70 px-3 py-1.5">
+        <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
+          Pour <span className="text-gray-900">{teamName}</span>
+        </span>
+        {desactive && (
+          <span className="shrink-0 text-[10px] font-black uppercase tracking-wide text-amber-600">
+            {desactive}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-4 divide-x divide-gray-200/70">
+        {EVENEMENTS_EQUIPE.map((type) => (
+          <button
+            key={type}
+            type="button"
+            // Les quatre sont des actions de jeu : après un but, aucune ne peut
+            // se produire tant que le ballon n'est pas revenu au rond central.
+            disabled={isSubmitting || !!desactive}
+            onClick={() => onEvenement(type)}
+            className="flex min-h-[52px] flex-col items-center justify-center gap-0.5 px-1 py-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 active:scale-95 disabled:opacity-40"
+          >
+            <span aria-hidden className="text-sm leading-none">{EMOJI_EVENEMENT[type]}</span>
+            <span className="w-full truncate text-center text-[10px] font-black uppercase tracking-tight">
+              {/* « Penalty obtenu » ne tient pas dans un quart d'ecran. */}
+              {type === "penalty" ? "Penalty" : LIBELLE_EVENEMENT[type]}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ============================================
 // Component
 // ============================================
@@ -133,6 +195,30 @@ export default function LiveMatchConsole({
   // franchie et la console va au coup d'envoi. Ce drapeau la rouvre à la
   // demande, pour une dernière retouche.
   const [revoirLesFeuilles, setRevoirLesFeuilles] = useState(false);
+
+  /**
+   * La possession de balle, tenue ICI et non dans le match.
+   *
+   * La console est le seul ecrivain : un match n'a qu'un scoreur. L'etat local
+   * fait donc autorite tant qu'elle est ouverte, et l'abonnement ne le reseme
+   * qu'une fois — au premier match recu. Sans cette regle, chaque ecriture
+   * reviendrait par l'abonnement et ecraserait la bascule suivante, qui a eu
+   * lieu entre-temps.
+   */
+  /**
+   * Le tiroir « Plus d'infos » : les compteurs et l'historique.
+   *
+   * FERMÉ PAR DÉFAUT, et c'est le point. Ni l'un ni l'autre ne sert à SAISIR :
+   * on les consulte entre deux actions, ou après le match. Ouverts en
+   * permanence, ils ajoutaient sept cent cinquante pixels sous le terrain —
+   * la console entière faisait alors plus de deux écrans de haut pour un
+   * scoreur qui n'en regarde qu'un.
+   */
+  const [plusDInfos, setPlusDInfos] = useState(false);
+
+  const [possession, setPossession] = useState<Possession>(POSSESSION_VIDE);
+  const possessionRef = useRef<Possession | null>(null);
+  const flushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Le camp regarde sur le terrain, et le joueur touche.
   const [coteTerrain, setCoteTerrain] = useState<Side>("home");
@@ -184,13 +270,41 @@ export default function LiveMatchConsole({
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
 
-  // Goal cooldown: after a goal, both goal buttons are disabled for 60s.
+  /**
+   * Le verrou qui suit un but.
+   *
+   * IL NE PORTAIT QUE SUR LE BUT. Un but tapé deux fois est un score faux, et
+   * le corriger demande une intervention d'organisateur : d'ou soixante
+   * secondes de verrou sur ce bouton-la. Mais le raisonnement vaut pour le
+   * reste, et pour une raison plus simple encore — APRES UN BUT, LE JEU EST
+   * MORT. Celebration, retour au rond central, coup d'envoi : pendant ce
+   * temps-la il ne peut y avoir ni tir, ni corner, ni touche, ni hors-jeu. Ce
+   * qui s'y saisit est un appui en trop, jamais une action.
+   *
+   * DEUX DUREES, PARCE QUE LES DEUX RISQUES SONT DIFFERENTS. Le but garde ses
+   * soixante secondes : son cout est un score faux. Les actions de jeu n'en
+   * ont que quinze, le temps de la celebration — au-dela le jeu a repris pour
+   * de bon, et continuer a les bloquer ferait perdre de vraies frappes.
+   *
+   * LE CARTON ET LE REMPLACEMENT NE SONT PAS VERROUILLES. Ce sont justement
+   * les deux choses qui arrivent pendant un arret de jeu : un carton pour une
+   * celebration, un changement dans la foulee du but.
+   */
+  const SECONDES_APRES_BUT = 60;
+  const SECONDES_JEU_MORT = 15;
   const [goalCooldown, setGoalCooldown] = useState(0);
   useEffect(() => {
     if (goalCooldown <= 0) return;
     const t = setTimeout(() => setGoalCooldown((s) => Math.max(0, s - 1)), 1000);
     return () => clearTimeout(t);
   }, [goalCooldown]);
+
+  // Un seul decompte pour les deux durees : le jeu est mort pendant les quinze
+  // premieres secondes des soixante. Un second minuteur aurait double l'effet
+  // et l'etat pour la meme information.
+  const secondesJeuMort = Math.max(0, goalCooldown - (SECONDES_APRES_BUT - SECONDES_JEU_MORT));
+  const jeuMort = secondesJeuMort > 0;
+  const apresBut = jeuMort ? `Jeu arrêté (${secondesJeuMort}s)` : null;
 
   // Load both rosters once, before kickoff, for the match-sheet builder. Drafts
   // are seeded from any previously-saved lineup so re-validation overwrites cleanly.
@@ -258,14 +372,73 @@ export default function LiveMatchConsole({
     }
   }, [pilote, displayTime]);
 
+  // ---- Le temps additionnel, et la fin de la periode ------------------------
+  //
+  // IL NE SE DEDUIT DE RIEN. Le chrono de la console monte en continu : il ne
+  // sait pas ce qui s'est arrete pendant le jeu — une blessure, une
+  // celebration, un changement. Seul l'arbitre l'annonce, et le scoreur le
+  // recopie. C'est pour ca que c'est une saisie et non un calcul.
+
+  /** Les minutes annoncees pour chacune des deux mi-temps. */
+  const additionnel = match?.liveState?.addedTime ?? null;
+  const minutesAdditionnelles = {
+    first: additionnel?.first ?? 0,
+    second: additionnel?.second ?? 0,
+  };
+
+  /** La mi-temps que la periode en cours prolonge, `null` hors du jeu. */
+  const mitempsEnCours: "first" | "second" | null =
+    match?.liveState?.currentPeriod === 1 ? "first"
+      : match?.liveState?.currentPeriod === 3 ? "second"
+        : null;
+
+  const minutesDeLaPeriode = mitempsEnCours ? minutesAdditionnelles[mitempsEnCours] : 0;
+
+  /**
+   * Ou l'horloge s'arrete toute seule, en millisecondes de chrono.
+   *
+   * La mi-temps reglementaire, PLUS le temps additionnel annonce. Sans
+   * annonce, c'est la minute reglementaire tout court : une premiere periode
+   * s'arrete a 45:00, une seconde a 90:00.
+   *
+   * `null` a la pause et apres le coup de sifflet final : il n'y a alors plus
+   * de periode a terminer.
+   */
+  const cibleDeLaPeriode =
+    mitempsEnCours === "first" ? halfMs + minutesAdditionnelles.first * 60_000
+      : mitempsEnCours === "second" ? fullMs + minutesAdditionnelles.second * 60_000
+        : null;
+
+  /**
+   * Poser le temps additionnel de la mi-temps en cours.
+   *
+   * Borne a zero et a quinze : au-dela ce n'est plus un temps additionnel mais
+   * une faute de frappe, et l'horloge s'arreterait un quart d'heure trop tard.
+   */
+  const poserAdditionnel = async (delta: number) => {
+    if (!mitempsEnCours) return;
+    const suivant = Math.min(15, Math.max(0, minutesDeLaPeriode + delta));
+    if (suivant === minutesDeLaPeriode) return;
+    try {
+      await pilote.poserTempsAdditionnel(mitempsEnCours, suivant);
+    } catch {
+      toast.error("Erreur technique");
+    }
+  };
+
   // Timer logic, copied verbatim from the referee console. The live_state
   // shapes are identical (timerStartAt / timerOffset / isTimerRunning), so the
   // server-clock computation works unchanged; only the pause writer is
   // retargeted to pauseCompTimer. The `match.status === "live"` guard is a
   // shipped bug fix (freeze the clock at full time), do NOT regress it.
+  /** La cible deja servie par l'arret automatique. Voir la boucle ci-dessous. */
+  const arretAutoRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!match?.liveState) return;
 
+    const cible = cibleDeLaPeriode;
+    const mitemps = mitempsEnCours;
     let interval: ReturnType<typeof setInterval>;
 
     if (match.status === "live" && match.liveState.isTimerRunning && match.liveState.timerStartAt) {
@@ -275,8 +448,30 @@ export default function LiveMatchConsole({
       interval = setInterval(() => {
         const now = Date.now();
         const elapsed = now - start + offset;
-        // The operator now controls stoppage manually; no auto-pause.
         setDisplayTime(elapsed);
+
+        // L'ARRET AUTOMATIQUE EN FIN DE PERIODE.
+        //
+        // Il avait ete retire — « the operator now controls stoppage
+        // manually » — et pour une bonne raison : il tombait a la minute
+        // reglementaire, donc AVANT le temps additionnel, et coupait le match
+        // en plein jeu. Le scoreur devait relancer a chaque fois.
+        //
+        // Il revient parce que la cible n'est plus la minute reglementaire
+        // seule, mais elle PLUS le temps annonce par l'arbitre. Une periode
+        // sans annonce s'arrete a 45:00 ; annoncez trois minutes, elle
+        // s'arrete a 48:00.
+        //
+        // La garde retient la cible deja servie, pas un simple booleen : le
+        // temps que l'arret fasse l'aller-retour par la base, la boucle passe
+        // plusieurs fois ici. Et si le scoreur rallonge apres coup, la cible
+        // change, donc la relance s'arretera bien a la nouvelle.
+        if (cible !== null && elapsed >= cible && arretAutoRef.current !== cible) {
+          arretAutoRef.current = cible;
+          void pilote.pauserChrono(cible).then(() => {
+            toast(mitemps === "first" ? "Fin de la 1re mi-temps" : "Fin du temps réglementaire", { icon: "⏱️" });
+          }).catch(() => {});
+        }
       }, 100);
     } else {
       setDisplayTime(match.liveState.timerOffset || 0);
@@ -285,7 +480,7 @@ export default function LiveMatchConsole({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [match?.liveState, match?.status]);
+  }, [match?.liveState, match?.status, cibleDeLaPeriode, mitempsEnCours, pilote]);
 
   const handleStartTimer = async () => {
     try {
@@ -295,6 +490,119 @@ export default function LiveMatchConsole({
       toast.error("Erreur technique");
     }
   };
+
+  // ---- La possession de balle ------------------------------------------------
+  //
+  // Le scoreur tient une bascule : le camp qui a le ballon. Tout le calcul vit
+  // dans `lib/possession`, la console ne fait que declarer les bascules et
+  // choisir QUAND elles partent en base.
+
+  /**
+   * Le delai avant qu'une bascule parte en base.
+   *
+   * Une possession change jusqu'a trois cents fois dans un match, et chaque
+   * ecriture reveille tous ceux qui regardent la fiche publique. On n'ecrit
+   * donc qu'une fois par fenetre, en gardant la derniere valeur — celui qui
+   * regarde voit de toute facon sa barre avancer entre deux ecritures, puisque
+   * le segment en cours se deduit de `since`.
+   *
+   * Le prix : les deux secondes et demie qui suivent une bascule sont creditees
+   * au camp precedent chez le lecteur. Sur quatre-vingt-dix minutes, ces
+   * erreurs se compensent d'un camp a l'autre et ne deplacent pas le chiffre.
+   */
+  const DELAI_ECRITURE_POSSESSION = 2500;
+
+  /** Le chrono du match fait autorite : hors jeu, rien ne s'accumule. */
+  const chronoTourne = match?.status === "live" && !!match.liveState?.isTimerRunning;
+
+
+  const enAttenteRef = useRef<Possession | null>(null);
+
+  const envoyerPossession = useCallback(() => {
+    if (flushRef.current) {
+      clearTimeout(flushRef.current);
+      flushRef.current = null;
+    }
+    const p = enAttenteRef.current;
+    enAttenteRef.current = null;
+    if (!p) return;
+    // Silencieuse : une possession perdue est un chiffre approximatif, pas un
+    // match fausse. Interrompre le scoreur pour ca couterait plus que ca ne
+    // rapporte.
+    void pilote.poserPossession(versStockage(p)).catch(() => {});
+  }, [pilote]);
+
+  const majPossession = useCallback((next: Possession, immediat = false) => {
+    possessionRef.current = next;
+    setPossession(next);
+    enAttenteRef.current = next;
+    if (immediat) {
+      envoyerPossession();
+      return;
+    }
+    // Une ecriture est deja programmee : elle emportera cette valeur-ci.
+    if (flushRef.current) return;
+    flushRef.current = setTimeout(envoyerPossession, DELAI_ECRITURE_POSSESSION);
+  }, [envoyerPossession]);
+
+  // Semee UNE SEULE FOIS. Voir la declaration de `possessionRef` : l'abonnement
+  // renvoie ce que la console vient d'ecrire, et le relire ecraserait la
+  // bascule qui a eu lieu depuis.
+  useEffect(() => {
+    if (possessionRef.current !== null || !match) return;
+    const depart = match.liveState?.possession ?? POSSESSION_VIDE;
+    possessionRef.current = depart;
+    setPossession(depart);
+  }, [match]);
+
+  // L'horloge s'arrete, le segment en cours se clot ; elle repart, il reprend.
+  // Un effet plutot que des appels dans chaque bouton : la mi-temps, la reprise,
+  // la pause et la fin de match passent par quatre chemins differents, et il en
+  // manquerait un.
+  const chronoTourneRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (possessionRef.current === null) return;
+    if (chronoTourneRef.current === chronoTourne) return;
+    const premierPassage = chronoTourneRef.current === null;
+    chronoTourneRef.current = chronoTourne;
+    // Au montage on ne fait qu'enregistrer l'etat : la console rouverte en
+    // cours de match trouve `since` deja pose, et le reecrire le decalerait.
+    if (premierPassage) return;
+    const actuel = possessionRef.current;
+    majPossession(chronoTourne ? reprendre(actuel) : suspendre(actuel), true);
+  }, [chronoTourne, majPossession]);
+
+  // La derniere bascule part avant que l'ecran ne disparaisse.
+  useEffect(() => () => { envoyerPossession(); }, [envoyerPossession]);
+
+  const basculerPossession = (side: Side | null) => {
+    const actuel = possessionRef.current ?? POSSESSION_VIDE;
+    majPossession(basculer(actuel, side, chronoTourne));
+  };
+
+  // ---- Les notes ---------------------------------------------------------------
+
+  /**
+   * Les notes des deux camps, recalculees a chaque fait saisi.
+   *
+   * Elles vivent ici, avec les autres hooks, et non plus bas avec le reste des
+   * derivations : la console rend toutes les cent millisecondes tant que le
+   * chrono tourne, et ce calcul ne doit pas suivre cette cadence. Il ne depend
+   * donc que du match lui-meme, qui ne change qu'a l'ecriture d'un fait.
+   */
+  const notes = useMemo(() => {
+    const faits = match?.liveState?.events ?? [];
+    const vide = new Map<string, NoteJoueur>();
+    if (!match) return { home: vide, away: vide };
+    // Les minutes viennent de `computeMinutesPlayed`, qui lit le match entier.
+    // La duree annoncee est celle du format de la competition, pas les deux
+    // mi-temps reglementaires par defaut : un 7v7 en deux fois vingt minutes
+    // aurait vu tout le monde credite de quatre-vingt-dix.
+    return {
+      home: notesDuCamp(match, match.homeLineup, faits, match.homeTeamId, halfMinutes * 2),
+      away: notesDuCamp(match, match.awayLineup, faits, match.awayTeamId, halfMinutes * 2),
+    };
+  }, [match, halfMinutes]);
 
   // Period 1 → half-time: snap the clock to the end of the first half, stop,
   // move to break (period 2).
@@ -508,7 +816,7 @@ export default function LiveMatchConsole({
           competition,
         );
         toast.success("BUT !");
-        setGoalCooldown(60);
+        setGoalCooldown(SECONDES_APRES_BUT);
         // The goal is on the board; now the optional question.
         setAssistPicker({
           eventId: goalId,
@@ -604,6 +912,42 @@ export default function LiveMatchConsole({
         }
       }
       setActions(null);
+    } catch {
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Ce qui n'appartient a personne : corner, coup franc, touche, penalty.
+   *
+   * Aucun joueur n'est demande, et c'est le point. Demander « lequel ? » sur
+   * un corner ajouterait un geste et une liste de quinze noms a lire pour une
+   * information que le scoreur n'a pas et que personne ne relira. Un seul
+   * appui, sur le camp qui l'a obtenu.
+   *
+   * AUCUNE NOTIFICATION, ET AUCUNE LIGNE DANS LE FIL non plus, sauf le penalty
+   * — voir `estStatistique` dans lib/evenements. Ils remplissent les compteurs
+   * de l'onglet Stats, et rien d'autre.
+   */
+  const enregistrerEvenementEquipe = async (side: Side, type: TypeEvenementEquipe) => {
+    if (!match?.liveState) return;
+    const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
+    if (!teamId) {
+      toast.error("Équipe non définie");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await pilote.ajouterEvenement({
+        type,
+        side,
+        team_id: teamId,
+        period: match.liveState.currentPeriod ?? 1,
+        minute: Math.floor(displayTime / 60000) + 1,
+      });
+      toast.success(LIBELLE_EVENEMENT[type]);
     } catch {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
@@ -1027,6 +1371,25 @@ export default function LiveMatchConsole({
   const homeDisabled = match.homeTeamId == null || homeLineup.length === 0;
   const awayDisabled = match.awayTeamId == null || awayLineup.length === 0;
   const events = match.liveState?.events ?? [];
+  /**
+   * Le fil de la console, sans les comptables.
+   *
+   * Le scoreur non plus n'a pas besoin de relire ses quarante touches : il
+   * vient de les poser, le toast le lui a confirmé, et elles se lisent en
+   * bloc dans les compteurs juste en dessous. Les laisser ici enterrerait
+   * l'unique but sous quatre écrans de défilement — exactement ce qu'on évite
+   * sur la fiche publique. Voir `estStatistique`.
+   */
+  const faitsRacontes = events.filter((e) => !estStatistique(e.type));
+  // Les compteurs, calcules comme sur les deux fiches publiques.
+  const statRows = lignesStats(
+    events,
+    match.homeTeamId,
+    match.awayTeamId,
+    { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
+    possession,
+    chronoTourne,
+  );
   // Players who already have a yellow (for the picker marker). Player ids are unique.
   const yellowCardedIds = new Set(
     events.filter((e) => e.type === "yellow_card" && e.playerId).map((e) => e.playerId as string),
@@ -1118,21 +1481,41 @@ export default function LiveMatchConsole({
       ];
     }
 
+    // Les actions de jeu, verrouillées le temps que le ballon revienne au rond
+    // central. Voir `SECONDES_JEU_MORT`.
+    const deJeu = (
+      cle: TypeEvenementJoueur,
+      emoji: string,
+      ton?: ActionJoueur["ton"],
+    ): ActionJoueur => ({ ...evenement(cle, emoji, ton), desactive: apresBut });
+
     return [
       {
         ...evenement("goal", "⚽", "vert"),
-        // Le délai anti-double-appui du but, hérité des cartes d'équipe : un
-        // but tapé deux fois est un score faux, et le corriger demande une
-        // intervention d'organisateur.
-        libelle: goalCooldown > 0 ? `But (${goalCooldown}s)` : "But",
+        // Le verrou du but est le plus long des deux : un but tapé deux fois
+        // est un score faux, et le corriger demande une intervention
+        // d'organisateur.
+        libelle: "But",
+        desactive: goalCooldown > 0 ? `But marqué (${goalCooldown}s)` : null,
         onClick: () => {
           if (goalCooldown > 0) return;
           void enregistrerAction(side, entry, "goal");
         },
       },
-      ...(estLeGardien || gardien === null ? [evenement("save", "🧤")] : []),
-      ...(estLeGardien ? [] : [evenement("offside", "🚩")]),
-      evenement("foul", "⚠️"),
+      // LE TIR CADRE EST AUSSI UN TIR, et il n'est saisi qu'une fois : les
+      // compteurs de l'onglet Stats additionnent les deux (voir `statRows`).
+      // Demander au scoreur de taper « tir » puis « cadré » aurait double le
+      // geste le plus frequent du match pour une information deja contenue
+      // dans le second.
+      ...(estLeGardien ? [] : [
+        deJeu("shot_on_target", EMOJI_EVENEMENT.shot_on_target),
+        deJeu("shot", EMOJI_EVENEMENT.shot),
+      ]),
+      ...(estLeGardien || gardien === null ? [deJeu("save", "🧤")] : []),
+      ...(estLeGardien ? [] : [deJeu("offside", "🚩")]),
+      deJeu("foul", "⚠️"),
+      // Le carton et le remplacement restent ouverts : ce sont les deux choses
+      // qui arrivent justement pendant un arrêt de jeu.
       jaune,
       rouge,
       {
@@ -1153,7 +1536,22 @@ export default function LiveMatchConsole({
   const showBack = isCompleted;
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-5xl space-y-4 overflow-y-auto bg-gray-50 pb-28 pt-safe sm:space-y-7 lg:max-w-7xl">
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-3 overflow-y-auto bg-gray-50 pb-28 pt-safe sm:space-y-7 lg:max-w-7xl">
+      {/* L'AVERTISSEMENT EN TOUT PREMIER, avant même le tableau d'affichage.
+          Il était coincé entre le tableau et le terrain, c'est-à-dire au
+          milieu de ce que le scoreur regarde : une consigne qu'on lit une
+          seule fois, posée en travers de la zone qu'on consulte cent fois.
+          En tête de page, il se lit à l'ouverture et sort du champ dès le
+          premier défilement. */}
+      {!isCompleted && (
+        <div className="flex items-center gap-2 bg-amber-500 px-3 py-1.5 text-white">
+          <Shield size={13} className="shrink-0" />
+          <p className="truncate text-[10px] font-black uppercase tracking-wide">
+            Ne quitte pas cette page avant le coup de sifflet final
+          </p>
+        </div>
+      )}
+
       {/* Sandbox banner, the console is otherwise indistinguishable from the
           real thing, and a trainee must never wonder whether it counts. */}
       {competition?.isSandbox && (
@@ -1170,87 +1568,69 @@ export default function LiveMatchConsole({
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-2">
-        {showBack ? (
-          <button
-            onClick={() => router.push(returnHref)}
-            className="group flex h-11 w-11 items-center justify-center bg-white shadow-gray-200/60 transition-all hover:scale-110 active:scale-90"
-          >
-            <ChevronLeft size={22} className="text-gray-400 group-hover:text-gray-900" />
-          </button>
-        ) : showQuit ? (
-          <button
-            onClick={handleQuit}
-            className="group flex h-11 items-center gap-2 bg-white px-4 shadow-gray-200/60 transition-all hover:scale-105 active:scale-95"
-          >
-            <LogOut size={18} className="text-gray-400 group-hover:text-gray-900" />
-            <span className="text-xs font-black uppercase tracking-wider text-gray-500 group-hover:text-gray-900">
-              Quitter
-            </span>
-          </button>
-        ) : (
-          <div className="h-11 w-11" />
-        )}
-        <div className="text-center">
-          <div className="mb-1 flex items-center justify-center gap-2">
-            {isCompleted ? (
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                Terminé
-              </span>
-            ) : (
-              <>
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-900" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
-                  Match en Direct
-                </span>
-              </>
-            )}
-          </div>
-          <h1 className="font-display text-base font-black uppercase tracking-tight text-gray-900 sm:text-xl">
-            {match.homeTeamName} <span className="mx-1.5 text-gray-300">vs</span> {match.awayTeamName}
-          </h1>
-        </div>
-        <div className="h-11 w-11" />
-      </div>
+      {/*
+        L'EN-TÊTE ET LE TABLEAU D'AFFICHAGE NE FONT PLUS QU'UN.
 
-      {/* Landscape layout on desktop: scoreboard + status controls on the
-          left (sticky), scoring + events on the right. Mobile stays a
-          single vertical column. */}
-      <div className="space-y-4 sm:space-y-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-7 lg:space-y-0">
-      <div className="space-y-4 sm:space-y-7 lg:sticky lg:top-6">
-      {/* Scoreboard */}
+        Ils vivaient l'un au-dessus de l'autre et disaient deux fois la même
+        chose : un titre « AS Kpalimé vs Étoile Filante », puis un tableau qui
+        réaffichait les deux noms sous deux écussons. Des écussons qui ne
+        portaient qu'une initiale — la première lettre d'un nom écrit juste en
+        dessous, et déjà écrit au-dessus.
+
+        Ce que ça coûtait, en pixels de haut d'écran pris à la console :
+        — le titre et sa pastille « Match en direct », qu'on lit une fois et
+          jamais plus ;
+        — un vide de 44 sur 44 à droite du titre, posé là pour centrer le
+          texte entre deux boutons alors qu'il n'y en a qu'un ;
+        — deux écussons décoratifs ;
+        — l'empilement chip / chrono / bouton au centre, sur trois rangs.
+
+        Ce qui reste est ce que le scoreur regarde vraiment : le CHRONO, parce
+        qu'il lit la minute de chaque événement qu'il pose ; le BOUTON qui
+        l'arrête, seule commande de cette zone ; et le SCORE, pour vérifier
+        qu'il n'a pas fauté de frappe. Les noms d'équipe restent, en petit :
+        le terrain les redit en gros juste en dessous.
+      */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
+        initial={{ opacity: 0, scale: 0.99 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden bg-[#0A0A0B] p-4 text-white sm:p-10"
+        className="relative overflow-hidden bg-[#0A0A0B] px-3 pb-3 pt-2 text-white sm:px-8 sm:pb-7 sm:pt-4"
       >
-        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[80%] -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.3),transparent)]" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-emerald-50 blur-[100px]" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-500/10 blur-[100px]" />
+        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[80%] -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.25),transparent)]" />
 
-        <div className="relative z-10 grid grid-cols-3 items-center">
-          {/* Home */}
-          <div className="flex flex-col items-center gap-2.5 sm:gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-11 w-11 items-center justify-center border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:text-3xl">
-                {match.homeTeamName[0]}
-              </div>
-            </div>
-            <div className="text-center">
-              <h2 className="mb-1 max-w-[120px] truncate text-xs font-black uppercase tracking-tight text-white/50">
-                {match.homeTeamName}
-              </h2>
-              <div className="text-4xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
-                {match.scoreHome ?? 0}
-              </div>
-            </div>
-          </div>
+        {/* Le titre reste pour la structure du document, pas pour l'écran :
+            les deux noms sont affichés dans la grille juste en dessous. */}
+        <h1 className="sr-only">
+          {match.homeTeamName} contre {match.awayTeamName}
+        </h1>
 
-          {/* Center */}
-          <div className="flex flex-col items-center">
-            <div className="mb-3 rounded-full border border-white/5 bg-white/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-emerald-500 backdrop-blur-xl sm:mb-5 sm:px-5 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]">
+        {/* Le bandeau : la sortie à gauche, l'état du match à droite. Une
+            seule ligne fine, et plus aucun vide pour centrer quoi que ce
+            soit. */}
+        <div className="relative z-10 mb-2 flex h-8 items-center justify-between gap-2 sm:mb-4">
+          {showBack ? (
+            <button
+              onClick={() => router.push(returnHref)}
+              className="group -ml-1 flex h-8 items-center gap-1.5 pr-2 text-white/50 transition-colors hover:text-white"
+            >
+              <ChevronLeft size={18} />
+              <span className="text-[10px] font-black uppercase tracking-wider">Retour</span>
+            </button>
+          ) : showQuit ? (
+            <button
+              onClick={handleQuit}
+              className="group -ml-1 flex h-8 items-center gap-1.5 pr-2 text-white/50 transition-colors hover:text-white"
+            >
+              <LogOut size={15} />
+              <span className="text-[10px] font-black uppercase tracking-wider">Quitter</span>
+            </button>
+          ) : (
+            <span />
+          )}
+
+          <span className="flex min-w-0 items-center gap-1.5">
+            {!isCompleted && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-400" />}
+            <span className="truncate text-[10px] font-black uppercase tracking-[0.15em] text-emerald-400 sm:text-[11px]">
               {/* « Terminé » l'emporte sur la période, comme sur les deux
                   fiches publiques : un match fini gardait sinon le libellé de
                   la dernière période traversée — « 2ème mi-temps », en vert,
@@ -1258,114 +1638,173 @@ export default function LiveMatchConsole({
               {isCompleted
                 ? "Terminé"
                 : PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
+            </span>
+            {/* Le temps annoncé, rappelé à côté de la période : c'est lui qui
+                décide où l'horloge s'arrêtera, il ne doit pas être une valeur
+                qu'on a posée puis oubliée. */}
+            {!isCompleted && minutesDeLaPeriode > 0 && (
+              <span className="shrink-0 bg-amber-500 px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
+                +{minutesDeLaPeriode}&apos;
+              </span>
+            )}
+          </span>
+        </div>
+
+        {/* Les trois colonnes : un camp, le chrono, l'autre camp. Le chrono
+            est au milieu parce que c'est lui qu'on lit, et le bouton qui
+            l'arrête est directement dessous — dans la colonne, sur toute sa
+            largeur, plutôt qu'en pastille perdue au centre d'un vide. */}
+        <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-5">
+          <div className="min-w-0 text-center">
+            <h2 className="truncate text-[10px] font-black uppercase tracking-tight text-white/45 sm:text-xs">
+              {match.homeTeamName}
+            </h2>
+            <div className="text-4xl font-black leading-none tracking-tighter sm:text-6xl">
+              {match.scoreHome ?? 0}
             </div>
-            <div className="relative flex flex-col items-center">
-              <div className="absolute -inset-8 rounded-full bg-emerald-50 blur-3xl" />
-              <div className="relative font-mono text-3xl font-black leading-none tracking-tighter tabular-nums text-emerald-500 sm:text-[4.5rem]">
-                {formatTime(displayTime)}
-              </div>
+          </div>
+
+          <div className="flex w-[104px] flex-col items-center gap-1.5 sm:w-[180px] sm:gap-3">
+            <div className="font-mono text-2xl font-black leading-none tracking-tighter tabular-nums text-emerald-400 sm:text-5xl">
+              {formatTime(displayTime)}
             </div>
             {!isCompleted && (match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3) && (
-              <div className="mt-3.5 flex gap-6 sm:mt-8">
-                {match.liveState?.isTimerRunning ? (
-                  <button
-                    onClick={handlePauseTimer}
-                    className="flex h-11 w-11 items-center justify-center bg-amber-500 text-white transition-all hover:scale-110 hover:bg-amber-600 active:scale-95 sm:h-16 sm:w-16"
-                  >
-                    <Pause size={24} fill="currentColor" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStartTimer}
-                    className="flex h-11 w-11 items-center justify-center bg-gray-900 text-white transition-all hover:scale-110 hover:bg-gray-900 active:scale-95 sm:h-16 sm:w-16"
-                  >
-                    <Play size={24} fill="currentColor" className="ml-1" />
-                  </button>
-                )}
+              match.liveState?.isTimerRunning ? (
+                <button
+                  onClick={handlePauseTimer}
+                  className="flex h-11 w-full items-center justify-center gap-1.5 bg-amber-500 text-[11px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95 sm:h-12 sm:text-sm"
+                >
+                  <Pause size={15} fill="currentColor" />
+                  Arrêter
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartTimer}
+                  className="flex h-11 w-full items-center justify-center gap-1.5 bg-emerald-600 text-[11px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 active:scale-95 sm:h-12 sm:text-sm"
+                >
+                  <Play size={15} fill="currentColor" />
+                  Lancer
+                </button>
+              )
+            )}
+
+            {/* LE TEMPS ADDITIONNEL, sous le bouton qui arrête l'horloge —
+                parce que c'est lui qui dit QUAND elle s'arrêtera. Deux touches
+                et un chiffre : l'arbitre annonce, le scoreur recopie. */}
+            {!isCompleted && mitempsEnCours && (
+              <div className="flex w-full items-stretch border border-white/15">
+                <button
+                  type="button"
+                  onClick={() => void poserAdditionnel(-1)}
+                  disabled={minutesDeLaPeriode === 0}
+                  aria-label="Retirer une minute de temps additionnel"
+                  className="flex h-7 w-8 shrink-0 items-center justify-center text-sm font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
+                >
+                  −
+                </button>
+                <span className="flex flex-1 items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide text-white/70">
+                  <Plus size={10} className="shrink-0" />
+                  <span className="tabular-nums">{minutesDeLaPeriode}&apos;</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void poserAdditionnel(1)}
+                  disabled={minutesDeLaPeriode >= 15}
+                  aria-label="Ajouter une minute de temps additionnel"
+                  className="flex h-7 w-8 shrink-0 items-center justify-center text-sm font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
+                >
+                  +
+                </button>
               </div>
             )}
           </div>
 
-          {/* Away */}
-          <div className="flex flex-col items-center gap-2.5 sm:gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-              <div className="relative flex h-11 w-11 items-center justify-center border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-xl font-black backdrop-blur-md sm:h-20 sm:w-20 sm:text-3xl">
-                {match.awayTeamName[0]}
-              </div>
-            </div>
-            <div className="text-center">
-              <h2 className="mb-1 max-w-[120px] truncate text-xs font-black uppercase tracking-tight text-white/50">
-                {match.awayTeamName}
-              </h2>
-              <div className="text-4xl font-black tracking-tighter drop-shadow-2xl sm:text-7xl">
-                {match.scoreAway ?? 0}
-              </div>
+          <div className="min-w-0 text-center">
+            <h2 className="truncate text-[10px] font-black uppercase tracking-tight text-white/45 sm:text-xs">
+              {match.awayTeamName}
+            </h2>
+            <div className="text-4xl font-black leading-none tracking-tighter sm:text-6xl">
+              {match.scoreAway ?? 0}
             </div>
           </div>
         </div>
 
         {/* Penalty line (completed knockout shootout) */}
         {isCompleted && match.penaltyHome != null && match.penaltyAway != null && (
-          <div className="relative z-10 mt-6 text-center text-xs font-bold uppercase tracking-widest text-white/40">
+          <div className="relative z-10 mt-3 text-center text-[10px] font-bold uppercase tracking-widest text-white/40">
             Tirs au but : {match.penaltyHome} – {match.penaltyAway}
           </div>
         )}
       </motion.div>
 
+      {/* Landscape layout on desktop: the clock block + status controls on
+          the left (sticky), scoring + events on the right. Mobile stays a
+          single vertical column. */}
+      <div className="space-y-3 sm:space-y-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-7 lg:space-y-0">
+      <div className="space-y-3 sm:space-y-7 lg:sticky lg:top-6">
       {!isCompleted && (
         <>
-          {/* Lock banner */}
-          <div className="flex items-center justify-between bg-amber-500 p-3 text-white shadow-amber-500/20 sm:p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center bg-white/20">
-                <Shield size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Session live active</p>
-                <p className="font-display text-xs font-bold italic">Ne quittez pas cette page avant le coup de sifflet final</p>
-              </div>
-            </div>
-          </div>
+          {/* LE DÉROULÉ ET « PLUS D'INFOS » PARTAGENT UNE LIGNE.
 
-          {/* Workflow */}
-          <div className=" border border-gray-200/70 bg-white p-4 shadow-gray-200/50 sm:p-7">
-            <div className="mb-3.5 flex items-center gap-3 sm:mb-5">
-              <Clock className="text-gray-400" size={18} />
-              <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Déroulé</h3>
-            </div>
-            <div className="space-y-3">
+              Le déroulé n'a jamais qu'UN bouton à la fois — mi-temps, ou
+              reprise, ou fin de match — et il occupait toute la largeur pour
+              lui seul, dans une carte à cadre, icône et titre : trois
+              décorations pour un bouton qui se nomme déjà.
+
+              Il partage désormais son rang avec le tiroir qui range ce qu'on
+              ne saisit pas : les compteurs et l'historique. Deux commandes
+              rares côte à côte, et le terrain remonte d'autant. */}
+          <div className="flex items-stretch gap-2 px-1">
+            <div className="min-w-0 flex-1">
               {match.liveState?.currentPeriod === 1 && (
                 <button
                   onClick={handleHalfTime}
                   disabled={isSubmitting}
-                  className="group flex w-full items-center justify-between bg-gray-900 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                  className="group flex h-full w-full items-center justify-between gap-2 bg-gray-900 px-3 py-3 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50 sm:px-5"
                 >
-                  <span>Mi-temps</span>
-                  <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
+                  <span className="truncate">Mi-temps</span>
+                  <ChevronRight size={18} className="shrink-0 transition-transform group-hover:translate-x-1" />
                 </button>
               )}
               {match.liveState?.currentPeriod === 2 && (
                 <button
                   onClick={handleResume}
                   disabled={isSubmitting}
-                  className="group flex w-full items-center justify-between bg-gray-900 px-4 py-3 text-sm font-bold text-white sm:px-5 sm:py-4 transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+                  className="group flex h-full w-full items-center justify-between gap-2 bg-gray-900 px-3 py-3 text-sm font-bold text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 sm:px-5"
                 >
-                  <span>Reprise (2e mi-temps)</span>
-                  <Play size={18} fill="currentColor" />
+                  <span className="truncate">Reprise (2e mi-temps)</span>
+                  <Play size={18} className="shrink-0" fill="currentColor" />
                 </button>
               )}
               {match.liveState?.currentPeriod === 3 && (
                 <button
                   onClick={handleFinishClick}
                   disabled={isSubmitting}
-                  className="flex w-full items-center justify-between border border-red-50 bg-red-50/50 px-4 py-3 text-sm font-bold text-red-600 sm:px-5 sm:py-4 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+                  className="flex h-full w-full items-center justify-between gap-2 border border-red-100 bg-red-50/50 px-3 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50 sm:px-5"
                 >
-                  <span>Fin du match</span>
-                  <CheckCircle2 size={20} />
+                  <span className="truncate">Fin du match</span>
+                  <CheckCircle2 size={20} className="shrink-0" />
                 </button>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setPlusDInfos((v) => !v)}
+              aria-expanded={plusDInfos}
+              className="flex shrink-0 items-center gap-2 border border-gray-200/70 bg-white px-3 py-3 text-sm font-bold text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900"
+            >
+              <Info size={16} className="shrink-0" />
+              {/* LE LIBELLÉ RESTE SUR TÉLÉPHONE. Réduit à son icône, le bouton
+                  ne promettait rien : un « i » dans un rond à côté d'un chevron
+                  ne dit pas qu'il range les compteurs et l'historique. La place
+                  existe — le bouton de déroulé d'à côté tient en un mot. */}
+              <span className="whitespace-nowrap">Plus d&apos;infos</span>
+              <ChevronDown
+                size={16}
+                className={`shrink-0 transition-transform ${plusDInfos ? "rotate-180" : ""}`}
+              />
+            </button>
           </div>
         </>
       )}
@@ -1391,8 +1830,11 @@ export default function LiveMatchConsole({
         </div>
       ) : (
         <>
-          {/* Le terrain : on touche un joueur, on dit ce qu'il a fait. */}
-          <div className="px-1">
+          {/* Le terrain et ce qui n'est à personne. La possession avait sa
+              propre rangée au-dessus : elle est passée DANS les onglets du
+              terrain, qui portaient déjà les deux mêmes noms d'équipe. Voir
+              TerrainConsole. */}
+          <div className="space-y-2 px-1">
             <TerrainConsole
               home={{
                 name: match.homeTeamName,
@@ -1407,29 +1849,83 @@ export default function LiveMatchConsole({
               cote={coteTerrain}
               onCote={setCoteTerrain}
               jaunes={yellowCardedIds}
+              ballon={possession.side}
+              parts={partPossession(possession, chronoTourne, Date.now(), 0)}
+              ballonActif={chronoTourne}
+              onBallon={basculerPossession}
               onJoueur={(side, entry) => setActions({ side, entry })}
+              // ELLE ÉTAIT SOUS LE TERRAIN, donc sous quatre cents pixels de
+              // pelouse : poser un corner demandait de faire défiler, et
+              // pendant qu'on défile on rate l'action suivante. Tout ce qui
+              // concerne le camp affiché tient maintenant au-dessus de lui.
+              barreActions={
+                <BandeauEquipe
+                  teamName={coteTerrain === "home" ? match.homeTeamName : match.awayTeamName}
+                  isSubmitting={isSubmitting}
+                  desactive={apresBut}
+                  onEvenement={(type) => void enregistrerEvenementEquipe(coteTerrain, type)}
+                />
+              }
             />
           </div>
 
+          {/* LE TIROIR « PLUS D'INFOS ».
+
+              Ces deux cartes ne servent pas à SAISIR. On les consulte entre
+              deux actions, ou après le match — et elles pesaient sept cent
+              cinquante pixels sous le terrain, en permanence, sur un écran de
+              téléphone qui en fait huit cents. La console entière faisait donc
+              plus de deux écrans de haut pour un scoreur qui n'en regarde
+              qu'un.
+
+              Fermées par défaut, ouvertes d'un appui sur le bouton posé à
+              côté du déroulé. Sur grand écran, où la place ne manque pas,
+              elles restent visibles sans qu'on demande rien. */}
+          <div className={plusDInfos ? "space-y-3 sm:space-y-7" : "hidden space-y-3 lg:block lg:space-y-7"}>
+
           {/* Events */}
-          <div className=" border border-gray-200/70 bg-white p-4 shadow-gray-200/50 sm:p-7">
-            <div className="mb-4 flex items-center justify-between sm:mb-6">
+          <div className=" border border-gray-200/70 bg-white p-3 shadow-gray-200/50 sm:p-7">
+            <div className="mb-3 flex items-center justify-between sm:mb-6">
               <div className="flex items-center gap-3">
                 <History className="text-gray-400" size={18} />
                 <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Événements</h3>
               </div>
               <div className="rounded-full bg-gray-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                {events.length} Total
+                {faitsRacontes.length} Total
               </div>
             </div>
             <EventTimeline
-              events={events}
+              events={faitsRacontes}
               homeTeamId={match.homeTeamId}
               homeTeamName={match.homeTeamName}
               awayTeamName={match.awayTeamName}
               onVarVerdict={handleVarVerdict}
               varPendingId={varPendingId}
             />
+          </div>
+
+          {/* Les compteurs, tels que le public les lira — mêmes noms, même
+              ordre, même rendu (voir MatchStats). C'est la seule façon pour le
+              scoreur de vérifier qu'il saisit ce qu'il croit saisir : la
+              plupart de ces lignes n'apparaissent nulle part ailleurs dans la
+              console, puisqu'elles ne passent pas dans le fil. */}
+          {statRows.length > 0 && (
+            <div className="border border-gray-200/70 bg-white p-3 sm:p-7">
+              <div className="mb-3 flex items-center gap-3">
+                <BarChart3 className="text-gray-400" size={18} />
+                <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">
+                  Statistiques
+                </h3>
+              </div>
+              <MatchStats
+                lignes={statRows}
+                homeTeamName={match.homeTeamName}
+                awayTeamName={match.awayTeamName}
+                compact
+              />
+            </div>
+          )}
+
           </div>
         </>
       )}
@@ -1446,6 +1942,7 @@ export default function LiveMatchConsole({
             minute={Math.floor(displayTime / 60000) + 1}
             isSubmitting={isSubmitting}
             actions={actionsPour(actions.side, actions.entry)}
+            note={notes[actions.side].get(actions.entry.playerId)}
             onClose={() => setActions(null)}
           />
         )}
@@ -2104,7 +2601,7 @@ function EventTimeline({
   const lastGoalId = [...events].reverse().find((e) => e.type === "goal")?.id ?? null;
 
   return (
-    <div className="custom-scrollbar max-h-[350px] space-y-3 overflow-y-auto pr-2 sm:space-y-4">
+    <div className="custom-scrollbar max-h-[220px] space-y-3 overflow-y-auto pr-2 sm:max-h-[350px] sm:space-y-4">
       {[...events].reverse().map((event) => {
         const isHome = event.teamId === homeTeamId;
         const isSub = event.type === "substitution";

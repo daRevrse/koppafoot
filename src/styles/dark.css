@@ -255,3 +255,21 @@
 /* Les images gardent leur luminosité, sauf les blasons et logos posés sur
    fond blanc d'origine : rien à faire côté CSS, ils portent déjà leur propre
    fond dans le composant. */
+
+/* ---- La console live -----------------------------------------------------
+   L'ONGLET DU CAMP AFFICHÉ. Il se remplissait en `bg-gray-900`, un div et non
+   un bouton : la règle des actions ne le touche donc pas, et il garde son
+   gris. Or ce gris-là (#111827) tombe presque exactement sur le fond de carte
+   du thème (#101714) — les deux onglets deviennent identiques, et le scoreur
+   ne sait plus quel camp il regarde pendant qu'il saisit.
+
+   Le composant porte déjà un trait vert au-dessus de l'onglet actif, lisible
+   dans les deux thèmes. Il reste à donner au fond de quoi se détacher : une
+   surface plus haute que la carte, ce que le gris d'origine faisait en clair. */
+[data-theme="dark"] [data-onglet-actif] { background-color: var(--k-surface-3); }
+
+/* La barre de répartition des compteurs : le segment de l'équipe extérieure
+   est en `bg-gray-300`, seul gris de fond que le thème ne reprenait pas. Posé
+   tel quel sur une carte sombre, il éclaire plus fort que le vert d'en face et
+   inverse la lecture de la barre. */
+[data-theme="dark"] .bg-gray-300 { background-color: var(--k-surface-4); }

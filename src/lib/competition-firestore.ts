@@ -34,6 +34,7 @@ import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { listGrantedCompetitionIds } from "./staff-access";
 import { OWN_GOAL_DETAIL, type TypeEvenement } from "@/lib/evenements";
+import type { PossessionStockee } from "@/lib/possession";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -1167,6 +1168,39 @@ export async function pauseCompTimer(cid: string, mid: string, elapsedMs: number
     "live_state.is_timer_running": false,
     "live_state.timer_start_at": null,
     "live_state.timer_offset": elapsedMs,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Poser la possession de balle.
+ *
+ * UNE SEULE ECRITURE POUR LES QUATRE CHAMPS, en chemins pointes : le document
+ * du match recoit un but ou un carton dans la meme seconde, et remplacer
+ * l'objet entier ecraserait ce qu'une autre ecriture vient d'y poser.
+ *
+ * Appelee sur bascule et a chaque battement du rythme de la console (voir
+ * `lib/possession`), donc plus souvent que le reste — mais toujours sur le
+ * meme document, deja ecrit a chaque evenement.
+ */
+export async function setCompPossession(
+  cid: string, mid: string, p: PossessionStockee,
+): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    "live_state.possession.home_ms": p.home_ms,
+    "live_state.possession.away_ms": p.away_ms,
+    "live_state.possession.side": p.side,
+    "live_state.possession.since": p.since,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/** Le temps additionnel annonce pour une mi-temps. Jumelle de `setMatchAddedTime`. */
+export async function setCompAddedTime(
+  cid: string, mid: string, mitemps: "first" | "second", minutes: number,
+): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    [`live_state.added_time.${mitemps}`]: minutes,
     updated_at: serverTimestamp(),
   });
 }
