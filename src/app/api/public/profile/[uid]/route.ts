@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { aUnProfilPublic } from "@/lib/espaces-acces";
+import { bilanPublicDuJoueur } from "@/lib/bilan-public";
+import type { LinkedCompPlayer } from "@/types";
 
 /**
  * GET /api/public/profile/[uid], la fiche publique d'un joueur.
@@ -25,12 +27,6 @@ const PUBLIC_FIELDS = [
   "bio", "location_city", "position", "skill_level", "strong_foot",
   "height", "weight", "date_of_birth", "user_type", "evolution_role",
   "jersey_number", "gallery_urls",
-  // Le bilan du joueur. La fiche publique affiche depuis toujours « Matchs
-  // joués / Buts / Passes déc. », et la projection ne les portait pas : tout
-  // visiteur y lisait donc 0 - 0 - 0, y compris sur la fiche d'un buteur.
-  // Ces trois compteurs sont tenus par /api/matches/credit-stats, ils ne
-  // disent rien de plus que ce qu'une feuille de match dit déjà en public.
-  "matches_played", "goals", "assists",
 ] as const;
 
 export async function GET(
@@ -49,6 +45,23 @@ export async function GET(
     for (const key of PUBLIC_FIELDS) {
       if (data[key] !== undefined) out[key] = data[key];
     }
+
+    // LE BILAN N'EST PAS UN CHAMP, C'EST UN CALCUL. Les trois compteurs du
+    // document (`matches_played`, `goals`, `assists`) ne couvrent que les
+    // amicaux — aucune route de compétition ne les incrémente — et la fiche
+    // d'un joueur qui ne joue qu'en tournoi affichait donc 0 - 0 - 0. Voir
+    // lib/bilan-public, qui additionne les deux moitiés.
+    const bilan = await bilanPublicDuJoueur(
+      {
+        matches_played: data.matches_played as number | undefined,
+        goals: data.goals as number | undefined,
+        assists: data.assists as number | undefined,
+      },
+      (data.linked_comp_players as LinkedCompPlayer[] | undefined) ?? [],
+    );
+    out.matches_played = bilan.matchesPlayed;
+    out.goals = bilan.goals;
+    out.assists = bilan.assists;
 
     // Ses equipes. Elles vivent dans `teams`, ferme aux visiteurs par les
     // regles, d'ou une fiche publique qui annoncait « Equipes (0) » a tout

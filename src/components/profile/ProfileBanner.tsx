@@ -129,12 +129,18 @@ export default function ProfileBanner({
 
             {/* `min-w` et non `min-w-0` seul : sans plancher, la colonne du
                 nom cede toute sa place aux actions et c'est le NOM qui se
-                tronque — « Morgan … » a cote d'un bouton « Modifier » entier.
-                Avec un plancher, c'est le bouton qui passe a la ligne. */}
+                tronque, a cote d'un bouton entier. Avec un plancher, c'est le
+                bouton qui passe a la ligne. */}
             <div className="min-w-[13rem] flex-1">
-              {/* `drop-shadow` plutôt qu'une plaque : le nom tient sur une
+              {/* UN NOM NE SE COUPE PAS. Il etait `truncate` :
+                  « Gilles-Christ Gas… » sur un telephone, c'est-a-dire une
+                  fiche qui ne dit pas de qui elle parle. Il passe a la ligne,
+                  et `text-balance` repartit les lignes plutot que de laisser
+                  un mot seul en bas.
+
+                  `drop-shadow` plutôt qu'une plaque : le nom tient sur une
                   image claire sans lui poser un rectangle dessus. */}
-              <h1 className="truncate font-display text-2xl font-black uppercase leading-tight tracking-tight [text-shadow:0_2px_12px_rgba(0,0,0,0.55)] sm:text-4xl">
+              <h1 className="text-balance font-display text-2xl font-black uppercase leading-tight tracking-tight [text-shadow:0_2px_12px_rgba(0,0,0,0.55)] sm:text-4xl">
                 {name}
               </h1>
               {eyebrow && (
