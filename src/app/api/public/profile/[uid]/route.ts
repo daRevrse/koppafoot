@@ -25,6 +25,12 @@ const PUBLIC_FIELDS = [
   "bio", "location_city", "position", "skill_level", "strong_foot",
   "height", "weight", "date_of_birth", "user_type", "evolution_role",
   "jersey_number", "gallery_urls",
+  // Le bilan du joueur. La fiche publique affiche depuis toujours « Matchs
+  // joués / Buts / Passes déc. », et la projection ne les portait pas : tout
+  // visiteur y lisait donc 0 - 0 - 0, y compris sur la fiche d'un buteur.
+  // Ces trois compteurs sont tenus par /api/matches/credit-stats, ils ne
+  // disent rien de plus que ce qu'une feuille de match dit déjà en public.
+  "matches_played", "goals", "assists",
 ] as const;
 
 export async function GET(
