@@ -30,6 +30,7 @@ import { avatarColor } from "@/components/feed/PostCard";
 import TirsAuBut from "@/components/match/TirsAuBut";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
+import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
 
 // ============================================
@@ -1697,7 +1698,36 @@ export default function TeamDetailPage() {
 
           {/* Unified list: real members (excl. manager) + ghost players */}
           {(() => {
-            const realPlayers = members.filter((m) => m.uid !== team.managerId);
+            /**
+             * L'EFFECTIF SE LIT COMME UNE FEUILLE DE MATCH : du but vers
+             * l'attaque. Il sortait dans l'ordre où Firestore rend les
+             * documents, c'est-à-dire dans aucun — un gardien entre deux
+             * attaquants, et rien pour s'y retrouver.
+             *
+             * L'ordre canonique est celui de `POSTES`, le même que la
+             * composition et le terrain. `normaliserPoste` lit ce qui traîne
+             * en base — l'anglais typé, le français accentué ou non, les
+             * initiales — et un poste non renseigné n'est pas une erreur :
+             * ces joueurs ferment la liste, par nom, plutôt que de se ranger
+             * arbitrairement chez les gardiens.
+             */
+            const rangDuPoste = (brut: string | null | undefined): number => {
+              const poste = normaliserPoste(brut);
+              return poste ? POSTES.indexOf(poste) : POSTES.length;
+            };
+            const parPoste = <T,>(liste: T[], poste: (x: T) => string | null | undefined, nom: (x: T) => string) =>
+              [...liste].sort((a, b) => rangDuPoste(poste(a)) - rangDuPoste(poste(b)) || nom(a).localeCompare(nom(b)));
+
+            const realPlayers = parPoste(
+              members.filter((m) => m.uid !== team.managerId),
+              (m) => m.position,
+              (m) => `${m.firstName} ${m.lastName}`,
+            );
+            const fantomesTries = parPoste(
+              ghostPlayers,
+              (g) => g.position,
+              (g) => `${g.firstName} ${g.lastName}`,
+            );
             const totalCount = realPlayers.length + ghostPlayers.length;
 
             if (totalCount === 0) {
@@ -1777,7 +1807,7 @@ export default function TeamDetailPage() {
                 })}
 
                 {/* Ghost players */}
-                {ghostPlayers.map((ghost, i) => {
+                {fantomesTries.map((ghost, i) => {
                   const initials = `${ghost.firstName[0] ?? ""}${ghost.lastName[0] ?? ""}`;
                   return (
                     <motion.div key={`ghost-${ghost.id}`} layout

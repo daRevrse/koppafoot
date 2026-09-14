@@ -159,7 +159,7 @@ export default function AidePage() {
         <span className="text-gray-600">{t("aide.fil")}</span>
       </nav>
 
-      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 overflow-hidden bg-gray-900 text-white lg:-mx-5">
+      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
         <div className="relative mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
