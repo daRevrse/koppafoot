@@ -8,7 +8,6 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
-  MapPin,
   Loader2,
   Users,
   Trophy,
@@ -27,9 +26,8 @@ import {
   MessageCircle,
   ImageIcon,
   FileText,
-  Shield,
-  ChevronRight,
   MoreHorizontal,
+  Pencil,
   Link2 as LinkIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,22 +74,6 @@ interface EquipePubliee {
   isManager?: boolean;
 }
 
-/**
- * La couleur du club, la même table que l'annuaire des équipes et leur fiche.
- *
- * `team.color` est une clé de palette : la carte la passait à
- * `style={{ backgroundColor: team.color }}`, où « emerald » n'est pas une
- * couleur CSS valide. L'écusson n'avait donc aucun fond, et son initiale
- * blanche restait invisible sur du blanc — un trou à gauche du nom.
- */
-const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string }> = {
-  amber:   { bg: "bg-amber-100",   icon: "text-amber-600",   stripe: "bg-amber-500" },
-  blue:    { bg: "bg-blue-100",    icon: "text-blue-600",    stripe: "bg-blue-500" },
-  red:     { bg: "bg-red-100",     icon: "text-red-600",     stripe: "bg-red-500" },
-  emerald: { bg: "bg-emerald-100", icon: "text-emerald-600", stripe: "bg-emerald-500" },
-  purple:  { bg: "bg-purple-100",  icon: "text-purple-600",  stripe: "bg-purple-500" },
-  orange:  { bg: "bg-orange-100",  icon: "text-orange-600",  stripe: "bg-orange-500" },
-};
 
 // ============================================
 // Constants
@@ -169,20 +151,26 @@ function CaseEquipes({ teams }: { teams: EquipePubliee[] }) {
       <span className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
         Équipes
       </span>
+      {/* CHAQUE ECUSSON EST UN LIEN. Ils ont remplace les cartes d'equipe de
+          l'onglet « Apercu » — s'ils ne menaient nulle part, la fiche
+          n'offrirait plus aucun chemin vers le club. `hover:z-10` pour que
+          celui qu'on survole passe devant ses voisins, qui le chevauchent. */}
       <div className="flex items-center -space-x-2">
         {montres.map((t) => (
-          <span
+          <Link
             key={t.id}
+            href={`/teams/${t.id}`}
             title={t.name}
-            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gray-100 text-[10px] font-black text-gray-500"
+            aria-label={t.name}
+            className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gray-100 text-[10px] font-black text-gray-500 transition-transform hover:z-10 hover:scale-110"
           >
             {t.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={t.logoUrl} alt="" className="h-full w-full object-cover" />
+              <img src={t.logoUrl} alt="" className="h-full w-full object-contain" />
             ) : (
               t.name.slice(0, 2).toUpperCase()
             )}
-          </span>
+          </Link>
         ))}
         {reste > 0 && (
           <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-gray-900 text-[10px] font-black text-white">
@@ -307,76 +295,6 @@ function BilanCase({ label, value, suffixe }: { label: string; value: number; su
  * dessin partout — et elle dit ce qu'il y a à dire, le bilan, plutôt que de
  * laisser un cadre aux trois quarts vide.
  */
-function TeamCard({ team }: { team: EquipePubliee }) {
-  const colors = COLOR_MAP[team.color ?? ""] ?? COLOR_MAP.emerald;
-  const total = team.wins + team.losses + team.draws;
-  const winRate = total > 0 ? Math.round((team.wins / total) * 100) : 0;
-
-  return (
-    <Link
-      href={`/teams/${team.id}`}
-      className="group block overflow-hidden border border-gray-200/70 bg-white transition-shadow hover:shadow-md"
-    >
-      <div className={`h-1 ${colors.stripe}`} />
-      <div className="flex items-center gap-3 p-4">
-        {/* L'écusson, ou le blason par défaut sur la couleur du club. */}
-        {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. */}
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${team.logoUrl ? "" : colors.bg}`}>
-          {team.logoUrl
-            ? <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
-            : <Shield size={24} className={colors.icon} />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-display font-bold text-gray-900">{team.name}</p>
-            {team.isManager && (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-blue-700">
-                <Shield size={10} /> Manager
-              </span>
-            )}
-          </div>
-          {team.city && (
-            <p className="mt-0.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-              <MapPin size={11} /> {team.city}
-            </p>
-          )}
-        </div>
-        <ChevronRight
-          size={16}
-          className="shrink-0 text-gray-300 transition-colors group-hover:text-emerald-600"
-        />
-      </div>
-
-      {/* Le bilan, en pied. Il n'apparaissait que sur la fiche d'un manager,
-          alors que c'est la même équipe et le même bilan quel que soit le
-          joueur qu'on regarde. Sans match joué, on le dit — un cadre vide
-          laisse croire à une donnée qui manque. */}
-      {total > 0 ? (
-        <div className="grid grid-cols-4 border-t border-gray-200/70 text-center">
-          {[
-            { label: "V", value: team.wins, ton: "text-emerald-700" },
-            { label: "N", value: team.draws, ton: "text-gray-600" },
-            { label: "D", value: team.losses, ton: "text-red-600" },
-            { label: "% vict.", value: `${winRate}%`, ton: "text-gray-900" },
-          ].map((c) => (
-            <div key={c.label} className="px-2 py-2.5 [&+&]:border-l [&+&]:border-gray-200/70">
-              <p className={`font-display text-base font-black leading-none tabular-nums ${c.ton}`}>
-                {c.value}
-              </p>
-              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-gray-400">
-                {c.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="border-t border-gray-200/70 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-300">
-          Aucun match joué
-        </p>
-      )}
-    </Link>
-  );
-}
 
 // ============================================
 // Physical Info Card
@@ -417,41 +335,37 @@ function PhysicalInfoCard({ profile }: { profile: UserProfile }) {
 // Role-specific sections
 // ============================================
 
-function PlayerSection({ profile, teams }: { profile: UserProfile; teams: EquipePubliee[] }) {
+function PlayerSection({ profile }: { profile: UserProfile }) {
   const level = profile.skillLevel ? SKILL_LEVEL_LABELS[profile.skillLevel] ?? profile.skillLevel : null;
+  const age = profile.dateOfBirth ? calculateAge(profile.dateOfBirth) : null;
+  const physique = Boolean(profile.strongFoot || profile.height || profile.weight || age !== null);
+
+  /* L'ONGLET NE RESTE PAS VIDE. Il portait les equipes, et elles sont
+     remontees dans le bandeau : sur un joueur qui n'a renseigne ni niveau ni
+     mensurations, il ne restait qu'un rectangle blanc. Une phrase vaut mieux
+     — elle dit que la fiche est jeune, pas qu'elle est cassee. */
+  if (!level && !physique) {
+    return (
+      <p className="py-8 text-center text-sm text-gray-400">
+        Ce joueur n&apos;a pas encore renseigné son profil sportif.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Le poste ne revient pas ici : la banniere le porte deja, sous le
-          nom, avec le club. Deux fois le meme mot sur un ecran de telephone,
-          c'est une fois de trop. */}
+          nom. Deux fois le meme mot sur un ecran de telephone, c'est une fois
+          de trop. */}
       {level && (
         <div className="flex flex-wrap gap-2">
-          {level && (
-            <span className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
-              <Star size={14} /> {level}
-            </span>
-          )}
+          <span className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
+            <Star size={14} /> {level}
+          </span>
         </div>
       )}
 
       <PhysicalInfoCard profile={profile} />
-
-      {/* Teams */}
-      <div>
-        <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-gray-400">
-          Équipes ({teams.length})
-        </h3>
-        {teams.length === 0 ? (
-          <p className="text-sm text-gray-400">Aucune équipe pour le moment.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {teams.map((team) => (
-              <TeamCard key={team.id} team={team} />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -460,6 +374,16 @@ function ManagerSection({ profile, teams }: { profile: UserProfile; teams: Equip
   const totalMatches = teams.reduce((sum, t) => sum + t.matchesPlayed, 0);
   const totalWins = teams.reduce((sum, t) => sum + t.wins, 0);
   const globalWinRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+
+  // Meme raison que cote joueur : les cartes d'equipe sont parties dans le
+  // bandeau, l'onglet ne doit pas se reduire a un rectangle blanc.
+  if (!profile.teamName && totalMatches === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-gray-400">
+        Ce manager n&apos;a pas encore de match dirigé.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -474,31 +398,14 @@ function ManagerSection({ profile, teams }: { profile: UserProfile; teams: Equip
         <div className="flex items-center gap-4 border border-emerald-100 bg-emerald-50 p-4">
           <Trophy size={24} className="text-emerald-600" />
           <div>
+            {/* Le bandeau donne le pourcentage, cette carte donne ce qui le
+                fonde : « 20 victoires sur 39 matchs » n'est pas une redite. */}
             <p className="text-sm font-semibold text-gray-900">Taux de victoire global</p>
             <p className="text-2xl font-bold text-emerald-600">{globalWinRate}%</p>
             <p className="text-xs text-gray-500">{totalWins} victoires sur {totalMatches} matchs</p>
           </div>
         </div>
       )}
-
-      <div>
-        {/* « Équipes gérées » sur-promettait : la projection publique renvoie
-            les DEUX appartenances, l'effectif et la direction, et un manager
-            qui joue ailleurs voyait ce club-là compté parmi ceux qu'il dirige.
-            La pastille « Manager » de la carte dit maintenant lesquels. */}
-        <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-gray-400">
-          Équipes ({teams.length})
-        </h3>
-        {teams.length === 0 ? (
-          <p className="text-sm text-gray-400">Aucune équipe pour le moment.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {teams.map((team) => (
-              <TeamCard key={team.id} team={team} />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -991,14 +898,14 @@ export default function PublicProfilePage() {
   const isManager = profile.evolutionRole === "manager" || profile.userType === "manager";
   const isReferee = profile.evolutionRole === "referee" || profile.userType === "referee";
 
-  // Sous le nom : ce qu'il est sur le terrain, et pour qui. C'est la ligne
-  // que la maquette pose sous l'ecusson du club — elle dit en trois mots ce
-  // que la fiche entiere developpe plus bas.
-  const clubPrincipal = teams[0]?.name ?? null;
+  // Sous le nom : LE POSTE, ET RIEN D'AUTRE. Le club y figurait aussi, et
+  // c'etait une redite — les ecussons du bandeau le disent juste en dessous,
+  // avec les autres, et l'onglet « Apercu » les nomme. Un joueur a un poste,
+  // il peut avoir plusieurs maillots.
   const posteLisible = profile.position
     ? POSITION_LABELS[profile.position] ?? profile.position
     : null;
-  const surtitre = [posteLisible, clubPrincipal].filter(Boolean).join(" · ") || profile.locationCity;
+  const surtitre = posteLisible ?? ROLE_LABELS[roleDuProfil] ?? profile.locationCity;
 
   // Le bilan d'un manager se lit sur ses equipes, pas sur `users` : ce sont
   // elles qui portent le bilan, et la projection publique les sert deja.
@@ -1052,7 +959,11 @@ export default function PublicProfilePage() {
             {profile.firstName} {profile.lastName}
           </p>
 
-          {currentUser && !isOwnProfile && (
+          {isOwnProfile ? (
+            <Link href="/profile" aria-label="Modifier mon profil" className={replie ? PASTILLE_BARRE : PASTILLE_AFFICHE}>
+              <Pencil size={16} />
+            </Link>
+          ) : currentUser ? (
             <button
               type="button"
               onClick={handleFollow}
@@ -1068,7 +979,7 @@ export default function PublicProfilePage() {
                 <UserPlus size={16} />
               )}
             </button>
-          )}
+          ) : null}
 
           <MenuFiche
             url={lienFiche}
@@ -1104,8 +1015,21 @@ export default function PublicProfilePage() {
           actions={
             /* SUIVRE RESTE AU NIVEAU DU NOM : c'est la decision qu'on prend
                en regardant quelqu'un. Le reste — le mercato, le partage —
-               passe derriere les trois points, en haut. */
-            currentUser && !isOwnProfile ? (
+               passe derriere les trois points, en haut.
+
+               SUR SA PROPRE FICHE, L'EMPLACEMENT NE RESTE PAS VIDE. On ne
+               s'abonne pas a soi-meme, et il n'y avait donc rien du tout : on
+               regardait sa fiche publique sans aucun moyen d'agir dessus.
+               C'est « Modifier » qui prend la place. */
+            isOwnProfile ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 border border-white bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-300 hover:bg-emerald-300"
+              >
+                <Pencil size={13} />
+                Modifier
+              </Link>
+            ) : currentUser ? (
               <button
                 onClick={handleFollow}
                 disabled={followLoading}
@@ -1183,7 +1107,7 @@ export default function PublicProfilePage() {
           {/* ═══ OVERVIEW ═══ */}
           {activeTab === "overview" && (
             <div>
-              {isPlayer && <PlayerSection profile={profile} teams={teams} />}
+              {isPlayer && <PlayerSection profile={profile} />}
               {isManager && <ManagerSection profile={profile} teams={teams} />}
               {isReferee && <RefereeSection profile={profile} />}
               {ownsVenue(profile) && <VenueOwnerSection profile={profile} />}
