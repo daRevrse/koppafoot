@@ -236,7 +236,11 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
         outPlayerId: e.out_player_id ?? null,
         outPlayerName: e.out_player_name ?? null,
         varStatus: e.var_status ?? null,
-        createdAt: e.created_at,
+        // Meme correction que dans competition-mappers : le type dit
+        // `string`, la valeur brute est un `Timestamp`. Ce module ne sert que
+        // le client, donc rien ne cassait ici — mais un type qui ment finit
+        // toujours par etre cru.
+        createdAt: formatDate(e.created_at),
       })),
       possession: d.live_state.possession ? versPossession(d.live_state.possession) : null,
       addedTime: d.live_state.added_time ?? null,
@@ -413,7 +417,7 @@ function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntr
     playerName: d.player_name, playerPhoto: d.player_photo ?? null,
     playerCity: d.player_city,
     playerPosition: d.player_position, playerLevel: d.player_level,
-    playerBio: d.player_bio ?? "", createdAt: d.created_at,
+    playerBio: d.player_bio ?? "", createdAt: formatDate(d.created_at),
   };
 }
 
