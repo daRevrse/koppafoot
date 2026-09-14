@@ -101,7 +101,11 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
   const suggesting = data.suggestions && trimmed.length < MIN_CHARS;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center p-3 sm:p-6">
+    /* `pt-safe` : la modale se calait a douze pixels du haut de la FENETRE,
+       c'est-a-dire sous l'encoche et la barre d'etat. Le champ de recherche
+       s'y trouvait a moitie recouvert, et l'entete de l'appareil passait par
+       dessus. L'encoche se contourne, elle ne se partage pas. */
+    <div className="fixed inset-0 z-[100] flex items-start justify-center p-3 pt-safe sm:p-6">
       <button
         type="button"
         aria-label="Fermer la recherche"
@@ -109,7 +113,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
 
-      <div className="relative mt-2 flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden border border-gray-200/70 bg-white shadow-xl sm:mt-10">
+      <div className="relative mt-3 flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden border border-gray-200/70 bg-white shadow-xl sm:mt-10">
         {/* ---- Query ---- */}
         <div className="flex shrink-0 items-center gap-2 border-b border-gray-200/70 px-4 py-3">
           <Search size={18} className="shrink-0 text-gray-300" />
