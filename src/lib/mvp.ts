@@ -342,3 +342,69 @@ export function classerCandidatsMVPCompetition(
       a.name.localeCompare(b.name),
   );
 }
+
+// ---- Le match saisi après coup ---------------------------------------------
+
+/** Une ligne d'effectif, telle que `CompPlayer` la porte. */
+export interface LigneEffectif {
+  id: string;
+  name: string;
+  user_id?: string | null;
+  position?: string | null;
+}
+
+/** Un candidat sur un match sans feuille : un nom, et ses buts s'il en a. */
+export interface CandidatMVPSaisie {
+  /** La ligne d'effectif — voir `FirestoreCompMatch.mvp_player_id`. */
+  playerId: string;
+  userId: string | null;
+  name: string;
+  teamId: string;
+  cote: "home" | "away";
+  buts: number;
+  /** « 2 buts », ou vide. Il n'y a rien d'autre à dire de lui. */
+  motif: string;
+}
+
+/**
+ * Les candidats d'une rencontre RATTRAPÉE, classés par buts puis par nom.
+ *
+ * AUCUN BARÈME, et c'est volontaire. Ce parcours ne pose pas de feuille de
+ * match : pas de minutes, pas d'arrêts, pas de fautes, pas de poste tenu ce
+ * jour-là. Il ne reste que les buteurs saisis. Pondérer un seul signal serait
+ * du théâtre — on range par buts, puis par nom, et on s'arrête là.
+ *
+ * TOUT L'EFFECTIF EST CANDIDAT, pas seulement les buteurs. Un gardien qui a
+ * tenu son match n'a laissé aucune trace dans cette saisie, et c'est
+ * précisément le genre d'homme du match qu'un organisateur présent au stade
+ * veut pouvoir désigner. Les buteurs remontent en haut de la liste, les autres
+ * restent joignables en dessous.
+ *
+ * `buts` est fourni par l'appelant plutôt que relu des événements : le
+ * formulaire de saisie connaît les buteurs que l'organisateur est en train de
+ * taper, avant tout enregistrement.
+ */
+export function classerCandidatsMVPSaisie(
+  camps: { cote: "home" | "away"; teamId: string; effectif: LigneEffectif[] }[],
+  buts: ReadonlyMap<string, number>,
+): CandidatMVPSaisie[] {
+  const candidats: CandidatMVPSaisie[] = [];
+
+  for (const { cote, teamId, effectif } of camps) {
+    if (!teamId) continue;
+    for (const ligne of effectif) {
+      const n = buts.get(ligne.id) ?? 0;
+      candidats.push({
+        playerId: ligne.id,
+        userId: ligne.user_id ?? null,
+        name: ligne.name,
+        teamId,
+        cote,
+        buts: n,
+        motif: morceau(n, "but") ?? "",
+      });
+    }
+  }
+
+  return candidats.sort((a, b) => b.buts - a.buts || a.name.localeCompare(b.name));
+}
