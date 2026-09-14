@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  ClipboardList, Radio, MapPin, CalendarDays, Shield, Store, Inbox,
+  Radio, MapPin, Shield, Inbox, Ticket, Trophy,
   User, Briefcase, Flag, LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -88,13 +88,19 @@ export function useEspaces(): Espaces | null {
     ? [...(ROLE_DESTINATIONS[user.evolutionRole] ?? [])]
     : [];
 
-  // Le mercato ne concerne que ceux qui jouent ou recrutent.
+  // LE MERCATO A REJOINT « MES EQUIPES ». Il ne s'agit pas d'un espace : on y
+  // cherche des joueurs pour SON equipe, et la page des equipes en porte
+  // maintenant la porte, a cote des convocations.
   if (user.evolutionRole === "player" || user.evolutionRole === "manager") {
-    roleItems.push({ href: "/mercato", label: t("espace.mercato"), Icon: Store });
     // Demander un creneau ne demande aucune casquette : cette page suit le
     // role, pas la propriete d'un terrain. Elle etait rangee du cote des
     // casquettes, donc invisible pour ceux qui reservent vraiment.
-    roleItems.push({ href: "/mes-reservations", label: t("espace.mesReservations"), Icon: CalendarDays });
+    //
+    // UN BILLET, PLUS UN CALENDRIER : « Calendrier » juste au-dessus portait
+    // deja `CalendarDays`, et deux cases voisines montraient le meme dessin.
+    // Une reservation est un creneau qu'on a pris, pas un agenda qu'on
+    // consulte.
+    roleItems.push({ href: "/mes-reservations", label: t("espace.mesReservations"), Icon: Ticket });
   }
 
   // Les casquettes nomment leur DESTINATION, pas un « espace ». « Espace
@@ -105,7 +111,7 @@ export function useEspaces(): Espaces | null {
     // « Nouvelle competition » n'est pas ici : c'est une ACTION, pas une
     // destination, et elle vit deja en tete de l'espace organisateur. Un menu
     // de navigation qui propose de creer quelque chose melange deux gestes.
-    hatItems.push({ href: "/organizer", label: t("espace.competitionsOrganisees"), Icon: ClipboardList });
+    hatItems.push({ href: "/organizer", label: t("espace.competitionsOrganisees"), Icon: Trophy });
   }
   // Deux chemins vers la console, comme dans lib/espaces-acces : moderer une
   // competition, ou porter la casquette de scoreur — qui donne acces aux
