@@ -1,18 +1,14 @@
 "use client";
 
 import { useEspaces } from "@/hooks/useEspaces";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  Flame, Trophy, MessageCircle, User, LogOut, LogIn, X, Rocket, LayoutGrid, Newspaper,
+  Flame, Trophy, MessageCircle, User, X, Rocket, LayoutGrid, Newspaper,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
-import {
-  InviteCard, SupportBlock, InstallBlock, NotificationsBlock, PreferencesBlock,
-} from "@/components/account/AccountExtras";
-import { useAuthModal } from "@/components/auth/AuthModal";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
 
 // ─── Icon map ────────────────────────────────────────────────
@@ -26,156 +22,6 @@ function isActive(pathname: string, item: BottomNavItem): boolean {
 }
 
 // ─── Avatar Bottom Sheet ─────────────────────────────────────
-function AvatarBottomSheet({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const { user, logout } = useAuth();
-  const router = useRouter();
-  const authModal = useAuthModal();
-  const t = useT();
-
-  const handleLogout = useCallback(async () => {
-    onClose();
-    await logout();
-    // Home is public, no reason to send anyone to a login screen.
-    router.push("/");
-  }, [logout, router, onClose]);
-
-  if (!open) return null;
-
-  const initials = user
-    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-    : "";
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
-      />
-
-      {/* Sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-[70] animate-slide-up">
-        <div className="mx-2 mb-2 max-h-[85vh] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-emerald-950/95 shadow-2xl backdrop-blur-xl">
-          {/* Handle bar */}
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="h-1 w-10 rounded-full bg-white/20" />
-          </div>
-
-          {/* Qui on est, ou l'invitation a le devenir */}
-          <div className="flex items-center gap-3 px-5 py-4">
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-800 ring-2 ring-emerald-400/30">
-              {user?.profilePictureUrl ? (
-                <img
-                  src={user.profilePictureUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : user ? (
-                <span className="text-sm font-bold text-emerald-300">
-                  {initials}
-                </span>
-              ) : (
-                <User size={22} className="text-emerald-300" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-white">
-                {user ? `${user.firstName} ${user.lastName}` : t("compte.visiteur")}
-              </p>
-              <p className="truncate text-xs text-emerald-400/70">
-                {user ? (user.email ?? user.phone) : t("compte.aucunCompte")}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white/40 hover:bg-white/10 hover:text-white transition-colors"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="mx-5 h-px bg-white/10" />
-
-          {user ? (
-            <div className="p-2">
-              <Link
-                href="/profile"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-              >
-                <User size={18} className="text-emerald-400" />
-                {t("compte.monProfil")}
-              </Link>
-            </div>
-          ) : (
-            /* Le meme emplacement, l'autre geste. La boite de dialogue reste
-               ce qu'elle etait, elle s'ouvre juste d'ici en plus. */
-            <div className="px-4 py-3">
-              <p className="mt-2 px-1 pb-2 text-[11px] font-semibold leading-relaxed font-display text-base text-white uppercase tracking-tight">
-                {t("compte.faitesPlus")}
-              </p>
-              <button
-                type="button"
-                onClick={() => { onClose(); authModal.open(); }}
-                className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-emerald-950 transition-colors hover:bg-emerald-400"
-              >
-                <LogIn size={14} />
-                {t("compte.seConnecter")}
-              </button>
-              {/* <p className="mt-2 px-1 text-[11px] font-semibold leading-relaxed text-white/40">
-                Suivre une équipe, pronostiquer, publier dans la Tribune : tout
-                cela demande un compte. Le reste se lit sans.
-              </p> */}
-            </div>
-          )}
-
-          <div className="px-4 pb-3">
-            <InviteCard firstName={user?.firstName} />
-          </div>
-
-          <div className="mx-5 h-px bg-white/10" />
-          <SupportBlock sombre onNavigate={onClose} />
-
-          <div className="mx-5 h-px bg-white/10" />
-          <InstallBlock sombre />
-          <NotificationsBlock sombre />
-
-          <div className="mx-5 h-px bg-white/10" />
-          <PreferencesBlock sombre />
-
-          {user ? (
-            <>
-              <div className="mx-5 h-px bg-white/10" />
-              <div className="p-2 pb-safe">
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  <LogOut size={18} />
-                  {t("compte.deconnexion")}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="pb-safe" />
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ─── Spaces Bottom Sheet ─────────────────────────────────────
-// The role spaces used to hang at the bottom of the profile sheet, three taps
-// deep. They now have their own tab, the one the Tribune freed when it moved
-// up to the header, and the same sheet styling as the profile button.
 function SpacesSheet({
   open,
   onClose,
@@ -313,15 +159,12 @@ export default function MobileBottomNav() {
   const { user } = useAuth();
   const t = useT();
   const pathname = usePathname();
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [spacesOpen, setSpacesOpen] = useState(false);
   const badgeCounts: Record<string, number> = {};
 
   // Public shell: guests get the member tabs; the 5th tab becomes a
   // login link instead of the profile sheet.
   const items = (user ? ROLE_BOTTOM_NAV[user.userType] : MEMBER_BOTTOM) ?? MEMBER_BOTTOM;
-
-  const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "";
 
   return (
     <>
@@ -397,6 +240,29 @@ export default function MobileBottomNav() {
                 qui n'existait pas ici. C'est la porte vers tout le reste du
                 produit : la laisser au fond d'une feuille revenait a la
                 cacher a qui ne l'ouvre jamais. */}
+            {/* LA TRIBUNE, descendue du header. Elle y vivait en icone parce
+                que la barre ne la portait pas ; la barre la porte maintenant,
+                et une destination de premier plan se tient ici, sous le
+                pouce, pas dans une rangee d'icones en haut d'ecran. Reservee
+                aux comptes, comme elle l'etait la-haut. */}
+            {user && (
+              <Link
+                href="/feed"
+                className={`bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200 ${pathname.startsWith("/feed") ? "bottom-nav-item-active" : ""}`}
+              >
+                {pathname.startsWith("/feed") && (
+                  <span className="absolute -top-1.5 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-emerald-400" />
+                )}
+                <MessageCircle
+                  size={22}
+                  className={`transition-colors duration-200 ${pathname.startsWith("/feed") ? "text-emerald-400" : "text-white/50 group-hover:text-white/80"}`}
+                />
+                <span className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${pathname.startsWith("/feed") ? "text-emerald-400" : "text-white/40 group-hover:text-white/70"}`}>
+                  Tribune
+                </span>
+              </Link>
+            )}
+
             {/* SANS COMPTE, la place restait vide : un visiteur ne voyait
                 nulle part qu'il peut etre autre chose qu'un spectateur. Elle
                 mene a /roles, la vitrine des roles, qui porte aussi le choix
@@ -456,49 +322,9 @@ export default function MobileBottomNav() {
               </button>
             )}
 
-            {/* Dernier onglet : la feuille du compte, avec ou sans compte.
-                Elle ouvrait la boite de connexion et emportait avec elle
-                l'invitation, l'aide et les preferences, qui ne demandent
-                pourtant aucun compte. */}
-            <button
-              onClick={() => setSheetOpen(true)}
-              className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
-            >
-              <span className="relative">
-                <div className={`flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all duration-200 ${sheetOpen
-                  ? "ring-emerald-400 bg-emerald-700"
-                  : "ring-white/30 bg-emerald-800 group-hover:ring-white/50"
-                  }`}>
-                  {user?.profilePictureUrl ? (
-                    <img
-                      src={user.profilePictureUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : user ? (
-                    <span className="text-[8px] font-bold text-emerald-300">
-                      {initials}
-                    </span>
-                  ) : (
-                    <User size={13} className="text-emerald-300" />
-                  )}
-                </div>
-              </span>
-              <span
-                className={`text-[10px] font-semibold leading-tight transition-colors duration-200 ${sheetOpen
-                  ? "text-emerald-400"
-                  : "text-white/40 group-hover:text-white/70"
-                  }`}
-              >
-                {user ? t("nav.moi") : t("nav.compte")}
-              </span>
-            </button>
           </div>
         </div>
       </nav>
-
-      {/* Profile bottom sheet */}
-      <AvatarBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
 
       {/* Role spaces bottom sheet */}
       {user && <SpacesSheet open={spacesOpen} onClose={() => setSpacesOpen(false)} />}

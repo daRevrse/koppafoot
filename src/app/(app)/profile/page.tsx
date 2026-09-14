@@ -58,12 +58,19 @@ type TabType = "info" | "palmares" | "posts" | "galerie" | "carte";
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: string | null | undefined }) {
   return (
-    <div className="flex items-start gap-3 py-3">
-      <Icon size={18} className="mt-0.5 text-gray-400" />
-      <div>
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-sm font-medium text-gray-900">{value || "Non renseigné"}</p>
-      </div>
+    // UNE DONNEE D'UNE LIGNE TENAIT SUR TROIS : l'icone, l'etiquette en
+    // dessous, la valeur encore en dessous. Etiquette et valeur se rangent
+    // maintenant cote a cote — le libelle a gauche, la valeur a droite, comme
+    // se lit une fiche — et trois coordonnees occupent la hauteur qu'une
+    // seule prenait.
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <span className="flex shrink-0 items-center gap-2 text-xs text-gray-500">
+        <Icon size={15} className="text-gray-400" />
+        {label}
+      </span>
+      <span className="min-w-0 truncate text-sm font-medium text-gray-900">
+        {value || "Non renseigné"}
+      </span>
     </div>
   );
 }
@@ -453,15 +460,21 @@ export default function ProfilePage() {
         <div className="p-5">
         {/* ═══════════════ TAB: INFO (read) ═══════════════ */}
         {tab === "info" && !editing && (
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Bio */}
-            <div className=" border border-gray-200/70 bg-white p-5">
-              <h3 className="mb-3 text-sm font-semibold text-gray-900">Bio</h3>
-              <p className="text-sm text-gray-600">{user.bio || "Aucune bio renseignée."}</p>
-            </div>
-            {/* Coordonnées */}
-            <div className=" border border-gray-200/70 bg-white p-5 md:col-span-2">
-              <h3 className="mb-2 text-sm font-semibold text-gray-900">Coordonnées</h3>
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* UNE SEULE CARTE POUR CE QUI EST A SOI. La bio tenait une carte
+                entiere pour une phrase, avec son cadre, son titre et vingt
+                pixels de marge de chaque cote ; les coordonnees en tenaient
+                une autre juste dessous. C'est la meme chose — ce que
+                l'utilisateur a renseigne sur lui — et ca se lit d'un bloc.
+                La bio ouvre la carte quand elle existe, et ne laisse rien
+                quand elle est vide. */}
+            <div className="border border-gray-200/70 bg-white p-4 md:col-span-3">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">Mes informations</h3>
+              {user.bio && (
+                <p className="mb-3 border-l-2 border-emerald-200 pl-3 text-sm italic text-gray-600">
+                  {user.bio}
+                </p>
+              )}
               <div className="divide-y divide-gray-200/70">
                 <InfoRow icon={Mail} label="Email" value={user.email} />
                 <InfoRow icon={Phone} label="Téléphone" value={user.phone} />
@@ -470,7 +483,7 @@ export default function ProfilePage() {
             </div>
             {/* Physical Info Card */}
             {showPhysical && (
-              <div className=" border border-gray-200/70 bg-white p-5 md:col-span-3">
+              <div className="border border-gray-200/70 bg-white p-4 md:col-span-3">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                     <Ruler size={16} className="text-emerald-600" />
@@ -484,32 +497,40 @@ export default function ProfilePage() {
                     {physicalComplete ? "Modifier" : "Compléter"}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
-                    <Footprints size={20} className="mx-auto text-emerald-500 mb-1" />
-                    <p className="text-xs text-gray-500">Pied fort</p>
-                    <p className="text-sm font-semibold text-gray-900">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="border border-gray-200/70 bg-gray-50 p-2.5">
+                    <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <Footprints size={14} className="text-emerald-500" />
+                      Pied fort
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-gray-900">
                       {user.strongFoot ? FOOT_LABELS[user.strongFoot] : ","}
                     </p>
                   </div>
-                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
-                    <Ruler size={20} className="mx-auto text-emerald-500 mb-1" />
-                    <p className="text-xs text-gray-500">Taille</p>
-                    <p className="text-sm font-semibold text-gray-900">
+                  <div className="border border-gray-200/70 bg-gray-50 p-2.5">
+                    <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <Ruler size={14} className="text-emerald-500" />
+                      Taille
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-gray-900">
                       {user.height ? `${user.height} cm` : ","}
                     </p>
                   </div>
-                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
-                    <Weight size={20} className="mx-auto text-emerald-500 mb-1" />
-                    <p className="text-xs text-gray-500">Poids</p>
-                    <p className="text-sm font-semibold text-gray-900">
+                  <div className="border border-gray-200/70 bg-gray-50 p-2.5">
+                    <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <Weight size={14} className="text-emerald-500" />
+                      Poids
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-gray-900">
                       {user.weight ? `${user.weight} kg` : ","}
                     </p>
                   </div>
-                  <div className=" border border-gray-200/70 bg-gray-50 p-4 text-center">
-                    <Cake size={20} className="mx-auto text-emerald-500 mb-1" />
-                    <p className="text-xs text-gray-500">Âge</p>
-                    <p className="text-sm font-semibold text-gray-900">
+                  <div className="border border-gray-200/70 bg-gray-50 p-2.5">
+                    <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <Cake size={14} className="text-emerald-500" />
+                      Âge
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-gray-900">
                       {age !== null ? `${age} ans` : ","}
                     </p>
                   </div>
