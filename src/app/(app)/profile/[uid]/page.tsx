@@ -3,7 +3,7 @@
 import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import { aUnProfilPublic } from "@/lib/espaces-acces";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import {
@@ -29,6 +29,8 @@ import {
   FileText,
   Shield,
   ChevronRight,
+  MoreHorizontal,
+  Link2 as LinkIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -47,6 +49,8 @@ import { ROLE_LABELS } from "@/types";
 import type { UserProfile, Post } from "@/types";
 import { PostCard, timeAgo } from "@/components/feed/PostCard";
 import ProfileBanner from "@/components/profile/ProfileBanner";
+import { useReplieAuDefilement } from "@/hooks/useReplieAuDefilement";
+import toast from "react-hot-toast";
 
 /**
  * Une équipe telle que /api/public/profile/[uid] la projette : ce qui
@@ -138,12 +142,152 @@ type PublicTab = "overview" | "posts" | "galerie" | "palmares";
 // Sub-components
 // ============================================
 
+/** Le retour et les trois points, poses sur l'affiche. */
+const PASTILLE_AFFICHE =
+  "flex h-9 w-9 shrink-0 items-center justify-center border border-white/25 bg-black/25 text-white/80 backdrop-blur-sm transition-colors hover:border-white hover:text-white";
+
+/** Les memes, dans la barre repliee : elle est deja verte, pas de voile. */
+const PASTILLE_BARRE =
+  "flex h-9 w-9 shrink-0 items-center justify-center border border-white/25 text-white/80 transition-colors hover:border-white hover:text-white";
+
+/**
+ * LES ECUSSONS, A GAUCHE DU BILAN. L'esquisse ouvre la rangee par eux : on
+ * reconnait un joueur a ses couleurs avant de lire ses chiffres.
+ *
+ * Quatre au plus, et le reste en nombre : au-dela, la rangee ne tient plus
+ * sur un telephone et la lecture n'y gagne rien.
+ */
+function CaseEquipes({ teams }: { teams: EquipePubliee[] }) {
+  const montres = teams.slice(0, 4);
+  const reste = teams.length - montres.length;
+
+  return (
+    /* PLEINE LARGEUR SUR TELEPHONE. Cote a cote avec les chiffres, la case
+       prenait la moitie de la rangee et « Passes déc. » passait sur deux
+       lignes ; les ecussons prennent leur propre ligne en dessous de 640 px. */
+    <div className="flex w-full min-w-0 items-center gap-3 border-b border-gray-200/70 px-5 py-4 sm:w-auto sm:shrink-0 sm:border-b-0 sm:py-5">
+      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+        Équipes
+      </span>
+      <div className="flex items-center -space-x-2">
+        {montres.map((t) => (
+          <span
+            key={t.id}
+            title={t.name}
+            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gray-100 text-[10px] font-black text-gray-500"
+          >
+            {t.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={t.logoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              t.name.slice(0, 2).toUpperCase()
+            )}
+          </span>
+        ))}
+        {reste > 0 && (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-gray-900 text-[10px] font-black text-white">
+            +{reste}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * LES TROIS POINTS. « Suivre » se decide en regardant quelqu'un, il reste au
+ * niveau du nom ; le partage et le mercato sont des actions de second rang,
+ * elles passent ici plutot que d'ajouter deux boutons a l'affiche.
+ */
+function MenuFiche({
+  url,
+  surMercato,
+  dansLaSelection,
+  mercatoEnCours,
+  surAffiche,
+}: {
+  url: string;
+  surMercato: (() => void) | null;
+  dansLaSelection: boolean;
+  mercatoEnCours: boolean;
+  surAffiche?: boolean;
+}) {
+  const [ouvert, setOuvert] = useState(false);
+  const boite = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ouvert) return;
+    const clic = (e: MouseEvent) => {
+      if (boite.current && !boite.current.contains(e.target as Node)) setOuvert(false);
+    };
+    document.addEventListener("mousedown", clic);
+    return () => document.removeEventListener("mousedown", clic);
+  }, [ouvert]);
+
+  const copier = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Lien de la fiche copié");
+    } catch {
+      // Presse-papiers refuse hors contexte securise : on ne fait pas
+      // semblant d'avoir copie.
+      toast.error("Impossible de copier le lien");
+    }
+    setOuvert(false);
+  };
+
+  return (
+    <div ref={boite} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOuvert((v) => !v)}
+        aria-expanded={ouvert}
+        aria-haspopup="true"
+        aria-label="Plus d'actions"
+        className={surAffiche ? PASTILLE_AFFICHE : PASTILLE_BARRE}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+
+      {ouvert && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-60 border border-gray-200/70 bg-white shadow-xl">
+          <button
+            type="button"
+            onClick={copier}
+            className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <LinkIcon size={15} className="text-gray-400" />
+            Copier le lien
+          </button>
+          {surMercato && (
+            <button
+              type="button"
+              onClick={() => { surMercato(); setOuvert(false); }}
+              disabled={mercatoEnCours}
+              className="flex w-full items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+            >
+              {mercatoEnCours ? (
+                <Loader2 size={15} className="animate-spin text-gray-400" />
+              ) : dansLaSelection ? (
+                <CheckCircle size={15} className="text-emerald-600" />
+              ) : (
+                <Plus size={15} className="text-gray-400" />
+              )}
+              {dansLaSelection ? "Retirer de ma sélection" : "Ajouter au mercato"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Une case de la rangee de bilan, sous la banniere. */
-function BilanCase({ label, value }: { label: string; value: number }) {
+function BilanCase({ label, value, suffixe }: { label: string; value: number; suffixe?: string }) {
   return (
     <div className="px-3 py-5 text-center">
       <span className="block font-display text-3xl font-black tabular-nums leading-none text-gray-900 sm:text-4xl">
-        {value}
+        {value}{suffixe}
       </span>
       <span className="mt-2 block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
         {label}
@@ -500,6 +644,17 @@ export default function PublicProfilePage() {
   };
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  // Le repli de l'affiche, meme mecanisme que le tableau d'affichage d'un
+  // match : on surveille l'affiche, pas le defilement. `Boolean(profile)`
+  // rebranche l'observateur quand la fiche arrive — avant, il n'y a rien a
+  // observer.
+  const barreRef = useRef<HTMLDivElement>(null);
+  const afficheRef = useRef<HTMLDivElement>(null);
+  const replie = useReplieAuDefilement(barreRef, afficheRef, Boolean(profile));
+
+  /** L'adresse de la fiche, pour le partage. Vide avant le montage. */
+  const lienFiche = typeof window === "undefined" ? "" : window.location.href;
   const [apercu, setApercu] = useState<ApercuSansPage | null>(null);
   const [teams, setTeams] = useState<EquipePubliee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -845,107 +1000,164 @@ export default function PublicProfilePage() {
     : null;
   const surtitre = [posteLisible, clubPrincipal].filter(Boolean).join(" · ") || profile.locationCity;
 
+  // Le bilan d'un manager se lit sur ses equipes, pas sur `users` : ce sont
+  // elles qui portent le bilan, et la projection publique les sert deja.
+  const matchsDirigees = teams.reduce((n, t) => n + t.matchesPlayed, 0);
+  const victoires = teams.reduce((n, t) => n + t.wins, 0);
+  const pourcentVictoires = matchsDirigees > 0 ? Math.round((victoires / matchsDirigees) * 100) : 0;
+
   return (
     <div className="mx-auto max-w-6xl pb-24">
+      {/* UNE SEULE BARRE, TOUJOURS LA.
+          Elle flotte SUR l'affiche — transparente, ses pastilles posees sur
+          un voile — et se remplit de vert en prenant le nom quand l'affiche
+          est passee dessous. Meme observateur que le tableau d'affichage d'un
+          match, voir useReplieAuDefilement.
+
+          POURQUOI PAS DEUX ETATS MONTES/DEMONTES. Une barre qu'on replie par
+          `max-h-0` demande `overflow-hidden`, et le menu des trois points s'y
+          serait fait couper net. Une barre qu'on demonte prive l'observateur
+          de l'element dont il mesure le bas. Elle reste donc en place, et
+          `-mb-14` l'empeche de pousser l'affiche vers le bas : elle la
+          recouvre au lieu de s'ajouter a elle.
+
+          Elle est verte, et c'est le sujet : l'en-tete de l'application est
+          blanc desormais, une fiche de joueur garde la couleur du produit. */}
+      <div
+        ref={barreRef}
+        style={{ top: "var(--header-h, 0px)" }}
+        className={`sticky z-30 -mx-3 -mb-14 -mt-3 h-14 text-white transition-colors duration-200 lg:-mx-5 lg:-mt-5 ${
+          replie ? "bg-emerald-900" : "bg-transparent"
+        }`}
+      >
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-8">
+          <button
+            type="button"
+            onClick={revenir}
+            aria-label="Revenir à l'écran précédent"
+            className={replie ? PASTILLE_BARRE : PASTILLE_AFFICHE}
+          >
+            <ArrowLeft size={16} />
+          </button>
+
+          {/* Le nom n'entre que replie : tant que l'affiche est la, il y est
+              deja, en grand. `aria-hidden` et pas seulement invisible — un
+              lecteur d'ecran annoncerait deux fois le meme nom. */}
+          <p
+            aria-hidden={!replie}
+            className={`min-w-0 flex-1 truncate text-center text-sm font-black uppercase tracking-[0.12em] transition-opacity duration-200 ${
+              replie ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {profile.firstName} {profile.lastName}
+          </p>
+
+          {currentUser && !isOwnProfile && (
+            <button
+              type="button"
+              onClick={handleFollow}
+              disabled={followLoading}
+              aria-label={following ? "Se désabonner" : "Suivre"}
+              className={`${replie ? PASTILLE_BARRE : PASTILLE_AFFICHE} ${following ? "border-emerald-300 text-emerald-300" : ""}`}
+            >
+              {followLoading ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : following ? (
+                <UserMinus size={16} />
+              ) : (
+                <UserPlus size={16} />
+              )}
+            </button>
+          )}
+
+          <MenuFiche
+            url={lienFiche}
+            surMercato={isManagerViewingPlayer ? handleShortlist : null}
+            dansLaSelection={Boolean(shortlistEntryId)}
+            mercatoEnCours={shortlistLoading}
+            surAffiche={!replie}
+          />
+        </div>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
         <ProfileBanner
+          afficheRef={afficheRef}
           coverUrl={profile.coverPhotoUrl}
           avatarUrl={profile.profilePictureUrl}
           initials={initials}
           name={`${profile.firstName} ${profile.lastName}`}
           eyebrow={surtitre}
-          topBar={
-            /* UN RETOUR, PAS UN FIL D'ARIANE. La page en portait un, et il ne
-               s'affichait pas : globals.css les masque tous depuis la
-               decision du 2026-09-05, en renvoyant au bouton retour du
-               tableau d'affichage comme premiere reponse. C'est donc ce
-               bouton-la, pose sur l'image comme sur l'affiche d'un match. */
-            <button
-              type="button"
-              onClick={revenir}
-              aria-label="Revenir à l'écran précédent"
-              className="flex h-9 w-9 shrink-0 items-center justify-center border border-white/25 bg-black/25 text-white/80 backdrop-blur-sm transition-colors hover:border-white hover:text-white"
-            >
-              <ArrowLeft size={16} />
-            </button>
-          }
+          slogan={profile.bio}
           meta={
-            <>
-              <span className="text-emerald-300">
-                {followerCount} abonné{followerCount > 1 ? "s" : ""}
-              </span>
-              {teams.length > 0 && (
-                <span>{teams.length} équipe{teams.length > 1 ? "s" : ""}</span>
-              )}
-            </>
+            /* Le nombre d'equipes ne revient pas ici : les ecussons le disent
+               juste en dessous, et l'onglet « Apercu » les nomme. Trois fois
+               la meme information sur un ecran de telephone. */
+            <span className="text-emerald-300">
+              {followerCount} abonné{followerCount > 1 ? "s" : ""}
+            </span>
           }
           actions={
-            /* Les deux actions restent au niveau du nom : suivre quelqu'un
-               et le mettre en selection se decident en le regardant. */
-            <div className="hidden items-center gap-2 sm:flex">
-              {currentUser && !isOwnProfile && (
-                <button
-                  onClick={handleFollow}
-                  disabled={followLoading}
-                  className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
-                    following
-                      ? "border-white/40 text-white hover:border-white"
-                      : "border-white bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-300"
-                  }`}
-                >
-                  {followLoading ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : following ? (
-                    <UserMinus size={13} />
-                  ) : (
-                    <UserPlus size={13} />
-                  )}
-                  {following ? "Abonné" : "Suivre"}
-                </button>
-              )}
-
-              {isManagerViewingPlayer && (
-                <button
-                  onClick={handleShortlist}
-                  disabled={shortlistLoading}
-                  className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
-                    shortlistEntryId
-                      ? "border-emerald-300 text-emerald-300"
-                      : "border-white/40 text-white hover:border-white"
-                  }`}
-                >
-                  {shortlistLoading ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : shortlistEntryId ? (
-                    <CheckCircle size={13} />
-                  ) : (
-                    <Plus size={13} />
-                  )}
-                  {shortlistEntryId ? "Dans la sélection" : "Mercato"}
-                </button>
-              )}
-            </div>
+            /* SUIVRE RESTE AU NIVEAU DU NOM : c'est la decision qu'on prend
+               en regardant quelqu'un. Le reste — le mercato, le partage —
+               passe derriere les trois points, en haut. */
+            currentUser && !isOwnProfile ? (
+              <button
+                onClick={handleFollow}
+                disabled={followLoading}
+                className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
+                  following
+                    ? "border-white/40 text-white hover:border-white"
+                    : "border-white bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-300"
+                }`}
+              >
+                {followLoading ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : following ? (
+                  <UserMinus size={13} />
+                ) : (
+                  <UserPlus size={13} />
+                )}
+                {following ? "Abonné" : "Suivre"}
+              </button>
+            ) : null
           }
         />
 
-        {profile.bio && (
-          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-gray-600">{profile.bio}</p>
-        )}
+        {/* LE BANDEAU DE BILAN. Il vivait au fond de l'onglet « Apercu »,
+            sous les badges et les mensurations : des nombres qu'on ouvre la
+            fiche pour lire, et qu'il fallait chercher. L'esquisse les pose en
+            rangee juste sous l'affiche, avec les ecussons a gauche, et elle a
+            raison — c'est la premiere chose qui doit remonter au defilement.
 
-        {/* LE BILAN REMONTE SOUS LA BANNIERE. Il vivait au fond de l'onglet
-            « Apercu », sous les badges et les mensurations : trois nombres
-            qu'on ouvrait la fiche pour lire, et qu'il fallait chercher. La
-            maquette les pose en rangee juste sous l'image, et elle a raison —
-            c'est la premiere chose qui doit remonter au defilement. */}
-        {isPlayer && (
-          <div className="mt-6 grid grid-cols-3 divide-x divide-gray-200/70 border border-gray-200/70 bg-white">
-            <BilanCase label="Matchs" value={profile.matchesPlayed ?? 0} />
-            <BilanCase label="Buts" value={profile.goals ?? 0} />
-            <BilanCase label="Passes déc." value={profile.assists ?? 0} />
+            UN ARBITRE N'EN A PAS. Rien de ce qu'il fait n'est publie
+            aujourd'hui : une rangee de zeros vaudrait moins que pas de
+            rangee du tout. */}
+        {(isPlayer || isManager) && (
+          <div className="mt-6 flex flex-wrap items-stretch border border-gray-200/70 bg-white sm:divide-x sm:divide-gray-200/70">
+            {teams.length > 0 && <CaseEquipes teams={teams} />}
+            {/* `w-full` sur telephone : quand la case des ecussons prend sa
+                propre ligne, `flex-1` seul ne donne a celle-ci aucune base et
+                les chiffres debordaient a droite de la carte. */}
+            <div className="grid w-full grid-cols-3 divide-x divide-gray-200/70 sm:w-auto sm:flex-1">
+              {isPlayer ? (
+                <>
+                  <BilanCase label="Matchs" value={profile.matchesPlayed ?? 0} />
+                  <BilanCase label="Buts" value={profile.goals ?? 0} />
+                  <BilanCase label="Passes déc." value={profile.assists ?? 0} />
+                </>
+              ) : (
+                <>
+                  <BilanCase label="Équipes" value={teams.length} />
+                  <BilanCase label="Matchs" value={matchsDirigees} />
+                  <BilanCase label="% vict." value={pourcentVictoires} suffixe="%" />
+                </>
+              )}
+            </div>
           </div>
         )}
 

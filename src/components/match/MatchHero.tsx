@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import TirsAuBut from "./TirsAuBut";
 import MiniEcusson from "./MiniEcusson";
 import ClocheMatch, { useSuiviMatch } from "./ClocheMatch";
 import { useCompteARebours, formatCompteARebours } from "@/hooks/useCompteARebours";
+import { useReplieAuDefilement } from "@/hooks/useReplieAuDefilement";
 import { useHauteurPubliee } from "@/hooks/useHauteurPubliee";
 import { MOT_RESULTAT, type Resultat } from "@/lib/forme";
 import type { Buteur, ButeursDuMatch } from "@/lib/buteurs";
@@ -267,47 +268,11 @@ export default function MatchHero({
     else router.push("/");
   };
 
-  /**
-   * LE REPLI SUIT L'AFFICHE, pas la position de défilement. Un observateur
-   * d'intersection prévient quand les écussons et le score ont entièrement
-   * glissé sous la barre : rien ne tourne à chaque pixel de défilement.
-   *
-   * Le plafond est le BAS DE LA BARRE, mesuré plutôt que calculé : il
-   * additionne le header de l'app (absent sur téléphone), la barre, et la
-   * marge de la barre d'état. L'observateur se rebranche quand la fenêtre
-   * change de taille, parce que tout cela change avec elle.
-   */
+  // Le repli suit l'affiche et non la position de defilement, voir le hook.
+  // La fiche de joueur s'en sert aussi : ce calcul vivait ici.
   const barre = useHauteurPubliee<HTMLDivElement>(VARIABLE_HAUTEUR_BARRE);
   const affiche = useRef<HTMLDivElement>(null);
-  const [replie, setReplie] = useState(false);
-
-  useEffect(() => {
-    const cible = affiche.current;
-    const bandeau = barre.current;
-    if (!cible || !bandeau) return;
-    let observateur: IntersectionObserver | null = null;
-
-    const brancher = () => {
-      observateur?.disconnect();
-      const plafond = Math.round(bandeau.getBoundingClientRect().bottom);
-      observateur = new IntersectionObserver(
-        ([entree]) => {
-          // Sortie PAR LE HAUT seulement : une affiche encore sous le bas de
-          // l'écran n'a pas été dépassée.
-          setReplie(!entree.isIntersecting && entree.boundingClientRect.top < plafond);
-        },
-        { rootMargin: `-${plafond}px 0px 0px 0px` },
-      );
-      observateur.observe(cible);
-    };
-
-    brancher();
-    window.addEventListener("resize", brancher);
-    return () => {
-      observateur?.disconnect();
-      window.removeEventListener("resize", brancher);
-    };
-  }, [barre]);
+  const replie = useReplieAuDefilement(barre, affiche);
 
   /** Ce qui se lit sous le score : la période, le chrono, l'état. */
   const etat = () => {
