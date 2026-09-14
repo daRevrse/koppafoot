@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
+import { ROLE_LABELS } from "@/types";
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -43,7 +44,28 @@ function SpacesSheet({
   // La porte vers la candidature organisateur vivait ici pour les comptes qui
   // ne le sont pas encore. Koppa Links la porte desormais, avec les deux
   // autres portes du produit, la garder en double n'apprend rien.
-  const spaces = [...espaces.roleItems, ...espaces.hatItems];
+  // LES DEUX FAMILLES NE SE MELANGENT PLUS. Le calcul les distingue depuis
+  // toujours — ce que le ROLE donne d'un cote, ce que les CASQUETTES donnent
+  // de l'autre — et la feuille les versait dans une grille unique. On y
+  // cherchait « Console live » parmi ses statistiques, et rien ne disait
+  // pourquoi ces cases-la se trouvaient ensemble.
+  // LE PREMIER GROUPE PORTE LE ROLE, pas le nom du menu. « MySpace » comme
+  // intitule de section, dans une feuille deja titree « Mes espaces »,
+  // repetait le contenant au lieu de nommer le contenu.
+  //
+  // Le commentaire de `useEspaces` ecarte « Espace joueur » comme nom DU
+  // MENU, parce qu'un compte cumule un role et des casquettes et que le menu
+  // contenait alors deux familles dont une seule etait nommee. Nommer les
+  // deux sections leve exactement cette objection.
+  const groupes = [
+    {
+      titre: user.evolutionRole
+        ? `Espace ${(ROLE_LABELS[user.evolutionRole] ?? "").toLowerCase()}`
+        : espaces.label,
+      items: espaces.roleItems,
+    },
+    { titre: "Mes casquettes", items: espaces.hatItems },
+  ].filter((g) => g.items.length > 0);
 
   return (
     <>
@@ -100,27 +122,36 @@ function SpacesSheet({
               d'une autre teinte, le fond de la grille qu'on voyait par le
               trou. Une case qu'on ne peut pas toucher n'a rien a faire dans
               une grille de raccourcis. */}
-          <div className="grid grid-cols-3 gap-px bg-white/10 pb-safe">
-            {spaces.map(({ href, label, Icon }, i) => {
-              const reste = spaces.length - i;
-              const dernier = i === spaces.length - 1;
-              const comble = dernier && reste < 3 && spaces.length % 3 !== 0
-                ? (spaces.length % 3 === 1 ? "col-span-3" : "col-span-2")
-                : "";
-              return (
-              <Link
-                key={href}
-                href={href}
-                onClick={onClose}
-                className={`flex flex-col items-center gap-2 bg-emerald-950 px-2 py-5 text-center transition-colors active:bg-emerald-900 ${comble}`}
-              >
-                <Icon size={22} strokeWidth={1.5} className="text-emerald-400" />
-                <span className="text-[10px] font-black uppercase leading-tight tracking-[0.08em] text-white/80">
-                  {label}
-                </span>
-              </Link>
-              );
-            })}
+          <div className="pb-safe">
+            {groupes.map((groupe, g) => (
+              <div key={groupe.titre}>
+                <p className={`px-5 pb-2 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-400/70 ${g === 0 ? "pt-1" : "pt-4"}`}>
+                  {groupe.titre}
+                </p>
+                <div className="grid grid-cols-3 gap-px bg-white/10">
+                  {groupe.items.map(({ href, label, Icon }, i) => {
+                    const dernier = i === groupe.items.length - 1;
+                    const reste = groupe.items.length % 3;
+                    const comble = dernier && reste !== 0
+                      ? (reste === 1 ? "col-span-3" : "col-span-2")
+                      : "";
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={onClose}
+                        className={`flex flex-col items-center gap-2 bg-emerald-950 px-2 py-5 text-center transition-colors active:bg-emerald-900 ${comble}`}
+                      >
+                        <Icon size={22} strokeWidth={1.5} className="text-emerald-400" />
+                        <span className="text-[10px] font-black uppercase leading-tight tracking-[0.08em] text-white/80">
+                          {label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

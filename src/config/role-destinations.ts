@@ -1,4 +1,4 @@
-import { Users, ClipboardCheck, CalendarDays, BarChart3, Trophy } from "lucide-react";
+import { Users, ClipboardCheck, CalendarDays, BarChart3, Medal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { EvolutionRole } from "@/types";
 
@@ -26,8 +26,11 @@ export interface RoleDestination {
 
 export const ROLE_DESTINATIONS: Partial<Record<EvolutionRole, RoleDestination[]>> = {
   player: [
-    { href: "/teams", label: "Mes équipes", hint: "Les équipes dont tu fais partie", Icon: Users },
-    { href: "/participations", label: "Mes convocations", hint: "Réponds aux convocations reçues", Icon: ClipboardCheck },
+    // MES CONVOCATIONS ET LE MERCATO NE SONT PLUS ICI. Ils ne sont pas des
+    // espaces a part : ils concernent l'equipe, et ils s'ouvrent depuis
+    // « Mes equipes », qui en porte desormais les deux portes. Le menu
+    // gagne deux cases et perd deux redites.
+    { href: "/teams", label: "Mes équipes", hint: "Ton effectif, tes convocations, le mercato", Icon: Users },
     { href: "/calendar", label: "Calendrier", hint: "Tes matchs et entraînements", Icon: CalendarDays },
     { href: "/stats", label: "Mes statistiques", hint: "Buts, cartons et matchs joués", Icon: BarChart3 },
   ],
@@ -35,7 +38,7 @@ export const ROLE_DESTINATIONS: Partial<Record<EvolutionRole, RoleDestination[]>
     { href: "/teams", label: "Mon équipe", hint: "Effectif, entraînements, palmarès", Icon: Users },
     { href: "/matches", label: "Matchs amicaux", hint: "Défis et rencontres à planifier", Icon: Users },
     { href: "/calendar", label: "Calendrier", hint: "Tes matchs et entraînements", Icon: CalendarDays },
-    { href: "/mon-equipe", label: "Mes compétitions", hint: "Effectif engagé et classements", Icon: Trophy },
+    { href: "/mon-equipe", label: "Mes compétitions", hint: "Effectif engagé et classements", Icon: Medal },
   ],
   // L'arbitre n'avait rien ici tant que ses écrans étaient au placard, ce qui
   // donnait un rôle activable dont le menu s'ouvrait vide. « Mes

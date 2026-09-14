@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Users, Search, Plus, ChevronRight, Shield, MapPin,
+  Users, Search, Plus, ChevronRight, Shield, MapPin, ClipboardCheck, Store,
   Star, Settings, X, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -313,11 +313,27 @@ export default function TeamsPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
+          className="flex flex-wrap items-center gap-2"
         >
-          {/* Players get no button here: finding a team is the header search's
-              job now (Équipes tab on /competitions). The old "Trouver une
-              équipe, bientôt" teaser pointed at the shelved mercato and did
-              nothing when clicked. */}
+          {/* LES CONVOCATIONS ET LE MERCATO ARRIVENT DU MENU « Mes espaces »,
+              ou ils occupaient deux cases parmi des espaces alors qu'ils ne
+              parlent que d'une chose : l'equipe. Ils se tiennent donc ici,
+              sur la page qui la porte.
+
+              Les convocations d'abord : on y repond, et une reponse a une
+              date limite — c'est le seul des deux qui presse. */}
+          <Link
+            href="/participations"
+            className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
+          >
+            <ClipboardCheck size={16} /> Mes convocations
+          </Link>
+          <Link
+            href="/mercato"
+            className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
+          >
+            <Store size={16} /> Mercato
+          </Link>
           {isManager && (
             <button
               onClick={() => setShowCreateModal(true)}
@@ -444,9 +460,16 @@ export default function TeamsPage() {
               <Plus size={16} /> Créer une équipe
             </button>
           ) : (
-            <span className="mt-6 inline-flex cursor-not-allowed items-center gap-2 bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-400">
-              <Search size={16} /> Le mercato arrive bientôt
-            </span>
+            /* « Le mercato arrive bientot » : il etait arrive depuis
+               longtemps, et figurait meme dans le menu des espaces. Un
+               bouton grise qui annonce ce qui existe deja n'egare pas
+               seulement, il decourage d'aller voir. */
+            <Link
+              href="/mercato"
+              className="mt-6 inline-flex items-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+            >
+              <Search size={16} /> Trouver une équipe au mercato
+            </Link>
           )}
         </motion.div>
       )}
