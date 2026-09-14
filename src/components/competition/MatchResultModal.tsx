@@ -11,6 +11,8 @@ import {
   type ResultGoal,
 } from "@/lib/competition-firestore";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
+import { classerCandidatsMVPSaisie, type CandidatMVPSaisie } from "@/lib/mvp";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Competition, CompMatch, CompPlayer, CompTeam } from "@/types";
 import toast from "react-hot-toast";
 
@@ -37,7 +39,17 @@ const emptyGoalRow = (): GoalRow => ({ playerId: "", newName: "", minute: "", ow
 
 /** Fit the scorer lines to a score, keeping what the organizer already typed. */
 function resizeGoalRows(rows: GoalRow[], score: number): GoalRow[] {
-  const n = Math.max(0, Math.min(isNaN(score) ? 0 : score, MAX_GOAL_LINES));
+  // UN SCORE ILLISIBLE NE VAUT PAS ZÉRO BUT. `parseInt("")` rend `NaN`, et le
+  // traiter comme 0 vidait la liste : à l'ouverture, l'effet d'ajustement se
+  // déclenchait avec le score de l'instant d'avant — le champ encore vide —
+  // et détruisait les buteurs que l'amorçage venait de relire, avant de
+  // rajouter des lignes vierges une fois le score arrivé. Rouvrir une saisie
+  // pour corriger une faute de frappe effaçait donc TOUS les buteurs
+  // enregistrés, sans rien dire. Le champ vidé à la main garde ses lignes
+  // pour la même raison : on efface ce qui est saisi sur un nombre, pas sur
+  // une frappe en cours.
+  if (isNaN(score)) return rows;
+  const n = Math.max(0, Math.min(score, MAX_GOAL_LINES));
   if (rows.length === n) return rows;
   if (rows.length > n) return rows.slice(0, n);
   return [...rows, ...Array.from({ length: n - rows.length }, emptyGoalRow)];
@@ -77,6 +89,9 @@ export default function MatchResultModal({
   const [homeGoalRows, setHomeGoalRows] = useState<GoalRow[]>([]);
   const [awayGoalRows, setAwayGoalRows] = useState<GoalRow[]>([]);
   const [saving, setSaving] = useState(false);
+  // La ligne d'effectif couronnée, "" pour personne. Voir `ChoixHommeDuMatch`.
+  const [mvpId, setMvpId] = useState("");
+  const { user } = useAuth();
 
   const rosterOf = (teamId: string | null): CompPlayer[] =>
     teams.find((t) => t.id === teamId)?.players ?? [];
@@ -127,6 +142,9 @@ export default function MatchResultModal({
 
     setHomeGoalRows(rowsFor("home"));
     setAwayGoalRows(rowsFor("away"));
+    // Rouvrir la saisie montre la désignation déjà faite, plutôt qu'un champ
+    // vide qui laisserait croire qu'il n'y en a pas.
+    setMvpId(match.mvpPlayerId ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.id]);
 
@@ -265,13 +283,22 @@ export default function MatchResultModal({
         goals.push({ side, playerId, playerName, minute, ownGoal: row.ownGoal });
       }
 
-      await setCompMatchResult(cid, match.id, {
-        scoreHome: h,
-        scoreAway: a,
-        goals,
-        penaltyHome: ph,
-        penaltyAway: pa,
-      });
+      const choisi = candidats.find((c) => c.playerId === mvpId) ?? null;
+      await setCompMatchResult(
+        cid,
+        match.id,
+        {
+          scoreHome: h,
+          scoreAway: a,
+          goals,
+          penaltyHome: ph,
+          penaltyAway: pa,
+          mvp: choisi
+            ? { playerId: choisi.playerId, userId: choisi.userId, name: choisi.name, teamId: choisi.teamId }
+            : null,
+        },
+        user?.uid,
+      );
 
       // Announce the result to the competition's followers, this is the match
       // the live console never ran, so nobody has heard about it yet. Only on
@@ -301,6 +328,34 @@ export default function MatchResultModal({
       setSaving(false);
     }
   };
+
+  /**
+   * Les candidats, recalculés sur ce qui est tapé À L'INSTANT.
+   *
+   * Pas sur les buts déjà enregistrés : l'organisateur saisit son résultat et
+   * désigne dans la foulée, les buteurs qu'il vient d'inscrire doivent remonter
+   * sans qu'il ait à enregistrer puis rouvrir.
+   */
+  const candidats: CandidatMVPSaisie[] = (() => {
+    if (!match) return [];
+    const buts = new Map<string, number>();
+    for (const [rows, side] of [[homeGoalRows, "home"], [awayGoalRows, "away"]] as const) {
+      for (const row of rows) {
+        // Un csc appartient au camp d'en face et ne compte pour personne ici,
+        // même règle que partout ailleurs.
+        if (row.ownGoal || !row.playerId || row.playerId === NEW_PLAYER) continue;
+        void side;
+        buts.set(row.playerId, (buts.get(row.playerId) ?? 0) + 1);
+      }
+    }
+    return classerCandidatsMVPSaisie(
+      [
+        { cote: "home", teamId: match.homeTeamId ?? "", effectif: rosterOf(match.homeTeamId) },
+        { cote: "away", teamId: match.awayTeamId ?? "", effectif: rosterOf(match.awayTeamId) },
+      ],
+      buts,
+    );
+  })();
 
   const completed = match?.status === "completed";
   const shootoutVisible =
@@ -431,6 +486,43 @@ export default function MatchResultModal({
                 </p>
               </div>
             )}
+
+            {/* L'homme du match. Sous les buteurs : il se désigne une fois qu'on
+                sait qui a marqué, et il reste facultatif — un organisateur qui
+                n'était pas au stade n'a aucune raison de trancher. */}
+            <div className="mt-6">
+              <label htmlFor="mvp" className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                Homme du match
+              </label>
+              <select
+                id="mvp"
+                value={mvpId}
+                onChange={(e) => setMvpId(e.target.value)}
+                className="w-full border border-gray-200/70 bg-white px-2.5 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              >
+                <option value="">Personne</option>
+                {([["home", match.homeTeamName], ["away", match.awayTeamName]] as const).map(
+                  ([cote, nomEquipe]) => {
+                    const liste = candidats.filter((c) => c.cote === cote);
+                    if (liste.length === 0) return null;
+                    return (
+                      <optgroup key={cote} label={nomEquipe}>
+                        {liste.map((c) => (
+                          <option key={c.playerId} value={c.playerId}>
+                            {c.name}{c.motif ? ` — ${c.motif}` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  },
+                )}
+              </select>
+              <p className="mt-2 text-[11px] text-gray-400">
+                Les buteurs remontent en tête de chaque équipe. Tout l&apos;effectif reste
+                proposé : cette saisie ne connaît ni les arrêts ni le temps de jeu, c&apos;est
+                donc à vous de juger.
+              </p>
+            </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button

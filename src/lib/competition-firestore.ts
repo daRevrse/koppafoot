@@ -1580,7 +1580,20 @@ export async function setCompMatchResult(
     goals: ResultGoal[];
     penaltyHome?: number | null;
     penaltyAway?: number | null;
+    /**
+     * L'homme du match, quand l'organisateur en désigne un.
+     *
+     * TROIS ÉTATS, PAS DEUX. Absent : on n'y touche pas — rouvrir la saisie
+     * pour corriger une faute de frappe ne doit pas décoiffer une désignation
+     * déjà faite. `null` : on la retire. Sinon on la pose.
+     *
+     * Écrit dans la MÊME mise à jour que le score : deux écritures auraient
+     * laissé un match couronné sans résultat, ou l'inverse, chaque fois que la
+     * seconde échoue.
+     */
+    mvp?: { playerId: string; userId: string | null; name: string; teamId: string } | null;
   },
+  parUid?: string,
 ): Promise<void> {
   const snap = await getDoc(doc(db, "competitions", cid, "comp_matches", mid));
   if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
@@ -1651,6 +1664,16 @@ export async function setCompMatchResult(
     live_state: liveState,
     updated_at: serverTimestamp(),
   };
+
+  if (input.mvp !== undefined) {
+    updates.mvp_player_id = input.mvp?.playerId ?? null;
+    updates.mvp_user_id = input.mvp?.userId ?? null;
+    updates.mvp_player_name = input.mvp?.name ?? null;
+    updates.mvp_team_id = input.mvp?.teamId ?? null;
+    updates.mvp_by = input.mvp ? parUid ?? null : null;
+    updates.mvp_at = input.mvp ? new Date().toISOString() : null;
+  }
+
   await updateDoc(doc(db, "competitions", cid, "comp_matches", mid), updates);
 
   await propagateBracketWinner(cid, toCompMatch(mid, d), winnerId);
