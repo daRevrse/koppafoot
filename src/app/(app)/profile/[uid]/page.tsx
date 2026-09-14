@@ -12,7 +12,6 @@ import {
   Loader2,
   Users,
   Trophy,
-  Target,
   Star,
   Building2,
   Award,
@@ -47,6 +46,7 @@ import { ROLE_BADGE_COLORS } from "@/config/navigation";
 import { ROLE_LABELS } from "@/types";
 import type { UserProfile, Post } from "@/types";
 import { PostCard, timeAgo } from "@/components/feed/PostCard";
+import ProfileBanner from "@/components/profile/ProfileBanner";
 
 /**
  * Une équipe telle que /api/public/profile/[uid] la projette : ce qui
@@ -138,10 +138,11 @@ type PublicTab = "overview" | "posts" | "galerie" | "palmares";
 // Sub-components
 // ============================================
 
-function StatCard({ label, value }: { label: string; value: number }) {
+/** Une case de la rangee de bilan, sous la banniere. */
+function BilanCase({ label, value }: { label: string; value: number }) {
   return (
-    <div className="border border-gray-200/70 bg-white px-4 py-5 text-center">
-      <span className="block font-display text-3xl font-black tabular-nums leading-none text-gray-900">
+    <div className="px-3 py-5 text-center">
+      <span className="block font-display text-3xl font-black tabular-nums leading-none text-gray-900 sm:text-4xl">
         {value}
       </span>
       <span className="mt-2 block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
@@ -150,6 +151,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
 
 /**
  * Une équipe du joueur, sur sa fiche publique.
@@ -272,23 +274,15 @@ function PhysicalInfoCard({ profile }: { profile: UserProfile }) {
 // ============================================
 
 function PlayerSection({ profile, teams }: { profile: UserProfile; teams: EquipePubliee[] }) {
-  const position = profile.position ? POSITION_LABELS[profile.position] ?? profile.position : null;
   const level = profile.skillLevel ? SKILL_LEVEL_LABELS[profile.skillLevel] ?? profile.skillLevel : null;
-
-  const matchesPlayed = profile.matchesPlayed ?? 0;
-  const goals = profile.goals ?? 0;
-  const assists = profile.assists ?? 0;
 
   return (
     <div className="space-y-6">
-      {/* Badges */}
-      {(position || level) && (
+      {/* Le poste ne revient pas ici : la banniere le porte deja, sous le
+          nom, avec le club. Deux fois le meme mot sur un ecran de telephone,
+          c'est une fois de trop. */}
+      {level && (
         <div className="flex flex-wrap gap-2">
-          {position && (
-            <span className="flex items-center gap-1.5 border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
-              <Target size={14} /> {position}
-            </span>
-          )}
           {level && (
             <span className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
               <Star size={14} /> {level}
@@ -298,18 +292,6 @@ function PlayerSection({ profile, teams }: { profile: UserProfile; teams: Equipe
       )}
 
       <PhysicalInfoCard profile={profile} />
-
-      {/* Stats */}
-      <div>
-        <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-gray-400">
-          Statistiques
-        </h3>
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard label="Matchs joués" value={matchesPlayed} />
-          <StatCard label="Buts" value={goals} />
-          <StatCard label="Passes déc." value={assists} />
-        </div>
-      </div>
 
       {/* Teams */}
       <div>
@@ -488,6 +470,9 @@ async function fetchPublicProfile(
       evolutionRole: profile.evolution_role ?? null,
       jerseyNumber: profile.jersey_number ?? null,
       galleryUrls: profile.gallery_urls ?? [],
+      matchesPlayed: profile.matches_played ?? 0,
+      goals: profile.goals ?? 0,
+      assists: profile.assists ?? 0,
       // Le cast passe par `unknown` a dessein : UserProfile exige email,
       // phone et quelques champs de compte que cette projection ne porte pas
       //, c'est tout l'interet de la projection. La page ne lit aucun d'eux.
@@ -505,6 +490,14 @@ export default function PublicProfilePage() {
   const { uid } = useParams<{ uid: string }>();
   const router = useRouter();
   const { user: currentUser, loading: authLoading } = useAuth();
+
+  /** Meme repli que le tableau d'affichage, voir MatchHero. */
+  const revenir = () => {
+    // `history.length > 1` distingue une navigation interne d'une arrivee
+    // directe (lien partage, onglet neuf), ou `back()` sortirait du site.
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  };
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [apercu, setApercu] = useState<ApercuSansPage | null>(null);
@@ -843,121 +836,118 @@ export default function PublicProfilePage() {
   const isManager = profile.evolutionRole === "manager" || profile.userType === "manager";
   const isReferee = profile.evolutionRole === "referee" || profile.userType === "referee";
 
+  // Sous le nom : ce qu'il est sur le terrain, et pour qui. C'est la ligne
+  // que la maquette pose sous l'ecusson du club — elle dit en trois mots ce
+  // que la fiche entiere developpe plus bas.
+  const clubPrincipal = teams[0]?.name ?? null;
+  const posteLisible = profile.position
+    ? POSITION_LABELS[profile.position] ?? profile.position
+    : null;
+  const surtitre = [posteLisible, clubPrincipal].filter(Boolean).join(" · ") || profile.locationCity;
+
   return (
     <div className="mx-auto max-w-6xl pb-24">
-      {/* Fil d'ariane plutot qu'un bouton Retour : il dit d'ou l'on vient ET
-          ou l'on est, la ou « Retour » ne disait ni l'un ni l'autre. */}
-      <nav
-        aria-label="Fil d'ariane"
-        className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
-      >
-        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <span className="truncate text-gray-600">
-          {profile.firstName} {profile.lastName}
-        </span>
-      </nav>
-
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Hero collant sous le header, comme sur une competition. La photo
-            de couverture devient le fond : elle etait un bandeau decoratif de
-            180px qui poussait le contenu sous la ligne de flottaison. */}
-        <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
-          {profile.coverPhotoUrl ? (
+        <ProfileBanner
+          coverUrl={profile.coverPhotoUrl}
+          avatarUrl={profile.profilePictureUrl}
+          initials={initials}
+          name={`${profile.firstName} ${profile.lastName}`}
+          eyebrow={surtitre}
+          topBar={
+            /* UN RETOUR, PAS UN FIL D'ARIANE. La page en portait un, et il ne
+               s'affichait pas : globals.css les masque tous depuis la
+               decision du 2026-09-05, en renvoyant au bouton retour du
+               tableau d'affichage comme premiere reponse. C'est donc ce
+               bouton-la, pose sur l'image comme sur l'affiche d'un match. */
+            <button
+              type="button"
+              onClick={revenir}
+              aria-label="Revenir à l'écran précédent"
+              className="flex h-9 w-9 shrink-0 items-center justify-center border border-white/25 bg-black/25 text-white/80 backdrop-blur-sm transition-colors hover:border-white hover:text-white"
+            >
+              <ArrowLeft size={16} />
+            </button>
+          }
+          meta={
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={profile.coverPhotoUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
-              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/85 to-gray-900/60" />
-            </>
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-          )}
-
-          <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 text-lg font-black text-white/80">
-                {profile.profilePictureUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.profilePictureUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  initials
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                  {profile.locationCity ?? ""}
-                </p>
-                <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
-                  {profile.firstName} {profile.lastName}
-                </h1>
-              </div>
-
-              {/* Les deux actions restent au niveau du nom : suivre quelqu'un
-                  et le mettre en selection se decident en le regardant. */}
-              <div className="hidden shrink-0 items-center gap-2 sm:flex">
-                {currentUser && !isOwnProfile && (
-                  <button
-                    onClick={handleFollow}
-                    disabled={followLoading}
-                    className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
-                      following
-                        ? "border-white/30 text-white/80 hover:border-white"
-                        : "border-white bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-300"
-                    }`}
-                  >
-                    {followLoading ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : following ? (
-                      <UserMinus size={13} />
-                    ) : (
-                      <UserPlus size={13} />
-                    )}
-                    {following ? "Abonné" : "Suivre"}
-                  </button>
-                )}
-
-                {isManagerViewingPlayer && (
-                  <button
-                    onClick={handleShortlist}
-                    disabled={shortlistLoading}
-                    className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
-                      shortlistEntryId
-                        ? "border-emerald-300 text-emerald-300"
-                        : "border-white/30 text-white/80 hover:border-white"
-                    }`}
-                  >
-                    {shortlistLoading ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : shortlistEntryId ? (
-                      <CheckCircle size={13} />
-                    ) : (
-                      <Plus size={13} />
-                    )}
-                    {shortlistEntryId ? "Dans la sélection" : "Mercato"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
               <span className="text-emerald-300">
                 {followerCount} abonné{followerCount > 1 ? "s" : ""}
               </span>
               {teams.length > 0 && (
                 <span>{teams.length} équipe{teams.length > 1 ? "s" : ""}</span>
               )}
-            </div>
+            </>
+          }
+          actions={
+            /* Les deux actions restent au niveau du nom : suivre quelqu'un
+               et le mettre en selection se decident en le regardant. */
+            <div className="hidden items-center gap-2 sm:flex">
+              {currentUser && !isOwnProfile && (
+                <button
+                  onClick={handleFollow}
+                  disabled={followLoading}
+                  className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
+                    following
+                      ? "border-white/40 text-white hover:border-white"
+                      : "border-white bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-300"
+                  }`}
+                >
+                  {followLoading ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : following ? (
+                    <UserMinus size={13} />
+                  ) : (
+                    <UserPlus size={13} />
+                  )}
+                  {following ? "Abonné" : "Suivre"}
+                </button>
+              )}
 
-            {profile.bio && (
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">{profile.bio}</p>
-            )}
+              {isManagerViewingPlayer && (
+                <button
+                  onClick={handleShortlist}
+                  disabled={shortlistLoading}
+                  className={`flex items-center gap-2 border px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] transition-colors disabled:opacity-60 ${
+                    shortlistEntryId
+                      ? "border-emerald-300 text-emerald-300"
+                      : "border-white/40 text-white hover:border-white"
+                  }`}
+                >
+                  {shortlistLoading ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : shortlistEntryId ? (
+                    <CheckCircle size={13} />
+                  ) : (
+                    <Plus size={13} />
+                  )}
+                  {shortlistEntryId ? "Dans la sélection" : "Mercato"}
+                </button>
+              )}
+            </div>
+          }
+        />
+
+        {profile.bio && (
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-gray-600">{profile.bio}</p>
+        )}
+
+        {/* LE BILAN REMONTE SOUS LA BANNIERE. Il vivait au fond de l'onglet
+            « Apercu », sous les badges et les mensurations : trois nombres
+            qu'on ouvrait la fiche pour lire, et qu'il fallait chercher. La
+            maquette les pose en rangee juste sous l'image, et elle a raison —
+            c'est la premiere chose qui doit remonter au defilement. */}
+        {isPlayer && (
+          <div className="mt-6 grid grid-cols-3 divide-x divide-gray-200/70 border border-gray-200/70 bg-white">
+            <BilanCase label="Matchs" value={profile.matchesPlayed ?? 0} />
+            <BilanCase label="Buts" value={profile.goals ?? 0} />
+            <BilanCase label="Passes déc." value={profile.assists ?? 0} />
           </div>
-        </section>
+        )}
 
         {/* Une seule carte, dont les onglets changent le contenu. */}
         <div className="mt-6 border border-gray-200/70 bg-white">

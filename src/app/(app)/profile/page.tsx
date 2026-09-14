@@ -22,6 +22,7 @@ import KoppaFootCard from "@/components/ui/KoppaFootCard";
 import LoginMethodsCard from "@/components/auth/LoginMethodsCard";
 import { useT } from "@/i18n";
 import type { Post } from "@/types";
+import ProfileBanner from "@/components/profile/ProfileBanner";
 
 // ============================================
 // Schema
@@ -364,80 +365,59 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-6xl pb-24">
-      {/* Le meme hero que la fiche publique : la photo de couverture devient
-          le fond au lieu d'un bandeau de 200px, et l'identite se lit d'un
-          coup. On garde ici ce que la fiche publique n'a pas, le bouton
-          d'appareil photo sur l'avatar, et l'entree en edition. */}
-      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
-        {user.coverPhotoUrl ? (
+      {/* La meme banniere que la fiche publique, et pour la meme raison : la
+          photo de couverture se televerse ICI. Si elle s'y montrait a 35 %
+          sous un degrade et en pleine page ailleurs, on choisirait son image
+          sans jamais voir ce qu'elle donne. On garde ce que la fiche publique
+          n'a pas : l'appareil photo sur l'avatar, et l'entree en edition. */}
+      <ProfileBanner
+        coverUrl={user.coverPhotoUrl ?? null}
+        avatarUrl={user.profilePictureUrl ?? null}
+        initials={initials}
+        name={`${user.firstName} ${user.lastName}`}
+        eyebrow="Mon compte"
+        avatarBadge={
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={user.coverPhotoUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/85 to-gray-900/60" />
+            <button
+              onClick={() => avatarRef.current?.click()}
+              disabled={uploadingAvatar}
+              aria-label="Changer ma photo"
+              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white transition-transform hover:bg-emerald-400 active:scale-90"
+            >
+              {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+            </button>
+            <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-        )}
-
-        <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative shrink-0">
-              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white/10 text-lg font-black text-white/80">
-                {user.profilePictureUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  initials
-                )}
-              </div>
-              <button
-                onClick={() => avatarRef.current?.click()}
-                disabled={uploadingAvatar}
-                aria-label="Changer ma photo"
-                className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white transition-transform hover:bg-emerald-400 active:scale-90"
-              >
-                {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
-              </button>
-              <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                Mon compte
-              </p>
-              <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
-                {user.firstName} {user.lastName}
-              </h1>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-3">
-              <Link
-                href={`/profile/${user.uid}`}
-                className="text-[11px] font-black uppercase tracking-[0.15em] text-white/60 transition-colors hover:text-white"
-              >
-                Ma fiche publique
-              </Link>
-              {!editing && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="flex items-center gap-2 border border-white bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-300 hover:bg-emerald-300"
-                >
-                  <Edit3 size={13} />
-                  Modifier
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
+        }
+        meta={
+          <>
             {user.locationCity && <span>{user.locationCity}</span>}
             {memberSince && <span>Depuis {memberSince}</span>}
             <span className="text-emerald-300">
               {user.followersCount ?? 0} abonné{(user.followersCount ?? 0) > 1 ? "s" : ""}
             </span>
+          </>
+        }
+        actions={
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/profile/${user.uid}`}
+              className="hidden text-[11px] font-black uppercase tracking-[0.15em] text-white/70 transition-colors hover:text-white sm:inline"
+            >
+              Ma fiche publique
+            </Link>
+            {!editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 border border-white bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-300 hover:bg-emerald-300"
+              >
+                <Edit3 size={13} />
+                Modifier
+              </button>
+            )}
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* Une seule carte, dont les onglets changent le contenu. */}
       <div className="mt-6 border border-gray-200/70 bg-white">
