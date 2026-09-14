@@ -29,9 +29,18 @@ import HeaderProgress from "./HeaderProgress";
 // briefly lived on a third band went in there too: a second row of links was
 // a lot of chrome for pages visited once a week.
 //
-// Shared bits (search, notifications) are reused as-is and re-toned for the
-// dark band through descendant selectors, rather than forked, those files
-// belong to the current shell and must keep working there unchanged.
+// LA BANDE EST CLAIRE. Elle a longtemps ete vert nuit, et tout ce qu'elle
+// portait le supposait : `text-white`, `bg-white/10`, `text-emerald-100/80`.
+// Elle est maintenant ecrite en jetons NEUTRES — `bg-white`, `text-gray-900`,
+// `text-gray-500`, `hover:bg-gray-100` — et c'est ce qui la rend noire en
+// theme sombre sans une ligne de plus : styles/dark.css reprend chacun de ces
+// utilitaires. Un jeton de surface sombre ecrit ici (`text-white`,
+// `bg-white/10`) ne serait PAS repris — dark.css les laisse volontairement
+// tranquilles — et donnerait du blanc sur blanc en clair.
+//
+// Les elements partages (recherche, notifications) sont reutilises tels
+// quels ; leur re-teinte passe par des selecteurs de descendance, elle aussi
+// en jetons neutres.
 // ============================================
 
 /** The Direct board, the home. */
@@ -196,10 +205,10 @@ function EspaceMenu({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors xl:px-3.5 ${open ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
           }`}
       >
-        <Icon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
+        <Icon size={17} className={open ? "text-emerald-600" : "text-gray-400"} />
         {label}
         <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -246,10 +255,10 @@ function KoppaLinksMenu() {
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${open ? "bg-white/15 text-white" : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors xl:px-3.5 ${open ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
           }`}
       >
-        <LinkIcon size={17} className={open ? "text-amber-300" : "text-emerald-300/70"} />
+        <LinkIcon size={17} className={open ? "text-emerald-600" : "text-gray-400"} />
         Koppa Links
         <ChevronDown
           size={15}
@@ -392,21 +401,21 @@ function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={user ? t("compte.monCompte") : t("compte.compteEtReglages")}
-        className="flex items-center gap-1 rounded-full p-0.5 pr-1 transition-colors hover:bg-white/10"
+        className="flex items-center gap-1 rounded-full p-0.5 pr-1 transition-colors hover:bg-gray-100"
       >
         {user?.profilePictureUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={user.profilePictureUrl}
             alt=""
-            className="h-9 w-9 rounded-full object-cover ring-1 ring-white/20"
+            className="h-9 w-9 rounded-full object-cover ring-1 ring-gray-200"
           />
         ) : (
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-black text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-xs font-black text-gray-700">
             {user ? initials : <User size={18} />}
           </span>
         )}
-        <ChevronDown size={13} className="hidden text-emerald-200/70 sm:block" />
+        <ChevronDown size={13} className="hidden text-gray-400 sm:block" />
       </button>
 
       {open && (
@@ -566,23 +575,23 @@ export default function ScoreHeader({
         inutile. z-40 passe au-dessus du contenu sans couvrir les modales. */}
     <header
       ref={headerRef}
-      className={`sticky top-0 z-40 bg-emerald-900 pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
+      className={`sticky top-0 z-40 border-b border-gray-200/70 bg-white pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
     >
-      <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-5 lg:px-8 lg:py-4">
+      <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-4 lg:px-5 lg:py-4 xl:gap-5 xl:px-8">
         {/* LE SYMBOLE EST PARTI. Il doublait le mot-marque a cote de lui —
             deux fois la meme chose pour dire la meme chose — et il coutait
             34 pixels sur une bande qui en compte 375. Le mot tient le retour
             a l'accueil tout seul, et la place gagnee revient au compte, a
             droite. */}
         <Link href={HOME} className="flex shrink-0 items-center">
-          <span className="font-display text-base font-black uppercase tracking-[0.14em] text-white lg:text-lg">
+          <span className="font-display text-base font-black uppercase tracking-[0.14em] text-gray-900 lg:text-lg">
             Koppafoot
           </span>
         </Link>
 
         {/* Sections. Hidden on a phone: the bottom tab bar owns navigation
-            there, and the mobile band stays light. */}
-        <nav className="ml-auto hidden min-w-0 items-center gap-0.5 lg:flex">
+            there. */}
+        <nav className="ml-auto hidden shrink-0 items-center gap-0.5 lg:flex">
           {(user ? [...PRIMARY, TRIBUNE] : PRIMARY).map((item) => {
             const active = item.exact
               ? pathname === item.href
@@ -593,12 +602,12 @@ export default function ScoreHeader({
                 href={item.href}
                 {...(item.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 aria-current={active ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors ${active
-                  ? "bg-white/15 text-white"
-                  : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
+                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] transition-colors xl:px-3.5 ${active
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                   }`}
               >
-                <item.Icon size={17} className={active ? "text-amber-300" : "text-emerald-300/70"} />
+                <item.Icon size={17} className={active ? "text-emerald-600" : "text-gray-400"} />
                 {item.cle ? t(item.cle) : item.label}
               </Link>
             );
@@ -619,7 +628,7 @@ export default function ScoreHeader({
               // s'ouvre plus. Un visiteur y trouve l'inscription, un compte sans
               // rôle l'activation, et on repart sur le direct une fois choisi.
               href="/roles"
-              className="flex shrink-0 items-center gap-2 border border-amber-300 bg-amber-300 px-3.5 py-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-gray-900 transition-colors hover:border-white hover:bg-white"
+              className="flex shrink-0 items-center gap-2 border border-amber-300 bg-amber-300 px-3 py-2.5 xl:px-3.5 text-[13px] font-black uppercase tracking-[0.1em] text-gray-900 transition-colors hover:border-amber-400 hover:bg-amber-400"
             >
               <Rocket size={16} />
               Evolution
@@ -650,10 +659,17 @@ export default function ScoreHeader({
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
-          className="hidden w-56 shrink-0 items-center gap-2.5 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-left transition-colors hover:bg-white/15 lg:flex xl:w-72"
+          // LE CHAMP NE REVIENT QU'A 1536. La rangee de sections reclame
+          // 686 px et n'en recevait que 489 a 1024 : elle debordait de sa
+          // boite et « Koppa Links » s'ecrivait PAR-DESSUS « Compétition,
+          // équipe, joueur… ». Sur la bande vert nuit ca se voyait a peine,
+          // sur du blanc c'est illisible. En dessous de 1536, c'est l'icone
+          // ronde qui prend le relais — elle existe deja pour le telephone,
+          // elle ouvre la meme modale, et elle coute 44 px au lieu de 288.
+          className="hidden w-72 shrink-0 items-center gap-2.5 rounded-full border border-gray-200/70 bg-gray-50 px-4 py-2.5 text-left transition-colors hover:bg-gray-100 2xl:flex"
         >
-          <Search size={17} className="shrink-0 text-emerald-200/50" />
-          <span className="truncate text-xs font-semibold text-emerald-200/50">
+          <Search size={17} className="shrink-0 text-gray-400" />
+          <span className="truncate text-xs font-semibold text-gray-400">
             {t("nav.recherche")}
           </span>
         </button>
@@ -669,13 +685,13 @@ export default function ScoreHeader({
             type="button"
             onClick={() => setLinksOpen(true)}
             aria-label="Koppa Links"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 lg:hidden"
           >
             <LinkIcon size={22} />
           </button>
 
           {user && (
-            <div className="[&_button:hover]:bg-white/10 [&_button:hover]:text-white [&_button]:text-emerald-100/80">
+            <div className="[&_button:hover]:bg-gray-100 [&_button:hover]:text-gray-900 [&_button]:text-gray-500">
               <NotificationDropdown />
             </div>
           )}
@@ -683,7 +699,7 @@ export default function ScoreHeader({
             type="button"
             onClick={() => setSearchOpen(true)}
             aria-label="Rechercher"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 2xl:hidden"
           >
             <Search size={22} />
           </button>
@@ -701,18 +717,18 @@ export default function ScoreHeader({
             type="button"
             onClick={() => setCompteOpen(true)}
             aria-label={user ? "Mon compte" : "Se connecter"}
-            className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-gray-100 lg:hidden"
           >
-            <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all ${compteOpen ? "bg-emerald-700 ring-emerald-400" : "bg-emerald-800 ring-white/30"}`}>
+            <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all ${compteOpen ? "bg-emerald-50 ring-emerald-500" : "bg-gray-100 ring-gray-200"}`}>
               {user?.profilePictureUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
               ) : user ? (
-                <span className="text-[10px] font-bold text-emerald-200">
+                <span className="text-[10px] font-bold text-gray-600">
                   {`${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase()}
                 </span>
               ) : (
-                <UserIcon size={15} className="text-emerald-200" />
+                <UserIcon size={15} className="text-gray-500" />
               )}
             </span>
           </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 // ============================================
 // Le thème, clair ou sombre.
@@ -28,10 +28,16 @@ export type Theme = "light" | "dark";
 
 export const CLE_THEME = "koppafoot:theme";
 
-/** La couleur de la barre système du téléphone, qui doit suivre l'entête. */
+/**
+ * La couleur de la barre système du téléphone, qui doit suivre l'entête.
+ *
+ * L'entête était vert nuit, elle était verte avec lui. Il est blanc en clair
+ * et noir en sombre — `--k-surface`, le même noir légèrement vert que le
+ * reste du thème sombre — et elle le suit.
+ */
 const COULEUR_BARRE: Record<Theme, string> = {
-  light: "#059669",
-  dark: "#022c22",
+  light: "#ffffff",
+  dark: "#101714",
 };
 
 const abonnes = new Set<() => void>();
@@ -39,9 +45,33 @@ let ecouteSysteme: (() => void) | null = null;
 
 function appliquer(theme: Theme) {
   document.documentElement.dataset.theme = theme;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", COULEUR_BARRE[theme]);
+  peindreLaBarre(theme);
   abonnes.forEach((f) => f());
+}
+
+/**
+ * Ecrit la couleur de barre dans TOUTES les balises `theme-color`.
+ *
+ * Il peut y en avoir deux : le script de tete la pose avant le premier
+ * rendu, et Next en emet une depuis `viewport.themeColor`. Le navigateur
+ * retient la premiere qui s'applique — les mettre toutes a la meme valeur
+ * rend donc l'ordre sans importance.
+ *
+ * ON N'EN SUPPRIME AUCUNE, et c'est le point. Ces noeuds appartiennent a
+ * React : en retirer un sous lui faisait echouer son propre nettoyage plus
+ * tard, `removeChild` sur un parent devenu nul. Ecrire un attribut ne le
+ * derange pas, arracher un noeud si.
+ */
+function peindreLaBarre(theme: Theme) {
+  const balises = document.querySelectorAll('meta[name="theme-color"]');
+  if (balises.length === 0) {
+    const m = document.createElement("meta");
+    m.setAttribute("name", "theme-color");
+    m.setAttribute("content", COULEUR_BARRE[theme]);
+    document.head.appendChild(m);
+    return;
+  }
+  balises.forEach((m) => m.setAttribute("content", COULEUR_BARRE[theme]));
 }
 
 function souscrire(callback: () => void): () => void {
@@ -99,6 +129,14 @@ export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void } {
  * changerait rien tant qu'on n'ouvre pas le menu du compte.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  useTheme();
+  const { theme } = useTheme();
+
+  // Au montage seulement : `appliquer` ne tourne qu'a la bascule, et c'est
+  // apres l'hydratation que la balise de Next est sure d'etre la. Sans ca, la
+  // doublure posee par le script de tete resterait en place toute la visite.
+  useEffect(() => {
+    peindreLaBarre(theme);
+  }, [theme]);
+
   return <>{children}</>;
 }
