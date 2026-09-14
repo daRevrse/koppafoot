@@ -82,9 +82,12 @@ export default function HeaderProgress() {
       // `aria-hidden` : le changement de page est déjà annoncé par le titre et
       // le focus. Une barre bavarde doublerait l'annonce à chaque navigation.
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden bg-emerald-400/15 lg:hidden"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden bg-emerald-600/10 lg:hidden"
     >
-      <div className="animate-barre-navigation h-full w-full bg-emerald-300" />
+      {/* `emerald-600` et non `emerald-300` : le segment traversait une bande
+          vert nuit, il traverse maintenant du blanc, ou le vert clair ne se
+          voyait plus. */}
+      <div className="animate-barre-navigation h-full w-full bg-emerald-600" />
     </div>
   );
 }

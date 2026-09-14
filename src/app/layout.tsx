@@ -30,7 +30,15 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#059669",
+  // LA BARRE D'ETAT SUIT LE HEADER, devenu blanc. La valeur ci-dessous ne
+  // sert qu'au premier rendu : ThemeContext réécrit cette balise à chaque
+  // bascule (voir COULEUR_BARRE), et c'est là que vit la vraie table.
+  //
+  // UNE SEULE VALEUR, PAS UNE PAIRE `media`. Une paire ferait émettre deux
+  // balises `theme-color`, et le `querySelector` de ThemeContext ne trouve
+  // que la première : en sombre, il écrirait la couleur dans la balise
+  // marquée « light », que le navigateur ignore alors.
+  themeColor: "#ffffff",
   viewportFit: "cover",
 };
 
@@ -102,7 +110,12 @@ export const metadata: Metadata = {
   // images were (wrongly) hung off `icons.other`.
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    // `default` ET NON `black-translucent`. Le translucide fait commencer la
+    // vue web SOUS l'horloge, en texte blanc : c'etait juste tant que le
+    // header etait vert nuit, ca rend l'heure et la batterie invisibles sur
+    // un header blanc. `default` rend la bande a iOS, qui y met un texte
+    // lisible selon l'apparence du systeme.
+    statusBarStyle: "default",
     title: "KoppaFoot",
     startupImage: appleLaunchImages,
   },
@@ -146,7 +159,11 @@ export default async function RootLayout({
             Il lit le choix enregistré, et à défaut le réglage du système. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var c=localStorage.getItem("koppafoot:theme");var d=c?c==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var r=document.documentElement;r.dataset.theme=d?"dark":"light";}catch(e){}})();`,
+            // Pose AUSSI `theme-color`. ThemeContext le fait a chaque bascule,
+            // mais pas au demarrage : un appareil ouvert en sombre gardait donc
+            // la couleur de barre du theme clair jusqu'a ce qu'on aille changer
+            // de theme a la main. Les deux valeurs suivent COULEUR_BARRE.
+            __html: `(function(){try{var c=localStorage.getItem("koppafoot:theme");var d=c?c==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var r=document.documentElement;r.dataset.theme=d?"dark":"light";var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",d?"#101714":"#ffffff");}catch(e){}})();`,
           }}
         />
       </head>
