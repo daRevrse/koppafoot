@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Flame, Goal, Footprints, Hand, ShieldCheck, ChevronLeft, ChevronRight,
+  Flame, Goal, Footprints, Hand, ShieldCheck, ChevronLeft, ChevronRight, Info,
 } from "lucide-react";
 import { MouvementBadge } from "@/components/direct/DirectHomeV2";
 import type { LigneClassement, LigneGardien, LignePubliee } from "@/lib/classement";
@@ -92,6 +92,7 @@ export default function ClassementComplet({
 }) {
   const [onglet, setOnglet] = useState<Onglet>("performances");
   const [page, setPage] = useState(0);
+  const [methodeOuverte, setMethodeOuverte] = useState(false);
 
   const lignes = onglet === "performances" ? performances : gardiens;
   const pages = Math.max(1, Math.ceil(lignes.length / PAR_PAGE));
@@ -109,10 +110,38 @@ export default function ClassementComplet({
           <Flame size={20} className="text-amber-500" />
           Classement
         </h1>
-        <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600">
-          5 derniers matchs
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600">
+            5 derniers matchs
+          </span>
+          {/* LE MODE DE CALCUL SE DEMANDE, IL NE S'IMPOSE PAS. Cinq lignes de
+              methode s'affichaient en permanence sous le tableau — y compris
+              sous une liste vide, ou elles etaient tout ce qu'il y avait a
+              lire. On le consulte une fois, pas a chaque visite : le badge
+              garde la seule reserve qui compte, la fenetre de cinq matchs. */}
+          <button
+            type="button"
+            onClick={() => setMethodeOuverte((v) => !v)}
+            aria-expanded={methodeOuverte}
+            aria-label="Comment ce classement est calculé"
+            className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+              methodeOuverte ? "bg-gray-900 text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+            }`}
+          >
+            <Info size={15} />
+          </button>
+        </div>
       </div>
+
+      {methodeOuverte && (
+        <p className="mb-3 border border-gray-200/70 bg-gray-50/60 p-3 text-[11px] font-medium leading-relaxed text-gray-500">
+          Les buts et les passes décisives des cinq derniers matchs de chaque
+          joueur, toutes compétitions locales et matchs amicaux confondus. Un
+          joueur compte un match dès qu&apos;il figure sur la feuille. Les
+          gardiens sont classés sur leurs arrêts par match, un match sans but
+          encaissé valant deux arrêts.
+        </p>
+      )}
 
       <div className="overflow-hidden border border-gray-200/70 bg-white">
         <div className="grid grid-cols-2 divide-x divide-gray-200/70 border-b border-gray-200/70">
@@ -230,14 +259,6 @@ export default function ClassementComplet({
           </div>
         )}
       </div>
-
-      <p className="mt-3 px-1 text-[11px] font-medium leading-relaxed text-gray-400">
-        Les buts et les passes décisives des cinq derniers matchs de chaque
-        joueur, toutes compétitions locales et matchs amicaux confondus. Un
-        joueur compte un match dès qu&apos;il figure sur la feuille. Les
-        gardiens sont classés sur leurs arrêts par match, un match sans but
-        encaissé valant deux arrêts.
-      </p>
     </div>
   );
 }

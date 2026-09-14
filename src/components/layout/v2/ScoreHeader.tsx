@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio,
+  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
+import AvatarBottomSheet from "@/components/layout/AvatarBottomSheet";
 import { useT } from "@/i18n";
 import type { CleTraduction } from "@/i18n/fr";
 import {
@@ -556,6 +556,7 @@ export default function ScoreHeader({
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
+  const [compteOpen, setCompteOpen] = useState(false);
   const espaces = useEspaces();
 
   return (
@@ -567,8 +568,12 @@ export default function ScoreHeader({
       className={`sticky top-0 z-40 bg-emerald-900 pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
     >
       <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-5 lg:px-8 lg:py-4">
-        <Link href={HOME} className="flex shrink-0 items-center gap-2">
-          <Image src="/branding/logo_symbol.png" alt="KoppaFoot" width={34} height={34} priority />
+        {/* LE SYMBOLE EST PARTI. Il doublait le mot-marque a cote de lui —
+            deux fois la meme chose pour dire la meme chose — et il coutait
+            34 pixels sur une bande qui en compte 375. Le mot tient le retour
+            a l'accueil tout seul, et la place gagnee revient au compte, a
+            droite. */}
+        <Link href={HOME} className="flex shrink-0 items-center">
           <span className="font-display text-base font-black uppercase tracking-[0.14em] text-white lg:text-lg">
             Koppafoot
           </span>
@@ -668,22 +673,6 @@ export default function ScoreHeader({
             <LinkIcon size={22} />
           </button>
 
-          {/* La Tribune, mobile only and members only: the tab bar leaves it
-              out (see MEMBER_BOTTOM), so dropping it here would strand it. */}
-          {user && (
-            <Link
-              href="/feed"
-              aria-label="La Tribune"
-              aria-current={pathname.startsWith("/feed") ? "page" : undefined}
-              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors lg:hidden ${pathname.startsWith("/feed")
-                ? "bg-white/15 text-white"
-                : "text-emerald-100/80 hover:bg-white/10 hover:text-white"
-                }`}
-            >
-              <MessageCircle size={22} />
-            </Link>
-          )}
-
           {user && (
             <div className="[&_button:hover]:bg-white/10 [&_button:hover]:text-white [&_button]:text-emerald-100/80">
               <NotificationDropdown />
@@ -698,10 +687,35 @@ export default function ScoreHeader({
             <Search size={22} />
           </button>
 
-          {/* Le menu avatar disparait du telephone : la barre du bas porte
-              deja « Moi » et « Espace », et le doubler en haut encombrait un
-              header qui compte six commandes sur 375px. Ses entrees ont
-              rejoint les deux feuilles du bas. */}
+          {/* LE COMPTE, MONTE DEPUIS LA BARRE DU BAS. Il y occupait un
+              cinquieme onglet ; la barre porte maintenant quatre
+              destinations — le Direct, les actus, la Tribune, l'Espace — et
+              le compte n'en est pas une : c'est une porte, elle se tient avec
+              les autres portes, a droite du header. Il prend la place que la
+              Tribune vient de liberer, et le symbole celle du reste.
+
+              Il sert aussi le visiteur : la meme feuille porte la connexion,
+              l'invitation, l'aide et les preferences. */}
+          <button
+            type="button"
+            onClick={() => setCompteOpen(true)}
+            aria-label={user ? "Mon compte" : "Se connecter"}
+            className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:hidden"
+          >
+            <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all ${compteOpen ? "bg-emerald-700 ring-emerald-400" : "bg-emerald-800 ring-white/30"}`}>
+              {user?.profilePictureUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
+              ) : user ? (
+                <span className="text-[10px] font-bold text-emerald-200">
+                  {`${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase()}
+                </span>
+              ) : (
+                <UserIcon size={15} className="text-emerald-200" />
+              )}
+            </span>
+          </button>
+
           <div className="hidden lg:block">
             <AccountMenu />
           </div>
@@ -714,6 +728,7 @@ export default function ScoreHeader({
 
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       <KoppaLinksSheet open={linksOpen} onClose={() => setLinksOpen(false)} />
+      <AvatarBottomSheet open={compteOpen} onClose={() => setCompteOpen(false)} />
     </header>
   );
 }
