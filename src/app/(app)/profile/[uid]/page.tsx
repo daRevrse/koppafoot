@@ -27,7 +27,6 @@ import {
   ImageIcon,
   FileText,
   MoreHorizontal,
-  Pencil,
   Link2 as LinkIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -959,11 +958,7 @@ export default function PublicProfilePage() {
             {profile.firstName} {profile.lastName}
           </p>
 
-          {isOwnProfile ? (
-            <Link href="/profile" aria-label="Modifier mon profil" className={replie ? PASTILLE_BARRE : PASTILLE_AFFICHE}>
-              <Pencil size={16} />
-            </Link>
-          ) : currentUser ? (
+          {currentUser && !isOwnProfile && (
             <button
               type="button"
               onClick={handleFollow}
@@ -979,7 +974,7 @@ export default function PublicProfilePage() {
                 <UserPlus size={16} />
               )}
             </button>
-          ) : null}
+          )}
 
           <MenuFiche
             url={lienFiche}
@@ -1017,19 +1012,11 @@ export default function PublicProfilePage() {
                en regardant quelqu'un. Le reste — le mercato, le partage —
                passe derriere les trois points, en haut.
 
-               SUR SA PROPRE FICHE, L'EMPLACEMENT NE RESTE PAS VIDE. On ne
-               s'abonne pas a soi-meme, et il n'y avait donc rien du tout : on
-               regardait sa fiche publique sans aucun moyen d'agir dessus.
-               C'est « Modifier » qui prend la place. */
-            isOwnProfile ? (
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 border border-white bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-300 hover:bg-emerald-300"
-              >
-                <Pencil size={13} />
-                Modifier
-              </Link>
-            ) : currentUser ? (
+               SUR SA PROPRE FICHE, RIEN. Pas meme un « Modifier » : une page
+               publique montre ce qu'un visiteur verrait, et une commande
+               d'edition posee dessus n'en fait plus une page publique. On
+               edite depuis « Mon compte ». */
+            currentUser && !isOwnProfile ? (
               <button
                 onClick={handleFollow}
                 disabled={followLoading}
