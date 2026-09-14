@@ -511,9 +511,11 @@ export default function CompetitionSchedulePage() {
         key={match.id}
         className={`p-4 ${conflict ? "bg-amber-50/40" : ""} ${past ? "bg-red-50/30" : ""} ${completed ? "bg-emerald-50/30" : ""}`}
       >
-        {/* Teams + live link */}
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900">
+        {/* Teams + live link. Même débordement que l'en-tête des équipes : la
+            rangée d'actions ne passait pas à la ligne et « Console » sortait
+            de l'écran sur un téléphone. */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-bold text-gray-900">
             <span>
               <span className={home.pending ? "font-medium italic text-gray-400" : ""}>{home.label}</span>{" "}
               <span className="font-normal text-gray-400">vs</span>{" "}

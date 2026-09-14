@@ -32,14 +32,40 @@ export default function CompetitionShareCard({
 }) {
   const [feedback, setFeedback] = useState<"copied" | null>(null);
 
-  const path = `/c/${competition.slug}/rejoindre`;
-  const url = lienAbsolu(path);
   const open = competition.status === "registration";
+  const brouillon = competition.status === "draft";
+
+  /**
+   * CE QU'ON MET DANS LA MAIN DE L'ORGANISATEUR DÉPEND DE CE QU'IL PEUT EN
+   * ATTENDRE.
+   *
+   * La carte servait la page d'inscription à tout le monde, et l'annonçait
+   * comme « le lien à envoyer pour remplir ta compétition » — y compris sur
+   * une compétition TERMINÉE, deux lignes au-dessus de « Inscriptions
+   * fermées ». Elle se contredisait, et le lien menait à une porte close.
+   *
+   * Inscriptions ouvertes : la page d'inscription, c'est bien elle qui
+   * remplit le tournoi. Sinon, la page de la compétition — les scores en
+   * cours, ou les résultats une fois fini. Un brouillon n'est visible de
+   * personne : le dire vaut mieux que promettre un lien mort.
+   */
+  const path = open ? `/c/${competition.slug}/rejoindre` : `/c/${competition.slug}`;
+  const url = lienAbsolu(path);
+
+  const accroche = brouillon
+    ? "Ta page n'est pas encore publique : passe la compétition en inscriptions pour l'ouvrir."
+    : open
+      ? "C'est le lien à envoyer pour remplir ta compétition."
+      : competition.status === "completed"
+        ? "C'est le lien à partager pour faire revivre ta compétition."
+        : "C'est le lien à partager pour faire suivre tes matchs.";
 
   const share = async () => {
     const text = open
       ? `${competition.name}, les inscriptions sont ouvertes. Inscris ton équipe :`
-      : `Suis ${competition.name} en direct sur KoppaFoot :`;
+      : competition.status === "completed"
+        ? `${competition.name}, c'est fini. Les résultats sur KoppaFoot :`
+        : `Suis ${competition.name} en direct sur KoppaFoot :`;
 
     const resultat = await partagerLien({ title: competition.name, text, url });
     if (resultat === "copie") {
@@ -63,9 +89,7 @@ export default function CompetitionShareCard({
           <p className="text-[11px] font-black uppercase tracking-wide text-emerald-600">
             Ta page publique
           </p>
-          <p className="mt-1 text-sm font-bold text-gray-900">
-            C&apos;est le lien à envoyer pour remplir ta compétition.
-          </p>
+          <p className="mt-1 text-sm font-bold text-gray-900">{accroche}</p>
 
           <button
             type="button"
