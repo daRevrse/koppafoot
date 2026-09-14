@@ -156,7 +156,14 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
         outPlayerId: e.out_player_id ?? null,
         outPlayerName: e.out_player_name ?? null,
         varStatus: e.var_status ?? null,
-        createdAt: e.created_at,
+        // `formatDate` ET NON LA VALEUR BRUTE. Le type dit `createdAt:
+        // string`, et on y posait l'horodatage Firestore tel quel — un objet
+        // `Timestamp`. Le mensonge passait a la compilation, et l'accueil,
+        // qui est un composant SERVEUR, jetait a chaque match de competition
+        // portant des evenements : « Only plain objects can be passed to
+        // Client Components ». C'est exactement ce que l'en-tete de ce
+        // fichier promet de ne jamais faire.
+        createdAt: formatDate(e.created_at),
       })),
     } : null,
     createdAt: formatDate(d.created_at),
