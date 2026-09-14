@@ -354,9 +354,12 @@ export default function CompetitionTeamsPage() {
           its own. */}
       <RegistrationsPanel cid={cid} />
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      {/* Header. IL DÉBORDAIT SUR TÉLÉPHONE : deux boutons en `shrink-0` à
+          côté d'un titre sans `min-w-0`, dans une rangée qui ne passe jamais
+          à la ligne. « Ajouter une équipe » sortait de l'écran, coupé net et
+          sans défilement pour aller le chercher. */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
           <motion.h1
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
