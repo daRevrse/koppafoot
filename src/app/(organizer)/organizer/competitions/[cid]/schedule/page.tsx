@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, ChevronLeft, MapPin, Upload,
   Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock, Goal,
-  GitBranch,
+  GitBranch, ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import {
   onCompetition,
@@ -31,6 +31,19 @@ interface RowState {
   time: string;
   venueName: string;
   venueCity: string;
+}
+
+/**
+ * « 2026-07-24 » se lit mal quand on cherche un match dans une liste.
+ *
+ * Une date vide ou illisible rend la chaine telle quelle plutot que « Invalid
+ * Date » : l'organisateur saisit a la main, et une saisie en cours n'est pas
+ * une erreur a signaler.
+ */
+function formatDateLisible(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 
 // Display order of the final-phase rounds. `third_place` closes the list, it
@@ -92,6 +105,40 @@ export default function CompetitionSchedulePage() {
 
   // Per-row input state keyed by match id; never holds undefined (use "").
   const [rows, setRows] = useState<Record<string, RowState>>({});
+  /**
+   * LES LIGNES DEPLIEES, ET ELLES SEULES.
+   *
+   * Le formulaire date / heure / stade / ville s'ouvrait sur CHAQUE ligne, en
+   * permanence. Sur une competition de quarante-six matchs, le calendrier
+   * devenait un mur de deux cents champs de saisie ou l'on ne retrouvait plus
+   * une rencontre — alors qu'on ne reprogramme qu'un match a la fois.
+   *
+   * La ligne dit maintenant ce qui est prevu, en toutes lettres, et n'ouvre
+   * ses champs qu'a la demande. « Tout deplier » rend la saisie en rafale a
+   * celui qui remplit un calendrier neuf.
+   */
+  const [deplies, setDeplies] = useState<Set<string>>(new Set());
+
+  const basculer = (id: string) =>
+    setDeplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  /**
+   * Remplir une poule neuve, c'est vingt lignes a programmer d'affilee : on
+   * ouvre le bloc entier une fois plutot que de cliquer vingt fois.
+   */
+  const basculerSection = (ids: string[]) =>
+    setDeplies((prev) => {
+      const next = new Set(prev);
+      const toutOuvert = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (toutOuvert) next.delete(id); else next.add(id);
+      }
+      return next;
+    });
   const [savingId, setSavingId] = useState<string | null>(null);
 
   // "Add score" modal for past matches (also reopened to fix a saved result).
@@ -506,6 +553,20 @@ export default function CompetitionSchedulePage() {
     const canEnterResult = !!match.homeTeamId && !!match.awayTeamId;
     const isKnockout = match.stage === "knockout";
 
+    /**
+     * UNE LIGNE MODIFIEE NE SE REPLIE PAS. Replier ce qu'on vient de taper
+     * sans l'avoir enregistre ferait disparaitre la saisie de l'ecran sans
+     * rien perdre en memoire — le pire des deux : on croit avoir perdu, ou
+     * pire, on croit avoir enregistre.
+     */
+    const modifie =
+      row.date !== (match.date ?? "") ||
+      row.time !== (match.time ?? "") ||
+      row.venueName !== (match.venueName ?? "") ||
+      row.venueCity !== (match.venueCity ?? "");
+    const ouvert = deplies.has(match.id) || modifie;
+    const programme = Boolean(row.date || row.time || row.venueName);
+
     return (
       <div
         key={match.id}
@@ -617,7 +678,45 @@ export default function CompetitionSchedulePage() {
           </div>
         )}
 
+        {/* CE QUI EST PREVU, EN TOUTES LETTRES. La ligne ne portait la date
+            que dans un champ de saisie : la replier l'aurait fait disparaitre,
+            et un calendrier dont on ne lit pas les dates n'est pas un
+            calendrier. */}
+        {!ouvert && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-600">
+              {programme ? (
+                <>
+                  {row.date && (
+                    <span className={`font-semibold ${past ? "text-red-600" : "text-gray-900"}`}>
+                      {formatDateLisible(row.date)}
+                    </span>
+                  )}
+                  {row.time && <span className="tabular-nums text-gray-500">{row.time}</span>}
+                  {row.venueName && (
+                    <span className="flex items-center gap-1 text-gray-500">
+                      <MapPin size={12} className="shrink-0" />
+                      {row.venueName}{row.venueCity ? `, ${row.venueCity}` : ""}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="italic text-gray-400">Date et stade à définir</span>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => basculer(match.id)}
+              className="flex shrink-0 items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900"
+            >
+              <CalendarClock size={13} />
+              {programme ? "Modifier" : "Programmer"}
+            </button>
+          </div>
+        )}
+
         {/* Inline scheduling inputs */}
+        {ouvert && (
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-gray-500">Date</span>
@@ -675,10 +774,22 @@ export default function CompetitionSchedulePage() {
             )}
             Enregistrer
           </button>
+          {/* Se replier sans enregistrer n'est possible que si rien n'a
+              change : `ouvert` retient les lignes modifiees. */}
+          {!modifie && (
+            <button
+              type="button"
+              onClick={() => basculer(match.id)}
+              className="px-2 py-2 text-sm font-medium text-gray-400 transition-colors hover:text-gray-900"
+            >
+              Replier
+            </button>
+          )}
         </div>
+        )}
 
         {/* Occupied slots hint for the entered venue */}
-        {row.venueName.trim() && (() => {
+        {ouvert && row.venueName.trim() && (() => {
           const taken = takenSlotsFor(row.venueName)
             .filter((s) => !(s.date === row.date.trim() && s.time === row.time.trim()))
             .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
@@ -875,6 +986,8 @@ export default function CompetitionSchedulePage() {
 
           {visibleSections.map((section, si) => {
             const knockout = section.kind === "knockout";
+            const ids = section.matches.map((m) => m.id);
+            const toutDeplie = ids.length > 0 && ids.every((id) => deplies.has(id));
             return (
               <motion.section
                 key={section.id}
@@ -883,7 +996,7 @@ export default function CompetitionSchedulePage() {
                 transition={{ delay: si * 0.04 }}
                 className="overflow-hidden border border-gray-200/70 bg-white"
               >
-                <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/70 px-5 py-3">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-gray-200/70 bg-gray-50/70 px-5 py-3">
                   <span
                     className={`flex h-7 min-w-7 items-center justify-center px-1 text-sm font-bold ${
                       knockout ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700"
@@ -904,6 +1017,19 @@ export default function CompetitionSchedulePage() {
                   <span className="ml-auto text-xs font-medium text-gray-400">
                     {section.matches.length} match{section.matches.length !== 1 ? "s" : ""}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => basculerSection(ids)}
+                    aria-label={
+                      toutDeplie
+                        ? "Replier tous les matchs de ce bloc"
+                        : "Ouvrir la saisie sur tous les matchs de ce bloc"
+                    }
+                    className="flex shrink-0 items-center gap-1.5 border border-gray-200/70 bg-white px-2 py-1 text-[11px] font-semibold text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+                  >
+                    {toutDeplie ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
+                    {toutDeplie ? "Tout replier" : "Tout déplier"}
+                  </button>
                 </div>
 
                 <div className="divide-y divide-gray-200/70">
