@@ -560,9 +560,10 @@ export default function ScoreHeader({
   const espaces = useEspaces();
 
   return (
-    // Colle en haut : sur un tableau de scores on defile beaucoup, et
-    // remonter chercher la navigation a chaque fois est un aller-retour
-    // inutile. z-40 passe au-dessus du contenu sans couvrir les modales.
+    <>
+    {/* Colle en haut : sur un tableau de scores on defile beaucoup, et
+        remonter chercher la navigation a chaque fois est un aller-retour
+        inutile. z-40 passe au-dessus du contenu sans couvrir les modales. */}
     <header
       ref={headerRef}
       className={`sticky top-0 z-40 bg-emerald-900 pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
@@ -726,9 +727,21 @@ export default function ScoreHeader({
           arrive : `pt-safe` et l'encoche la deplacent avec lui. */}
       <HeaderProgress />
 
+      </header>
+
+      {/* LES PANNEAUX SORTENT DU HEADER, et ce n'est pas cosmetique.
+          `sticky top-0 z-40` ouvre un CONTEXTE D'EMPILEMENT : tout ce qui
+          vit dedans y est enferme, et un `z-[100]` n'y vaut que 100 PARMI
+          LES ENFANTS DU HEADER — face au reste de la page, il reste a 40.
+          La barre du bas, elle, est a z-50 a la racine. La recherche et la
+          feuille du compte passaient donc DESSOUS : on voyait la barre par
+          dessus la modale, et la feuille du compte se faisait couper.
+
+          En sortir suffit : freres du header, dans le meme conteneur que la
+          barre, leurs z-index se comparent enfin a la sienne. */}
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       <KoppaLinksSheet open={linksOpen} onClose={() => setLinksOpen(false)} />
       <AvatarBottomSheet open={compteOpen} onClose={() => setCompteOpen(false)} />
-    </header>
+    </>
   );
 }

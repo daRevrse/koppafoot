@@ -102,7 +102,18 @@ export default function NotificationDropdown() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden"
+            /* SUR TELEPHONE, IL NE S'ANCRE PLUS A LA CLOCHE. Un panneau de
+               320px accroche au bord droit d'un bouton qui se trouve lui-meme
+               a une centaine de pixels du bord de l'ecran sort de l'ecran par
+               la gauche : on y lisait « ifications » et « ouveau coequipier ».
+               Il tenait tant que la cloche etait l'avant-derniere icone ; une
+               icone de plus derriere elle, et il ne tenait plus. Un panneau ne
+               doit pas dependre du rang de son bouton dans une rangee.
+
+               Il occupe donc la largeur de la fenetre, a douze pixels des
+               bords, et ne retrouve son ancrage qu'a partir de `sm`, ou la
+               place existe vraiment. */
+            className="fixed inset-x-3 top-[calc(var(--header-h,72px)+0.5rem)] z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <span className="text-sm font-bold text-gray-900">Notifications</span>

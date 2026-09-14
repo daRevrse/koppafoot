@@ -93,20 +93,34 @@ function SpacesSheet({
               La phrase d'aide de chaque entree disparait avec la ligne : sur
               trois colonnes il n'y a pas la place, et « Les equipes dont tu
               fais partie » sous « Mes equipes » ne disait rien de plus. */}
+          {/* LA DERNIERE TUILE COMBLE LA RANGEE. La grille tient trois
+              colonnes et le nombre d'espaces depend des casquettes : a huit
+              entrees, la derniere rangee en comptait deux et laissait une
+              case vide — pas vide au sens d'invisible, mais un rectangle
+              d'une autre teinte, le fond de la grille qu'on voyait par le
+              trou. Une case qu'on ne peut pas toucher n'a rien a faire dans
+              une grille de raccourcis. */}
           <div className="grid grid-cols-3 gap-px bg-white/10 pb-safe">
-            {spaces.map(({ href, label, Icon }) => (
+            {spaces.map(({ href, label, Icon }, i) => {
+              const reste = spaces.length - i;
+              const dernier = i === spaces.length - 1;
+              const comble = dernier && reste < 3 && spaces.length % 3 !== 0
+                ? (spaces.length % 3 === 1 ? "col-span-3" : "col-span-2")
+                : "";
+              return (
               <Link
                 key={href}
                 href={href}
                 onClick={onClose}
-                className="flex flex-col items-center gap-2 bg-emerald-950 px-2 py-5 text-center transition-colors active:bg-emerald-900"
+                className={`flex flex-col items-center gap-2 bg-emerald-950 px-2 py-5 text-center transition-colors active:bg-emerald-900 ${comble}`}
               >
                 <Icon size={22} strokeWidth={1.5} className="text-emerald-400" />
                 <span className="text-[10px] font-black uppercase leading-tight tracking-[0.08em] text-white/80">
                   {label}
                 </span>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
