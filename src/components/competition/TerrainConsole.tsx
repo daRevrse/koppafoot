@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { X } from "lucide-react";
-import { disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS, INTERLIGNE } from "@/lib/terrain";
+import { disposerSurTerrain, rayonPastille, INTERLIGNE } from "@/lib/terrain";
 import { LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import { formaterNote, tonNote, type NoteJoueur } from "@/lib/notes";
 import type { LineupEntry } from "@/types";
@@ -61,12 +61,14 @@ function Pelouse({
   jaunes: Set<string>;
   onJoueur: (entry: LineupEntry) => void;
 }) {
-  const { places, ecart } = disposerSurTerrain(titulaires);
+  const { places, ecart, rayonMax } = disposerSurTerrain(titulaires);
   // Aussi gros que les rangs le permettent : ici on ne lit pas, on VISE. Le
   // plafond ne vient pas du goût mais de la géométrie — au-delà, la pastille
   // recouvre le nom du rang précédent. La vraie cible du doigt est le cercle
   // transparent posé par-dessus, plus large que la pastille.
-  const r = rayonPastille(ecart, RAYON_MAX_RANGS);
+  // Le plafond vient de la disposition, qui seule sait quel axe porte les
+  // noms — voir lib/terrain. Debout il vaut ce qu'il a toujours valu.
+  const r = rayonPastille(ecart, rayonMax);
 
   return (
     <svg
