@@ -307,34 +307,3 @@ body {
   animation: fade-in 0.2s ease-out;
 }
 
-/* ============================================
-   LES TOASTS, QUAND LA CONSOLE EST COUCHÉE.
-
-   La console live se dessine tournée dans un écran verrouillé en portrait
-   (voir components/competition/ConsoleCouchee). Tout ce qu'elle contient
-   tourne avec elle — y compris ses modales, parce qu'un `transform` fait de
-   son porteur le bloc conteneur de ses descendants `fixed`.
-
-   Les toasts, eux, sont montés dans le layout racine : ils sont HORS de cette
-   boîte, donc le transform ne les atteint pas, et ils s'affichaient à
-   l'endroit sur un écran qu'on regarde de côté. Or la console ne parle que
-   par eux.
-
-   On n'en monte pas un second : deux `Toaster` rendent la même pile et
-   reportent tous les deux la hauteur de chaque toast dans le même magasin.
-   C'est donc celui qui existe qui tourne, avec la géométrie que la console
-   publie — une seule source, la sienne.
-
-   `!important` parce que react-hot-toast pose ces quatre propriétés en style
-   en ligne sur son propre conteneur, et qu'aucune spécificité ne bat ça.
-   ============================================ */
-:root[data-console-couchee] .toasts-app {
-  top: 0 !important;
-  left: 0 !important;
-  right: auto !important;
-  bottom: auto !important;
-  width: var(--console-largeur) !important;
-  height: var(--console-hauteur) !important;
-  transform-origin: top left;
-  transform: var(--console-rotation);
-}

@@ -170,37 +170,6 @@ export default function ConsoleCouchee({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  /**
-   * CE QUI VIT HORS DE LA CONSOLE ET DOIT TOURNER AVEC ELLE : les toasts.
-   *
-   * Ils sont montes dans le layout racine, donc hors de la boite tournee — le
-   * `transform` ne les atteint pas, et ils apparaissaient a l'endroit sur un
-   * ecran qu'on regarde de cote. Or la console ne parle que par eux : « But »,
-   * « Changement effectue », « 3 remplacements maximum ».
-   *
-   * ON N'EN MONTE PAS UN SECOND. Deux `Toaster` rendent tous les deux la meme
-   * pile et reportent tous les deux la hauteur de chaque toast dans le meme
-   * magasin : celui qu'on cacherait annoncerait zero, et l'empilement de
-   * l'autre partirait de travers. C'est donc CELUI QUI EXISTE qui tourne, par
-   * trois variables que la feuille de style globale consomme (voir
-   * `.toasts-app` dans globals.css). Une seule geometrie, celle d'ici.
-   */
-  useEffect(() => {
-    const racine = document.documentElement;
-    if (!debout) return;
-    const g = SENS[sens];
-    racine.dataset.consoleCouchee = sens;
-    racine.style.setProperty("--console-largeur", `calc(100dvh - ${g.gauche} - ${g.droite})`);
-    racine.style.setProperty("--console-hauteur", `calc(100dvw - ${g.haut} - ${g.bas})`);
-    racine.style.setProperty("--console-rotation", `${g.rotation} translate(${g.gauche}, ${g.haut})`);
-    return () => {
-      delete racine.dataset.consoleCouchee;
-      racine.style.removeProperty("--console-largeur");
-      racine.style.removeProperty("--console-hauteur");
-      racine.style.removeProperty("--console-rotation");
-    };
-  }, [debout, sens]);
-
   const retourner = useCallback(() => {
     setSensChoisi((choisi) => {
       const actuel = choisi ?? (lire(CLE_SENS) === "horaire" ? "horaire" : "antihoraire");
@@ -249,6 +218,32 @@ export default function ConsoleCouchee({ children }: { children: ReactNode }) {
           (50) et de sa feuille (70). Les modales de la console, en z-80, se
           rangent À L'INTÉRIEUR de ce cadre — le `transform` en fait un
           contexte d'empilement — et c'est exactement ce qu'on veut. */}
+      {/* CE QUI VIT HORS DE LA CONSOLE ET DOIT TOURNER AVEC ELLE : LES TOASTS.
+          Ils sont montés dans le layout racine, donc hors de la boîte tournée
+          — le `transform` ne les atteint pas, et ils s'affichaient à l'endroit
+          sur un écran qu'on regarde de côté. Or la console ne parle que par
+          eux : « But », « Changement effectué », « 3 remplacements maximum ».
+
+          ON N'EN MONTE PAS UN SECOND. Deux `Toaster` rendent tous les deux la
+          même pile et reportent tous les deux la hauteur de chaque toast dans
+          le même magasin : celui qu'on cacherait annoncerait zéro, et
+          l'empilement de l'autre partirait de travers. C'est donc CELUI QUI
+          EXISTE qui tourne, avec la géométrie d'ici.
+
+          LA RÈGLE VOYAGE AVEC LE COMPOSANT plutôt que de vivre dans la
+          feuille globale. D'abord parce qu'elle n'a de sens que pendant que
+          cette console est à l'écran, et qu'elle disparaît donc avec elle.
+          Ensuite parce qu'elle consomme une géométrie qui est définie
+          quinze lignes plus haut : les séparer, c'était s'engager à les
+          modifier ensemble.
+
+          `!important` parce que react-hot-toast pose ces propriétés en style
+          en ligne sur son propre conteneur, et qu'aucune spécificité ne bat
+          un style en ligne — seule une déclaration importante le fait. */}
+      {debout && (
+        <style>{`.toasts-app{inset:0 auto auto 0!important;width:${boite.width}!important;height:${boite.height}!important;transform-origin:top left;transform:${boite.transform};}`}</style>
+      )}
+
       <div className="fixed inset-0 z-[75] overflow-hidden bg-[#0b1512]">
         <div style={boite} className="absolute left-0 top-0 overflow-hidden">
           {children}
