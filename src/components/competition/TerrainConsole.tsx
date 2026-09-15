@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { X } from "lucide-react";
-import { disposerSurTerrain, rayonPastille, INTERLIGNE } from "@/lib/terrain";
+import { disposerSurTerrain, rayonPastille, CADRE, INTERLIGNE, type SensDAttaque } from "@/lib/terrain";
 import { LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import { formaterNote, tonNote, type NoteJoueur } from "@/lib/notes";
 import type { LineupEntry } from "@/types";
@@ -38,6 +38,8 @@ export interface CoteTerrain {
   /** Les onze (ou moins) qui sont sur la pelouse en ce moment. */
   surLeTerrain: LineupEntry[];
   banc: LineupEntry[];
+  /** Absent tant que l'équipe n'a rien déclaré : voir COULEURS_PAR_DEFAUT. */
+  couleurs?: CouleursEquipe;
 }
 
 /**
@@ -54,66 +56,121 @@ function nomCourt(nom: string, max = 11): string {
   return court.length > max ? `${court.slice(0, max - 1)}…` : court;
 }
 
-function Pelouse({
-  titulaires, jaunes, onJoueur,
-}: {
-  titulaires: LineupEntry[];
-  jaunes: Set<string>;
-  onJoueur: (entry: LineupEntry) => void;
-}) {
-  const { places, ecart, rayonMax } = disposerSurTerrain(titulaires);
-  // Aussi gros que les rangs le permettent : ici on ne lit pas, on VISE. Le
-  // plafond ne vient pas du goût mais de la géométrie — au-delà, la pastille
-  // recouvre le nom du rang précédent. La vraie cible du doigt est le cercle
-  // transparent posé par-dessus, plus large que la pastille.
-  // Le plafond vient de la disposition, qui seule sait quel axe porte les
-  // noms — voir lib/terrain. Debout il vaut ce qu'il a toujours valu.
-  const r = rayonPastille(ecart, rayonMax);
+/**
+ * LES COULEURS D'UNE ÉQUIPE SUR LE TERRAIN.
+ *
+ * Elles ne servaient à rien tant que la console ne montrait qu'un camp à la
+ * fois : onze pastilles blanches, et l'onglet au-dessus disait de qui il
+ * s'agissait. Les deux camps côte à côte, elles deviennent la seule chose qui
+ * distingue une moitié d'écran de l'autre d'un coup d'œil — c'est-à-dire ce
+ * qu'on regarde avant de poser le doigt.
+ *
+ * Le gardien a les siennes, comme sur un vrai terrain : c'est le seul joueur
+ * qu'on cherche pour une raison précise (l'arrêt), et le seul qui n'a pas le
+ * droit de porter la couleur de ses dix coéquipiers.
+ */
+export interface CouleursEquipe {
+  maillot: string;
+  texte: string;
+  gardien: string;
+  texteGardien: string;
+}
 
-  return (
-    <svg
-      // LE TERRAIN EST RECADRÉ, il ne rétrécit pas.
-      //
-      // Il dessinait un terrain ENTIER dans un cadre carré, alors qu'une
-      // équipe n'occupe que la bande y 26→90 : les vingt-trois premières
-      // unités étaient la surface adverse, où par construction il n'y a
-      // personne à toucher. Un quart de la hauteur d'un terrain de console
-      // pour du gazon décoratif, sur l'écran où tout se joue.
-      //
-      // La fenêtre commence donc à 15, juste au-dessus des attaquants. Les
-      // pastilles gardent leur rayon — ici on ne lit pas, on VISE, et les
-      // rétrécir aurait payé la hauteur avec la précision du doigt.
-      viewBox="0 15 100 89"
-      role="group"
-      aria-label="Terrain, touche un joueur"
-      className="w-full select-none"
-    >
-      <rect x="0" y="15" width="100" height="89" fill="#15803d" />
-      <g stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.5" fill="none">
-        {/* TROIS CÔTÉS, PAS QUATRE. Une ligne en travers du bord supérieur se
-            lirait comme une ligne de but ; le terrain continue hors du cadre,
-            et ne rien tracer est la seule façon honnête de le dire. La surface
-            adverse et son but sortent du champ avec elle. */}
+/** Le blanc d'avant, quand une équipe n'a rien déclaré. */
+export const COULEURS_PAR_DEFAUT: CouleursEquipe = {
+  maillot: "#ffffff",
+  texte: "#111827",
+  gardien: "#fde68a",
+  texteGardien: "#111827",
+};
+
+/**
+ * Le tracé du terrain, pour un sens de jeu.
+ *
+ * TROIS CÔTÉS, JAMAIS QUATRE. Le quatrième bord est celui par où le terrain
+ * continue — le milieu de terrain debout, la ligne médiane couchée — et y
+ * tracer un trait le ferait lire comme une ligne de but. Ne rien tracer est
+ * la seule façon honnête de dire que ça ne s'arrête pas là.
+ */
+function Lignes({ sens }: { sens: SensDAttaque }) {
+  const traits = { stroke: "#ffffff", strokeOpacity: 0.35, fill: "none" };
+
+  if (sens === "haut") {
+    return (
+      <g {...traits} strokeWidth="0.5">
         <path d="M3 15 V101 H97 V15" />
         <line x1="3" y1="52" x2="97" y2="52" />
         <circle cx="50" cy="52" r="11" />
         <rect x="26" y="85" width="48" height="16" />
         <rect x="38" y="95" width="24" height="6" />
       </g>
-      <circle cx="50" cy="52" r="1.2" fill="#ffffff" fillOpacity="0.35" />
+    );
+  }
+
+  // Couché, le but est au bord EXTÉRIEUR et le jeu va vers le milieu de
+  // l'écran. `gauche` est le miroir exact de `droite`, obtenu par un
+  // retournement du repère plutôt que par un second tracé à tenir à jour.
+  return (
+    <g
+      {...traits}
+      strokeWidth="0.9"
+      transform={sens === "gauche" ? "translate(200,0) scale(-1,1)" : undefined}
+    >
+      <path d="M200 2 H4 V114 H200" />
+      <rect x="4" y="30" width="36" height="56" />
+      <rect x="4" y="45" width="14" height="26" />
+      {/* La médiane, et le rond central posé dessus : le terrain de l'autre
+          camp commence ici, et c'est l'autre moitié de l'écran. */}
+      <line x1="112" y1="2" x2="112" y2="114" />
+      <circle cx="112" cy="58" r="13" />
+    </g>
+  );
+}
+
+function Pelouse({
+  titulaires, jaunes, onJoueur, sens, couleurs,
+}: {
+  titulaires: LineupEntry[];
+  jaunes: Set<string>;
+  onJoueur: (entry: LineupEntry) => void;
+  sens: SensDAttaque;
+  couleurs: CouleursEquipe;
+}) {
+  const { places, ecart, rayonMax } = disposerSurTerrain(titulaires, titulaires.length, sens);
+  // Aussi gros que les rangs le permettent : ici on ne lit pas, on VISE. Le
+  // plafond ne vient pas du goût mais de la géométrie — au-delà, la pastille
+  // recouvre le nom du rang précédent. La vraie cible du doigt est le cercle
+  // transparent posé par-dessus, plus large que la pastille.
+  const r = rayonPastille(ecart, rayonMax);
+  const c = CADRE[sens];
+  // Ce qui doit garder sa taille à l'écran quel que soit le cadre. Voir
+  // `Cadre.echelle`.
+  const corpsDuNom = 3.2 * c.echelle;
+  const carton = { l: 2.6 * c.echelle, h: 3.6 * c.echelle };
+
+  return (
+    <svg
+      viewBox={`${c.x} ${c.y} ${c.l} ${c.h}`}
+      role="group"
+      aria-label="Terrain, touche un joueur"
+      className="h-full w-full select-none"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <rect x={c.x} y={c.y} width={c.l} height={c.h} fill="#15803d" />
+      <Lignes sens={sens} />
 
       {places.map((place, i) => {
         const joueur = place.entry;
         if (!joueur) {
-          // Un emplacement vide n'existe que dans le repli 4-3-3, quand la
-          // feuille compte moins de onze titulaires. Il garde sa lettre, pour
+          // Un emplacement vide n'existe que dans le repli, quand la feuille
+          // compte moins de titulaires qu'annoncé. Il garde sa lettre, pour
           // dire qu'il manque un joueur et non que le terrain est cassé.
           return (
             <g key={`vide-${i}`}>
               <circle
                 cx={place.x} cy={place.y} r={r}
                 fill="none" stroke="#ffffff" strokeOpacity="0.4"
-                strokeWidth="0.6" strokeDasharray="1.8 1.4"
+                strokeWidth={0.6 * c.echelle} strokeDasharray={`${1.8 * c.echelle} ${1.4 * c.echelle}`}
               />
               <text
                 x={place.x} y={place.y + r * 0.36} textAnchor="middle"
@@ -125,6 +182,10 @@ function Pelouse({
             </g>
           );
         }
+
+        const gardien = place.etiquette === "G";
+        const fond = gardien ? couleurs.gardien : couleurs.maillot;
+        const encre = gardien ? couleurs.texteGardien : couleurs.texte;
 
         return (
           <g
@@ -142,19 +203,19 @@ function Pelouse({
             className="cursor-pointer outline-none"
           >
             {/* La cible du doigt, un peu plus large que la pastille et
-                invisible. Deux unités de marge : au-delà, deux cibles
-                voisines se recouvriraient et le doigt tomberait sur le
-                mauvais joueur. */}
-            <circle cx={place.x} cy={place.y} r={r + 2} fill="transparent" />
+                invisible. La marge suit le cadre : deux unités debout, quatre
+                couché, c'est la même distance sous le doigt. Au-delà, deux
+                cibles voisines se recouvriraient. */}
+            <circle cx={place.x} cy={place.y} r={r + 2 * c.echelle} fill="transparent" />
             <circle
               cx={place.x} cy={place.y} r={r}
-              fill="#ffffff" stroke="#052e16" strokeWidth="0.5"
+              fill={fond} stroke="#052e16" strokeWidth={0.5 * c.echelle}
             />
             <text
               x={place.x} y={place.y + r * 0.36} textAnchor="middle"
               className="font-black pointer-events-none"
               style={{ fontSize: `${(r * 0.85).toFixed(2)}px` }}
-              fill="#111827"
+              fill={encre}
             >
               {joueur.number || place.etiquette}
             </text>
@@ -162,19 +223,18 @@ function Pelouse({
                 voir avant de toucher, pas après. */}
             {jaunes.has(joueur.playerId) && (
               <rect
-                x={place.x + r * 0.6} y={place.y - r * 1.07} width="2.6" height="3.6"
-                fill="#facc15" stroke="#a16207" strokeWidth="0.3"
+                x={place.x + r * 0.6} y={place.y - r * 1.07}
+                width={carton.l} height={carton.h}
+                fill="#facc15" stroke="#a16207" strokeWidth={0.3 * c.echelle}
                 className="pointer-events-none"
               />
             )}
             <text
-              // Les pastilles des ailes sont proches du bord : un nom centré
-              // dessus sortirait du cadre. On ramène l'ancre vers l'intérieur.
-              x={Math.min(Math.max(place.x, 13), 87)}
+              x={Math.min(Math.max(place.x, c.nomMin), c.nomMax)}
               y={place.y + r + INTERLIGNE}
               textAnchor="middle"
               className="font-bold pointer-events-none"
-              style={{ fontSize: "3.2px" }}
+              style={{ fontSize: `${corpsDuNom}px` }}
               fill="#ffffff"
             >
               {nomCourt(joueur.name)}
@@ -316,6 +376,8 @@ export default function TerrainConsole({
             titulaires={equipe.surLeTerrain}
             jaunes={jaunes}
             onJoueur={(entry) => onJoueur(cote, entry)}
+            sens="haut"
+            couleurs={(cote === "home" ? home.couleurs : away.couleurs) ?? COULEURS_PAR_DEFAUT}
           />
         </div>
       )}

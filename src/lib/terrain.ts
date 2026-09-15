@@ -147,13 +147,40 @@ const LIGNES: readonly { poste: Poste | null; etiquette: string }[] = [
  */
 export type SensDAttaque = "haut" | "droite" | "gauche";
 
+export interface Cadre {
+  /** Le `viewBox` : `x y l h`. */
+  x: number;
+  y: number;
+  l: number;
+  h: number;
+  /**
+   * Les bornes ou ancrer un NOM.
+   *
+   * Une pastille d'aile est proche du bord ; un nom centre dessus sortirait du
+   * cadre et se ferait couper. On ramene l'ancre vers l'interieur — ce qui
+   * decale legerement le nom par rapport a sa pastille, et vaut mieux qu'un
+   * nom tronque.
+   */
+  nomMin: number;
+  nomMax: number;
+  /**
+   * De combien le dessin est plus grand que le terrain debout.
+   *
+   * Le SVG s'ajuste a sa boite, donc une unite du cadre couche vaut a l'ecran
+   * la moitie d'une unite du cadre debout. Tout ce qui est donne en unites et
+   * doit garder sa taille APPARENTE — le corps du texte, la vignette du
+   * carton — se multiplie par ce nombre.
+   */
+  echelle: number;
+}
+
 /** Le cadre a donner au `viewBox`, par sens d'attaque. */
-export const CADRE: Record<SensDAttaque, { x: number; y: number; l: number; h: number }> = {
+export const CADRE: Record<SensDAttaque, Cadre> = {
   // Recadre sur la moitie utile : au-dessus des attaquants il n'y a personne
   // a toucher. Voir TerrainConsole.
-  haut: { x: 0, y: 15, l: 100, h: 89 },
-  droite: { x: 0, y: 0, l: 200, h: 116 },
-  gauche: { x: 0, y: 0, l: 200, h: 116 },
+  haut: { x: 0, y: 15, l: 100, h: 89, nomMin: 13, nomMax: 87, echelle: 1 },
+  droite: { x: 0, y: 0, l: 200, h: 116, nomMin: 18, nomMax: 182, echelle: 2 },
+  gauche: { x: 0, y: 0, l: 200, h: 116, nomMin: 18, nomMax: 182, echelle: 2 },
 };
 
 /** L'interligne entre une pastille et le nom qu'elle porte. */
