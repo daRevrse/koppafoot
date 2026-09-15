@@ -86,6 +86,8 @@ async function main() {
 
   console.log(`\n${tailles.size} fichiers, ${Math.round(total / 1024)} ko au total.`);
 
+  await verifierLeMotMarque();
+
   if (avant.size > 0) {
     console.log(`\nOrphelins (plus aucune balise ne les demande) : ${[...avant].join(", ")}`);
   }
@@ -95,3 +97,75 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+/**
+ * LE MOT-MARQUE TOUCHE-T-IL UN BORD ?
+ *
+ * C'est la question que la première série n'a pas posée, et l'écran de
+ * démarrage est parti en production avec le « K » et le « T » coupés sur tous
+ * les iPhone récents : la source est au format d'un téléphone (9:16), un
+ * iPhone moderne fait du 19,5:9, et `cover` y rogne les CÔTÉS. J'avais regardé
+ * deux rendus — l'iPad et le plus petit téléphone — c'est-à-dire les deux qui
+ * allaient bien. Un rendu qu'on regarde sur une taille ne prouve rien : il y
+ * en a dix-huit.
+ *
+ * Le mot-marque est le seul blanc de l'illustration, donc l'encadré des pixels
+ * clairs le cerne exactement. S'il arrive à moins de cinq pixels d'un bord
+ * vertical, la génération ÉCHOUE au lieu d'écrire dix-huit fichiers cassés.
+ *
+ * LA MARGE À TENIR DANS L'ILLUSTRATION, si quelqu'un la refait : 9,1 % de
+ * chaque côté et 12,5 % en haut et en bas. Ce sont les deux appareils
+ * extrêmes de la table — le 1206×2622, le plus étroit, ne montre que 81,8 %
+ * de la largeur ; l'iPad 1536×2048, le plus large, que 75 % de la hauteur.
+ */
+async function verifierLeMotMarque() {
+  const MARGE_MINIMALE = 5;
+  const fautifs: string[] = [];
+  let sansBlanc = 0;
+
+  for (const fichier of fs.readdirSync(DESTINATION).filter((f) => f.endsWith(".jpg")).sort()) {
+    const { data, info } = await sharp(path.join(DESTINATION, fichier))
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    let gauche = info.width;
+    let droite = -1;
+    // Une ligne sur deux : le mot fait des centaines de pixels de haut, il ne
+    // peut pas passer entre les mailles, et c'est deux fois moins à lire.
+    for (let y = 0; y < info.height; y += 2) {
+      for (let x = 0; x < info.width; x++) {
+        const i = (y * info.width + x) * info.channels;
+        if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] > 200) {
+          if (x < gauche) gauche = x;
+          if (x > droite) droite = x;
+        }
+      }
+    }
+
+    // Aucun pixel clair : l'illustration a changé et ce contrôle ne sait plus
+    // ce qu'il cherche. On le dit plutôt que de rendre un feu vert vide.
+    if (droite < 0) {
+      sansBlanc += 1;
+      continue;
+    }
+
+    if (gauche < MARGE_MINIMALE || info.width - 1 - droite < MARGE_MINIMALE) {
+      fautifs.push(`${fichier} (marges ${gauche} / ${info.width - 1 - droite} px)`);
+    }
+  }
+
+  if (sansBlanc > 0) {
+    console.warn(
+      `\n! ${sansBlanc} fichier(s) sans pixel clair : le contrôle du mot-marque ` +
+        "suppose qu'il est blanc. À revoir si l'illustration a changé.",
+    );
+  }
+
+  if (fautifs.length > 0) {
+    console.error("\nLE MOT-MARQUE EST COUPÉ :");
+    for (const f of fautifs) console.error(`  ${f}`);
+    process.exit(1);
+  }
+
+  console.log("Mot-marque entier sur toutes les tailles.");
+}
