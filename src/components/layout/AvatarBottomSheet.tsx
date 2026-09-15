@@ -3,11 +3,11 @@
 import { useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, LogOut, LogIn, X } from "lucide-react";
+import { User, LogOut, LogIn, X, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
 import {
-  InviteCard, SupportBlock, InstallBlock, NotificationsBlock, PreferencesBlock,
+  InviteCard, SupportBlock, InstallBlock,
 } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 
@@ -141,12 +141,31 @@ export default function AvatarBottomSheet({
           <div className="mx-5 h-px bg-white/10" />
           <SupportBlock sombre onNavigate={onClose} />
 
+          {/* LES REGLAGES ONT LEUR PAGE. Ils s'empilaient dans cette feuille,
+              qu'on ouvre plusieurs fois par semaine pour aller a son profil
+              ou se deconnecter — et qu'on traversait donc a chaque fois pour
+              rien.
+
+              HORS DU CONDITIONNEL SUR `user`, et c'est le point : le theme et
+              la langue valent pour l'APPAREIL. Ils etaient offerts a tout le
+              monde ici ; les enfermer derriere un compte en les sortant
+              aurait retire le mode sombre a qui n'en a pas. */}
+          <div className="mx-5 h-px bg-white/10" />
+          <div className="p-2">
+            <Link
+              href="/parametres"
+              onClick={onClose}
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              <Settings size={18} className="text-emerald-400" />
+              {t("compte.parametres")}
+            </Link>
+          </div>
+
+          {/* L'invitation a installer reste : ce n'est pas un reglage, c'est
+              une proposition, et elle ne vaut qu'ici. */}
           <div className="mx-5 h-px bg-white/10" />
           <InstallBlock sombre />
-          <NotificationsBlock sombre />
-
-          <div className="mx-5 h-px bg-white/10" />
-          <PreferencesBlock sombre />
 
           {user ? (
             <>
