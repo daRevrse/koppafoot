@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Play, Pause, ChevronLeft, ChevronRight, History,
+  Play, Pause, ChevronLeft, History,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
-  MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, ChevronDown, Plus,
+  MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
+import { useConfirmation } from "@/components/ui/socle";
 import { useAuth } from "@/contexts/AuthContext";
 import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
@@ -26,7 +27,8 @@ import {
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { lignesStats } from "@/lib/stats-match";
 import MatchStats from "@/components/match/MatchStats";
-import TerrainConsole, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
+import TerrainsFaceAFace, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
+import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 
 /** One entry of the live feed. */
@@ -108,46 +110,49 @@ async function recalculerLeClassement(fbUser: { getIdToken: () => Promise<string
  * corner, alors que le scoreur vient justement de basculer sur le camp qui
  * attaque.
  */
+/**
+ * Les quatre actions qui n'appartiennent a personne, pour UN camp.
+ *
+ * ELLE A PERDU SON EN-TETE « Pour <equipe> ». Il existait parce que la barre
+ * servait le camp affiche par l'onglet, et qu'il fallait donc dire lequel.
+ * Couchee, la console en rend une PAR CAMP, sous le nom de son equipe : le
+ * repeter serait l'ecrire deux fois a trente pixels d'intervalle.
+ *
+ * Ce que l'en-tete portait aussi, et qu'on garde : la raison du verrou apres
+ * un but. Elle passe sur les boutons eux-memes, qui sont ce qu'elle concerne.
+ */
 function BandeauEquipe({
-  teamName, isSubmitting, desactive, onEvenement,
+  isSubmitting, desactive, onEvenement,
 }: {
-  teamName: string;
   isSubmitting: boolean;
   /** La raison du verrou, ou `null`. Voir `SECONDES_JEU_MORT`. */
   desactive: string | null;
   onEvenement: (type: TypeEvenementEquipe) => void;
 }) {
   return (
-    <div className="border border-gray-200/70 bg-white">
-      <div className="flex items-center justify-between gap-2 border-b border-gray-200/70 px-3 py-1.5">
-        <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-          Pour <span className="text-gray-900">{teamName}</span>
-        </span>
-        {desactive && (
-          <span className="shrink-0 text-[10px] font-black uppercase tracking-wide text-amber-600">
-            {desactive}
+    <div className="relative grid grid-cols-4 border-b border-white/10">
+      {EVENEMENTS_EQUIPE.map((type) => (
+        <button
+          key={type}
+          type="button"
+          // Les quatre sont des actions de jeu : après un but, aucune ne peut
+          // se produire tant que le ballon n'est pas revenu au rond central.
+          disabled={isSubmitting || !!desactive}
+          onClick={() => onEvenement(type)}
+          className="flex min-h-[30px] items-center justify-center gap-1 border-r border-white/[0.07] px-1 py-1 text-white/70 transition-colors last:border-r-0 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-30"
+        >
+          <span aria-hidden className="shrink-0 text-[11px] leading-none">{EMOJI_EVENEMENT[type]}</span>
+          <span className="min-w-0 truncate text-[8px] font-black uppercase tracking-tight">
+            {/* « Penalty obtenu » ne tient pas dans un quart d'ecran. */}
+            {type === "penalty" ? "Penalty" : LIBELLE_EVENEMENT[type]}
           </span>
-        )}
-      </div>
-      <div className="grid grid-cols-4 divide-x divide-gray-200/70">
-        {EVENEMENTS_EQUIPE.map((type) => (
-          <button
-            key={type}
-            type="button"
-            // Les quatre sont des actions de jeu : après un but, aucune ne peut
-            // se produire tant que le ballon n'est pas revenu au rond central.
-            disabled={isSubmitting || !!desactive}
-            onClick={() => onEvenement(type)}
-            className="flex min-h-[52px] flex-col items-center justify-center gap-0.5 px-1 py-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 active:scale-95 disabled:opacity-40"
-          >
-            <span aria-hidden className="text-sm leading-none">{EMOJI_EVENEMENT[type]}</span>
-            <span className="w-full truncate text-center text-[10px] font-black uppercase tracking-tight">
-              {/* « Penalty obtenu » ne tient pas dans un quart d'ecran. */}
-              {type === "penalty" ? "Penalty" : LIBELLE_EVENEMENT[type]}
-            </span>
-          </button>
-        ))}
-      </div>
+        </button>
+      ))}
+      {desactive && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0b1512]/75 text-[9px] font-black uppercase tracking-wider text-amber-400">
+          {desactive}
+        </span>
+      )}
     </div>
   );
 }
@@ -220,8 +225,9 @@ export default function LiveMatchConsole({
   const possessionRef = useRef<Possession | null>(null);
   const flushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Le camp regarde sur le terrain, et le joueur touche.
-  const [coteTerrain, setCoteTerrain] = useState<Side>("home");
+  // Plus de « camp regarde » : les deux terrains sont a l'ecran en meme temps,
+  // et le camp d'une saisie est celui du joueur qu'on touche. Voir
+  // TerrainsFaceAFace.
   const [actions, setActions] = useState<ActionsState | null>(null);
   const [victime, setVictime] = useState<VictimeState | null>(null);
   // Second question, asked only after a goal: who laid it on. Optional by
@@ -229,9 +235,30 @@ export default function LiveMatchConsole({
   const [assistPicker, setAssistPicker] = useState<AssistPickerState | null>(null);
 
   // Substitution modal
-  const [subModal, setSubModal] = useState<{ side: Side; teamName: string } | null>(null);
-  const [subOut, setSubOut] = useState("");
-  const [subIn, setSubIn] = useState("");
+  /**
+   * Le remplacement en cours : le camp, et CELUI DES DEUX JOUEURS QU'ON
+   * CONNAIT DEJA. On arrive toujours ici en touchant quelqu'un — le sortant
+   * sur le terrain, ou l'entrant sur le banc — donc la moitie de la reponse
+   * est acquise avant que la question ne se pose.
+   */
+  /**
+   * LA CONFIRMATION DU PRODUIT, ET NON CELLE DU NAVIGATEUR.
+   *
+   * `window.confirm` gardait le coup de sifflet final. Elle avait deja les
+   * defauts que socle lui reproche partout ailleurs — une boite grise hors du
+   * produit, en anglais sur certains systemes, qui ne distingue pas le geste
+   * dangereux du retour et qu'aucun theme ne touche.
+   *
+   * Couchee, elle en gagne un dernier, redhibitoire : une boite native
+   * s'affiche dans le repere de L'APPAREIL, que le CSS n'atteint pas. Elle
+   * serait donc apparue DE TRAVERS, au moment precis ou l'on met fin a un
+   * match — le geste le plus definitif de la console.
+   */
+  const { demander, Dialogue } = useConfirmation();
+
+  const [subModal, setSubModal] = useState<
+    { side: Side; teamName: string; sort: string } | { side: Side; teamName: string; entre: string } | null
+  >(null);
 
   // Penalty shootout entry (knockout draw)
   // Non nul = la modale de l'homme du match est ouverte, et elle retient les
@@ -899,10 +926,13 @@ export default function LiveMatchConsole({
         toast.success(LIBELLE_EVENEMENT[type]);
 
         // La faute a deux acteurs. On la pose d'abord — elle est certaine —
-        // puis on bascule sur le camp d'en face pour nommer la victime.
+        // puis on demande sa victime, dans le camp d'en face.
+        //
+        // Il fallait aussi BASCULER L'ONGLET sur ce camp, sans quoi la
+        // question portait sur des joueurs qu'on ne voyait pas. Les deux
+        // terrains etant desormais a l'ecran, il n'y a plus rien a basculer.
         if (demandeUneVictime(type)) {
           const autre: Side = side === "home" ? "away" : "home";
-          setCoteTerrain(autre);
           setVictime({
             eventId: id,
             side: autre,
@@ -1001,23 +1031,28 @@ export default function LiveMatchConsole({
   // ----- Substitutions -----
 
   /**
-   * `prerempli` vient du terrain : on touche le joueur qui sort (ou celui qui
-   * entre, depuis le banc), et la modale s'ouvre avec la moitié de la réponse
-   * déjà donnée. Ouverte sans lui, elle pose les deux questions.
+   * DEUX MENUS DEROULANTS EN MOINS.
+   *
+   * La modale demandait le sortant ET l'entrant, dans deux `<select>` natifs.
+   * Or on y arrive TOUJOURS en touchant quelqu'un : le sortant depuis le
+   * terrain, l'entrant depuis le banc. Elle reposait donc une question a
+   * laquelle le geste precedent venait de repondre.
+   *
+   * Et un `<select>` natif est precisement ce qu'une console couchee ne peut
+   * pas se permettre : son menu s'ouvre dans le repere de L'APPAREIL, pas dans
+   * celui de la page, donc de travers — le CSS ne l'atteint pas.
+   *
+   * Une seule question, posee dans le selecteur tactile que la console utilise
+   * deja pour la victime d'une faute et pour le passeur.
    */
-  const openSubModal = (
-    side: Side,
-    prerempli?: { sort?: string; entre?: string },
-  ) => {
+  const openSubModal = (side: Side, prerempli: { sort: string } | { entre: string }) => {
     if (!match) return;
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
-    setSubOut(prerempli?.sort ?? "");
-    setSubIn(prerempli?.entre ?? "");
-    setSubModal({ side, teamName });
+    setSubModal({ side, teamName, ...prerempli });
   };
 
-  const handleSubmitSub = async () => {
-    if (!match?.liveState || !subModal || !subOut || !subIn) return;
+  const effectuerRemplacement = async (sortId: string, entreId: string) => {
+    if (!match?.liveState || !subModal) return;
     const { side } = subModal;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
     if (!teamId) {
@@ -1025,8 +1060,8 @@ export default function LiveMatchConsole({
       return;
     }
     const lineup = side === "home" ? match.homeLineup : match.awayLineup;
-    const outEntry = lineup.find((e) => e.playerId === subOut);
-    const inEntry = lineup.find((e) => e.playerId === subIn);
+    const outEntry = lineup.find((e) => e.playerId === sortId);
+    const inEntry = lineup.find((e) => e.playerId === entreId);
     if (!outEntry || !inEntry) return;
 
     const events = match.liveState.events ?? [];
@@ -1069,8 +1104,6 @@ export default function LiveMatchConsole({
       );
       toast.success("Changement effectué");
       setSubModal(null);
-      setSubOut("");
-      setSubIn("");
     } catch {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
@@ -1095,7 +1128,19 @@ export default function LiveMatchConsole({
       setShowPenaltyModal(true);
       return;
     }
-    if (!window.confirm("Confirmer la fin du match ? Le score sera définitif.")) return;
+    const ok = await demander({
+      titre: "Terminer le match ?",
+      corps: (
+        <>
+          Score final {match.homeTeamName} {scoreHome} – {scoreAway} {match.awayTeamName}.
+          {" "}Les statistiques des joueurs partent, le direct se ferme, et la feuille
+          devient définitive.
+        </>
+      ),
+      action: "Coup de sifflet final",
+      danger: true,
+    });
+    if (!ok) return;
     setMvpEnAttente({});
   };
 
@@ -1539,7 +1584,13 @@ export default function LiveMatchConsole({
   const showBack = isCompleted;
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-5xl space-y-3 overflow-y-auto bg-gray-50 pb-28 pt-safe sm:space-y-7 lg:max-w-7xl">
+    <ConsoleCouchee>
+    {/* `h-full` et non `min-h-screen` : l'enveloppe donne a la console la
+        taille exacte de l'ecran couche, et c'est elle qui fait autorite sur
+        cette page. Le defilement reste possible tant que la mise en page n'est
+        pas entierement ramenee a un ecran — mais il porte sur la console, pas
+        sur la page derriere, qui est bloquee. */}
+    <div ref={containerRef} className="flex h-full flex-col overflow-hidden bg-[#0b1512]">
       {/* L'AVERTISSEMENT EN TOUT PREMIER, avant même le tableau d'affichage.
           Il était coincé entre le tableau et le terrain, c'est-à-dire au
           milieu de ce que le scoreur regarde : une consigne qu'on lit une
@@ -1547,8 +1598,8 @@ export default function LiveMatchConsole({
           En tête de page, il se lit à l'ouverture et sort du champ dès le
           premier défilement. */}
       {!isCompleted && (
-        <div className="flex items-center gap-2 bg-amber-500 px-3 py-1.5 text-white">
-          <Shield size={13} className="shrink-0" />
+        <div className="flex shrink-0 items-center gap-1.5 bg-amber-500 px-2 py-px text-white">
+          <Shield size={10} className="shrink-0" />
           <p className="truncate text-[10px] font-black uppercase tracking-wide">
             Ne quitte pas cette page avant le coup de sifflet final
           </p>
@@ -1572,249 +1623,193 @@ export default function LiveMatchConsole({
       )}
 
       {/*
-        L'EN-TÊTE ET LE TABLEAU D'AFFICHAGE NE FONT PLUS QU'UN.
+        LE BANDEAU, SUR UN SEUL RANG.
 
-        Ils vivaient l'un au-dessus de l'autre et disaient deux fois la même
-        chose : un titre « AS Kpalimé vs Étoile Filante », puis un tableau qui
-        réaffichait les deux noms sous deux écussons. Des écussons qui ne
-        portaient qu'une initiale — la première lettre d'un nom écrit juste en
-        dessous, et déjà écrit au-dessus.
+        Le tableau d'affichage occupait 270 des 393 pixels de haut d'un
+        téléphone couché — mesuré, pas estimé. Il restait 120 pixels pour les
+        deux terrains, c'est-à-dire pour la seule chose qu'on touche. Il
+        n'était pas trop grand : il était dessiné pour un écran debout, où la
+        hauteur ne manque pas et où l'on défile.
 
-        Ce que ça coûtait, en pixels de haut d'écran pris à la console :
-        — le titre et sa pastille « Match en direct », qu'on lit une fois et
-          jamais plus ;
-        — un vide de 44 sur 44 à droite du titre, posé là pour centrer le
-          texte entre deux boutons alors qu'il n'y en a qu'un ;
-        — deux écussons décoratifs ;
-        — l'empilement chip / chrono / bouton au centre, sur trois rangs.
+        Couché, la hauteur est la ressource rare et la largeur est abondante.
+        Tout ce qui s'empilait se range donc côte à côte, et les deux commandes
+        qui vivaient sous le tableau — le déroulé, « Plus d'infos » — le
+        rejoignent : elles sont rares, elles tiennent en un bouton chacune, et
+        elles coûtaient un rang entier.
 
-        Ce qui reste est ce que le scoreur regarde vraiment : le CHRONO, parce
-        qu'il lit la minute de chaque événement qu'il pose ; le BOUTON qui
-        l'arrête, seule commande de cette zone ; et le SCORE, pour vérifier
-        qu'il n'a pas fauté de frappe. Les noms d'équipe restent, en petit :
-        le terrain les redit en gros juste en dessous.
+        L'ORDRE DE LECTURE EST CELUI DU TERRAIN : l'équipe de gauche à gauche,
+        celle de droite à droite, le chrono entre les deux. Le scoreur retrouve
+        son score au-dessus de son camp.
       */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.99 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden bg-[#0A0A0B] px-3 pb-3 pt-2 text-white sm:px-8 sm:pb-7 sm:pt-4"
-      >
-        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[80%] -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.25),transparent)]" />
-
-        {/* Le titre reste pour la structure du document, pas pour l'écran :
-            les deux noms sont affichés dans la grille juste en dessous. */}
+      <div className="relative z-10 flex shrink-0 items-stretch gap-2 border-b border-white/10 bg-[#0A0A0B] px-2 py-1.5 text-white">
         <h1 className="sr-only">
           {match.homeTeamName} contre {match.awayTeamName}
         </h1>
 
-        {/* Le bandeau : la sortie à gauche, l'état du match à droite. Une
-            seule ligne fine, et plus aucun vide pour centrer quoi que ce
-            soit. */}
-        <div className="relative z-10 mb-2 flex h-8 items-center justify-between gap-2 sm:mb-4">
+        {/* La sortie, et le score du camp de gauche. */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {showBack ? (
             <button
               onClick={() => router.push(returnHref)}
-              className="group -ml-1 flex h-8 items-center gap-1.5 pr-2 text-white/50 transition-colors hover:text-white"
+              aria-label="Retour"
+              className="shrink-0 text-white/45 transition-colors hover:text-white"
             >
-              <ChevronLeft size={18} />
-              <span className="text-[10px] font-black uppercase tracking-wider">Retour</span>
+              <ChevronLeft size={16} />
             </button>
           ) : showQuit ? (
             <button
               onClick={handleQuit}
-              className="group -ml-1 flex h-8 items-center gap-1.5 pr-2 text-white/50 transition-colors hover:text-white"
+              aria-label="Quitter"
+              className="shrink-0 text-white/45 transition-colors hover:text-white"
             >
-              <LogOut size={15} />
-              <span className="text-[10px] font-black uppercase tracking-wider">Quitter</span>
+              <LogOut size={14} />
             </button>
-          ) : (
-            <span />
-          )}
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-right text-[10px] font-black uppercase tracking-tight text-white/45">
+            {match.homeTeamName}
+          </span>
+          <span className="shrink-0 text-2xl font-black leading-none tracking-tighter tabular-nums">
+            {match.scoreHome ?? 0}
+          </span>
+        </div>
 
-          <span className="flex min-w-0 items-center gap-1.5">
-            {!isCompleted && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-400" />}
-            <span className="truncate text-[10px] font-black uppercase tracking-[0.15em] text-emerald-400 sm:text-[11px]">
-              {/* « Terminé » l'emporte sur la période, comme sur les deux
-                  fiches publiques : un match fini gardait sinon le libellé de
-                  la dernière période traversée — « 2ème mi-temps », en vert,
-                  au-dessus d'un chrono arrêté. */}
+        {/* Le centre : ce qu'on lit (la minute) et ce qui l'arrête. */}
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {!isCompleted && <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-400" />}
+            <span className="text-[8px] font-black uppercase tracking-[0.15em] text-emerald-400">
               {isCompleted
                 ? "Terminé"
                 : PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
             </span>
-            {/* Le temps annoncé, rappelé à côté de la période : c'est lui qui
-                décide où l'horloge s'arrêtera, il ne doit pas être une valeur
-                qu'on a posée puis oubliée. */}
-            {!isCompleted && minutesDeLaPeriode > 0 && (
-              <span className="shrink-0 bg-amber-500 px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
-                +{minutesDeLaPeriode}&apos;
-              </span>
-            )}
-          </span>
-        </div>
-
-        {/* Les trois colonnes : un camp, le chrono, l'autre camp. Le chrono
-            est au milieu parce que c'est lui qu'on lit, et le bouton qui
-            l'arrête est directement dessous — dans la colonne, sur toute sa
-            largeur, plutôt qu'en pastille perdue au centre d'un vide. */}
-        <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-5">
-          <div className="min-w-0 text-center">
-            <h2 className="truncate text-[10px] font-black uppercase tracking-tight text-white/45 sm:text-xs">
-              {match.homeTeamName}
-            </h2>
-            <div className="text-4xl font-black leading-none tracking-tighter sm:text-6xl">
-              {match.scoreHome ?? 0}
-            </div>
+            <span className="font-mono text-lg font-black leading-none tracking-tighter tabular-nums text-emerald-400">
+              {formatTime(displayTime)}
+            </span>
           </div>
 
-          <div className="flex w-[104px] flex-col items-center gap-1.5 sm:w-[180px] sm:gap-3">
-            <div className="font-mono text-2xl font-black leading-none tracking-tighter tabular-nums text-emerald-400 sm:text-5xl">
-              {formatTime(displayTime)}
-            </div>
+          <div className="flex items-stretch gap-1">
             {!isCompleted && (match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3) && (
               match.liveState?.isTimerRunning ? (
                 <button
                   onClick={handlePauseTimer}
-                  className="flex h-11 w-full items-center justify-center gap-1.5 bg-amber-500 text-[11px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95 sm:h-12 sm:text-sm"
+                  className="flex items-center gap-1 bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95"
                 >
-                  <Pause size={15} fill="currentColor" />
-                  Arrêter
+                  <Pause size={10} fill="currentColor" /> Arrêter
                 </button>
               ) : (
                 <button
                   onClick={handleStartTimer}
-                  className="flex h-11 w-full items-center justify-center gap-1.5 bg-emerald-600 text-[11px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 active:scale-95 sm:h-12 sm:text-sm"
+                  className="flex items-center gap-1 bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 active:scale-95"
                 >
-                  <Play size={15} fill="currentColor" />
-                  Lancer
+                  <Play size={10} fill="currentColor" /> Lancer
                 </button>
               )
             )}
 
-            {/* LE TEMPS ADDITIONNEL, sous le bouton qui arrête l'horloge —
-                parce que c'est lui qui dit QUAND elle s'arrêtera. Deux touches
-                et un chiffre : l'arbitre annonce, le scoreur recopie. */}
+            {/* Le temps additionnel, à côté du bouton qui arrête l'horloge —
+                c'est lui qui dit QUAND elle s'arrêtera. L'arbitre annonce, le
+                scoreur recopie. */}
             {!isCompleted && mitempsEnCours && (
-              <div className="flex w-full items-stretch border border-white/15">
+              <div className="flex items-stretch border border-white/15">
                 <button
                   type="button"
                   onClick={() => void poserAdditionnel(-1)}
                   disabled={minutesDeLaPeriode === 0}
                   aria-label="Retirer une minute de temps additionnel"
-                  className="flex h-7 w-8 shrink-0 items-center justify-center text-sm font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
+                  className="w-5 text-xs font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
                 >
                   −
                 </button>
-                <span className="flex flex-1 items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide text-white/70">
-                  <Plus size={10} className="shrink-0" />
-                  <span className="tabular-nums">{minutesDeLaPeriode}&apos;</span>
+                <span className="flex items-center px-1 text-[9px] font-black tabular-nums text-white/70">
+                  +{minutesDeLaPeriode}&apos;
                 </span>
                 <button
                   type="button"
                   onClick={() => void poserAdditionnel(1)}
                   disabled={minutesDeLaPeriode >= 15}
                   aria-label="Ajouter une minute de temps additionnel"
-                  className="flex h-7 w-8 shrink-0 items-center justify-center text-sm font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
+                  className="w-5 text-xs font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
                 >
                   +
                 </button>
               </div>
             )}
-          </div>
 
-          <div className="min-w-0 text-center">
-            <h2 className="truncate text-[10px] font-black uppercase tracking-tight text-white/45 sm:text-xs">
-              {match.awayTeamName}
-            </h2>
-            <div className="text-4xl font-black leading-none tracking-tighter sm:text-6xl">
-              {match.scoreAway ?? 0}
-            </div>
+            {/* LE DÉROULÉ N'A JAMAIS QU'UN BOUTON À LA FOIS : mi-temps, ou
+                reprise, ou fin de match. Il occupait un rang entier pour lui
+                seul, dans une carte à cadre, icône et titre — trois
+                décorations pour un bouton qui se nomme déjà. */}
+            {!isCompleted && match.liveState?.currentPeriod === 1 && (
+              <button
+                onClick={handleHalfTime}
+                disabled={isSubmitting}
+                className="bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-white/20 disabled:opacity-40"
+              >
+                Mi-temps
+              </button>
+            )}
+            {!isCompleted && match.liveState?.currentPeriod === 2 && (
+              <button
+                onClick={handleResume}
+                disabled={isSubmitting}
+                className="flex items-center gap-1 bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+              >
+                <Play size={10} fill="currentColor" /> Reprise
+              </button>
+            )}
+            {!isCompleted && match.liveState?.currentPeriod === 3 && (
+              <button
+                onClick={handleFinishClick}
+                disabled={isSubmitting}
+                className="flex items-center gap-1 border border-red-400/40 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-40"
+              >
+                <CheckCircle2 size={11} /> Fin du match
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Penalty line (completed knockout shootout) */}
-        {isCompleted && match.penaltyHome != null && match.penaltyAway != null && (
-          <div className="relative z-10 mt-3 text-center text-[10px] font-bold uppercase tracking-widest text-white/40">
-            Tirs au but : {match.penaltyHome} – {match.penaltyAway}
-          </div>
-        )}
-      </motion.div>
-
-      {/* Landscape layout on desktop: the clock block + status controls on
-          the left (sticky), scoring + events on the right. Mobile stays a
-          single vertical column. */}
-      <div className="space-y-3 sm:space-y-7 lg:grid lg:grid-cols-2 lg:items-start lg:gap-7 lg:space-y-0">
-      <div className="space-y-3 sm:space-y-7 lg:sticky lg:top-6">
-      {!isCompleted && (
-        <>
-          {/* LE DÉROULÉ ET « PLUS D'INFOS » PARTAGENT UNE LIGNE.
-
-              Le déroulé n'a jamais qu'UN bouton à la fois — mi-temps, ou
-              reprise, ou fin de match — et il occupait toute la largeur pour
-              lui seul, dans une carte à cadre, icône et titre : trois
-              décorations pour un bouton qui se nomme déjà.
-
-              Il partage désormais son rang avec le tiroir qui range ce qu'on
-              ne saisit pas : les compteurs et l'historique. Deux commandes
-              rares côte à côte, et le terrain remonte d'autant. */}
-          <div className="flex items-stretch gap-2 px-1">
-            <div className="min-w-0 flex-1">
-              {match.liveState?.currentPeriod === 1 && (
-                <button
-                  onClick={handleHalfTime}
-                  disabled={isSubmitting}
-                  className="group flex h-full w-full items-center justify-between gap-2 bg-gray-900 px-3 py-3 text-sm font-bold text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50 sm:px-5"
-                >
-                  <span className="truncate">Mi-temps</span>
-                  <ChevronRight size={18} className="shrink-0 transition-transform group-hover:translate-x-1" />
-                </button>
-              )}
-              {match.liveState?.currentPeriod === 2 && (
-                <button
-                  onClick={handleResume}
-                  disabled={isSubmitting}
-                  className="group flex h-full w-full items-center justify-between gap-2 bg-gray-900 px-3 py-3 text-sm font-bold text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 sm:px-5"
-                >
-                  <span className="truncate">Reprise (2e mi-temps)</span>
-                  <Play size={18} className="shrink-0" fill="currentColor" />
-                </button>
-              )}
-              {match.liveState?.currentPeriod === 3 && (
-                <button
-                  onClick={handleFinishClick}
-                  disabled={isSubmitting}
-                  className="flex h-full w-full items-center justify-between gap-2 border border-red-100 bg-red-50/50 px-3 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50 sm:px-5"
-                >
-                  <span className="truncate">Fin du match</span>
-                  <CheckCircle2 size={20} className="shrink-0" />
-                </button>
-              )}
-            </div>
-
+        {/* Le score du camp de droite, et le tiroir de ce qu'on ne saisit pas. */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="shrink-0 text-2xl font-black leading-none tracking-tighter tabular-nums">
+            {match.scoreAway ?? 0}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-tight text-white/45">
+            {match.awayTeamName}
+          </span>
+          {!isCompleted && (
             <button
               type="button"
               onClick={() => setPlusDInfos((v) => !v)}
               aria-expanded={plusDInfos}
-              className="flex shrink-0 items-center gap-2 border border-gray-200/70 bg-white px-3 py-3 text-sm font-bold text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900"
+              aria-label="Compteurs et historique"
+              className="shrink-0 text-white/45 transition-colors hover:text-white"
             >
-              <Info size={16} className="shrink-0" />
-              {/* LE LIBELLÉ RESTE SUR TÉLÉPHONE. Réduit à son icône, le bouton
-                  ne promettait rien : un « i » dans un rond à côté d'un chevron
-                  ne dit pas qu'il range les compteurs et l'historique. La place
-                  existe — le bouton de déroulé d'à côté tient en un mot. */}
-              <span className="whitespace-nowrap">Plus d&apos;infos</span>
-              <ChevronDown
-                size={16}
-                className={`shrink-0 transition-transform ${plusDInfos ? "rotate-180" : ""}`}
-              />
+              <Info size={15} />
             </button>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+
+        {/* Les tirs au but d'une phase finale, quand il y en a eu. */}
+        {isCompleted && match.penaltyHome != null && match.penaltyAway != null && (
+          <span className="absolute inset-x-0 bottom-0 text-center text-[8px] font-bold uppercase tracking-widest text-white/40">
+            Tirs au but : {match.penaltyHome} – {match.penaltyAway}
+          </span>
+        )}
       </div>
 
+      {/* LA COLONNE DE GAUCHE A DISPARU AVEC CE QU'ELLE PORTAIT.
+
+          Elle tenait le déroulé et « Plus d'infos », collés en haut sur grand
+          écran, à côté de la colonne de saisie. Les deux commandes sont
+          remontées dans le bandeau : il n'y avait plus qu'une colonne, et une
+          grille de deux colonnes dont l'une est vide décale la seconde d'une
+          demi-largeur. */}
       {/* Right column: scoring + events (or the completed summary) */}
-      <div className="space-y-4 sm:space-y-7">
+      {/* `min-h-0` : sans lui, un enfant en `flex-1` se dimensionne sur son
+          contenu et pousse la colonne hors de l'ecran. C'est la regle qui
+          fait tenir la console en UN ecran, sans defilement. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
       {isCompleted ? (
         /* ----- Read-only completed summary ----- */
         <div className=" border border-gray-200/70 bg-white p-5 shadow-gray-200/40 sm:p-8">
@@ -1837,8 +1832,8 @@ export default function LiveMatchConsole({
               propre rangée au-dessus : elle est passée DANS les onglets du
               terrain, qui portaient déjà les deux mêmes noms d'équipe. Voir
               TerrainConsole. */}
-          <div className="space-y-2 px-1">
-            <TerrainConsole
+          <div className="flex min-h-0 flex-1">
+            <TerrainsFaceAFace
               home={{
                 name: match.homeTeamName,
                 surLeTerrain: homeDisabled ? [] : onPitchEntries("home"),
@@ -1849,26 +1844,22 @@ export default function LiveMatchConsole({
                 surLeTerrain: awayDisabled ? [] : onPitchEntries("away"),
                 banc: awayDisabled ? [] : benchEntries("away"),
               }}
-              cote={coteTerrain}
-              onCote={setCoteTerrain}
               jaunes={yellowCardedIds}
               ballon={possession.side}
               parts={partPossession(possession, chronoTourne, Date.now(), 0)}
               ballonActif={chronoTourne}
               onBallon={basculerPossession}
               onJoueur={(side, entry) => setActions({ side, entry })}
-              // ELLE ÉTAIT SOUS LE TERRAIN, donc sous quatre cents pixels de
-              // pelouse : poser un corner demandait de faire défiler, et
-              // pendant qu'on défile on rate l'action suivante. Tout ce qui
-              // concerne le camp affiché tient maintenant au-dessus de lui.
-              barreActions={
+              // UNE BARRE PAR CAMP, et non une seule pour « le camp affiché » :
+              // le corner de gauche est le corner de gauche, il n'y a plus
+              // rien à vérifier avant d'appuyer.
+              actions={(cote) => (
                 <BandeauEquipe
-                  teamName={coteTerrain === "home" ? match.homeTeamName : match.awayTeamName}
                   isSubmitting={isSubmitting}
                   desactive={apresBut}
-                  onEvenement={(type) => void enregistrerEvenementEquipe(coteTerrain, type)}
+                  onEvenement={(type) => void enregistrerEvenementEquipe(cote, type)}
                 />
-              }
+              )}
             />
           </div>
 
@@ -1884,7 +1875,18 @@ export default function LiveMatchConsole({
               Fermées par défaut, ouvertes d'un appui sur le bouton posé à
               côté du déroulé. Sur grand écran, où la place ne manque pas,
               elles restent visibles sans qu'on demande rien. */}
-          <div className={plusDInfos ? "space-y-3 sm:space-y-7" : "hidden space-y-3 lg:block lg:space-y-7"}>
+          {/* IL EST POSE PAR-DESSUS, et non inséré dans la colonne.
+
+              Debout, il poussait simplement le terrain vers le bas et on
+              défilait. Couché, il n'y a plus de bas où pousser : tout ce qui
+              s'insère prend sa hauteur AU TERRAIN. Ces deux cartes ne servent
+              pas à saisir — on les consulte entre deux actions — donc elles
+              recouvrent, le temps qu'on les lise. */}
+          <div
+            className={`absolute inset-0 z-20 overflow-y-auto bg-[#0b1512]/95 p-2 space-y-3 backdrop-blur-sm ${
+              plusDInfos ? "" : "hidden"
+            }`}
+          >
 
           {/* Events */}
           <div className=" border border-gray-200/70 bg-white p-3 shadow-gray-200/50 sm:p-7">
@@ -1932,7 +1934,6 @@ export default function LiveMatchConsole({
           </div>
         </>
       )}
-      </div>
       </div>
 
       {/* Ce qu'un joueur vient de faire. La liste dépend de lui : son poste,
@@ -1987,21 +1988,40 @@ export default function LiveMatchConsole({
         )}
       </AnimatePresence>
 
-      {/* Substitution modal */}
+      {/* LE REMPLACEMENT NE POSE PLUS QU'UNE QUESTION, et dans le même
+          sélecteur tactile que la victime d'une faute ou le passeur : celui
+          qu'on a touché est déjà la moitié de la réponse. */}
       <AnimatePresence>
         {subModal && (
-          <SubstitutionModal
-            teamName={subModal.teamName}
-            outEntries={onPitchEntries(subModal.side)}
-            inEntries={benchEntries(subModal.side)}
-            subOut={subOut}
-            subIn={subIn}
-            setSubOut={setSubOut}
-            setSubIn={setSubIn}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmitSub}
-            onClose={() => setSubModal(null)}
-          />
+          "sort" in subModal ? (
+            <PlayerPickerModal
+              titre="Qui entre ?"
+              sousTitre={`${Math.floor(displayTime / 60000) + 1}' · À la place de ${
+                (subModal.side === "home" ? match.homeLineup : match.awayLineup)
+                  .find((e) => e.playerId === subModal.sort)?.name ?? "ce joueur"
+              }`}
+              teamName={subModal.teamName}
+              entries={benchEntries(subModal.side)}
+              yellowSet={yellowCardedIds}
+              isSubmitting={isSubmitting}
+              onPick={(entry) => void effectuerRemplacement(subModal.sort, entry.playerId)}
+              onClose={() => setSubModal(null)}
+            />
+          ) : (
+            <PlayerPickerModal
+              titre="Qui sort ?"
+              sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Pour faire entrer ${
+                (subModal.side === "home" ? match.homeLineup : match.awayLineup)
+                  .find((e) => e.playerId === subModal.entre)?.name ?? "ce joueur"
+              }`}
+              teamName={subModal.teamName}
+              entries={onPitchEntries(subModal.side)}
+              yellowSet={yellowCardedIds}
+              isSubmitting={isSubmitting}
+              onPick={(entry) => void effectuerRemplacement(entry.playerId, subModal.entre)}
+              onClose={() => setSubModal(null)}
+            />
+          )
         )}
       </AnimatePresence>
 
@@ -2085,7 +2105,13 @@ export default function LiveMatchConsole({
           </div>
         )}
       </AnimatePresence>
+
+      {/* RENDUE DANS LA CONSOLE, et c'est ce qui compte ici : couchee, elle
+          tourne avec elle. Montee dans le layout racine, elle serait restee
+          dans le repere de l'appareil, donc de travers. */}
+      <Dialogue />
     </div>
+    </ConsoleCouchee>
   );
 }
 
@@ -2454,115 +2480,6 @@ function ModaleMVP({
         >
           {isSubmitting ? "Fin du match..." : "Terminer sans désigner"}
         </button>
-      </motion.div>
-    </div>
-  );
-}
-
-function SubstitutionModal({
-  teamName,
-  outEntries,
-  inEntries,
-  subOut,
-  subIn,
-  setSubOut,
-  setSubIn,
-  isSubmitting,
-  onSubmit,
-  onClose,
-}: {
-  teamName: string;
-  outEntries: LineupEntry[];
-  inEntries: LineupEntry[];
-  subOut: string;
-  subIn: string;
-  setSubOut: (v: string) => void;
-  setSubIn: (v: string) => void;
-  isSubmitting: boolean;
-  onSubmit: () => void;
-  onClose: () => void;
-}) {
-  const starters = outEntries;
-  const substitutes = inEntries;
-
-  return (
-    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md bg-white p-5 shadow-2xl sm:p-8"
-      >
-        <div className="mb-4 flex items-center gap-3 sm:mb-6">
-          <div className="flex h-10 w-10 items-center justify-center bg-gray-900 text-white">
-            <ArrowRightLeft size={20} />
-          </div>
-          <div>
-            <h2 className="text-lg font-black text-gray-900">Remplacement</h2>
-            <p className="text-xs font-bold uppercase tracking-tight text-gray-400 italic">{teamName}</p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-              Joueur sortant (sur le terrain)
-            </label>
-            <select
-              value={subOut}
-              onChange={(e) => setSubOut(e.target.value)}
-              className="w-full border border-gray-200/70 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-red-500"
-            >
-              <option value="">Sélectionner...</option>
-              {starters.map((e) => (
-                <option key={e.playerId} value={e.playerId}>
-                  {e.number ? `${e.number} · ` : ""}
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex justify-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-900 text-white">
-              <ArrowRightLeft size={22} />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">
-              Joueur entrant (remplaçant)
-            </label>
-            <select
-              value={subIn}
-              onChange={(e) => setSubIn(e.target.value)}
-              className="w-full border border-gray-200/70 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-emerald-500"
-            >
-              <option value="">Sélectionner...</option>
-              {substitutes.map((e) => (
-                <option key={e.playerId} value={e.playerId}>
-                  {e.number ? `${e.number} · ` : ""}
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={onSubmit}
-            disabled={!subOut || !subIn || isSubmitting}
-            className="mt-2 flex w-full items-center justify-center gap-2 bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
-          >
-            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Valider le changement"}
-          </button>
-        </div>
       </motion.div>
     </div>
   );

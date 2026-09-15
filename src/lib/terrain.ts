@@ -47,6 +47,15 @@ export interface Disposition {
    * illisibles.
    */
   ecart: number;
+  /**
+   * Le plafond de rayon de ce sens d'attaque, a passer a `rayonPastille`.
+   *
+   * Il vient d'ici parce qu'il DEPEND du sens : debout, c'est l'ecart des
+   * rangs qui borne la pastille ; couche, ce sont les rangs qui sont au large
+   * et le travers qui serre. Un appelant qui choisirait lui-meme ne saurait
+   * pas lequel des deux il regarde.
+   */
+  rayonMax: number;
 }
 
 /**
@@ -109,13 +118,70 @@ export function dispositif(taille: number): [number, number, number] {
  * c'est elle qui plafonne le rayon des pastilles de la console.
  */
 const ECART_RANGS = 16;
-const LIGNES: readonly { poste: Poste | null; y: number; etiquette: string }[] = [
-  { poste: "forward", y: 26, etiquette: "A" },
-  { poste: null, y: 26 + ECART_RANGS, etiquette: "?" },
-  { poste: "midfielder", y: 26 + ECART_RANGS * 2, etiquette: "M" },
-  { poste: "defender", y: 26 + ECART_RANGS * 3, etiquette: "D" },
-  { poste: "goalkeeper", y: 26 + ECART_RANGS * 4, etiquette: "G" },
+const LIGNES: readonly { poste: Poste | null; etiquette: string }[] = [
+  { poste: "forward", etiquette: "A" },
+  { poste: null, etiquette: "?" },
+  { poste: "midfielder", etiquette: "M" },
+  { poste: "defender", etiquette: "D" },
+  { poste: "goalkeeper", etiquette: "G" },
 ];
+
+/**
+ * VERS OU CETTE EQUIPE JOUE.
+ *
+ * `haut` est le terrain d'origine, celui de la fiche publique et de la console
+ * debout : une seule equipe, son but en bas, son attaque en haut.
+ *
+ * `droite` et `gauche` sont nes de la console couchee, qui montre les DEUX
+ * camps a la fois. Chacun defend son bord et attaque vers le milieu de
+ * l'ecran, comme sur une affiche de match — c'est la seule disposition ou le
+ * scoreur n'a pas a se demander de quel camp il parle : le joueur est du cote
+ * ou il joue.
+ *
+ * Ce n'est PAS une rotation du terrain debout. Coucher le dessin echangerait
+ * aussi les deux etalements, et ils ne sont pas interchangeables : les rangs
+ * se suivent dans le sens du jeu, les joueurs d'un meme rang s'etalent en
+ * travers, et le NOM se pose sous la pastille dans les deux cas. C'est donc
+ * l'etalement EN TRAVERS qui doit loger les noms, et il change de dimension
+ * selon le sens. D'ou deux jeux de constantes, et non une transposition.
+ */
+export type SensDAttaque = "haut" | "droite" | "gauche";
+
+export interface Cadre {
+  /** Le `viewBox` : `x y l h`. */
+  x: number;
+  y: number;
+  l: number;
+  h: number;
+  /**
+   * Les bornes ou ancrer un NOM.
+   *
+   * Une pastille d'aile est proche du bord ; un nom centre dessus sortirait du
+   * cadre et se ferait couper. On ramene l'ancre vers l'interieur — ce qui
+   * decale legerement le nom par rapport a sa pastille, et vaut mieux qu'un
+   * nom tronque.
+   */
+  nomMin: number;
+  nomMax: number;
+  /**
+   * De combien le dessin est plus grand que le terrain debout.
+   *
+   * Le SVG s'ajuste a sa boite, donc une unite du cadre couche vaut a l'ecran
+   * la moitie d'une unite du cadre debout. Tout ce qui est donne en unites et
+   * doit garder sa taille APPARENTE — le corps du texte, la vignette du
+   * carton — se multiplie par ce nombre.
+   */
+  echelle: number;
+}
+
+/** Le cadre a donner au `viewBox`, par sens d'attaque. */
+export const CADRE: Record<SensDAttaque, Cadre> = {
+  // Recadre sur la moitie utile : au-dessus des attaquants il n'y a personne
+  // a toucher. Voir TerrainConsole.
+  haut: { x: 0, y: 15, l: 100, h: 89, nomMin: 13, nomMax: 87, echelle: 1 },
+  droite: { x: 0, y: 0, l: 200, h: 116, nomMin: 18, nomMax: 182, echelle: 2 },
+  gauche: { x: 0, y: 0, l: 200, h: 116, nomMin: 18, nomMax: 182, echelle: 2 },
+};
 
 /** L'interligne entre une pastille et le nom qu'elle porte. */
 export const INTERLIGNE = 4.5;
@@ -123,9 +189,99 @@ export const INTERLIGNE = 4.5;
 /** Le rayon au-dela duquel un rang mordrait sur le nom du rang precedent. */
 export const RAYON_MAX_RANGS = (ECART_RANGS - INTERLIGNE) / 2;
 
-/** Les bornes horizontales : au-dela, le nom deborde du cadre. */
-const X_MIN = 14;
-const X_MAX = 86;
+/**
+ * La geometrie d'un sens d'attaque.
+ *
+ * DEUX AXES, ET ILS NE JOUENT PAS LE MEME ROLE. `rang` avance DANS LE SENS DU
+ * JEU — l'attaque devant, le gardien derriere ; `travers` etale les joueurs
+ * d'un meme rang perpendiculairement.
+ *
+ * Le nom se pose sous la pastille, toujours, quel que soit le sens. C'est
+ * donc l'axe VERTICAL qui doit loger les noms — et selon le sens d'attaque,
+ * cet axe est celui des rangs (terrain debout) ou celui du travers (terrain
+ * couche). Le rayon maximal ne se plafonne donc pas au meme endroit, et c'est
+ * toute la raison pour laquelle coucher le terrain n'est pas une rotation.
+ */
+interface Geometrie {
+  /** La coordonnee du rang d'index i, 0 = attaque, 4 = gardien. */
+  rang: (i: number) => number;
+  /** Les bornes en travers : au-dela, le nom deborde du cadre. */
+  traversMin: number;
+  traversMax: number;
+  /**
+   * L'axe VERTICAL est-il celui du travers ?
+   *
+   * Le nom se pose sous la pastille, donc il faut `2r + INTERLIGNE` de haut
+   * par joueur. Reste a savoir QUI fournit cette hauteur : debout ce sont les
+   * rangs, qui sont a un ecart fixe ; couche c'est le travers, dont l'ecart
+   * depend du nombre de joueurs dans le rang le plus charge — et donc de la
+   * feuille de match. Le plafond ne peut pas etre une constante dans ce cas.
+   */
+  nomsSurLeTravers: boolean;
+  /**
+   * Le plafond au-dela duquel la pastille est simplement trop grosse.
+   *
+   * Il ne vient pas d'une contrainte de collision mais du dessin : une defense
+   * a deux laisse quarante unites entre deux pastilles, et rien n'empeche
+   * geometriquement d'en faire des soucoupes.
+   */
+  plafond: number;
+  /** Assemble les deux coordonnees dans le repere du cadre. */
+  place: (rang: number, travers: number) => { x: number; y: number };
+}
+
+/** L'ecart entre deux rangs, terrain couche. Le cadre y est deux fois plus large. */
+const ECART_RANGS_COUCHE = 40;
+
+const GEOMETRIES: Record<SensDAttaque, Geometrie> = {
+  haut: {
+    rang: (i) => 26 + i * ECART_RANGS,
+    traversMin: 14,
+    traversMax: 86,
+    // Debout, les rangs se suivent VERTICALEMENT : c'est leur ecart qui borne
+    // la pastille, sans quoi le gardien recouvre le nom des defenseurs.
+    nomsSurLeTravers: false,
+    plafond: RAYON_MAX_RANGS,
+    place: (rang, travers) => ({ x: travers, y: rang }),
+  },
+  // Le but au bord GAUCHE, l'attaque vers le milieu de l'ecran.
+  droite: {
+    rang: (i) => 180 - i * ECART_RANGS_COUCHE,
+    traversMin: 20,
+    // 92 ET NON 96, pour que l'ETALEMENT TOMBE JUSTE. Le dessin tient a
+    // l'unite pres : le nom d'un joueur a sa ligne de base exactement sur le
+    // bord de la pastille du dessous, et c'est correct — les lettres montent
+    // au-dessus de cette ligne. Mais sur 76 unites, un rang de quatre donne
+    // des ecarts de 25,333… et l'egalite se joue alors sur la derniere
+    // decimale d'un flottant : le dessin mord, ou ne mord pas, selon
+    // l'arrondi. Sur 72, trois et quatre joueurs tombent sur des entiers
+    // (24 et 18), et la question ne se pose plus.
+    traversMax: 92,
+    // Couche, les rangs sont largement espaces (quarante unites) et ne se
+    // genent plus. C'est le TRAVERS qui devient vertical, donc lui qui porte
+    // les noms.
+    nomsSurLeTravers: true,
+    plafond: 11,
+    place: (rang, travers) => ({ x: rang, y: travers }),
+  },
+  // Le miroir : le but au bord DROIT.
+  gauche: {
+    rang: (i) => 20 + i * ECART_RANGS_COUCHE,
+    traversMin: 20,
+    // 92 ET NON 96, pour que l'ETALEMENT TOMBE JUSTE. Le dessin tient a
+    // l'unite pres : le nom d'un joueur a sa ligne de base exactement sur le
+    // bord de la pastille du dessous, et c'est correct — les lettres montent
+    // au-dessus de cette ligne. Mais sur 76 unites, un rang de quatre donne
+    // des ecarts de 25,333… et l'egalite se joue alors sur la derniere
+    // decimale d'un flottant : le dessin mord, ou ne mord pas, selon
+    // l'arrondi. Sur 72, trois et quatre joueurs tombent sur des entiers
+    // (24 et 18), et la question ne se pose plus.
+    traversMax: 92,
+    nomsSurLeTravers: true,
+    plafond: 11,
+    place: (rang, travers) => ({ x: rang, y: travers }),
+  },
+};
 
 /**
  * Repartit k joueurs sur la largeur, CENTRES.
@@ -135,10 +291,11 @@ const X_MAX = 86;
  * joueurs s'etirait d'une ligne de touche a l'autre — deux ailiers isoles
  * pour ce qui est, en realite, la fin d'un rang.
  */
-function abscisses(k: number, reference: number): number[] {
+function abscisses(k: number, reference: number, g: Geometrie): number[] {
   if (k <= 0) return [];
-  const pas = reference > 1 ? (X_MAX - X_MIN) / (reference - 1) : 0;
-  return Array.from({ length: k }, (_, i) => 50 + (i - (k - 1) / 2) * pas);
+  const pas = reference > 1 ? (g.traversMax - g.traversMin) / (reference - 1) : 0;
+  const milieu = (g.traversMin + g.traversMax) / 2;
+  return Array.from({ length: k }, (_, i) => milieu + (i - (k - 1) / 2) * pas);
 }
 
 /** Le gardien de cette feuille, s'il a ete declare. */
@@ -157,7 +314,7 @@ export function gardienDe(lineup: LineupEntry[]): LineupEntry | null {
 function rangsParDefaut(
   titulaires: LineupEntry[],
   taille: number,
-): { ligne: (typeof LIGNES)[number]; joueurs: (LineupEntry | null)[] }[] {
+): { ligne: (typeof LIGNES)[number]; index: number; joueurs: (LineupEntry | null)[] }[] {
   const [d, m, a] = dispositif(Math.max(taille, titulaires.length));
   const restants = [...titulaires];
   const prendre = (n: number) =>
@@ -174,8 +331,9 @@ function rangsParDefaut(
   parPoste.midfielder.push(...restants);
 
   return LIGNES
-    .filter((l) => l.poste !== null && (parPoste[l.poste] ?? []).length > 0)
-    .map((ligne) => ({ ligne, joueurs: parPoste[ligne.poste as string] }));
+    .map((ligne, index) => ({ ligne, index }))
+    .filter(({ ligne }) => ligne.poste !== null && (parPoste[ligne.poste] ?? []).length > 0)
+    .map(({ ligne, index }) => ({ ligne, index, joueurs: parPoste[ligne.poste as string] }));
 }
 
 /**
@@ -193,31 +351,48 @@ export function disposerSurTerrain(
    * terrain.
    */
   taille = titulaires.length,
+  /** Vers ou cette equipe joue. Voir SensDAttaque. */
+  sens: SensDAttaque = "haut",
 ): Disposition {
+  const g = GEOMETRIES[sens];
   const connus = titulaires.filter((e) => normaliserPoste(e.position) !== null);
 
   // Personne n'a de poste declare : on repartit par ordre de feuille sur le
   // dispositif de cette taille d'equipe. Meme geometrie que plus bas — les
   // deux chemins se distinguent par la SOURCE du rang, pas par le dessin.
+  // L'INDEX du rang, et non sa coordonnee : c'est lui qui traverse les trois
+  // sens d'attaque sans changer, la geometrie se chargeant de le poser.
   const rangs = connus.length === 0
     ? rangsParDefaut(titulaires, taille)
-    : LIGNES.map((ligne) => ({
+    : LIGNES.map((ligne, i) => ({
         ligne,
+        index: i,
         joueurs: titulaires.filter((e) => normaliserPoste(e.position) === ligne.poste),
       })).filter((r) => r.joueurs.length > 0);
 
+  const largeurTravers = g.traversMax - g.traversMin;
   const plusCharge = Math.max(...rangs.map((r) => r.joueurs.length));
-  const ecart = plusCharge > 1 ? (X_MAX - X_MIN) / (plusCharge - 1) : X_MAX - X_MIN;
+  const ecart = plusCharge > 1 ? largeurTravers / (plusCharge - 1) : largeurTravers;
 
   const places: PlaceTerrain[] = [];
-  for (const { ligne, joueurs } of rangs) {
-    const xs = abscisses(joueurs.length, plusCharge);
+  for (const { ligne, index, joueurs } of rangs) {
+    const traverses = abscisses(joueurs.length, plusCharge, g);
     joueurs.forEach((entry, i) => {
-      places.push({ x: xs[i], y: ligne.y, entry: entry ?? null, etiquette: ligne.etiquette });
+      places.push({
+        ...g.place(g.rang(index), traverses[i]),
+        entry: entry ?? null,
+        etiquette: ligne.etiquette,
+      });
     });
   }
 
-  return { places, ecart };
+  // UNE SEULE REGLE POUR LES TROIS SENS : le nom tient sous la pastille, donc
+  // l'axe vertical doit loger `2r + INTERLIGNE`. Seule change la source de
+  // cette hauteur — l'ecart des rangs debout, celui du travers couche.
+  const pasVertical = g.nomsSurLeTravers ? ecart : ECART_RANGS;
+  const rayonMax = Math.min(g.plafond, (pasVertical - INTERLIGNE) / 2);
+
+  return { places, ecart, rayonMax };
 }
 
 /**
