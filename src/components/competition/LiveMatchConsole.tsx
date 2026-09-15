@@ -1838,11 +1838,13 @@ export default function LiveMatchConsole({
                 name: match.homeTeamName,
                 surLeTerrain: homeDisabled ? [] : onPitchEntries("home"),
                 banc: homeDisabled ? [] : benchEntries("home"),
+                formation: match.homeFormation,
               }}
               away={{
                 name: match.awayTeamName,
                 surLeTerrain: awayDisabled ? [] : onPitchEntries("away"),
                 banc: awayDisabled ? [] : benchEntries("away"),
+                formation: match.awayFormation,
               }}
               jaunes={yellowCardedIds}
               ballon={possession.side}

@@ -170,6 +170,8 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       position: normaliserPoste(e.position),
     })),
     homeLineupReady: d.home_lineup_ready ?? false,
+    homeFormation: d.home_formation ?? null,
+    awayFormation: d.away_formation ?? null,
     awayLineupReady: d.away_lineup_ready ?? false,
     homeOnPitch: d.home_on_pitch ?? [],
     awayOnPitch: d.away_on_pitch ?? [],
@@ -1107,6 +1109,15 @@ export async function updateMatchLineup(
     position?: Poste | null;
   }[],
   ghostEntries: LineupEntry[] = [],
+  /**
+   * La forme annoncee, « 4-3-3 », ou `null` pour ne rien annoncer.
+   *
+   * Elle part dans la MEME ECRITURE que la feuille, et pour la meme raison
+   * que celle-ci : la console lit le match document par document, et une
+   * forme qui arriverait apres les joueurs dessinerait un terrain qui se
+   * reorganise sous les yeux du scoreur.
+   */
+  formation: string | null = null,
 ): Promise<void> {
   const batch = writeBatch(db);
 
@@ -1219,6 +1230,7 @@ export async function updateMatchLineup(
       })),
     ],
     [isHome ? "home_lineup_ready" : "away_lineup_ready"]: titulaires > 0,
+    [isHome ? "home_formation" : "away_formation"]: formation,
     updated_at: serverTimestamp(),
   });
 

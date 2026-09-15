@@ -298,6 +298,8 @@ function amicalEnCompMatch(m: Match): CompMatch {
     awayLineup: m.awayLineup,
     homeLineupReady: m.homeLineupReady ?? false,
     awayLineupReady: m.awayLineupReady ?? false,
+    homeFormation: m.homeFormation ?? null,
+    awayFormation: m.awayFormation ?? null,
     homeOnPitch: m.homeOnPitch,
     awayOnPitch: m.awayOnPitch,
     liveState: m.liveState ?? null,

@@ -567,6 +567,15 @@ export interface FirestoreMatch {
   away_lineup?: FirestoreLineupEntry[];
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
+  /**
+   * La forme annoncee par le manager, « 4-3-3 », ou absente.
+   *
+   * Elle vit sur LE MATCH et non sur l'equipe : un club ne joue pas la meme
+   * forme tous les dimanches, et la choisir fait partie de la feuille qu'on
+   * valide. Voir lib/formations.
+   */
+  home_formation?: string | null;
+  away_formation?: string | null;
   /** Qui est sur la pelouse en ce moment. Voir `FirestoreCompMatch`. */
   home_on_pitch?: string[];
   away_on_pitch?: string[];
@@ -828,6 +837,9 @@ export interface Match {
   awayLineup: LineupEntry[];
   homeLineupReady?: boolean;
   awayLineupReady?: boolean;
+  /** Voir `FirestoreMatch.home_formation`. */
+  homeFormation?: string | null;
+  awayFormation?: string | null;
   /** Voir `FirestoreMatch.home_on_pitch`. */
   homeOnPitch: string[];
   awayOnPitch: string[];
@@ -1850,6 +1862,9 @@ export interface FirestoreCompMatch {
   away_lineup?: FirestoreLineupEntry[];
   home_lineup_ready?: boolean;
   away_lineup_ready?: boolean;
+  /** Voir `FirestoreMatch.home_formation`. */
+  home_formation?: string | null;
+  away_formation?: string | null;
   home_on_pitch?: string[];
   away_on_pitch?: string[];
   live_state: FirestoreMatch["live_state"];
@@ -1899,6 +1914,9 @@ export interface CompMatch {
   awayLineup: LineupEntry[];
   homeLineupReady: boolean;
   awayLineupReady: boolean;
+  /** Voir `FirestoreMatch.home_formation`. */
+  homeFormation?: string | null;
+  awayFormation?: string | null;
   homeOnPitch: string[];
   awayOnPitch: string[];
   liveState: Match["liveState"];

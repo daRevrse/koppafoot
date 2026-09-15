@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { disposerSurTerrain, rayonPastille, CADRE, INTERLIGNE, type SensDAttaque } from "@/lib/terrain";
+import { versFormation } from "@/lib/formations";
 import { LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import { formaterNote, tonNote, type NoteJoueur } from "@/lib/notes";
 import type { LineupEntry } from "@/types";
@@ -40,6 +41,15 @@ export interface CoteTerrain {
   banc: LineupEntry[];
   /** Absent tant que l'équipe n'a rien déclaré : voir COULEURS_PAR_DEFAUT. */
   couleurs?: CouleursEquipe;
+  /**
+   * « 4-3-3 », la forme annoncée sur la feuille de match.
+   *
+   * UN JOUEUR EXPULSÉ LAISSE SA PLACE VIDE, et c'est ce qu'on veut : la
+   * formation compte onze places, le terrain n'en garnit que dix, et le trou
+   * se voit. C'est même la seule façon de lire d'un coup d'œil qu'une équipe
+   * joue en infériorité.
+   */
+  formation?: string | null;
 }
 
 /**
@@ -128,15 +138,18 @@ function Lignes({ sens }: { sens: SensDAttaque }) {
 }
 
 function Pelouse({
-  titulaires, jaunes, onJoueur, sens, couleurs,
+  titulaires, jaunes, onJoueur, sens, couleurs, formation,
 }: {
   titulaires: LineupEntry[];
   jaunes: Set<string>;
   onJoueur: (entry: LineupEntry) => void;
   sens: SensDAttaque;
   couleurs: CouleursEquipe;
+  formation: string | null;
 }) {
-  const { places, ecart, rayonMax } = disposerSurTerrain(titulaires, titulaires.length, sens);
+  const { places, ecart, rayonMax } = disposerSurTerrain(
+    titulaires, titulaires.length, sens, versFormation(formation),
+  );
   // Aussi gros que les rangs le permettent : ici on ne lit pas, on VISE. Le
   // plafond ne vient pas du goût mais de la géométrie — au-delà, la pastille
   // recouvre le nom du rang précédent. La vraie cible du doigt est le cercle
@@ -386,6 +399,7 @@ export default function TerrainsFaceAFace({
                   // l'ecran : c'est la disposition d'une affiche de match.
                   sens={k === "home" ? "droite" : "gauche"}
                   couleurs={e.couleurs ?? COULEURS_PAR_DEFAUT}
+                  formation={e.formation ?? null}
                 />
               </div>
             )}

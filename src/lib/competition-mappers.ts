@@ -132,6 +132,8 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
       position: normaliserPoste(e.position),
     })),
     homeLineupReady: d.home_lineup_ready ?? false,
+    homeFormation: d.home_formation ?? null,
+    awayFormation: d.away_formation ?? null,
     awayLineupReady: d.away_lineup_ready ?? false,
     homeOnPitch: d.home_on_pitch ?? [],
     awayOnPitch: d.away_on_pitch ?? [],

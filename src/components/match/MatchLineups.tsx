@@ -27,8 +27,9 @@ import type { LineupEntry } from "@/types";
 export default function MatchLineups({
   home, away,
 }: {
-  home: { name: string; entries: LineupEntry[] };
-  away: { name: string; entries: LineupEntry[] };
+  /** `formation` : « 4-3-3 » quand le manager en a annoncé une. */
+  home: { name: string; entries: LineupEntry[]; formation?: string | null };
+  away: { name: string; entries: LineupEntry[]; formation?: string | null };
 }) {
   // On ouvre sur le camp qui a une compo, s'il n'y en a qu'un : basculer pour
   // découvrir que l'autre côté est vide est un geste pour rien.
@@ -62,6 +63,14 @@ export default function MatchLineups({
               }`}
             >
               {e.name}
+              {/* LA FORME, SOUS LE NOM. Elle ne se lit nulle part ailleurs sur
+                  la fiche, et c'est pourtant la premiere chose qu'on cherche
+                  en ouvrant une compo. */}
+              {e.formation && (
+                <span className={`ml-1.5 tabular-nums ${on ? "text-white/50" : "text-gray-300"}`}>
+                  {e.formation}
+                </span>
+              )}
             </button>
           );
         })}
@@ -78,7 +87,7 @@ export default function MatchLineups({
               pour onze pastilles qui n'ont rien à y gagner. */}
           <div className="border border-t-0 border-gray-200/70">
             <div className="mx-auto w-full max-w-sm">
-              <TerrainCompo titulaires={titulaires} />
+              <TerrainCompo titulaires={titulaires} formation={equipe.formation} />
             </div>
           </div>
 

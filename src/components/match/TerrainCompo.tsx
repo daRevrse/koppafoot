@@ -1,6 +1,7 @@
 "use client";
 
 import { disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS } from "@/lib/terrain";
+import { versFormation } from "@/lib/formations";
 import type { LineupEntry } from "@/types";
 
 // ============================================
@@ -67,14 +68,19 @@ const PALETTES: Record<Variante, {
 export default function TerrainCompo({
   titulaires,
   taille,
+  formation,
   variante = "clair",
 }: {
   titulaires: LineupEntry[];
   /** Voir `disposerSurTerrain` : le NvN annoncé, quand on le connaît. */
   taille?: number;
+  /** « 4-3-3 », la forme annoncée par le manager. Absente, on place par poste. */
+  formation?: string | null;
   variante?: Variante;
 }) {
-  const { places, ecart } = disposerSurTerrain(titulaires, taille);
+  const { places, ecart } = disposerSurTerrain(
+    titulaires, taille, "haut", versFormation(formation),
+  );
   // La pastille rapetisse quand le rang se charge, plutot que de mordre sur
   // sa voisine. 4.2 reste le confort de lecture visé.
   const r = rayonPastille(ecart, Math.min(4.2, RAYON_MAX_RANGS));
