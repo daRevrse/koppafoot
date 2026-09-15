@@ -387,19 +387,34 @@ export default function TeamsPage() {
                     )}
                   </div>
 
-                  {/* Stats row */}
+                  {/* LE BILAN, ENTIER. La carte montrait « Joueurs, Victoires,
+                      Défaites » et TAISAIT LES NULS, que l'equipe porte
+                      pourtant : un club a 1 victoire, 2 nuls et 0 defaite
+                      lisait « 1 victoire, 0 defaite » — un bilan de trois
+                      matchs dont il en manquait deux. V / N / D se lisent
+                      ensemble ou ne se lisent pas.
+
+                      « JOUEURS » EST PARTI D'ICI, et la place revient au
+                      bilan. Le meme nombre s'ecrivait DEUX FOIS sur la carte :
+                      en gros dans cette rangee, et en petit sous elle, ou il
+                      dit en plus le plafond de l'effectif — « 18/24 ». Des
+                      deux, c'est celui-la qui en dit le plus.
+
+                      Les libelles etaient au pluriel en dur, d'ou « 1
+                      Victoires » et « 1 Joueurs ». V / N / D est l'ecriture du
+                      football, et elle ne se decline pas. */}
                   <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 bg-gray-50 p-2.5 sm:p-3">
                     <div className="text-center">
-                      <p className="text-base sm:text-lg font-bold text-gray-900 font-display">{team.memberIds.length + (ghostCounts.get(team.id) ?? 0)}</p>
-                      <p className="text-xs text-gray-500">Joueurs</p>
+                      <p className="text-base sm:text-lg font-bold text-emerald-600 font-display">{team.wins}</p>
+                      <p className="text-xs text-gray-500">V</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-base sm:text-lg font-bold text-emerald-600 font-display">{team.wins}</p>
-                      <p className="text-xs text-gray-500">Victoires</p>
+                      <p className="text-base sm:text-lg font-bold text-gray-600 font-display">{team.draws}</p>
+                      <p className="text-xs text-gray-500">N</p>
                     </div>
                     <div className="text-center">
                       <p className="text-base sm:text-lg font-bold text-red-500 font-display">{team.losses}</p>
-                      <p className="text-xs text-gray-500">Défaites</p>
+                      <p className="text-xs text-gray-500">D</p>
                     </div>
                   </div>
 

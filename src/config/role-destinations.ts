@@ -1,4 +1,4 @@
-import { Users, ClipboardCheck, CalendarDays, BarChart3, Medal } from "lucide-react";
+import { Users, ClipboardCheck, CalendarDays, BarChart3, Medal, Swords } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { EvolutionRole } from "@/types";
 
@@ -36,7 +36,12 @@ export const ROLE_DESTINATIONS: Partial<Record<EvolutionRole, RoleDestination[]>
   ],
   manager: [
     { href: "/teams", label: "Mon équipe", hint: "Effectif, entraînements, palmarès", Icon: Users },
-    { href: "/matches", label: "Matchs amicaux", hint: "Défis et rencontres à planifier", Icon: Users },
+    // `Swords` ET NON `Users`. Les deux premieres cases du menu manager
+    // portaient le MEME pictogramme, cote a cote : deux bonshommes pour
+    // « Mon équipe » et deux bonshommes pour « Matchs amicaux ». Une icone
+    // qui ne distingue pas ne sert a rien, elle occupe juste la place.
+    // Un amical est une rencontre qu'on provoque — d'ou le duel.
+    { href: "/matches", label: "Matchs amicaux", hint: "Défis et rencontres à planifier", Icon: Swords },
     { href: "/calendar", label: "Calendrier", hint: "Tes matchs et entraînements", Icon: CalendarDays },
     { href: "/mon-equipe", label: "Mes compétitions", hint: "Effectif engagé et classements", Icon: Medal },
   ],
