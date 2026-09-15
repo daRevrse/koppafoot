@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio,
+  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio, Settings,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +13,7 @@ import AvatarBottomSheet from "@/components/layout/AvatarBottomSheet";
 import { useT } from "@/i18n";
 import type { CleTraduction } from "@/i18n/fr";
 import {
-  InviteCard, SupportBlock, InstallBlock, NotificationsBlock, PreferencesBlock,
+  InviteCard, SupportBlock, InstallBlock,
 } from "@/components/account/AccountExtras";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
@@ -460,6 +460,20 @@ function AccountMenu() {
               compte, on n'y cherche pas « Mes equipes ». Ce menu ne garde
               que ce qui touche vraiment au compte. */}
 
+          {/* LES REGLAGES ONT LEUR PAGE. Ils s'empilaient dans ce menu, qu'on
+              ouvre pour aller a son profil ou se deconnecter — et qu'on
+              traversait donc a chaque fois pour rien. */}
+          {/* Sans condition sur `user` : voir AvatarBottomSheet, le theme et
+              la langue valent pour l'appareil et non pour le compte. */}
+          <Link
+            href="/parametres"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+          >
+            <Settings size={15} className="shrink-0 text-gray-400" />
+            <span className="text-[13px] font-bold text-gray-700">{t("compte.parametres")}</span>
+          </Link>
+
           {/* Partager l'appli ne demande pas de compte : c'est le lien public
               qui part, et un visiteur convaincu est le meilleur porteur. */}
           <div className="border-t border-gray-200/70 p-3">
@@ -470,10 +484,10 @@ function AccountMenu() {
             <SupportBlock onNavigate={() => setOpen(false)} />
           </div>
 
+          {/* L'invitation a installer reste : ce n'est pas un reglage, c'est
+              une proposition, et elle ne vaut qu'ici. */}
           <div className="border-t border-gray-200/70 pb-2">
             <InstallBlock />
-            <NotificationsBlock />
-            <PreferencesBlock />
           </div>
 
           {user && (

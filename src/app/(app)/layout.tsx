@@ -43,7 +43,14 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith("/staff/rejoindre") ||
     // L'aide se lit sans compte : la moitie des questions qu'on s'y pose sont
     // justement celles qu'on se pose AVANT d'en creer un.
-    pathname === "/aide"
+    pathname === "/aide" ||
+    // LES REGLAGES NON PLUS. Le theme, la langue et les notifications valent
+    // pour l'APPAREIL, pas pour le compte : un visiteur qui lit un match en
+    // pleine nuit a le meme besoin de passer en sombre que quelqu'un
+    // d'inscrit. Ils vivaient dans la feuille du compte, ouverte a tous ;
+    // les mettre derriere un mur en sortant les aurait retires a ceux qui
+    // n'ont pas de compte.
+    pathname === "/parametres"
   );
 }
 

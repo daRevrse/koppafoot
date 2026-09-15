@@ -43,6 +43,7 @@ export const fr = {
   "compte.compteEtReglages": "Compte et réglages",
   "compte.voirMonProfil": "Voir mon profil",
   "compte.monProfil": "Mon profil",
+  "compte.parametres": "Paramètres",
   "compte.seConnecter": "Se connecter",
   "compte.seDeconnecter": "Se déconnecter",
   "compte.deconnexion": "Déconnexion",

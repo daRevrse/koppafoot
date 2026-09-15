@@ -40,6 +40,7 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "compte.compteEtReglages": "Account and settings",
   "compte.voirMonProfil": "View my profile",
   "compte.monProfil": "My profile",
+  "compte.parametres": "Settings",
   "compte.seConnecter": "Sign in",
   "compte.seDeconnecter": "Sign out",
   "compte.deconnexion": "Sign out",
