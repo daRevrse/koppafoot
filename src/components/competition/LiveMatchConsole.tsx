@@ -1389,6 +1389,9 @@ export default function LiveMatchConsole({
     { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
     possession,
     chronoTourne,
+    // Zéro, comme la pastille du ballon : ce panneau sert au scoreur à
+    // vérifier ce qu'il vient de saisir. Voir lignesStats.
+    0,
   );
   // Players who already have a yellow (for the picker marker). Player ids are unique.
   const yellowCardedIds = new Set(
