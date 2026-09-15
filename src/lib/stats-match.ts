@@ -14,12 +14,17 @@
 // ============================================
 
 import type { TypeEvenement } from "@/lib/evenements";
-import { partPossession, type Possession } from "@/lib/possession";
+import { OWN_GOAL_DETAIL } from "@/lib/evenements";
+import { partPossession, SEUIL_PUBLIC_MS, type Possession } from "@/lib/possession";
 
 /** L'evenement tel que les deux fiches et la console le tiennent. */
 export interface FaitCompte {
   type: TypeEvenement;
   teamId: string;
+  /** `csc` sur un but contre son camp. Voir OWN_GOAL_DETAIL. */
+  detail?: string | null;
+  /** Le verdict de la VAR, sur un but. Absent sur un but non revu. */
+  varStatus?: "checking" | "confirmed" | "cancelled" | null;
 }
 
 export interface LigneStat {
@@ -58,6 +63,18 @@ export function lignesStats(
   score: { home: number; away: number },
   possession: Possession | null,
   chronoTourne: boolean,
+  /**
+   * Le temps de mesure a partir duquel la possession s'affiche.
+   *
+   * LA CONSOLE PASSE ZERO, et c'est la meme raison qu'a la pastille du ballon :
+   * le scoreur verifie ici ce qu'il vient de saisir. Depuis que le seuil public
+   * vaut cinq minutes, le laisser s'appliquer a la console aurait ouvert un
+   * ecart de cinq minutes entre deux affichages de la MEME mesure, a trente
+   * centimetres l'un de l'autre sur son ecran — la pastille a 62 %, et juste
+   * en dessous un panneau qui n'a pas de ligne « Possession ». Il en aurait
+   * conclu, a raison, que quelque chose ne marche pas.
+   */
+  seuilMs: number = SEUIL_PUBLIC_MS,
 ): LigneStat[] {
   const compte = (type: TypeEvenement, teamId: string | null) =>
     faits.filter((e) => e.type === type && e.teamId === teamId).length;
@@ -69,17 +86,60 @@ export function lignesStats(
     away: types.reduce((n, t) => n + compte(t, awayTeamId), 0),
   });
 
-  const parts = possession ? partPossession(possession, chronoTourne) : null;
+  /**
+   * LES TIRS CADRES NE SE SAISISSENT PAS TOUS.
+   *
+   * Un but EST un tir cadre, et un arret aussi — l'un est entre, l'autre a ete
+   * detourne, mais dans les deux cas le ballon allait au but. Le scoreur ne le
+   * saisit pourtant jamais deux fois : il pose « but » sur le buteur, ou
+   * « arret » sur le gardien, et passe a la suite. Le match continue, et
+   * demander une seconde saisie pour la meme frappe, c'est la perdre.
+   *
+   * Les compteurs se chargeaient donc de dire « 3 buts, 0 tir cadre », ce qui
+   * n'arrive dans aucun match de l'histoire du football.
+   *
+   * L'ARRET CHANGE DE CAMP, et c'est le piege. Il est saisi sur le GARDIEN,
+   * donc porte par l'equipe qui defend — mais la frappe qu'il arrete vient de
+   * l'autre. Le seul compteur de ce fichier qui traverse la ligne mediane.
+   *
+   * DEUX BUTS NE COMPTENT PAS. Celui que la VAR annule n'a pas eu lieu, et
+   * celui qu'un joueur met contre son camp n'est un tir cadre pour personne :
+   * ni pour lui, qui ne visait pas ce but-la, ni pour l'adversaire, qui n'a
+   * pas frappe.
+   */
+  const butsCadres = (teamId: string | null) =>
+    faits.filter(
+      (e) =>
+        e.type === "goal" &&
+        e.teamId === teamId &&
+        e.varStatus !== "cancelled" &&
+        e.detail !== OWN_GOAL_DETAIL,
+    ).length;
+
+  const cadres = (teamId: string | null, adverse: string | null) =>
+    compte("shot_on_target", teamId) + butsCadres(teamId) + compte("save", adverse);
+
+  const cadresHome = cadres(homeTeamId, awayTeamId);
+  const cadresAway = cadres(awayTeamId, homeTeamId);
+
+  const parts = possession
+    ? partPossession(possession, chronoTourne, Date.now(), seuilMs)
+    : null;
 
   const lignes: LigneStat[] = [
     // Le score vient du tableau d'affichage, JAMAIS de la somme des buts d'une
     // equipe : un but contre son camp est porte par celle qui le concede.
     { cle: "buts", label: "Buts", home: score.home, away: score.away },
     ...(parts ? [{ cle: "possession", label: "Possession", home: parts.home, away: parts.away, pourcent: true }] : []),
-    // Le tir cadre est saisi une fois et compte deux fois : il EST un tir.
-    // Voir la console, qui ne demande jamais les deux pour la meme frappe.
-    paire("tirs", "Tirs", "shot", "shot_on_target"),
-    paire("cadres", "Tirs cadrés", "shot_on_target"),
+    // Le tir cadre compte deux fois : il EST un tir. La console ne demande
+    // jamais les deux pour la meme frappe, donc « Tirs » les additionne.
+    {
+      cle: "tirs",
+      label: "Tirs",
+      home: compte("shot", homeTeamId) + cadresHome,
+      away: compte("shot", awayTeamId) + cadresAway,
+    },
+    { cle: "cadres", label: "Tirs cadrés", home: cadresHome, away: cadresAway },
     paire("arrets", "Arrêts", "save"),
     paire("corners", "Corners", "corner"),
     paire("penaltys", "Penaltys obtenus", "penalty"),
