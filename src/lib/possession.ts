@@ -97,11 +97,28 @@ export function totauxPossession(
 /**
  * Le temps minimum avant qu'une part veuille dire quelque chose, EN PUBLIC.
  *
- * Un appui malheureux sur la bascule ne doit pas publier « 100 % – 0 % » sur
- * la fiche du match. Dix secondes de jeu suffisent a distinguer la mesure de
- * l'accident.
+ * CINQ MINUTES DE JEU MESURE, ET NON DIX SECONDES. Le seuil ne servait qu'a
+ * ecarter l'appui malheureux — dix secondes suffisent en effet a distinguer un
+ * geste d'un accident. Mais une part de possession n'est pas seulement
+ * sincere ou accidentelle : elle est SIGNIFICATIVE ou elle ne l'est pas. A la
+ * deuxieme minute, un degagement et une remise en jeu donnaient « 78 % – 22 % »
+ * sur la fiche publique, un chiffre exact et qui ne veut rien dire, que le
+ * match dementait deux minutes plus tard.
+ *
+ * Cinq minutes, c'est le moment ou une equipe a eu le ballon assez souvent
+ * pour qu'un ecart raconte quelque chose du match plutot que de la derniere
+ * action. C'est aussi ce que font les diffuseurs, qui n'affichent pas de
+ * possession dans le premier quart d'heure.
+ *
+ * ON COMPTE LE JEU MESURE, PAS LE TEMPS ECOULE. Un scoreur qui ne prend la
+ * bascule qu'a la vingtieme minute n'a que quelques secondes de mesure : le
+ * chrono du match dirait « vingt minutes, publie », et publierait une part
+ * batie sur trois passes. C'est la MESURE qui doit etre assez longue, et elle
+ * ne court que balle en jeu (voir totauxPossession).
+ *
+ * LE SEUIL NE VAUT TOUJOURS PAS POUR LE SCOREUR : voir partPossession.
  */
-export const SEUIL_PUBLIC_MS = 10_000;
+export const SEUIL_PUBLIC_MS = 5 * 60_000;
 
 /**
  * La part de chacun, en pour cent entier.
@@ -111,9 +128,11 @@ export const SEUIL_PUBLIC_MS = 10_000;
  * un equilibre parfait, ce qui est une invention.
  *
  * LE SEUIL NE VAUT PAS POUR LE SCOREUR. Lui vient d'appuyer, il sait ce qu'il
- * a fait, et il attend que son geste se voie : dix secondes de tiret apres un
- * appui se lisent comme un bouton casse. La console passe donc `seuilMs` a
- * zero ; la fiche publique garde le seuil par defaut.
+ * a fait, et il attend que son geste se voie : un tiret apres un appui se lit
+ * comme un bouton casse, et il durerait maintenant cinq minutes. La console
+ * passe donc `seuilMs` a zero, partout ou elle affiche la possession — la
+ * pastille du ballon comme son panneau de compteurs. La fiche publique, elle,
+ * garde le seuil par defaut.
  */
 export function partPossession(
   p: Possession,
