@@ -68,32 +68,45 @@ function ecrire(cle: string, valeur: string) {
 /**
  * LES DEUX SENS, ET CE QU'ILS FONT DE L'ENCOCHE.
  *
- * `transform-origin` est le coin haut-gauche de l'écran dans les deux cas ;
- * seule change la rotation, et la translation qui ramène le rectangle sur
- * l'écran.
+ * L'ENCOCHE EST LE PIÈGE DE LA ROTATION. `env(safe-area-inset-top)` désigne le
+ * haut de l'APPAREIL, et l'appareil, lui, ne tourne pas : cette valeur
+ * continue de décrire l'encoche quand la console a pivoté. Il faut donc la
+ * reporter sur le bord de la console qui coïncide avec ce haut d'appareil.
  *
- * L'ENCOCHE EST LE PIÈGE. `env(safe-area-inset-top)` désigne le haut de
- * l'APPAREIL, et l'appareil ne tourne pas — cette valeur continue donc de
- * décrire l'encoche même quand la console, elle, a pivoté. Il faut la reporter
- * sur le bord de la console qui coïncide avec ce haut d'appareil, sans quoi
- * l'encoche mange une bande de terrain.
+ *   antihoraire : on tourne le téléphone vers la gauche. Le haut de l'appareil
+ *     part à gauche, donc le bord GAUCHE de la console longe l'encoche, et son
+ *     bord DROIT longe la barre d'accueil (ou les boutons de navigation).
+ *   horaire : le miroir exact.
  *
- *   antihoraire : on tourne le téléphone vers la gauche, le haut de l'appareil
- *     part à gauche. Le bord GAUCHE de la console longe donc l'encoche.
- *   horaire : le miroir, l'encoche longe le bord DROIT.
+ * Cette table a été vérifiée bord par bord dans un navigateur, et non déduite :
+ * une bande témoin posée sur chacun des quatre bords de la console, et la
+ * mesure de l'endroit où elle atterrit à l'écran.
+ *
+ * LES MARGES SONT SÉPARÉES, ET PAS UN RACCOURCI `padding`. La boîte ne les
+ * absorbe plus en rembourrage : elle RÉTRÉCIT d'autant et se décale. C'est ce
+ * qui distingue une console qui évite l'encoche d'une console qui la
+ * recouvre, car tout ce qui se pose PAR-DESSUS elle — ses modales en
+ * `fixed inset-0`, son bouton de demi-tour — prend pour repère la boîte, pas
+ * son rembourrage. En rembourrage, les deux tombaient sous l'encoche ; c'est
+ * mesuré, pas supposé.
  */
-const SENS: Record<Sens, { transform: string; marges: string }> = {
+const SENS: Record<
+  Sens,
+  { rotation: string; haut: string; droite: string; bas: string; gauche: string }
+> = {
   antihoraire: {
-    transform: "rotate(90deg) translateY(-100%)",
-    marges:
-      "env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) " +
-      "env(safe-area-inset-left, 0px) env(safe-area-inset-top, 0px)",
+    rotation: "rotate(90deg) translateY(-100%)",
+    haut: "env(safe-area-inset-right, 0px)",
+    droite: "env(safe-area-inset-bottom, 0px)",
+    bas: "env(safe-area-inset-left, 0px)",
+    gauche: "env(safe-area-inset-top, 0px)",
   },
   horaire: {
-    transform: "rotate(-90deg) translateX(-100%)",
-    marges:
-      "env(safe-area-inset-left, 0px) env(safe-area-inset-top, 0px) " +
-      "env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px)",
+    rotation: "rotate(-90deg) translateX(-100%)",
+    haut: "env(safe-area-inset-left, 0px)",
+    droite: "env(safe-area-inset-top, 0px)",
+    bas: "env(safe-area-inset-right, 0px)",
+    gauche: "env(safe-area-inset-bottom, 0px)",
   },
 };
 
@@ -177,18 +190,22 @@ export default function ConsoleCouchee({ children }: { children: ReactNode }) {
     return <div className="fixed inset-0 z-[75] bg-[#0b1512]" aria-hidden />;
   }
 
+  const m = SENS[sens];
   const boite = debout
     ? {
-        width: "100dvh",
-        height: "100dvw",
+        // La boîte fait l'écran MOINS les marges, et se décale d'autant :
+        // `translate` vient en DERNIER dans la composition, donc il s'applique
+        // en premier, dans le repère de la boîte — c'est-à-dire celui de la
+        // console, avant que la rotation ne la couche.
+        width: `calc(100dvh - ${m.gauche} - ${m.droite})`,
+        height: `calc(100dvw - ${m.haut} - ${m.bas})`,
         transformOrigin: "top left" as const,
-        transform: SENS[sens].transform,
-        padding: SENS[sens].marges,
+        transform: `${m.rotation} translate(${m.gauche}, ${m.haut})`,
       }
     : {
-        width: "100%",
-        height: "100%",
-        padding:
+        // Viewport déjà couché : les marges de l'appareil sont déjà les
+        // bonnes, rien à permuter.
+        inset:
           "env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) " +
           "env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)",
       };
@@ -230,6 +247,12 @@ export default function ConsoleCouchee({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={consigneVue}
+          style={{
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingRight: "env(safe-area-inset-right, 0px)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+          }}
           className="fixed inset-0 z-[85] flex flex-col items-center justify-center gap-5 bg-[#0b1512] px-8 text-center"
         >
           <Smartphone size={40} className="animate-pulse text-emerald-400" strokeWidth={1.5} />
