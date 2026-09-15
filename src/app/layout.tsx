@@ -13,6 +13,7 @@ import { AuthModalProvider } from "@/components/auth/AuthModal";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import TopLoadingBar from "@/components/ui/TopLoadingBar";
 import "./globals.css";
+import { IOS_LAUNCH_DEVICES, cheminSplash } from "@/config/ios-launch";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -42,27 +43,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// ============================================
-// iOS launch images.
-//
-// A standalone PWA on iOS shows a startup image only when the media query
-// matches the device exactly, CSS width, CSS height AND pixel ratio. Anything
-// else and Safari ignores the tag and opens on a blank white screen, which is
-// why this is a table of every current device rather than one image.
-//
-// Android takes no custom image at all: Chrome builds its splash from the
-// manifest's name, background_color and 512px icon. `background_color` is set
-// to the artwork's own background so the two platforms land in the same place.
-// ============================================
-const IOS_LAUNCH_DEVICES: ReadonlyArray<readonly [number, number, number]> = [
-  [320, 568, 2], [375, 667, 2], [414, 736, 3], [375, 812, 3],
-  [414, 896, 2], [414, 896, 3], [390, 844, 3], [360, 780, 3],
-  [428, 926, 3], [393, 852, 3], [430, 932, 3], [402, 874, 3], [440, 956, 3],
-  [768, 1024, 2], [834, 1112, 2], [834, 1194, 2], [820, 1180, 2], [1024, 1366, 2],
-];
-
+// La table des appareils vit dans config/ios-launch : le generateur des
+// images s'en sert aussi, et deux listes tenues a la main auraient fini par
+// diverger. Le commentaire qui explique pourquoi elle est si longue y est.
 const appleLaunchImages = IOS_LAUNCH_DEVICES.map(([w, h, dpr]) => ({
-  url: `/splash/splash-${w * dpr}x${h * dpr}.jpg`,
+  url: cheminSplash(w, h, dpr),
   media:
     `(device-width: ${w}px) and (device-height: ${h}px)` +
     ` and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: portrait)`,

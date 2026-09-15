@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SPLASH_FOND } from "@/config/ios-launch";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -10,8 +11,12 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "portrait",
     // Chrome paints its generated splash on this colour, so it matches the
-    // iOS launch artwork's background rather than fighting it.
-    background_color: "#f8f8f8",
+    // iOS launch artwork's background rather than fighting it. Elle valait
+    // « #f8f8f8 », un blanc casse, quand l'illustration etait claire : devant
+    // la nouvelle, vert nuit, Android aurait fait clignoter du blanc avant
+    // d'afficher l'icone. Voir SPLASH_FOND, la meme couleur que le generateur
+    // pose derriere l'image.
+    background_color: SPLASH_FOND,
     theme_color: "#059669",
     categories: ["sports", "football"],
     // Each entry serves a file that really is the size it declares, the old
