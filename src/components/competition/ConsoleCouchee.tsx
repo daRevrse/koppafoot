@@ -170,6 +170,37 @@ export default function ConsoleCouchee({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /**
+   * CE QUI VIT HORS DE LA CONSOLE ET DOIT TOURNER AVEC ELLE : les toasts.
+   *
+   * Ils sont montes dans le layout racine, donc hors de la boite tournee — le
+   * `transform` ne les atteint pas, et ils apparaissaient a l'endroit sur un
+   * ecran qu'on regarde de cote. Or la console ne parle que par eux : « But »,
+   * « Changement effectue », « 3 remplacements maximum ».
+   *
+   * ON N'EN MONTE PAS UN SECOND. Deux `Toaster` rendent tous les deux la meme
+   * pile et reportent tous les deux la hauteur de chaque toast dans le meme
+   * magasin : celui qu'on cacherait annoncerait zero, et l'empilement de
+   * l'autre partirait de travers. C'est donc CELUI QUI EXISTE qui tourne, par
+   * trois variables que la feuille de style globale consomme (voir
+   * `.toasts-app` dans globals.css). Une seule geometrie, celle d'ici.
+   */
+  useEffect(() => {
+    const racine = document.documentElement;
+    if (!debout) return;
+    const g = SENS[sens];
+    racine.dataset.consoleCouchee = sens;
+    racine.style.setProperty("--console-largeur", `calc(100dvh - ${g.gauche} - ${g.droite})`);
+    racine.style.setProperty("--console-hauteur", `calc(100dvw - ${g.haut} - ${g.bas})`);
+    racine.style.setProperty("--console-rotation", `${g.rotation} translate(${g.gauche}, ${g.haut})`);
+    return () => {
+      delete racine.dataset.consoleCouchee;
+      racine.style.removeProperty("--console-largeur");
+      racine.style.removeProperty("--console-hauteur");
+      racine.style.removeProperty("--console-rotation");
+    };
+  }, [debout, sens]);
+
   const retourner = useCallback(() => {
     setSensChoisi((choisi) => {
       const actuel = choisi ?? (lire(CLE_SENS) === "horaire" ? "horaire" : "antihoraire");

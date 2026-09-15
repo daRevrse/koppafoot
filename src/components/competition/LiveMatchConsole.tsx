@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
+import { useConfirmation } from "@/components/ui/socle";
 import { useAuth } from "@/contexts/AuthContext";
 import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
@@ -234,9 +235,30 @@ export default function LiveMatchConsole({
   const [assistPicker, setAssistPicker] = useState<AssistPickerState | null>(null);
 
   // Substitution modal
-  const [subModal, setSubModal] = useState<{ side: Side; teamName: string } | null>(null);
-  const [subOut, setSubOut] = useState("");
-  const [subIn, setSubIn] = useState("");
+  /**
+   * Le remplacement en cours : le camp, et CELUI DES DEUX JOUEURS QU'ON
+   * CONNAIT DEJA. On arrive toujours ici en touchant quelqu'un — le sortant
+   * sur le terrain, ou l'entrant sur le banc — donc la moitie de la reponse
+   * est acquise avant que la question ne se pose.
+   */
+  /**
+   * LA CONFIRMATION DU PRODUIT, ET NON CELLE DU NAVIGATEUR.
+   *
+   * `window.confirm` gardait le coup de sifflet final. Elle avait deja les
+   * defauts que socle lui reproche partout ailleurs — une boite grise hors du
+   * produit, en anglais sur certains systemes, qui ne distingue pas le geste
+   * dangereux du retour et qu'aucun theme ne touche.
+   *
+   * Couchee, elle en gagne un dernier, redhibitoire : une boite native
+   * s'affiche dans le repere de L'APPAREIL, que le CSS n'atteint pas. Elle
+   * serait donc apparue DE TRAVERS, au moment precis ou l'on met fin a un
+   * match — le geste le plus definitif de la console.
+   */
+  const { demander, Dialogue } = useConfirmation();
+
+  const [subModal, setSubModal] = useState<
+    { side: Side; teamName: string; sort: string } | { side: Side; teamName: string; entre: string } | null
+  >(null);
 
   // Penalty shootout entry (knockout draw)
   // Non nul = la modale de l'homme du match est ouverte, et elle retient les
@@ -1009,23 +1031,28 @@ export default function LiveMatchConsole({
   // ----- Substitutions -----
 
   /**
-   * `prerempli` vient du terrain : on touche le joueur qui sort (ou celui qui
-   * entre, depuis le banc), et la modale s'ouvre avec la moitié de la réponse
-   * déjà donnée. Ouverte sans lui, elle pose les deux questions.
+   * DEUX MENUS DEROULANTS EN MOINS.
+   *
+   * La modale demandait le sortant ET l'entrant, dans deux `<select>` natifs.
+   * Or on y arrive TOUJOURS en touchant quelqu'un : le sortant depuis le
+   * terrain, l'entrant depuis le banc. Elle reposait donc une question a
+   * laquelle le geste precedent venait de repondre.
+   *
+   * Et un `<select>` natif est precisement ce qu'une console couchee ne peut
+   * pas se permettre : son menu s'ouvre dans le repere de L'APPAREIL, pas dans
+   * celui de la page, donc de travers — le CSS ne l'atteint pas.
+   *
+   * Une seule question, posee dans le selecteur tactile que la console utilise
+   * deja pour la victime d'une faute et pour le passeur.
    */
-  const openSubModal = (
-    side: Side,
-    prerempli?: { sort?: string; entre?: string },
-  ) => {
+  const openSubModal = (side: Side, prerempli: { sort: string } | { entre: string }) => {
     if (!match) return;
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
-    setSubOut(prerempli?.sort ?? "");
-    setSubIn(prerempli?.entre ?? "");
-    setSubModal({ side, teamName });
+    setSubModal({ side, teamName, ...prerempli });
   };
 
-  const handleSubmitSub = async () => {
-    if (!match?.liveState || !subModal || !subOut || !subIn) return;
+  const effectuerRemplacement = async (sortId: string, entreId: string) => {
+    if (!match?.liveState || !subModal) return;
     const { side } = subModal;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
     if (!teamId) {
@@ -1033,8 +1060,8 @@ export default function LiveMatchConsole({
       return;
     }
     const lineup = side === "home" ? match.homeLineup : match.awayLineup;
-    const outEntry = lineup.find((e) => e.playerId === subOut);
-    const inEntry = lineup.find((e) => e.playerId === subIn);
+    const outEntry = lineup.find((e) => e.playerId === sortId);
+    const inEntry = lineup.find((e) => e.playerId === entreId);
     if (!outEntry || !inEntry) return;
 
     const events = match.liveState.events ?? [];
@@ -1077,8 +1104,6 @@ export default function LiveMatchConsole({
       );
       toast.success("Changement effectué");
       setSubModal(null);
-      setSubOut("");
-      setSubIn("");
     } catch {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
@@ -1103,7 +1128,19 @@ export default function LiveMatchConsole({
       setShowPenaltyModal(true);
       return;
     }
-    if (!window.confirm("Confirmer la fin du match ? Le score sera définitif.")) return;
+    const ok = await demander({
+      titre: "Terminer le match ?",
+      corps: (
+        <>
+          Score final {match.homeTeamName} {scoreHome} – {scoreAway} {match.awayTeamName}.
+          {" "}Les statistiques des joueurs partent, le direct se ferme, et la feuille
+          devient définitive.
+        </>
+      ),
+      action: "Coup de sifflet final",
+      danger: true,
+    });
+    if (!ok) return;
     setMvpEnAttente({});
   };
 
@@ -1948,21 +1985,40 @@ export default function LiveMatchConsole({
         )}
       </AnimatePresence>
 
-      {/* Substitution modal */}
+      {/* LE REMPLACEMENT NE POSE PLUS QU'UNE QUESTION, et dans le même
+          sélecteur tactile que la victime d'une faute ou le passeur : celui
+          qu'on a touché est déjà la moitié de la réponse. */}
       <AnimatePresence>
         {subModal && (
-          <SubstitutionModal
-            teamName={subModal.teamName}
-            outEntries={onPitchEntries(subModal.side)}
-            inEntries={benchEntries(subModal.side)}
-            subOut={subOut}
-            subIn={subIn}
-            setSubOut={setSubOut}
-            setSubIn={setSubIn}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmitSub}
-            onClose={() => setSubModal(null)}
-          />
+          "sort" in subModal ? (
+            <PlayerPickerModal
+              titre="Qui entre ?"
+              sousTitre={`${Math.floor(displayTime / 60000) + 1}' · À la place de ${
+                (subModal.side === "home" ? match.homeLineup : match.awayLineup)
+                  .find((e) => e.playerId === subModal.sort)?.name ?? "ce joueur"
+              }`}
+              teamName={subModal.teamName}
+              entries={benchEntries(subModal.side)}
+              yellowSet={yellowCardedIds}
+              isSubmitting={isSubmitting}
+              onPick={(entry) => void effectuerRemplacement(subModal.sort, entry.playerId)}
+              onClose={() => setSubModal(null)}
+            />
+          ) : (
+            <PlayerPickerModal
+              titre="Qui sort ?"
+              sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Pour faire entrer ${
+                (subModal.side === "home" ? match.homeLineup : match.awayLineup)
+                  .find((e) => e.playerId === subModal.entre)?.name ?? "ce joueur"
+              }`}
+              teamName={subModal.teamName}
+              entries={onPitchEntries(subModal.side)}
+              yellowSet={yellowCardedIds}
+              isSubmitting={isSubmitting}
+              onPick={(entry) => void effectuerRemplacement(entry.playerId, subModal.entre)}
+              onClose={() => setSubModal(null)}
+            />
+          )
         )}
       </AnimatePresence>
 
@@ -2046,6 +2102,11 @@ export default function LiveMatchConsole({
           </div>
         )}
       </AnimatePresence>
+
+      {/* RENDUE DANS LA CONSOLE, et c'est ce qui compte ici : couchee, elle
+          tourne avec elle. Montee dans le layout racine, elle serait restee
+          dans le repere de l'appareil, donc de travers. */}
+      <Dialogue />
     </div>
     </ConsoleCouchee>
   );
@@ -2416,115 +2477,6 @@ function ModaleMVP({
         >
           {isSubmitting ? "Fin du match..." : "Terminer sans désigner"}
         </button>
-      </motion.div>
-    </div>
-  );
-}
-
-function SubstitutionModal({
-  teamName,
-  outEntries,
-  inEntries,
-  subOut,
-  subIn,
-  setSubOut,
-  setSubIn,
-  isSubmitting,
-  onSubmit,
-  onClose,
-}: {
-  teamName: string;
-  outEntries: LineupEntry[];
-  inEntries: LineupEntry[];
-  subOut: string;
-  subIn: string;
-  setSubOut: (v: string) => void;
-  setSubIn: (v: string) => void;
-  isSubmitting: boolean;
-  onSubmit: () => void;
-  onClose: () => void;
-}) {
-  const starters = outEntries;
-  const substitutes = inEntries;
-
-  return (
-    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md bg-white p-5 shadow-2xl sm:p-8"
-      >
-        <div className="mb-4 flex items-center gap-3 sm:mb-6">
-          <div className="flex h-10 w-10 items-center justify-center bg-gray-900 text-white">
-            <ArrowRightLeft size={20} />
-          </div>
-          <div>
-            <h2 className="text-lg font-black text-gray-900">Remplacement</h2>
-            <p className="text-xs font-bold uppercase tracking-tight text-gray-400 italic">{teamName}</p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-              Joueur sortant (sur le terrain)
-            </label>
-            <select
-              value={subOut}
-              onChange={(e) => setSubOut(e.target.value)}
-              className="w-full border border-gray-200/70 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-red-500"
-            >
-              <option value="">Sélectionner...</option>
-              {starters.map((e) => (
-                <option key={e.playerId} value={e.playerId}>
-                  {e.number ? `${e.number} · ` : ""}
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex justify-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-900 text-white">
-              <ArrowRightLeft size={22} />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">
-              Joueur entrant (remplaçant)
-            </label>
-            <select
-              value={subIn}
-              onChange={(e) => setSubIn(e.target.value)}
-              className="w-full border border-gray-200/70 bg-gray-50 p-4 text-sm font-bold outline-none transition-colors focus:border-emerald-500"
-            >
-              <option value="">Sélectionner...</option>
-              {substitutes.map((e) => (
-                <option key={e.playerId} value={e.playerId}>
-                  {e.number ? `${e.number} · ` : ""}
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={onSubmit}
-            disabled={!subOut || !subIn || isSubmitting}
-            className="mt-2 flex w-full items-center justify-center gap-2 bg-gray-900 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
-          >
-            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Valider le changement"}
-          </button>
-        </div>
       </motion.div>
     </div>
   );

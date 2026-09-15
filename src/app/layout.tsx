@@ -163,6 +163,11 @@ export default async function RootLayout({
             {children}
           </AuthModalProvider>
           <Toaster
+            // `containerClassName` : le seul moyen de designer le conteneur
+            // que react-hot-toast cree lui-meme. La console couchee s'en sert
+            // pour le faire tourner avec elle — voir `.toasts-app` dans
+            // globals.css et components/competition/ConsoleCouchee.
+            containerClassName="toasts-app"
             position="top-right"
             toastOptions={{
               duration: 4000,
