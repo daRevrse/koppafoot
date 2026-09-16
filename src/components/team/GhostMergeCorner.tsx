@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { GitMerge, Loader2, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { mergeGhostPlayer } from "@/lib/firestore";
+import { useConfirmation } from "@/components/ui/socle";
 import type { GhostPlayer, UserProfile } from "@/types";
 
 // ============================================
-// Le coin fusion.
+// LE COIN FUSION : UNE COMMANDE, PAS UNE LISTE.
 //
 // Un club amateur inscrit ses joueurs sans smartphone comme joueurs sans
 // compte : ils figurent sur les feuilles de match et accumulent une carrière.
@@ -15,8 +16,25 @@ import type { GhostPlayer, UserProfile } from "@/types";
 // pendant que son double continue d'exister à côté de lui — deux lignes pour
 // un seul homme, dont une qui porte tout son passé.
 //
-// Ce bloc n'apparaît que s'il y a matière à fusionner : des joueurs sans compte
-// ET des comptes dans l'effectif. Sans les deux, il ne dit rien et ne
+// CE QUI CHANGE ICI. Ce bloc posait UNE CARTE PAR JOUEUR SANS COMPTE : un
+// nom, un menu, un bouton, puis le même formulaire en dessous, et encore le
+// même. Quatre joueurs sans compte faisaient quatre fois le même geste à
+// l'écran, et un effectif de village en aligne bien plus — le bloc grandissait
+// avec une liste qu'on ne vient jamais parcourir.
+//
+// Car on ne fusionne pas quatre joueurs : on en fusionne UN, le jour où il
+// crée son compte. C'est un geste rare et ciblé, et un geste rare et ciblé se
+// dit comme un virement — d'où, vers où, on valide. Le joueur sans compte se
+// choisit donc dans un menu au lieu d'avoir sa propre carte, et le bloc garde
+// la même taille que l'équipe compte deux joueurs sans compte ou trente.
+//
+// CE QUE LES CARTES DISAIENT ET QU'ON NE PERD PAS : la carrière en jeu. Elle
+// s'affichait sur chacune ; elle s'affiche maintenant une fois, sous les deux
+// menus, pour le joueur choisi — au moment où elle sert vraiment, c'est-à-dire
+// juste avant de valider.
+//
+// Ce bloc n'apparaît que s'il y a matière à fusionner : des joueurs sans
+// compte ET des comptes dans l'effectif. Sans les deux, il ne dit rien et ne
 // s'affiche pas.
 // ============================================
 
@@ -28,40 +46,76 @@ interface Props {
   onMerged: () => void;
 }
 
+const nomDe = (p: { firstName: string; lastName: string }) =>
+  `${p.firstName} ${p.lastName}`.trim();
+
+/** « 12 matchs, 4 buts et 2 passes ». */
+function carriere(g: GhostPlayer): string {
+  const s = (n: number) => (n > 1 ? "s" : "");
+  return (
+    `${g.matchesPlayed} match${s(g.matchesPlayed)}, ` +
+    `${g.goals} but${s(g.goals)} et ${g.assists} passe${s(g.assists)}`
+  );
+}
+
+const CHAMP =
+  "w-full min-w-0 border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-semibold " +
+  "text-gray-900 outline-none transition-colors focus:border-violet-500";
+
+const LABEL = "mb-1.5 block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400";
+
 export default function GhostMergeCorner({ teamId, ghostPlayers, members, onMerged }: Props) {
-  const [choix, setChoix] = useState<Record<string, string>>({});
-  const [enCours, setEnCours] = useState<string | null>(null);
+  const [ghostId, setGhostId] = useState("");
+  const [playerId, setPlayerId] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const { demander, Dialogue } = useConfirmation();
+
+  // DEUX MENUS, DONC DEUX LISTES TRIÉES. Une carte, on la parcourt du regard ;
+  // un menu, on y cherche un nom précis. L'ordre de Firestore n'en est pas un.
+  const fantomes = useMemo(
+    () => [...ghostPlayers].sort((a, b) => nomDe(a).localeCompare(nomDe(b), "fr")),
+    [ghostPlayers],
+  );
+  const comptes = useMemo(
+    () => [...members].sort((a, b) => nomDe(a).localeCompare(nomDe(b), "fr")),
+    [members],
+  );
 
   if (ghostPlayers.length === 0 || members.length === 0) return null;
 
-  const fusionner = async (ghost: GhostPlayer) => {
-    const playerId = choix[ghost.id];
-    if (!playerId) return;
-    const compte = members.find((m) => m.uid === playerId);
-    const nomCompte = compte ? `${compte.firstName} ${compte.lastName}`.trim() : "ce compte";
-    const nomFantome = `${ghost.firstName} ${ghost.lastName}`.trim();
+  const fantome = fantomes.find((g) => g.id === ghostId) ?? null;
+  const compte = comptes.find((m) => m.uid === playerId) ?? null;
+  const nomCompte = compte ? nomDe(compte) || compte.email || "ce compte" : "";
 
-    if (!window.confirm(
-      `Fusionner ${nomFantome} avec ${nomCompte} ?\n\n` +
-      `${ghost.matchesPlayed} match(s), ${ghost.goals} but(s) et ${ghost.assists} passe(s) ` +
-      `seront ajoutés au compte, les feuilles de match passées porteront son vrai nom, ` +
-      `et la fiche sans compte disparaîtra.\n\nC'est définitif.`
-    )) return;
+  const fusionner = async () => {
+    if (!fantome || !compte) return;
 
-    setEnCours(ghost.id);
+    const ok = await demander({
+      titre: `Fusionner ${nomDe(fantome)} ?`,
+      corps: (
+        <>
+          Sa carrière — {carriere(fantome)} — passe sur le compte de{" "}
+          <strong className="font-bold text-gray-900">{nomCompte}</strong>, les feuilles de
+          match déjà jouées porteront son vrai nom, et la fiche sans compte disparaîtra.
+          C&apos;est définitif.
+        </>
+      ),
+      action: "Fusionner",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setEnCours(true);
     try {
-      const r = await mergeGhostPlayer({ teamId, ghostId: ghost.id, playerId });
+      const r = await mergeGhostPlayer({ teamId, ghostId: fantome.id, playerId: compte.uid });
       toast.success(`${r.nom} récupère ${r.matchs} match(s) et ${r.buts} but(s)`);
-      setChoix((prev) => {
-        const next = { ...prev };
-        delete next[ghost.id];
-        return next;
-      });
+      setGhostId("");
+      setPlayerId("");
       onMerged();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "La fusion a échoué");
     } finally {
-      setEnCours(null);
+      setEnCours(false);
     }
   };
 
@@ -81,48 +135,80 @@ export default function GhostMergeCorner({ teamId, ghostPlayers, members, onMerg
         </div>
       </div>
 
-      <ul className="space-y-2">
-        {ghostPlayers.map((g) => (
-          <li
-            key={g.id}
-            className="flex flex-col gap-2 border border-gray-200/70 bg-gray-50/60 p-3 sm:flex-row sm:items-center"
+      {/* LES DEUX BOUTS DU GESTE. `items-end` pour que la flèche tombe entre
+          les deux menus et non sous leurs étiquettes ; elle disparaît en
+          colonne, où l'un est simplement au-dessus de l'autre et où ce sont
+          les étiquettes qui disent le sens. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-2">
+        <div className="min-w-0 sm:flex-1">
+          <label htmlFor="fusion-fantome" className={LABEL}>
+            Le joueur sans compte
+          </label>
+          <select
+            id="fusion-fantome"
+            value={ghostId}
+            onChange={(e) => setGhostId(e.target.value)}
+            className={CHAMP}
           >
-            <div className="min-w-0 sm:flex-1">
-              <p className="truncate text-sm font-bold text-gray-900">
-                {g.firstName} {g.lastName}
-              </p>
-              <p className="text-[11px] font-medium text-gray-500">
-                {g.matchesPlayed} match{g.matchesPlayed > 1 ? "s" : ""} · {g.goals} but{g.goals > 1 ? "s" : ""} · {g.assists} passe{g.assists > 1 ? "s" : ""}
-              </p>
-            </div>
+            <option value="">Choisir le joueur…</option>
+            {fantomes.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.squadNumber?.trim() ? `N°${g.squadNumber.trim()} · ${nomDe(g)}` : nomDe(g)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            <ArrowRight size={14} className="hidden shrink-0 text-gray-300 sm:block" />
+        <ArrowRight size={16} className="hidden shrink-0 text-gray-300 sm:mb-3 sm:block" />
 
-            <div className="flex gap-2 sm:shrink-0">
-              <select
-                value={choix[g.id] ?? ""}
-                onChange={(e) => setChoix((prev) => ({ ...prev, [g.id]: e.target.value }))}
-                className="min-w-0 flex-1 border border-gray-200/70 bg-white px-2 py-2 text-sm outline-none focus:border-violet-500 sm:w-48 sm:flex-none"
-              >
-                <option value="">Choisir le compte…</option>
-                {members.map((m) => (
-                  <option key={m.uid} value={m.uid}>
-                    {`${m.firstName} ${m.lastName}`.trim() || m.email}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => fusionner(g)}
-                disabled={!choix[g.id] || enCours === g.id}
-                className="inline-flex shrink-0 items-center gap-1.5 bg-violet-600 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-white transition-colors hover:bg-violet-700 disabled:opacity-40"
-              >
-                {enCours === g.id ? <Loader2 size={13} className="animate-spin" /> : <GitMerge size={13} />}
-                Fusionner
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+        <div className="min-w-0 sm:flex-1">
+          <label htmlFor="fusion-compte" className={LABEL}>
+            Son compte
+          </label>
+          <select
+            id="fusion-compte"
+            value={playerId}
+            onChange={(e) => setPlayerId(e.target.value)}
+            className={CHAMP}
+          >
+            <option value="">Choisir le compte…</option>
+            {comptes.map((m) => (
+              <option key={m.uid} value={m.uid}>
+                {nomDe(m) || m.email || "Compte sans nom"}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* CE QUI EST EN JEU, UNE FOIS. C'est ce que les cartes affichaient
+          chacune de leur côté : la carrière qui va changer de fiche. Ici elle
+          arrive quand un joueur est choisi, c'est-à-dire au moment de vérifier
+          qu'on a bien désigné le bon. */}
+      {fantome && (
+        <p className="mt-3 border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] font-medium leading-relaxed text-violet-700">
+          <strong className="font-black">{nomDe(fantome)}</strong> apporte {carriere(fantome)}
+          {compte ? (
+            <>
+              {" "}
+              à <strong className="font-black">{nomCompte}</strong>.
+            </>
+          ) : (
+            "."
+          )}
+        </p>
+      )}
+
+      <button
+        onClick={fusionner}
+        disabled={!fantome || !compte || enCours}
+        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 bg-violet-600 px-3 py-2.5 text-[11px] font-black uppercase tracking-wider text-white transition-colors hover:bg-violet-700 disabled:opacity-40 sm:w-auto"
+      >
+        {enCours ? <Loader2 size={13} className="animate-spin" /> : <GitMerge size={13} />}
+        Fusionner
+      </button>
+
+      <Dialogue />
     </div>
   );
 }
