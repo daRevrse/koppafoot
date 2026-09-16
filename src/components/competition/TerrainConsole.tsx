@@ -100,7 +100,13 @@ const PELOUSE = "#15803d";
 const PELOUSE_EN_ATTENTE = "#14532d";
 
 function Lignes({ sens }: { sens: SensDAttaque }) {
-  const traits = { stroke: "#ffffff", strokeOpacity: 0.35, fill: "none" };
+  // `pointerEvents: none` : un trace SVG en `fill: none` n'est touchable que
+  // sur son TRAIT, et la mediane comme le rond central traversent la pelouse
+  // de part en part. Sans cela, un appui tombant pile sur une ligne blanche
+  // ne donnerait pas le ballon, sans que rien n'explique pourquoi.
+  const traits = {
+    stroke: "#ffffff", strokeOpacity: 0.35, fill: "none", pointerEvents: "none" as const,
+  };
 
   if (sens === "haut") {
     return (
@@ -135,7 +141,7 @@ function Lignes({ sens }: { sens: SensDAttaque }) {
 }
 
 function Pelouse({
-  titulaires, jaunes, onJoueur, sens, couleurs, formation, contour, enAttente,
+  titulaires, jaunes, onJoueur, sens, couleurs, formation, contour, enAttente, onPelouse,
 }: {
   titulaires: LineupEntry[];
   jaunes: Set<string>;
@@ -155,6 +161,20 @@ function Pelouse({
   contour?: string;
   /** Ce camp n'a pas le ballon, et quelqu'un l'a. Voir `PELOUSE_EN_ATTENTE`. */
   enAttente?: boolean;
+  /**
+   * LA PELOUSE NUE DONNE LE BALLON A CE CAMP.
+   *
+   * Elle DONNE, elle ne bascule pas : toucher l'herbe d'un camp veut dire
+   * « le ballon est de ce cote », et il n'y a rien a comprendre de plus. Le
+   * retirer a tout le monde reste sur la pastille du bandeau, qui est le
+   * geste rare — un ballon qui n'est a personne est une situation, pas une
+   * action de jeu.
+   *
+   * Et c'est bien la PELOUSE, pas le camp : les onze pastilles gardent leur
+   * appui a elles. C'est ce qui separe ce geste de celui qu'on avait ecarte
+   * — voir TerrainsFaceAFace.
+   */
+  onPelouse?: () => void;
 }) {
   const { places, ecart, rayonMax } = disposerSurTerrain(
     titulaires, titulaires.length, sens, versFormation(formation),
@@ -183,7 +203,14 @@ function Pelouse({
       <rect
         x={c.x} y={c.y} width={c.l} height={c.h}
         fill={enAttente ? PELOUSE_EN_ATTENTE : PELOUSE}
-        className="transition-colors duration-500"
+        onClick={onPelouse}
+        // MASQUEE AUX LECTEURS D'ECRAN, et c'est volontaire : la meme action
+        // existe deja dans le bandeau du camp, sous un bouton nomme et
+        // atteignable au clavier. Annoncer en plus un bouton grand comme la
+        // moitie de l'ecran, pose SOUS les onze joueurs, n'ajouterait rien
+        // qu'on puisse faire — seulement du bruit a traverser.
+        aria-hidden="true"
+        className={`transition-colors duration-500 ${onPelouse ? "cursor-pointer" : ""}`}
       />
       <Lignes sens={sens} />
 
@@ -194,7 +221,10 @@ function Pelouse({
           // compte moins de titulaires qu'annoncé. Il garde sa lettre, pour
           // dire qu'il manque un joueur et non que le terrain est cassé.
           return (
-            <g key={`vide-${i}`}>
+            // `pointer-events-none` : il n'y a personne a toucher ici, donc
+            // c'est de la pelouse — et le trait pointille ne doit pas retenir
+            // l'appui qui donne le ballon.
+            <g key={`vide-${i}`} className="pointer-events-none">
               <circle
                 cx={place.x} cy={place.y} r={r}
                 fill="none" stroke="#ffffff" strokeOpacity="0.4"
@@ -308,12 +338,31 @@ function Pelouse({
  *   — LE DEFILEMENT. Tout tient dans un ecran, sans exception : pendant qu'on
  *     fait defiler, on rate l'action suivante.
  *
- * LE BALLON GARDE SON GESTE PROPRE, et c'est delibere. On pourrait croire que
- * toucher un camp devrait lui donner le ballon — c'etait la demande. Mais on
- * regarde la defense PRECISEMENT quand on n'a pas le ballon, pour noter
- * l'arret de son gardien : lier les deux obligerait a rendre le ballon a
- * l'adversaire pour noter le sien. La pastille reste donc a part — mais elle
- * ne coute plus qu'un appui, puisqu'il n'y a plus de camp a rejoindre avant.
+ * LE BALLON SE DONNE EN TOUCHANT LA PELOUSE DU CAMP, et il a fallu deux fois
+ * pour trouver le bon geste.
+ *
+ * On avait d'abord ecarte « toucher un camp lui donne le ballon », pour une
+ * raison qui tenait : on regarde la defense PRECISEMENT quand on n'a pas le
+ * ballon, pour noter l'arret de son gardien — lier les deux aurait oblige a
+ * rendre le ballon a l'adversaire pour noter le sien.
+ *
+ * LA PELOUSE N'EST PAS LE CAMP, et c'est ce qui dissout l'objection. Toucher
+ * un JOUEUR ouvre ses actions, comme avant et sans rien y changer ; toucher
+ * L'HERBE, ou il n'y a personne, donne le ballon. Deux gestes distincts sur
+ * deux cibles distinctes, et l'arret du gardien se note toujours sans que
+ * rien ne bouge.
+ *
+ * ELLE DONNE, ELLE NE BASCULE PAS. La pastille du bandeau, elle, bascule :
+ * un second appui retire le ballon a tout le monde. L'herbe ne sait dire
+ * qu'une chose — « il est de ce cote » — et c'est ce qu'on veut d'un geste
+ * qu'on fait vingt fois par mi-temps sans regarder.
+ *
+ * CE QUI REND LE GESTE SUR : la moitie qui attend s'assombrit (voir
+ * `PELOUSE_EN_ATTENTE`). Un appui parti trop loin se voit donc a l'instant ou
+ * il se produit, et se reprend d'un autre appui — la possession est une
+ * mesure, pas un fait de match, et rien ne s'ecrit qu'on ne puisse defaire.
+ * Sans ce retour visible, le meme geste aurait ete muet, et on ne l'aurait
+ * pas propose.
  */
 export default function TerrainsFaceAFace({
   home, away, jaunes, ballon, parts, ballonActif, onBallon, onJoueur, actions,
@@ -446,6 +495,10 @@ export default function TerrainsFaceAFace({
                   formation={e.formation ?? null}
                   contour={memeTon && miroir ? "#f8fafc" : undefined}
                   enAttente={enAttente}
+                  // DONNER, et non basculer : voir `onPelouse`. Un appui sur
+                  // l'herbe du camp qui tient deja le ballon ne fait donc
+                  // rien, ce dont `basculer` se charge (lib/possession).
+                  onPelouse={() => onBallon(k)}
                 />
               </div>
             )}
