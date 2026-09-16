@@ -4,6 +4,9 @@ import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { disposerSurTerrain, rayonPastille, CADRE, INTERLIGNE, type SensDAttaque } from "@/lib/terrain";
 import { versFormation } from "@/lib/formations";
+import {
+  COULEURS_PAR_DEFAUT, maillotsTropProches, type CouleursEquipe,
+} from "@/lib/couleurs-equipe";
 import { LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import { formaterNote, tonNote, type NoteJoueur } from "@/lib/notes";
 import type { LineupEntry } from "@/types";
@@ -67,34 +70,6 @@ function nomCourt(nom: string, max = 11): string {
 }
 
 /**
- * LES COULEURS D'UNE ÉQUIPE SUR LE TERRAIN.
- *
- * Elles ne servaient à rien tant que la console ne montrait qu'un camp à la
- * fois : onze pastilles blanches, et l'onglet au-dessus disait de qui il
- * s'agissait. Les deux camps côte à côte, elles deviennent la seule chose qui
- * distingue une moitié d'écran de l'autre d'un coup d'œil — c'est-à-dire ce
- * qu'on regarde avant de poser le doigt.
- *
- * Le gardien a les siennes, comme sur un vrai terrain : c'est le seul joueur
- * qu'on cherche pour une raison précise (l'arrêt), et le seul qui n'a pas le
- * droit de porter la couleur de ses dix coéquipiers.
- */
-export interface CouleursEquipe {
-  maillot: string;
-  texte: string;
-  gardien: string;
-  texteGardien: string;
-}
-
-/** Le blanc d'avant, quand une équipe n'a rien déclaré. */
-export const COULEURS_PAR_DEFAUT: CouleursEquipe = {
-  maillot: "#ffffff",
-  texte: "#111827",
-  gardien: "#fde68a",
-  texteGardien: "#111827",
-};
-
-/**
  * Le tracé du terrain, pour un sens de jeu.
  *
  * TROIS CÔTÉS, JAMAIS QUATRE. Le quatrième bord est celui par où le terrain
@@ -138,7 +113,7 @@ function Lignes({ sens }: { sens: SensDAttaque }) {
 }
 
 function Pelouse({
-  titulaires, jaunes, onJoueur, sens, couleurs, formation,
+  titulaires, jaunes, onJoueur, sens, couleurs, formation, contour,
 }: {
   titulaires: LineupEntry[];
   jaunes: Set<string>;
@@ -146,6 +121,16 @@ function Pelouse({
   sens: SensDAttaque;
   couleurs: CouleursEquipe;
   formation: string | null;
+  /**
+   * Un liseré, quand les deux équipes jouent dans le même ton.
+   *
+   * ON NE RECOLORE PAS UNE ÉQUIPE POUR ARRANGER L'AFFICHAGE : le produit ne
+   * connaît qu'un maillot par club, il n'a pas de tenue extérieure, et peindre
+   * l'un des deux camps d'une couleur qu'il ne porte pas serait mentir sur ce
+   * qui est sur le terrain. On ajoute donc un trait, qui ne prétend rien de la
+   * tenue et sépare quand même les deux moitiés d'écran.
+   */
+  contour?: string;
 }) {
   const { places, ecart, rayonMax } = disposerSurTerrain(
     titulaires, titulaires.length, sens, versFormation(formation),
@@ -220,9 +205,18 @@ function Pelouse({
                 couché, c'est la même distance sous le doigt. Au-delà, deux
                 cibles voisines se recouvriraient. */}
             <circle cx={place.x} cy={place.y} r={r + 2 * c.echelle} fill="transparent" />
+            {/* LE TRAIT SVG EST CENTRÉ SUR LE CERCLE : il déborde donc de la
+                moitié de son épaisseur VERS L'EXTÉRIEUR. Un liseré épais
+                mordait sur le nom du joueur du rang précédent, dont la ligne
+                de base est calée au bord exact de la pastille (voir
+                lib/terrain). On rétrécit le cercle d'autant : le bord
+                extérieur du trait retombe précisément sur `r`, et la géométrie
+                reste celle que la disposition a calculée. */}
             <circle
-              cx={place.x} cy={place.y} r={r}
-              fill={fond} stroke="#052e16" strokeWidth={0.5 * c.echelle}
+              cx={place.x} cy={place.y} r={r - (contour ? 0.7 * c.echelle : 0)}
+              fill={fond}
+              stroke={contour ?? "#052e16"}
+              strokeWidth={(contour ? 1.4 : 0.5) * c.echelle}
             />
             <text
               x={place.x} y={place.y + r * 0.36} textAnchor="middle"
@@ -309,6 +303,16 @@ export default function TerrainsFaceAFace({
   /** Corner, coup franc, touche, penalty — rendus une fois PAR CAMP. */
   actions: (cote: Cote) => React.ReactNode;
 }) {
+  const tenueHome = home.couleurs ?? COULEURS_PAR_DEFAUT;
+  const tenueAway = away.couleurs ?? COULEURS_PAR_DEFAUT;
+  /**
+   * DEUX ÉQUIPES DANS LE MÊME TON, et c'est le cas qui vide la couleur de son
+   * intérêt. On marque le camp EXTÉRIEUR d'un liseré clair — un seul des deux,
+   * sans quoi le liseré ne distingue rien non plus — et l'usage du football
+   * veut que ce soit le visiteur qui s'adapte.
+   */
+  const memeTon = maillotsTropProches(tenueHome, tenueAway);
+
   return (
     <div
       // `w-full` : ce bloc est un ELEMENT d'une rangee flex, et un element de
@@ -398,8 +402,9 @@ export default function TerrainsFaceAFace({
                   // Chacun defend son bord et attaque vers le milieu de
                   // l'ecran : c'est la disposition d'une affiche de match.
                   sens={k === "home" ? "droite" : "gauche"}
-                  couleurs={e.couleurs ?? COULEURS_PAR_DEFAUT}
+                  couleurs={k === "home" ? tenueHome : tenueAway}
                   formation={e.formation ?? null}
+                  contour={memeTon && miroir ? "#f8fafc" : undefined}
                 />
               </div>
             )}

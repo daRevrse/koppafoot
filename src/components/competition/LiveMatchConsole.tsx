@@ -12,6 +12,7 @@ import {
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
 import { useConfirmation } from "@/components/ui/socle";
+import { couleursDuMaillot, type CouleursEquipe } from "@/lib/couleurs-equipe";
 import { useAuth } from "@/contexts/AuthContext";
 import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
@@ -256,6 +257,15 @@ export default function LiveMatchConsole({
    */
   const { demander, Dialogue } = useConfirmation();
 
+  /**
+   * Ce que les deux equipes portent.
+   *
+   * Charge une fois, comme les effectifs : une couleur de maillot ne change
+   * pas en cours de match. Voir `PiloteConsole.couleurs`, qui sait ou la
+   * chercher selon qu'on couvre une competition ou un amical.
+   */
+  const [couleurs, setCouleurs] = useState<{ home: CouleursEquipe; away: CouleursEquipe } | null>(null);
+
   const [subModal, setSubModal] = useState<
     { side: Side; teamName: string; sort: string } | { side: Side; teamName: string; entre: string } | null
   >(null);
@@ -338,6 +348,28 @@ export default function LiveMatchConsole({
   const isPreKickoff = !!match && match.status !== "live" && match.status !== "completed";
   const homeTeamId = match?.homeTeamId ?? null;
   const awayTeamId = match?.awayTeamId ?? null;
+
+  const idsDesEquipes = `${match?.homeTeamId ?? ""}|${match?.awayTeamId ?? ""}`;
+  useEffect(() => {
+    if (!match) return;
+    let annule = false;
+    (async () => {
+      try {
+        const { home, away } = await pilote.couleurs(match);
+        if (annule) return;
+        setCouleurs({ home: couleursDuMaillot(home), away: couleursDuMaillot(away) });
+      } catch {
+        // Le terrain garde le blanc : une couleur manquante ne doit pas
+        // empecher de couvrir un match.
+      }
+    })();
+    return () => {
+      annule = true;
+    };
+    // `match` entier changerait a chaque battement du chrono ; seuls les deux
+    // identifiants decident d'ou vient la couleur.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pilote, idsDesEquipes]);
 
   useEffect(() => {
     if (!isPreKickoff || !match) return;
@@ -1844,12 +1876,14 @@ export default function LiveMatchConsole({
                 surLeTerrain: homeDisabled ? [] : onPitchEntries("home"),
                 banc: homeDisabled ? [] : benchEntries("home"),
                 formation: match.homeFormation,
+                couleurs: couleurs?.home,
               }}
               away={{
                 name: match.awayTeamName,
                 surLeTerrain: awayDisabled ? [] : onPitchEntries("away"),
                 banc: awayDisabled ? [] : benchEntries("away"),
                 formation: match.awayFormation,
+                couleurs: couleurs?.away,
               }}
               jaunes={yellowCardedIds}
               ballon={possession.side}

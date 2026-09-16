@@ -34,7 +34,7 @@ import {
 import type { TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
 import {
-  onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam,
+  onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam, getTeamById,
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
   setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
@@ -100,6 +100,20 @@ export interface PiloteConsole {
 
   /** Les deux effectifs, pour batir la feuille de match. */
   effectifs(match: CompMatch): Promise<{ home: CompPlayer[]; away: CompPlayer[] }>;
+
+  /**
+   * Ce que les deux equipes portent, pour le terrain.
+   *
+   * ELLE PASSE PAR LE PILOTE parce que la couleur ne vit pas au meme endroit
+   * selon le match : sur l'equipe de competition pour une rencontre de
+   * competition, sur le club lui-meme pour un amical. C'est exactement ce que
+   * ce pilote existe pour savoir.
+   *
+   * Rendre `null` pour un camp est normal et frequent : une equipe hors
+   * plateforme n'a pas de fiche, et une equipe qui n'a rien declare n'a pas de
+   * couleur. Le terrain retombe alors sur le blanc d'avant.
+   */
+  couleurs(match: CompMatch): Promise<{ home: string | null; away: string | null }>;
   poserFeuille(side: Cote, entries: LineupEntry[], prete: boolean): Promise<void>;
 
   lancer(surLeTerrain: { home: string[]; away: string[] }): Promise<void>;
@@ -194,6 +208,14 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
         match.awayTeamId ? getCompTeam(cid, match.awayTeamId) : Promise.resolve(null),
       ]);
       return { home: home?.players ?? [], away: away?.players ?? [] };
+    },
+
+    couleurs: async (match) => {
+      const [home, away] = await Promise.all([
+        match.homeTeamId ? getCompTeam(cid, match.homeTeamId) : Promise.resolve(null),
+        match.awayTeamId ? getCompTeam(cid, match.awayTeamId) : Promise.resolve(null),
+      ]);
+      return { home: home?.color ?? null, away: away?.color ?? null };
     },
 
     poserFeuille: (side, entries, prete) => setCompMatchLineup(cid, mid, side, entries, prete),
@@ -381,6 +403,17 @@ export function piloteAmical(matchId: string): PiloteConsole {
         home: pour(match.homeTeamId, fantomesHome),
         away: pour(match.awayTeamId, fantomesAway),
       };
+    },
+
+    couleurs: async (match) => {
+      // UNE EQUIPE HORS PLATEFORME N'A PAS DE FICHE, et c'est le cas de la
+      // moitie des adversaires d'amicaux : `getTeamById` rend `null`, le
+      // terrain retombe sur le blanc. Rien a signaler, c'est la normale.
+      const [home, away] = await Promise.all([
+        match.homeTeamId ? getTeamById(match.homeTeamId).catch(() => null) : Promise.resolve(null),
+        match.awayTeamId ? getTeamById(match.awayTeamId).catch(() => null) : Promise.resolve(null),
+      ]);
+      return { home: home?.color ?? null, away: away?.color ?? null };
     },
 
     poserFeuille: (side, entries, prete) => setMatchLineup(matchId, side, entries, prete),
