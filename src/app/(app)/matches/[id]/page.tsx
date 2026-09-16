@@ -36,6 +36,9 @@ import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
 import { dispositif } from "@/lib/terrain";
+import {
+  effectifParPoste, formationParDefaut, formationsPour, versFormation,
+} from "@/lib/formations";
 import PredictionPoll from "@/components/match/PredictionPoll";
 import MatchModerators from "@/components/match/MatchModerators";
 
@@ -358,10 +361,37 @@ export default function MatchDetailPage() {
    */
   const tailleDuMatch = tailleEffectif(match?.format);
   const onzeComplet = titulairesEnCours.length >= tailleDuMatch;
+
+  /**
+   * LA FORME QUE LE MANAGER ANNONCE, et non celle qu'on devine.
+   *
+   * `formeAttendue` disait ce qu'un match de cette taille « tient » — une
+   * référence utile, mais qui ne demandait rien : le manager rangeait ses
+   * joueurs par poste et découvrait le dessin après coup. Il choisit
+   * maintenant sa forme, et tout le reste en découle : ce que la feuille lui
+   * réclame poste par poste, et le terrain juste en dessous.
+   *
+   * Ce qu'il choisit PENDANT la session prime sur ce que le match porte déjà ;
+   * à défaut, la forme la plus courante de ce NvN. L'état n'est jamais posé
+   * depuis un effet — il se dérive, comme partout ailleurs.
+   */
+  const formationsDispo = useMemo(
+    () => formationsPour(tailleDuMatch, dispositif(tailleDuMatch)),
+    [tailleDuMatch],
+  );
+  const [formationChoisie, setFormationChoisie] = useState<string | null>(null);
+  const formationDuCamp = myTeamIsHome ? match?.homeFormation : match?.awayFormation;
+  const formation =
+    formationChoisie
+    ?? (formationDuCamp && formationsDispo.includes(formationDuCamp) ? formationDuCamp : null)
+    ?? formationParDefaut(tailleDuMatch, dispositif(tailleDuMatch));
+
   const formeAttendue = useMemo(() => {
+    const f = versFormation(formation);
+    if (f) return effectifParPoste(f);
     const [d, m, a] = dispositif(tailleDuMatch);
     return { goalkeeper: Math.min(1, tailleDuMatch), defender: d, midfielder: m, forward: a };
-  }, [tailleDuMatch]);
+  }, [formation, tailleDuMatch]);
 
   /** Combien de titulaires à chaque poste, dans la feuille en cours. */
   const posesParPoste = useMemo(() => {
@@ -1166,8 +1196,8 @@ export default function MatchDetailPage() {
                   MatchLineups. */}
               <div className="bg-white p-4 sm:p-5">
                 <MatchLineups
-                  home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup) }}
-                  away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup) }}
+                  home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup), formation: match.homeFormation }}
+                  away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup), formation: match.awayFormation }}
                 />
               </div>
 
@@ -1304,12 +1334,45 @@ export default function MatchDetailPage() {
                     </div>
                   </div>
 
-                  {/* LA FORME DE CE NvN, poste par poste. Elle n'impose
-                      rien — un manager range ses joueurs comme il l'entend —
-                      mais elle donne l'échelle du match qu'on prépare : un
-                      5v5 n'est pas un 11v11 avec des trous, et l'éditeur ne
-                      disait nulle part combien de défenseurs y tiennent. Le
-                      chiffre passe au vert quand il tombe juste. */}
+                  {/* LA FORMATION, CHOISIE ET NON DEVINÉE.
+
+                      C'est la seule décision de tactique que ce produit
+                      demande, et elle tient en un appui. Tout ce qui suit en
+                      découle : le compte par poste juste en dessous, et le
+                      terrain juste après. Le manager voit donc sa forme se
+                      dessiner pendant qu'il compose, au lieu de la découvrir
+                      sur la fiche publique une fois la feuille validée.
+
+                      La liste dépend de la taille du match : un 5v5 a ses
+                      formes à lui, ce n'est pas un 11v11 avec des trous. */}
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                      Formation
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {formationsDispo.map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setFormationChoisie(f)}
+                          aria-pressed={formation === f}
+                          className={`px-3 py-2 text-[11px] font-black tabular-nums tracking-wider transition-colors ${
+                            formation === f
+                              ? "bg-emerald-500 text-white"
+                              : "border border-white/10 text-white/50 hover:border-white/30 hover:text-white"
+                          }`}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* CE QUE LA FORME RÉCLAME, poste par poste. Elle n'impose
+                      rien — un manager range ses joueurs comme il l'entend, et
+                      le terrain dessine la forme annoncée quoi qu'il arrive —
+                      mais elle dit ce qui manque. Le chiffre passe au vert
+                      quand il tombe juste. */}
                   <div className="grid grid-cols-4 border border-white/5">
                     {POSTES.map((code) => {
                       const pose = posesParPoste[code];
@@ -1359,6 +1422,7 @@ export default function MatchDetailPage() {
                         <TerrainCompo
                           titulaires={titulairesEnCours}
                           taille={tailleEffectif(match.format)}
+                          formation={formation}
                           variante="sombre"
                         />
                       </div>
@@ -1546,7 +1610,9 @@ export default function MatchDetailPage() {
                             });
 
                           // This updateMatchLineup also sets the ready flag in firestore
-                          await updateMatchLineup(match.id, myTeamId, myTeamIsHome, assignments, ghostEntries);
+                          await updateMatchLineup(
+                            match.id, myTeamId, myTeamIsHome, assignments, ghostEntries, formation,
+                          );
                           setLineupMode(false);
                           toast.success("Feuille de match validée !");
                         } catch (err) {

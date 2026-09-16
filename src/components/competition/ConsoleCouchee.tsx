@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import React, { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { RotateCw, Smartphone } from "lucide-react";
 
 // ============================================
@@ -201,14 +201,31 @@ export default function ConsoleCouchee({ children }: { children: ReactNode }) {
         height: `calc(100dvw - ${m.haut} - ${m.bas})`,
         transformOrigin: "top left" as const,
         transform: `${m.rotation} translate(${m.gauche}, ${m.haut})`,
-      }
+        /**
+         * LA HAUTEUR DE LA CONSOLE, POUR CE QU'ELLE CONTIENT.
+         *
+         * `vh` et `dvh` designent la hauteur de l'APPAREIL, qui ne tourne pas.
+         * Couchee, la hauteur de la console est la LARGEUR de l'appareil : une
+         * modale bornee a `55vh` reclamait donc 55 % de 852 px dans une boite
+         * qui en fait 393, debordait, et ses cartes s'etiraient. Vu sur un
+         * vrai telephone.
+         *
+         * Cette variable est posee EN LIGNE et non par une feuille de style :
+         * elle descend par heritage a tout ce que la console contient, et ne
+         * traverse aucun pipeline CSS. Hors console elle n'existe pas, et le
+         * repli `100dvh` de chaque usage redonne le comportement d'avant.
+         */
+        "--console-h": `calc(100dvw - ${m.haut} - ${m.bas})`,
+      } as React.CSSProperties
     : {
         // Viewport déjà couché : les marges de l'appareil sont déjà les
         // bonnes, rien à permuter.
         inset:
           "env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) " +
           "env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)",
-      };
+        "--console-h":
+          "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+      } as React.CSSProperties;
 
   return (
     <>

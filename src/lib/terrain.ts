@@ -21,6 +21,7 @@
 // ============================================
 
 import { normaliserPoste, type Poste } from "@/lib/postes";
+import { postePrefere, type Formation } from "@/lib/formations";
 import type { LineupEntry } from "@/types";
 
 export interface PlaceTerrain {
@@ -205,6 +206,19 @@ export const RAYON_MAX_RANGS = (ECART_RANGS - INTERLIGNE) / 2;
 interface Geometrie {
   /** La coordonnee du rang d'index i, 0 = attaque, 4 = gardien. */
   rang: (i: number) => number;
+  /**
+   * La coordonnee du k-ieme rang d'une FORMATION, 0 = gardien, n = l'attaque.
+   *
+   * Les cinq rangs par poste sont a un ecart FIXE, et laissent un trou la ou
+   * un rang est vide — c'est voulu, ce trou dit qu'il n'y a personne a ce
+   * poste. Une formation, elle, annonce exactement ses lignes : il n'y a plus
+   * de rang vide a signaler, et les lignes se repartissent donc sur toute la
+   * profondeur, quel que soit leur nombre. Un 4-2-3-1 a cinq rangs la ou un
+   * 4-4-2 en a quatre, et les deux occupent le meme terrain.
+   */
+  rangDeFormation: (k: number, n: number) => number;
+  /** L'ecart entre deux rangs d'une formation de n lignes de champ. */
+  pasDeFormation: (n: number) => number;
   /** Les bornes en travers : au-dela, le nom deborde du cadre. */
   traversMin: number;
   traversMax: number;
@@ -236,6 +250,9 @@ const ECART_RANGS_COUCHE = 40;
 const GEOMETRIES: Record<SensDAttaque, Geometrie> = {
   haut: {
     rang: (i) => 26 + i * ECART_RANGS,
+    // Du gardien (90) vers l'attaque (26).
+    rangDeFormation: (k, n) => (n < 1 ? 90 : 90 - (90 - 26) * (k / n)),
+    pasDeFormation: (n) => (n < 1 ? 64 : (90 - 26) / n),
     traversMin: 14,
     traversMax: 86,
     // Debout, les rangs se suivent VERTICALEMENT : c'est leur ecart qui borne
@@ -247,6 +264,9 @@ const GEOMETRIES: Record<SensDAttaque, Geometrie> = {
   // Le but au bord GAUCHE, l'attaque vers le milieu de l'ecran.
   droite: {
     rang: (i) => 180 - i * ECART_RANGS_COUCHE,
+    // Du gardien (20, au bord) vers l'attaque (180, vers le centre).
+    rangDeFormation: (k, n) => (n < 1 ? 20 : 20 + (180 - 20) * (k / n)),
+    pasDeFormation: (n) => (n < 1 ? 160 : (180 - 20) / n),
     traversMin: 20,
     // 92 ET NON 96, pour que l'ETALEMENT TOMBE JUSTE. Le dessin tient a
     // l'unite pres : le nom d'un joueur a sa ligne de base exactement sur le
@@ -267,6 +287,8 @@ const GEOMETRIES: Record<SensDAttaque, Geometrie> = {
   // Le miroir : le but au bord DROIT.
   gauche: {
     rang: (i) => 20 + i * ECART_RANGS_COUCHE,
+    rangDeFormation: (k, n) => (n < 1 ? 180 : 180 - (180 - 20) * (k / n)),
+    pasDeFormation: (n) => (n < 1 ? 160 : (180 - 20) / n),
     traversMin: 20,
     // 92 ET NON 96, pour que l'ETALEMENT TOMBE JUSTE. Le dessin tient a
     // l'unite pres : le nom d'un joueur a sa ligne de base exactement sur le
@@ -337,6 +359,108 @@ function rangsParDefaut(
 }
 
 /**
+ * LES LIGNES D'UNE FORMATION, GARNIES AVEC CETTE FEUILLE.
+ *
+ * DEUX PASSES, ET L'ORDRE COMPTE. La premiere ne donne a chaque ligne que des
+ * joueurs DE SON POSTE : sans elle, la ligne de defense se remplirait du
+ * premier venu et le milieu declare finirait devant. La seconde comble ce qui
+ * reste, en servant d'abord ceux QUI N'ONT PAS DE POSTE — ils n'expriment
+ * aucune preference, autant qu'ils bouchent les trous avant qu'on deplace
+ * quelqu'un qui, lui, a dit ou il joue.
+ *
+ * LA FORME CHOISIE L'EMPORTE SUR LES POSTES DECLARES, et c'est tout l'interet
+ * de la choisir. Six defenseurs sur la feuille d'un 3-5-2 donnent trois
+ * defenseurs et cinq milieux : les trois en trop jouent plus haut, parce que
+ * c'est ce que veut dire annoncer un 3-5-2. Le terrain ne discute pas la
+ * decision du manager, il la dessine.
+ *
+ * ON NE PERD PERSONNE POUR AUTANT. Une feuille plus courte que la formation
+ * laisse des places VIDES, qui gardent leur lettre — il manque quelqu'un, et
+ * le terrain doit le dire. Une feuille plus longue elargit le rang du poste
+ * concerne plutot que de laisser quelqu'un dehors : un rang trop charge se
+ * voit, un joueur absent du terrain ne se voit pas.
+ *
+ * L'ordre de la feuille est conserve a l'interieur d'une ligne. C'est celui
+ * que le manager a saisi, et le seul indice qu'on ait sur qui joue a gauche.
+ */
+function rangsDeFormation(
+  titulaires: LineupEntry[],
+  formation: Formation,
+): { etiquette: string; joueurs: (LineupEntry | null)[] }[] {
+  const restants = [...titulaires];
+  const retirer = (e: LineupEntry) => {
+    const i = restants.indexOf(e);
+    if (i >= 0) restants.splice(i, 1);
+  };
+
+  // Le gardien d'abord : il a sa ligne a lui, et c'est le seul poste dont la
+  // formation ne parle pas — « 4-3-3 » compte dix joueurs de champ.
+  //
+  // PERSONNE N'A DECLARE DE POSTE : la premiere ligne de la feuille garde le
+  // but. C'est ce que le repli par taille faisait deja, et c'est moins
+  // mensonger que de laisser le but vide en placant onze joueurs de champ.
+  // Mais si QUELQU'UN a un poste et que personne n'est gardien, le but reste
+  // vide : la feuille a ete renseignee, et il y manque le gardien.
+  const aucunPoste = restants.every((e) => normaliserPoste(e.position) === null);
+  const gardien =
+    restants.find((e) => normaliserPoste(e.position) === "goalkeeper")
+    ?? (aucunPoste ? restants[0] ?? null : null);
+  if (gardien) retirer(gardien);
+
+  const lignes = formation.map((capacite, i) => ({
+    poste: postePrefere(formation, i),
+    capacite,
+    joueurs: [] as LineupEntry[],
+  }));
+
+  for (const l of lignes) {
+    for (const e of [...restants]) {
+      if (l.joueurs.length >= l.capacite) break;
+      if (normaliserPoste(e.position) === l.poste) {
+        l.joueurs.push(e);
+        retirer(e);
+      }
+    }
+  }
+
+  const sansPoste = restants.filter((e) => normaliserPoste(e.position) === null);
+  const avecPoste = restants.filter((e) => normaliserPoste(e.position) !== null);
+  const aCaser = [...sansPoste, ...avecPoste];
+  for (const l of lignes) {
+    while (l.joueurs.length < l.capacite && aCaser.length > 0) {
+      const e = aCaser.shift()!;
+      l.joueurs.push(e);
+      retirer(e);
+    }
+  }
+
+  // Ce qui deborde encore : la feuille aligne plus de monde que la formation.
+  for (const e of aCaser) {
+    const poste = normaliserPoste(e.position);
+    const cible =
+      lignes.find((l) => l.poste === poste) ?? lignes[Math.floor(lignes.length / 2)];
+    if (cible) cible.joueurs.push(e);
+  }
+
+  const ETIQUETTES: Record<Poste, string> = {
+    goalkeeper: "G", defender: "D", midfielder: "M", forward: "A",
+  };
+
+  // Du gardien vers l'attaque : c'est l'ordre dans lequel la geometrie range
+  // ses rangs, et l'inverse de celui dans lequel on ECRIT une formation.
+  return [
+    { etiquette: "G", joueurs: [gardien] },
+    ...lignes.map((l) => ({
+      etiquette: ETIQUETTES[l.poste],
+      joueurs: [
+        ...l.joueurs,
+        ...Array.from({ length: Math.max(0, l.capacite - l.joueurs.length) }, () => null),
+      ],
+    })),
+  ];
+}
+
+/**
  * Les emplacements du terrain pour ces titulaires.
  *
  * L'ordre de la feuille est conserve a l'interieur d'une ligne : c'est celui
@@ -353,8 +477,48 @@ export function disposerSurTerrain(
   taille = titulaires.length,
   /** Vers ou cette equipe joue. Voir SensDAttaque. */
   sens: SensDAttaque = "haut",
+  /**
+   * La forme annoncee par le manager, quand il en a choisi une.
+   *
+   * ABSENTE, RIEN NE CHANGE : on place par poste sur les cinq rangs fixes,
+   * exactement comme avant ce parametre. Les deux chemins coexistent parce
+   * qu'une feuille validee avant l'arrivee des formations n'en porte pas, et
+   * qu'elle doit continuer de se dessiner comme elle se dessinait.
+   */
+  formation: Formation | null = null,
 ): Disposition {
   const g = GEOMETRIES[sens];
+
+  if (formation && formation.length > 0) {
+    const rangs = rangsDeFormation(titulaires, formation);
+    const largeur = g.traversMax - g.traversMin;
+    const plusCharge = Math.max(...rangs.map((r) => r.joueurs.length), 1);
+    const ecart = plusCharge > 1 ? largeur / (plusCharge - 1) : largeur;
+
+    const places: PlaceTerrain[] = [];
+    rangs.forEach((rang, k) => {
+      const traverses = abscisses(rang.joueurs.length, plusCharge, g);
+      rang.joueurs.forEach((entry, i) => {
+        places.push({
+          ...g.place(g.rangDeFormation(k, formation.length), traverses[i]),
+          entry,
+          etiquette: rang.etiquette,
+        });
+      });
+    });
+
+    // Meme regle qu'en bas : le nom tient sous la pastille, donc l'axe
+    // vertical doit loger `2r + INTERLIGNE`. Seule la source de cette hauteur
+    // change — ici l'ecart des lignes de la formation, qui depend de leur
+    // NOMBRE et non plus d'une constante.
+    const pasVertical = g.nomsSurLeTravers ? ecart : g.pasDeFormation(formation.length);
+    return {
+      places,
+      ecart,
+      rayonMax: Math.min(g.plafond, (pasVertical - INTERLIGNE) / 2),
+    };
+  }
+
   const connus = titulaires.filter((e) => normaliserPoste(e.position) !== null);
 
   // Personne n'a de poste declare : on repartit par ordre de feuille sur le

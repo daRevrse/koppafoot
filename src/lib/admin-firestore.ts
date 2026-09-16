@@ -129,6 +129,8 @@ function toMatch(id: string, d: FirestoreMatch): Match {
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
     })),
     homeLineupReady: d.home_lineup_ready ?? false,
+    homeFormation: d.home_formation ?? null,
+    awayFormation: d.away_formation ?? null,
     awayLineupReady: d.away_lineup_ready ?? false,
     homeOnPitch: d.home_on_pitch ?? [],
     awayOnPitch: d.away_on_pitch ?? [],

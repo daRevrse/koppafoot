@@ -475,8 +475,8 @@ export default function PublicCompMatchView() {
                 qu'une composition porte. Voir MatchLineups. */}
             {activeTab === "lineups" && (
               <MatchLineups
-                home={{ name: match.homeTeamName, entries: match.homeLineup }}
-                away={{ name: match.awayTeamName, entries: match.awayLineup }}
+                home={{ name: match.homeTeamName, entries: match.homeLineup, formation: match.homeFormation }}
+                away={{ name: match.awayTeamName, entries: match.awayLineup, formation: match.awayFormation }}
               />
             )}
 
