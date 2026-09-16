@@ -25,20 +25,21 @@ import {
   initLiveCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
   finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
+  setCompPenaltyOutcome,
 } from "@/lib/competition-firestore";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
   DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
 } from "@/lib/competition-format";
-import type { TypeEvenement } from "@/lib/evenements";
+import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
 import {
   onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam, getTeamById,
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
   setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
-  setMatchAddedTime,
+  setMatchAddedTime, setMatchPenaltyOutcome,
 } from "@/lib/firestore";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import type {
@@ -165,6 +166,21 @@ export interface PiloteConsole {
   poserPasseur(eventId: string, p: { playerId: string; playerName: string } | null): Promise<void>;
   poserVictime(eventId: string, v: { playerId: string; playerName: string } | null): Promise<void>;
   /**
+   * Dire ce qu'un penalty accorde est devenu, et par qui il a ete tire.
+   *
+   * ELLE EXISTE DES DEUX COTES, contrairement au VAR juste en dessous : un
+   * penalty se tire aussi le dimanche, et l'attente dans laquelle la console
+   * le laisse tant que personne ne repond doit pouvoir se refermer partout.
+   * Ce que le penalty produit — un but, un tir, un arret — est ecrit a cote
+   * par la console, avec les memes appels que tout le reste.
+   */
+  poserIssuePenalty(
+    eventId: string,
+    issue: IssuePenalty,
+    tireur: { playerId: string | null; playerName: string | null } | null,
+  ): Promise<void>;
+
+  /**
    * Le VAR n'existe qu'en competition : absent ici, et la console masque
    * alors ses commandes. Une video-assistance sur un match de quartier n'a
    * personne pour la tenir.
@@ -252,6 +268,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     ajouterEvenement: (e) => addCompEvent(cid, mid, e),
     poserPasseur: (id, p) => setCompGoalAssist(cid, mid, id, p),
     poserVictime: (id, v) => setCompFoulVictim(cid, mid, id, v),
+    poserIssuePenalty: (id, issue, t) => setCompPenaltyOutcome(cid, mid, id, issue, t),
     poserVar: (id, s) => setCompGoalVarStatus(cid, mid, id, s),
 
     // DEUX PUBLICS, PAS UN. Suivre la competition, c'est recevoir ses quarante
@@ -448,6 +465,7 @@ export function piloteAmical(matchId: string): PiloteConsole {
     ajouterEvenement: (e) => addMatchLiveEvent(matchId, e),
     poserPasseur: (id, p) => setMatchGoalAssist(matchId, id, p),
     poserVictime: (id, v) => setMatchFoulVictim(matchId, id, v),
+    poserIssuePenalty: (id, issue, t) => setMatchPenaltyOutcome(matchId, id, issue, t),
     // Pas de `poserVar` : personne ne tient une video-assistance sur un
     // match entre copains, et la console masque ses commandes sans lui.
 

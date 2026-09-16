@@ -2,7 +2,10 @@
 
 import { Goal, ArrowRightLeft, Flag, Hand, AlertTriangle, Target } from "lucide-react";
 import { OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
-import { estStatistique } from "@/lib/evenements";
+import {
+  PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY, estStatistique, issuePenalty,
+  penaltyDitParSonBut,
+} from "@/lib/evenements";
 import type { Match } from "@/types";
 
 // ============================================
@@ -59,7 +62,11 @@ function estRepere(e: Evt): boolean {
 function libelle(e: Evt): string {
   switch (e.type) {
     case "goal":
-      return e.detail === OWN_GOAL_DETAIL ? "But contre son camp" : "But";
+      if (e.detail === OWN_GOAL_DETAIL) return "But contre son camp";
+      // « Sur penalty » est la seule chose que la ligne du but ne pouvait pas
+      // dire, et c'est ce qui la rend lisible seule : le penalty qui l'a
+      // produit ne s'affiche plus, puisqu'il serait la même frappe deux fois.
+      return e.detail === PENALTY_GOAL_DETAIL ? "But sur penalty" : "But";
     case "yellow_card":
       return "Carton jaune";
     case "red_card":
@@ -74,10 +81,14 @@ function libelle(e: Evt): string {
       return e.victimPlayerName ? `Faute sur ${e.victimPlayerName}` : "Faute";
     case "offside":
       return "Hors-jeu";
-    case "penalty":
+    case "penalty": {
       // Le seul des nouveaux qui reste dans le fil : un penalty accordé est
-      // un moment du match, pas une ligne de compteur.
-      return "Penalty";
+      // un moment du match, pas une ligne de compteur. Et ce qui intéresse
+      // celui qui lit n'est pas qu'il ait été accordé, mais ce qu'il est
+      // devenu — d'où l'issue, dès qu'elle est connue.
+      const issue = issuePenalty(e.detail);
+      return issue ? RECIT_ISSUE_PENALTY[issue] : "Penalty";
+    }
     default:
       return "Événement";
   }
@@ -93,7 +104,9 @@ function Marqueur({ e, annule }: { e: Evt; annule: boolean }) {
   if (e.type === "save") return <Hand size={13} className="shrink-0 text-emerald-600" />;
   if (e.type === "foul") return <AlertTriangle size={13} className="shrink-0 text-orange-500" />;
   if (e.type === "offside") return <Flag size={13} className="shrink-0 text-gray-400" />;
-  if (e.type === "penalty") return <Target size={13} className="shrink-0 text-emerald-600" />;
+  if (e.type === "penalty") {
+    return <Target size={13} className={`shrink-0 ${annule ? "text-gray-300" : "text-emerald-600"}`} />;
+  }
   return null;
 }
 
@@ -107,7 +120,13 @@ function Ligne({ e, droite, auteur, action }: {
   // fil : le stade l'a vu, et c'est l'historique qui explique pourquoi le
   // score n'a pas bougé.
   const enCours = e.type === "goal" && e.varStatus === "checking";
-  const annule = e.type === "goal" && e.varStatus === "cancelled";
+  const issue = e.type === "penalty" ? issuePenalty(e.detail) : null;
+  // Un penalty retiré se barre comme un but refusé : il a été accordé sous
+  // les yeux de tout le monde, et le fil doit dire pourquoi rien n'a suivi.
+  const annule = (e.type === "goal" && e.varStatus === "cancelled") || issue === "retire";
+  // Accordé, et personne n'a encore dit ce qu'il en était. C'est l'état dans
+  // lequel le tireur pose le ballon, et il dure le temps qu'il faut.
+  const attente = e.type === "penalty" && !issue;
   const detail = auteur
     ? auteur(e)
     : e.type === "substitution" && e.detail ? e.detail : e.playerName || "";
@@ -125,14 +144,14 @@ function Ligne({ e, droite, auteur, action }: {
           {libelle(e)}
         </p>
         {detail && <p className="truncate text-[11px] font-bold text-gray-500">{detail}</p>}
-        {(enCours || annule) && (
+        {(enCours || annule || attente) && (
           <span
             className={`mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
               annule ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
             }`}
           >
-            {enCours && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />}
-            {annule ? "Refusé" : "VAR"}
+            {(enCours || attente) && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />}
+            {annule ? (issue === "retire" ? "Retiré" : "Refusé") : attente ? "À tirer" : "VAR"}
           </span>
         )}
         {commande && <div className="mt-1">{commande}</div>}
@@ -166,7 +185,9 @@ function composer(
   // pour les compteurs de l'onglet Stats : vingt-cinq tirs et quarante touches
   // enterreraient l'unique but de la rencontre sous quatre écrans de
   // défilement. Voir `estStatistique` dans lib/evenements.
-  const faits = events.filter((e) => !estRepere(e) && !estStatistique(e.type));
+  const faits = events.filter(
+    (e) => !estRepere(e) && !estStatistique(e.type) && !penaltyDitParSonBut(e),
+  );
   const elements: Element[] = [];
 
   if (d?.commence) {

@@ -153,3 +153,93 @@ export function demandeUneVictime(type: TypeEvenementJoueur): boolean {
  * celui-la tire tout le client Firebase avec lui.
  */
 export const OWN_GOAL_DETAIL = "csc";
+
+// ---- Le penalty obtenu, et ce qu'il devient ---------------------------------
+
+/**
+ * L'ISSUE D'UN PENALTY, PARCE QU'UN PENALTY ACCORDE NE RESTE PAS EN L'AIR.
+ *
+ * Il etait un compteur de plus : un appui sur la barre d'equipe, une ligne
+ * dans le fil, fin. Or « penalty a la 67e » ne veut rien dire tout seul — ce
+ * qui compte est ce qu'il DEVIENT, et c'etait justement la seule chose que la
+ * console ne demandait jamais. Le public lisait « Penalty », puis un but
+ * quelque part plus bas que rien ne reliait au penalty, ou bien rien du tout
+ * et il ne saurait jamais s'il avait ete rate, arrete, ou retire.
+ *
+ * QUATRE SORTIES, ET IL N'Y EN A PAS UNE CINQUIEME. Il est marque, rate,
+ * arrete, ou il n'a jamais eu lieu parce que la VAR a retire l'obtention.
+ * Tant qu'aucune des quatre n'est posee, le penalty est EN ATTENTE, et c'est
+ * un etat qui se voit : la console le porte a l'ecran et le reclame.
+ *
+ * ELLE VIT DANS `detail`, comme le but contre son camp. Aucun champ neuf :
+ * `detail` est deja ce qui qualifie un evenement, il traverse deja les quatre
+ * convertisseurs de la base vers l'application, et un penalty n'en avait
+ * aucun usage. Un `detail` vide se lit donc « pas encore tire » — exactement
+ * l'etat d'attente, sans avoir a l'ecrire nulle part.
+ *
+ * ON N'A PAS PRIS `var_status`, et c'est delibere. Celui-la est la mecanique
+ * du TABLEAU D'AFFICHAGE d'un but : il deplace le score, et il n'existe qu'en
+ * competition. Un penalty retire n'a aucun score a deplacer, et un amical —
+ * qui n'a pas de VAR — doit lui aussi pouvoir sortir de l'attente.
+ */
+export type IssuePenalty = "marque" | "rate" | "arrete" | "retire";
+
+export const ISSUES_PENALTY: readonly IssuePenalty[] = [
+  "marque", "rate", "arrete", "retire",
+] as const;
+
+/** Le bouton de la console : ce que le scoreur choisit. */
+export const LIBELLE_ISSUE_PENALTY: Record<IssuePenalty, string> = {
+  marque: "Marqué",
+  rate: "Raté",
+  arrete: "Arrêté",
+  retire: "Retiré",
+};
+
+/**
+ * La ligne du fil, une fois l'issue connue.
+ *
+ * « Penalty retiré » et non « retiré par la VAR » : le fil est le meme pour
+ * une competition et pour un amical du dimanche, ou personne ne tient de
+ * video-assistance. C'est la console, qui sait de quel match il s'agit, qui
+ * nomme la VAR quand elle existe.
+ */
+export const RECIT_ISSUE_PENALTY: Record<IssuePenalty, string> = {
+  marque: "Penalty marqué",
+  rate: "Penalty raté",
+  arrete: "Penalty arrêté",
+  retire: "Penalty retiré",
+};
+
+/** L'issue portee par un `detail`, ou `null` tant qu'il n'y en a pas. */
+export function issuePenalty(detail: string | null | undefined): IssuePenalty | null {
+  const t = String(detail ?? "");
+  return (ISSUES_PENALTY as readonly string[]).includes(t) ? (t as IssuePenalty) : null;
+}
+
+/** Un penalty accorde dont personne n'a encore dit ce qu'il est devenu. */
+export function penaltyEnAttente(e: { type: TypeEvenement; detail?: string | null }): boolean {
+  return e.type === "penalty" && issuePenalty(e.detail) === null;
+}
+
+/**
+ * Le penalty converti ne se raconte pas deux fois.
+ *
+ * Il produit un but, et ce but porte `PENALTY_GOAL_DETAIL` : la ligne « But
+ * sur penalty » dit deja tout, a la meme minute. Garder les deux ferait lire
+ * « Penalty » puis « But sur penalty » a trois centimetres d'intervalle, pour
+ * une seule frappe. Les trois autres issues, elles, n'ont pas de but pour les
+ * porter : elles gardent leur ligne.
+ */
+export function penaltyDitParSonBut(e: { type: TypeEvenement; detail?: string | null }): boolean {
+  return e.type === "penalty" && issuePenalty(e.detail) === "marque";
+}
+
+/**
+ * Ce que porte le `detail` d'un but marque sur penalty.
+ *
+ * Il ne change rien a ce qu'un but vaut — ni au score, ni au classement des
+ * buteurs, ni a la fiche du joueur — et c'est voulu : un but sur penalty est
+ * un but. Il ne change que la facon dont le fil le nomme.
+ */
+export const PENALTY_GOAL_DETAIL = "pen";
