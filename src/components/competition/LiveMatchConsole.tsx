@@ -1608,17 +1608,22 @@ export default function LiveMatchConsole({
 
       {/* Sandbox banner, the console is otherwise indistinguishable from the
           real thing, and a trainee must never wonder whether it counts. */}
+      {/* LE MODE ENTRAÎNEMENT TIENT SUR UN FILET.
+
+          Il occupait un tiers de la console couchée — un pavé de quatre
+          lignes, pour une consigne qu'on lit une fois et jamais plus, posé en
+          travers de l'écran où tout se joue. Les terrains y perdaient
+          soixante-dix pixels chacun, c'est-à-dire la place des noms.
+
+          Ce qu'il faut vraiment dire tient en cinq mots : ce match ne compte
+          pas. Le reste — remise à zéro, absence de notifications — se lit
+          dans l'espace live, d'où l'on vient. */}
       {competition?.isSandbox && (
-        <div className="mx-2 flex items-start gap-3 border border-emerald-200 bg-emerald-50 p-4">
-          <GraduationCap size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-          <div className="min-w-0">
-            <p className="text-sm font-black text-emerald-900">Mode entraînement</p>
-            <p className="mt-0.5 text-xs font-semibold leading-relaxed text-emerald-800">
-              Ce match est fictif. Rien n&apos;est publié, aucune notification n&apos;est
-              envoyée, aucune statistique n&apos;est comptée, essaie tout ce que tu
-              veux. Tu peux le remettre à zéro depuis l&apos;espace live.
-            </p>
-          </div>
+        <div className="flex shrink-0 items-center gap-1.5 bg-emerald-600 px-2 py-px text-white">
+          <GraduationCap size={10} className="shrink-0" />
+          <p className="truncate text-[10px] font-black uppercase tracking-wide">
+            Mode entraînement · rien n&apos;est publié ni compté
+          </p>
         </div>
       )}
 
@@ -2193,7 +2198,10 @@ function LineupBuilder({
           </p>
           {/* The roster is the only thing that scrolls. On mobile it takes
               the viewport minus header, tabs and the pinned kickoff bar. */}
-          <div className="custom-scrollbar mb-4 max-h-[calc(100dvh-20rem)] space-y-2 overflow-y-auto pr-1 md:max-h-[320px]">
+          <div
+            style={{ maxHeight: "min(calc(var(--console-h, 100dvh) * 0.5), 320px)" }}
+            className="custom-scrollbar mb-4 space-y-2 overflow-y-auto pr-1"
+          >
             {roster.map((p) => {
               const role = sheet[p.id] ?? "out";
               return (
@@ -2331,7 +2339,14 @@ function PlayerPickerModal({
           {teamName} · {sousTitre}
         </p>
 
-        <div className="custom-scrollbar grid max-h-[55vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+        <div
+              // `vh` designe la hauteur de l'APPAREIL, qui ne tourne pas :
+              // couchee, la console fait 393 px de haut quand `vh` en compte
+              // 852. Voir ConsoleCouchee et `--console-h`, qui vaut la hauteur
+              // reelle de la console — ou celle de la fenetre hors console.
+          style={{ maxHeight: "calc(var(--console-h, 100dvh) * 0.55)" }}
+          className="custom-scrollbar grid grid-cols-1 content-start gap-2 overflow-y-auto pr-1 sm:grid-cols-2"
+        >
           {ordered.map((entry) => (
             <button
               key={entry.playerId}
@@ -2422,7 +2437,8 @@ function ModaleMVP({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative flex max-h-[85vh] w-full max-w-md flex-col bg-white p-5 shadow-2xl sm:p-8"
+        style={{ maxHeight: "calc(var(--console-h, 100dvh) * 0.85)" }}
+        className="relative flex w-full max-w-md flex-col bg-white p-5 shadow-2xl sm:p-8"
       >
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-amber-400 text-white">

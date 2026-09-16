@@ -560,7 +560,10 @@ export function ModaleActionsJoueur({
           {minute}&apos; · Qu&apos;est-ce qu&apos;il vient de faire ?
         </p>
 
-        <div className="grid grid-cols-2 gap-2">
+        {/* `content-start` par precaution : une grille dont le conteneur a une
+            hauteur definie etire ses rangees pour la remplir, et la console
+            couchee contraint desormais la hauteur de ses modales. */}
+        <div className="grid grid-cols-2 content-start gap-2">
           {actions.map((a) => (
             <button
               key={a.cle}
