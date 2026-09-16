@@ -27,8 +27,8 @@ import {
 import { TITRES_STAFF, estProprietaireEquipe, peutGererEquipe } from "@/lib/team-access";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
-import TirsAuBut from "@/components/match/TirsAuBut";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
+import CarteMatch from "@/components/team/CarteMatch";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
@@ -1293,10 +1293,26 @@ export default function TeamDetailPage() {
   // « live » et « delayed » comptent parmi les matchs à venir : un match en
   // cours disparaissait de la fiche de son équipe, qui est justement l'endroit
   // où on va le chercher ce jour-là.
-  const upcomingMatches = matches.filter(
-    (m) => m.status === "upcoming" || m.status === "live" || m.status === "delayed",
-  );
-  const completedMatches = matches.filter((m) => m.status === "completed");
+  /**
+   * L'ORDRE EST CELUI DU CALENDRIER, ET NON CELUI DE LA SAISIE.
+   *
+   * `getMatchesByTeamIds` rend les matchs par date de CREATION : la liste
+   * affichait donc « sam. 19 sept. » avant « Demain », et les matchs joues du
+   * plus vieux au plus recent. On ne consulte pas le calendrier d'un club pour
+   * savoir dans quel ordre son manager a saisi ses rencontres.
+   *
+   * Les deux listes ne vont pas dans le meme sens, et c'est normal : ce qui
+   * arrive en premier est le prochain match, ce qui compte en premier parmi
+   * les matchs joues est le dernier. On cherche le suivant d'un cote, le
+   * resultat de la veille de l'autre.
+   */
+  const quand = (m: Match) => `${m.date} ${m.time ?? ""}`;
+  const upcomingMatches = matches
+    .filter((m) => m.status === "upcoming" || m.status === "live" || m.status === "delayed")
+    .sort((a, b) => quand(a).localeCompare(quand(b)));
+  const completedMatches = matches
+    .filter((m) => m.status === "completed")
+    .sort((a, b) => quand(b).localeCompare(quand(a)));
   // Ce que la fiche montre, et rien de plus : un défi pas encore accepté, un
   // brouillon, un match en attente de quota ou annulé ne regardent que le
   // manager — ils vivent dans l'onglet Matchs, pas sur la vitrine publique de
@@ -1921,71 +1937,34 @@ export default function TeamDetailPage() {
           transition={{ duration: 0.3 }}
           className="space-y-4"
         >
-          {/* Upcoming matches */}
+          {/* LES DEUX LISTES POSENT LA MEME AFFICHE, et c'est ce qui change
+              ici : elles portaient chacune sa mise en page, a quelques mots
+              pres, et elles divergeaient deja. Voir CarteMatch. */}
           {upcomingMatches.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">A venir</h3>
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">À venir</h3>
               {upcomingMatches.map((match, i) => (
                 <motion.div key={match.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className=" border border-gray-200/70 bg-white p-4"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-gray-900 font-display text-sm sm:text-base">
-                        {match.homeTeamName} vs {match.awayTeamName}
-                      </h4>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
-                        <span className="flex items-center gap-1"><Calendar size={12} /> {match.date} à {match.time}</span>
-                        <span className="flex items-center gap-1"><MapPin size={12} /> {match.venueName}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">{match.format}</span>
-                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                        {match.playersConfirmed}/{match.playersTotal}
-                      </span>
-                    </div>
-                  </div>
+                  <CarteMatch match={match} />
                 </motion.div>
               ))}
             </div>
           )}
 
-          {/* Completed matches */}
           {completedMatches.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Termines</h3>
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Terminés</h3>
               {completedMatches.map((match, i) => (
                 <motion.div key={match.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className=" border border-gray-200/70 bg-white p-4"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-gray-900 font-display text-sm sm:text-base">
-                        {match.homeTeamName} {match.scoreHome ?? "?"} - {match.scoreAway ?? "?"} {match.awayTeamName}
-                        <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="ml-2 align-middle" />
-                      </h4>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
-                        <span>{match.date}</span>
-                        <span className="flex items-center gap-1"><MapPin size={12} /> {match.venueName}</span>
-                      </div>
-                    </div>
-                    {match.result && (
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        match.result === "win" ? "bg-emerald-100 text-emerald-700" :
-                        match.result === "loss" ? "bg-red-100 text-red-700" :
-                        "bg-gray-100 text-gray-700"
-                      }`}>
-                        {match.result === "win" ? "Victoire" : match.result === "loss" ? "Defaite" : "Nul"}
-                      </span>
-                    )}
-                  </div>
+                  <CarteMatch match={match} />
                 </motion.div>
               ))}
             </div>
@@ -1994,7 +1973,7 @@ export default function TeamDetailPage() {
           {visibleMatchCount === 0 && (
             <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Trophy size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucun match programme</p>
+              <p className="mt-3 text-sm text-gray-500">Aucun match programmé</p>
               {/* Ce bouton est resté « bientôt » et grisé alors que le parcours
                   de création existe : le manager arrivait sur l'onglet Matchs de
                   sa propre équipe et n'avait aucun moyen d'en programmer un. */}
