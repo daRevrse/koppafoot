@@ -18,6 +18,7 @@ import {
 import { onCompMatches, listCompTeams } from "@/lib/competition-firestore";
 import type { LigneClassement, LignePubliee } from "@/lib/classement";
 import { stageLabel } from "@/lib/competition-format";
+import { cleDuJour, decalerDeJours, libelleDuJour } from "@/lib/dates";
 import type { CompetitionFeed } from "@/lib/competition-admin";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/lib/friendlies-shared";
 import { onLiveFriendlies } from "@/lib/firestore";
@@ -71,31 +72,15 @@ const PICK_KEY = "kf:direct:picks";
 const AFFICHES_MAX = 5;
 
 // ---- date helpers -------------------------------------------------------------
+//
+// Ces trois-la vivaient ici, recopiees a l'identique dans `DirectHome`. Elles
+// sont passees dans `lib/dates`, ou la liste des matchs d'une equipe les lit
+// aussi — elle affichait jusque-la sa date brute, faute de pouvoir les
+// atteindre.
 
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function addDays(key: string, delta: number): string {
-  const d = new Date(`${key}T00:00:00`);
-  d.setDate(d.getDate() + delta);
-  return dayKey(d);
-}
-
-/** "Aujourd'hui" / "Demain" / "Hier", else "sam. 23 août". */
-function dayLabel(key: string): string {
-  const today = dayKey(new Date());
-  if (key === today) return "Aujourd'hui";
-  if (key === addDays(today, 1)) return "Demain";
-  if (key === addDays(today, -1)) return "Hier";
-  try {
-    return new Date(`${key}T00:00:00`).toLocaleDateString("fr-FR", {
-      weekday: "short", day: "numeric", month: "short",
-    });
-  } catch {
-    return key;
-  }
-}
+const dayKey = cleDuJour;
+const addDays = decalerDeJours;
+const dayLabel = libelleDuJour;
 
 /** Live minute off the shared live_state clock (same math as LiveMatchConsole). */
 function liveMinute(m: CompMatch): number {
