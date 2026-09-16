@@ -45,7 +45,7 @@ import type {
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
-import type { TypeEvenement } from "@/lib/evenements";
+import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
 import type { FirestoreLineupEntry } from "@/types";
 
@@ -2703,6 +2703,27 @@ export async function setMatchFoulVictim(
     ...e,
     victim_player_id: victime?.playerId ?? null,
     victim_player_name: victime?.playerName ?? null,
+  }));
+}
+
+/** L'issue d'un penalty deja accorde. Voir `setCompPenaltyOutcome`. */
+export async function setMatchPenaltyOutcome(
+  matchId: string,
+  eventId: string,
+  issue: IssuePenalty,
+  tireur: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  // LE TIREUR NE S'EFFACE PAS QUAND ON NE LE CONNAIT PAS : sur un amical,
+  // `player_id` est OPTIONNEL et non nullable — un evenement d'equipe n'en a
+  // simplement pas — et y ecrire `undefined` ferait refuser l'ecriture entiere
+  // par Firestore. Sans tireur, on ne touche donc qu'a l'issue, ce qui est
+  // exactement ce qu'on sait.
+  await modifierEvenementAmical(matchId, eventId, "penalty", "Seul un penalty a une issue", (e) => ({
+    ...e,
+    detail: issue,
+    ...(tireur?.playerId && tireur.playerName
+      ? { player_id: tireur.playerId, player_name: tireur.playerName }
+      : {}),
   }));
 }
 

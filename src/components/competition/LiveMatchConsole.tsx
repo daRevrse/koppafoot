@@ -7,7 +7,7 @@ import {
   Play, Pause, ChevronLeft, History,
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
-  MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info,
+  MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, Target,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -18,8 +18,11 @@ import type { PiloteConsole } from "@/lib/console-pilote";
 import { normaliserPoste } from "@/lib/postes";
 import { gardienDe } from "@/lib/terrain";
 import {
-  EMOJI_EVENEMENT, EVENEMENTS_EQUIPE, LIBELLE_EVENEMENT, demandeUneVictime,
-  estStatistique, type TypeEvenementEquipe, type TypeEvenementJoueur,
+  EMOJI_EVENEMENT, EVENEMENTS_EQUIPE, ISSUES_PENALTY, LIBELLE_EVENEMENT,
+  LIBELLE_ISSUE_PENALTY, PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY,
+  demandeUneVictime, estStatistique, issuePenalty, penaltyDitParSonBut,
+  penaltyEnAttente, type IssuePenalty, type TypeEvenementEquipe,
+  type TypeEvenementJoueur,
 } from "@/lib/evenements";
 import {
   POSSESSION_VIDE, basculer, partPossession, reprendre, suspendre, versStockage,
@@ -794,6 +797,20 @@ export default function LiveMatchConsole({
 
   const [varPendingId, setVarPendingId] = useState<string | null>(null);
 
+  // ----- Le penalty accorde, et ce qu'il devient -----
+  //
+  // DEUX ETAPES DANS UN SEUL ETAT : sans `issue`, la console demande laquelle
+  // des quatre ; avec, elle demande qui a tire. C'est le meme penalty d'un
+  // bout a l'autre, et le retour en arriere est l'absence d'`issue`.
+  //
+  // IL NE PORTE PAS LA LISTE DES PENALTYS EN ATTENTE, qui se lit du match
+  // lui-meme (voir `penaltiesEnAttente`) : un scoreur qui recharge sa page au
+  // mauvais moment doit retrouver sa question, et non un penalty muet pour
+  // toujours.
+  const [penaltyOuvert, setPenaltyOuvert] = useState<
+    { eventId: string; side: Side; minute: number; issue?: IssuePenalty } | null
+  >(null);
+
   const handleVarVerdict = async (event: LiveEvent, status: GoalVarStatus) => {
     if (!match) return;
     const teamName = event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName;
@@ -1000,18 +1017,165 @@ export default function LiveMatchConsole({
       toast.error("Équipe non définie");
       return;
     }
+    const minute = Math.floor(displayTime / 60000) + 1;
     setIsSubmitting(true);
     try {
-      await pilote.ajouterEvenement({
+      const id = await pilote.ajouterEvenement({
         type,
         side,
         team_id: teamId,
         period: match.liveState.currentPeriod ?? 1,
-        minute: Math.floor(displayTime / 60000) + 1,
+        minute,
       });
-      toast.success(LIBELLE_EVENEMENT[type]);
+      // LE PENALTY EST LE SEUL DES QUATRE QUI APPELLE UNE SUITE. Un corner est
+      // fini quand il est saisi ; un penalty accorde ne veut encore rien dire,
+      // et la question part donc immediatement. Elle se referme sans repondre
+      // — le scoreur regarde le tir — et le penalty reste alors en attente,
+      // visible dans le bandeau jusqu'a ce qu'il dise ce qu'il est devenu.
+      if (type === "penalty") {
+        setPenaltyOuvert({ eventId: id, side, minute });
+      } else {
+        toast.success(LIBELLE_EVENEMENT[type]);
+      }
     } catch {
       toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * CE QU'UN PENALTY EST DEVENU, ET CE QUE CELA PRODUIT.
+   *
+   * L'issue seule ne suffirait pas : un penalty marque doit compter comme un
+   * but PARTOUT ou les buts comptent — le tableau d'affichage, le classement
+   * des buteurs, la fiche du joueur, l'homme du match. La console ecrit donc
+   * a cote le fait de plein droit que le penalty a produit, avec les memes
+   * appels que si le scoreur l'avait saisi a la main :
+   *
+   *   marque  → un BUT, porte par le tireur, marque « sur penalty ».
+   *   rate    → un TIR non cadre, porte par le tireur.
+   *   arrete  → un ARRET, porte par le GARDIEN D'EN FACE. Pas un tir cadre du
+   *             tireur : les compteurs deduisent deja le tir cadre de l'arret
+   *             (voir `lignesStats`), et ecrire les deux compterait la meme
+   *             frappe deux fois.
+   *   retire  → rien. Le penalty n'a jamais eu lieu.
+   *
+   * L'ISSUE S'ECRIT EN PREMIER, et c'est delibere. Rien dans cette
+   * application ne supprime un evenement : un but pose en double y resterait
+   * pour toujours. Si la seconde ecriture echoue, le penalty porte donc son
+   * issue sans son but — un manque, que le scoreur repare du geste ordinaire
+   * en posant le but sur son buteur, et que le message d'erreur lui dit.
+   * Dans l'autre ordre, la meme panne aurait laisse un penalty en attente
+   * AVEC son but deja au tableau, et la reponse suivante en aurait pose un
+   * second.
+   */
+  const enregistrerIssuePenalty = async (
+    eventId: string,
+    side: Side,
+    minute: number,
+    issue: IssuePenalty,
+    tireur: LineupEntry | null,
+  ) => {
+    if (!match?.liveState) return;
+    const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
+    if (!teamId) {
+      toast.error("Équipe non définie");
+      return;
+    }
+    const period = match.liveState.currentPeriod ?? 1;
+    const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
+    const autre: Side = side === "home" ? "away" : "home";
+
+    setIsSubmitting(true);
+    try {
+      await pilote.poserIssuePenalty(
+        eventId,
+        issue,
+        tireur ? { playerId: tireur.playerId, playerName: tireur.name } : null,
+      );
+    } catch {
+      toast.error("Issue non enregistrée");
+      setIsSubmitting(false);
+      return;
+    }
+
+    setPenaltyOuvert(null);
+    try {
+      if (issue === "marque") {
+        await pilote.ajouterEvenement({
+          type: "goal",
+          side,
+          team_id: teamId,
+          period,
+          minute,
+          player_id: tireur?.playerId ?? null,
+          player_name: tireur?.name ?? null,
+          // Ce qui fait dire « But sur penalty » au fil, et rien d'autre : un
+          // but sur penalty vaut un but. Voir PENALTY_GOAL_DETAIL.
+          detail: PENALTY_GOAL_DETAIL,
+        });
+        const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
+        const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
+        pilote.notifier(
+          {
+            title: `⚽ BUT SUR PENALTY ! ${tireur?.name ?? teamName} (${minute}')`,
+            body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
+          },
+          competition,
+        );
+        toast.success("BUT !");
+        setGoalCooldown(SECONDES_APRES_BUT);
+      } else if (issue === "rate") {
+        await pilote.ajouterEvenement({
+          type: "shot",
+          side,
+          team_id: teamId,
+          period,
+          minute,
+          player_id: tireur?.playerId ?? null,
+          player_name: tireur?.name ?? null,
+        });
+        toast("Penalty raté");
+      } else if (issue === "arrete") {
+        // LE GARDIEN QUI L'A ARRETE EST CELUI D'EN FACE, et c'est le seul
+        // joueur du terrain qui puisse l'avoir fait. On ne le demande donc
+        // pas : la feuille le dit. Sur une feuille ou personne n'a declare
+        // de gardien — deux tiers d'entre elles n'ont aucun poste — l'arret
+        // n'est porte par personne, et l'issue reste vraie.
+        const surLeTerrain = new Set(autre === "home" ? match.homeOnPitch : match.awayOnPitch);
+        const gardien = gardienDe(
+          (autre === "home" ? match.homeLineup : match.awayLineup)
+            .filter((e) => surLeTerrain.has(e.playerId)),
+        );
+        const teamAdverse = autre === "home" ? match.homeTeamId : match.awayTeamId;
+        if (gardien && teamAdverse) {
+          await pilote.ajouterEvenement({
+            type: "save",
+            side: autre,
+            team_id: teamAdverse,
+            period,
+            minute,
+            player_id: gardien.playerId,
+            player_name: gardien.name,
+          });
+          toast.success(`Penalty arrêté par ${gardien.name}`);
+        } else {
+          toast("Penalty arrêté");
+        }
+      } else {
+        toast(
+          pilote.genre === "competition"
+            ? "Penalty retiré par la VAR"
+            : "Penalty retiré",
+        );
+      }
+    } catch {
+      toast.error(
+        issue === "marque"
+          ? "Le but n'a pas été enregistré : pose-le sur son buteur"
+          : "Issue enregistrée, mais pas ce qu'elle a produit",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1457,7 +1621,18 @@ export default function LiveMatchConsole({
    * l'unique but sous quatre écrans de défilement — exactement ce qu'on évite
    * sur la fiche publique. Voir `estStatistique`.
    */
-  const faitsRacontes = events.filter((e) => !estStatistique(e.type));
+  const faitsRacontes = events.filter(
+    (e) => !estStatistique(e.type) && !penaltyDitParSonBut(e),
+  );
+  /**
+   * Les penaltys accordes dont personne n'a encore dit ce qu'ils sont devenus.
+   *
+   * ILS SE LISENT DU MATCH, ET NON D'UN ETAT DE LA CONSOLE. Un scoreur qui
+   * ferme la question pour regarder le tir, qui recharge sa page, ou qui prend
+   * la console en cours de route doit retrouver le penalty en attente : c'est
+   * le document du match qui porte l'attente, pas cet ecran-ci.
+   */
+  const penaltiesEnAttente = events.filter((e) => penaltyEnAttente(e));
   // Les compteurs, calcules comme sur les deux fiches publiques.
   const statRows = lignesStats(
     events,
@@ -1835,6 +2010,37 @@ export default function LiveMatchConsole({
         )}
       </div>
 
+      {/* UN PENALTY ACCORDE NE SE LAISSE PAS OUBLIER.
+
+          C'est tout ce qui reste de la question quand le scoreur la referme
+          pour regarder le tir — et c'est le seul moyen de la lui reposer, y
+          compris apres un rechargement de page ou une prise de console en
+          cours de match. Il ne prend de la hauteur que s'il y a un penalty a
+          jouer, ce qui arrive une fois ou deux par match. */}
+      {!isCompleted && penaltiesEnAttente.length > 0 && (
+        <div className="relative z-10 flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-amber-400/25 bg-amber-500/15 px-2 py-1">
+          <span aria-hidden className="shrink-0 text-[10px] leading-none">
+            {EMOJI_EVENEMENT.penalty}
+          </span>
+          {penaltiesEnAttente.map((p) => {
+            const cote: Side = p.teamId === match.homeTeamId ? "home" : "away";
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() =>
+                  setPenaltyOuvert({ eventId: p.id, side: cote, minute: p.minute })
+                }
+                className="shrink-0 bg-amber-400 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#0b1512] transition-colors hover:bg-amber-300"
+              >
+                Penalty {p.minute}&apos; ·{" "}
+                {cote === "home" ? match.homeTeamName : match.awayTeamName} — Issue ?
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* LA COLONNE DE GAUCHE A DISPARU AVEC CE QU'ELLE PORTAIT.
 
           Elle tenait le déroulé et « Plus d'infos », collés en haut sur grand
@@ -2025,6 +2231,65 @@ export default function LiveMatchConsole({
             onPick={recordAssist}
             onClose={() => setAssistPicker(null)}
             ignorer="Aucune passe décisive"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* CE QU'UN PENALTY EST DEVENU, EN DEUX TEMPS : l'issue, puis le
+          tireur. Le retrait par la VAR saute la seconde question — il n'y a
+          pas eu de tir, donc pas de tireur. */}
+      <AnimatePresence>
+        {penaltyOuvert && !penaltyOuvert.issue && (
+          <ModaleIssuePenalty
+            teamName={penaltyOuvert.side === "home" ? match.homeTeamName : match.awayTeamName}
+            minute={penaltyOuvert.minute}
+            // La video-assistance n'existe qu'en competition : ailleurs, le
+            // penalty est retire sans qu'on invoque une salle qui n'existe pas.
+            varDisponible={pilote.genre === "competition"}
+            isSubmitting={isSubmitting}
+            onIssue={(issue) => {
+              if (issue === "retire") {
+                void enregistrerIssuePenalty(
+                  penaltyOuvert.eventId, penaltyOuvert.side, penaltyOuvert.minute, issue, null,
+                );
+              } else {
+                setPenaltyOuvert({ ...penaltyOuvert, issue });
+              }
+            }}
+            onClose={() => setPenaltyOuvert(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {penaltyOuvert?.issue && (
+          <PlayerPickerModal
+            titre={RECIT_ISSUE_PENALTY[penaltyOuvert.issue]}
+            sousTitre={`${penaltyOuvert.minute}' · Qui l'a tiré ?`}
+            teamName={penaltyOuvert.side === "home" ? match.homeTeamName : match.awayTeamName}
+            entries={onPitchEntries(penaltyOuvert.side)}
+            yellowSet={yellowCardedIds}
+            isSubmitting={isSubmitting}
+            onPick={(entry) =>
+              void enregistrerIssuePenalty(
+                penaltyOuvert.eventId, penaltyOuvert.side, penaltyOuvert.minute,
+                penaltyOuvert.issue!, entry,
+              )
+            }
+            // LA CROIX REVIENT A LA QUESTION PRECEDENTE, elle n'abandonne pas :
+            // on vient de dire ce qu'est devenu le penalty, et se tromper de
+            // bouton ne doit pas obliger a tout reprendre.
+            onClose={() => setPenaltyOuvert({ ...penaltyOuvert, issue: undefined })}
+            // Celui-ci, lui, REPOND : l'issue est posee sans tireur. Le
+            // penalty sort de l'attente, ce qui est le but — un scoreur qui
+            // n'a pas vu qui a tire sait quand meme si le ballon est entre.
+            ignorer="Tireur inconnu"
+            onIgnorer={() =>
+              void enregistrerIssuePenalty(
+                penaltyOuvert.eventId, penaltyOuvert.side, penaltyOuvert.minute,
+                penaltyOuvert.issue!, null,
+              )
+            }
           />
         )}
       </AnimatePresence>
@@ -2310,6 +2575,105 @@ function RoleBadge({ role }: { role: SheetRole }) {
   );
 }
 
+/**
+ * LA QUESTION QU'UN PENALTY POSE, ET QU'IL FAUT BIEN POSER.
+ *
+ * Elle s'ouvre d'elle-meme des que le penalty est accorde, parce que c'est le
+ * seul moment ou le scoreur regarde son telephone : trente secondes plus tard
+ * le ballon est sur le point, et il regarde le terrain. Elle se referme sans
+ * repondre — il a le droit de regarder, lui aussi — et le penalty passe alors
+ * dans le bandeau d'attente, d'ou elle revient d'un appui.
+ *
+ * QUATRE BOUTONS, PAS UN MENU. Ce sont quatre issues et il n'y en a pas de
+ * cinquieme ; un menu deroulant demanderait deux gestes, et un `<select>`
+ * natif s'ouvre de travers dans une console couchee — voir `openSubModal`.
+ */
+function ModaleIssuePenalty({
+  teamName,
+  minute,
+  varDisponible,
+  isSubmitting,
+  onIssue,
+  onClose,
+}: {
+  teamName: string;
+  minute: number;
+  /** La VAR n'existe qu'en competition : ailleurs le penalty est « retiré ». */
+  varDisponible: boolean;
+  isSubmitting: boolean;
+  onIssue: (issue: IssuePenalty) => void;
+  onClose: () => void;
+}) {
+  const EMOJIS: Record<IssuePenalty, string> = {
+    // Le retrait porte une interdiction et non un écran de VAR : la salle de
+    // vidéo n'existe qu'en compétition, l'annulation existe partout.
+    marque: "⚽", rate: "👟", arrete: "🧤", retire: "🚫",
+  };
+  const TONS: Record<IssuePenalty, string> = {
+    marque: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+    rate: "border-gray-200/70 bg-gray-50 text-gray-600 hover:bg-gray-100",
+    arrete: "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+    retire: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+  };
+
+  return (
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        // `var(--console-h)` : la hauteur REELLE de la console, qui n'est pas
+        // celle de l'appareil quand elle est couchee. Voir ConsoleCouchee.
+        style={{ maxHeight: "calc(var(--console-h, 100dvh) - 2rem)" }}
+        className="relative w-full max-w-md overflow-y-auto bg-white p-4 shadow-2xl sm:p-7"
+      >
+        <button
+          onClick={onClose}
+          aria-label="Plus tard"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
+        >
+          <X size={16} />
+        </button>
+        <h2 className="text-lg font-black text-gray-900">Penalty</h2>
+        <p className="mb-4 mt-0.5 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
+          {teamName} · {minute}&apos; · Que devient-il ?
+        </p>
+
+        <div className="grid grid-cols-2 gap-2">
+          {ISSUES_PENALTY.map((issue) => (
+            <button
+              key={issue}
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => onIssue(issue)}
+              className={`flex items-center gap-2 border px-3 py-3 text-left transition-colors active:scale-95 disabled:opacity-40 ${TONS[issue]}`}
+            >
+              <span aria-hidden className="text-lg leading-none">{EMOJIS[issue]}</span>
+              <span className="min-w-0 truncate text-sm font-black uppercase tracking-tight">
+                {issue === "retire" && varDisponible
+                  ? "Retiré (VAR)"
+                  : LIBELLE_ISSUE_PENALTY[issue]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-3 text-[11px] font-medium leading-relaxed text-gray-400">
+          Tant que rien n&apos;est dit, le penalty reste en attente et s&apos;affiche
+          en haut de la console.
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
 function PlayerPickerModal({
   titre,
   sousTitre,
@@ -2320,6 +2684,7 @@ function PlayerPickerModal({
   onPick,
   onClose,
   ignorer,
+  onIgnorer,
 }: {
   /** Ce qu'on demande. La modale ne devine plus rien du type d'événement. */
   titre: string;
@@ -2337,6 +2702,14 @@ function PlayerPickerModal({
    * scoreur pour un détail.
    */
   ignorer?: string;
+  /**
+   * Ce que fait ce bouton, quand refermer n'est pas ce qu'il veut dire.
+   *
+   * Sur le tireur d'un penalty, « tireur inconnu » est une RÉPONSE : elle pose
+   * l'issue sans nom, et sort le penalty de l'attente. Refermer, là, le
+   * laisserait en attente pour toujours.
+   */
+  onIgnorer?: () => void;
 }) {
 
   // Starters first, then substitutes, for a natural reading order.
@@ -2410,7 +2783,7 @@ function PlayerPickerModal({
           <button
             type="button"
             disabled={isSubmitting}
-            onClick={onClose}
+            onClick={onIgnorer ?? onClose}
             className="mt-3 w-full border border-gray-200/70 py-2.5 text-sm font-bold text-gray-400 transition-colors hover:border-gray-200/70 hover:text-gray-600 disabled:opacity-50"
           >
             {ignorer}
@@ -2579,7 +2952,11 @@ function EventTimeline({
         const isSub = event.type === "substitution";
         const isGoal = event.type === "goal";
         const checking = isGoal && event.varStatus === "checking";
-        const cancelled = isGoal && event.varStatus === "cancelled";
+        const issue = event.type === "penalty" ? issuePenalty(event.detail) : null;
+        // Un penalty retiré se barre comme un but refusé, et pour la même
+        // raison : le stade l'a vu accorder, et le fil doit expliquer
+        // pourquoi il ne s'est rien passé ensuite.
+        const cancelled = (isGoal && event.varStatus === "cancelled") || issue === "retire";
         const confirmed = isGoal && event.varStatus === "confirmed";
         const varBusy = varPendingId === event.id;
         const reviewable =
@@ -2618,13 +2995,30 @@ function EventTimeline({
                 {event.type === "save" && <Hand size={16} className="text-emerald-600" />}
                 {event.type === "foul" && <AlertTriangle size={16} className="text-orange-500" />}
                 {event.type === "offside" && <Flag size={16} className="text-gray-400" />}
+                {event.type === "penalty" && (
+                  <Target size={16} className={cancelled ? "text-gray-300" : "text-amber-500"} />
+                )}
                 <span
                   className={`text-sm font-black uppercase tracking-tight ${
                     cancelled ? "text-gray-400 line-through" : "text-gray-900"
                   }`}
                 >
-                  {isGoal ? "BUT !" : LIBELLE_EVENEMENT[event.type]}
+                  {isGoal
+                    ? event.detail === PENALTY_GOAL_DETAIL ? "BUT SUR PENALTY !" : "BUT !"
+                    : issue
+                      ? RECIT_ISSUE_PENALTY[issue]
+                      : LIBELLE_EVENEMENT[event.type]}
                 </span>
+
+                {/* Un penalty accordé et rien de plus : le scoreur n'a pas
+                    encore dit ce qu'il est devenu, et cela se voit ici comme
+                    dans le bandeau. */}
+                {event.type === "penalty" && !issue && (
+                  <span className="inline-flex items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                    En attente
+                  </span>
+                )}
 
                 {checking && (
                   <span className="inline-flex items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
@@ -2635,7 +3029,10 @@ function EventTimeline({
                 {cancelled && (
                   <span className="inline-flex items-center gap-1 bg-red-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-700">
                     <Ban size={10} />
-                    But refusé
+                    {/* « Retiré » tout court : la VAR n'existe pas sur un
+                        amical, et ce fil est le meme des deux cotes. C'est le
+                        bouton qui l'a retiré qui la nomme, là où elle existe. */}
+                    {issue === "retire" ? "Retiré" : "But refusé"}
                   </span>
                 )}
                 {confirmed && (

@@ -33,7 +33,7 @@ import type {
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { listGrantedCompetitionIds } from "./staff-access";
-import { OWN_GOAL_DETAIL, type TypeEvenement } from "@/lib/evenements";
+import { OWN_GOAL_DETAIL, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
@@ -1352,6 +1352,55 @@ export async function setCompFoulVictim(
               ...e,
               victim_player_id: victime?.playerId ?? null,
               victim_player_name: victime?.playerName ?? null,
+            }
+          : e,
+      ),
+      updated_at: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Dire ce qu'un penalty accorde est devenu, et par qui il a ete tire.
+ *
+ * MEME MECANIQUE QUE LE PASSEUR ET LA VICTIME, pour la meme raison : le
+ * penalty s'ecrit des qu'il est siffle — il est certain — et la question
+ * « alors ? » vient forcement apres, le temps que le tireur pose le ballon.
+ * Une console qui retiendrait l'obtention en attendant la reponse perdrait
+ * les deux si le scoreur est appele ailleurs.
+ *
+ * ELLE NE TOUCHE NI LE SCORE NI AUCUN COMPTEUR. Ce que le penalty produit —
+ * le but, le tir, l'arret du gardien d'en face — est ecrit A COTE, comme un
+ * evenement de plein droit, par la console. C'est ce qui fait qu'un penalty
+ * marque compte comme un but partout ou les buts comptent, sans qu'une seule
+ * ligne de classement ait a apprendre ce qu'est un penalty.
+ */
+export async function setCompPenaltyOutcome(
+  cid: string,
+  mid: string,
+  eventId: string,
+  issue: IssuePenalty,
+  tireur: { playerId: string | null; playerName: string | null } | null,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = compMatchRef(cid, mid);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error(`Competition match ${mid} not found`);
+    const d = snap.data() as FirestoreCompMatch;
+
+    const events = d.live_state?.events ?? [];
+    const index = events.findIndex((e) => e.id === eventId);
+    if (index === -1) throw new Error("Événement introuvable");
+    if (events[index].type !== "penalty") throw new Error("Seul un penalty a une issue");
+
+    tx.update(ref, {
+      "live_state.events": events.map((e, i) =>
+        i === index
+          ? {
+              ...e,
+              detail: issue,
+              player_id: tireur?.playerId ?? null,
+              player_name: tireur?.playerName ?? null,
             }
           : e,
       ),
