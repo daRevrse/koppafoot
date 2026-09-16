@@ -5,8 +5,8 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import {
-  Heart, MessageCircle, Share2, MoreHorizontal,
-  Trophy, UserPlus, ThumbsUp, Clock, Shield,
+  Heart, MessageCircle, Share2, MoreVertical,
+  Trophy, UserPlus, ThumbsUp, Shield,
   Copy, Repeat2, Pencil, Trash2, Flag,
   Check, X, BadgeCheck, ChevronRight, Pin,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import { deletePost, updatePostContent, createPost } from "@/lib/firestore";
 import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import { auth } from "@/lib/firebase";
 import { CommentSection } from "./CommentSection";
+import VisionneuseMedia from "./VisionneuseMedia";
 import { SYSTEM_AUTHOR_ID } from "@/types";
 import type { Post, PostType, UserProfile } from "@/types";
 
@@ -101,6 +102,8 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const [editContent, setEditContent] = useState(post.content);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showRepost, setShowRepost] = useState(false);
+  /** L'index de la photo ouverte en grand, ou `null`. Voir VisionneuseMedia. */
+  const [mediaOuvert, setMediaOuvert] = useState<number | null>(null);
   const [repostText, setRepostText] = useState("");
   const [reposting, setReposting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -319,9 +322,10 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                 </span>
               ) : null}
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <Clock size={12} /> {timeAgo(post.createdAt)}
-            </div>
+            {/* SANS ICONE. Une horloge devant « Il y a 3min » ne dit rien
+                que la phrase ne dise deja, et elle prend la place ou le nom de
+                l'auteur respire. Ce qui se lit se lit. */}
+            <p className="text-xs text-gray-400">{timeAgo(post.createdAt)}</p>
           </div>
         </div>
 
@@ -331,7 +335,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             onClick={() => optionsDropdown.setOpen(!optionsDropdown.open)}
             className="flex h-8 w-8 items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
           >
-            <MoreHorizontal size={16} />
+            <MoreVertical size={16} />
           </button>
           <AnimatePresence>
             {optionsDropdown.open && (
@@ -468,51 +472,98 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         </div>
       )}
 
-      {/* Media */}
+      {/* LE MEDIA DANS UN CADRE FIXE.
+
+          Il se dimensionnait sur la photo, plafonnee a `max-h-72` : deux posts
+          d'affilee ne faisaient donc jamais la meme hauteur, et le fil sautait
+          sous le pouce a chaque chargement d'image. Un carre pour tout le
+          monde rend au fil son rythme — on sait ou sera le bouton « j'aime »
+          avant que la photo n'arrive.
+
+          CE QUE LE CADRE COUPE RESTE ATTEIGNABLE, et c'est la condition pour
+          que le recadrage soit acceptable : un appui ouvre la photo entiere.
+          Voir VisionneuseMedia. */}
       {post.mediaUrls && post.mediaUrls.length > 0 && (
         <div className={`mx-4 mb-2 grid gap-1 overflow-hidden ${post.mediaUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
           {post.mediaUrls.map((url, idx) => (
-            <img
+            <button
               key={idx}
-              src={url}
-              alt=""
-              className="w-full object-cover max-h-72"
-            />
+              type="button"
+              onClick={() => setMediaOuvert(idx)}
+              aria-label={`Voir la photo ${idx + 1} en grand`}
+              className="group relative aspect-square w-full overflow-hidden bg-gray-100"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt=""
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              />
+            </button>
           ))}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center border-t border-gray-200/70 px-2 py-1">
-        {/* Like */}
-        <button
-          onClick={() => onLikeAction(post.id, post.isLiked)}
-          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-            post.isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500 hover:bg-red-50"
-          }`}
-        >
-          <Heart size={16} className={post.isLiked ? "fill-red-500" : ""} />
-          {post.likes.length > 0 && post.likes.length}
-        </button>
+      {/* LE PIED : CE QUE LE POST A FAIT A GAUCHE, CE QU'ON EN FAIT A DROITE.
 
-        {/* Comment */}
-        <button
-          onClick={() => setShowComments(!showComments)}
-          className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-            showComments ? "text-primary-600 bg-primary-50" : "text-gray-500 hover:text-primary-600 hover:bg-primary-50"
-          }`}
-        >
-          <MessageCircle size={16} />
-          {post.commentCount > 0 && post.commentCount}
-        </button>
+          Trois boutons de largeur egale se partageaient la barre, chacun
+          centre dans son tiers : les chiffres flottaient donc loin de leur
+          icone, et le partage — qui ne concerne pas le post mais MOI — avait
+          exactement le meme poids que « j'aime ».
+
+          Ils se regroupent a gauche, serres, chacun contre son compte ; le
+          partage se detache a droite, avec son mot. Un groupe, une action.
+
+          LE REPARTAGE REMONTE DU MENU. Il vivait dans le menu deroulant du
+          partage, entre « Partager… » et « Copier le lien », alors qu'il n'est
+          pas la meme chose : les deux autres envoient le post DEHORS, lui le
+          republie ICI. C'est le quatrieme geste, et le seul qui ecrit quelque
+          chose dans la Tribune. */}
+      <div className="flex items-center justify-between border-t border-gray-200/70 px-2 py-1">
+        <div className="flex items-center">
+          {/* Like */}
+          <button
+            onClick={() => onLikeAction(post.id, post.isLiked)}
+            aria-label="J'aime"
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+              post.isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500"
+            }`}
+          >
+            <Heart size={16} className={post.isLiked ? "fill-red-500" : ""} />
+            {post.likes.length > 0 && <span className="tabular-nums">{post.likes.length}</span>}
+          </button>
+
+          {/* Comment */}
+          <button
+            onClick={() => setShowComments(!showComments)}
+            aria-label="Commentaires"
+            aria-expanded={showComments}
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+              showComments ? "text-primary-600" : "text-gray-500 hover:text-primary-600"
+            }`}
+          >
+            <MessageCircle size={16} />
+            {post.commentCount > 0 && <span className="tabular-nums">{post.commentCount}</span>}
+          </button>
+
+          {/* Repost */}
+          <button
+            onClick={() => setShowRepost(true)}
+            aria-label="Repartager dans la Tribune"
+            className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-emerald-600"
+          >
+            <Repeat2 size={16} />
+          </button>
+        </div>
 
         {/* Share */}
-        <div className="relative flex-1">
+        <div className="relative">
           <button
             onClick={() => shareDropdown.setOpen(!shareDropdown.open)}
-            className="flex w-full items-center justify-center gap-2 py-2.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600"
           >
             <Share2 size={16} />
+            <span>Partager</span>
           </button>
           <AnimatePresence>
             {shareDropdown.open && (
@@ -539,18 +590,24 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                   >
                     <Copy size={14} /> Copier le lien
                   </button>
-                  <button
-                    onClick={() => { setShowRepost(true); shareDropdown.close(); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <Repeat2 size={14} /> Repartager dans la Tribune
-                  </button>
                 </motion.div>
               </>
             )}
           </AnimatePresence>
         </div>
       </div>
+
+      {/* La photo entiere, quand on touche le cadre qui l'a recadree. */}
+      <AnimatePresence>
+        {mediaOuvert !== null && post.mediaUrls && (
+          <VisionneuseMedia
+            urls={post.mediaUrls}
+            index={mediaOuvert}
+            onIndex={setMediaOuvert}
+            onClose={() => setMediaOuvert(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Repost modal */}
       <AnimatePresence>
