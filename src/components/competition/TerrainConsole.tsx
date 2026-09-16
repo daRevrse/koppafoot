@@ -77,6 +77,28 @@ function nomCourt(nom: string, max = 11): string {
  * tracer un trait le ferait lire comme une ligne de but. Ne rien tracer est
  * la seule façon honnête de dire que ça ne s'arrête pas là.
  */
+/**
+ * LE VERT DU CAMP QUI A LE BALLON, ET CELUI DU CAMP QUI ATTEND.
+ *
+ * Couchee, la console montre les DEUX camps a la fois, et rien ne disait
+ * lequel jouait. La possession existait pourtant deja : une pastille de
+ * soixante pixels au bord de chaque bandeau, qu'il fallait chercher et lire.
+ * Le terrain, lui, occupe les trois quarts de l'ecran — c'est donc lui qui
+ * doit le dire, et il le dit sans un mot de plus.
+ *
+ * ON ATTENUE PLUTOT QUE D'ECLAIRER. Un camp qu'on allume attire le doigt, et
+ * ce n'est pas ce qu'on veut : le scoreur touche tres souvent le camp QUI N'A
+ * PAS le ballon — l'arret de son gardien, la faute de son defenseur. La
+ * moitie qui attend passe donc simplement d'un ton, ce qui se voit du coin de
+ * l'oeil sans rien reclamer.
+ *
+ * ET SEULEMENT QUAND QUELQU'UN L'A. Tant que la possession n'est pas posee,
+ * les deux moities gardent le vert d'avant : une console a moitie sombre en
+ * permanence se lirait comme une panne, pas comme une information.
+ */
+const PELOUSE = "#15803d";
+const PELOUSE_EN_ATTENTE = "#14532d";
+
 function Lignes({ sens }: { sens: SensDAttaque }) {
   const traits = { stroke: "#ffffff", strokeOpacity: 0.35, fill: "none" };
 
@@ -113,7 +135,7 @@ function Lignes({ sens }: { sens: SensDAttaque }) {
 }
 
 function Pelouse({
-  titulaires, jaunes, onJoueur, sens, couleurs, formation, contour,
+  titulaires, jaunes, onJoueur, sens, couleurs, formation, contour, enAttente,
 }: {
   titulaires: LineupEntry[];
   jaunes: Set<string>;
@@ -131,6 +153,8 @@ function Pelouse({
    * tenue et sépare quand même les deux moitiés d'écran.
    */
   contour?: string;
+  /** Ce camp n'a pas le ballon, et quelqu'un l'a. Voir `PELOUSE_EN_ATTENTE`. */
+  enAttente?: boolean;
 }) {
   const { places, ecart, rayonMax } = disposerSurTerrain(
     titulaires, titulaires.length, sens, versFormation(formation),
@@ -154,7 +178,13 @@ function Pelouse({
       className="h-full w-full select-none"
       preserveAspectRatio="xMidYMid meet"
     >
-      <rect x={c.x} y={c.y} width={c.l} height={c.h} fill="#15803d" />
+      {/* `transition-colors` porte bien `fill` : la bascule se fait en une
+          demi-seconde, sans le clignotement d'un changement sec. */}
+      <rect
+        x={c.x} y={c.y} width={c.l} height={c.h}
+        fill={enAttente ? PELOUSE_EN_ATTENTE : PELOUSE}
+        className="transition-colors duration-500"
+      />
       <Lignes sens={sens} />
 
       {places.map((place, i) => {
@@ -324,6 +354,9 @@ export default function TerrainsFaceAFace({
         const e = k === "home" ? home : away;
         const miroir = k === "away";
         const aLeBallon = ballon === k;
+        // Tant que personne n'a le ballon, personne n'attend : les deux
+        // moities gardent le vert d'avant. Voir PELOUSE_EN_ATTENTE.
+        const enAttente = ballon !== null && !aLeBallon;
         const part = parts ? (k === "home" ? parts.home : parts.away) : null;
 
         return (
@@ -337,7 +370,14 @@ export default function TerrainsFaceAFace({
             {/* Le bandeau du camp : son ballon au bord EXTERIEUR, son nom vers
                 le milieu. Les deux camps sont donc en miroir l'un de l'autre,
                 et chaque pouce trouve sa pastille sur son propre bord. */}
-            <div className={`flex items-stretch bg-white/[0.06] ${miroir ? "flex-row-reverse" : ""}`}>
+            {/* LE BANDEAU DIT LA MEME CHOSE QUE SA PELOUSE, et c'est voulu :
+                c'est lui qui porte le NOM de l'equipe, donc le seul endroit
+                ou « qui a le ballon » se lit sans regarder le terrain. */}
+            <div
+              className={`flex items-stretch transition-colors duration-500 ${
+                aLeBallon ? "bg-emerald-500/20" : "bg-white/[0.06]"
+              } ${miroir ? "flex-row-reverse" : ""}`}
+            >
               <button
                 type="button"
                 aria-pressed={aLeBallon}
@@ -405,6 +445,7 @@ export default function TerrainsFaceAFace({
                   couleurs={k === "home" ? tenueHome : tenueAway}
                   formation={e.formation ?? null}
                   contour={memeTon && miroir ? "#f8fafc" : undefined}
+                  enAttente={enAttente}
                 />
               </div>
             )}
