@@ -1440,8 +1440,15 @@ export default function MatchDetailPage() {
                       donc ce qu'il voit ici est ce que tout le monde verra. */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                      {/* LA FORME ANNONCEE, a cote du titre. Le manager la
+                          choisit plus haut puis regarde le terrain : sans ce
+                          rappel il doit remonter pour verifier ce qu il a
+                          demande. */}
+                      <p className="flex items-baseline gap-2 text-[9px] font-black uppercase tracking-widest text-white/30">
                         Sur le terrain
+                        <span className="text-[11px] tabular-nums tracking-normal text-emerald-400">
+                          {formation}
+                        </span>
                       </p>
                       {titulairesEnCours.some((e) => !e.position) && (
                         <p className="text-[9px] font-black uppercase tracking-widest text-amber-400/70">
