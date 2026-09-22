@@ -38,6 +38,7 @@ import {
   onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam, getTeamById,
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
   setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
+  compositionTypePour,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
   setMatchAddedTime, setMatchPenaltyOutcome,
 } from "@/lib/firestore";
@@ -101,6 +102,23 @@ export interface PiloteConsole {
 
   /** Les deux effectifs, pour batir la feuille de match. */
   effectifs(match: CompMatch): Promise<{ home: CompPlayer[]; away: CompPlayer[] }>;
+
+  /**
+   * LA COMPOSITION TYPE DU CLUB DE CHAQUE CAMP, pour ce format.
+   *
+   * Ce que le manager a préparé au calme, pour que le scoreur n'ait pas à
+   * composer deux équipes qu'il ne connaît pas au bord du terrain (voir
+   * components/team/CompositionsTypes). Rend `null` pour un camp qui n'en a
+   * pas : un club qui n'a rien préparé, ou un adversaire hors plateforme.
+   *
+   * JAMAIS BLOQUANT. Une lecture qui échoue rend `null` des deux côtés, et la
+   * console retombe sur la feuille vide d'avant — c'est une aide, pas une
+   * dépendance.
+   */
+  compositionsTypes(
+    match: CompMatch,
+    taille: number,
+  ): Promise<{ home: LineupEntry[] | null; away: LineupEntry[] | null }>;
 
   /**
    * Ce que les deux equipes portent, pour le terrain.
@@ -235,6 +253,28 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     },
 
     poserFeuille: (side, entries, prete) => setCompMatchLineup(cid, mid, side, entries, prete),
+
+    /**
+     * Une équipe de compétition n'est reliée à un club de la plateforme que si
+     * un manager l'a revendiquée (`claimedByTeamId`) : c'est là, et seulement
+     * là, qu'il y a des compositions types à lire. Une équipe saisie à la main
+     * par l'organisateur n'a personne derrière, donc rien de préparé.
+     */
+    compositionsTypes: async (match, taille) => {
+      const pour = async (teamId: string | null): Promise<LineupEntry[] | null> => {
+        if (!teamId) return null;
+        const equipe = await getCompTeam(cid, teamId);
+        const clubId = equipe?.claimedByTeamId ?? null;
+        if (!clubId) return null;
+        return compositionTypePour(await getTeamById(clubId), String(taille))?.lineup ?? null;
+      };
+      try {
+        const [home, away] = await Promise.all([pour(match.homeTeamId), pour(match.awayTeamId)]);
+        return { home, away };
+      } catch {
+        return { home: null, away: null };
+      }
+    },
 
     lancer: async ({ home, away }) => {
       await initLiveCompMatch(cid, mid);
@@ -434,6 +474,25 @@ export function piloteAmical(matchId: string): PiloteConsole {
     },
 
     poserFeuille: (side, entries, prete) => setMatchLineup(matchId, side, entries, prete),
+
+    /**
+     * Sur un amical, les deux camps SONT des clubs de la plateforme — quand
+     * ils existent. Le camp hors plateforme n'a pas d'identifiant d'équipe du
+     * tout (voir la création d'un amical), et n'a donc rien de préparé : c'est
+     * la vérité sur lui, pas un oubli.
+     */
+    compositionsTypes: async (match, taille) => {
+      const pour = async (teamId: string | null): Promise<LineupEntry[] | null> => {
+        if (!teamId) return null;
+        return compositionTypePour(await getTeamById(teamId), String(taille))?.lineup ?? null;
+      };
+      try {
+        const [home, away] = await Promise.all([pour(match.homeTeamId), pour(match.awayTeamId)]);
+        return { home, away };
+      } catch {
+        return { home: null, away: null };
+      }
+    },
 
     lancer: async ({ home, away }) => {
       await initLiveMatch(matchId);

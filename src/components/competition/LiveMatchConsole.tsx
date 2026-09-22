@@ -8,6 +8,7 @@ import {
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
   MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, Target,
+  ClipboardList,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -374,16 +375,48 @@ export default function LiveMatchConsole({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pilote, idsDesEquipes]);
 
+  /**
+   * LA COMPOSITION TYPE DE CHAQUE CLUB, quand il en a préparé une.
+   *
+   * Elle sert à deux choses ici, et c'est la même idée des deux côtés : que le
+   * scoreur n'arrive jamais devant une feuille vide.
+   *
+   *  — Elle COMPLÈTE L'EFFECTIF. Sur un amical, la console ne propose que les
+   *    joueurs qui ont confirmé leur venue : un dimanche où personne n'a
+   *    répondu, la liste est vide et il n'y a littéralement rien à cocher,
+   *    donc rien à valider, donc pas de coup d'envoi. Les joueurs de la
+   *    composition type y entrent, parce que le manager a déjà dit que ce sont
+   *    les siens.
+   *
+   *  — Elle PRÉ-COCHE LA FEUILLE, titulaires et remplaçants, quand le camp n'a
+   *    aucune feuille enregistrée. Le scoreur valide en un geste, ou corrige —
+   *    il ne part plus de rien.
+   *
+   * Elle ne touche JAMAIS à une feuille déjà faite : celle qu'un manager a
+   * validée depuis la fiche du match est la vraie, et elle décrit ce
+   * dimanche-là, ce que la composition type ne fait pas.
+   */
+  const [compoTypes, setCompoTypes] = useState<{
+    home: LineupEntry[] | null;
+    away: LineupEntry[] | null;
+  }>({ home: null, away: null });
+
   useEffect(() => {
     if (!isPreKickoff || !match) return;
     let cancelled = false;
     setRostersLoading(true);
     (async () => {
       try {
-        const { home, away } = await pilote.effectifs(match);
+        const [{ home, away }, compos] = await Promise.all([
+          pilote.effectifs(match),
+          // Jamais bloquant : le pilote avale ses propres erreurs et rend deux
+          // `null`, la console se comporte alors comme avant.
+          pilote.compositionsTypes(match, startersMax),
+        ]);
         if (cancelled) return;
-        setHomeRoster(home);
-        setAwayRoster(away);
+        setCompoTypes(compos);
+        setHomeRoster(fusionnerCompoAuRoster(home, compos.home));
+        setAwayRoster(fusionnerCompoAuRoster(away, compos.away));
       } catch {
         if (!cancelled) {
           setHomeRoster([]);
@@ -399,18 +432,21 @@ export default function LiveMatchConsole({
     };
     // `match` est lu mais volontairement hors dependances : il change a chaque
     // but, et les effectifs, eux, ne bougent pas d'un evenement a l'autre.
-  }, [isPreKickoff, pilote, homeTeamId, awayTeamId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPreKickoff, pilote, homeTeamId, awayTeamId, startersMax]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed each draft from the saved lineup whenever the match's lineup changes.
+  // À DÉFAUT DE FEUILLE ENREGISTRÉE, la composition type du club prend le
+  // relais : c'est la seule différence avec avant, et elle ne joue que sur un
+  // camp qui n'a rien.
   useEffect(() => {
     if (!match) return;
-    setHomeSheet(seedSheet(match.homeLineup));
-  }, [match?.homeLineup]); // eslint-disable-line react-hooks/exhaustive-deps
+    setHomeSheet(seedSheet(match.homeLineup.length > 0 ? match.homeLineup : compoTypes.home ?? []));
+  }, [match?.homeLineup, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!match) return;
-    setAwaySheet(seedSheet(match.awayLineup));
-  }, [match?.awayLineup]); // eslint-disable-line react-hooks/exhaustive-deps
+    setAwaySheet(seedSheet(match.awayLineup.length > 0 ? match.awayLineup : compoTypes.away ?? []));
+  }, [match?.awayLineup, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prevent accidental navigation while live
   useEffect(() => {
@@ -1560,6 +1596,7 @@ export default function LiveMatchConsole({
                 sheet={homeSheet}
                 startersMax={startersMax}
                 ready={match.homeLineupReady}
+                depuisLaCompoType={match.homeLineup.length === 0 && (compoTypes.home?.length ?? 0) > 0}
                 saving={savingSide === "home"}
                 onToggle={(pid) => toggleSheetRole("home", pid)}
                 onValidate={() => handleValidateSheet("home")}
@@ -1574,6 +1611,7 @@ export default function LiveMatchConsole({
                 sheet={awaySheet}
                 startersMax={startersMax}
                 ready={match.awayLineupReady}
+                depuisLaCompoType={match.awayLineup.length === 0 && (compoTypes.away?.length ?? 0) > 0}
                 saving={savingSide === "away"}
                 onToggle={(pid) => toggleSheetRole("away", pid)}
                 onValidate={() => handleValidateSheet("away")}
@@ -2425,6 +2463,41 @@ export default function LiveMatchConsole({
 // Sub-components
 // ============================================
 
+/**
+ *  * L'effectif du match, complété par la composition type du club.
+ *
+ * Les joueurs que la console propose viennent du match : les inscrits d'une
+ * équipe de compétition, les présents confirmés d'un amical. Les seconds
+ * manquent souvent — personne n'a répondu à la convocation —, et la feuille
+ * n'a alors littéralement personne à cocher : pas de feuille, pas de coup
+ * d'envoi, un match paralysé pour une raison administrative.
+ *
+ * Ceux de la composition type entrent donc dans la liste, à la suite : le
+ * manager a déjà déclaré que ce sont ses joueurs. L'EFFECTIF DU MATCH RESTE
+ * PRIORITAIRE, y compris sur son propre poste et son numéro — il dit qui est
+ * là aujourd'hui, la composition type dit comment on joue en général.
+ *
+ * Personne n'est retiré : un joueur présent mais absent de la composition type
+ * reste cochable. Le scoreur voit tout le monde, et tranche.
+ */
+function fusionnerCompoAuRoster(
+  duMatch: CompPlayer[],
+  compo: LineupEntry[] | null,
+): CompPlayer[] {
+  if (!compo || compo.length === 0) return duMatch;
+  const connus = new Set(duMatch.map((j) => j.id));
+  const ajouts = compo
+    .filter((e) => !connus.has(e.playerId))
+    .map<CompPlayer>((e) => ({
+      id: e.playerId,
+      name: e.name,
+      number: e.number,
+      user_id: e.userId ?? null,
+      position: e.position ?? undefined,
+    }));
+  return [...duMatch, ...ajouts];
+}
+
 /** Seed a per-side match-sheet draft (playerId -> role) from a saved lineup. */
 function seedSheet(lineup: LineupEntry[]): Record<string, SheetRole> {
   const out: Record<string, SheetRole> = {};
@@ -2442,6 +2515,7 @@ function LineupBuilder({
   saving,
   onToggle,
   onValidate,
+  depuisLaCompoType,
 }: {
   side: Side;
   teamName: string;
@@ -2454,6 +2528,8 @@ function LineupBuilder({
   saving: boolean;
   onToggle: (playerId: string) => void;
   onValidate: () => void;
+  /** La feuille affichee vient de la composition type du club, pas du match. */
+  depuisLaCompoType: boolean;
 }) {
   const accentText = accent === "primary" ? "text-emerald-700" : "text-amber-500";
   const validateCls =
@@ -2481,6 +2557,24 @@ function LineupBuilder({
       <h2 className="mb-1 hidden max-w-full truncate text-lg font-black tracking-tight text-gray-900 md:block">
         {teamName}
       </h2>
+
+      {/* D'OÙ VIENT CE QUI EST DÉJÀ COCHÉ.
+
+          Une feuille pré-remplie sans explication est pire qu'une feuille
+          vide : le scoreur la valide en croyant que les managers l'ont faite,
+          et onze noms entrent au match sans que personne les ait confirmés ce
+          jour-là. La ligne dit donc ce que c'est — la composition habituelle
+          du club — et, implicitement, ce qu'il reste à faire : vérifier qui
+          est là. */}
+      {depuisLaCompoType && (
+        <p className="mb-3 flex items-start gap-1.5 border border-sky-200 bg-sky-50/70 px-3 py-2 text-[11px] font-bold leading-snug text-sky-800">
+          <ClipboardList size={13} className="mt-px shrink-0 text-sky-500" />
+          <span>
+            Composition habituelle du club, proposée. Vérifie qui est présent
+            avant de valider.
+          </span>
+        </p>
+      )}
 
       {roster.length === 0 ? (
         <div className="mt-4 border border-dashed border-gray-200/70 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
