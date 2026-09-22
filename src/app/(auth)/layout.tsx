@@ -9,7 +9,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_REDIRECTS } from "@/types";
 import { isOrganizer, isSuperAdmin } from "@/lib/hats";
 import { contexteAuth } from "@/config/auth-contextes";
-import { LignesDeTerrain } from "@/components/ui/socle";
 
 // ============================================
 // L'écran d'authentification.
@@ -24,12 +23,13 @@ import { LignesDeTerrain } from "@/components/ui/socle";
 // config/auth-contextes) ; le formulaire, lui, est le même pour tout le
 // monde. Une seule mécanique, plusieurs visages.
 //
-// LE PAPIER PEINT A DISPARU. Il superposait à l'artwork du splash un voile
-// `rgba(244,246,250,0.78)` écrit en dur — une valeur claire que le thème
-// sombre ne peut pas réécrire, puisqu'elle ne passe par aucune classe. En
-// sombre, le fond de la connexion restait donc lumineux sous un texte prévu
-// pour le noir. Le marquage de terrain le remplace : il ne vit que sur les
-// surfaces déjà sombres, où les deux thèmes rendent à l'identique.
+// LE PANNEAU EST UNE AFFICHE : une photo, un voile, le nom en haut et
+// l'accroche en bas. Il a été un aplat gris, puis un artwork sous un voile
+// CLAIR écrit en dur — une valeur que le thème sombre ne pouvait pas
+// réécrire, faute de passer par une classe, et le fond restait donc lumineux
+// sous un texte prévu pour le noir. Un fond photographique sous un voile
+// SOMBRE règle les deux : il ne dépend plus du thème, puisque le texte est
+// blanc dans les deux cas.
 // ============================================
 
 function PanneauSection() {
@@ -43,44 +43,78 @@ function PanneauSection() {
     // aussi bien que le panneau. Sur un écran étroit, la place va au geste :
     // on vient ici pour se connecter, pas pour lire une accroche.
     <aside className="relative hidden overflow-hidden bg-gray-900 text-white lg:block lg:min-h-screen">
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-      <LignesDeTerrain className="text-white/[0.07]" />
+      {/* QUATRE COUCHES, ET L'ORDRE COMPTE.
 
-      <div className="relative flex h-full flex-col justify-between px-12 py-14">
-        <Link href="/" className="w-fit">
-          <Image
-            src="/branding/logo_full_name.png"
-            alt="KOPPAFOOT"
-            width={150}
-            height={40}
-            style={{ height: "auto" }}
-            className="brightness-0 invert"
-            priority
-          />
+          Le dégradé D'ABORD, et il reste : c'est le repli. Si la photo manque
+          — fichier absent, cache vide, réseau coupé —, le panneau garde un
+          fond dessiné au lieu d'un rectangle noir avec du texte dessus.
+
+          La photo ENSUITE, en `cover`. Elle est déjà recadrée en portrait à la
+          fabrication (voir scripts/preparer-image-login) : la source est un
+          collage CARRÉ, et un carré posé dans cette colonne se recadre pile
+          sur la couture entre ses vignettes.
+
+          Puis DEUX VOILES, et deux valent mieux qu'un seul : un voile uniforme
+          qui garantit un minimum de contraste PARTOUT — les photos sont
+          claires, ciel et terre battue, et le nom du produit est écrit en
+          blanc dans le coin haut —, et par-dessus un dégradé qui s'épaissit
+          vers le bas, là où l'accroche se pose. Un dégradé seul laissait le
+          haut trop lumineux pour du texte blanc. */}
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
+      <Image
+        src="/branding/login_side.jpg"
+        alt=""
+        fill
+        priority
+        sizes="(min-width: 1024px) 42vw, 0px"
+        className="object-cover"
+      />
+      <div aria-hidden className="absolute inset-0 bg-black/30" />
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"
+      />
+
+      <div className="relative flex h-full flex-col px-12 py-14">
+        {/* LE MOT, PAS L'IMAGE. Le logo dessiné était un fichier de plus à
+            charger pour écrire un nom que la police du produit écrit déjà —
+            et il fallait l'inverser au filtre pour le poser sur du sombre.
+            C'est la même typographie que le header (voir ScoreHeader), en
+            plus grand : on est sur la porte d'entrée, le nom a le droit d'y
+            tenir sa place. */}
+        <Link
+          href="/"
+          className="w-fit font-display text-3xl font-black uppercase tracking-[0.14em] text-white drop-shadow-lg transition-opacity hover:opacity-80"
+        >
+          Koppafoot
         </Link>
 
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300">
-            {ctx.marque}
-          </p>
-          <p className="mt-3 max-w-md font-display text-4xl font-black uppercase leading-[0.9] tracking-[-0.02em] lg:text-5xl">
+        {/* L'ACCROCHE DESCEND EN BAS. Elle flottait au milieu d'une colonne
+            répartie en trois, ce qui la laissait sans appui : ni alignée sur
+            le formulaire d'en face, ni posée sur quoi que ce soit. Contre le
+            bas, elle a le voile le plus dense sous elle et le sujet de la
+            photo au-dessus — c'est la mise en page d'une affiche, et c'est ce
+            que ce panneau est.
+
+            LE SURTITRE A DISPARU : il répétait « KOPPAFOOT » à trois
+            centimètres du nom écrit en grand juste au-dessus. */}
+        <div className="mt-auto">
+          <p className="max-w-md font-display text-4xl font-black uppercase leading-[0.9] tracking-[-0.02em] lg:text-5xl">
             {ctx.accroche}
           </p>
-          <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/60">
+          <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/75">
             {ctx.promesse}
           </p>
-        </div>
 
-        {ctx.retour ? (
-          <Link
-            href={ctx.retour.href}
-            className="flex w-fit items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/50 transition-colors hover:text-white"
-          >
-            ← Retour à {ctx.retour.label}
-          </Link>
-        ) : (
-          <span aria-hidden />
-        )}
+          {ctx.retour && (
+            <Link
+              href={ctx.retour.href}
+              className="mt-8 flex w-fit items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/60 transition-colors hover:text-white"
+            >
+              ← Retour à {ctx.retour.label}
+            </Link>
+          )}
+        </div>
       </div>
     </aside>
   );
