@@ -46,7 +46,28 @@ import PWAInstallFloating from "@/components/pwa/PWAInstallFloating";
 // plutôt qu'au bord de l'écran. La navigation reste dans la barre du bas. Au-
 // dessus de `lg` le header ne bouge pas : il y porte la navigation et la
 // recherche, que rien d'autre ne porte.
+//
+// LES MARGES DE PAGE, RÉSERVÉES AUX ANNONCES. Le contenu allait d'un bord à
+// l'autre de l'écran alors que le header, lui, s'arrête à LARGEUR_PAGE : sur
+// un grand écran la barre du haut était rentrée et tout ce qui suivait
+// débordait dessous, désaligné. Les deux largeurs sont désormais LA MÊME, et
+// le décalage disparaît.
+//
+// Ce qui reste de part et d'autre, au-delà de cette largeur, est la place des
+// annonces — rien n'y est encore posé. En dessous, il n'y a aucune marge :
+// prendre de la place sur un écran de portable coûterait au contenu ce
+// qu'aucune annonce ne rendrait.
 // ============================================
+
+/**
+ * La largeur de la page, partagée avec le header.
+ *
+ * Elle vit en Tailwind des deux côtés (`max-w-[1600px]`) : une classe ne se
+ * construit pas à la volée, l'outil ne compile que ce qu'il lit tel quel dans
+ * les sources. Le chiffre est donc écrit deux fois, et ce commentaire est le
+ * lien entre les deux.
+ */
+const LARGEUR_PAGE = "max-w-[1600px]";
 
 /** La fiche d'un match, amical ou de compétition — pas sa console. */
 function estUneFicheMatch(pathname: string): boolean {
@@ -71,24 +92,31 @@ export default function ScoreShell({
       <PWAInstallFloating />
       <ScoreHeader masqueSurMobile={estUneFicheMatch(pathname)} />
 
-      <div className="flex min-w-0 flex-1">
-        {/* `overflow-x-clip` et non `hidden` : `hidden` fait de <main> un
-            conteneur de defilement, ce qui empeche tout `position: sticky`
-            a l'interieur de se caler sur la fenetre, le hero d'une page
-            competition passait sous le header au lieu de s'y arreter.
-            `clip` coupe le debordement sans creer ce conteneur. */}
-        <main className="main-content-app min-w-0 flex-1 overflow-x-clip bg-[#F4F6FA] p-3 lg:p-5">
-          <PullToRefresh>{children}</PullToRefresh>
-        </main>
-        {/* `empty:hidden` : un module de rail qui rend `null`, rien a montrer
-            sur cette page, laissait sinon une colonne blanche de 320px. Le
-            shell ne peut pas savoir a l'avance si RightRail produira quelque
-            chose, mais le CSS le voit apres coup. */}
-        {gutter && (
-          <aside className="hidden w-80 flex-shrink-0 overflow-y-auto px-5 py-5 empty:hidden xl:block">
-            <RightRail />
-          </aside>
-        )}
+      {/* Le fond de page descend sur CE conteneur-ci, et non plus sur le seul
+          <main> : sinon les marges des deux côtés gardaient le fond du body,
+          deux bandes le long d'un contenu qui n'a pas la même couleur
+          qu'elles. Il est réécrit en thème sombre (voir styles/dark.css), la
+          page reste donc d'une seule teinte dans les deux thèmes. */}
+      <div className="flex min-w-0 flex-1 justify-center bg-[#F4F6FA]">
+        <div className={`flex w-full min-w-0 flex-1 ${LARGEUR_PAGE}`}>
+          {/* `overflow-x-clip` et non `hidden` : `hidden` fait de <main> un
+              conteneur de defilement, ce qui empeche tout `position: sticky`
+              a l'interieur de se caler sur la fenetre, le hero d'une page
+              competition passait sous le header au lieu de s'y arreter.
+              `clip` coupe le debordement sans creer ce conteneur. */}
+          <main className="main-content-app min-w-0 flex-1 overflow-x-clip bg-[#F4F6FA] p-3 lg:p-5">
+            <PullToRefresh>{children}</PullToRefresh>
+          </main>
+          {/* `empty:hidden` : un module de rail qui rend `null`, rien a montrer
+              sur cette page, laissait sinon une colonne blanche de 320px. Le
+              shell ne peut pas savoir a l'avance si RightRail produira quelque
+              chose, mais le CSS le voit apres coup. */}
+          {gutter && (
+            <aside className="hidden w-80 flex-shrink-0 overflow-y-auto px-5 py-5 empty:hidden xl:block">
+              <RightRail />
+            </aside>
+          )}
+        </div>
       </div>
 
       <MobileBottomNav />

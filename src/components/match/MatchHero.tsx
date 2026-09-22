@@ -26,14 +26,18 @@ import type { Buteur, ButeursDuMatch } from "@/lib/buteurs";
 // page pour ne plus découper de bandeau au-dessus du reste. On y revient, et
 // c'est voulu : la fiche d'un match doit plonger dans le match, et le produit
 // a déjà ce registre — la page d'une compétition ouvre sur un bandeau sombre,
-// dans le prolongement du header. `text-white`, `bg-gray-950` et les blancs
+// dans le prolongement du header. `text-white`, `bg-black` et les blancs
 // translucides sont précisément ce que styles/dark.css ne réécrit pas : le
 // bandeau est identique en clair et en sombre, sans une ligne de `dark:`.
 //
-// SANS IMAGE. Ni photo de pelouse, ni bannière : un halo vert derrière
-// l'affiche, comme l'éclairage d'un stade, qui s'éteint dans le noir avant
-// d'atteindre la barre — sans quoi la barre, unie, se découperait dessus. La
-// bannière d'un match ne sert qu'à son image de partage.
+// SANS IMAGE ET SANS LUEUR. Ni photo de pelouse, ni bannière, et plus de
+// halo vert derrière l'affiche : NOIR PLEIN, du haut de la barre au bas du
+// tableau. Le halo tirait l'œil vers son centre, c'est-à-dire vers le vide
+// entre les deux écussons, et il fallait l'éteindre avant les bords pour que
+// la barre, unie, ne s'y découpe pas. Un seul noir supprime les deux
+// problèmes : le score et les écussons sont alors les seules choses qui
+// éclairent le bandeau. La bannière d'un match ne sert qu'à son image de
+// partage.
 //
 // DEUX ÉTATS, UNE SEULE BARRE. La rangée du haut — retour, partage, cloche —
 // est collante et ne bouge jamais. En haut de page, son centre est vide et le
@@ -353,7 +357,7 @@ export default function MatchHero({
       <div
         ref={barre}
         style={{ top: "var(--header-h, 72px)" }}
-        className="sticky z-30 -mx-3 -mt-3 bg-gray-950 pt-safe text-white lg:-mx-5 lg:-mt-5"
+        className="sticky z-30 -mx-3 -mt-3 bg-black pt-safe text-white lg:-mx-5 lg:-mt-5"
       >
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4 sm:px-6">
           <button type="button" onClick={revenir} aria-label="Revenir à l'écran précédent" className={BOUTON}>
@@ -387,14 +391,7 @@ export default function MatchHero({
         </div>
       </div>
 
-      <section className="relative -mx-3 overflow-hidden bg-gray-950 text-white lg:-mx-5">
-        {/* Le halo, sans image : l'éclairage d'un stade derrière l'affiche,
-            éteint avant les bords. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_85%_at_50%_50%,rgba(6,95,70,0.42),transparent_72%)]"
-        />
-
+      <section className="-mx-3 bg-black text-white lg:-mx-5">
         <div className="relative mx-auto max-w-4xl px-4 pb-5 pt-1 sm:px-6 sm:pb-6">
           {/* Contexte : d'où vient ce match, sur UNE ligne. */}
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">

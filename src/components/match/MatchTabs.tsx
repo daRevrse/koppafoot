@@ -58,7 +58,7 @@ export default function MatchTabs({
       // rangée qui défile doit pouvoir atteindre les bords, sinon le dernier
       // onglet semble coupé par une marge plutôt que par l'écran.
       style={{ top: `calc(var(--header-h, 72px) + var(${VARIABLE_HAUTEUR_BARRE}, 56px))` }}
-      className="sticky z-30 -mx-3 border-b border-white/10 bg-gray-950 lg:-mx-5"
+      className="sticky z-30 -mx-3 border-b border-white/10 bg-black lg:-mx-5"
     >
       <div
         role="tablist"
