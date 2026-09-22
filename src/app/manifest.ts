@@ -22,11 +22,14 @@ export default function manifest(): MetadataRoute.Manifest {
     // Each entry serves a file that really is the size it declares, the old
     // ones pointed at the 2000x2000 source for every slot.
     //
-    // The artwork doubles as the maskable icon by explicit choice. Launchers
-    // crop maskable icons to a circle covering the middle 80%, and this
-    // drawing reaches 16% past that, so the top of the ball and the foot of
-    // the stem are clipped on the home screen. Accepted: the alternative was
-    // recomposing the motif behind a shrunken symbol, and the artwork wins.
+    // LA VARIANTE MASKABLE EST UN FICHIER À PART, et ce n'est plus la même
+    // image. Les lanceurs recadrent une icône maskable dans une forme qui ne
+    // couvre que les 80% du milieu : l'affiche pleine y perdait le haut du
+    // ballon et le pied de la hampe. C'était un compromis assumé tant que la
+    // seule issue était de recomposer le motif à la main ; `generer-icones`
+    // le fait maintenant tout seul — il rentre le dessin dans la zone sûre et
+    // comble le reste avec le vert des bords, si bien que l'icône est entière
+    // sur un écran d'accueil Android comme ailleurs.
     icons: [
       {
         src: "/icons/icon-192.png",
@@ -40,10 +43,14 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
         purpose: "any",
       },
-      // Same file, declared twice: the spec allows "any maskable" in one
-      // entry but Next's Manifest type only takes a single purpose.
       {
-        src: "/icons/icon-512.png",
+        src: "/icons/icon-192-maskable.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icons/icon-512-maskable.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
