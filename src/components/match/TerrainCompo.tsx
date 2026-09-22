@@ -1,6 +1,8 @@
 "use client";
 
-import { disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS } from "@/lib/terrain";
+import {
+  disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS, type PlaceTerrain,
+} from "@/lib/terrain";
 import { versFormation } from "@/lib/formations";
 import type { LineupEntry } from "@/types";
 
@@ -14,9 +16,31 @@ import type { LineupEntry } from "@/types";
 // s'impose deja de ne tenir QU'UNE geometrie pour que le joueur soit au meme
 // endroit sur tous les ecrans. Le dessin suit la meme regle.
 //
-// DEUX PALETTES, UN DESSIN. La fiche publique est sur fond blanc, l'editeur
-// du manager sur fond noir : seules les couleurs changent, jamais les
-// positions.
+// ---------------------------------------------------------------------------
+// UNE PELOUSE QUI EST UNE PELOUSE.
+//
+// Elle a longtemps ete un decor qu'on efface : un vert presque blanc sur la
+// fiche publique, un vert presque noir dans l'editeur, au nom du principe que
+// « les joueurs doivent s'en detacher ». Le principe est bon, la conclusion
+// etait fausse — on obtenait un rectangle gris-vert que personne ne lit comme
+// un terrain, et des maillots sombres qui s'y noyaient quand meme.
+//
+// Le vert est donc franc, le meme dans les deux themes, et c'est LUI qui fait
+// reconnaitre l'image en un dixieme de seconde. Ce qui doit se detacher se
+// detache autrement : les pastilles sont blanches et pleines, les noms sont
+// poses sur une etiquette sombre.
+//
+// L'ETIQUETTE SOUS CHAQUE JOUEUR N'EST PAS UN ORNEMENT. Le nom etait ecrit a
+// meme la pelouse : lisible sur le vert pale d'hier, il devient illisible des
+// que le fond a du caractere, et il l'etait deja quand il tombait sur une
+// ligne blanche du terrain. Une plaque sombre sous le texte le rend
+// independant de ce qu'il y a derriere — c'est la seule facon de garder un
+// fond dessine ET des noms lisibles.
+//
+// DEUX VARIANTES, ET ELLES NE CHANGENT PLUS QUE LE CADRE. `clair` pose la
+// pelouse sur une page blanche, `sombre` dans un panneau noir : le vert
+// s'assombrit d'un cran dans le second pour ne pas trouer l'ecran. Les
+// positions, elles, n'ont jamais bouge et ne bougeront pas.
 // ============================================
 
 /**
@@ -40,36 +64,53 @@ export function nomCourt(nom: string, max = 11): string {
 type Variante = "clair" | "sombre";
 
 const PALETTES: Record<Variante, {
-  pelouse: string;
+  pelouseHaut: string;
+  pelouseBas: string;
   lignes: string;
   maillot: string;
   maillotTexte: string;
   videTrait: string;
   videTexte: string;
+  etiquette: string;
   nom: string;
 }> = {
-  // Un vert très pâle : le terrain est un décor, pas le sujet, les joueurs
-  // doivent s'en détacher.
   clair: {
-    pelouse: "#f0fdf4", lignes: "#bbf7d0",
-    maillot: "#065f46", maillotTexte: "#ffffff",
-    videTrait: "#d1d5db", videTexte: "#9ca3af",
-    nom: "#111827",
+    pelouseHaut: "#2ec06a", pelouseBas: "#15a04f",
+    lignes: "#ffffff",
+    maillot: "#ffffff", maillotTexte: "#064e3b",
+    videTrait: "#ffffff", videTexte: "#ffffff",
+    etiquette: "#0f2a1d", nom: "#ffffff",
   },
-  // Même logique sur fond noir : la pelouse s'efface, les maillots ressortent.
+  // Un cran plus sombre : la même pelouse, mais qui ne troue pas un panneau
+  // noir. Tout le reste est identique, volontairement.
   sombre: {
-    pelouse: "#0b1a14", lignes: "#14532d",
-    maillot: "#34d399", maillotTexte: "#052e20",
-    videTrait: "#374151", videTexte: "#6b7280",
-    nom: "#e5e7eb",
+    pelouseHaut: "#1f9d57", pelouseBas: "#0f7a3f",
+    lignes: "#ffffff",
+    maillot: "#ffffff", maillotTexte: "#064e3b",
+    videTrait: "#ffffff", videTexte: "#ffffff",
+    etiquette: "#04150d", nom: "#ffffff",
   },
 };
+
+/**
+ * La largeur de l'étiquette d'un nom.
+ *
+ * Un `<rect>` SVG ne se dimensionne pas sur son texte : il faut l'estimer.
+ * 0.54 em par caractère est la moyenne d'une grasse sans-serif, et le nom est
+ * déjà raccourci et plafonné par `nomCourt` — l'erreur reste sous le demi-
+ * caractère, ce que le rembourrage absorbe.
+ */
+function largeurEtiquette(texte: string, taillePolice: number): number {
+  return texte.length * taillePolice * 0.54 + taillePolice * 1.1;
+}
 
 export default function TerrainCompo({
   titulaires,
   taille,
   formation,
   variante = "clair",
+  photos,
+  onPlaceClick,
 }: {
   titulaires: LineupEntry[];
   /** Voir `disposerSurTerrain` : le NvN annoncé, quand on le connaît. */
@@ -77,6 +118,22 @@ export default function TerrainCompo({
   /** « 4-3-3 », la forme annoncée par le manager. Absente, on place par poste. */
   formation?: string | null;
   variante?: Variante;
+  /**
+   * La photo de chaque joueur, par identifiant de ligne de feuille.
+   *
+   * Absente, la pastille garde son numéro — et c'est le cas courant : la
+   * plupart des joueurs de club amateur n'ont pas de photo. Le visage prend
+   * la place du numéro quand il existe, jamais l'inverse.
+   */
+  photos?: Record<string, string | null | undefined>;
+  /**
+   * Rend les emplacements CLIQUABLES, et fait de ce terrain un éditeur.
+   *
+   * C'est la seule différence entre la composition qu'on lit et celle qu'on
+   * remplit : même dessin, même géométrie, même fichier. Deux terrains
+   * auraient dérivé au premier ajustement.
+   */
+  onPlaceClick?: (index: number, place: PlaceTerrain) => void;
 }) {
   const { places, ecart } = disposerSurTerrain(
     titulaires, taille, "haut", versFormation(formation),
@@ -85,11 +142,33 @@ export default function TerrainCompo({
   // sa voisine. 4.2 reste le confort de lecture visé.
   const r = rayonPastille(ecart, Math.min(4.2, RAYON_MAX_RANGS));
   const c = PALETTES[variante];
+  const TAILLE_NOM = 2.7;
+  // Un identifiant propre à ce rendu : deux terrains sur la même page
+  // partageraient sinon le même dégradé, et le second réécrirait le premier.
+  const idPelouse = `pelouse-${variante}`;
 
   return (
     <svg viewBox="0 0 100 104" role="img" aria-label="Composition sur le terrain" className="w-full">
-      {/* La pelouse et ses lignes. */}
-      <rect x="0" y="0" width="100" height="104" fill={c.pelouse} />
+      <defs>
+        {/* Le dégradé, de la ligne médiane vers notre but : la pelouse a une
+            profondeur, un aplat n'en a pas. */}
+        <linearGradient id={idPelouse} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={c.pelouseHaut} />
+          <stop offset="100%" stopColor={c.pelouseBas} />
+        </linearGradient>
+      </defs>
+
+      <rect x="0" y="0" width="100" height="104" fill={`url(#${idPelouse})`} />
+
+      {/* LES BANDES DE TONTE, très légères : ce sont elles qu'on reconnaît sur
+          la photo d'un terrain, avant les lignes. À 4% d'opacité elles se
+          devinent sans concurrencer les joueurs. */}
+      <g fill="#ffffff" opacity="0.04" aria-hidden>
+        {[0, 2, 4, 6].map((n) => (
+          <rect key={n} x="0" y={n * 13} width="100" height="13" />
+        ))}
+      </g>
+
       {/* UN DEMI-TERRAIN, ET NON UN TERRAIN ENTIER.
           Le rectangle portait les deux surfaces et la ligne médiane au
           milieu : la moitié haute — celle de l'adversaire — restait vide,
@@ -98,7 +177,7 @@ export default function TerrainCompo({
 
           La boîte reste 100×104 : les joueurs sont placés en pourcentages de
           ces coordonnées, et les changer aurait déplacé toute l'équipe. */}
-      <g stroke={c.lignes} strokeWidth="0.6" fill="none">
+      <g stroke={c.lignes} strokeWidth="0.5" fill="none" opacity="0.5">
         <rect x="3" y="3" width="94" height="98" />
 
         {/* En haut, la ligne médiane : le bord du cadre, et le rond central
@@ -114,49 +193,146 @@ export default function TerrainCompo({
         <path d="M 45.42 71 A 11 11 0 0 1 54.58 71" />
       </g>
 
-      <circle cx="50" cy="3" r="1.2" fill={c.lignes} />
-      <circle cx="50" cy="81" r="0.9" fill={c.lignes} />
+      <circle cx="50" cy="3" r="1.2" fill={c.lignes} opacity="0.5" />
+      <circle cx="50" cy="81" r="0.9" fill={c.lignes} opacity="0.5" />
 
       {places.map((place, i) => {
         const joueur = place.entry;
+        const nom = joueur ? nomCourt(joueur.name) : "";
+        const l = largeurEtiquette(nom, TAILLE_NOM);
+        // Les pastilles des ailes sont à 16 et 84 : une étiquette centrée
+        // dessus sortirait du cadre. On ramène l'ancre vers l'intérieur plutôt
+        // que de rétrécir tout le terrain pour deux joueurs.
+        const ancre = Math.min(Math.max(place.x, l / 2 + 1), 99 - l / 2);
+        const photo = joueur ? photos?.[joueur.playerId] : null;
+        const idPhoto = `visage-${variante}-${i}`;
+
         return (
-          <g key={i}>
+          <g
+            key={i}
+            {...(onPlaceClick
+              ? {
+                  onClick: () => onPlaceClick(i, place),
+                  role: "button" as const,
+                  tabIndex: 0,
+                  onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onPlaceClick(i, place);
+                    }
+                  },
+                  "aria-label": joueur
+                    ? `${joueur.name}, ${place.etiquette}. Changer ou retirer`
+                    : `Emplacement libre, ${place.etiquette}. Choisir un joueur`,
+                  style: { cursor: "pointer" },
+                }
+              : {})}
+          >
+            {/* L'ombre portée de la pastille : sans elle, un disque blanc sur
+                un vert franc paraît collé au fond. */}
+            {joueur && (
+              <ellipse
+                cx={place.x}
+                cy={place.y + r * 0.92}
+                rx={r * 0.78}
+                ry={r * 0.22}
+                fill="#000000"
+                opacity="0.18"
+              />
+            )}
+
             <circle
               cx={place.x}
               cy={place.y}
               r={r}
               fill={joueur ? c.maillot : "transparent"}
-              stroke={joueur ? c.maillot : c.videTrait}
-              strokeWidth="0.7"
+              stroke={joueur ? "none" : c.videTrait}
+              strokeWidth="0.6"
               strokeDasharray={joueur ? undefined : "1.6 1.2"}
+              opacity={joueur ? 1 : 0.55}
             />
+
+            {/* LE VISAGE, quand on l'a. Le disque blanc lui sert de cadre, et
+                `slice` remplit le cercle sans déformer la photo — une tête
+                étirée est pire que pas de photo du tout. */}
+            {joueur && photo && (
+              <>
+                <defs>
+                  <clipPath id={idPhoto}>
+                    <circle cx={place.x} cy={place.y} r={r * 0.92} />
+                  </clipPath>
+                </defs>
+                <image
+                  href={photo}
+                  x={place.x - r * 0.92}
+                  y={place.y - r * 0.92}
+                  width={r * 1.84}
+                  height={r * 1.84}
+                  preserveAspectRatio="xMidYMid slice"
+                  clipPath={`url(#${idPhoto})`}
+                />
+              </>
+            )}
+
             {/* Le numéro dans la pastille, le nom dessous. Un emplacement que
-                personne n'occupe garde le poste en gris : le lecteur voit
-                qu'il manque un joueur, pas que le terrain est cassé. */}
-            <text
-              x={place.x}
-              y={place.y + r * 0.36}
-              textAnchor="middle"
-              className="font-black"
-              style={{ fontSize: `${(r * 0.95).toFixed(2)}px` }}
-              fill={joueur ? c.maillotTexte : c.videTexte}
-            >
-              {joueur ? (joueur.number || "–") : place.etiquette}
-            </text>
-            {joueur && (
+                personne n'occupe garde le poste : le lecteur voit qu'il manque
+                un joueur, pas que le terrain est cassé.
+
+                LA PHOTO PREND LA PLACE DU NUMÉRO, elle ne s'y superpose pas :
+                un chiffre sur un visage n'est lisible sur aucun des deux. */}
+            {!(joueur && photo) && (
               <text
-                // Les pastilles des ailes sont à 16 et 84 : un nom centré
-                // dessus sortirait du cadre. On ramène l'ancre vers l'intérieur
-                // plutôt que de rétrécir tout le terrain pour deux joueurs.
-                x={Math.min(Math.max(place.x, 13), 87)}
-                y={place.y + r + 3.8}
+                x={place.x}
+                y={place.y + r * 0.36}
                 textAnchor="middle"
-                className="font-bold"
-                style={{ fontSize: "2.7px" }}
-                fill={c.nom}
+                className="font-black"
+                style={{ fontSize: `${(r * 0.95).toFixed(2)}px` }}
+                fill={joueur ? c.maillotTexte : c.videTexte}
+                opacity={joueur ? 1 : 0.65}
               >
-                {nomCourt(joueur.name)}
+                {joueur ? (joueur.number || "–") : place.etiquette}
               </text>
+            )}
+
+            {/* SUR UN EMPLACEMENT LIBRE ET CLIQUABLE, un « + » sous la lettre
+                du poste : le pointillé dit qu'il manque quelqu'un, il ne dit
+                pas qu'on peut le remplir d'un clic. */}
+            {!joueur && onPlaceClick && (
+              <text
+                x={place.x}
+                y={place.y + r * 1.02}
+                textAnchor="middle"
+                className="font-black"
+                style={{ fontSize: `${(r * 0.62).toFixed(2)}px` }}
+                fill={c.videTexte}
+                opacity="0.75"
+              >
+                +
+              </text>
+            )}
+
+            {joueur && (
+              <>
+                <rect
+                  x={ancre - l / 2}
+                  y={place.y + r + 1.1}
+                  width={l}
+                  height={TAILLE_NOM * 1.75}
+                  rx={TAILLE_NOM * 0.875}
+                  fill={c.etiquette}
+                  opacity="0.82"
+                />
+                <text
+                  x={ancre}
+                  y={place.y + r + 1.1 + TAILLE_NOM * 1.24}
+                  textAnchor="middle"
+                  className="font-bold"
+                  style={{ fontSize: `${TAILLE_NOM}px` }}
+                  fill={c.nom}
+                >
+                  {nom}
+                </text>
+              </>
             )}
           </g>
         );
