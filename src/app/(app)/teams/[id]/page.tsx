@@ -2400,7 +2400,6 @@ export default function TeamDetailPage() {
             ghostPlayers={ghostPlayers}
             squadNumbers={teamSquadNumbers}
             compositions={team.compositionsTypes ?? {}}
-            managerId={team.managerId}
             onSaved={fetchTeam}
           />
         </motion.div>

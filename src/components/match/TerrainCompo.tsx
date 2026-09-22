@@ -1,6 +1,8 @@
 "use client";
 
-import { disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS } from "@/lib/terrain";
+import {
+  disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS, type PlaceTerrain,
+} from "@/lib/terrain";
 import { versFormation } from "@/lib/formations";
 import type { LineupEntry } from "@/types";
 
@@ -107,6 +109,8 @@ export default function TerrainCompo({
   taille,
   formation,
   variante = "clair",
+  photos,
+  onPlaceClick,
 }: {
   titulaires: LineupEntry[];
   /** Voir `disposerSurTerrain` : le NvN annoncé, quand on le connaît. */
@@ -114,6 +118,22 @@ export default function TerrainCompo({
   /** « 4-3-3 », la forme annoncée par le manager. Absente, on place par poste. */
   formation?: string | null;
   variante?: Variante;
+  /**
+   * La photo de chaque joueur, par identifiant de ligne de feuille.
+   *
+   * Absente, la pastille garde son numéro — et c'est le cas courant : la
+   * plupart des joueurs de club amateur n'ont pas de photo. Le visage prend
+   * la place du numéro quand il existe, jamais l'inverse.
+   */
+  photos?: Record<string, string | null | undefined>;
+  /**
+   * Rend les emplacements CLIQUABLES, et fait de ce terrain un éditeur.
+   *
+   * C'est la seule différence entre la composition qu'on lit et celle qu'on
+   * remplit : même dessin, même géométrie, même fichier. Deux terrains
+   * auraient dérivé au premier ajustement.
+   */
+  onPlaceClick?: (index: number, place: PlaceTerrain) => void;
 }) {
   const { places, ecart } = disposerSurTerrain(
     titulaires, taille, "haut", versFormation(formation),
@@ -184,9 +204,30 @@ export default function TerrainCompo({
         // dessus sortirait du cadre. On ramène l'ancre vers l'intérieur plutôt
         // que de rétrécir tout le terrain pour deux joueurs.
         const ancre = Math.min(Math.max(place.x, l / 2 + 1), 99 - l / 2);
+        const photo = joueur ? photos?.[joueur.playerId] : null;
+        const idPhoto = `visage-${variante}-${i}`;
 
         return (
-          <g key={i}>
+          <g
+            key={i}
+            {...(onPlaceClick
+              ? {
+                  onClick: () => onPlaceClick(i, place),
+                  role: "button" as const,
+                  tabIndex: 0,
+                  onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onPlaceClick(i, place);
+                    }
+                  },
+                  "aria-label": joueur
+                    ? `${joueur.name}, ${place.etiquette}. Changer ou retirer`
+                    : `Emplacement libre, ${place.etiquette}. Choisir un joueur`,
+                  style: { cursor: "pointer" },
+                }
+              : {})}
+          >
             {/* L'ombre portée de la pastille : sans elle, un disque blanc sur
                 un vert franc paraît collé au fond. */}
             {joueur && (
@@ -211,20 +252,64 @@ export default function TerrainCompo({
               opacity={joueur ? 1 : 0.55}
             />
 
+            {/* LE VISAGE, quand on l'a. Le disque blanc lui sert de cadre, et
+                `slice` remplit le cercle sans déformer la photo — une tête
+                étirée est pire que pas de photo du tout. */}
+            {joueur && photo && (
+              <>
+                <defs>
+                  <clipPath id={idPhoto}>
+                    <circle cx={place.x} cy={place.y} r={r * 0.92} />
+                  </clipPath>
+                </defs>
+                <image
+                  href={photo}
+                  x={place.x - r * 0.92}
+                  y={place.y - r * 0.92}
+                  width={r * 1.84}
+                  height={r * 1.84}
+                  preserveAspectRatio="xMidYMid slice"
+                  clipPath={`url(#${idPhoto})`}
+                />
+              </>
+            )}
+
             {/* Le numéro dans la pastille, le nom dessous. Un emplacement que
                 personne n'occupe garde le poste : le lecteur voit qu'il manque
-                un joueur, pas que le terrain est cassé. */}
-            <text
-              x={place.x}
-              y={place.y + r * 0.36}
-              textAnchor="middle"
-              className="font-black"
-              style={{ fontSize: `${(r * 0.95).toFixed(2)}px` }}
-              fill={joueur ? c.maillotTexte : c.videTexte}
-              opacity={joueur ? 1 : 0.65}
-            >
-              {joueur ? (joueur.number || "–") : place.etiquette}
-            </text>
+                un joueur, pas que le terrain est cassé.
+
+                LA PHOTO PREND LA PLACE DU NUMÉRO, elle ne s'y superpose pas :
+                un chiffre sur un visage n'est lisible sur aucun des deux. */}
+            {!(joueur && photo) && (
+              <text
+                x={place.x}
+                y={place.y + r * 0.36}
+                textAnchor="middle"
+                className="font-black"
+                style={{ fontSize: `${(r * 0.95).toFixed(2)}px` }}
+                fill={joueur ? c.maillotTexte : c.videTexte}
+                opacity={joueur ? 1 : 0.65}
+              >
+                {joueur ? (joueur.number || "–") : place.etiquette}
+              </text>
+            )}
+
+            {/* SUR UN EMPLACEMENT LIBRE ET CLIQUABLE, un « + » sous la lettre
+                du poste : le pointillé dit qu'il manque quelqu'un, il ne dit
+                pas qu'on peut le remplir d'un clic. */}
+            {!joueur && onPlaceClick && (
+              <text
+                x={place.x}
+                y={place.y + r * 1.02}
+                textAnchor="middle"
+                className="font-black"
+                style={{ fontSize: `${(r * 0.62).toFixed(2)}px` }}
+                fill={c.videTexte}
+                opacity="0.75"
+              >
+                +
+              </text>
+            )}
 
             {joueur && (
               <>

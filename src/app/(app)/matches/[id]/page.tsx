@@ -328,6 +328,18 @@ export default function MatchDetailPage() {
     });
     return [...avecCompte, ...sansCompte];
   }, [myTeamId, participations, ghostPlayers, mesEntreesSansCompte, myTeam, teamMembers]);
+  /**
+   * LE VISAGE DES JOUEURS, pour les pastilles du terrain.
+   *
+   * Seuls les comptes en ont un : un joueur sans compte vit sur
+   * `ghost_players`, qui ne porte pas de photo. Sa pastille garde alors son
+   * numéro, et c'est le repli normal — la plupart des licenciés d'un club
+   * amateur n'ont pas mis de photo non plus.
+   */
+  const photosDeLEffectif = useMemo(
+    () => Object.fromEntries(teamMembers.map((m) => [m.uid, m.profilePictureUrl ?? null])),
+    [teamMembers],
+  );
 
   /**
    * La feuille en cours, sous la forme que le terrain sait lire. Elle suit la
@@ -1467,6 +1479,7 @@ export default function MatchDetailPage() {
                           taille={tailleEffectif(match.format)}
                           formation={formation}
                           variante="sombre"
+                          photos={photosDeLEffectif}
                         />
                       </div>
                     )}
