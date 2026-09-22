@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -15,8 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   updateMatchStatus,
   forceCompleteMatch,
-  getMatchesByManager,
-  onMatchesByManager,
+  onMatchesIManage,
   onMesValidations,
   getTeamsIManage,
   getVenues,
@@ -157,6 +156,40 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [challenges, setChallenges] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+
+  /**
+   * DE QUEL CÔTÉ JE SUIS SUR CE MATCH, et la feuille qui va avec.
+   *
+   * La question n'est pas « suis-je le manager du match » mais « l'une des
+   * deux équipes est-elle une des miennes » — c'est déjà le raisonnement de la
+   * fiche d'un match (voir matches/[id], `myTeamId`), et il vaut ici pour les
+   * mêmes deux raisons :
+   *
+   *  — LE STAFF DÉLÉGUÉ n'est ni `manager_id` ni `away_manager_id`. Comparer
+   *    les uid le rangeait d'office du côté extérieur, si bien qu'on lui
+   *    montrait l'état de la feuille de L'ADVERSAIRE.
+   *
+   *  — `manager_id` DÉSIGNE LE CRÉATEUR, pas le camp. C'est `is_home` qui dit
+   *    où il joue. Un manager qui programme un déplacement était lui aussi
+   *    traité comme l'équipe à domicile.
+   *
+   * `teams` vient de getTeamsIManage : il porte les clubs qu'on possède ET
+   * ceux qu'on nous a délégués.
+   */
+  const mesEquipesIds = useMemo(() => new Set(teams.map((t) => t.id)), [teams]);
+
+  const monCamp = useCallback(
+    (match: Match): "home" | "away" | null => {
+      if (mesEquipesIds.has(match.homeTeamId)) return "home";
+      if (mesEquipesIds.has(match.awayTeamId)) return "away";
+      // Le repli du créateur : un match reste le sien même si l'équipe a
+      // changé de mains, ou si la liste des équipes n'est pas encore là.
+      if (user?.uid === match.managerId) return match.isHome ? "home" : "away";
+      if (user?.uid === match.awayManagerId) return match.isHome ? "away" : "home";
+      return null;
+    },
+    [mesEquipesIds, user?.uid],
+  );
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("upcoming");
@@ -238,12 +271,14 @@ export default function MatchesPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [matchesData, teamsData, venuesData] = await Promise.all([
-        getMatchesByManager(user.uid),
+      // LES MATCHS NE SONT PLUS CHARGÉS ICI. Ils l étaient par uid, ce qui
+      // n a jamais ramené ceux du staff délégué, et l écouteur temps réel
+      // (voir plus bas) les réécrivait de toute façon dans la foulée. Il est
+      // désormais seul à les poser, et il sait, lui, interroger par équipe.
+      const [teamsData, venuesData] = await Promise.all([
         getTeamsIManage(user.uid),
         getVenues(),
       ]);
-      setMatches(matchesData);
       setTeams(teamsData);
       setVenues(venuesData);
     } catch (err) {
@@ -258,15 +293,28 @@ export default function MatchesPage() {
     fetchData();
   }, [fetchData]);
 
-  // Real-time matches listener
+  /**
+   * L'écouteur temps réel, RELANCÉ QUAND LES ÉQUIPES ARRIVENT.
+   *
+   * Il interroge par uid ET par équipe (voir onMatchesIManage), et la liste
+   * des équipes est chargée en parallèle, donc plus tard. La clé est une
+   * chaîne triée et non le tableau : `teams` est reconstruit à chaque rendu et
+   * l'effet repartirait en boucle sur sa seule identité.
+   */
+  const clefDeMesEquipes = useMemo(
+    () => [...mesEquipesIds].sort().join(","),
+    [mesEquipesIds],
+  );
+
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = onMatchesByManager(user.uid, (data: Match[]) => {
+    const ids = clefDeMesEquipes ? clefDeMesEquipes.split(",") : [];
+    const unsub = onMatchesIManage(user.uid, ids, (data: Match[]) => {
       setMatches(data);
       setLoading(false);
     });
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, clefDeMesEquipes]);
 
   /**
    * Le statut de validation de mes matchs, par match. Il a quitté le document
@@ -1461,11 +1509,13 @@ export default function MatchesPage() {
                         <span className="flex items-center gap-1">
                           <Calendar size={12} /> {match.date}
                           {(() => {
-                            const isHomeManager = user?.uid === match.managerId;
-                            const isAwayManager = user?.uid === match.awayManagerId;
-                            const isMyReady = isHomeManager ? match.homeLineupReady : isAwayManager ? match.awayLineupReady : true;
-                            
-                            if ((isHomeManager || isAwayManager) && !isMyReady && (match.status === 'upcoming' || match.status === 'live' || match.status === 'delayed')) {
+                            const camp = monCamp(match);
+                            const isMyReady =
+                              camp === "home" ? match.homeLineupReady
+                              : camp === "away" ? match.awayLineupReady
+                              : true;
+
+                            if (camp && !isMyReady && (match.status === 'upcoming' || match.status === 'live' || match.status === 'delayed')) {
                               return (
                                 <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600 border border-amber-200 animate-pulse">
                                   <ClipboardList size={10} />

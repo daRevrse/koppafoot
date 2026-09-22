@@ -309,6 +309,13 @@ export interface FirestoreTeam {
   banner_url?: string;
   slogan?: string;
   lineup_ids?: string[];
+  /**
+   * LES COMPOSITIONS TYPES, une par NvN. La cle est le N ecrit en chaine
+   * (« 7 ») : une cle de map Firestore est toujours une chaine.
+   *
+   * Voir CompositionType.
+   */
+  compositions_types?: { [taille: string]: FirestoreCompositionType };
   gallery_urls?: string[];
   achievements?: Achievement[];
   followers_count?: number;
@@ -351,6 +358,8 @@ export interface Team {
   bannerUrl?: string;
   slogan?: string;
   lineupIds?: string[];
+  /** Les compositions types du club, par NvN. Voir CompositionType. */
+  compositionsTypes?: { [taille: string]: CompositionType };
   galleryUrls?: string[];
   achievements?: Achievement[];
   followersCount?: number;
@@ -1618,6 +1627,37 @@ export interface LinkedCompPlayer {
   team_name: string;
   player_id: string;
   player_name: string;
+}
+
+/**
+ * UNE COMPOSITION TYPE : la feuille de match qu'un club pose D'AVANCE pour un
+ * format donné.
+ *
+ * POURQUOI ELLE EXISTE. Un match ne démarre pas tant que les deux feuilles ne
+ * sont pas faites — bonne règle, on ne raconte pas un match sans savoir qui
+ * joue. Elle se paie au coup d'envoi : le scoreur, qui n'est d'aucun des deux
+ * clubs, doit composer deux équipes qu'il ne connaît pas, au bord du terrain,
+ * pendant que tout le monde attend. Le club répond donc une fois, au calme.
+ *
+ * UNE PAR NvN, parce qu'un 5v5 n'est pas un 11v11 amputé : ni les mêmes
+ * joueurs, ni les mêmes postes.
+ *
+ * CE N'EST PAS UNE FEUILLE DE MATCH. Elle ne dit pas qui sera là dimanche —
+ * personne ne le sait à l'avance —, elle dit comment ce club joue quand tout
+ * le monde est là. La console la PROPOSE, le scoreur tranche.
+ */
+export interface FirestoreCompositionType {
+  /** Le nom de la formation, « 4-3-3 ». Voir lib/formations. */
+  formation: string;
+  /** Titulaires ET remplaçants, dans l'ordre de la feuille. */
+  lineup: FirestoreLineupEntry[];
+  updated_at: string;
+}
+
+export interface CompositionType {
+  formation: string;
+  lineup: LineupEntry[];
+  updatedAt: string;
 }
 
 export interface FirestoreLineupEntry {

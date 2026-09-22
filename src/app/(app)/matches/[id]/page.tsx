@@ -41,6 +41,7 @@ import {
 } from "@/lib/formations";
 import PredictionPoll from "@/components/match/PredictionPoll";
 import MatchModerators from "@/components/match/MatchModerators";
+import { useEcussons } from "@/hooks/useEcussons";
 
 // ============================================
 // Helpers
@@ -219,7 +220,19 @@ export default function MatchDetailPage() {
    */
   const estAmical = useMemo(() => !!match && !match.awayManagerId, [match]);
 
-  const isHomeManager = useMemo(() => myTeamIsHome, [myTeamIsHome]);
+  /**
+   * L'écusson des deux camps, à jour.
+   *
+   * Le match en porte une copie, faite le jour où on l'a créé. Elle manque
+   * dès qu'un club met son blason en ligne APRÈS avoir été programmé, et la
+   * fiche montrait alors une initiale grise pour une équipe qui a pourtant un
+   * logo. Le hook ne lit la fiche de l'équipe que dans ce cas — voir
+   * hooks/useEcussons.
+   */
+  const ecusson = useEcussons([
+    { teamId: match?.homeTeamId, logo: match?.homeTeamLogo },
+    { teamId: match?.awayTeamId, logo: match?.awayTeamLogo },
+  ]);
 
   const isMyTeamReady = useMemo(() => {
     if (!match || !user || !myTeamId) return false;
@@ -775,11 +788,11 @@ export default function MatchDetailPage() {
         }}
         status={match.status as HeroStatus}
         home={{
-          name: match.homeTeamName, logo: match.homeTeamLogo ?? null, score: match.scoreHome,
+          name: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo), score: match.scoreHome,
           href: match.homeTeamId ? `/teams/${match.homeTeamId}` : null,
         }}
         away={{
-          name: match.awayTeamName, logo: match.awayTeamLogo ?? null, score: match.scoreAway,
+          name: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo), score: match.scoreAway,
           href: match.awayTeamId ? `/teams/${match.awayTeamId}` : null,
         }}
         date={match.date}
@@ -820,9 +833,9 @@ export default function MatchDetailPage() {
             id: "squad",
             label: "Composition",
             badge: isManager ? (() => {
-              const isHomeManager = user?.uid === match.managerId;
-              const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
-              return !isReady ? (
+              // isMyTeamReady, et non un recalcul : voir le commentaire du second
+              // bloc, plus bas dans cet onglet.
+              return !isMyTeamReady ? (
                 <span className="relative ml-1 flex h-2 w-2">
                   <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
@@ -888,8 +901,8 @@ export default function MatchDetailPage() {
 
               <PredictionPoll
                 matchId={id}
-                home={{ label: match.homeTeamName, logo: match.homeTeamLogo ?? null }}
-                away={{ label: match.awayTeamName, logo: match.awayTeamLogo ?? null }}
+                home={{ label: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo) }}
+                away={{ label: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo) }}
                 closed={match.effectiveStatus !== "upcoming"}
               />
 
@@ -1203,11 +1216,34 @@ export default function MatchDetailPage() {
 
               {isManager && (
                 (() => {
-                  const isHomeManager = user?.uid === match.managerId;
-                  const isReady = isHomeManager ? match.homeLineupReady : match.awayLineupReady;
-                  
+                  /**
+                   * ON NE RECALCULE PAS « MA FEUILLE EST-ELLE PRÊTE ».
+                   *
+                   * Ce bloc lisait `user?.uid === match.managerId` pour décider
+                   * s'il fallait regarder `homeLineupReady` ou
+                   * `awayLineupReady`, et il se trompait deux fois :
+                   *
+                   *  — POUR LE STAFF DÉLÉGUÉ. Un adjoint n'est pas
+                   *    `match.managerId` : il tombait donc dans la branche
+                   *    « extérieur » quoi qu'il arrive, et lisait le drapeau de
+                   *    L'ADVERSAIRE. Son manager avait beau valider la feuille,
+                   *    l'écran lui annonçait qu'elle restait à faire.
+                   *
+                   *  — POUR UN MANAGER QUI SE DÉPLACE. `manager_id` désigne
+                   *    celui qui a CRÉÉ le match, pas le camp qu'il joue :
+                   *    c'est `is_home` qui le dit. Un manager ayant programmé
+                   *    un déplacement était traité comme l'équipe à domicile,
+                   *    et lisait lui aussi le drapeau d'en face.
+                   *
+                   * `isMyTeamReady` est exactement cette question, posée une
+                   * fois en haut du composant à partir de `myTeamId` — lequel
+                   * vient des équipes qu'on GÈRE (voir getTeamsIManage), staff
+                   * compris. C'est la seule source, ici comme ailleurs.
+                   */
                   if (match.status !== 'upcoming' && match.status !== 'live' && match.status !== 'pending') return null;
-                  
+
+                  const isReady = isMyTeamReady;
+
                   return (
                     <div className={`mx-0 sm:mx-4 mb-4 sm:mb-8 p-4 sm:p-8 border transition-all ${
                       isReady 

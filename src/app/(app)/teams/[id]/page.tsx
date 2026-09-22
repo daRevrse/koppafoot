@@ -32,6 +32,7 @@ import CarteMatch from "@/components/team/CarteMatch";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
+import CompositionsTypes from "@/components/team/CompositionsTypes";
 
 // ============================================
 // Constants
@@ -68,7 +69,7 @@ const POSITION_COLORS: Record<string, string> = {
   midfielder: "bg-emerald-100 text-emerald-700", forward: "bg-amber-100 text-amber-700",
 };
 
-type ActiveTab = "apropos" | "roster" | "matches" | "stats" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
+type ActiveTab = "apropos" | "roster" | "compositions" | "matches" | "stats" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
 
 // ============================================
 // Edit Team Modal
@@ -1338,6 +1339,10 @@ export default function TeamDetailPage() {
   // in member_ids (createTeam starts it empty), so this is the real count,
   // memberIds alone silently dropped every player without a smartphone.
   const squadCount = team.memberIds.length + ghostPlayers.length;
+  // Combien de formats sont deja prepares : le compteur de l onglet.
+  const nombreDeCompositions = Object.values(team.compositionsTypes ?? {}).filter(
+    (c) => c.lineup.length > 0,
+  ).length;
 
   // ------------------------------------------------------------------
   // Le bilan détaillé, calculé depuis les matchs plutôt que stocké.
@@ -1532,6 +1537,9 @@ export default function TeamDetailPage() {
         {[
           { id: "apropos", label: "À propos", count: 0 },
           { id: "roster", label: "Effectif", count: members.length },
+          ...(isTeamManager
+            ? [{ id: "compositions", label: "Compositions", count: nombreDeCompositions }]
+            : []),
           { id: "matches", label: "Matchs", count: visibleMatchCount },
           { id: "stats", label: "Stats", count: 0 },
           { id: "trainings", label: "Entraînements", count: 0 },
@@ -2372,6 +2380,29 @@ export default function TeamDetailPage() {
               {actionError}
             </div>
           )}
+        </motion.div>
+      )}
+
+      {/* ============ ONGLET : COMPOSITIONS TYPES (manager seul) ============
+
+          À côté de l'effectif, parce qu'il en découle : on choisit ici, parmi
+          les joueurs de la liste d'à côté, ceux qui composent le onze de
+          chaque format. Voir components/team/CompositionsTypes. */}
+      {activeTab === "compositions" && isTeamManager && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <CompositionsTypes
+            teamId={team.id}
+            members={members}
+            ghostPlayers={ghostPlayers}
+            squadNumbers={teamSquadNumbers}
+            compositions={team.compositionsTypes ?? {}}
+            managerId={team.managerId}
+            onSaved={fetchTeam}
+          />
         </motion.div>
       )}
 

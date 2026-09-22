@@ -293,6 +293,18 @@ export default function PublicCompMatchView() {
   // deroulait toutes les poules de la competition, l'une sous l'autre.
   // Et rien du tout en phase finale : un huitieme ne se joue pas au
   // nombre de points, et la poule qui y a mene n'explique plus rien.
+  /**
+   * L'écusson d'un camp : la fiche de l'équipe d'abord, la copie du match
+   * ensuite.
+   *
+   * Le match transporte le blason des deux camps, recopié le jour où on l'a
+   * programmé. La copie se périme — une équipe qui envoie son écusson après le
+   * tirage n'apparaissait nulle part sur cette page. `compTeams` est déjà là
+   * pour le classement : la relecture ne coûte rien.
+   */
+  const ecusson = (teamId: string | null, copieDuMatch: string | null): string | null =>
+    (teamId ? (compTeams.find((t) => t.id === teamId)?.logoUrl ?? null) : null) ?? copieDuMatch;
+
   const enPhaseFinale = match.stage !== "group";
   const standings = compFormat && !enPhaseFinale
     ? computeStandings(compMatches, compTeams, compFormat)
@@ -378,12 +390,12 @@ export default function PublicCompMatchView() {
         }}
         status={match.status as HeroStatus}
         home={{
-          name: match.homeTeamName, logo: match.homeTeamLogo, score: match.scoreHome,
+          name: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo), score: match.scoreHome,
           href: compSlug && match.homeTeamId ? `/c/${compSlug}/teams/${match.homeTeamId}` : null,
           forme: formeDom.map((r) => r.resultat),
         }}
         away={{
-          name: match.awayTeamName, logo: match.awayTeamLogo, score: match.scoreAway,
+          name: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo), score: match.scoreAway,
           href: compSlug && match.awayTeamId ? `/c/${compSlug}/teams/${match.awayTeamId}` : null,
           forme: formeExt.map((r) => r.resultat),
         }}
@@ -430,8 +442,8 @@ export default function PublicCompMatchView() {
           <>
             <PredictionPoll
               matchId={mid}
-              home={{ label: match.homeTeamName, logo: match.homeTeamLogo }}
-              away={{ label: match.awayTeamName, logo: match.awayTeamLogo }}
+              home={{ label: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo) }}
+              away={{ label: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo) }}
               // Le pronostic ferme des que le match n'est plus a venir.
               closed={match.status !== "scheduled"}
             />
@@ -518,7 +530,7 @@ export default function PublicCompMatchView() {
                         {
                           cle: "home",
                           pct: parts.home,
-                          haut: <><MiniEcusson nom={match.homeTeamName} logo={match.homeTeamLogo} taille={14} />V · {parts.home}%</>,
+                          haut: <><MiniEcusson nom={match.homeTeamName} logo={ecusson(match.homeTeamId, match.homeTeamLogo)} taille={14} />V · {parts.home}%</>,
                           bas: bilan.home,
                           libelle: `${pluriel(bilan.home, "victoire")} de ${match.homeTeamName}`,
                         },
@@ -532,7 +544,7 @@ export default function PublicCompMatchView() {
                         {
                           cle: "away",
                           pct: parts.away,
-                          haut: <><MiniEcusson nom={match.awayTeamName} logo={match.awayTeamLogo} taille={14} />V · {parts.away}%</>,
+                          haut: <><MiniEcusson nom={match.awayTeamName} logo={ecusson(match.awayTeamId, match.awayTeamLogo)} taille={14} />V · {parts.away}%</>,
                           bas: bilan.away,
                           libelle: `${pluriel(bilan.away, "victoire")} de ${match.awayTeamName}`,
                         },

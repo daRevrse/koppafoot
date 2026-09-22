@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle, ChevronLeft, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { onMatchLive } from "@/lib/firestore";
+import { onMatchLive, getTeamsIManage } from "@/lib/firestore";
 import { piloteAmical } from "@/lib/console-pilote";
 import LiveMatchConsole from "@/components/competition/LiveMatchConsole";
 import type { Match } from "@/types";
@@ -50,23 +50,55 @@ export default function LiveMatchManage() {
     });
   }, [id]);
 
-  // Seuls les deux managers, un arbitre confirmé et les modérateurs du match
+  /**
+   * Les équipes qu'on gère, staff délégué compris (voir getTeamsIManage).
+   *
+   * Sans elles, le garde ci-dessous ne connaissait que `manager_id` et
+   * `away_manager_id` : un adjoint voyait le bouton « Tenir la console » sur
+   * la fiche du match — qui, elle, raisonne par équipe — et se faisait
+   * renvoyer ici même, avec un « Tu n'es pas chargé de couvrir ce match ».
+   * Les règles Firestore l'autorisent pourtant depuis le début (voir la
+   * branche `equipeDuMatchDeleguee` de firestore.rules) : c'était cet écran,
+   * et lui seul, qui fermait la porte.
+   *
+   * `null` tant qu'on ne sait pas encore, et c'est une valeur utile : le garde
+   * ne juge personne avant, sans quoi il éjecterait le staff à chaque
+   * chargement, le temps que la liste revienne.
+   */
+  const [mesEquipesIds, setMesEquipesIds] = useState<string[] | null>(null);
+  useEffect(() => {
+    // Pas de `setState` synchrone ici : l etat part de `null`, et le garde
+    // ne juge personne tant qu il vaut `null`. Sans compte, il n y a de toute
+    // facon rien a garder.
+    if (!user) return;
+    let annule = false;
+    getTeamsIManage(user.uid)
+      .then((equipes) => { if (!annule) setMesEquipesIds(equipes.map((e) => e.id)); })
+      // Une lecture qui échoue ne doit pas laisser la porte entrouverte :
+      // « aucune équipe » est la réponse prudente.
+      .catch(() => { if (!annule) setMesEquipesIds([]); });
+    return () => { annule = true; };
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Seuls les deux camps, un arbitre confirmé et les modérateurs du match
   // peuvent le couvrir. La console n'avait aucune garde quand elle vivait dans
   // le panneau arbitre remisé : elle s'ouvrait à l'URL. Le contrôle de fond
   // reste l'affaire des règles Firestore ; ceci tient juste les mauvaises
   // personnes à l'écart des commandes.
   useEffect(() => {
-    if (!match || !user) return;
+    if (!match || !user || mesEquipesIds === null) return;
     const peutCouvrir =
       user.uid === match.managerId ||
       user.uid === match.awayManagerId ||
+      mesEquipesIds.includes(match.homeTeamId) ||
+      mesEquipesIds.includes(match.awayTeamId) ||
       (match.moderatorIds ?? []).includes(user.uid) ||
       (match.refereeId === user.uid && match.refereeStatus === "confirmed");
     if (!peutCouvrir) {
       toast.error("Tu n'es pas chargé de couvrir ce match.");
       router.replace(`/matches/${id}`);
     }
-  }, [match, user, router, id]);
+  }, [match, user, router, id, mesEquipesIds]);
 
   if (loading) {
     return (

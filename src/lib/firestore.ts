@@ -42,6 +42,7 @@ import type {
   GhostPlayer, FirestoreGhostPlayer, LineupEntry,
   Notification, FirestoreNotification, NotificationType,
   MatchValidation, FirestoreMatchValidation,
+  CompositionType,
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
@@ -107,6 +108,7 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
     matchesPlayed: d.matches_played ?? 0, isRecruiting: d.is_recruiting ?? false,
     logoUrl: d.logo_url, bannerUrl: d.banner_url, slogan: d.slogan,
     lineupIds: d.lineup_ids ?? [], galleryUrls: d.gallery_urls ?? [],
+    compositionsTypes: toCompositionsTypes(d.compositions_types),
     achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
     squadNumbers: d.squad_numbers ?? {},
     trainingSchedule: d.training_schedule ?? [],
@@ -932,6 +934,74 @@ export async function getMatchesByManager(managerId: string): Promise<Match[]> {
     if (!map.has(d.id)) map.set(d.id, toMatch(d.id, d.data() as FirestoreMatch));
   }
   return Array.from(map.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/**
+ * LES MATCHS QUE JE GÈRE, en temps réel.
+ *
+ * `onMatchesByManager` n'interroge que `manager_id` et `away_manager_id` :
+ * deux champs qui nomment UNE personne chacun, celle qui a créé le match et
+ * celle d'en face. LE STAFF DÉLÉGUÉ N'Y FIGURE NULLE PART. Un adjoint à qui on
+ * a donné les droits du manager voyait donc son équipe dans « Mes équipes »,
+ * pouvait ouvrir sa fiche, composer, répondre aux candidatures — mais sa page
+ * « Mes matchs » restait vide. Déléguer une équipe sans ses matchs, ce n'est
+ * pas l'avoir déléguée.
+ *
+ * On interroge donc AUSSI par équipe, et c'est le bon critère : la question
+ * est « l'une des deux équipes est-elle une des miennes », pas « ai-je créé ce
+ * match ». Les deux requêtes par uid restent, et elles ne font pas doublon :
+ *
+ *   — un amical contre un adversaire HORS PLATEFORME n'a pas d'identifiant
+ *     d'équipe de ce côté-là, seul `manager_id` le retrouve ;
+ *   — un match reste celui de son créateur même si l'équipe a changé de
+ *     mains depuis.
+ *
+ * LES REQUÊTES PAR ÉQUIPE N'ONT PAS DE `orderBy`, volontairement : un
+ * `where(in)` suivi d'un tri sur un AUTRE champ réclame un index composite, et
+ * on trie déjà tout à la fin. C'est le même choix que `getMatchesByTeamIds`,
+ * juste au-dessus.
+ */
+export function onMatchesIManage(
+  uid: string,
+  teamIds: string[],
+  callback: (data: Match[]) => void,
+): Unsubscribe {
+  // Firestore 'in' supports up to 30 values.
+  const ids = teamIds.slice(0, 30);
+
+  const requetes = [
+    query(collection(db, "matches"), where("manager_id", "==", uid), orderBy("created_at", "desc")),
+    query(collection(db, "matches"), where("away_manager_id", "==", uid), orderBy("created_at", "desc")),
+    ...(ids.length > 0
+      ? [
+          query(collection(db, "matches"), where("home_team_id", "in", ids)),
+          query(collection(db, "matches"), where("away_team_id", "in", ids)),
+        ]
+      : []),
+  ];
+
+  const lots: Match[][] = requetes.map(() => []);
+
+  const publier = () => {
+    const parId = new Map<string, Match>();
+    for (const lot of lots) {
+      for (const m of lot) if (!parId.has(m.id)) parId.set(m.id, m);
+    }
+    callback(
+      [...parId.values()].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    );
+  };
+
+  const arrets = requetes.map((q, i) =>
+    onSnapshot(q, (snap) => {
+      lots[i] = snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch));
+      publier();
+    }),
+  );
+
+  return () => arrets.forEach((stop) => stop());
 }
 
 export function onMatchesByManager(managerId: string, callback: (data: Match[]) => void): Unsubscribe {
@@ -2964,6 +3034,115 @@ export async function removeGalleryUrl(teamId: string, url: string): Promise<voi
     gallery_urls: arrayRemove(url),
     updated_at: serverTimestamp(),
   });
+}
+
+// ============================================
+// LES COMPOSITIONS TYPES D'UN CLUB
+//
+// Un match ne démarre pas tant que les deux feuilles ne sont pas faites, et
+// c'est une bonne règle : on ne raconte pas un match sans savoir qui joue.
+// Elle se paie au coup d'envoi, quand le scoreur — qui n'est ni du club ni
+// de l'autre — doit composer deux équipes qu'il ne connaît pas, sur un bord
+// de terrain, avec vingt personnes qui attendent.
+//
+// Le club répond d'avance, une fois par format : sa formation et son onze,
+// remplaçants compris. La console la retrouve au moment de la feuille et la
+// propose déjà cochée — voir LiveMatchConsole.
+//
+// UNE PAR NvN, parce qu'un 5v5 n'est pas un 11v11 amputé : ce ne sont ni les
+// mêmes joueurs ni les mêmes postes. La clé est le N écrit en chaîne, ce que
+// Firestore impose pour une clé de map.
+//
+// LA COMPOSITION TYPE N'EST PAS UNE FEUILLE DE MATCH. Elle ne dit pas qui
+// sera là dimanche — personne ne le sait à l'avance —, elle dit comment ce
+// club joue quand tout le monde est là. Le scoreur reste libre de la défaire,
+// et c'est le sens de « proposée » plutôt qu'« appliquée ».
+// ============================================
+
+function toCompositionsTypes(
+  d: FirestoreTeam["compositions_types"],
+): { [taille: string]: CompositionType } {
+  if (!d) return {};
+  const sortie: { [taille: string]: CompositionType } = {};
+  for (const [taille, c] of Object.entries(d)) {
+    if (!c) continue;
+    sortie[taille] = {
+      formation: c.formation,
+      lineup: (c.lineup ?? []).map((e) => ({
+        playerId: e.player_id,
+        name: e.name,
+        number: e.number,
+        role: e.role,
+        userId: e.user_id ?? null,
+        // Le poste est une chaine libre en base (voir FirestoreLineupEntry) :
+        // on le ramene au vocabulaire du produit, comme partout ailleurs.
+        position: normaliserPoste(e.position),
+      })),
+      updatedAt: formatDate(c.updated_at),
+    };
+  }
+  return sortie;
+}
+
+/**
+ * Poser (ou remplacer) la composition type d'un format.
+ *
+ * Une composition VIDE efface l'entrée : c'est ainsi qu'un club retire un
+ * format qu'il ne joue plus, sans qu'il faille un second bouton pour ça. Le
+ * champ entier est réécrit à chaque fois plutôt que la seule clé touchée —
+ * `updateDoc` avec un chemin pointé écrirait bien la clé, mais ne saurait pas
+ * en supprimer une.
+ */
+export async function poserCompositionType(
+  teamId: string,
+  taille: number,
+  compo: { formation: string; lineup: LineupEntry[] } | null,
+): Promise<void> {
+  const snap = await getDoc(doc(db, "teams", teamId));
+  if (!snap.exists()) throw new Error("Equipe introuvable");
+  const actuelles = { ...((snap.data() as FirestoreTeam).compositions_types ?? {}) };
+  const cle = String(taille);
+
+  if (!compo || compo.lineup.length === 0) {
+    delete actuelles[cle];
+  } else {
+    actuelles[cle] = {
+      formation: compo.formation,
+      lineup: compo.lineup.map((e) => ({
+        player_id: e.playerId,
+        name: e.name,
+        number: e.number,
+        role: e.role,
+        // `null` et non `undefined` : Firestore refuse `undefined`, et un
+        // poste absent doit s'écrire pour rester absent.
+        user_id: e.userId ?? null,
+        position: e.position ?? null,
+      })),
+      // Une date lisible, pas un horodatage serveur : `serverTimestamp()` ne
+      // se pose pas à l'intérieur d'une valeur de map, seulement à la racine
+      // du document.
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  await updateDoc(doc(db, "teams", teamId), {
+    compositions_types: actuelles,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * La composition type d'un club pour un format, ou `null`.
+ *
+ * Le format arrive tel qu'il est écrit sur le match, « 7v7 » : on en tire le
+ * N comme partout ailleurs (voir tailleEffectif).
+ */
+export function compositionTypePour(
+  team: Team | null,
+  format: string | undefined,
+): CompositionType | null {
+  if (!team) return null;
+  return team.compositionsTypes?.[String(tailleEffectif(format))] ?? null;
 }
 
 export async function updateTeamLineup(teamId: string, lineupIds: string[]): Promise<void> {
