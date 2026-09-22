@@ -6,6 +6,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import TirsAuBut from "@/components/match/TirsAuBut";
+import { useEcussons } from "@/hooks/useEcussons";
 import {
   useState, useEffect, useMemo, useCallback, useSyncExternalStore,
 } from "react";
@@ -92,6 +93,21 @@ function liveMinute(m: CompMatch): number {
   }
   return Math.floor((ls.timerOffset || 0) / 60000) + 1;
 }
+
+/**
+ * Le blason d un camp, rendu par le composant racine et passe aux cartes.
+ *
+ * TROIS SOURCES, DANS CET ORDRE. La fiche comp_teams de la competition
+ * d abord, toujours a jour. La copie posee sur le match ensuite, juste au
+ * jour pres. Le club teams enfin, pour les AMICAUX : ils n appartiennent a
+ * aucune competition, la premiere source est donc vide pour eux, et il ne
+ * restait que la copie — muette des qu un club met son ecusson en ligne
+ * apres avoir ete programme. Voir hooks/useEcussons pour cette marche-la.
+ *
+ * Les cartes recoivent la fonction et non la table : elles n ont pas a savoir
+ * d ou vient l image.
+ */
+type Ecusson = (teamId: string | null, copieDuMatch: string | null) => string | null;
 
 // Prefer the live team-doc crest (always current) over the match's
 // denormalised snapshot (stale if the logo was uploaded after the fixture).
@@ -600,10 +616,10 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 
 /** One fixture: kickoff column, the two sides stacked, favourite star. */
 function MatchRow({
-  entry, teamsById, starred, onStar, hideScores,
+  entry, ecusson, starred, onStar, hideScores,
 }: {
   entry: Entry;
-  teamsById: Map<string, CompTeam>;
+  ecusson: Ecusson;
   starred: boolean;
   onStar: () => void;
   hideScores: boolean;
@@ -646,7 +662,7 @@ function MatchRow({
             top-to-bottom here, unlike the single-line row of the old home. */}
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex items-center gap-2">
-            <Crest name={match.homeTeamName} logo={logoFor(teamsById, match.homeTeamId, match.homeTeamLogo)} />
+            <Crest name={match.homeTeamName} logo={ecusson(match.homeTeamId, match.homeTeamLogo)} />
             <span className={`min-w-0 flex-1 truncate text-[13px] font-bold ${sideClass(home, away)}`}>
               {match.homeTeamName}
             </span>
@@ -664,7 +680,7 @@ function MatchRow({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Crest name={match.awayTeamName} logo={logoFor(teamsById, match.awayTeamId, match.awayTeamLogo)} />
+            <Crest name={match.awayTeamName} logo={ecusson(match.awayTeamId, match.awayTeamLogo)} />
             <span className={`min-w-0 flex-1 truncate text-[13px] font-bold ${sideClass(away, home)}`}>
               {match.awayTeamName}
             </span>
@@ -702,11 +718,11 @@ function MatchRow({
 
 /** A competition and its fixtures for the selected day, collapsible. */
 function CompetitionGroup({
-  competition, entries, teamsById, favs, onStar, hideScores,
+  competition, entries, ecusson, favs, onStar, hideScores,
 }: {
   competition: Competition;
   entries: Entry[];
-  teamsById: Map<string, CompTeam>;
+  ecusson: Ecusson;
   favs: Set<string>;
   onStar: (key: string) => void;
   hideScores: boolean;
@@ -766,7 +782,7 @@ function CompetitionGroup({
               <MatchRow
                 key={entryKey(e)}
                 entry={e}
-                teamsById={teamsById}
+                ecusson={ecusson}
                 starred={favs.has(entryKey(e))}
                 onStar={() => onStar(entryKey(e))}
                 hideScores={hideScores}
@@ -831,10 +847,10 @@ function PickButton({
 }
 
 function Spotlight({
-  entries, teamsById, picks, onPick,
+  entries, ecusson, picks, onPick,
 }: {
   entries: Entry[];
-  teamsById: Map<string, CompTeam>;
+  ecusson: Ecusson;
   picks: Record<string, Pick>;
   onPick: (id: string, p: Pick) => void;
 }) {
@@ -974,7 +990,7 @@ function Spotlight({
               <div className="flex flex-col items-center gap-2">
                 <Crest
                   name={match.homeTeamName}
-                  logo={logoFor(teamsById, match.homeTeamId, match.homeTeamLogo)}
+                  logo={ecusson(match.homeTeamId, match.homeTeamLogo)}
                   size={44}
                 />
                 <span className="line-clamp-2 text-center text-[12px] font-black text-gray-900">
@@ -1014,7 +1030,7 @@ function Spotlight({
               <div className="flex flex-col items-center gap-2">
                 <Crest
                   name={match.awayTeamName}
-                  logo={logoFor(teamsById, match.awayTeamId, match.awayTeamLogo)}
+                  logo={ecusson(match.awayTeamId, match.awayTeamLogo)}
                   size={44}
                 />
                 <span className="line-clamp-2 text-center text-[12px] font-black text-gray-900">
@@ -1049,7 +1065,7 @@ function Spotlight({
           >
             <Crest
               name={match.homeTeamName}
-              logo={logoFor(teamsById, match.homeTeamId, match.homeTeamLogo)}
+              logo={ecusson(match.homeTeamId, match.homeTeamLogo)}
               size={22}
             />
           </PickButton>
@@ -1075,7 +1091,7 @@ function Spotlight({
           >
             <Crest
               name={match.awayTeamName}
-              logo={logoFor(teamsById, match.awayTeamId, match.awayTeamLogo)}
+              logo={ecusson(match.awayTeamId, match.awayTeamLogo)}
               size={22}
             />
           </PickButton>
@@ -1360,6 +1376,32 @@ export default function DirectHomeV2({
     [feed],
   );
 
+  /**
+   * LES AMICAUX N'ONT PAS DE FICHE `comp_teams`, donc pas de blason vivant :
+   * pour eux la copie posée sur le match était le dernier mot, et elle est
+   * muette quand le club a mis son écusson en ligne après coup. On va le
+   * chercher dans `teams`, et seulement pour les camps qui n'ont rien.
+   */
+  const aResoudre = useMemo(
+    () =>
+      allEntries.flatMap((e) => [
+        {
+          teamId: e.match.homeTeamId,
+          logo: logoFor(teamsById, e.match.homeTeamId, e.match.homeTeamLogo),
+        },
+        {
+          teamId: e.match.awayTeamId,
+          logo: logoFor(teamsById, e.match.awayTeamId, e.match.awayTeamLogo),
+        },
+      ]),
+    [allEntries, teamsById],
+  );
+  const depuisLesClubs = useEcussons(aResoudre);
+  const ecusson = useCallback<Ecusson>(
+    (teamId, copieDuMatch) => depuisLesClubs(teamId, logoFor(teamsById, teamId, copieDuMatch)),
+    [depuisLesClubs, teamsById],
+  );
+
   // Competition filter (the row of pills) scopes everything below it.
   const scoped = useMemo(
     () => (compFilter ? allEntries.filter((e) => e.competition.id === compFilter) : allEntries),
@@ -1580,7 +1622,7 @@ export default function DirectHomeV2({
         <div className="order-1 min-w-0 space-y-3 lg:col-start-2 lg:row-start-1">
           <Spotlight
             entries={spotlightEntries}
-            teamsById={teamsById}
+            ecusson={ecusson}
             picks={picks}
             onPick={choosePick}
           />
@@ -1738,7 +1780,7 @@ export default function DirectHomeV2({
                   key={g.competition.id}
                   competition={g.competition}
                   entries={g.entries}
-                  teamsById={teamsById}
+                  ecusson={ecusson}
                   favs={favs}
                   onStar={toggleFav}
                   hideScores={hideScores}
