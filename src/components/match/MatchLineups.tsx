@@ -25,11 +25,19 @@ import type { LineupEntry } from "@/types";
 // ============================================
 
 export default function MatchLineups({
-  home, away,
+  home, away, photos,
 }: {
   /** `formation` : « 4-3-3 » quand le manager en a annoncé une. */
   home: { name: string; entries: LineupEntry[]; formation?: string | null };
   away: { name: string; entries: LineupEntry[]; formation?: string | null };
+  /**
+   * Le visage des joueurs, par identifiant de ligne de feuille.
+   *
+   * Les DEUX camps dans la même table : un identifiant de feuille est unique,
+   * et séparer les deux aurait obligé l'appelant à savoir de quel côté il
+   * parle pour une information qui ne dépend pas du camp.
+   */
+  photos?: Record<string, string | null | undefined>;
 }) {
   // On ouvre sur le camp qui a une compo, s'il n'y en a qu'un : basculer pour
   // découvrir que l'autre côté est vide est un geste pour rien.
@@ -87,7 +95,7 @@ export default function MatchLineups({
               pour onze pastilles qui n'ont rien à y gagner. */}
           <div className="border border-t-0 border-gray-200/70">
             <div className="mx-auto w-full max-w-sm">
-              <TerrainCompo titulaires={titulaires} formation={equipe.formation} />
+              <TerrainCompo titulaires={titulaires} formation={equipe.formation} photos={photos} />
             </div>
           </div>
 

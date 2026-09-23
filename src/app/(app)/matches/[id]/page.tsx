@@ -1223,6 +1223,7 @@ export default function MatchDetailPage() {
                 <MatchLineups
                   home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup), formation: match.homeFormation }}
                   away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup), formation: match.awayFormation }}
+                  photos={photosDeLEffectif}
                 />
               </div>
 

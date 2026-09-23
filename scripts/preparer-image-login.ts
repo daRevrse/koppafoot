@@ -30,7 +30,7 @@ const SRC = path.join(process.cwd(), "branding", "login side.png");
 const DEST = path.join(process.cwd(), "public", "branding", "login_side.jpg");
 
 /** Quelle moitié du collage on garde. */
-const COLONNE: "gauche" | "droite" = "gauche";
+const COLONNE: "gauche" | "droite" = "droite";
 
 async function main() {
   const { width = 0, height = 0 } = await sharp(SRC).metadata();

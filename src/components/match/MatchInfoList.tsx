@@ -153,13 +153,18 @@ export default function MatchInfoList({
     );
   }
 
-  if (info.referee) {
+  // PAS D'ARBITRE, PAS DE LIGNE. Elle s'affichait quoi qu'il arrive et
+  // retombait sur « Non désigné · En attente », c'est-à-dire deux mentions
+  // pour dire qu'il n'y a rien à dire — sur la plupart des matchs du produit,
+  // où personne n'arbitre officiellement. C'est exactement ce que le reste de
+  // cette liste évite déjà : une ligne sans valeur ne s'affiche pas.
+  if (info.referee?.name) {
     lignes.push(
       <Ligne
         key="ref"
         visuel={<Sifflet {...ICONE} />}
         label="Arbitre"
-        valeur={info.referee.name || "Non désigné"}
+        valeur={info.referee.name}
         note={info.referee.confirmed ? "Désigné" : "En attente"}
       />,
     );
