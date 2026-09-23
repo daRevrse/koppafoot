@@ -69,7 +69,7 @@ function PanneauSection() {
         sizes="(min-width: 1024px) 42vw, 0px"
         className="object-cover"
       />
-      <div aria-hidden className="absolute inset-0 bg-black/30" />
+      <div aria-hidden className="absolute inset-0 bg-black/20" />
       <div
         aria-hidden
         className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"
@@ -165,17 +165,19 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <main className="flex flex-col items-center justify-center bg-white px-5 py-10 sm:px-8 lg:px-12">
         <div className="w-full max-w-md">
-          {/* Le logo reprend sa place ici sur téléphone : il vivait dans le
-              panneau, qui n'y est plus. Sans filtre d'inversion, le fond
-              étant clair de ce côté. */}
-          <Link href="/" className="mb-9 block w-fit lg:hidden">
-            <Image
-              src="/branding/logo_full_name.png"
-              alt="KOPPAFOOT"
-              width={140}
-              height={37}
-              style={{ height: "auto" }}
-            />
+          {/* LE NOM REPREND SA PLACE ICI SUR TÉLÉPHONE : il vivait dans le
+              panneau, qui n'y est plus.
+
+              ÉCRIT, ET NON DESSINÉ. C'était encore le logo en image pendant
+              que le panneau du desktop, lui, écrivait le nom dans la police
+              du produit : deux marques différentes sur le même écran selon
+              la largeur. Même typographie que le header et que le panneau,
+              en encre sombre — le fond est clair de ce côté. */}
+          <Link
+            href="/"
+            className="mb-9 block w-fit font-display text-2xl font-black uppercase tracking-[0.14em] text-gray-900 transition-opacity hover:opacity-70 lg:hidden"
+          >
+            Koppafoot
           </Link>
 
           {children}
