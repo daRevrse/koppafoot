@@ -1552,6 +1552,19 @@ export async function deleteMatch(matchId: string): Promise<void> {
   // sur le match, dans son nom et sa feuille (voir ghostOpponentLineup). Les
   // équipes fantômes d'avant restent en base, sans écran pour les montrer.
   await deleteDoc(doc(db, "matches", matchId));
+
+  // ON NE DÉCRÉMENTE AUCUN COMPTEUR DE CLUB ICI, ET C'EST VOULU.
+  //
+  // Ce fut longtemps le défaut de cette fonction : elle effaçait un match
+  // TERMINÉ sans retirer la victoire qu'il avait valu au palmarès, qui y
+  // restait pour toujours. La réparation n'est pas d'ajouter la soustraction
+  // symétrique — il aurait fallu la même à la correction d'un score, et une
+  // troisième ailleurs —, c'est de ne plus tenir de compteur : le bilan d'un
+  // club se recalcule sur ses matchs terminés, voir lib/bilan-club.
+  //
+  // Les compteurs du document `teams` ne sont plus lus nulle part. Ceux du
+  // document `users` le sont encore, pour les amicaux (voir lib/bilan-public),
+  // et eux se réparent par recalcul plutôt que par soustraction au vol.
 }
 
 // ============================================
