@@ -1,6 +1,6 @@
 import {
-  createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail,
-  signInWithEmailAndPassword, signOut, type User,
+  createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification,
+  sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword, signOut, type User,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -8,6 +8,7 @@ import { buildFirestoreUser, firestoreToProfile, providersDepuisFirebase } from 
 import type { FirestoreUser, SignupData, UserProfile } from "@/types";
 import { suivreCompetition } from "~/lib/direct-firestore";
 import { auth, db } from "~/lib/firebase";
+import { moduleGoogle } from "~/lib/google";
 import { appliquerSuiviEnAttente } from "~/lib/suivi-en-attente";
 
 export interface ChampsProfil {
@@ -27,6 +28,8 @@ interface Etat {
 
 interface EtatAuth extends Etat {
   connexionEmail: (email: string, motDePasse: string) => Promise<void>;
+  /** Rend faux si l'utilisateur a refermé le sélecteur de compte. */
+  connexionGoogle: () => Promise<boolean>;
   inscriptionEmail: (email: string, motDePasse: string) => Promise<void>;
   motDePasseOublie: (email: string) => Promise<void>;
   completerProfil: (champs: ChampsProfil) => Promise<void>;
@@ -89,6 +92,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, motDePasse);
   }, []);
 
+  /**
+   * `signInWithPopup` n'existe pas en natif : la bibliothèque obtient le jeton
+   * Google, Firebase le reçoit en `signInWithCredential`. Un compte Google
+   * déjà créé sur le site retrouve son profil ; un nouveau tombe sur l'écran
+   * profil, comme par e-mail.
+   */
+  const connexionGoogle = useCallback(async (): Promise<boolean> => {
+    const google = moduleGoogle();
+    if (!google) throw new Error("Connexion Google indisponible");
+    await google.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const reponse = await google.GoogleSignin.signIn();
+    if (!google.isSuccessResponse(reponse)) return false;
+    const { idToken } = reponse.data;
+    if (!idToken) throw new Error("Jeton Google absent");
+    await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+    return true;
+  }, []);
+
   const inscriptionEmail = useCallback(async (email: string, motDePasse: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, motDePasse);
     // Comme sur le site : l'e-mail de vérification part, sans bloquer l'accès.
@@ -118,12 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const deconnexion = useCallback(async () => {
+    // Sans ça, le compte Google resterait choisi d'office à la connexion suivante.
+    await moduleGoogle()?.GoogleSignin.signOut().catch(() => {});
     await signOut(auth);
   }, []);
 
   const valeur = useMemo<EtatAuth>(
-    () => ({ ...etat, connexionEmail, inscriptionEmail, motDePasseOublie, completerProfil, rafraichirProfil, deconnexion }),
-    [etat, connexionEmail, inscriptionEmail, motDePasseOublie, completerProfil, rafraichirProfil, deconnexion],
+    () => ({
+      ...etat, connexionEmail, connexionGoogle, inscriptionEmail, motDePasseOublie, completerProfil,
+      rafraichirProfil, deconnexion,
+    }),
+    [etat, connexionEmail, connexionGoogle, inscriptionEmail, motDePasseOublie, completerProfil, rafraichirProfil, deconnexion],
   );
   return <Contexte.Provider value={valeur}>{children}</Contexte.Provider>;
 }

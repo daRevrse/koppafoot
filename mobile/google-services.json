@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "234916872903",
+    "project_id": "koppafoot",
+    "storage_bucket": "koppafoot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:234916872903:android:2cd9c665d8f1317fa874e2",
+        "android_client_info": {
+          "package_name": "com.koppafoot.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "234916872903-ohti5nbkvm1asn4ivth5e035jl2v169i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_3jrSkyxPBX8jyQlQWr-O1fXnvF89YwQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "234916872903-ohti5nbkvm1asn4ivth5e035jl2v169i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

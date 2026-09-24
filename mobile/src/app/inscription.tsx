@@ -5,6 +5,7 @@ import { CONTEXTE_AUTH_DEFAUT } from "@/config/auth-contextes";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
+import { ConnexionGoogle } from "~/components/ConnexionGoogle";
 import { EcranAuth, stylesAuth } from "~/components/EcranAuth";
 import { useAuth } from "~/lib/auth";
 
@@ -42,6 +43,7 @@ export default function EcranInscription() {
       titre={CONTEXTE_AUTH_DEFAUT.titreInscription}
       phrase={raison === "suivre" ? "Crée un compte pour suivre cette compétition." : CONTEXTE_AUTH_DEFAUT.phraseInscription}
     >
+      <ConnexionGoogle onErreur={setErreur} />
       <Champ etiquette="Email" value={email} onChangeText={setEmail} erreur={erreurs.email} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress" />
       <Champ etiquette="Mot de passe" value={motDePasse} onChangeText={setMotDePasse} erreur={erreurs.motDePasse} secureTextEntry autoComplete="new-password" textContentType="newPassword" onSubmitEditing={creer} />
       {erreur ? <Text style={stylesAuth.erreur}>{erreur}</Text> : null}
