@@ -6,6 +6,7 @@
 
 import { adminDb } from "@/lib/firebase-admin";
 import { toCompetition, toCompMatch } from "@/lib/competition-mappers";
+import type { CompetitionFeed } from "@/lib/direct-shared";
 import type {
   Competition, CompMatch, FirestoreCompetition, FirestoreCompMatch, CompetitionStatus,
 } from "@/types";
@@ -85,11 +86,9 @@ export interface CompetitionHeroSlide {
  * competition (the whole comp_matches collection), derived in memory. Degrades
  * to [] on error.
  */
-/** One competition with ALL its fixtures, the Direct feed reads across them. */
-export interface CompetitionFeed {
-  competition: Competition;
-  matches: CompMatch[];
-}
+// Le type vit dans lib/direct-shared, que l'application mobile lit aussi.
+// Réexporté ici : DirectHome et les appelants existants l'importent d'ici.
+export type { CompetitionFeed };
 
 /**
  * Every public competition with its full fixture list, for the Direct home.
