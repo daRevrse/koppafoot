@@ -1,9 +1,6 @@
 import DirectHomeV2 from "@/components/direct/DirectHomeV2";
-import { getDirectFeed } from "@/lib/competition-admin";
+import { getDirectBoard } from "@/lib/direct-admin";
 import { getWorldCompetitions } from "@/lib/football-data";
-import { getPublicFriendlies } from "@/lib/friendlies-admin";
-import { FRIENDLY_COMPETITION } from "@/lib/friendlies-shared";
-import { getWorldBoard } from "@/lib/world-board";
 import { lireClassements } from "@/lib/classement-admin";
 
 // Public home: the live-score "Direct" board, inside the scores shell
@@ -13,36 +10,19 @@ import { lireClassements } from "@/lib/classement-admin";
 export const revalidate = 60;
 
 export default async function Home() {
-  // Les deux familles arrivent ensemble : celles de la plateforme, qu'on peut
-  // rejoindre, et le football mondial, qu'on ne fait que suivre. Elles vivent
-  // desormais dans le meme annuaire, il n'y a pas de raison qu'un supporter
-  // aille les chercher sur deux ecrans differents.
+  // Le tableau s'assemble dans lib/direct-admin, que GET /api/direct lit
+  // aussi : les competitions de la plateforme, les amicaux et le football
+  // mondial, dans le meme annuaire. Le reste ne sert qu'au site : l'annuaire
+  // mondial, et le classement, deja calcule, qu'on lit sans le refaire (il ne
+  // change qu'a la fin d'un match, voir lib/classement-admin).
   //
-  // Les deux lectures sont independantes, donc lancees de front. Chacune
-  // degrade en liste vide de son cote (quota football-data atteint, Firestore
-  // injoignable) sans emporter l'autre.
-  const [feed, world, friendlies, worldBoard, classements] = await Promise.all([
-    getDirectFeed(),
+  // Les lectures sont independantes, donc lancees de front ; chacune degrade
+  // en liste vide de son cote sans emporter les autres.
+  const [board, world, classements] = await Promise.all([
+    getDirectBoard(),
     getWorldCompetitions(),
-    getPublicFriendlies(),
-    getWorldBoard(),
-    // Le classement est deja calcule : on le lit, on ne le refait pas. Il ne
-    // change qu'a la fin d'un match (voir lib/classement-admin).
     lireClassements(),
   ]);
-
-  // Les amicaux entrent dans le tableau comme une competition de plus. Ils
-  // arrivent en fin de liste : un tournoi qui se joue passe avant un match
-  // entre deux clubs, et le tri par heure du tableau fait le reste.
-  // Le tableau porte les trois familles : les competitions de la plateforme,
-  // les amicaux, et le football mondial du jour. Les locales d'abord, c'est
-  // le sujet du produit, le reste derriere, le tri par heure faisant foi a
-  // l'interieur de chaque groupe.
-  const board = [
-    ...feed,
-    ...(friendlies.length > 0 ? [{ competition: FRIENDLY_COMPETITION, matches: friendlies }] : []),
-    ...worldBoard,
-  ];
 
   return (
     <DirectHomeV2

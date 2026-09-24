@@ -20,7 +20,10 @@ import { onCompMatches, listCompTeams } from "@/lib/competition-firestore";
 import type { LigneClassement, LignePubliee } from "@/lib/classement";
 import { stageLabel } from "@/lib/competition-format";
 import { cleDuJour, decalerDeJours, libelleDuJour } from "@/lib/dates";
-import type { CompetitionFeed } from "@/lib/competition-admin";
+import {
+  competitionHref, competitionSubtitle, entryKey, kickoff, liveMinute, matchHref,
+  ordreDesCompetitions, type CompetitionFeed, type Entry,
+} from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/lib/friendlies-shared";
 import { onLiveFriendlies } from "@/lib/firestore";
 import { isWorldComp } from "@/lib/world-board-shared";
@@ -43,7 +46,6 @@ import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 // both.
 // ============================================
 
-type Entry = { match: CompMatch; competition: Competition };
 type ListTab = "all" | "favs" | "comps";
 type StatusChip = "live" | "finished" | "upcoming";
 type Pick = "home" | "draw" | "away";
@@ -83,16 +85,8 @@ const dayKey = cleDuJour;
 const addDays = decalerDeJours;
 const dayLabel = libelleDuJour;
 
-/** Live minute off the shared live_state clock (same math as LiveMatchConsole). */
-function liveMinute(m: CompMatch): number {
-  const ls = m.liveState;
-  if (!ls) return 0;
-  if (m.status === "live" && ls.isTimerRunning && ls.timerStartAt) {
-    const elapsed = Date.now() - new Date(ls.timerStartAt).getTime() + (ls.timerOffset || 0);
-    return Math.floor(elapsed / 60000) + 1;
-  }
-  return Math.floor((ls.timerOffset || 0) / 60000) + 1;
-}
+// La minute en direct, les liens, la clé de tri et l'ordre des compétitions
+// vivent dans lib/direct-shared : l'application mobile les applique aussi.
 
 /**
  * Le blason d un camp, rendu par le composant racine et passe aux cartes.
@@ -117,65 +111,6 @@ function logoFor(
   fallback: string | null,
 ): string | null {
   return (teamId ? teamsById.get(teamId)?.logoUrl : null) ?? fallback;
-}
-
-/** Second line of a competition header, the "country" line of the model. */
-function competitionSubtitle(c: Competition): string {
-  return c.venueCity ?? c.organizerName ?? "";
-}
-
-/**
- * Ou mene l'en-tete d'un groupe. Les amicaux n'ont pas de page de
- * competition : on renvoie vers leur liste.
- */
-function competitionHref(c: Competition): string {
-  if (c.id === FRIENDLY_COMP_ID) return "/matches";
-  // Une competition mondiale a sa propre page, quand le fournisseur nous a
-  // donne son code ; sinon on renvoie vers l'annuaire.
-  if (isWorldComp(c.id)) return c.slug ? `/competitions/monde/${c.slug}` : "/competitions";
-  return `/c/${c.slug}`;
-}
-
-function matchHref(e: Entry): string {
-  // Un amical n'appartient a aucune competition : sa page est /matches/[id].
-  // Le fanion vient de FRIENDLY_COMP_ID (voir friendlies-admin).
-  if (e.competition.id === FRIENDLY_COMP_ID) return `/matches/${e.match.id}`;
-  // Un match du fournisseur externe n'a pas de page detail chez nous : on n'a
-  // ni sa feuille de match, ni ses buteurs, ni de console pour le suivre, et
-  // une fiche vide vaut moins que la page de sa competition. Il se pronostique
-  // en revanche depuis l'affiche du Direct, un pronostic ne demandant qu'un
-  // identifiant de match. On renvoie donc vers sa competition.
-  if (isWorldComp(e.competition.id)) return competitionHref(e.competition);
-  return `/c/${e.competition.slug}/matches/${e.match.id}`;
-}
-
-function entryKey(e: Entry): string {
-  return `${e.competition.id}:${e.match.id}`;
-}
-
-/** Kickoff sort key, undated fixtures land last. */
-function kickoff(e: Entry): string {
-  return `${e.match.date ?? "9999-99-99"}T${e.match.time ?? "99:99"}`;
-}
-
-/**
- * L'ORDRE DES COMPÉTITIONS, LE MÊME POUR LE CARROUSEL ET POUR LE TABLEAU.
- *
- * Ce qui se joue maintenant devant, puis LE FOOTBALL D'ICI avant le football
- * mondial, puis l'heure du coup d'envoi.
- *
- * La règle vivait dans le carrousel, dont le commentaire affirmait qu'elle
- * était « comme celle du tableau » — le tableau, lui, ne connaissait que le
- * direct et l'heure. Une soirée de Ligue 1 passait donc devant le tournoi du
- * quartier sur l'écran d'accueil d'un produit qui parle d'abord de lui. Une
- * seule fonction désormais, les deux surfaces ne peuvent plus diverger.
- */
-function ordreDesCompetitions(a: Entry[], b: Entry[]): number {
-  const enCours = (f: Entry[]) => (f.some((e) => e.match.status === "live") ? 0 : 1);
-  const dIci = (f: Entry[]) => (isWorldComp(f[0].competition.id) ? 1 : 0);
-  return enCours(a) - enCours(b)
-    || dIci(a) - dIci(b)
-    || kickoff(a[0]).localeCompare(kickoff(b[0]));
 }
 
 /** Who actually won, once the match is over (penalties included). */
