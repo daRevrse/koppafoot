@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "234916872903-46887v1f7jh2959iq6ov49je80djoo1t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.koppafoot.app",
+            "certificate_hash": "0426ff052aafd5c2a3a75865dc2e0733d68f83c2"
+          }
+        },
+        {
           "client_id": "234916872903-ohti5nbkvm1asn4ivth5e035jl2v169i.apps.googleusercontent.com",
           "client_type": 3
         }
