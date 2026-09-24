@@ -2918,6 +2918,8 @@ const styles = StyleSheet.create({
 
 ## Task B17 : vérification sur un vrai téléphone, puis PR 2
 
+> **Fait le 2026-09-24, sur iPhone (Expo Go)** et non sur Android, faute d'appareil. Un bug trouvé et corrigé (`4787ca1` : les filtres du Direct s'étiraient sur un tiers de l'écran — ScrollView horizontale sans `flexGrow: 0`). Le reste des parcours rapporté conforme par l'utilisateur, l'API visant d'abord le `next dev` du PC puis la production une fois #62 fusionnée. Le test sur Android reste à faire avant la publication.
+
 **Step 1 : automatique** — dans `mobile/` : `npx jest`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform android` → tout passe. À la racine : `npx tsc --noEmit`, `npm run lint` → le site ignore bien `mobile/`.
 
 **Step 2 : sur un téléphone Android avec Expo Go** (`npx expo start`, même Wi-Fi). Dérouler, et noter le résultat de chaque ligne :
