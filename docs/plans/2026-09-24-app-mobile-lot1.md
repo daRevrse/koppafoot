@@ -2941,7 +2941,14 @@ Tout écart : `superpowers:systematic-debugging` avant de corriger.
 
 ---
 
-# Partie C — Google (bloquée)
+# Partie C — Google
+
+> **Fait le 2026-09-24, sur Android.** Identifiant `com.koppafoot.app` ; application Android déclarée dans Firebase par la CLI (`firebase apps:create`, puis `apps:android:sha:create`) ; projet EAS `@mrgass/koppafoot`, clé de signature générée par EAS. Écarts avec ce qui suit :
+> - **Le module est chargé à la demande** (`mobile/src/lib/google.ts`) : c'est du code natif, absent d'Expo Go, où un import direct ferait planter l'application. Le bouton est caché dans Expo Go et sur iOS (pas de compte Apple Developer, application iOS non déclarée).
+> - **`eas.json` n'a que le profil `development`.** En build de développement, le JavaScript vient de Metro, qui lit `.env.local` ; les profils de publication devront porter les `EXPO_PUBLIC_*` côté EAS.
+> - **`google-services.json` est versionné** : identifiants publics, et EAS en a besoin.
+> - **L'empreinte SHA-1 se lit dans l'APK**, pas avec `keytool -printcert -jarfile` : l'APK n'est signé qu'en v2, et `keytool` répond « fichier JAR non signé ». Elle se lit dans le bloc de signature APK (certificat DER du signataire), ou dans `eas credentials`, qui n'existe qu'en interactif.
+> - Aucun compte Play Store ni App Store n'est nécessaire pour un build de développement.
 
 ## Task C0 : prérequis, côté utilisateur
 

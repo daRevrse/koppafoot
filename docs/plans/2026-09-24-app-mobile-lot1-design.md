@@ -1,7 +1,7 @@
 # Design : application mobile, lot 1 — accueil, authentification, Direct
 
 **Date :** 2026-09-24
-**Statut :** Livré le 2026-09-24 (#62 pour le web, #63 pour l'application), sauf la connexion Google. Testé sur iPhone ; Android reste à éprouver.
+**Statut :** Livré le 2026-09-24 (#62 pour le web, #63 pour l'application, puis la connexion Google). Testé sur iPhone et Android dans Expo Go ; Google testé sur Android dans un build de développement EAS. Google sur iOS attend un compte Apple Developer.
 **Prolonge :** [2026-09-02-application-mobile-expo-design.md](2026-09-02-application-mobile-expo-design.md), dont ce document détaille et amende le premier lot.
 
 ## Le périmètre
