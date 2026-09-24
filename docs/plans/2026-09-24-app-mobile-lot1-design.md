@@ -1,7 +1,7 @@
 # Design : application mobile, lot 1 — accueil, authentification, Direct
 
 **Date :** 2026-09-24
-**Statut :** Approuvé
+**Statut :** Livré le 2026-09-24 (#62 pour le web, #63 pour l'application), sauf la connexion Google. Testé sur iPhone ; Android reste à éprouver.
 **Prolonge :** [2026-09-02-application-mobile-expo-design.md](2026-09-02-application-mobile-expo-design.md), dont ce document détaille et amende le premier lot.
 
 ## Le périmètre
@@ -17,13 +17,11 @@ Hors lot : la fiche de match native, la console live, les pronostics, les notifi
 3. **Toucher un match ouvre sa page web** dans un navigateur intégré à l'application. La fiche native la remplacera au lot suivant, sans rien changer au reste.
 4. **L'étoile de l'application est le suivi lié au compte** (`users.followed_competition_ids`), celui du bouton « Suivre » de la page compétition du site — et celui que liront les notifications.
 
-### Un écart assumé avec le site
+### Le site et l'application : un seul suivi
 
-Le site a deux mécanismes que leurs noms confondent. L'étoile du Direct (`DirectHomeV2`) est **locale à l'appareil** (`localStorage`, clés `kf:direct:favs` et `kf:direct:compfavs`), ne demande aucun compte, et c'est elle que lit le filtre Favoris. Le suivi lié au compte vit ailleurs : page compétition, annuaire, barre latérale.
+**À l'écriture de ce design, les deux divergeaient.** Le site avait deux mécanismes que leurs noms confondent : l'étoile du Direct (`DirectHomeV2`), **locale à l'appareil** (`localStorage`, clés `kf:direct:favs` et `kf:direct:compfavs`), que lisait seule le filtre Favoris ; et le suivi lié au compte, sur la page compétition, l'annuaire et la barre latérale. L'application ne reprenant que le second, une compétition suivie depuis le téléphone n'apparaissait pas dans les Favoris du Direct du site.
 
-L'application ne reprend que le second. Conséquence : une compétition suivie depuis l'application apparaît bien comme suivie sur la page compétition et dans la barre latérale du site, mais **pas** dans le filtre Favoris de son Direct. Aligner le Direct du site sur le suivi du compte est une tâche à part.
-
-(Le commentaire de `FollowCompetitionButton` affirme encore que « l'onglet Favoris du Direct lit la même liste » : c'était vrai de `DirectHome`, plus de `DirectHomeV2`.)
+**Résolu par #61, le même jour.** Connecté, l'étoile d'une compétition du Direct du site écrit le suivi du compte, comme le bouton « Suivre » et comme l'application ; ses tuiles « Mes compétitions » et son filtre Favoris lisent le compte et l'appareil ensemble. Sans compte, l'étoile du site reste une préférence de l'appareil. Les étoiles locales posées avant la connexion restent affichées sans être versées dans le compte (un téléphone partagé porterait les choix de quelqu'un d'autre). L'étoile d'un match isolé reste locale : l'application n'en a pas.
 
 ---
 
@@ -142,7 +140,6 @@ Favoris montre tous les matchs des compétitions suivies. Pas d'étoile sur un m
 ## Ce qui n'est pas tranché
 
 - **L'identifiant Android.** Proposé : `com.koppafoot.app`. Il est **définitif** dès la première publication sur le Play Store. À fixer avant le premier development build.
-- **Le Direct du site et le suivi du compte** : voir « Un écart assumé avec le site ». Hors de ce lot.
 
 ## Ce qui change par rapport au design du 2 septembre
 
