@@ -28,7 +28,7 @@
 **Le contrat des modules partagés.** Un fichier de `src/lib` importé par l'application :
 - n'importe ni `firebase/*`, ni `firebase-admin`, ni `next/*`, ni React, ni un autre module qui le fait ;
 - s'importe entre modules en `@/lib/…` et `@/types` — l'application résout `@/` vers `../src/` ;
-- n'importe aucun paquet npm, **à une exception près** : `lib/champs-valides` importe `yup`. L'application installe donc `yup` elle aussi, et l'alias `"yup"` de `mobile/tsconfig.json` (lu par TypeScript **et** par Metro, qui applique les `paths`) force cette copie-là pour tous les fichiers, y compris ceux de `../src`. Sans lui : deux copies en local (celle de `koppafoot/node_modules` pour `champs-valides`), des types déclarés deux fois que TypeScript refuse de mélanger, et sur EAS — où seul `mobile/` est installé — une résolution qui dépend du repli `nodeModulesPaths`. Par prudence, tester une erreur yup avec `ValidationError.isError(e)`, jamais `instanceof`.
+- n'importe aucun paquet npm, **à une exception près** : `lib/champs-valides` importe `yup`. L'application installe donc `yup` elle aussi. **Tout paquet importé depuis `../src` se résout comme depuis l'application** : c'est le `resolveRequest` de `mobile/metro.config.js` (B2), vérifié par une sonde (un module du site important `date-fns`, absent de l'application, fait échouer le build). Une seule copie de yup, et le même comportement en local que sur EAS, où seul `mobile/` est installé. Côté types, l'alias `"yup"` de `mobile/tsconfig.json` fait de même pour TypeScript — **mais Metro ne l'applique pas** (constaté en B2), d'où le `resolveRequest`. Par prudence, tester une erreur yup avec `ValidationError.isError(e)`, jamais `instanceof`.
 - **Conséquence de ce même mécanisme** : un alias des `paths` est appliqué à l'exécution. Ne jamais y mettre un alias « pour les types seulement » (vers un `.d.ts`) : Metro chargerait le fichier de déclarations à la place du module.
 
 **Pièges connus, à ne pas redécouvrir :**
@@ -486,6 +486,8 @@ npx create-expo-app@latest mobile --template blank-typescript@sdk-57
 
 Si le générateur a créé `mobile/.git`, le supprimer : l'application vit dans le dépôt du site.
 
+> **Constaté à l'exécution (SDK 57) :** le modèle ajoute `AGENTS.md`/`CLAUDE.md` (consignes Expo, gardées), une `LICENSE` au nom d'Expo (retirée) et un `.claude/settings.json` qui active un plugin (retiré, non demandé). Il installe TypeScript **6**. Et `npx expo install firebase …` échoue en `ERESOLVE` : npm résout la dépendance optionnelle `react-dom` en 19.3.0, qui exige React 19.3 — commencer par `npx expo install react-dom` (19.2.3). Depuis Git Bash, `-- --save-dev` n'est pas transmis : utiliser `npm install --save-dev <paquet>@<version d'Expo>`.
+
 **Step 2 : Expo Router et les dépendances du lot**
 
 ```bash
@@ -556,6 +558,8 @@ Vérifier avant d'ajouter que `mobile/node_modules`, `mobile/.expo` et `mobile/.
 ---
 
 ## Task B2 : lire `src/` du site — alias, Metro, Babel, Jest
+
+> **Écarts constatés à l'exécution, et appliqués (commit `4933345`) :** `tsconfig.json` sans `baseUrl` (TypeScript 6) et avec `"types": ["jest"]` (TypeScript 6 n'inclut plus les `@types` d'office) ; `metro.config.js` avec un `resolveRequest` qui résout tout paquet importé depuis `../src` comme depuis l'application (l'alias `yup` du tsconfig n'est pas appliqué par Metro), sans `nodeModulesPaths` ; `babel-preset-expo` installé explicitement en devDependency (il n'est qu'imbriqué sous `expo`). Le fichier fait foi, pas les extraits ci-dessous.
 
 **Files :**
 - Modify : `mobile/tsconfig.json`
@@ -740,6 +744,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files :** Create/Modify : `mobile/eslint.config.js`
 
 **Step 1 :** `npx expo lint` (la première fois, il installe `eslint` et `eslint-config-expo` et crée `eslint.config.js`).
+
+> **Constaté à l'exécution :** il ne le fait pas ici. Sans configuration dans `mobile/`, ESLint remonte à celle du site, qui ignore `mobile/**` — `expo lint` croit la configuration présente et échoue sur « all files are ignored ». Installer `eslint@^9` et `eslint-config-expo@~57.0.2` en devDependencies et écrire `mobile/eslint.config.js` à la main (`eslint-config-expo/flat`), commit `d5b6322`.
 
 **Step 2 :** ajouter la règle à la fin du tableau de configuration généré :
 
@@ -1389,6 +1395,8 @@ export async function appliquerSuiviEnAttente(
 
 ## Task B8 : l'accueil montré une fois (TDD)
 
+> **Écart appliqué :** le `jest.mock(…, () => require(…))` ci-dessous déclenche deux avertissements de lint. La version commitée importe le mock **en premier** (`import mockAsyncStorage from ".../jest/async-storage-mock"`, avant `AsyncStorage`) puis `jest.mock(…, () => mockAsyncStorage)` — dans l'autre ordre, la fabrique s'exécute avant que le mock soit chargé.
+
 **Files :**
 - Create : `mobile/src/lib/accueil.tsx`
 - Test : `mobile/src/__tests__/accueil.test.ts`
@@ -1575,6 +1583,8 @@ export async function chargerDirect(): Promise<CompetitionFeed[]> {
 ---
 
 ## Task B10 : `useDirect` — chargement, temps réel, premier plan
+
+> **Écart appliqué :** le lint React (`set-state-in-effect`) refuse `useEffect(() => { if (actif) void rafraichir(); })`, `rafraichir` posant `chargement` de façon synchrone. La version commitée sépare `charger()` (silencieux, appelé par l'effet au lancement et au retour au premier plan) de `rafraichir()` (le geste de l'utilisateur, qui seul montre l'indicateur). C'est aussi le bon comportement : sans ça, l'indicateur tournerait à chaque retour dans l'application.
 
 **Files :**
 - Create : `mobile/src/hooks/usePremierPlan.ts`, `mobile/src/hooks/useDirect.ts`
@@ -2907,6 +2917,8 @@ const styles = StyleSheet.create({
 ---
 
 ## Task B17 : vérification sur un vrai téléphone, puis PR 2
+
+> **Fait le 2026-09-24, sur iPhone (Expo Go)** et non sur Android, faute d'appareil. Un bug trouvé et corrigé (`4787ca1` : les filtres du Direct s'étiraient sur un tiers de l'écran — ScrollView horizontale sans `flexGrow: 0`). Le reste des parcours rapporté conforme par l'utilisateur, l'API visant d'abord le `next dev` du PC puis la production une fois #62 fusionnée. Le test sur Android reste à faire avant la publication.
 
 **Step 1 : automatique** — dans `mobile/` : `npx jest`, `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform android` → tout passe. À la racine : `npx tsc --noEmit`, `npm run lint` → le site ignore bien `mobile/`.
 
