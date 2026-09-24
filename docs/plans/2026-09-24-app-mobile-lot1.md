@@ -1395,6 +1395,8 @@ export async function appliquerSuiviEnAttente(
 
 ## Task B8 : l'accueil montré une fois (TDD)
 
+> **Écart appliqué :** le `jest.mock(…, () => require(…))` ci-dessous déclenche deux avertissements de lint. La version commitée importe le mock **en premier** (`import mockAsyncStorage from ".../jest/async-storage-mock"`, avant `AsyncStorage`) puis `jest.mock(…, () => mockAsyncStorage)` — dans l'autre ordre, la fabrique s'exécute avant que le mock soit chargé.
+
 **Files :**
 - Create : `mobile/src/lib/accueil.tsx`
 - Test : `mobile/src/__tests__/accueil.test.ts`
@@ -1581,6 +1583,8 @@ export async function chargerDirect(): Promise<CompetitionFeed[]> {
 ---
 
 ## Task B10 : `useDirect` — chargement, temps réel, premier plan
+
+> **Écart appliqué :** le lint React (`set-state-in-effect`) refuse `useEffect(() => { if (actif) void rafraichir(); })`, `rafraichir` posant `chargement` de façon synchrone. La version commitée sépare `charger()` (silencieux, appelé par l'effet au lancement et au retour au premier plan) de `rafraichir()` (le geste de l'utilisateur, qui seul montre l'indicateur). C'est aussi le bon comportement : sans ça, l'indicateur tournerait à chaque retour dans l'application.
 
 **Files :**
 - Create : `mobile/src/hooks/usePremierPlan.ts`, `mobile/src/hooks/useDirect.ts`
