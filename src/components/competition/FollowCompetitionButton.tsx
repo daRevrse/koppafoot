@@ -16,9 +16,14 @@ import { setCompetitionFollow } from "@/lib/competition-firestore";
 //  - "pill" : la pastille avec son libellé, pour une page compétition.
 //  - "icon" : la cloche seule, posée sur la vignette du répertoire. Elle vit
 //    à l'intérieur d'une carte cliquable, d'où le stopPropagation.
-//  - "star" : l'étoile nue de l'en-tête de compétition sur le Direct, où la
-//    cloche rentrerait en concurrence visuelle avec le badge "en direct".
-//    C'est le même suivi : l'onglet Favoris du Direct lit la même liste.
+//  - "star" : l'étoile nue, là où la cloche rentrerait en concurrence
+//    visuelle avec le badge "en direct" (l'en-tête de compétition de la fiche
+//    de match, MatchInfoList ; l'ancien DirectHome).
+//
+// Le Direct actuel (DirectHomeV2) n'utilise PAS ce bouton : son étoile de
+// compétition vit dans son annuaire (useSuiviCompetitions). Connecté, elle
+// écrit ce même suivi et son onglet Favoris le lit ; sans compte, elle reste
+// une préférence de l'appareil.
 // ============================================
 
 export default function FollowCompetitionButton({

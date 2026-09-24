@@ -16,7 +16,8 @@ import {
   Flame, ChevronLeft, ChevronRight, ChevronDown, Star, Trophy,
   MapPin, CalendarDays, Goal, Footprints, ArrowUp, ArrowDown,
 } from "lucide-react";
-import { onCompMatches, listCompTeams } from "@/lib/competition-firestore";
+import { onCompMatches, listCompTeams, setCompetitionFollow } from "@/lib/competition-firestore";
+import toast from "react-hot-toast";
 import type { LigneClassement, LignePubliee } from "@/lib/classement";
 import { stageLabel } from "@/lib/competition-format";
 import { cleDuJour, decalerDeJours, libelleDuJour } from "@/lib/dates";
@@ -64,6 +65,8 @@ const ROUND_LABELS: Record<CompMatchRound, string> = {
 
 // Local-only preferences: a favourite and a pronostic are a device thing,
 // not account data, no rules, no writes, and they work signed out.
+// L'étoile d'une COMPÉTITION fait exception une fois connecté : elle devient
+// le suivi du compte (voir useSuiviCompetitions). Celle d'un match reste locale.
 const FAV_KEY = "kf:direct:favs";
 const COMP_FAV_KEY = "kf:direct:compfavs";
 const PICK_KEY = "kf:direct:picks";
@@ -292,6 +295,8 @@ const favStore = createLocalStore<Set<string>>(
 // Starring a competition is the useful star: it pins the competition to the
 // top of the directory AND pulls all of its matches into Favoris, so a
 // supporter follows a whole tournament in one tap rather than match by match.
+// Ce magasin ne sert plus qu'aux visiteurs sans compte, et aux étoiles posées
+// avant la connexion : voir useSuiviCompetitions.
 const compFavStore = createLocalStore<Set<string>>(
   COMP_FAV_KEY,
   new Set(),
@@ -319,19 +324,91 @@ function useFavourites() {
   return [favs, toggle] as const;
 }
 
-function useCompFavourites() {
-  const favs = useSyncExternalStore(
+function basculerCompetitionLocale(id: string, garder?: boolean) {
+  const next = new Set(compFavStore.get());
+  const suivre = garder ?? !next.has(id);
+  if (suivre === next.has(id)) return;
+  if (suivre) next.add(id);
+  else next.delete(id);
+  compFavStore.set(next);
+}
+
+/**
+ * L'étoile d'une compétition, et les compétitions qu'elle a étoilées.
+ *
+ * SANS COMPTE, rien ne change : une préférence de l'appareil, qui épingle la
+ * compétition en tête de l'annuaire et verse ses matchs dans Favoris.
+ *
+ * CONNECTÉ, elle devient le suivi du compte (`followed_competition_ids`) : le
+ * même que le bouton « Suivre » de la page compétition et que l'étoile de
+ * l'application mobile, et celui que lisent les notifications de buts. Un
+ * même geste ne peut pas vouloir dire deux choses selon l'écran. Surtout, une
+ * compétition suivie depuis le téléphone apparaît ici étoilée, et cette
+ * étoile pleine doit pouvoir se retirer : une étoile restée locale ne ferait
+ * que basculer une autre liste, et resterait allumée.
+ *
+ * Les étoiles locales posées avant la connexion restent affichées, mais ne
+ * sont PAS versées dans le compte. Sur un téléphone partagé, ce seraient les
+ * choix de quelqu'un d'autre, notifications comprises. Retirer une étoile,
+ * connecté, retire les deux.
+ */
+function useSuiviCompetitions() {
+  const locales = useSyncExternalStore(
     compFavStore.subscribe, compFavStore.get, compFavStore.getServer,
   );
+  const { user, refreshUser } = useAuth();
+  const duCompte = user?.followedCompetitionIds;
+  // Ce qu'on vient de demander, en attendant la relecture du profil :
+  // l'étoile change tout de suite, et revient si l'écriture échoue.
+  const [demandes, setDemandes] = useState<ReadonlyMap<string, boolean>>(new Map());
 
-  const toggle = useCallback((id: string) => {
-    const next = new Set(compFavStore.get());
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    compFavStore.set(next);
-  }, []);
+  const suivies = useMemo(() => {
+    const s = new Set(locales);
+    for (const id of duCompte ?? []) s.add(id);
+    for (const [id, suivre] of demandes) {
+      if (suivre) s.add(id);
+      else s.delete(id);
+    }
+    return s;
+  }, [locales, duCompte, demandes]);
 
-  return [favs, toggle] as const;
+  const basculer = useCallback(async (id: string) => {
+    if (!user) {
+      basculerCompetitionLocale(id);
+      return;
+    }
+
+    const suivre = !suivies.has(id);
+    const oublier = () =>
+      setDemandes((m) => {
+        const next = new Map(m);
+        next.delete(id);
+        return next;
+      });
+    setDemandes((m) => new Map(m).set(id, suivre));
+
+    try {
+      await setCompetitionFollow(user.uid, id, suivre);
+    } catch {
+      oublier();
+      toast.error("Impossible de mettre à jour. Réessaie.");
+      return;
+    }
+    if (!suivre) basculerCompetitionLocale(id, false);
+    toast.success(suivre ? "Compétition suivie, tu recevras les buts en direct." : "Compétition retirée.");
+
+    // La demande ne se lâche qu'une fois le profil relu : sans ça, l'étoile
+    // repasserait un instant par l'ancien état. Si la relecture échoue, on la
+    // garde, c'est l'état réel de la base.
+    try {
+      await refreshUser();
+      oublier();
+    } catch {
+      /* l'étoile reste sur la demande jusqu'au prochain chargement */
+    }
+  }, [user, suivies, refreshUser]);
+
+  return [suivies, basculer] as const;
 }
 
 /**
@@ -398,7 +475,10 @@ const pronosticsRattrapes = new Set<string>();
  * not a shortcut.
  *
  * The star is the same one as the fixture rows, one level up: it pulls the
- * whole competition into Favoris instead of one match at a time.
+ * whole competition into Favoris instead of one match at a time. Connecté,
+ * c'est aussi le suivi du compte (voir useSuiviCompetitions) : les tuiles
+ * « Mes compétitions » montrent alors ce que le compte suit, où qu'on l'ait
+ * suivi.
  */
 function CompetitionsDirectory({
   competitions, worldCompetitions, compFavs, onStar,
@@ -1297,7 +1377,7 @@ export default function DirectHomeV2({
   const [compFilter, setCompFilter] = useState<string | null>(null);
   const [hideScores, setHideScores] = useState(false);
   const [favs, toggleFav] = useFavourites();
-  const [compFavs, toggleCompFav] = useCompFavourites();
+  const [compFavs, toggleCompFav] = useSuiviCompetitions();
   const [picks, choosePick] = usePicks();
 
   // L'annuaire ne montre que de vraies competitions : celle des amicaux est
