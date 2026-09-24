@@ -1,0 +1,6 @@
+node_modules/
+captures-brutes/
+profiles/
+logs/
+actifs/
+state.json

@@ -1,0 +1,17 @@
+{
+  "name": "koppafoot-tutoriel-organisateur-outils",
+  "private": true,
+  "description": "Captures d'écran et PDF du tutoriel organisateur (voir ../README.md).",
+  "type": "module",
+  "scripts": {
+    "emulateurs": "firebase emulators:start --project demo-koppafoot --only auth,firestore,storage --config emulateurs/firebase.json",
+    "captures": "./run-all.sh",
+    "reduire": "python3 reduire-captures.py",
+    "pdf": "node build-pdf.mjs",
+    "verifier": "python3 verifier-pdf.py ../Tutoriel-organisateur-KoppaFoot.pdf"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.31.0",
+    "playwright": "^1.63.0"
+  }
+}
