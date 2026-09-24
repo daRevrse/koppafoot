@@ -1,8 +1,9 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// Le mock d'abord : babel-jest remonte jest.mock au-dessus des imports, et sa
+// fabrique s'exécute dès l'import d'AsyncStorage — le mock doit déjà être chargé.
 import mockAsyncStorage from "@react-native-async-storage/async-storage/jest/async-storage-mock";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { accueilDejaVu, marquerAccueilVu } from "~/lib/accueil";
 
-// Remonté au-dessus des imports par babel-jest.
 jest.mock("@react-native-async-storage/async-storage", () => mockAsyncStorage);
 
 beforeEach(() => AsyncStorage.clear());
