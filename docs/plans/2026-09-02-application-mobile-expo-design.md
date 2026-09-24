@@ -1,7 +1,7 @@
 # Design : application mobile Android (Expo)
 
 **Date :** 2026-09-02
-**Statut :** À approuver
+**Statut :** Approuvé le 2026-09-24. Le premier lot est détaillé, et amendé, dans [2026-09-24-app-mobile-lot1-design.md](2026-09-24-app-mobile-lot1-design.md).
 
 ## Contexte
 
