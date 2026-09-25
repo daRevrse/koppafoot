@@ -7,10 +7,9 @@ import type { Article } from "@/lib/news-rss";
 // ============================================
 // Le hero du jour, un article à la fois, en grand.
 //
-// Il fonctionne sans photo, et c'est voulu : aucune source d'articles
-// atteignable ne fournit d'image (voir le champ `image` dans news-rss). Le
-// hero est donc typographique, le titre EST l'illustration, et se remplira
-// d'images le jour où une source en donne, sans changer de forme.
+// Il fonctionne avec ou sans photo : les flux d'éditeurs en donnent une,
+// Google Actualités (le foot togolais) jamais (voir `image` dans news-rss).
+// Sans photo, le hero est typographique, le titre EST l'illustration.
 //
 // Défilement manuel, pas automatique : une page d'actualité qui bouge toute
 // seule fait rater la ligne qu'on était en train de lire.

@@ -101,10 +101,12 @@ export default async function ActusPage() {
   const days = byDay(articles);
   const today = days[0]?.heading === "Aujourd'hui" ? days[0] : null;
 
-  // Les cinq premiers du jour passent en grand. Le hero ne dépend pas d'avoir
-  // une image : aucune source atteignable n'en fournit (voir news-rss), et un
-  // hero qui n'apparaît que le jour où une photo existe n'apparaîtrait jamais.
-  const heroItems = today ? today.items.slice(0, 5) : [];
+  // Les cinq premiers du jour passent en grand, ceux qui ont une photo
+  // d'abord : le hero est le seul endroit où elle se voit en entier. Il ne
+  // dépend pas d'en avoir une, Google Actualités n'en donne jamais.
+  const heroItems = today
+    ? [...today.items].sort((a, b) => Number(!!b.image) - Number(!!a.image)).slice(0, 5)
+    : [];
   const heroIds = new Set(heroItems.map((a) => a.id));
 
   const sections = days
