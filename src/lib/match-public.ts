@@ -1,5 +1,7 @@
 import { cache } from "react";
 import { adminDb } from "@/lib/firebase-admin";
+import { buteursDuMatch, buteursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
+import type { CompMatchRound, FirestoreMatch, FirestoreRecordedScorer } from "@/types";
 
 // ============================================
 // Ce qu'un match montre AVANT que le navigateur exécute quoi que ce soit.
@@ -43,7 +45,88 @@ export interface MatchPublic {
    * un amical peut recevoir une bannière, il n'y a rien à rebrancher.
    */
   bannerUrl: string | null;
+  /**
+   * Les buteurs de chaque camp, pour le flyer SCORE FINAL. Même calcul que
+   * sous le tableau d'affichage de la fiche, pour que l'image et la page
+   * disent la même chose.
+   */
+  buteurs: ButeursDuMatch;
+  /** Les tirs au but, quand le match s'y est joué. */
+  penaltyHome: number | null;
+  penaltyAway: number | null;
 }
+
+/** Ce qu'un match de compétition ajoute : de quoi en habiller l'affiche. */
+export interface CompMatchPublic extends MatchPublic {
+  competition: string;
+  /** Le logo de la compétition, filtré comme la bannière. */
+  competitionLogo: string | null;
+  /** « Groupe A », « Quart de finale » ; vide quand le match n'a ni l'un ni l'autre. */
+  etape: string;
+}
+
+type EvenementBrut = NonNullable<FirestoreMatch["live_state"]>["events"][number];
+
+/**
+ * Les buteurs, depuis les événements bruts du document.
+ *
+ * Seuls les champs que lit `buteursDuMatch` sont convertis : le convertisseur
+ * complet vit dans lib/firestore, qui tire le SDK web.
+ */
+function buteursDesEvenements(
+  evenements: EvenementBrut[] | undefined,
+  homeTeamId: string | null,
+  nomDe?: (e: { teamId: string; playerName?: string }) => string,
+): ButeursDuMatch {
+  const evts = (evenements ?? []).map((e) => ({
+    type: e.type,
+    minute: e.minute,
+    teamId: e.team_id,
+    playerName: e.player_name,
+    detail: e.detail,
+    varStatus: e.var_status ?? null,
+  }));
+  return buteursDuMatch(evts, homeTeamId, nomDe);
+}
+
+/**
+ * Les buteurs d'un amical, avec les deux règles de sa fiche.
+ *
+ * UN MATCH RENSEIGNÉ n'a pas de direct : ses buteurs sont ceux que la saisie a
+ * nommés, tous du camp qui l'a saisie.
+ *
+ * FACE À UNE ÉQUIPE HORS PLATEFORME, ses « Joueur 9 » ne nomment personne :
+ * c'est le nom du club qui marque, comme sur la fiche (voir matches/[id]).
+ */
+function buteursDUnAmical(d: Partial<FirestoreMatch>): ButeursDuMatch {
+  if (d.recorded_at) {
+    const saisis = (d.recorded_scorers ?? []).map((r: FirestoreRecordedScorer) => ({
+      playerId: r.player_id,
+      sansCompte: r.sansCompte,
+      nom: r.nom,
+      buts: r.buts,
+      passes: r.passes,
+    }));
+    return buteursRenseignes(saisis, d.is_home ? "home" : "away");
+  }
+
+  const horsPlateforme = !d.away_manager_id;
+  const fantomeADomicile = horsPlateforme && !d.is_home;
+  const idFantome = horsPlateforme ? (fantomeADomicile ? d.home_team_id : d.away_team_id) : null;
+  const nomDuFantome = (fantomeADomicile ? d.home_team_name : d.away_team_name) ?? "";
+
+  return buteursDesEvenements(d.live_state?.events, d.home_team_id ?? null, (e) =>
+    idFantome && e.teamId === idFantome ? nomDuFantome : e.playerName ?? "");
+}
+
+/** Les tours d'une phase finale, dits comme dans le calendrier. */
+const TOURS: Record<CompMatchRound, string> = {
+  round_of_16: "8es de finale",
+  quarter: "Quart de finale",
+  semi: "Demi-finale",
+  final: "Finale",
+  third_place: "Petite finale",
+};
 
 /**
  * Le match, par son id, ou null s'il n'existe pas.
@@ -102,6 +185,9 @@ export const getMatchPublic = cache(async (id: string): Promise<MatchPublic | nu
       homeTeamLogo: d.home_team_logo ?? null,
       awayTeamLogo: d.away_team_logo ?? null,
       bannerUrl: banniereSure(d.banner_url),
+      buteurs: buteursDUnAmical(d as Partial<FirestoreMatch>),
+      penaltyHome: d.penalty_home ?? null,
+      penaltyAway: d.penalty_away ?? null,
     };
   } catch (err) {
     // Un aperçu manquant vaut mieux qu'une page en 500 : l'appelant retombe
@@ -121,7 +207,7 @@ export const getMatchPublic = cache(async (id: string): Promise<MatchPublic | nu
  * la phrase et l'affiche s'écrivent une seule fois.
  */
 export const getCompMatchPublic = cache(
-  async (slug: string, mid: string): Promise<(MatchPublic & { competition: string }) | null> => {
+  async (slug: string, mid: string): Promise<CompMatchPublic | null> => {
     try {
       const comps = await adminDb
         .collection("competitions")
@@ -139,9 +225,14 @@ export const getCompMatchPublic = cache(
       if (!snap.exists) return null;
 
       const d = snap.data() ?? {};
+      const comp = compDoc.data() as { name?: string; logo_url?: string | null };
       return {
         id: snap.id,
-        competition: (compDoc.data() as { name?: string }).name ?? "",
+        competition: comp.name ?? "",
+        // MÊME FILTRE QUE LA BANNIÈRE, pour la même raison : le flyer pose ce
+        // logo dans un `<img>` que Satori va télécharger depuis le serveur.
+        competitionLogo: banniereSure(comp.logo_url),
+        etape: d.group ? `Groupe ${d.group}` : d.round ? (TOURS[d.round as CompMatchRound] ?? "") : "",
         homeTeamName: d.home_team_name ?? "",
         awayTeamName: d.away_team_name ?? "",
         status: d.status ?? "scheduled",
@@ -157,6 +248,9 @@ export const getCompMatchPublic = cache(
         awayTeamLogo: d.away_team_logo ?? null,
         bannerUrl: banniereSure(d.banner_url),
         format: "",
+        buteurs: buteursDesEvenements(d.live_state?.events, d.home_team_id ?? null),
+        penaltyHome: d.penalty_home ?? null,
+        penaltyAway: d.penalty_away ?? null,
       };
     } catch (err) {
       console.error("getCompMatchPublic failed:", err);

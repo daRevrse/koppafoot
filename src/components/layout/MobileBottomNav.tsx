@@ -1,6 +1,6 @@
 "use client";
 
-import { useEspaces } from "@/hooks/useEspaces";
+import { useEspaces, type Espaces } from "@/hooks/useEspaces";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -26,18 +26,15 @@ function isActive(pathname: string, item: BottomNavItem): boolean {
 function SpacesSheet({
   open,
   onClose,
+  espaces,
 }: {
   open: boolean;
   onClose: () => void;
+  // Calcule par la barre, qui en a besoin pour savoir si elle affiche le
+  // bouton : l'appeler aussi ici relancerait les requetes de moderation.
+  espaces: Espaces | null;
 }) {
   const { user } = useAuth();
-  // Same signal as the desktop sidebar: without it /live-ops was unreachable
-  // on mobile, so a moderator had to switch to a laptop to cover a match.
-  // La MEME source que le megamenu du desktop. Ce calcul existait ici en
-  // double, et les deux avaient deja diverge : le mercato manquait de ce
-  // cote, et une entree « Espace joueur » repetant le titre de la feuille
-  // s'y etait ajoutee. Une seule source, plus d'ecart possible.
-  const espaces = useEspaces();
 
   if (!open || !user || !espaces) return null;
 
@@ -205,6 +202,19 @@ export default function MobileBottomNav() {
   const t = useT();
   const pathname = usePathname();
   const [spacesOpen, setSpacesOpen] = useState(false);
+  // Same signal as the desktop sidebar: without it /live-ops was unreachable
+  // on mobile, so a moderator had to switch to a laptop to cover a match.
+  // La MEME source que le megamenu du desktop. Ce calcul existait ici en
+  // double, et les deux avaient deja diverge : le mercato manquait de ce
+  // cote, et une entree « Espace joueur » repetant le titre de la feuille
+  // s'y etait ajoutee. Une seule source, plus d'ecart possible.
+  const espaces = useEspaces();
+  // LE BOUTON SUIT CE QU'IL Y A A OUVRIR, pas le role. Il ne s'affichait
+  // qu'avec un role Evolution : un organisateur approuve sans role n'avait
+  // alors aucun chemin vers /organizer sur telephone, alors que le desktop
+  // le lui montrait. Meme regle que l'EspaceMenu du header.
+  const aDesEspaces = !!espaces &&
+    (espaces.roleItems.length > 0 || espaces.hatItems.length > 0);
   const badgeCounts: Record<string, number> = {};
 
   // Public shell: guests get the member tabs; the 5th tab becomes a
@@ -342,7 +352,11 @@ export default function MobileBottomNav() {
               </Link>
             )}
 
-            {user && user.evolutionRole && (
+            {/* Sans role mais avec des casquettes, l'Espace s'ajoute a
+                l'Evolution au lieu de la remplacer, comme sur desktop : le
+                role reste a choisir, et la console se tient au bord du
+                terrain, telephone en main. */}
+            {aDesEspaces && (
               <button
                 onClick={() => setSpacesOpen(true)}
                 className="bottom-nav-item group relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-all duration-200"
@@ -372,7 +386,13 @@ export default function MobileBottomNav() {
       </nav>
 
       {/* Role spaces bottom sheet */}
-      {user && <SpacesSheet open={spacesOpen} onClose={() => setSpacesOpen(false)} />}
+      {user && (
+        <SpacesSheet
+          open={spacesOpen}
+          onClose={() => setSpacesOpen(false)}
+          espaces={espaces}
+        />
+      )}
     </>
   );
 }

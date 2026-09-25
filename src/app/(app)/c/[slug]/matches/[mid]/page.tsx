@@ -138,8 +138,15 @@ export default function PublicCompMatchView() {
   // Préparée pendant qu'on lit la fiche, et silencieuse en cas d'échec : le
   // partage retombe alors sur le lien seul, ce qu'il a toujours fait ici. Une
   // image manquante ne doit pas coûter le partage.
+  //
+  // RECHARGÉE QUAND L'ÉTAT CHANGE : le flyer passe de MATCHDAY à rien pendant
+  // le direct, puis à SCORE FINAL. Une fiche restée ouverte au coup de sifflet
+  // aurait sinon partagé l'annonce d'un match déjà joué.
+  const statutDuMatch = match?.status;
   useEffect(() => {
-    if (!slug || !mid) return;
+    // L'état d'abord : sans lui la route ne sait pas quel flyer dessiner, et
+    // la requête partirait deux fois, avant et après l'arrivée du match.
+    if (!slug || !mid || !statutDuMatch) return;
     let vivant = true;
     afficheDuMatch.current = null;
     (async () => {
@@ -155,7 +162,7 @@ export default function PublicCompMatchView() {
       }
     })();
     return () => { vivant = false; };
-  }, [slug, mid]);
+  }, [slug, mid, statutDuMatch]);
 
   // Classement, face-a-face et forme : trois lectures de la competition
   // entiere, donc branchees seulement une fois l'identifiant resolu.
