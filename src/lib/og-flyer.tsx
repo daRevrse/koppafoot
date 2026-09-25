@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import type { ButeursDuMatch, Buteur } from "@/lib/buteurs";
+import type { CompMatchPublic, MatchPublic } from "@/lib/match-public";
 
 // ============================================
 // Les flyers d'un match : « MATCHDAY » avant, « SCORE FINAL » après.
@@ -20,6 +21,11 @@ import type { ButeursDuMatch, Buteur } from "@/lib/buteurs";
 // pas — un amical, une compétition sans logo. L'adresse, elle, reste en pied
 // dans tous les cas : un flyer circule sans son lien, et c'est la seule
 // signature qui reste à quelqu'un qui le reçoit transféré trois fois.
+//
+// RIEN PENDANT LE DIRECT, ni pour un match annulé : l'annonce est passée,
+// le résultat n'existe pas encore — ou n'existera pas. La route répond 404
+// et le bouton Partager envoie le lien seul, qui porte, lui, le score du
+// moment.
 //
 // SATORI, PAS UN NAVIGATEUR : flexbox seulement, et tout élément à plusieurs
 // enfants doit déclarer `display: flex`.
@@ -54,13 +60,15 @@ interface Fonte {
  */
 function chargerRessources() {
   ressources ??= (async () => {
-    const lire = (f: string) => readFile(join(process.cwd(), f));
+    // CHAQUE CHEMIN ÉCRIT EN ENTIER. Un `join(process.cwd(), variable)` fait
+    // tracer tout le projet dans la fonction serveur : Turbopack ne peut pas
+    // savoir quel fichier la variable désignera, il les embarque tous.
     const [anton, medium, bold, black, logo] = await Promise.all([
-      lire("assets/fonts/Anton-Regular.ttf"),
-      lire("assets/fonts/Outfit-Medium.ttf"),
-      lire("assets/fonts/Outfit-Bold.ttf"),
-      lire("assets/fonts/Outfit-Black.ttf"),
-      lire("public/branding/logo_full_name.png"),
+      readFile(join(process.cwd(), "assets/fonts/Anton-Regular.ttf")),
+      readFile(join(process.cwd(), "assets/fonts/Outfit-Medium.ttf")),
+      readFile(join(process.cwd(), "assets/fonts/Outfit-Bold.ttf")),
+      readFile(join(process.cwd(), "assets/fonts/Outfit-Black.ttf")),
+      readFile(join(process.cwd(), "public/branding/logo_full_name.png")),
     ]);
     return {
       fonts: [
@@ -245,6 +253,9 @@ function Surtitre({ texte }: { texte: string }) {
     <div
       style={{
         display: "flex",
+        justifyContent: "center",
+        maxWidth: LARGEUR_UTILE,
+        textAlign: "center",
         marginTop: 34,
         fontFamily: "Outfit",
         fontWeight: 900,
@@ -358,6 +369,50 @@ export interface FlyerMatch {
   lieu: string;
 }
 
+/**
+ * Le flyer d'un match, selon son état : MATCHDAY avant, SCORE FINAL après,
+ * rien pendant le direct ni pour un match annulé.
+ *
+ * Un match de compétition se reconnaît à sa compétition : il porte son logo
+ * en tête, et pas « MATCH AMICAL ». SANS LOGO, c'est celui de Koppafoot qui
+ * s'affiche, et le NOM de la compétition passe au surtitre, devant l'étape :
+ * sinon rien sur l'image ne dirait de quelle compétition il s'agit.
+ */
+export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promise<Response> {
+  if (match.status === "live" || match.status === "cancelled") {
+    return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+
+  const officiel = "competition" in match;
+  const m: FlyerMatch = {
+    surtitre: !officiel
+      ? ""
+      : match.competitionLogo
+        ? match.etape
+        : [match.competition, match.etape].filter(Boolean).join(" · "),
+    amical: !officiel,
+    logoCompetition: officiel ? match.competitionLogo : null,
+    home: { nom: match.homeTeamName || "À déterminer", logo: match.homeTeamLogo },
+    away: { nom: match.awayTeamName || "À déterminer", logo: match.awayTeamLogo },
+    date: match.date,
+    time: match.time,
+    lieu: [match.venueName, match.venueCity].filter(Boolean).join(", "),
+  };
+
+  if (match.status !== "completed") return flyerMatchDay(m);
+
+  return flyerScoreFinal({
+    ...m,
+    scoreHome: match.scoreHome ?? 0,
+    scoreAway: match.scoreAway ?? 0,
+    tirsAuBut:
+      match.penaltyHome != null && match.penaltyAway != null
+        ? { home: match.penaltyHome, away: match.penaltyAway }
+        : null,
+    buteurs: match.buteurs,
+  });
+}
+
 /** AVANT : l'affiche qui fait venir du monde. */
 export async function flyerMatchDay(m: FlyerMatch): Promise<ImageResponse> {
   const { fonts, logo } = await chargerRessources();
@@ -417,6 +472,8 @@ function MatchDay({ m, logo }: { m: FlyerMatch; logo: string }) {
 export interface FlyerResultat extends FlyerMatch {
   scoreHome: number;
   scoreAway: number;
+  /** Une phase finale qui s'est jouée aux tirs au but ; `null` sinon. */
+  tirsAuBut: { home: number; away: number } | null;
   buteurs: ButeursDuMatch;
 }
 
@@ -433,21 +490,39 @@ function ScoreFinal({ m, logo }: { m: FlyerResultat; logo: string }) {
         <Camp {...m.home} taille={176}>
           <ListeButeurs buteurs={m.buteurs.home} />
         </Camp>
-        <div
-          style={{
-            display: "flex",
-            height: 176,
-            alignItems: "center",
-            gap: 16,
-            fontFamily: "Anton",
-            fontSize: 140,
-            lineHeight: 1,
-            color: "#ffffff",
-          }}
-        >
-          <div style={{ display: "flex" }}>{m.scoreHome}</div>
-          <div style={{ display: "flex", width: 34, height: 10, backgroundColor: EMERAUDE }} />
-          <div style={{ display: "flex" }}>{m.scoreAway}</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              height: 176,
+              alignItems: "center",
+              gap: 16,
+              fontFamily: "Anton",
+              fontSize: 140,
+              lineHeight: 1,
+              color: "#ffffff",
+            }}
+          >
+            <div style={{ display: "flex" }}>{m.scoreHome}</div>
+            <div style={{ display: "flex", width: 34, height: 10, backgroundColor: EMERAUDE }} />
+            <div style={{ display: "flex" }}>{m.scoreAway}</div>
+          </div>
+          {/* Sans eux, une finale à 1-1 n'a pas de vainqueur sur l'image. */}
+          {m.tirsAuBut && (
+            <div
+              style={{
+                display: "flex",
+                marginTop: 14,
+                fontFamily: "Outfit",
+                fontWeight: 700,
+                fontSize: 24,
+                letterSpacing: 2,
+                color: EMERAUDE,
+              }}
+            >
+              {`T.A.B. ${m.tirsAuBut.home} - ${m.tirsAuBut.away}`}
+            </div>
+          )}
         </div>
         <Camp {...m.away} taille={176}>
           <ListeButeurs buteurs={m.buteurs.away} />

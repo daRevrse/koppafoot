@@ -526,8 +526,15 @@ export default function MatchDetailPage() {
   // L'affiche, préparée pendant qu'on lit la fiche. Silencieuse en cas
   // d'échec : le partage retombe alors sur le lien seul, ce qu'il a toujours
   // fait — une image manquante ne doit pas coûter le partage.
+  //
+  // RECHARGÉE QUAND L'ÉTAT CHANGE : le flyer passe de MATCHDAY à rien pendant
+  // le direct, puis à SCORE FINAL. Une fiche restée ouverte au coup de sifflet
+  // aurait sinon partagé l'annonce d'un match déjà joué.
+  const statutDuMatch = match?.status;
   useEffect(() => {
-    if (!id) return;
+    // L'état d'abord : sans lui la route ne sait pas quel flyer dessiner, et
+    // la requête partirait deux fois, avant et après l'arrivée du match.
+    if (!id || !statutDuMatch) return;
     let vivant = true;
     afficheDuMatch.current = null;
     (async () => {
@@ -542,7 +549,7 @@ export default function MatchDetailPage() {
       }
     })();
     return () => { vivant = false; };
-  }, [id]);
+  }, [id, statutDuMatch]);
 
 
   // 3. Timer Logic

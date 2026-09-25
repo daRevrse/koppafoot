@@ -18,7 +18,15 @@ import type { Match, RecordedScorer } from "@/types";
 // ne dise déjà.
 // ============================================
 
-type Evt = NonNullable<Match["liveState"]>["events"][number];
+/**
+ * Ce que le calcul lit d'un événement, et rien de plus : le flyer le nourrit
+ * depuis le serveur, avec des événements lus bruts dans Firestore, sans passer
+ * par le convertisseur complet du client (voir match-public).
+ */
+type Evt = Pick<
+  NonNullable<Match["liveState"]>["events"][number],
+  "type" | "minute" | "teamId" | "playerName" | "detail" | "varStatus"
+>;
 
 export interface Buteur {
   nom: string;
