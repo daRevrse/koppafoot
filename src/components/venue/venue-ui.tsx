@@ -111,28 +111,36 @@ const ICONES_EQUIPEMENT: Record<string, LucideIcon> = {
  * bandes de tonte dessinées une à une.
  */
 export function Pelouse({ className = "" }: { className?: string }) {
+  // Deux calques : les bandes de tonte s'étirent sur toute la surface, le
+  // marquage garde les proportions d'un terrain — une vignette carrée comme
+  // un bandeau quatre fois plus large qu'haut le montrent entier.
   return (
-    <svg
-      aria-hidden
-      viewBox="0 0 400 300"
-      preserveAspectRatio="xMidYMid slice"
-      className={`absolute inset-0 h-full w-full ${className}`}
-    >
-      <rect width="400" height="300" fill="#047857" />
-      {[0, 2, 4, 6].map((i) => (
-        <rect key={i} x={i * 50} width="50" height="300" fill="#059669" />
-      ))}
-      <g fill="none" stroke="#ffffff" strokeOpacity="0.6" strokeWidth="2.5">
-        <rect x="18" y="18" width="364" height="264" />
-        <line x1="200" y1="18" x2="200" y2="282" />
-        <circle cx="200" cy="150" r="42" />
-        <rect x="18" y="92" width="54" height="116" />
-        <rect x="328" y="92" width="54" height="116" />
-        <rect x="18" y="124" width="20" height="52" />
-        <rect x="362" y="124" width="20" height="52" />
-      </g>
-      <circle cx="200" cy="150" r="3.5" fill="#ffffff" fillOpacity="0.7" />
-    </svg>
+    <div aria-hidden className={`absolute inset-0 ${className}`}>
+      <svg viewBox="0 0 8 1" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+        <rect width="8" height="1" fill="#047857" />
+        {[0, 2, 4, 6].map((i) => (
+          <rect key={i} x={i} width="1" height="1" fill="#059669" />
+        ))}
+      </svg>
+      <svg
+        viewBox="0 0 400 260"
+        preserveAspectRatio="xMidYMid meet"
+        className="absolute inset-[8%] h-[84%] w-[84%]"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.6"
+        strokeWidth="2.5"
+      >
+        <rect x="2" y="2" width="396" height="256" />
+        <line x1="200" y1="2" x2="200" y2="258" />
+        <circle cx="200" cy="130" r="38" />
+        <rect x="2" y="72" width="56" height="116" />
+        <rect x="342" y="72" width="56" height="116" />
+        <rect x="2" y="104" width="20" height="52" />
+        <rect x="378" y="104" width="20" height="52" />
+        <circle cx="200" cy="130" r="3" fill="#ffffff" fillOpacity="0.7" stroke="none" />
+      </svg>
+    </div>
   );
 }
 

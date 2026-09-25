@@ -1,6 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin";
 import AnnuaireTerrains, { type TerrainListe } from "@/components/venue/AnnuaireTerrains";
-import { horairesLus, type Occupation } from "@/lib/terrains";
+import { horairesLus, photosDuTerrain, type Occupation } from "@/lib/terrains";
 
 // ============================================
 // L'annuaire des terrains.
@@ -61,26 +61,6 @@ async function lireOccupations(): Promise<Map<string, Occupation[]>> {
   return parTerrain;
 }
 
-/**
- * Une photo que la page peut afficher.
- *
- * next/image refuse — en cassant le rendu — une adresse dont l'hôte n'est pas
- * déclaré dans next.config. Toutes les photos passent par Firebase Storage
- * depuis que la saisie d'URL libre a disparu, mais une fiche plus ancienne
- * suffirait à faire tomber tout l'annuaire : on filtre ici plutôt que de le
- * découvrir en production.
- */
-const HOTES_PHOTOS = new Set(["firebasestorage.googleapis.com", "koppafoot.firebasestorage.app"]);
-function photoAffichable(url: string): boolean {
-  if (url.startsWith("/") && !url.startsWith("//")) return true;
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:" && HOTES_PHOTOS.has(u.hostname);
-  } catch {
-    return false;
-  }
-}
-
 async function lireTerrains(): Promise<TerrainListe[]> {
   const [snap, occupations] = await Promise.all([
     adminDb.collection("venues").get(),
@@ -101,11 +81,7 @@ async function lireTerrains(): Promise<TerrainListe[]> {
         fieldSurface: s(v.field_surface),
         pricePerHour: n(v.price_per_hour),
         amenities: Array.isArray(v.amenities) ? (v.amenities as unknown[]).filter((a): a is string => typeof a === "string") : [],
-        // La photo principale d'abord, puis la galerie : un terrain qui n'a
-        // renseigné que sa galerie a quand même une image à montrer.
-        photos: [...new Set([v.photo_url, ...(Array.isArray(v.gallery_urls) ? v.gallery_urls : [])]
-          .map(s)
-          .filter((u): u is string => u !== null && photoAffichable(u)))],
+        photos: photosDuTerrain(v.photo_url, v.gallery_urls),
         available: v.available !== false,
         horaires: horairesLus(v.opening_hours),
         occupations: occupations.get(d.id) ?? [],
