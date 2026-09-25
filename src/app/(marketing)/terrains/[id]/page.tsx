@@ -7,9 +7,12 @@ import BookingRequest from "@/components/venue/BookingRequest";
 import ContactResponsable from "@/components/venue/ContactResponsable";
 import GalerieTerrain from "@/components/venue/GalerieTerrain";
 import {
-  libelleFormat, libelleSurface, prixHeure, aUnPrix,
+  libelleFormat, libelleSurface, prixHeure, aUnPrix, horairesLus,
 } from "@/lib/terrains";
-import { LignesDeTerrain, FilAriane, Etiquette, ListeEquipements } from "@/components/venue/venue-ui";
+import {
+  LignesDeTerrain, FilAriane, Etiquette, ListeEquipements, TableHoraires,
+} from "@/components/venue/venue-ui";
+import type { HorairesOuverture } from "@/types";
 
 // ============================================
 // La fiche publique d'un terrain.
@@ -51,6 +54,7 @@ interface VenueView {
   photoUrl: string | null;
   galleryUrls: string[];
   available: boolean;
+  horaires: HorairesOuverture | null;
 }
 
 async function readVenue(id: string): Promise<VenueView | null> {
@@ -77,6 +81,7 @@ async function readVenue(id: string): Promise<VenueView | null> {
       ? (v.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string")
       : [],
     available: v.available !== false,
+    horaires: horairesLus(v.opening_hours),
   };
 }
 
@@ -230,15 +235,23 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
             >
               <BookingRequest
                 venueId={id}
-                venueName={venue.name}
-                ownerId={venue.ownerId}
                 available={venue.available}
                 pricePerHour={venue.pricePerHour}
+                horaires={venue.horaires}
               />
             </div>
           )}
 
           <GalerieTerrain photos={venue.galleryUrls} nomTerrain={venue.name} />
+
+          {/* Les horaires, avant les équipements : ils disent QUAND on peut
+              venir, ce qui décide d'une demande ; les douches, non. */}
+          {venue.horaires && (
+            <div className="mt-10">
+              <Etiquette className="mb-3">Horaires</Etiquette>
+              <TableHoraires horaires={venue.horaires} />
+            </div>
+          )}
 
           {venue.amenities.length > 0 && (
             <div className="mt-10">

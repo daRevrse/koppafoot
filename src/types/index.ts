@@ -402,6 +402,8 @@ export interface MatchModificationRequest {
   time: string;
   venueName: string;
   venueCity: string;
+  /** Le terrain référencé choisi, s'il y en a un (voir `Match.venueId`). */
+  venueId?: string | null;
   reason: string;
   requestedBy: string;
 }
@@ -416,6 +418,17 @@ export interface FirestoreMatch {
   time: string;
   venue_name: string;
   venue_city: string;
+  /**
+   * LE TERRAIN RÉFÉRENCÉ, quand le match se joue sur l'un d'eux.
+   *
+   * `venue_name` reste le seul champ que lisent l'affiche, la fiche et les
+   * convocations ; il est en texte libre, parce que la plupart des matchs se
+   * jouent sur un terrain que personne n'a référencé. Celui-ci ne sert qu'à
+   * une chose : savoir à quel propriétaire demander le créneau.
+   */
+  venue_id?: string | null;
+  /** Où en est la demande de créneau faite au propriétaire. Voir `ReservationDuMatch`. */
+  venue_booking?: FirestoreReservationDuMatch | null;
   status: MatchStatus;
   result: MatchResult;
   score_home: number | null;
@@ -558,6 +571,7 @@ export interface FirestoreMatch {
     time: string;
     venue_name: string;
     venue_city: string;
+    venue_id?: string | null;
     reason: string;
     requested_by: string;
   } | null;
@@ -776,6 +790,10 @@ export interface Match {
   time: string;
   venueName: string;
   venueCity: string;
+  /** Voir `FirestoreMatch.venue_id`. */
+  venueId: string | null;
+  /** Voir `FirestoreMatch.venue_booking`. */
+  venueBooking: ReservationDuMatch | null;
   status: MatchStatus;
   effectiveStatus: MatchStatus;
   result: MatchResult;
@@ -981,6 +999,17 @@ export interface Invitation {
 // Venues
 // ============================================
 
+/** Un jour d'ouverture, « 08:00 » → « 22:00 ». `null` : fermé ce jour-là. */
+export type PlageOuverture = { ouvre: string; ferme: string } | null;
+
+/**
+ * Les horaires d'un terrain, par jour de la semaine.
+ *
+ * Les clés suivent `Date.getDay()` : « 0 » est le dimanche. Des chaînes, parce
+ * que Firestore ne stocke pas de clé numérique.
+ */
+export type HorairesOuverture = Record<"0" | "1" | "2" | "3" | "4" | "5" | "6", PlageOuverture>;
+
 export interface FirestoreVenue {
   name: string;
   address: string;
@@ -996,6 +1025,8 @@ export interface FirestoreVenue {
   available: boolean;
   photo_url: string | null;
   gallery_urls?: string[];
+  /** Absent sur les terrains d'avant : aucune contrainte d'horaire. */
+  opening_hours?: HorairesOuverture | null;
   created_at: string;
   updated_at: string;
 }
@@ -1016,6 +1047,11 @@ export interface Venue {
   available: boolean;
   /** La photo de couverture : bandeau de la fiche, vignette de l'annuaire. */
   photoUrl: string | null;
+  /**
+   * Les horaires d'ouverture, jour par jour. `null` : non renseignés, et
+   * alors aucune demande n'est refusée pour son heure.
+   */
+  openingHours: HorairesOuverture | null;
   /**
    * Les autres vues du terrain.
    *
@@ -1271,6 +1307,38 @@ export interface PlayerRating {
 
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
 
+/**
+ * D'où vient une réservation.
+ *
+ *  - « demande » : une équipe a demandé le créneau depuis la fiche du terrain ;
+ *  - « match »   : un manager a programmé un amical ou un défi sur ce terrain ;
+ *  - « blocage » : le propriétaire a pris le créneau lui-même — un habitué,
+ *    une réservation faite au téléphone, un entretien. Personne ne l'a
+ *    demandé, mais il est occupé, et la fiche doit le montrer.
+ *
+ * Absente sur les demandes d'avant : ce sont des « demande ».
+ */
+export type NatureReservation = "demande" | "match" | "blocage";
+
+/** Un créneau proposé en échange d'un refus. */
+export interface PropositionCreneau {
+  date: string;
+  time: string;
+}
+
+/**
+ * Comment joindre celui qui demande.
+ *
+ * LE PROPRIÉTAIRE N'AVAIT QU'UN NOM. Le règlement se fait entre eux, hors de
+ * la plateforme, et l'équipe pouvait obtenir le téléphone du propriétaire —
+ * pas l'inverse. Lisible par les deux parties seulement, comme toute la
+ * réservation (voir firestore.rules).
+ */
+export interface ContactReservation {
+  telephone: string | null;
+  email: string | null;
+}
+
 export interface FirestoreBooking {
   venue_id: string;
   venue_name: string;
@@ -1282,6 +1350,24 @@ export interface FirestoreBooking {
   duration: number; // in hours
   total_price: number;
   status: BookingStatus;
+  kind?: NatureReservation;
+  /** Le match pour lequel le créneau est demandé, s'il y en a un. */
+  match_id?: string | null;
+  /** « Étoile de Bè vs Lions d'Agoè », pour que le propriétaire sache qui joue. */
+  match_label?: string | null;
+  contact?: ContactReservation | null;
+  /** Ce que l'équipe veut ajouter : combien ils seront, ce qu'il leur faut. */
+  message?: string | null;
+  /** Posée par le propriétaire quand il refuse : un autre créneau qui lui va. */
+  proposition?: PropositionCreneau | null;
+  /** Pour un blocage : pourquoi le créneau est pris. Vu du seul propriétaire. */
+  note?: string | null;
+  /**
+   * Qui a mis fin à la demande. « proprietaire » est un REFUS : la
+   * synchronisation d'un match ne redemande jamais un créneau refusé.
+   * « systeme » : le match a été annulé ou déplacé, le créneau s'est libéré.
+   */
+  cancelled_by?: "proprietaire" | "demandeur" | "systeme" | null;
   created_at: string;
   updated_at: string;
 }
@@ -1298,8 +1384,41 @@ export interface Booking {
   duration: number;
   totalPrice: number;
   status: BookingStatus;
+  kind: NatureReservation;
+  matchId: string | null;
+  matchLabel: string | null;
+  contact: ContactReservation | null;
+  message: string | null;
+  proposition: PropositionCreneau | null;
+  note: string | null;
+  cancelledBy: "proprietaire" | "demandeur" | "systeme" | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * La réservation du terrain, vue depuis le match.
+ *
+ * Recopiée sur le match parce que c'est là que le manager la cherche : sur la
+ * carte de son match, pas dans une liste de réservations. « refused » garde la
+ * contre-proposition du propriétaire, que le manager peut prendre.
+ */
+export type EtatReservationMatch = "pending" | "confirmed" | "refused" | "cancelled";
+
+export interface FirestoreReservationDuMatch {
+  booking_id: string;
+  venue_id: string;
+  venue_name: string;
+  status: EtatReservationMatch;
+  proposition: PropositionCreneau | null;
+}
+
+export interface ReservationDuMatch {
+  bookingId: string;
+  venueId: string;
+  venueName: string;
+  status: EtatReservationMatch;
+  proposition: PropositionCreneau | null;
 }
 
 // ============================================

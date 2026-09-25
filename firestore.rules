@@ -423,9 +423,12 @@ service cloud.firestore {
     // LE CRÉDIT DES STATISTIQUES : `stats_credited_at` décide si la
     // suppression d'un match renseigné reprend ses compteurs, et bloque un
     // second crédit. Seules les routes serveur le posent.
+    // `venue_booking` recopie la réponse du propriétaire du terrain sur le
+    // match : seul /api/matches/[mid]/terrain l'écrit, avec le SDK admin. Un
+    // manager ne doit pas pouvoir s'afficher un terrain « confirmé ».
     function toucheAuxChampsDuServeur() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['validation_status', 'post_match_feedback', 'stats_credited_at', 'stats_credited_by']);
+        .hasAny(['validation_status', 'post_match_feedback', 'stats_credited_at', 'stats_credited_by', 'venue_booking']);
     }
 
     // ============================================
@@ -443,7 +446,8 @@ service cloud.firestore {
         && (request.resource.data.manager_id == request.auth.uid || isSuperAdmin())
         && !('validation_status' in request.resource.data)
         && !('post_match_feedback' in request.resource.data)
-        && !('stats_credited_at' in request.resource.data);
+        && !('stats_credited_at' in request.resource.data)
+        && !('venue_booking' in request.resource.data);
       allow update: if isAuthenticated()
         && !toucheAuxChampsDuServeur()
         && (

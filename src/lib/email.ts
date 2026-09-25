@@ -467,22 +467,44 @@ export function venueApplicationDecisionHtml(
     `);
 }
 
-/** Une équipe demande un créneau. Part au propriétaire. */
+/**
+ * Une équipe demande un créneau. Part au propriétaire.
+ *
+ * LE TÉLÉPHONE EST DANS L'EMAIL : c'est souvent là que le propriétaire lit
+ * la demande, et c'est avec ce numéro qu'il réglera le reste — l'heure
+ * d'arrivée, le paiement. Le lui faire chercher dans l'appli, c'est lui
+ * faire rater l'appel.
+ */
 export function bookingRequestHtml(
   ownerFirstName: string,
   venueName: string,
   demandeur: string,
   quand: string,
+  details: { match?: string | null; telephone?: string | null; message?: string | null } = {},
 ): string {
+  const ligne = (label: string, valeur: string) =>
+    `<p style="margin:0 0 6px;"><span style="color:#64748b;">${label}&nbsp;:</span> <strong>${valeur}</strong></p>`;
   return emailLayout(`
-    <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${ownerFirstName},</p>
+    <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${echapper(ownerFirstName)},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Nouvelle demande sur ${venueName}
+      Nouvelle demande sur ${echapper(venueName)}
     </h2>
     <p style="margin:0 0 16px;">
-      <strong>${demandeur}</strong> demande le créneau du <strong>${quand}</strong>.
+      <strong>${echapper(demandeur)}</strong> demande le créneau du <strong>${echapper(quand)}</strong>.
       Tant que tu n'as pas répondu, le créneau reste libre pour les autres.
     </p>
+    ${details.match ? ligne("Match", echapper(details.match)) : ""}
+    ${details.telephone ? ligne("Téléphone", echapper(details.telephone)) : ""}
+    ${details.message ? `<p style="margin:12px 0 16px;padding:12px 14px;background:#f8fafc;border-left:3px solid #059669;">${echapper(details.message)}</p>` : ""}
     ${ctaButton("Répondre à la demande", `${APP_URL}/mes-terrains/reservations`)}
   `);
+}
+
+/** Le texte d'un utilisateur, inoffensif dans du HTML. */
+function echapper(texte: string): string {
+  return texte
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

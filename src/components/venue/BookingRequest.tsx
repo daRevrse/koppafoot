@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, AlertTriangle, Lock } from "lucide-react";
+import { CalendarDays, Check, AlertTriangle, Lock, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { createBooking, getVenueById } from "@/lib/firestore";
+import { getVenueById } from "@/lib/firestore";
+import { demanderCreneau } from "@/lib/reservations-client";
 import {
   dateLongue, dateCourte, aujourdhui, duree, finCreneau, prixHeure, aUnPrix, seChevauchent,
+  horsHoraires, plageDuJour, libellePlage,
 } from "@/lib/terrains";
-import { Etiquette, Bouton, Pastilles, EnCours } from "@/components/venue/venue-ui";
+import { Etiquette, Bouton, Pastilles, EnCours, Champ, classeChamp } from "@/components/venue/venue-ui";
+import type { HorairesOuverture } from "@/types";
 
 // ============================================
 // Demander un créneau sur un terrain.
@@ -19,8 +22,17 @@ import { Etiquette, Bouton, Pastilles, EnCours } from "@/components/venue/venue-
 // sur un moment, le reste se règle entre elles.
 //
 // Une demande naît toujours « en attente ». C'est le propriétaire qui
-// confirme, et les règles Firestore le tiennent : un demandeur ne peut pas
-// écrire une réservation déjà confirmée.
+// confirme ; la demande passe par le serveur (/api/bookings), qui prévient le
+// propriétaire jusque dans sa boîte mail.
+//
+// UN TÉLÉPHONE, OBLIGATOIRE. Le paiement et le reste se règlent entre les
+// deux parties, hors de la plateforme : sans numéro, le propriétaire
+// confirmait un créneau à quelqu'un qu'il ne pouvait pas joindre. Il est
+// prérempli depuis le compte, et y retourne s'il n'y était pas.
+//
+// LES HORAIRES FONT FOI. Quand le propriétaire les a posés, une heure hors
+// plage ne part pas : il la refuserait, et l'équipe l'apprendrait deux jours
+// plus tard.
 //
 // LA DISPONIBILITÉ SE RELIT EN DIRECT. La page qui porte ce composant est
 // rendue à l'avance et mise en cache : un terrain passé en « fermé » y
@@ -51,21 +63,23 @@ const DUREES = [
 
 export default function BookingRequest({
   venueId,
-  venueName,
-  ownerId,
   available,
   pricePerHour = 0,
+  horaires: horairesInitiaux = null,
 }: {
   venueId: string;
-  venueName: string;
-  ownerId: string;
   /** L'état au moment du rendu serveur. Sert de valeur de départ, puis est relu. */
   available: boolean;
   pricePerHour?: number;
+  /** Idem : la valeur du rendu serveur, relue au montage. */
+  horaires?: HorairesOuverture | null;
 }) {
   const { user, loading: authLoading } = useAuth();
   const [creneaux, setCreneaux] = useState<Creneau[]>([]);
   const [ouvert, setOuvert] = useState(available);
+  const [horaires, setHoraires] = useState<HorairesOuverture | null>(horairesInitiaux);
+  const [telephone, setTelephone] = useState("");
+  const [message, setMessage] = useState("");
   const [date, setDate] = useState(aujourdhui());
   const [time, setTime] = useState("18:00");
   const [dureeChoisie, setDureeChoisie] = useState("1.5");
@@ -84,11 +98,29 @@ export default function BookingRequest({
 
     // L'état réel, par-dessus celui du cache.
     getVenueById(venueId)
-      .then((v) => { if (vivant && v) setOuvert(v.available); })
+      .then((v) => {
+        if (!vivant || !v) return;
+        setOuvert(v.available);
+        setHoraires(v.openingHours);
+      })
       .catch(() => {});
 
     return () => { vivant = false; };
   }, [venueId]);
+
+  // Le numéro du compte, une fois celui-ci connu. Un champ déjà touché ne se
+  // fait pas écraser.
+  useEffect(() => {
+    if (user?.phone) setTelephone((t) => t || user.phone || "");
+  }, [user]);
+
+  /** Pourquoi ce créneau tombe hors des horaires, s'il y en a. */
+  const hors = useMemo(
+    () => horsHoraires(horaires, { date, time, duration: heures }),
+    [horaires, date, time, heures],
+  );
+  const plage = plageDuJour(horaires, date);
+  const telephoneValide = /^\+?[\d\s.-]{6,20}$/.test(telephone.trim());
 
   /** Les créneaux confirmés qui recouvrent celui qu'on est en train de demander. */
   const conflits = useMemo(
@@ -108,24 +140,17 @@ export default function BookingRequest({
   }, [creneaux]);
 
   const submit = async () => {
-    if (!user) return;
+    if (!user || hors || !telephoneValide) return;
     setBusy(true);
     try {
-      await createBooking({
-        venueId,
-        venueName,
-        ownerId,
-        userId: user.uid,
-        userName: `${user.firstName} ${user.lastName}`.trim(),
-        date,
-        time,
-        duration: heures,
+      await demanderCreneau({
+        venueId, date, time, duration: heures, telephone: telephone.trim(), message: message.trim(),
       });
       setEnvoye(true);
       toast.success("Demande envoyée");
     } catch (err) {
       console.error("Booking request failed:", err);
-      toast.error("La demande n'a pas pu être envoyée");
+      toast.error(err instanceof Error ? err.message : "La demande n'a pas pu être envoyée");
     } finally {
       setBusy(false);
     }
@@ -225,6 +250,13 @@ export default function BookingRequest({
               </div>
             </div>
 
+            {plage !== undefined && (
+              <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
+                <Clock size={12} className="text-gray-400" />
+                {jourDe(date)} : {libellePlage(plage).toLowerCase()}
+              </p>
+            )}
+
             <div className="mt-4">
               <Etiquette className="mb-2">Durée</Etiquette>
               <Pastilles
@@ -253,7 +285,44 @@ export default function BookingRequest({
               )}
             </div>
 
-            {conflits.length > 0 && (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <Champ
+                label="Votre téléphone"
+                htmlFor="booking-tel"
+                aide="Le propriétaire vous appelle pour confirmer et régler le créneau."
+                erreur={telephone && !telephoneValide ? "Ce numéro semble incomplet." : null}
+              >
+                <input
+                  id="booking-tel"
+                  type="tel"
+                  autoComplete="tel"
+                  value={telephone}
+                  onChange={(e) => setTelephone(e.target.value)}
+                  placeholder="ex: 90 00 00 00"
+                  className={classeChamp}
+                />
+              </Champ>
+              <Champ label="Un mot au propriétaire" htmlFor="booking-msg" optionnel>
+                <textarea
+                  id="booking-msg"
+                  rows={2}
+                  maxLength={500}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Combien vous serez, ce qu'il vous faut…"
+                  className={`${classeChamp} resize-none`}
+                />
+              </Champ>
+            </div>
+
+            {hors && (
+              <p role="alert" className="mt-4 flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-sm font-semibold leading-relaxed text-red-800">
+                <Clock size={17} className="mt-0.5 shrink-0 text-red-500" />
+                <span>{hors} {plage === null ? "Choisissez un autre jour." : "Choisissez une autre heure."}</span>
+              </p>
+            )}
+
+            {!hors && conflits.length > 0 && (
               <p className="mt-4 flex items-start gap-3 border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
                 <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-600" />
                 <span>
@@ -269,7 +338,7 @@ export default function BookingRequest({
               Icon={CalendarDays}
               onClick={submit}
               occupe={busy}
-              disabled={!date || !time}
+              disabled={!date || !time || !!hors || !telephoneValide}
               className="mt-6"
             >
               Demander ce créneau
@@ -284,4 +353,10 @@ export default function BookingRequest({
       </div>
     </div>
   );
+}
+
+/** « Samedi », le jour d'une date, avec sa majuscule. */
+function jourDe(iso: string): string {
+  const jour = dateLongue(iso).split(" ")[0] ?? "";
+  return jour.charAt(0).toUpperCase() + jour.slice(1);
 }

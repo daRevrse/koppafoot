@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, MapPin, Search } from "lucide-react";
+import { CalendarDays, MapPin, Search, Swords, CalendarCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { onBookingsByUser, updateBookingStatus } from "@/lib/firestore";
+import { onBookingsByUser } from "@/lib/firestore";
+import { agirSurReservation } from "@/lib/reservations-client";
 import type { Booking } from "@/types";
 import { dateLongue, duree, finCreneau, aujourdhui } from "@/lib/terrains";
 import {
-  Panneau, FilAriane, Fanion, LienBouton, EtatVide, EnCours, Etiquette,
+  Panneau, FilAriane, Fanion, LienBouton, EtatVide, EnCours, Etiquette, Bouton,
   useConfirmation, type Ton,
 } from "@/components/venue/venue-ui";
 
@@ -29,8 +30,15 @@ import {
 // Annuler reste possible des deux côtés, et c'est délibéré : un match qui
 // tombe à l'eau se dit tout de suite, et le propriétaire est prévenu pour
 // pouvoir redonner le créneau. Confirmer, en revanche, n'appartient qu'au
-// propriétaire : les règles Firestore le tiennent, pas seulement l'absence
-// de bouton.
+// propriétaire : le serveur le tient, pas seulement l'absence de bouton.
+//
+// UN REFUS PEUT PROPOSER AUTRE CHOSE. Le propriétaire qui dit non peut
+// indiquer un créneau qui lui va ; il s'affiche ici, et se prend d'un geste :
+// la nouvelle demande naît confirmée, puisqu'il l'a déjà acceptée en la
+// proposant.
+//
+// LA RÉSERVATION D'UN MATCH NE S'ANNULE PAS ICI. Elle suit le match : c'est
+// en le déplaçant, en changeant de terrain ou en l'annulant qu'on la libère.
 // ============================================
 
 const ETATS: Record<string, { label: string; ton: Ton; sens: string }> = {
@@ -83,7 +91,7 @@ export default function MyBookingsPage() {
 
     setAgit(b.id);
     try {
-      await updateBookingStatus(b, "cancelled", "demandeur");
+      await agirSurReservation(b.id, "annuler");
       toast.success("Demande annulée");
     } catch (err) {
       console.error("Cancel failed:", err);
@@ -93,8 +101,31 @@ export default function MyBookingsPage() {
     }
   };
 
+  const prendre = async (b: Booking) => {
+    setAgit(b.id);
+    try {
+      const r = await agirSurReservation(b.id, "prendre-proposition");
+      toast.success(
+        r.status === "confirmed"
+          ? "Créneau pris : il est à vous."
+          : "Ce créneau a été pris entre-temps : votre demande est envoyée au propriétaire.",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "L'opération a échoué");
+    } finally {
+      setAgit(null);
+    }
+  };
+
   const Ligne = ({ b, annulable }: { b: Booking; annulable: boolean }) => {
-    const etat = ETATS[b.status] ?? ETATS.pending;
+    const base = ETATS[b.status] ?? ETATS.pending;
+    // « Annulé » ne dit pas qui : un refus du propriétaire n'est pas un
+    // désistement, et le distinguer dit à l'équipe s'il faut chercher ailleurs.
+    const etat = b.status !== "cancelled" ? base
+      : b.cancelledBy === "proprietaire" ? { ...base, label: "Refusé", sens: "Le propriétaire n'a pas retenu ce créneau." }
+      : b.cancelledBy === "systeme" ? { ...base, label: "Libéré", sens: "Le match a changé : ce créneau s'est libéré." }
+      : { ...base, sens: "Vous avez annulé cette demande." };
+    const offre = b.status === "cancelled" && b.proposition && b.proposition.date >= today ? b.proposition : null;
     return (
       <li className="flex flex-wrap items-start justify-between gap-4 p-5">
         <div className="min-w-0">
@@ -110,6 +141,37 @@ export default function MyBookingsPage() {
           </p>
           {etat.sens && b.date >= today && (
             <p className="mt-1 text-[11px] text-gray-400">{etat.sens}</p>
+          )}
+          {b.matchLabel && (
+            <p className="mt-2 inline-flex items-center gap-1.5 bg-gray-900 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-white">
+              <Swords size={11} />
+              {b.matchLabel}
+            </p>
+          )}
+          {offre && (
+            <div className="mt-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-[11px] font-bold leading-relaxed text-emerald-900">
+                Le propriétaire propose le {dateLongue(offre.date)} à {offre.time}.
+              </p>
+              {b.matchId ? (
+                <Link
+                  href="/matches"
+                  className="mt-2 inline-block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-800 underline"
+                >
+                  Déplacer le match à cet horaire
+                </Link>
+              ) : (
+                <Bouton
+                  petit
+                  Icon={CalendarCheck}
+                  occupe={agit === b.id}
+                  onClick={() => prendre(b)}
+                  className="mt-2"
+                >
+                  Prendre ce créneau
+                </Bouton>
+              )}
+            </div>
           )}
         </div>
 
@@ -171,7 +233,7 @@ export default function MyBookingsPage() {
                 </h2>
                 <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
                   {aVenir.map((b) => (
-                    <Ligne key={b.id} b={b} annulable={b.status !== "cancelled"} />
+                    <Ligne key={b.id} b={b} annulable={b.status !== "cancelled" && !b.matchId} />
                   ))}
                 </ul>
               </section>

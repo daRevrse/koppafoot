@@ -11,6 +11,10 @@
 // et cette partie du produit doit en inspirer : c'est celle qu'on facturera.
 // ============================================
 
+import type {
+  FirestoreReservationDuMatch, HorairesOuverture, PlageOuverture, ReservationDuMatch,
+} from "@/types";
+
 export const FORMATS = [
   { value: "5v5", label: "5 contre 5", court: "5v5" },
   { value: "7v7", label: "7 contre 7", court: "7v7" },
@@ -156,4 +160,117 @@ export function seChevauchent(
   const debutA = min(a.time);
   const debutB = min(b.time);
   return debutA < debutB + b.duration * 60 && debutB < debutA + a.duration * 60;
+}
+
+// ─── Horaires d'ouverture ───────────────────────────────────
+
+/** Les jours dans l'ordre d'une semaine qu'on lit : du lundi au dimanche. */
+export const JOURS: { cle: keyof HorairesOuverture; nom: string; court: string }[] = [
+  { cle: "1", nom: "Lundi", court: "Lun." },
+  { cle: "2", nom: "Mardi", court: "Mar." },
+  { cle: "3", nom: "Mercredi", court: "Mer." },
+  { cle: "4", nom: "Jeudi", court: "Jeu." },
+  { cle: "5", nom: "Vendredi", court: "Ven." },
+  { cle: "6", nom: "Samedi", court: "Sam." },
+  { cle: "0", nom: "Dimanche", court: "Dim." },
+];
+
+/** Des horaires de départ quand on commence à les renseigner : tous les jours, 8 h → 22 h. */
+export function horairesParDefaut(): HorairesOuverture {
+  const h = {} as HorairesOuverture;
+  for (const j of JOURS) h[j.cle] = { ouvre: "08:00", ferme: "22:00" };
+  return h;
+}
+
+const HEURE = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/;
+
+/**
+ * Les horaires tels qu'ils sortent de Firestore, ou `null`.
+ *
+ * Vérifiés champ par champ plutôt que crus : un document mal formé ne doit
+ * pas bloquer toutes les demandes d'un terrain, il doit compter comme « non
+ * renseigné ».
+ */
+export function horairesLus(brut: unknown): HorairesOuverture | null {
+  if (!brut || typeof brut !== "object") return null;
+  const b = brut as Record<string, unknown>;
+  const h = {} as HorairesOuverture;
+  for (const j of JOURS) {
+    const plage = b[j.cle];
+    if (plage === null || plage === undefined) { h[j.cle] = null; continue; }
+    const p = plage as { ouvre?: unknown; ferme?: unknown };
+    if (typeof p.ouvre !== "string" || typeof p.ferme !== "string"
+      || !HEURE.test(p.ouvre) || !HEURE.test(p.ferme)) return null;
+    h[j.cle] = { ouvre: p.ouvre, ferme: p.ferme };
+  }
+  return h;
+}
+
+const minutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+
+/** La plage du jour d'une date, `undefined` si les horaires ne sont pas renseignés. */
+export function plageDuJour(
+  horaires: HorairesOuverture | null,
+  dateIso: string,
+): PlageOuverture | undefined {
+  if (!horaires) return undefined;
+  const d = new Date(`${dateIso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return horaires[String(d.getDay()) as keyof HorairesOuverture];
+}
+
+/**
+ * Pourquoi un créneau tombe hors des horaires, ou `null` s'il y tient.
+ *
+ * Sans horaires renseignés, tout créneau passe : on ne refuse pas une demande
+ * au nom d'une règle que le propriétaire n'a jamais posée.
+ */
+export function horsHoraires(
+  horaires: HorairesOuverture | null,
+  creneau: { date: string; time: string; duration: number },
+): string | null {
+  const plage = plageDuJour(horaires, creneau.date);
+  if (plage === undefined) return null;
+  if (plage === null) return `Le terrain est fermé le ${dateLongue(creneau.date).split(" ")[0]}.`;
+  const debut = minutes(creneau.time);
+  const fin = debut + Math.round(creneau.duration * 60);
+  if (debut < minutes(plage.ouvre) || fin > minutes(plage.ferme)) {
+    return `Le terrain ouvre de ${plage.ouvre} à ${plage.ferme} ce jour-là.`;
+  }
+  return null;
+}
+
+/** « 08:00 → 22:00 », ou « Fermé ». */
+export const libellePlage = (p: PlageOuverture) => (p ? `${p.ouvre} → ${p.ferme}` : "Fermé");
+
+// ─── Réservations des matchs ────────────────────────────────
+
+/**
+ * Combien de temps réserver pour un match, selon son format.
+ *
+ * Le match plus l'échauffement et le temps de libérer le terrain : un 11
+ * contre 11 dure 90 minutes de jeu, on en demande deux heures.
+ */
+export function dureeDuMatch(format: string | null | undefined): number {
+  const joueurs = Number(String(format ?? "").split("v")[0]);
+  if (!Number.isFinite(joueurs) || joueurs >= 11) return 2;
+  if (joueurs >= 8) return 1.5;
+  return 1;
+}
+
+/** La réservation recopiée sur un match, telle que Firestore la porte. */
+export function reservationDuMatch(
+  brut: FirestoreReservationDuMatch | null | undefined,
+): ReservationDuMatch | null {
+  if (!brut || typeof brut.booking_id !== "string") return null;
+  return {
+    bookingId: brut.booking_id,
+    venueId: brut.venue_id,
+    venueName: brut.venue_name ?? "",
+    status: brut.status,
+    proposition: brut.proposition ?? null,
+  };
 }

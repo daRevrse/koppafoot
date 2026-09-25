@@ -32,6 +32,7 @@ import type {
 } from "@/types";
 import { toCompetition } from "@/lib/competition-mappers";
 import { getUsersByIds, toGhostPlayer } from "@/lib/firestore";
+import { horairesLus, reservationDuMatch } from "@/lib/terrains";
 
 // ============================================
 // Converters (re-export-compatible)
@@ -94,6 +95,8 @@ function toMatch(id: string, d: FirestoreMatch): Match {
     homeTeamName: d.home_team_name, awayTeamName: d.away_team_name,
     managerId: d.manager_id, date: d.date, time: d.time,
     venueName: d.venue_name, venueCity: d.venue_city, status: d.status,
+    venueId: d.venue_id ?? null,
+    venueBooking: reservationDuMatch(d.venue_booking),
     effectiveStatus,
     result: d.result, scoreHome: d.score_home, scoreAway: d.score_away,
     refereeId: d.referee_id, refereeName: d.referee_name,
@@ -175,6 +178,7 @@ function toVenue(id: string, d: FirestoreVenue): Venue {
     rating: d.rating ?? 0, reviewCount: d.review_count ?? 0,
     pricePerHour: d.price_per_hour ?? 0, amenities: d.amenities ?? [],
     available: d.available ?? true, photoUrl: d.photo_url ?? null,
+    openingHours: horairesLus(d.opening_hours),
     createdAt: d.created_at, updatedAt: d.updated_at,
   };
 }
