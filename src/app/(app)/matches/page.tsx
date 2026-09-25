@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Trophy, Calendar, MapPin, Clock, Users, Shield,
+  Trophy, Calendar, MapPin, Clock, Users,
   Plus, CheckCircle, XCircle, Timer, ChevronRight,
   Edit3, Trash2, Award, X, AlertCircle, Loader2, Search, Send, Star, ClipboardList,
   Activity, CheckCircle2, ArrowRight, History, Settings, Filter, ShieldCheck, Ban, Info,
@@ -18,6 +18,7 @@ import {
   onMatchesIManage,
   onMesValidations,
   getTeamsIManage,
+  getTeamsByIds,
   getVenues,
   createMatch,
   cancelMatch,
@@ -51,6 +52,8 @@ import type {
   Match, Team, Venue, PlayerRating, LineupEntry, MatchValidation, PropositionCreneau,
 } from "@/types";
 import TirsAuBut from "@/components/match/TirsAuBut";
+import MiniEcusson from "@/components/match/MiniEcusson";
+import { libelleDuJour } from "@/lib/dates";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -133,7 +136,13 @@ function MatchSkeleton() {
 // Component
 // ============================================
 
-type Tab = "live" | "upcoming" | "completed" | "draft" | "challenges";
+/**
+ * TROIS ONGLETS, PAS CINQ. « En cours » était un sous-ensemble d'« À venir »
+ * (qui contenait déjà les matchs en direct), et « Brouillons & En attente »
+ * et « Défis reçus » répondaient à la même question : qu'est-ce qui attend
+ * un geste de ma part avant de devenir un match ?
+ */
+type Tab = "upcoming" | "completed" | "todo";
 
 /**
  * Les deux parcours de création, qui n'ont presque rien en commun après la
@@ -158,6 +167,107 @@ const estAmical = (m: Match) => !m.awayManagerId;
 
 /** Les états où le match peut encore changer de terrain ou d'horaire. */
 const MODIFIABLE: Match["status"][] = ["challenge", "pending", "upcoming", "delayed"];
+
+// ============================================
+// L'AFFICHE : les deux écussons, et au centre le score ou l'heure.
+//
+// La carte posait deux noms sur une ligne, précédés d'un bouclier générique
+// identique pour tout le monde, et rejetait l'heure dans une colonne à part.
+// On lisait une phrase ; on regarde maintenant une affiche.
+// ============================================
+
+function Camp({ nom, logo, moi }: { nom: string; logo: string | null; moi: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+      <MiniEcusson nom={nom} logo={logo} taille={44} className={logo ? "" : "text-gray-400"} />
+      <span
+        className={`line-clamp-2 break-words text-xs sm:text-sm leading-tight ${
+          moi ? "font-bold text-gray-900" : "font-medium text-gray-600"
+        }`}
+      >
+        {nom}
+      </span>
+    </div>
+  );
+}
+
+function Affiche({ match, logoDe }: {
+  match: Match;
+  logoDe: (teamId: string, copie?: string | null) => string | null;
+}) {
+  const aUnScore = match.scoreHome !== null && match.scoreAway !== null;
+  return (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+      <Camp
+        nom={match.homeTeamName}
+        logo={logoDe(match.homeTeamId, match.homeTeamLogo)}
+        moi={match.isHome}
+      />
+      <div className="flex flex-col items-center px-1">
+        {aUnScore ? (
+          <>
+            <span className="font-display text-2xl sm:text-3xl font-black tabular-nums text-gray-900">
+              {match.scoreHome}<span className="mx-1 text-gray-300">–</span>{match.scoreAway}
+            </span>
+            <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} />
+          </>
+        ) : match.status === "live" ? (
+          <span className="animate-pulse text-xs font-black uppercase tracking-wider text-red-600">En direct</span>
+        ) : match.time ? (
+          <span className="font-display text-xl sm:text-2xl font-black tabular-nums text-gray-900">{match.time}</span>
+        ) : (
+          <span className="text-xs font-medium text-gray-400">VS</span>
+        )}
+      </div>
+      <Camp
+        nom={match.awayTeamName || "À définir"}
+        logo={match.awayTeamName ? logoDe(match.awayTeamId, match.awayTeamLogo) : null}
+        moi={!match.isHome}
+      />
+    </div>
+  );
+}
+
+/** Le statut, en une pastille, pour le bandeau de tête. */
+function statutDe(match: Match, recu = false): { label: string; cls: string } {
+  if (recu) return { label: "Défi reçu", cls: "bg-amber-100 text-amber-700" };
+  if (match.result) {
+    const r = RESULT_CONFIG[match.result];
+    return { label: r.label, cls: `${r.bg} ${r.color}` };
+  }
+  switch (match.status) {
+    case "live": return { label: "En direct", cls: "bg-red-600 text-white" };
+    case "upcoming": return { label: "Programmé", cls: "bg-primary-50 text-primary-700" };
+    case "delayed": return { label: "Reporté", cls: "bg-amber-100 text-amber-700" };
+    case "challenge": return { label: "Défi envoyé", cls: "bg-gray-100 text-gray-600" };
+    case "pending": return { label: "Accepté", cls: "bg-amber-100 text-amber-700" };
+    case "cancelled": return { label: "Annulé", cls: "bg-red-50 text-red-500" };
+    case "completed": return { label: "Terminé", cls: "bg-gray-100 text-gray-600" };
+    default: return { label: "Brouillon", cls: "bg-gray-100 text-gray-500" };
+  }
+}
+
+function Bandeau({ match, recu = false }: { match: Match; recu?: boolean }) {
+  const st = statutDe(match, recu);
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50/60 px-3 py-2 sm:px-5">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className={`shrink-0 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${st.cls}`}>
+          {st.label}
+        </span>
+        {match.date && (
+          <span className="truncate text-xs font-semibold text-gray-500 first-letter:uppercase">
+            {libelleDuJour(match.date)}
+            {match.time && match.scoreHome !== null ? ` · ${match.time}` : ""}
+          </span>
+        )}
+      </div>
+      {match.format && (
+        <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-gray-400">{match.format}</span>
+      )}
+    </div>
+  );
+}
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -315,6 +425,44 @@ export default function MatchesPage() {
     [mesEquipesIds],
   );
 
+  /**
+   * LES ÉCUSSONS DES CARTES. Le match en porte une copie (`homeTeamLogo`),
+   * mais les amicaux antérieurs à cette copie n'en ont pas. On complète avec
+   * mes équipes, déjà chargées, puis on va chercher en une fois celles d'en
+   * face qui manquent encore. Une équipe hors plateforme n'a pas de fiche :
+   * elle garde ses initiales.
+   */
+  const [logosAdverses, setLogosAdverses] = useState<Map<string, string | null>>(new Map());
+  const logoDe = useCallback(
+    (teamId: string, copie?: string | null): string | null =>
+      copie || teams.find((t) => t.id === teamId)?.logoUrl || logosAdverses.get(teamId) || null,
+    [teams, logosAdverses],
+  );
+  const idsSansLogo = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of [...matches, ...challenges]) {
+      if (m.homeTeamId && !m.homeTeamLogo && !mesEquipesIds.has(m.homeTeamId)) ids.add(m.homeTeamId);
+      if (m.awayTeamId && !m.awayTeamLogo && !mesEquipesIds.has(m.awayTeamId)) ids.add(m.awayTeamId);
+    }
+    return [...ids].sort().join(",");
+  }, [matches, challenges, mesEquipesIds]);
+  useEffect(() => {
+    const manquants = idsSansLogo ? idsSansLogo.split(",").filter((id) => !logosAdverses.has(id)) : [];
+    if (manquants.length === 0) return;
+    getTeamsByIds(manquants)
+      .then((found) => {
+        setLogosAdverses((prev) => {
+          const next = new Map(prev);
+          for (const id of manquants) next.set(id, found.find((t) => t.id === id)?.logoUrl ?? null);
+          return next;
+        });
+      })
+      .catch(() => {});
+    // logosAdverses est lu pour filtrer, pas pour relancer : le relancer
+    // à chaque réponse bouclerait sur les équipes introuvables.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsSansLogo]);
+
   useEffect(() => {
     if (!user?.uid) return;
     const ids = clefDeMesEquipes ? clefDeMesEquipes.split(",") : [];
@@ -445,18 +593,19 @@ export default function MatchesPage() {
   };
 
   // Filter matches by tab
-  const live = matches.filter((m) => m.status === "live");
-  const upcoming = matches.filter((m) => m.status === "upcoming" || m.status === "delayed" || m.status === "live");
-  const completed = matches.filter((m) => m.status === "completed");
+  // Le direct d'abord : c'est le seul qu'on vient voir tout de suite.
+  const upcoming = matches
+    .filter((m) => m.status === "upcoming" || m.status === "delayed" || m.status === "live")
+    .sort((a, b) => Number(b.status === "live") - Number(a.status === "live"));
+  // Un match annulé n'attend plus rien : il rejoint l'historique.
+  const completed = matches.filter((m) => m.status === "completed" || m.status === "cancelled");
   const drafts = matches.filter(
-    (m) => m.status === "draft" || m.status === "challenge" || m.status === "pending" || m.status === "cancelled"
+    (m) => m.status === "draft" || m.status === "challenge" || m.status === "pending"
   );
-  const displayed = 
-    tab === "live" ? live :
-    tab === "upcoming" ? upcoming : 
-    tab === "completed" ? completed : 
-    tab === "draft" ? drafts : 
-    tab === "challenges" ? challenges : [];
+  const displayed =
+    tab === "upcoming" ? upcoming :
+    tab === "completed" ? completed :
+    drafts;
 
   // Create match handler
   const handleCreate = async () => {
@@ -947,11 +1096,9 @@ export default function MatchesPage() {
 
 
   const tabs: { key: Tab; label: string; count: number; icon: typeof Calendar | typeof Activity }[] = [
-    { key: "live", label: "En cours", count: live.length, icon: Activity },
     { key: "upcoming", label: "À venir", count: upcoming.length, icon: Calendar },
+    { key: "todo", label: "À traiter", count: challenges.length + drafts.length, icon: Swords },
     { key: "completed", label: "Terminés", count: completed.length, icon: Trophy },
-    { key: "draft", label: "Brouillons & En attente", count: drafts.length, icon: Edit3 },
-    { key: "challenges", label: "Défis reçus", count: challenges.length, icon: Shield },
   ];
 
   return (
@@ -1357,7 +1504,7 @@ export default function MatchesPage() {
             >
               <Icon size={16} /> {t.label}
               <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                t.key === "challenges" && t.count > 0
+                t.key === "todo" && challenges.length > 0
                   ? "bg-red-500 text-white"
                   : tab === t.key
                   ? "bg-primary-100 text-primary-700"
@@ -1373,8 +1520,9 @@ export default function MatchesPage() {
       {/* Loading state */}
       {loading && <MatchSkeleton />}
 
-      {/* Challenges tab content */}
-      {!loading && tab === "challenges" && (
+      {/* Défis reçus, en tête de « À traiter » : ce sont eux qui pressent,
+          l'adversaire attend une réponse. */}
+      {!loading && tab === "todo" && challenges.length > 0 && (
         <div className="space-y-3">
           <AnimatePresence mode="popLayout">
             {challenges.map((match, i) => (
@@ -1391,35 +1539,16 @@ export default function MatchesPage() {
                    un sens ici — accepter, refuser — sont sur la carte. */
                 className="overflow-hidden border border-dashed border-amber-300 bg-white transition-shadow"
               >
-                <div className="flex flex-col sm:flex-row">
-                  {/* Status strip */}
-                  <div className="flex items-center justify-center bg-amber-50 sm:w-24 py-2 sm:py-0">
-                    <span className="text-xs font-bold text-amber-600">Défi reçu</span>
-                  </div>
+                <div>
+                  <Bandeau match={match} recu />
 
-                  {/* Main content */}
-                  <div className="flex-1 p-3 sm:p-5">
-                    {/* Teams */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Shield size={16} className="text-primary-500" />
-                        <span className="text-sm font-bold text-gray-900 truncate">{match.homeTeamName}</span>
-                      </div>
-                      <span className="shrink-0 text-xs font-medium text-gray-400">VS</span>
-                      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                        <span className="text-sm font-bold text-gray-900 truncate">{match.awayTeamName}</span>
-                        <Shield size={16} className="text-gray-400" />
-                      </div>
-                    </div>
+                  <div className="p-3 sm:p-5">
+                    {/* Vu d'en face : le défi est écrit du point de vue de
+                        celui qui l'a lancé, c'est l'autre camp qui est le mien. */}
+                    <Affiche match={{ ...match, isHome: !match.isHome }} logoDe={logoDe} />
 
                     {/* Meta row */}
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} /> {match.date}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} /> {match.time}
-                      </span>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500">
                       {match.venueName ? (
                         <>
                           <span className="flex items-center gap-1">
@@ -1432,13 +1561,10 @@ export default function MatchesPage() {
                           <MapPin size={12} /> Terrain à définir
                         </span>
                       )}
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium">
-                        {match.format}
-                      </span>
                     </div>
 
                     {/* Actions */}
-                    <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
+                    <div className="mt-3 sm:mt-4 flex flex-wrap justify-center gap-2">
                       <button
                         onClick={() => handleAcceptChallenge(match)}
                         disabled={accepting === match.id}
@@ -1464,31 +1590,14 @@ export default function MatchesPage() {
             ))}
           </AnimatePresence>
 
-          {/* Empty state for challenges */}
-          {challenges.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="flex flex-col items-center border border-dashed border-gray-200/70 bg-white py-16"
-            >
-              <div className="flex h-16 w-16 items-center justify-center bg-gray-100">
-                <Trophy size={32} className="text-gray-300" />
-              </div>
-              <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">Aucun défi reçu</h3>
-              <p className="mt-1 text-sm text-gray-500">Les autres managers pourront vous défier ici</p>
-            </motion.div>
-          )}
         </div>
       )}
 
-      {/* Match cards (upcoming / completed / draft tabs) */}
-      {!loading && tab !== "challenges" && (
+      {/* Match cards */}
+      {!loading && (
         <div className="space-y-3">
           <AnimatePresence mode="popLayout">
             {displayed.map((match, i) => {
-              const resultConf = match.result ? RESULT_CONFIG[match.result] : null;
-              const ResultIcon = resultConf?.icon;
               const refConf = REFEREE_STATUS_CONFIG[match.refereeStatus];
               const RefIcon = refConf.icon;
               const isDraft =
@@ -1525,82 +1634,15 @@ export default function MatchesPage() {
                     ouvreLaFiche ? "cursor-pointer" : ""
                   } ${isDraft ? "border-dashed border-gray-200/70" : "border-gray-200/70"}`}
                 >
-                  <div className="flex flex-col sm:flex-row">
-                    {/* Result / Status strip */}
-                    {resultConf && (
-                      <div className={`flex items-center justify-center sm:w-24 py-2 sm:py-0 ${resultConf.bg}`}>
-                        <div className="flex sm:flex-col items-center gap-1.5 sm:gap-0.5">
-                          {ResultIcon && <ResultIcon size={18} className={resultConf.color} />}
-                          <span className={`text-xs font-bold ${resultConf.color}`}>{resultConf.label}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {(match.status === "upcoming" || match.status === "live" || match.status === "delayed") && (
-                      <div className={`flex items-center justify-center sm:w-24 py-2 sm:py-0 ${match.status === "live" ? "bg-red-50" : "bg-primary-50"}`}>
-                        <div className="flex sm:flex-col items-center gap-1.5 sm:gap-0">
-                          <span className={`text-lg font-bold font-display ${match.status === "live" ? "text-red-600" : "text-primary-600"}`}>{match.time}</span>
-                          <span className={`text-xs ${match.status === "live" ? "text-red-500 animate-pulse font-bold" : "text-primary-500"}`}>
-                            {match.status === "live" ? "EN DIRECT" : match.date}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {isDraft && (
-                      <div className={`flex items-center justify-center sm:w-24 py-2 sm:py-0 ${
-                        match.status === "pending" ? "bg-amber-50" : match.status === "cancelled" ? "bg-red-50" : "bg-gray-50"
-                      }`}>
-                        <span className={`text-xs font-bold ${
-                          match.status === "pending" ? "text-amber-600" : match.status === "cancelled" ? "text-red-500" : "text-gray-400"
-                        }`}>
-                          {match.status === "challenge"
-                            ? "Défi envoyé"
-                            : match.status === "pending"
-                            ? "Accepté"
-                            : match.status === "cancelled"
-                            ? "Annulé"
-                            : "Brouillon"}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Main content */}
-                    <div className="flex-1 p-3 sm:p-5">
-                      {/* Teams */}
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Shield size={16} className={match.isHome ? "text-primary-500" : "text-gray-400"} />
-                          <span className={`text-sm truncate ${match.isHome ? "font-bold text-gray-900" : "text-gray-600"}`}>
-                            {match.homeTeamName}
-                          </span>
-                        </div>
-
-                        {match.scoreHome !== null && match.scoreAway !== null ? (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-lg font-bold text-gray-900 font-display">{match.scoreHome}</span>
-                            <span className="text-xs text-gray-400">-</span>
-                            <span className="text-lg font-bold text-gray-900 font-display">{match.scoreAway}</span>
-                            <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="ml-2" />
-                          </div>
-                        ) : (
-                          <span className="shrink-0 text-xs font-medium text-gray-400">
-                            {isDraft && !match.awayTeamName ? "?" : "VS"}
-                          </span>
-                        )}
-
-                        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                          <span className={`text-sm truncate ${!match.isHome ? "font-bold text-gray-900" : "text-gray-600"}`}>
-                            {match.awayTeamName || "À définir"}
-                          </span>
-                          <Shield size={16} className={!match.isHome ? "text-primary-500" : "text-gray-400"} />
-                        </div>
-                      </div>
+                  <div className="flex">
+                    <div className="min-w-0 flex-1">
+                    <Bandeau match={match} />
+                    <div className="p-3 sm:p-5">
+                      <Affiche match={match} logoDe={logoDe} />
 
                       {/* Meta row */}
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
-                          <Calendar size={12} /> {match.date}
                           {(() => {
                             const camp = monCamp(match);
                             const isMyReady =
@@ -1631,9 +1673,6 @@ export default function MatchesPage() {
                             <MapPin size={12} /> Terrain à définir
                           </span>
                         )}
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium">
-                          {match.format}
-                        </span>
 
                         {/* Pas de badge de validation sur un amical hors
                             plateforme : il n'y a pas de second manager pour
@@ -1839,7 +1878,7 @@ export default function MatchesPage() {
                               <div className="text-xs text-primary-700 bg-white/50 rounded p-2 mb-2">
                                 <p><strong>Nouvelle date:</strong> {match.modificationRequest.date} à {match.modificationRequest.time}</p>
                                 <p><strong>Nouveau terrain:</strong> {match.modificationRequest.venueName || "Non spécifié"}</p>
-                                <p className="mt-1 italic">"{match.modificationRequest.reason}"</p>
+                                <p className="mt-1 italic">« {match.modificationRequest.reason} »</p>
                               </div>
                               {match.modificationRequest.requestedBy === user?.uid ? (
                                 <p className="text-xs font-semibold text-primary-600">En attente de validation adverse</p>
@@ -1963,10 +2002,11 @@ export default function MatchesPage() {
                         </div>
                       )}
                     </div>
+                    </div>
 
                     {/* Arrow (completed) */}
                     {match.status === "completed" && (
-                      <div className="hidden sm:flex items-center pr-4">
+                      <div className="hidden sm:flex items-center pr-4 pt-10">
                         <ChevronRight size={16} className="text-gray-300 group-hover:text-primary-500 transition-colors" />
                       </div>
                     )}
@@ -1977,7 +2017,7 @@ export default function MatchesPage() {
           </AnimatePresence>
 
           {/* Empty state */}
-          {displayed.length === 0 && (
+          {displayed.length === 0 && (tab !== "todo" || challenges.length === 0) && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1985,9 +2025,7 @@ export default function MatchesPage() {
               className="flex flex-col items-center border border-dashed border-gray-200/70 bg-white py-16"
             >
               <div className="flex h-16 w-16 items-center justify-center bg-gray-100">
-                {tab === "live" ? (
-                  <Activity size={32} className="text-gray-300" />
-                ) : tab === "upcoming" ? (
+                {tab === "upcoming" ? (
                   <Calendar size={32} className="text-gray-300" />
                 ) : tab === "completed" ? (
                   <Trophy size={32} className="text-gray-300" />
@@ -1996,19 +2034,16 @@ export default function MatchesPage() {
                 )}
               </div>
               <h3 className="mt-4 text-lg font-bold text-gray-900 font-display">
-                {tab === "live" && "Aucun match en cours"}
                 {tab === "upcoming" && "Aucun match programmé"}
                 {tab === "completed" && "Aucun match terminé"}
-                {tab === "draft" && "Aucun brouillon"}
+                {tab === "todo" && "Rien à traiter"}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                {tab === "live"
-                  ? "Les matchs en cours apparaîtront ici"
-                  : tab === "upcoming"
+                {tab === "upcoming"
                   ? "Programme ton prochain match avec le bouton ci-dessus"
                   : tab === "completed"
                   ? "L'historique de tes matchs apparaîtra ici"
-                  : "Les matchs en cours de préparation apparaîtront ici"}
+                  : "Défis reçus, défis envoyés et brouillons apparaîtront ici"}
               </p>
             </motion.div>
           )}
