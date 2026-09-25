@@ -12,8 +12,10 @@ import toast from "react-hot-toast";
 import {
   Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone,
   Trophy, ImageIcon, FileText, CreditCard, Plus, Trash2,
-  Ruler, Weight, Footprints, Cake, Users, LogOut, AlertTriangle,
+  Ruler, Weight, Footprints, Cake, LogOut, AlertTriangle, KeyRound, Settings,
+  ChevronRight,
 } from "lucide-react";
+import { deleteField } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadProfilePhoto, uploadGalleryPhoto } from "@/lib/storage";
@@ -39,19 +41,19 @@ const schema = yup.object({
   skillLevel: yup.string().optional(),
   // Physical
   strongFoot: yup.string().optional(),
-  height: yup.number().min(100).max(250).optional().nullable().transform((v) => (isNaN(v) ? null : v)),
-  weight: yup.number().min(30).max(200).optional().nullable().transform((v) => (isNaN(v) ? null : v)),
+  height: yup.number().min(100, "Entre 100 et 250 cm").max(250, "Entre 100 et 250 cm").optional().nullable().transform((v) => (isNaN(v) ? null : v)),
+  weight: yup.number().min(30, "Entre 30 et 200 kg").max(200, "Entre 30 et 200 kg").optional().nullable().transform((v) => (isNaN(v) ? null : v)),
   dateOfBirth: yup.string().optional(),
   // Manager
   teamName: yup.string().optional(),
   // Referee
   licenseNumber: yup.string().optional(),
   licenseLevel: yup.string().optional(),
-  experienceYears: yup.number().min(0).optional().nullable(),
+  experienceYears: yup.number().min(0, "Ne peut pas être négatif").optional().nullable().transform((v) => (isNaN(v) ? null : v)),
 });
 
 type FormData = yup.InferType<typeof schema>;
-type TabType = "info" | "palmares" | "posts" | "galerie" | "carte";
+type TabType = "info" | "palmares" | "posts" | "galerie" | "carte" | "compte";
 
 // ============================================
 // Info Row Component
@@ -210,6 +212,10 @@ export default function ProfilePage() {
   // Un manager ou un arbitre qui joue vraiment a un rôle joueur à activer,
   // c'est le sens du modèle.
   const showPhysical = isPlayerRole;
+  // Même règle que le reste de la page : le rôle effectif. Un arbitre
+  // activé depuis /evolution garde `user_type` « player », et ne voyait
+  // jamais ses champs de licence.
+  const isRefereeRole = effectiveRole === "referee";
   const physicalComplete = Boolean(user.strongFoot && user.height && user.weight && user.dateOfBirth);
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
@@ -305,6 +311,15 @@ export default function ProfilePage() {
     toast.success("Trophée supprimé");
   };
 
+  /**
+   * UN CHAMP VIDÉ S'EFFACE. On envoyait `undefined` pour un champ vide, et
+   * updateProfile retire les `undefined` avant d'écrire : vider sa bio ou
+   * son poids puis enregistrer ne changeait rien, l'ancienne valeur
+   * revenait. Un champ vide devient donc une suppression du champ.
+   */
+  const ouEfface = <T,>(v: T | "" | null | undefined): T =>
+    v === "" || v === null || v === undefined ? (deleteField() as unknown as T) : v;
+
   // Save profile
   const onSubmit = async (data: FormData) => {
     setSaving(true);
@@ -314,20 +329,22 @@ export default function ProfilePage() {
         last_name: data.lastName,
         phone: data.phone || null,
         location_city: data.locationCity || "",
-        bio: data.bio || undefined,
+        bio: ouEfface(data.bio),
         // Physical
-        strong_foot: (data.strongFoot as "left" | "right" | "both") || undefined,
-        height: data.height ?? undefined,
-        weight: data.weight ?? undefined,
-        date_of_birth: data.dateOfBirth || undefined,
-        ...((user.evolutionRole ?? user.userType) === "player" && {
-          position: data.position || undefined,
-          skill_level: data.skillLevel || undefined,
+        ...(showPhysical && {
+          strong_foot: ouEfface(data.strongFoot as "left" | "right" | "both" | ""),
+          height: ouEfface(data.height),
+          weight: ouEfface(data.weight),
+          date_of_birth: ouEfface(data.dateOfBirth),
         }),
-        ...(user.userType === "referee" && {
-          license_number: data.licenseNumber || undefined,
-          license_level: data.licenseLevel || undefined,
-          experience_years: data.experienceYears ?? undefined,
+        ...(isPlayerRole && {
+          position: ouEfface(data.position),
+          skill_level: ouEfface(data.skillLevel),
+        }),
+        ...(isRefereeRole && {
+          license_number: ouEfface(data.licenseNumber),
+          license_level: ouEfface(data.licenseLevel),
+          experience_years: ouEfface(data.experienceYears),
         }),
       });
       toast.success("Profil mis à jour");
@@ -337,6 +354,17 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * LE FORMULAIRE REFUSAIT EN SILENCE. Le téléphone, la ville, la taille, le
+   * poids et l'expérience sont validés, mais leurs erreurs ne s'affichaient
+   * nulle part : un numéro ancien au mauvais format, et « Enregistrer » ne
+   * faisait rien, sans un mot. Les erreurs s'affichent désormais sous chaque
+   * champ, et on le dit une fois.
+   */
+  const onInvalid = () => {
+    toast.error("Certains champs sont à corriger");
   };
 
   const handleCancel = () => {
@@ -358,10 +386,17 @@ export default function ProfilePage() {
     ...(sansRole ? [] : [{ key: "palmares" as TabType, label: "Palmarès", icon: Trophy }]),
     { key: "posts", label: "Posts", icon: FileText },
     { key: "galerie", label: "Galerie", icon: ImageIcon },
-    ...((user.evolutionRole ?? user.userType) === "player"
+    ...(isPlayerRole
       ? [{ key: "carte" as TabType, label: "Carte FUT", icon: CreditCard }]
       : []),
+    { key: "compte", label: "Compte", icon: KeyRound },
   ];
+
+  /** « Modifier » ouvre l'édition là où elle se trouve : l'onglet Informations. */
+  const startEditing = () => {
+    setTab("info");
+    setEditing(true);
+  };
 
   return (
     <div className="mx-auto max-w-6xl pb-24">
@@ -406,9 +441,22 @@ export default function ProfilePage() {
             >
               Ma fiche publique
             </Link>
+            {/* La couverture n'avait plus de bouton depuis le passage a la
+                banniere commune : le televersement existait, rien ne
+                l'appelait. */}
+            <button
+              onClick={() => coverRef.current?.click()}
+              disabled={uploadingCover}
+              aria-label="Changer la photo de couverture"
+              className="flex items-center gap-2 border border-white/40 px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-white disabled:opacity-60"
+            >
+              {uploadingCover ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+              <span className="hidden sm:inline">Couverture</span>
+            </button>
+            <input ref={coverRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
             {!editing && (
               <button
-                onClick={() => setEditing(true)}
+                onClick={startEditing}
                 className="flex items-center gap-2 border border-white bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:border-emerald-300 hover:bg-emerald-300"
               >
                 <Edit3 size={13} />
@@ -456,7 +504,6 @@ export default function ProfilePage() {
                 </p>
               )}
               <div className="divide-y divide-gray-200/70">
-                <InfoRow icon={Mail} label="Email" value={user.email} />
                 <InfoRow icon={Phone} label="Téléphone" value={user.phone} />
                 <InfoRow icon={MapPin} label="Ville" value={user.locationCity} />
               </div>
@@ -517,13 +564,12 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
-            <LoginMethodsCard />
           </div>
         )}
 
         {/* ═══════════════ TAB: INFO (edit) ═══════════════ */}
         {tab === "info" && editing && (
-          <form onSubmit={handleSubmit(onSubmit)} className=" border border-gray-200/70 bg-white p-6">
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className=" border border-gray-200/70 bg-white p-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Prénom</label>
@@ -537,11 +583,13 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Téléphone</label>
-                <input {...register("phone")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                <input {...register("phone")} type="tel" className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
                 <input {...register("locationCity")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
+                {errors.locationCity && <p className="mt-1 text-xs text-red-600">{errors.locationCity.message}</p>}
               </div>
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Bio</label>
@@ -568,10 +616,12 @@ export default function ProfilePage() {
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Taille (cm)</label>
                       <input type="number" min="100" max="250" {...register("height")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                      {errors.height && <p className="mt-1 text-xs text-red-600">{errors.height.message}</p>}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Poids (kg)</label>
                       <input type="number" min="30" max="200" {...register("weight")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                      {errors.weight && <p className="mt-1 text-xs text-red-600">{errors.weight.message}</p>}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Date de naissance</label>
@@ -609,7 +659,7 @@ export default function ProfilePage() {
               )}
 
               {/* Referee-specific */}
-              {user.userType === "referee" && (
+              {isRefereeRole && (
                 <>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">N° licence</label>
@@ -628,6 +678,7 @@ export default function ProfilePage() {
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Années d&apos;expérience</label>
                     <input type="number" min="0" {...register("experienceYears")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none" />
+                    {errors.experienceYears && <p className="mt-1 text-xs text-red-600">{errors.experienceYears.message}</p>}
                   </div>
                 </>
               )}
@@ -799,27 +850,58 @@ export default function ProfilePage() {
         )}
 
         {/* ═══════════════ TAB: CARTE FUT ═══════════════ */}
-        {tab === "carte" && user.userType === "player" && (
+        {tab === "carte" && isPlayerRole && (
           <div className="flex flex-col items-center border border-gray-200/70 bg-gradient-to-br from-gray-50 to-emerald-50 p-8">
             <h3 className="mb-2 text-lg font-bold text-gray-900 font-display">Ma Carte KoppaFoot</h3>
             <p className="mb-6 text-sm text-gray-500">Télécharge ta carte style FUT avec tes infos</p>
             <KoppaFootCard profile={user} width={320} />
           </div>
         )}
-      </div>
 
-      {/* Logout, the only sign-out entry point in the shell */}
-      <div className="mt-6 flex justify-end">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 border border-gray-200/70 bg-white px-5 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-        >
-          <LogOut size={15} />
-          Déconnexion
-        </button>
+        {/* ═══════════════ TAB: COMPTE ═══════════════
+            TOUT CE QUI TOUCHE AU COMPTE, et non à la personne. L'e-mail de
+            connexion, les méthodes de connexion, la déconnexion et la
+            suppression se trouvaient dispersés sous les informations et en
+            pied de page, où l'on tombait dessus en cherchant sa bio. */}
+        {tab === "compte" && (
+          <div className="space-y-4">
+            <div className="border border-gray-200/70 bg-white p-4">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">Identifiant</h3>
+              <div className="divide-y divide-gray-200/70">
+                <InfoRow icon={Mail} label="Email" value={user.email} />
+                {memberSince && <InfoRow icon={Calendar} label="Membre depuis" value={memberSince} />}
+              </div>
+            </div>
+
+            <LoginMethodsCard />
+
+            <Link
+              href="/parametres"
+              className="flex items-center justify-between gap-3 border border-gray-200/70 bg-white p-4 transition-colors hover:border-gray-900"
+            >
+              <span className="flex items-center gap-3">
+                <Settings size={16} className="text-gray-400" />
+                <span>
+                  <span className="block text-sm font-semibold text-gray-900">Paramètres</span>
+                  <span className="block text-xs text-gray-500">Thème, langue, notifications</span>
+                </span>
+              </span>
+              <ChevronRight size={16} className="text-gray-300" />
+            </Link>
+
+            {/* Logout, the only sign-out entry point in the shell */}
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center gap-2 border border-gray-200/70 bg-white px-5 py-3 text-sm font-bold text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut size={15} />
+              Déconnexion
+            </button>
+
+            <SuppressionDeCompte />
+          </div>
+        )}
         </div>
-
-        <SuppressionDeCompte />
       </div>
     </div>
   );
