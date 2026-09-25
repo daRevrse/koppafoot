@@ -299,6 +299,40 @@ export function terrainNomme<T extends { name: string }>(
   return trouves.length === 1 ? trouves[0] : null;
 }
 
+const HOTES_PHOTOS = new Set(["firebasestorage.googleapis.com", "koppafoot.firebasestorage.app"]);
+
+/**
+ * Une photo que next/image acceptera.
+ *
+ * Il refuse — en cassant le rendu de la page — une adresse dont l'hôte n'est
+ * pas déclaré dans next.config. Toutes les photos passent par Firebase
+ * Storage depuis que la saisie d'URL libre a disparu, mais une fiche plus
+ * ancienne suffirait à faire tomber l'annuaire ou la fiche : on filtre avant
+ * plutôt que de le découvrir en production.
+ */
+export function photoAffichable(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && HOTES_PHOTOS.has(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Les photos d'un terrain, la principale d'abord puis la galerie, sans
+ * doublon ni adresse inaffichable. Un terrain qui n'a renseigné que sa
+ * galerie a quand même une image à montrer.
+ */
+export function photosDuTerrain(photoUrl: unknown, galerie: unknown): string[] {
+  const brutes = [photoUrl, ...(Array.isArray(galerie) ? galerie : [])];
+  const propres = brutes
+    .map((u) => (typeof u === "string" ? u.trim() : ""))
+    .filter((u) => u !== "" && photoAffichable(u));
+  return [...new Set(propres)];
+}
+
 /** La réservation recopiée sur un match, telle que Firestore la porte. */
 export function reservationDuMatch(
   brut: FirestoreReservationDuMatch | null | undefined,

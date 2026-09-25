@@ -171,7 +171,10 @@ export default function BookingRequest({
   };
 
   return (
-    <div className="mt-10 border border-gray-200/70 bg-white">
+    // @container : le formulaire vit dans une colonne étroite sur ordinateur
+    // et pleine largeur sur tablette ; ses champs se rangent sur SA largeur,
+    // pas sur celle de l'écran.
+    <div className="@container border border-gray-200/70 bg-white">
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-gray-200/70 px-6 py-5">
         <h2 className="font-display text-xl font-black uppercase tracking-tight text-gray-900">
           Demander un créneau
@@ -240,7 +243,7 @@ export default function BookingRequest({
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 @lg:grid-cols-2">
               <div>
                 <label htmlFor="booking-date" className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
                   Date
@@ -303,7 +306,7 @@ export default function BookingRequest({
               )}
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 @lg:grid-cols-2">
               <Champ
                 label="Votre téléphone"
                 htmlFor="booking-tel"
