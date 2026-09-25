@@ -11,6 +11,10 @@
 // et cette partie du produit doit en inspirer : c'est celle qu'on facturera.
 // ============================================
 
+import type {
+  FirestoreReservationDuMatch, HorairesOuverture, PlageOuverture, ReservationDuMatch,
+} from "@/types";
+
 export const FORMATS = [
   { value: "5v5", label: "5 contre 5", court: "5v5" },
   { value: "7v7", label: "7 contre 7", court: "7v7" },
@@ -156,4 +160,311 @@ export function seChevauchent(
   const debutA = min(a.time);
   const debutB = min(b.time);
   return debutA < debutB + b.duration * 60 && debutB < debutA + a.duration * 60;
+}
+
+// ─── Horaires d'ouverture ───────────────────────────────────
+
+/** Les jours dans l'ordre d'une semaine qu'on lit : du lundi au dimanche. */
+export const JOURS: { cle: keyof HorairesOuverture; nom: string; court: string }[] = [
+  { cle: "1", nom: "Lundi", court: "Lun." },
+  { cle: "2", nom: "Mardi", court: "Mar." },
+  { cle: "3", nom: "Mercredi", court: "Mer." },
+  { cle: "4", nom: "Jeudi", court: "Jeu." },
+  { cle: "5", nom: "Vendredi", court: "Ven." },
+  { cle: "6", nom: "Samedi", court: "Sam." },
+  { cle: "0", nom: "Dimanche", court: "Dim." },
+];
+
+/** Des horaires de départ quand on commence à les renseigner : tous les jours, 8 h → 22 h. */
+export function horairesParDefaut(): HorairesOuverture {
+  const h = {} as HorairesOuverture;
+  for (const j of JOURS) h[j.cle] = { ouvre: "08:00", ferme: "22:00" };
+  return h;
+}
+
+const HEURE = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/;
+
+/**
+ * Les horaires tels qu'ils sortent de Firestore, ou `null`.
+ *
+ * Vérifiés champ par champ plutôt que crus : un document mal formé ne doit
+ * pas bloquer toutes les demandes d'un terrain, il doit compter comme « non
+ * renseigné ».
+ */
+export function horairesLus(brut: unknown): HorairesOuverture | null {
+  if (!brut || typeof brut !== "object") return null;
+  const b = brut as Record<string, unknown>;
+  const h = {} as HorairesOuverture;
+  for (const j of JOURS) {
+    const plage = b[j.cle];
+    if (plage === null || plage === undefined) { h[j.cle] = null; continue; }
+    const p = plage as { ouvre?: unknown; ferme?: unknown };
+    if (typeof p.ouvre !== "string" || typeof p.ferme !== "string"
+      || !HEURE.test(p.ouvre) || !HEURE.test(p.ferme)) return null;
+    h[j.cle] = { ouvre: p.ouvre, ferme: p.ferme };
+  }
+  return h;
+}
+
+const minutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+
+/** La plage du jour d'une date, `undefined` si les horaires ne sont pas renseignés. */
+export function plageDuJour(
+  horaires: HorairesOuverture | null,
+  dateIso: string,
+): PlageOuverture | undefined {
+  if (!horaires) return undefined;
+  const d = new Date(`${dateIso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return horaires[String(d.getDay()) as keyof HorairesOuverture];
+}
+
+/**
+ * Pourquoi un créneau tombe hors des horaires, ou `null` s'il y tient.
+ *
+ * Sans horaires renseignés, tout créneau passe : on ne refuse pas une demande
+ * au nom d'une règle que le propriétaire n'a jamais posée.
+ */
+export function horsHoraires(
+  horaires: HorairesOuverture | null,
+  creneau: { date: string; time: string; duration: number },
+): string | null {
+  const plage = plageDuJour(horaires, creneau.date);
+  if (plage === undefined) return null;
+  if (plage === null) return `Le terrain est fermé le ${dateLongue(creneau.date).split(" ")[0]}.`;
+  const debut = minutes(creneau.time);
+  const fin = debut + Math.round(creneau.duration * 60);
+  if (debut < minutes(plage.ouvre) || fin > minutes(plage.ferme)) {
+    return `Le terrain ouvre de ${plage.ouvre} à ${plage.ferme} ce jour-là.`;
+  }
+  return null;
+}
+
+/** « 08:00 → 22:00 », ou « Fermé ». */
+export const libellePlage = (p: PlageOuverture) => (p ? `${p.ouvre} → ${p.ferme}` : "Fermé");
+
+// ─── Réservations des matchs ────────────────────────────────
+
+/**
+ * Combien de temps réserver pour un match, selon son format.
+ *
+ * Le match plus l'échauffement et le temps de libérer le terrain : un 11
+ * contre 11 dure 90 minutes de jeu, on en demande deux heures.
+ */
+export function dureeDuMatch(format: string | null | undefined): number {
+  const joueurs = Number(String(format ?? "").split("v")[0]);
+  if (!Number.isFinite(joueurs) || joueurs >= 11) return 2;
+  if (joueurs >= 8) return 1.5;
+  return 1;
+}
+
+/**
+ * Combien de temps réserver pour un match de compétition.
+ *
+ * Là, la compétition fixe la longueur des mi-temps : on y ajoute une
+ * demi-heure pour s'installer et libérer le terrain, arrondi à la
+ * demi-heure supérieure. Deux fois 45 minutes → 2 h ; deux fois 20 → 1 h 30.
+ */
+export function dureeEnCompetition(minutesDeJeu: number): number {
+  const minutes = Number.isFinite(minutesDeJeu) && minutesDeJeu > 0 ? minutesDeJeu : 90;
+  return Math.ceil((minutes + 30) / 30) / 2;
+}
+
+const cleDeNom = (nom: string | null | undefined) =>
+  (nom ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+/**
+ * Le terrain référencé qui porte ce nom, pour un calendrier importé où le
+ * lieu arrive en texte.
+ *
+ * Accents, casse et espaces ne comptent pas ; deux terrains du même nom, si :
+ * on ne demande pas un créneau au mauvais propriétaire sur une homonymie, le
+ * match garde alors son nom de lieu sans réservation.
+ */
+export function terrainNomme<T extends { name: string }>(
+  terrains: T[],
+  nom: string | null | undefined,
+): T | null {
+  const cle = cleDeNom(nom);
+  if (!cle) return null;
+  const trouves = terrains.filter((t) => cleDeNom(t.name) === cle);
+  return trouves.length === 1 ? trouves[0] : null;
+}
+
+const HOTES_PHOTOS = new Set(["firebasestorage.googleapis.com", "koppafoot.firebasestorage.app"]);
+
+/**
+ * Une photo que next/image acceptera.
+ *
+ * Il refuse — en cassant le rendu de la page — une adresse dont l'hôte n'est
+ * pas déclaré dans next.config. Toutes les photos passent par Firebase
+ * Storage depuis que la saisie d'URL libre a disparu, mais une fiche plus
+ * ancienne suffirait à faire tomber l'annuaire ou la fiche : on filtre avant
+ * plutôt que de le découvrir en production.
+ */
+export function photoAffichable(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && HOTES_PHOTOS.has(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Les photos d'un terrain, la principale d'abord puis la galerie, sans
+ * doublon ni adresse inaffichable. Un terrain qui n'a renseigné que sa
+ * galerie a quand même une image à montrer.
+ */
+export function photosDuTerrain(photoUrl: unknown, galerie: unknown): string[] {
+  const brutes = [photoUrl, ...(Array.isArray(galerie) ? galerie : [])];
+  const propres = brutes
+    .map((u) => (typeof u === "string" ? u.trim() : ""))
+    .filter((u) => u !== "" && photoAffichable(u));
+  return [...new Set(propres)];
+}
+
+/** La réservation recopiée sur un match, telle que Firestore la porte. */
+export function reservationDuMatch(
+  brut: FirestoreReservationDuMatch | null | undefined,
+): ReservationDuMatch | null {
+  if (!brut || typeof brut.booking_id !== "string") return null;
+  return {
+    bookingId: brut.booking_id,
+    venueId: brut.venue_id,
+    venueName: brut.venue_name ?? "",
+    status: brut.status,
+    proposition: brut.proposition ?? null,
+  };
+}
+
+// ─── L'annuaire : un terrain pour un créneau ────────────────
+
+/** Un créneau déjà pris, tel que l'annuaire le reçoit : ni nom ni motif. */
+export interface Occupation {
+  date: string;
+  time: string;
+  duration: number;
+}
+
+/**
+ * Un terrain peut-il accueillir ce créneau ?
+ *
+ * DEUX RÉPONSES, pas une : « ouvert » dit les horaires du propriétaire,
+ * « libre » dit ses réservations. La liste les confond en « disponible »,
+ * mais la carte doit pouvoir dire POURQUOI un terrain n'apparaît pas — un
+ * terrain fermé le dimanche n'est pas un terrain complet.
+ *
+ * Sans horaires renseignés, le terrain est ouvert : on n'exclut personne au
+ * nom d'une règle que le propriétaire n'a jamais posée.
+ */
+export function libreA(
+  horaires: HorairesOuverture | null,
+  occupations: Occupation[],
+  creneau: Occupation,
+): { ouvert: boolean; libre: boolean } {
+  return {
+    ouvert: horsHoraires(horaires, creneau) === null,
+    libre: !occupations.some((o) => seChevauchent(o, creneau)),
+  };
+}
+
+// ─── Le planning du propriétaire ────────────────────────────
+
+const enMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return (Number.isNaN(h) ? 0 : h) * 60 + (Number.isNaN(m) ? 0 : m);
+};
+
+const isoLocale = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+/** Le lundi de la semaine d'une date : une semaine de terrain commence le lundi. */
+export function lundiDe(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return isoLocale(d);
+}
+
+/** Les sept jours à partir d'un lundi, ou d'une semaine plus loin (`decalage`). */
+export function joursDeLaSemaine(lundi: string, decalage = 0): string[] {
+  const d = new Date(`${lundi}T12:00:00`);
+  d.setDate(d.getDate() + decalage * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return isoLocale(x);
+  });
+}
+
+/**
+ * L'amplitude du planning, en minutes depuis minuit.
+ *
+ * Celle des horaires quand il y en a — la plus tôt des ouvertures, la plus
+ * tard des fermetures — 08:00 → 23:00 sinon. Élargie à l'heure pleine pour
+ * tout créneau qui en déborde : un blocage posé à 7 h sur un terrain qui
+ * ouvre à 8 h doit se voir, pas disparaître au-dessus de la grille.
+ */
+export function amplitude(
+  horaires: HorairesOuverture | null,
+  creneaux: { time: string; duration: number }[],
+): { debut: number; fin: number } {
+  const plages = horaires ? Object.values(horaires).filter((p): p is NonNullable<PlageOuverture> => !!p) : [];
+  let debut = plages.length ? Math.min(...plages.map((p) => enMinutes(p.ouvre))) : 8 * 60;
+  let fin = plages.length ? Math.max(...plages.map((p) => enMinutes(p.ferme))) : 23 * 60;
+  for (const c of creneaux) {
+    const d = enMinutes(c.time);
+    debut = Math.min(debut, d);
+    fin = Math.max(fin, d + Math.round(c.duration * 60));
+  }
+  return { debut: Math.floor(debut / 60) * 60, fin: Math.min(24 * 60, Math.ceil(fin / 60) * 60) };
+}
+
+/**
+ * Où dessiner chaque créneau d'une journée.
+ *
+ * `haut` et `hauteur` en minutes depuis le début du planning ; `colonne` sur
+ * `colonnes` quand des créneaux se chevauchent — deux demandes sur le même
+ * samedi 18 h doivent se voir CÔTE À CÔTE, pas l'une sous l'autre, c'est
+ * précisément ce que le propriétaire doit arbitrer.
+ */
+export function placer<T extends { time: string; duration: number }>(
+  creneaux: T[],
+  debut: number,
+): (T & { haut: number; hauteur: number; colonne: number; colonnes: number })[] {
+  const tries = [...creneaux].sort((a, b) => enMinutes(a.time) - enMinutes(b.time));
+  const places: (T & { haut: number; hauteur: number; colonne: number; colonnes: number })[] = [];
+  let groupe: typeof places = [];
+  let finDuGroupe = -1;
+  const fermer = () => {
+    const n = Math.max(1, ...groupe.map((g) => g.colonne + 1));
+    for (const g of groupe) g.colonnes = n;
+    groupe = [];
+  };
+
+  for (const c of tries) {
+    const d = enMinutes(c.time);
+    const f = d + Math.round(c.duration * 60);
+    if (d >= finDuGroupe) fermer();
+    // La première colonne libre du groupe en cours.
+    let colonne = 0;
+    while (groupe.some((g) => g.colonne === colonne && g.haut + debut + g.hauteur > d)) colonne += 1;
+    const p = { ...c, haut: d - debut, hauteur: f - d, colonne, colonnes: 1 };
+    groupe.push(p);
+    places.push(p);
+    finDuGroupe = Math.max(finDuGroupe, f);
+  }
+  fermer();
+  return places;
 }

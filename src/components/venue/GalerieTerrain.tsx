@@ -2,30 +2,37 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { Etiquette } from "@/components/ui/socle";
+import { X, ChevronLeft, ChevronRight, Images } from "lucide-react";
+import { Pelouse } from "@/components/venue/venue-ui";
 
 // ============================================
-// Les autres vues d'un terrain.
+// Les photos d'un terrain, en tête de sa fiche.
 //
-// La fiche n'avait qu'une image — celle du bandeau. Une équipe qui choisit
-// veut voir la pelouse de près, les vestiaires, l'éclairage de nuit : trois
-// choses qu'une seule photo ne montre jamais.
+// LA PHOTO OUVRE LA FICHE, EN GRAND ET SANS VOILE. Elle portait un dégradé
+// noir sur lequel on écrivait le nom et le tarif : la pelouse disparaissait
+// sous le texte, alors que c'est elle qu'on vient voir. Le texte est passé
+// dessous, sur fond clair.
 //
-// LES VIGNETTES PASSENT PAR next/image, et c'est désormais possible : le
-// joker `hostname: "**"` a quitté next.config, donc l'optimiseur n'accepte
-// plus que Firebase Storage — d'où l'on vient. Une vignette de 96px ne
-// télécharge plus une image de 1600.
+// UNE MOSAÏQUE SUR ORDINATEUR : la photo principale et deux autres à côté,
+// parce qu'une équipe qui choisit veut voir la pelouse, les vestiaires,
+// l'éclairage de nuit — ce qu'une seule photo ne montre jamais. Sur
+// téléphone, une seule photo et le nombre des autres : trois photos
+// empilées repousseraient la demande de créneau d'un écran.
 //
-// La visionneuse, elle, sert l'image entière : c'est ce qu'on est venu voir.
+// Sans photo, la pelouse dessinée, comme dans l'annuaire.
+//
+// La visionneuse sert l'image entière : c'est ce qu'on est venu voir.
 // ============================================
 
 export default function GalerieTerrain({
   photos,
   nomTerrain,
+  ferme = false,
 }: {
   photos: string[];
   nomTerrain: string;
+  /** Terrain fermé : les photos passent en gris, comme dans l'annuaire. */
+  ferme?: boolean;
 }) {
   const [ouverte, setOuverte] = useState<number | null>(null);
   const fermerRef = useRef<HTMLButtonElement>(null);
@@ -59,42 +66,84 @@ export default function GalerieTerrain({
     };
   }, [ouverte, fermer, bouger]);
 
-  if (!photos.length) return null;
+  const ouvrir = (i: number) => (e: React.MouseEvent<HTMLButtonElement>) => {
+    declencheur.current = e.currentTarget;
+    setOuverte(i);
+  };
+
+  if (!photos.length) {
+    return (
+      <div className="relative aspect-[2/1] overflow-hidden bg-emerald-700 sm:aspect-[4/1]">
+        <Pelouse className={ferme ? "grayscale" : ""} />
+      </div>
+    );
+  }
+
+  const gris = ferme ? "grayscale" : "";
+  const autres = photos.slice(1, 3);
 
   return (
-    <div className="mt-10">
-      <Etiquette className="mb-3">
-        Le terrain en images ({photos.length})
-      </Etiquette>
+    <>
+      <div
+        className={`grid gap-1.5 ${
+          autres.length > 0
+            ? "sm:h-[26rem] sm:grid-cols-3 sm:grid-rows-2 lg:h-[30rem]"
+            : ""
+        }`}
+      >
+        <button
+          type="button"
+          onClick={ouvrir(0)}
+          aria-label={`Agrandir la photo 1 de ${nomTerrain}`}
+          className={`group relative block aspect-[4/3] overflow-hidden bg-gray-900 ${
+            autres.length > 0 ? "sm:col-span-2 sm:row-span-2 sm:aspect-auto" : "sm:aspect-[2/1]"
+          }`}
+        >
+          <Image
+            src={photos[0]}
+            alt={`${nomTerrain}, photo principale`}
+            fill
+            fetchPriority="high"
+            sizes="(max-width: 640px) 100vw, 66vw"
+            className={`object-cover transition-transform duration-500 group-hover:scale-[1.02] ${gris}`}
+          />
+        </button>
 
-      {/* Une bande qui défile plutôt qu'une grille : sur téléphone, six
-          vignettes en grille repoussent tout ce qui suit d'un écran entier. */}
-      <ul className="-mx-6 flex snap-x snap-mandatory gap-px overflow-x-auto px-6 pb-1 sm:mx-0 sm:px-0">
-        {/* La clé porte l'index EN PLUS de l'adresse : rien n'interdit à un
-            propriétaire de téléverser deux fois la même image, et deux clés
-            identiques font disparaître une vignette sans un mot. */}
-        {photos.map((url, i) => (
-          <li key={`${url}-${i}`} className="shrink-0 snap-start">
-            <button
-              type="button"
-              onClick={(e) => {
-                declencheur.current = e.currentTarget;
-                setOuverte(i);
-              }}
-              aria-label={`Agrandir la photo ${i + 1} de ${nomTerrain}`}
-              className="group relative block h-24 w-32 overflow-hidden bg-gray-900 sm:h-28 sm:w-40"
-            >
-              <Image
-                src={url}
-                alt=""
-                fill
-                sizes="160px"
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-            </button>
-          </li>
+        {autres.map((url, k) => (
+          <button
+            key={`${url}-${k}`}
+            type="button"
+            onClick={ouvrir(k + 1)}
+            aria-label={`Agrandir la photo ${k + 2} de ${nomTerrain}`}
+            className={`group relative hidden overflow-hidden bg-gray-900 sm:block ${
+              autres.length === 1 ? "sm:row-span-2" : ""
+            }`}
+          >
+            <Image
+              src={url}
+              alt=""
+              fill
+              sizes="33vw"
+              className={`object-cover transition-transform duration-500 group-hover:scale-[1.03] ${gris}`}
+            />
+          </button>
         ))}
-      </ul>
+      </div>
+
+      {/* Toutes les photos : sur téléphone, c'est le seul chemin vers les
+          autres ; sur ordinateur, celui vers celles que la mosaïque tait. */}
+      {photos.length > 1 && (
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={ouvrir(0)}
+            className="inline-flex h-9 items-center gap-2 border border-gray-200/70 bg-white px-3 text-xs font-bold text-gray-700 transition-colors hover:border-gray-900 hover:text-gray-900"
+          >
+            <Images size={14} />
+            Voir les {photos.length} photos
+          </button>
+        </div>
+      )}
 
       {ouverte !== null && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -118,7 +167,7 @@ export default function GalerieTerrain({
                 fill
                 sizes="(max-width: 1024px) 100vw, 1024px"
                 className="object-contain"
-                priority
+                loading="eager"
               />
             </div>
 
@@ -159,6 +208,6 @@ export default function GalerieTerrain({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

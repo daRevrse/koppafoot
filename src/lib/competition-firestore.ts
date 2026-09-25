@@ -28,13 +28,15 @@ import type {
   CompMatchRound, CompMatchStage,
   CompetitionFormat, CompetitionType,
   CompPlayer, LineupEntry, FirestoreLineupEntry,
-  BracketSlotSource, GoalVarStatus,
+  BracketSlotSource, GoalVarStatus, Venue,
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { listGrantedCompetitionIds } from "./staff-access";
 import { OWN_GOAL_DETAIL, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
+import { synchroniserTerrainsCompetition } from "@/lib/reservations-client";
+import { terrainNomme } from "@/lib/terrains";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -278,14 +280,28 @@ export async function updateCompetition(id: string, patch: Partial<FirestoreComp
 /** Firestore caps a write batch at 500 operations. */
 const BATCH_LIMIT = 450;
 
-/** Deletes every doc of a subcollection, in batches. */
-async function deleteSubcollection(cid: string, name: "comp_teams" | "comp_matches"): Promise<void> {
+/** Deletes every doc of a subcollection, in batches. Returns what was deleted. */
+async function deleteSubcollection(cid: string, name: "comp_teams" | "comp_matches") {
   const snap = await getDocs(collection(db, "competitions", cid, name));
   for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db);
     for (const d of snap.docs.slice(i, i + BATCH_LIMIT)) batch.delete(d.ref);
     await batch.commit();
   }
+  return snap.docs;
+}
+
+/**
+ * Parmi des matchs, ceux qui tiennent (ou ont tenu) un terrain référencé :
+ * les seuls dont la réservation est à aligner après un geste.
+ */
+function tenaientUnTerrain(docs: { id: string; data: () => unknown }[]): string[] {
+  return docs
+    .filter((d) => {
+      const m = d.data() as Partial<FirestoreCompMatch>;
+      return Boolean(m.venue_id || m.venue_booking);
+    })
+    .map((d) => d.id);
 }
 
 /**
@@ -296,7 +312,11 @@ async function deleteSubcollection(cid: string, name: "comp_teams" | "comp_match
  * out of its own children and orphan them.
  */
 export async function deleteCompetition(cid: string): Promise<void> {
-  await deleteSubcollection(cid, "comp_matches");
+  const matchs = await deleteSubcollection(cid, "comp_matches");
+  // Les créneaux que ces matchs tenaient se libèrent chez leurs propriétaires.
+  // Avant de supprimer la compétition : c'est sur elle que le serveur vérifie
+  // qui en est l'organisateur.
+  await synchroniserTerrainsCompetition(cid, tenaientUnTerrain(matchs));
   await deleteSubcollection(cid, "comp_teams");
   await deleteDoc(doc(db, "competitions", cid));
 }
@@ -785,7 +805,12 @@ export interface ImportMatchRow {
 export async function importMatches(
   cid: string,
   rows: ImportMatchRow[],
-): Promise<{ created: number; skipped: number }> {
+  /**
+   * Les terrains référencés : un lieu importé qui porte le nom de l'un d'eux
+   * lui est rattaché, et le créneau demandé à son propriétaire.
+   */
+  venues: Pick<Venue, "id" | "name" | "city">[] = [],
+): Promise<{ created: number; skipped: number; terrains: number; terrain: string | null }> {
   const teams = await listCompTeams(cid);
   const byName = new Map(teams.map((t) => [t.name.trim().toLowerCase(), t]));
   const matchesCol = collection(db, "competitions", cid, "comp_matches");
@@ -793,6 +818,7 @@ export async function importMatches(
   const batch = writeBatch(db);
   let created = 0;
   let skipped = 0;
+  const surUnTerrain: string[] = [];
 
   for (const r of rows) {
     const home = byName.get(r.home.trim().toLowerCase());
@@ -802,6 +828,8 @@ export async function importMatches(
       continue;
     }
     const ref = doc(matchesCol);
+    const terrain = terrainNomme(venues, r.venue);
+    if (terrain) surUnTerrain.push(ref.id);
     const data: FirestoreCompMatch = {
       competition_id: cid,
       stage: "group",
@@ -816,8 +844,9 @@ export async function importMatches(
       away_team_logo: away.logoUrl ?? null,
       date: r.date?.trim() || null,
       time: r.time?.trim() || null,
-      venue_name: r.venue?.trim() || null,
-      venue_city: null,
+      venue_name: terrain?.name ?? (r.venue?.trim() || null),
+      venue_city: terrain?.city ?? null,
+      venue_id: terrain?.id ?? null,
       status: "scheduled",
       score_home: null,
       score_away: null,
@@ -835,7 +864,9 @@ export async function importMatches(
   }
 
   if (created > 0) await batch.commit();
-  return { created, skipped };
+  // Toutes les demandes d'un coup : un email par propriétaire, pas par match.
+  const terrain = await synchroniserTerrainsCompetition(cid, surUnTerrain);
+  return { created, skipped, terrains: surUnTerrain.length, terrain };
 }
 
 /**
@@ -855,8 +886,10 @@ export async function createCompMatch(
     time?: string | null;
     venueName?: string | null;
     venueCity?: string | null;
+    /** Un terrain référencé : le créneau est demandé à son propriétaire. */
+    venueId?: string | null;
   },
-): Promise<string> {
+): Promise<{ id: string; terrain: string | null }> {
   const teams = await listCompTeams(cid);
   const byId = new Map(teams.map((t) => [t.id, t]));
   const home = byId.get(input.homeTeamId);
@@ -880,6 +913,7 @@ export async function createCompMatch(
     time: input.time?.trim() || null,
     venue_name: input.venueName?.trim() || null,
     venue_city: input.venueCity?.trim() || null,
+    venue_id: input.venueId || null,
     status: "scheduled",
     score_home: null,
     score_away: null,
@@ -893,7 +927,8 @@ export async function createCompMatch(
     updated_at: serverTimestamp() as unknown as string,
   };
   const ref = await addDoc(collection(db, "competitions", cid, "comp_matches"), data);
-  return ref.id;
+  const terrain = input.venueId ? await synchroniserTerrainsCompetition(cid, [ref.id]) : null;
+  return { id: ref.id, terrain };
 }
 
 // ============================================
@@ -1062,17 +1097,48 @@ export async function updateCompMatch(
   });
 }
 
+/**
+ * Programmer (ou reprogrammer) un match : jour, heure, lieu.
+ *
+ * Quand le match tient un terrain référencé — maintenant ou avant ce geste —
+ * sa réservation est alignée dans la foulée : demandée, déplacée ou libérée
+ * (voir lib/reservations). Rend l'erreur de cette demande, s'il y en a une ;
+ * le match, lui, est enregistré.
+ */
 export async function scheduleCompMatch(
   cid: string,
   mid: string,
-  input: { date: string; time: string; venueName: string; venueCity: string },
-): Promise<void> {
+  input: {
+    date: string;
+    time: string;
+    venueName: string;
+    venueCity: string;
+    /**
+     * Le terrain référencé, `null` pour un lieu en texte libre. Absent (la
+     * phase finale ne le choisit pas), on garde celui du match tant que le
+     * nom du lieu n'a pas changé.
+     */
+    venueId?: string | null;
+  },
+): Promise<string | null> {
+  const avant = (await getDoc(doc(db, "competitions", cid, "comp_matches", mid))).data() as
+    | FirestoreCompMatch
+    | undefined;
+  const venueId =
+    input.venueId !== undefined
+      ? input.venueId
+      : avant?.venue_id && avant.venue_name === input.venueName ? avant.venue_id : null;
+
   await updateCompMatch(cid, mid, {
     date: input.date,
     time: input.time,
     venue_name: input.venueName,
     venue_city: input.venueCity,
+    venue_id: venueId,
   });
+
+  if (!venueId && !avant?.venue_id && !avant?.venue_booking) return null;
+  return synchroniserTerrainsCompetition(cid, [mid]);
 }
 
 // ============================================
@@ -2490,6 +2556,8 @@ export async function clearKnockoutBracket(cid: string): Promise<number> {
   const batch = writeBatch(db);
   snap.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
+  // Les créneaux qu'ils tenaient se libèrent chez leurs propriétaires.
+  await synchroniserTerrainsCompetition(cid, tenaientUnTerrain(snap.docs));
   return snap.size;
 }
 

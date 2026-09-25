@@ -1,11 +1,15 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import {
   DoorOpen, ShowerHead, Lightbulb, ParkingCircle, CupSoda,
   Armchair, Goal, Droplets, ShieldCheck, BriefcaseMedical, Check,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EQUIPEMENTS, libelleEquipement } from "@/lib/terrains";
+import {
+  EQUIPEMENTS, JOURS, dateLongue, duree, libelleEquipement, libellePlage, horairesParDefaut, plageDuJour,
+} from "@/lib/terrains";
+import type { HorairesOuverture, ReservationDuMatch, Venue } from "@/types";
 
 // ============================================
 // Ce qui n'appartient qu'aux terrains.
@@ -98,6 +102,48 @@ const ICONES_EQUIPEMENT: Record<string, LucideIcon> = {
   secours: BriefcaseMedical,
 };
 
+/**
+ * Un terrain vu d'en haut, pour un terrain qui n'a pas encore de photo.
+ *
+ * Une illustration franche plutôt qu'un dégradé sombre : le dégradé disait
+ * « il manque quelque chose », la pelouse tondue dit « c'est un terrain »,
+ * ce qui est exactement l'information disponible. Aplats seulement, les
+ * bandes de tonte dessinées une à une.
+ */
+export function Pelouse({ className = "" }: { className?: string }) {
+  // Deux calques : les bandes de tonte s'étirent sur toute la surface, le
+  // marquage garde les proportions d'un terrain — une vignette carrée comme
+  // un bandeau quatre fois plus large qu'haut le montrent entier.
+  return (
+    <div aria-hidden className={`absolute inset-0 ${className}`}>
+      <svg viewBox="0 0 8 1" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+        <rect width="8" height="1" fill="#047857" />
+        {[0, 2, 4, 6].map((i) => (
+          <rect key={i} x={i} width="1" height="1" fill="#059669" />
+        ))}
+      </svg>
+      <svg
+        viewBox="0 0 400 260"
+        preserveAspectRatio="xMidYMid meet"
+        className="absolute inset-[8%] h-[84%] w-[84%]"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.6"
+        strokeWidth="2.5"
+      >
+        <rect x="2" y="2" width="396" height="256" />
+        <line x1="200" y1="2" x2="200" y2="258" />
+        <circle cx="200" cy="130" r="38" />
+        <rect x="2" y="72" width="56" height="116" />
+        <rect x="342" y="72" width="56" height="116" />
+        <rect x="2" y="104" width="20" height="52" />
+        <rect x="378" y="104" width="20" height="52" />
+        <circle cx="200" cy="130" r="3" fill="#ffffff" fillOpacity="0.7" stroke="none" />
+      </svg>
+    </div>
+  );
+}
+
 /** Un équipement écrit avant que la liste soit fermée garde une coche. */
 export const iconeEquipement = (cle: string): LucideIcon => ICONES_EQUIPEMENT[cle] ?? Check;
 
@@ -176,5 +222,236 @@ export function ChoixEquipements({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Les horaires d'ouverture, en saisie.
+ *
+ * FACULTATIFS, ET ÇA SE VOIT. Sans horaires, toute heure se demande ; avec,
+ * une demande hors plage est refusée dès le formulaire. Un propriétaire qui
+ * ne les pose pas ne doit rien perdre, d'où le bouton qui les ouvre plutôt
+ * qu'une grille imposée.
+ */
+export function ChoixHoraires({
+  value,
+  onChange,
+}: {
+  value: HorairesOuverture | null;
+  onChange: (h: HorairesOuverture | null) => void;
+}) {
+  if (!value) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 border border-dashed border-gray-200/70 px-4 py-3">
+        <p className="text-[11px] leading-relaxed text-gray-500">
+          Non précisés : les équipes peuvent demander n&apos;importe quelle heure.
+        </p>
+        <button
+          type="button"
+          onClick={() => onChange(horairesParDefaut())}
+          className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:text-gray-900"
+        >
+          Préciser les horaires
+        </button>
+      </div>
+    );
+  }
+
+  const poser = (cle: keyof HorairesOuverture, plage: HorairesOuverture[typeof cle]) =>
+    onChange({ ...value, [cle]: plage });
+
+  // Recopier le lundi partout : la plupart des terrains ont un seul horaire.
+  const commeLeLundi = () => {
+    const lundi = value["1"];
+    const h = { ...value };
+    for (const j of JOURS) h[j.cle] = lundi ? { ...lundi } : null;
+    onChange(h);
+  };
+
+  return (
+    <div className="border border-gray-200/70">
+      <ul className="divide-y divide-gray-200/70">
+        {JOURS.map((j) => {
+          const plage = value[j.cle];
+          const incoherent = plage && plage.ouvre >= plage.ferme;
+          return (
+            <li key={j.cle} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+              <label className="flex w-28 cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!plage}
+                  onChange={(e) => poser(j.cle, e.target.checked ? { ouvre: "08:00", ferme: "22:00" } : null)}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+                <span className="text-[11px] font-black uppercase tracking-[0.08em] text-gray-700">{j.nom}</span>
+              </label>
+              {plage ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    step={1800}
+                    value={plage.ouvre}
+                    aria-label={`${j.nom}, ouverture`}
+                    onChange={(e) => poser(j.cle, { ...plage, ouvre: e.target.value })}
+                    className="border border-gray-200/70 px-2 py-1.5 text-sm font-semibold text-gray-900 focus:border-gray-900 focus:outline-none"
+                  />
+                  <span className="text-gray-300">→</span>
+                  <input
+                    type="time"
+                    step={1800}
+                    value={plage.ferme}
+                    aria-label={`${j.nom}, fermeture`}
+                    onChange={(e) => poser(j.cle, { ...plage, ferme: e.target.value })}
+                    className="border border-gray-200/70 px-2 py-1.5 text-sm font-semibold text-gray-900 focus:border-gray-900 focus:outline-none"
+                  />
+                  {incoherent && (
+                    <span role="alert" className="text-[11px] font-bold text-red-600">
+                      Fermeture avant l&apos;ouverture
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[11px] font-bold text-gray-400">Fermé</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex flex-wrap justify-between gap-3 border-t border-gray-200/70 px-4 py-2.5">
+        <button
+          type="button"
+          onClick={commeLeLundi}
+          className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:text-gray-900"
+        >
+          Le lundi pour tous les jours
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500"
+        >
+          Ne pas préciser
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Des horaires saisis sont-ils utilisables ? Aucune plage à l'envers. */
+export const horairesCoherents = (h: HorairesOuverture | null) =>
+  !h || JOURS.every((j) => !h[j.cle] || h[j.cle]!.ouvre < h[j.cle]!.ferme);
+
+const rienAEcouter = () => () => {};
+
+/**
+ * Les horaires, en lecture : une ligne par jour, celui d'aujourd'hui en avant.
+ *
+ * LE JOUR SE LIT DANS LE NAVIGATEUR. La fiche est rendue par le serveur, à
+ * Paris ; autour de minuit, il n'est pas le même jour qu'à Lomé, et le rendu
+ * serveur mettait en avant un autre jour que celui du téléphone. Côté
+ * serveur, aucun jour n'est mis en avant.
+ */
+export function TableHoraires({ horaires }: { horaires: HorairesOuverture }) {
+  const aujourdhui = useSyncExternalStore(rienAEcouter, () => String(new Date().getDay()), () => null);
+  return (
+    <dl className="grid grid-cols-1 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
+      {JOURS.map((j) => {
+        const actif = j.cle === aujourdhui;
+        return (
+          <div key={j.cle} className={`flex items-baseline justify-between gap-4 px-4 py-2.5 ${actif ? "bg-emerald-50" : "bg-white"}`}>
+            <dt className={`text-[11px] font-black uppercase tracking-[0.1em] ${actif ? "text-emerald-800" : "text-gray-500"}`}>
+              {j.nom}
+            </dt>
+            <dd className={`text-sm font-bold tabular-nums ${horaires[j.cle] ? "text-gray-900" : "text-gray-400"}`}>
+              {libellePlage(horaires[j.cle])}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
+// ─── Le terrain d'un match ────────────────────────────────
+
+/**
+ * Où en est la demande faite au propriétaire du terrain, à côté de son nom.
+ *
+ * Le manager la cherche ici, sur la carte de son match, et nulle part
+ * ailleurs : c'est là qu'il voit si son samedi tient.
+ */
+export function EtatTerrain({ r }: { r: ReservationDuMatch | null }) {
+  if (!r || r.status === "cancelled") return null;
+  const etat = {
+    pending: { label: "Terrain : en attente", classe: "border-amber-200 bg-amber-50 text-amber-700" },
+    confirmed: { label: "Terrain confirmé", classe: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+    refused: { label: "Terrain refusé", classe: "border-red-200 bg-red-50 text-red-600" },
+  }[r.status];
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${etat.classe}`}>
+      {etat.label}
+    </span>
+  );
+}
+
+/**
+ * Le terrain a dit non : ce qu'il propose, et les deux issues.
+ *
+ * PRENDRE SA PROPOSITION ouvre la modification préremplie : le manager
+ * valide, le match se déplace, et la demande qui repart au terrain est
+ * confirmée d'office — le propriétaire l'a déjà acceptée en la proposant.
+ */
+export function RefusDuTerrain({
+  r,
+  onPrendre,
+  onChanger,
+}: {
+  r: ReservationDuMatch;
+  onPrendre: () => void;
+  onChanger: () => void;
+}) {
+  return (
+    <div className="mt-3 border border-red-200 bg-red-50 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+      <p className="text-xs font-bold leading-relaxed text-red-800">
+        {r.venueName}{" "}n&apos;est pas disponible à cet horaire.
+        {r.proposition && <> Le terrain propose le {dateLongue(r.proposition.date)} à {r.proposition.time}.</>}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {r.proposition && (
+          <button
+            type="button"
+            onClick={onPrendre}
+            className="bg-gray-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-white transition-colors hover:bg-emerald-700"
+          >
+            Prendre cet horaire
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onChanger}
+          className="border border-red-300 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-red-700 transition-colors hover:bg-red-100"
+        >
+          Changer de terrain ou d&apos;horaire
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Ce qu'il faut savoir en choisissant un terrain référencé pour un match.
+ *
+ * `duree` : ce qu'on demandera, en heures — le format d'un amical la dit,
+ * les mi-temps d'une compétition aussi (voir lib/terrains).
+ */
+export function AvisTerrain({ venue, date, duree: heures }: { venue: Venue | undefined; date: string; duree: number }) {
+  if (!venue) return null;
+  const plage = plageDuJour(venue.openingHours, date);
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-gray-500">
+      Le propriétaire recevra une demande de créneau de {duree(heures)} et vous
+      serez prévenu de sa réponse.
+      {plage !== undefined && date && <> Ouvert ce jour-là : {libellePlage(plage)}.</>}
+    </p>
   );
 }

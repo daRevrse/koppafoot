@@ -28,7 +28,7 @@ interface Contact {
   email: string | null;
 }
 
-export default function ContactResponsable({ venueId }: { venueId: string }) {
+export default function ContactResponsable({ venueId, className = "" }: { venueId: string; className?: string }) {
   const { firebaseUser } = useAuth();
   const [ouvert, setOuvert] = useState(false);
   const [contact, setContact] = useState<Contact | null>(null);
@@ -87,7 +87,7 @@ export default function ContactResponsable({ venueId }: { venueId: string }) {
       <button
         type="button"
         onClick={ouvrir}
-        className="mt-10 inline-flex items-center gap-2 border border-gray-200/70 bg-white px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900"
+        className={`inline-flex items-center justify-center gap-2 border border-gray-200/70 bg-white px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900 ${className}`}
       >
         <UserRound size={15} />
         Contacter le responsable
