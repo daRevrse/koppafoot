@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Gérer son équipe avec KoppaFoot</title>
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+@page { size: A4; margin: 15mm 16mm 17mm;
+  @bottom-left { content: "KoppaFoot · Guide du manager"; font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+}
+@page couverture { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --vert: #059669;
+  --vert-clair: #ecfdf5;
+  --encre: #111827;
+  --gris: #4b5563;
+  --gris-clair: #f3f4f6;
+  --orange: #ff5a1f;
+  --orange-clair: #fff4ed;
+  --ambre-clair: #fffbeb;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; color: var(--encre); background: #fff; }
+h1, h2, h3, .display { font-family: "Outfit", sans-serif; }
+p { margin: 0 0 2.2mm; }
+b, strong { font-weight: 700; }
+
+/* ---------- Couverture ---------- */
+.couverture { page: couverture; height: 296mm; width: 210mm; position: relative; overflow: hidden; color: #fff; background: #0b1512; }
+.couverture .photo { position: absolute; inset: 0; background: url(couverture.jpg) center 20%/cover; opacity: .6; }
+.couverture .voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.2) 35%, rgba(5,20,15,.95) 75%); }
+.couverture .contenu { position: absolute; left: 18mm; right: 18mm; bottom: 26mm; }
+.couverture .marque { position: absolute; top: 18mm; left: 18mm; font-family: "Outfit"; font-weight: 800; letter-spacing: .28em; font-size: 15pt; }
+.couverture .surtitre { font-family: "Outfit"; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #6ee7b7; font-size: 10pt; margin-bottom: 5mm; }
+.couverture h1 { font-weight: 900; text-transform: uppercase; font-size: 44pt; line-height: .92; letter-spacing: -.01em; margin: 0 0 7mm; }
+.couverture .phrase { font-size: 13pt; color: rgba(255,255,255,.82); max-width: 150mm; margin-bottom: 10mm; }
+.couverture .bas { display: flex; gap: 8mm; font-size: 9pt; color: rgba(255,255,255,.65); border-top: 1px solid rgba(255,255,255,.25); padding-top: 4mm; }
+
+/* ---------- Pages ---------- */
+.page-break { break-before: page; }
+.chapitre-tete { break-before: page; margin-bottom: 7mm; }
+.chapitre-tete .numero { font-family: "Outfit"; font-weight: 900; font-size: 11pt; letter-spacing: .2em; color: var(--vert); text-transform: uppercase; }
+.chapitre-tete h2 { font-weight: 900; font-size: 26pt; line-height: 1.05; margin: 1.5mm 0 3mm; text-transform: uppercase; }
+.chapitre-tete .chapo { font-size: 12pt; color: var(--gris); max-width: 160mm; }
+.chapitre-tete .barre { height: 3px; width: 22mm; background: var(--vert); margin-top: 4mm; }
+
+.etape { break-inside: avoid; margin: 0 0 7mm; }
+.etape h3 { font-weight: 800; font-size: 13pt; margin: 0 0 2mm; display: flex; align-items: center; gap: 2.5mm; break-after: avoid; }
+.etape h3 .n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--encre); color: #fff; font-size: 10pt; font-weight: 800; }
+.etape ol, .etape ul { margin: 0 0 3mm; padding-left: 6mm; }
+.etape li { margin-bottom: 1mm; }
+
+/* Repère orange dans le texte : renvoie au cadre numéroté de la capture */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 4.6mm; height: 4.6mm; border-radius: 50%; background: var(--orange); color: #fff; font-size: 7.5pt; font-weight: 800; font-family: "Outfit"; vertical-align: .2mm; margin: 0 .5mm; }
+.bouton { font-weight: 700; background: var(--gris-clair); border: 1px solid #e5e7eb; border-radius: 1.2mm; padding: 0 1.4mm; white-space: nowrap; }
+
+figure { margin: 2mm 0 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 135mm; margin: 0 auto; border: 1px solid #e5e7eb; }
+figure.petit img { max-height: 90mm; }
+figure.moyen img { max-height: 110mm; }
+figure.bandeau img { max-height: 72mm; }
+figure.haut img { max-height: 175mm; }
+figcaption { font-size: 8.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }
+
+/* Téléphone debout, ou capture très haute : texte à gauche, image à droite */
+.cote { display: flow-root; break-inside: avoid; }
+.cote > figure { float: right; width: 62mm; margin: 0 0 2mm 7mm; }
+.cote > div { overflow: hidden; }
+.cote figure img { max-height: 130mm; border: 0; border-radius: 0; box-shadow: none; }
+.cote.large > figure { width: 84mm; }
+.cote.large figure img { max-height: 200mm; border: 1px solid #e5e7eb; }
+
+.encadre { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 0; font-size: 10pt; }
+.encadre .t { font-family: "Outfit"; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; display: block; margin-bottom: .8mm; }
+.astuce { background: var(--vert-clair); border-left: 3px solid var(--vert); }
+.astuce .t { color: var(--vert); }
+.attention { background: var(--orange-clair); border-left: 3px solid var(--orange); }
+.attention .t { color: #c2410c; }
+.info { background: var(--gris-clair); border-left: 3px solid #9ca3af; }
+.info .t { color: #374151; }
+
+.sous-partie { font-family: "Outfit"; font-weight: 900; text-transform: uppercase; font-size: 12pt; letter-spacing: .06em; color: var(--vert); margin: 6mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d1fae5; break-after: avoid; }
+
+/* Sommaire */
+.sommaire { break-before: page; }
+.sommaire h2 { font-weight: 900; font-size: 26pt; text-transform: uppercase; margin: 0 0 6mm; }
+.sommaire ol { list-style: none; padding: 0; margin: 0; }
+.sommaire li { display: grid; grid-template-columns: 12mm 1fr; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid #e5e7eb; }
+.sommaire li .num { font-family: "Outfit"; font-weight: 900; font-size: 16pt; color: var(--vert); line-height: 1.1; }
+.sommaire li .titre { font-family: "Outfit"; font-weight: 700; font-size: 12pt; }
+.sommaire li .desc { color: var(--gris); font-size: 9.5pt; }
+
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 5mm; }
+.carte { border: 1px solid #e5e7eb; border-radius: 2mm; padding: 4mm; break-inside: avoid; }
+.carte h3 { margin: 0 0 2mm; font-size: 12pt; font-weight: 800; }
+.legende-repere { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; }
+.legende-repere .cadre { width: 34mm; height: 10mm; border: 2.5px solid var(--orange); border-radius: 2mm; position: relative; box-shadow: 0 0 0 3px rgba(255,90,31,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9pt; margin-left: 8mm; }
+.legende-repere .cadre::before { content: "1"; position: absolute; left: -8mm; top: 50%; transform: translateY(-50%); width: 6mm; height: 6mm; border-radius: 50%; background: var(--orange); color: #fff; font: 800 9pt/6mm "Outfit"; text-align: center; }
+
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 3mm; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.tableau-simple th { font-family: "Outfit"; font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
+
+/* Aide-mémoire */
+.memo { border: 2px solid var(--encre); border-radius: 3mm; padding: 6mm; }
+.memo h2 { margin: 0 0 1mm; font-weight: 900; text-transform: uppercase; font-size: 20pt; }
+.memo .sous { color: var(--gris); margin-bottom: 5mm; }
+.memo ol { counter-reset: g; list-style: none; padding: 0; margin: 0; }
+.memo li { counter-increment: g; display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; padding: 2.4mm 0; border-bottom: 1px dashed #d1d5db; }
+.memo li::before { content: counter(g); font-family: "Outfit"; font-weight: 900; font-size: 15pt; color: var(--vert); }
+.faq dt { font-family: "Outfit"; font-weight: 800; font-size: 11.5pt; margin-top: 4mm; }
+.faq dd { margin: 1mm 0 0; color: #374151; }
+</style>
+</head>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<section class="couverture">
+  <div class="photo"></div><div class="voile"></div>
+  <div class="marque">KOPPAFOOT</div>
+  <div class="contenu">
+    <div class="surtitre">Guide du manager</div>
+    <h1>Gère ton équipe avec KoppaFoot</h1>
+    <p class="phrase">Ton compte, ton équipe, ton effectif, tes matchs amicaux et tes compétitions : voici comment faire, étape par étape, avec une capture d'écran à chaque geste.</p>
+    <div class="bas"><span>Édition septembre 2026</span><span>·</span><span>koppafoot.com/roles</span></div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="sommaire">
+  <h2>Au programme</h2>
+  <ol>
+    <li><span class="num">00</span><span><span class="titre">Avant de commencer</span><br><span class="desc">Ce qu'il te faut, et comment lire ce guide</span></span></li>
+    <li><span class="num">01</span><span><span class="titre">Créer ton compte de manager</span><br><span class="desc">Et trouver tes outils, sur ordinateur comme sur téléphone</span></span></li>
+    <li><span class="num">02</span><span><span class="titre">Créer ton équipe</span><br><span class="desc">Nom, ville, écusson, bannière</span></span></li>
+    <li><span class="num">03</span><span><span class="titre">Recruter tes joueurs</span><br><span class="desc">Le mercato : chercher, inviter, accepter les candidatures</span></span></li>
+    <li><span class="num">04</span><span><span class="titre">Gérer ton effectif</span><br><span class="desc">Dossards, joueurs sans compte, staff</span></span></li>
+    <li><span class="num">05</span><span><span class="titre">Préparer la saison</span><br><span class="desc">Ta composition type et tes entraînements</span></span></li>
+    <li><span class="num">06</span><span><span class="titre">Organiser un match amical</span><br><span class="desc">Défier une équipe, jouer contre un club hors KoppaFoot, porter un match passé</span></span></li>
+    <li><span class="num">07</span><span><span class="titre">Avant le match : la feuille de match</span><br><span class="desc">Titulaires, remplaçants, numéros, postes</span></span></li>
+    <li><span class="num">08</span><span><span class="titre">Après le match</span><br><span class="desc">Valider le résultat, noter tes joueurs, lire tes statistiques</span></span></li>
+    <li><span class="num">09</span><span><span class="titre">Inscrire ton équipe à une compétition</span><br><span class="desc">La demande, la validation, ton effectif engagé</span></span></li>
+    <li><span class="num">+</span><span><span class="titre">Aide-mémoire et questions fréquentes</span><br><span class="desc">Un match amical de A à Z, sur une page</span></span></li>
+  </ol>
+</section>
+
+<!-- ================= 00 AVANT DE COMMENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 00</div>
+  <h2>Avant de commencer</h2>
+  <p class="chapo">Sur KoppaFoot, le manager tient son équipe : il recrute, il compose, il programme les matchs et il inscrit son club aux compétitions. KoppaFoot garde tout à jour pour lui et pour ses joueurs.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="intro-grille">
+  <div class="carte">
+    <h3>Ce qu'il te faut</h3>
+    <ul>
+      <li>Un <b>téléphone</b> ou un <b>ordinateur</b> avec Internet.</li>
+      <li>Une <b>adresse email</b> (ou un compte Google).</li>
+      <li>La liste de tes joueurs, avec leurs postes et leurs numéros de maillot.</li>
+      <li>C'est tout : pas besoin que tous tes joueurs aient un compte pour commencer.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h3>Comment lire ce guide</h3>
+    <p>Sur chaque capture, un <b>cadre orange numéroté</b> te montre où toucher. Suis les numéros dans l'ordre.</p>
+    <div class="legende-repere"><span class="cadre">Bouton à toucher</span></div>
+    <p style="margin-top:3mm">Dans le texte, le même numéro renvoie au même cadre : <span class="m">1</span> <span class="m">2</span> <span class="m">3</span>…</p>
+  </div>
+</div>
+
+<div class="carte" style="margin-top:6mm">
+  <h3>L'exemple suivi dans ce guide</h3>
+  <p>On accompagne <b>Edem Amouzou</b>, qui crée l'<b>Avenir d'Adakpamé</b>, un club de quartier de Lomé qui joue le dimanche matin. Il recrute ses joueurs, défie l'<b>Olympique de Tokoin</b> de <b>Kokou Tepe</b>, puis inscrit son équipe à la <b>Coupe des Quartiers 2026</b>.</p>
+  <p style="margin:0">Tous les noms (managers, équipes, joueurs) sont <b>inventés</b> pour l'exemple. Remplace-les simplement par les tiens.</p>
+</div>
+
+<div class="encadre info"><span class="t">Ordinateur ou téléphone ?</span>Tout se fait des deux côtés. Dans ce guide, la plupart des écrans sont montrés sur ordinateur, plus lisibles en capture ; quelques-uns sont montrés sur téléphone, là où tes joueurs, eux, les verront.</div>
+
+<!-- ================= 01 COMPTE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 01</div>
+  <h2>Créer ton compte de manager</h2>
+  <p class="chapo">Voici comment créer ton compte en choisissant tout de suite le rôle de manager. Deux minutes suffisent.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Choisis le rôle « Manager »</h3>
+  <p>Dans ton navigateur, va sur <b>koppafoot.com/roles</b>. La page présente les trois rôles : joueur, manager et arbitre. Sous l'affiche du manager, touche <span class="m">1</span> <span class="bouton">Devenir manager</span>.</p>
+  <figure class="moyen"><img src="captures/01-choisir-manager.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Remplis l'essentiel</h3>
+  <p>Le formulaire d'inscription s'ouvre, avec le rôle de manager déjà choisi. Tape <span class="m">1</span> ton prénom et ton nom, <span class="m">2</span> ton adresse email et <span class="m">3</span> un mot de passe (au moins 6 caractères). Touche <span class="m">4</span> <span class="bouton">Continuer</span>.</p>
+  <figure class="moyen"><img src="captures/02-inscription.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Plus rapide</span><span class="bouton">Continuer avec Google</span> crée ton compte en un geste si tu as une adresse Gmail.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Termine ton profil</h3>
+  <p>Ta <span class="m">1</span> ville et ton téléphone sont <b>facultatifs</b>. Touche <span class="m">2</span> <span class="bouton">Créer mon compte</span>. KoppaFoot t'envoie un email pour confirmer ton adresse : ouvre-le et touche le lien.</p>
+  <figure class="moyen"><img src="captures/03-inscription-ville.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Trouve tes outils : le menu MySpace</h3>
+  <p>Sur ordinateur, tout ce qui concerne ton équipe se trouve dans le menu <b>MySpace</b>, en haut de l'écran <span class="m">1</span> :</p>
+  <table class="tableau-simple">
+    <tr><th>Mon équipe</th><td>Ton club : effectif, compositions, entraînements, statistiques, réglages.</td></tr>
+    <tr><th>Matchs amicaux</th><td>Défier une équipe, programmer un match, retrouver tes résultats.</td></tr>
+    <tr><th>Calendrier</th><td>Tes matchs et tes entraînements, mois par mois.</td></tr>
+    <tr><th>Mes compétitions</th><td>Les tournois où ton équipe est inscrite, et ceux qui acceptent les inscriptions.</td></tr>
+  </table>
+  <p>Le <span class="m">2</span> <b>Mercato</b>, pour recruter, s'ouvre depuis la page <b>Mes équipes</b>.</p>
+  <figure class="bandeau"><img src="captures/04-menu-myspace.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/05-telephone-espace.jpg"></figure>
+  <div>
+    <h3><span class="n">5</span>Sur téléphone : l'onglet « Espace »</h3>
+    <p>Sur téléphone, les mêmes outils sont dans l'onglet <b>Espace</b>, tout en bas de l'écran. Touche-le : la partie <span class="m">1</span> <b>Espace manager</b> regroupe Mon équipe, Matchs amicaux, Calendrier et Mes compétitions.</p>
+    <div class="encadre astuce"><span class="t">Astuce</span>Ajoute KoppaFoot à l'écran d'accueil de ton téléphone : quand le navigateur te le propose, accepte. L'application s'ouvre alors d'un toucher, comme les autres.</div>
+    <div class="encadre info"><span class="t">Déjà un compte joueur ?</span>Pas besoin d'un second compte. Connecte-toi, va sur <b>koppafoot.com/roles</b> et touche <span class="bouton">Devenir manager</span> : ton rôle change, tu ne perds rien.</div>
+  </div>
+</div>
+
+<!-- ================= 02 EQUIPE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 02</div>
+  <h2>Créer ton équipe</h2>
+  <p class="chapo">Voici comment créer ton club sur KoppaFoot et lui donner ses couleurs. C'est la base de tout le reste.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre « Mon équipe »</h3>
+  <p>Dans <b>MySpace</b>, touche <b>Mon équipe</b>. Tu n'as encore aucune équipe : touche <span class="m">1</span> <span class="bouton">Créer une équipe</span>.</p>
+  <figure class="petit"><img src="captures/06-mes-equipes-vide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Remplis la fiche</h3>
+  <ul>
+    <li><span class="m">1</span> Le <b>nom de l'équipe</b>, tel que tout le monde le connaît ;</li>
+    <li><span class="m">2</span> la <b>ville</b> ;</li>
+    <li>une courte <b>description</b> (quand vous jouez, où vous vous entraînez) ;</li>
+    <li><span class="m">3</span> le <b>niveau</b> et le nombre de <b>joueurs maximum</b> (de 5 à 25) ;</li>
+    <li>une <b>couleur</b>, reprise sur le terrain des compositions.</li>
+  </ul>
+  <p>Touche <span class="m">4</span> <span class="bouton">Créer l'équipe</span>.</p>
+  <figure class="moyen"><img src="captures/07-creer-equipe.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ton équipe est créée</h3>
+  <p>Elle apparaît dans <b>Mes équipes</b> <span class="m">1</span>, avec son bilan (victoires, nuls, défaites). Touche-la pour ouvrir sa page.</p>
+  <figure class="petit"><img src="captures/08-equipe-creee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ajoute l'écusson et la bannière</h3>
+  <p>Sur la page de l'équipe, touche le crayon en haut à droite (<b>Modifier l'équipe</b>). Touche <span class="m">1</span> la zone <b>Bannière</b> pour choisir une grande image, puis <span class="m">2</span> la zone <b>Logo</b> pour l'écusson (une image carrée). Ajoute si tu veux un <span class="m">3</span> <b>slogan</b>, puis touche <span class="m">4</span> <span class="bouton">Enregistrer</span>.</p>
+  <figure class="moyen"><img src="captures/09-modifier-equipe.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>La page de ton équipe</h3>
+  <p>Ton club a maintenant son visage. Tout se gère depuis les <span class="m">1</span> onglets de cette page :</p>
+  <table class="tableau-simple">
+    <tr><th>Effectif</th><td>tes joueurs, leurs numéros, le staff (chapitre 4)</td></tr>
+    <tr><th>Compositions</th><td>ta composition type (chapitre 5)</td></tr>
+    <tr><th>Matchs, Stats</th><td>tes résultats et ton bilan (chapitre 8)</td></tr>
+    <tr><th>Entraînements</th><td>tes séances (chapitre 5)</td></tr>
+    <tr><th>Candidatures</th><td>les joueurs qui veulent te rejoindre (chapitre 3)</td></tr>
+    <tr><th>Paramètres</th><td>recrutement, créneaux d'entraînement, staff, suppression</td></tr>
+  </table>
+  <p>Le crayon <span class="m">2</span> rouvre la fiche à tout moment.</p>
+  <figure class="moyen"><img src="captures/10-page-equipe.jpg"></figure>
+</section>
+
+<!-- ================= 03 RECRUTER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 03</div>
+  <h2>Recruter tes joueurs</h2>
+  <p class="chapo">Voici comment faire venir tes joueurs dans ton équipe : en les invitant depuis le mercato, ou en acceptant leur candidature.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre le mercato</h3>
+  <p>Ton effectif est vide. Sur la page de l'équipe, onglet <b>Effectif</b>, touche <span class="m">1</span> <span class="bouton">Recruter</span>.</p>
+  <figure class="petit"><img src="captures/11-recruter.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Cherche des joueurs</h3>
+  <p>L'onglet <b>Joueurs</b> présente les joueurs inscrits sur KoppaFoot, avec leur poste, leur niveau et leur ville. <span class="m">1</span> Cherche un nom, ou affine avec <span class="bouton">Filtres</span>.</p>
+  <p>Sur la carte d'un joueur, <span class="m">2</span> <span class="bouton">Profil</span> ouvre sa fiche, et <span class="m">3</span> <span class="bouton">Suivre</span> le met de côté dans ta <b>Sélection</b>.</p>
+  <figure class="moyen"><img src="captures/12-mercato-joueurs.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Regarde son profil</h3>
+  <p>La fiche du joueur montre sa présentation, son poste, son niveau et ses statistiques (matchs, buts, passes décisives).</p>
+  <figure class="petit"><img src="captures/13-profil-joueur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Invite les joueurs de ta sélection</h3>
+  <p>Ouvre l'onglet <span class="m">1</span> <b>Sélection</b> : les joueurs que tu as suivis y sont réunis. Touche <span class="m">2</span> <span class="bouton">Inviter</span> sur celui que tu veux.</p>
+  <figure class="petit"><img src="captures/14-selection.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Écris-lui un mot</h3>
+  <p>Vérifie <span class="m">1</span> l'équipe, écris <span class="m">2</span> un petit message (le joueur le lira avec l'invitation), puis touche <span class="m">3</span> <span class="bouton">Envoyer</span>.</p>
+  <figure class="moyen"><img src="captures/15-inviter.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Suis tes invitations</h3>
+  <p>L'onglet <b>Invitations</b> liste celles que tu as envoyées, <span class="m">1</span> <b>En attente</b> tant que le joueur n'a pas répondu. Tu peux annuler une invitation tant qu'elle n'est pas acceptée.</p>
+  <figure class="petit"><img src="captures/16-invitations-envoyees.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/17-joueur-invitation.jpg"></figure>
+  <div>
+    <h3><span class="n">7</span>Côté joueur : il accepte</h3>
+    <p>Le joueur reçoit une notification. Dans son mercato, onglet <b>Invitations</b>, il lit ton message et touche <span class="m">1</span> <span class="bouton">Accepter</span>.</p>
+    <p>Il rejoint aussitôt ton effectif.</p>
+    <p>Ici, Kafui accepte depuis son téléphone. Dodzi et Enyonam, invités de la même façon, font pareil.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">8</span>Réponds aux candidatures</h3>
+  <p>L'inverse arrive aussi : un joueur trouve ton équipe dans le mercato (onglet <b>Équipes</b>) et touche <b>Candidater</b>. Tu reçois une notification, et sa demande arrive dans l'onglet <b>Candidatures</b>, avec <span class="m">1</span> son message. Touche <span class="m">2</span> <span class="bouton">Accepter</span> pour l'intégrer, ou <span class="bouton">Refuser</span>.</p>
+  <figure class="petit"><img src="captures/18-candidature-recue.jpg"></figure>
+  <div class="encadre info"><span class="t">Plus de candidatures ?</span>Ton équipe n'apparaît aux joueurs que si son recrutement est <b>actif</b> (onglet <b>Paramètres</b>, chapitre 4). C'est le cas à la création.</div>
+</section>
+
+<!-- ================= 04 EFFECTIF ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 04</div>
+  <h2>Gérer ton effectif</h2>
+  <p class="chapo">Voici comment donner un numéro à chacun, ajouter les joueurs qui n'ont pas de compte, et te faire aider par un adjoint.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Donne les numéros de maillot</h3>
+  <p>Dans l'onglet <b>Effectif</b>, chaque joueur a une case <span class="m">1</span> <b>N°</b>. Tape son numéro de maillot. Dès qu'un numéro change, touche <span class="m">2</span> <span class="bouton">Dossards</span> pour enregistrer.</p>
+  <figure class="moyen"><img src="captures/20-dossards.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Ajoute les joueurs sans compte</h3>
+  <p>Tous tes joueurs n'ont pas de compte KoppaFoot, et ce n'est pas un problème. Touche <span class="bouton">Ajouter un joueur</span>, puis remplis <span class="m">1</span> son prénom et son nom, <span class="m">2</span> son poste et <span class="m">3</span> son numéro (facultatif). Touche <span class="m">4</span> <span class="bouton">Ajouter</span>.</p>
+  <p>Un joueur sans compte joue les matchs, marque, prend des cartons : sa carrière est tenue par le club.</p>
+  <figure class="moyen"><img src="captures/21-joueur-sans-compte.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ton effectif complet</h3>
+  <p>L'effectif se lit comme une feuille de match, du gardien aux attaquants. Les joueurs <b>avec compte</b> sont en haut ; les joueurs <b>sans compte</b> ont leurs boutons <span class="bouton">Stats</span>, <span class="m">1</span> <span class="bouton">Modifier</span> et <span class="bouton">Supprimer</span>.</p>
+  <p>Un joueur sans compte finit par s'inscrire ? Utilise <span class="m">2</span> <b>Fusionner un joueur</b> : choisis le joueur sans compte, puis son nouveau compte. Ses matchs, ses buts et ses passes le suivent.</p>
+  <figure class="haut"><img src="captures/22-effectif-complet.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Nomme un adjoint</h3>
+  <p>Dans l'onglet <b>Paramètres</b>, le bloc <b>Staff de l'équipe</b> te permet de te faire aider. Choisis <span class="m">1</span> un joueur de ton effectif et son titre (coach, adjoint, dirigeant…).</p>
+  <p>Coche <span class="m">2</span> <b>Lui donner les droits du manager</b> s'il doit pouvoir gérer l'équipe comme toi : composition, dossards, effectif, candidatures, entraînements. Il ne pourra ni nommer le staff, ni supprimer l'équipe. Sans cette case, son titre s'affiche simplement sur la fiche. Touche <span class="m">3</span> <span class="bouton">Ajouter au staff</span>.</p>
+  <figure class="bandeau"><img src="captures/23-staff.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Les autres réglages</h3>
+  <p>Toujours dans <b>Paramètres</b> :</p>
+  <ul>
+    <li><span class="m">1</span> <b>Statut de recrutement</b> : <b>Actif</b>, ton équipe apparaît dans le mercato et reçoit des candidatures. Touche le bouton pour le couper quand ton effectif est complet.</li>
+    <li><span class="m">2</span> Le <b>staff</b> : Selom est maintenant <b>Adjoint</b>, avec la mention <b>Délégué</b>.</li>
+    <li>Tout en bas, la <b>zone dangereuse</b> permet de supprimer l'équipe. C'est définitif.</li>
+  </ul>
+  <figure class="haut"><img src="captures/24-parametres.jpg"></figure>
+</section>
+
+<!-- ================= 05 SAISON ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 05</div>
+  <h2>Préparer la saison</h2>
+  <p class="chapo">Voici comment préparer ta composition type une fois pour toutes, et programmer les entraînements de ton équipe.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="sous-partie">A · Ta composition type</div>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre l'onglet « Compositions »</h3>
+  <p>Choisis <span class="m">1</span> le <b>format</b> (de 4 contre 4 à 11 contre 11) et la <b>formation</b> avec les flèches. Le terrain affiche aussitôt des emplacements vides <span class="m">2</span>, à remplir.</p>
+  <figure class="moyen"><img src="captures/25-compositions.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Place tes joueurs sur le terrain</h3>
+  <p>Touche un emplacement : la liste de ton effectif s'ouvre, avec les joueurs du bon poste en premier. Touche <span class="m">1</span> le joueur. Recommence pour chaque emplacement.</p>
+  <figure class="moyen"><img src="captures/26-choisir-joueur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ajoute le banc, puis enregistre</h3>
+  <p>Sous le terrain, <span class="bouton">+ Ajouter</span> place tes remplaçants sur le <span class="m">1</span> <b>banc</b>. Quand tout est en place, touche <span class="m">2</span> <span class="bouton">Enregistrer</span>.</p>
+  <figure class="haut"><img src="captures/27-composition-type.jpg"></figure>
+  <div class="encadre astuce"><span class="t">À quoi elle sert ?</span>Le jour du match, si ta feuille de match n'est pas encore faite, la personne qui tient le direct part de ta composition type : elle n'arrive jamais devant une feuille vide. Tu peux enregistrer une composition par format (une pour le 11 contre 11, une pour le 7 contre 7…).</div>
+</section>
+
+<div class="sous-partie">B · Les entraînements</div>
+
+<section class="etape">
+  <h3><span class="n">4</span>Le créneau de chaque semaine</h3>
+  <p>Dans <b>Paramètres</b>, bloc <b>Planning d'entraînement</b>, choisis <span class="m">1</span> le jour et l'heure, puis <span class="m">2</span> le lieu et, si tu veux, un libellé (« Physique et jeu »). Touche <span class="m">3</span> <span class="bouton">Ajouter</span>. Ajoute autant de créneaux que nécessaire.</p>
+  <p>Le créneau apparaît chaque semaine dans le calendrier de tes joueurs.</p>
+  <figure class="bandeau"><img src="captures/28-creneau-hebdo.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Une séance ponctuelle</h3>
+  <p>Pour une séance particulière, ouvre l'onglet <b>Entraînements</b> et touche <span class="bouton">Créer un entraînement</span>. Donne <span class="m">1</span> un titre, <span class="m">2</span> la date et l'heure, <span class="m">3</span> le lieu, et un mot pour les joueurs. Touche <span class="m">4</span> <span class="bouton">Créer</span>.</p>
+  <figure class="moyen"><img src="captures/29-seance-ponctuelle.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/30-joueur-seance.jpg"></figure>
+  <div>
+    <h3><span class="n">6</span>Côté joueur : présent ou absent</h3>
+    <p>Tes joueurs avec un compte voient la séance sur la page de l'équipe, onglet <b>Entraînements</b>. Chacun répond <span class="m">1</span> <span class="bouton">Présent</span> ou <span class="bouton">Absent</span>.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">7</span>Qui vient ?</h3>
+  <p>De ton côté, la séance affiche <span class="m">1</span> le nombre de joueurs qui ont confirmé. Tu sais avant d'y aller combien vous serez.</p>
+  <figure class="petit"><img src="captures/31-seances.jpg"></figure>
+</section>
+
+<!-- ================= 06 AMICAUX ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 06</div>
+  <h2>Organiser un match amical</h2>
+  <p class="chapo">Voici les trois façons de mettre un match sur KoppaFoot : défier une équipe inscrite, programmer un match contre un club qui ne l'est pas, ou porter un match déjà joué.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre « Matchs amicaux »</h3>
+  <p>Dans <b>MySpace</b>, touche <b>Matchs amicaux</b>. Trois boutons, trois cas :</p>
+  <ul>
+    <li><span class="m">1</span> <span class="bouton">Défier une équipe</span> : l'adversaire est sur KoppaFoot ;</li>
+    <li><span class="m">2</span> <span class="bouton">Programmer un amical</span> : l'adversaire n'est pas sur KoppaFoot ;</li>
+    <li><span class="m">3</span> <span class="bouton">Renseigner un match joué</span> : le match a déjà eu lieu.</li>
+  </ul>
+  <p>Les onglets <b>À venir</b>, <b>À traiter</b> et <b>Terminés</b> rangent ensuite tous tes matchs.</p>
+  <figure class="petit"><img src="captures/32-matchs.jpg"></figure>
+</section>
+
+<div class="sous-partie">A · Défier une équipe inscrite</div>
+
+<section class="etape">
+  <h3><span class="n">2</span>Trouve ton adversaire</h3>
+  <p>Touche <span class="bouton">Défier une équipe</span>. Choisis ton équipe, puis tape le nom de l'adversaire <span class="m">1</span>. Touche <span class="m">2</span> la bonne équipe dans la liste.</p>
+  <figure class="moyen"><img src="captures/33-defi-recherche.jpg"></figure>
+  <div class="encadre info"><span class="t">L'équipe n'est pas dans la liste ?</span>Elle n'est pas sur KoppaFoot. Touche la ligne « … n'est pas sur KoppaFoot » : le formulaire passe en <b>amical</b> (partie B).</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Donne le rendez-vous</h3>
+  <ul>
+    <li><span class="m">1</span> la <b>date</b> et <span class="m">2</span> l'<b>heure</b> ;</li>
+    <li><span class="m">3</span> le <b>terrain</b> et sa ville ;</li>
+    <li><span class="m">4</span> le <b>format</b> (joueurs par équipe sur le terrain, gardien compris) ;</li>
+    <li>le <b>lieu</b> (domicile ou extérieur) et l'<b>arbitre</b> (aucun pour l'instant, ou le nom d'un arbitre local) ;</li>
+    <li><span class="m">5</span> l'<b>auto-acceptation des joueurs</b> : laissée active, tout ton effectif est sur la feuille dès que le match est accepté. Coupée, le match attend qu'assez de joueurs aient confirmé leur présence (8 par équipe en 11 contre 11).</li>
+  </ul>
+  <p>Touche <span class="m">6</span> <span class="bouton">Envoyer le défi</span>.</p>
+  <figure class="moyen"><img src="captures/34-defi-rempli.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Le défi attend la réponse</h3>
+  <p>Ton défi est dans l'onglet <b>À traiter</b>, marqué <span class="m">1</span> <b>Défi envoyé</b>. Tant qu'il n'est pas accepté, tu peux le modifier, ou <span class="m">2</span> <span class="bouton">Annuler le défi</span>.</p>
+  <figure class="bandeau"><img src="captures/35-defi-envoye.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>L'adversaire accepte</h3>
+  <p>Le manager d'en face reçoit une notification. Dans son onglet <b>À traiter</b>, il voit un <b>Défi reçu</b> et touche <span class="m">1</span> <span class="bouton">Accepter</span> (ou <span class="m">2</span> <span class="bouton">Refuser</span>).</p>
+  <figure class="bandeau"><img src="captures/36-defi-recu.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Le match est programmé</h3>
+  <p>Le match passe dans <b>À venir</b>. Les joueurs des deux équipes sont convoqués. La mention <span class="m">1</span> <b>Feuille à remplir</b> te rappelle de préparer ta feuille de match (chapitre 7).</p>
+  <p><span class="m">2</span> <span class="bouton">Modifier</span> propose une autre date, une autre heure ou un autre terrain : l'adversaire doit accepter le changement. <span class="bouton">Annuler</span> annule le match.</p>
+  <figure class="bandeau"><img src="captures/37-a-venir.jpg"></figure>
+</section>
+
+<div class="sous-partie">B · Un adversaire qui n'est pas sur KoppaFoot</div>
+
+<section class="etape">
+  <h3><span class="n">7</span>Programme le match directement</h3>
+  <p>Touche <span class="bouton">Programmer un amical</span> et tape simplement <span class="m">1</span> le nom de l'équipe adverse. Personne n'a de défi à accepter : <span class="m">2</span> le match est programmé tout de suite, et ton effectif est convoqué. Pour que le match puisse être suivi en direct des deux côtés, l'équipe adverse reçoit 11 joueurs numérotés.</p>
+  <p>Remplis la date, l'heure, le terrain et le format comme pour un défi. Ici, on joue <span class="m">3</span> <b>à l'extérieur</b>. Touche <span class="m">4</span> <span class="bouton">Programmer le match</span>.</p>
+  <figure class="moyen"><img src="captures/38-amical-hors-koppafoot.jpg"></figure>
+  <div class="encadre info"><span class="t">Changer la date</span>Sur un tel match, le bouton s'appelle <span class="bouton">Déplacer</span> : il n'y a personne en face pour accepter, le changement s'applique tout de suite et tes joueurs sont prévenus.</div>
+</section>
+
+<div class="sous-partie">C · Un match déjà joué</div>
+
+<section class="etape">
+  <h3><span class="n">8</span>Renseigne le score</h3>
+  <p>Pour garder la trace d'un match joué ces <b>90 derniers jours</b>, touche <span class="bouton">Renseigner un match joué</span>. Aucune convocation ne part.</p>
+  <ul>
+    <li><span class="m">1</span> l'adversaire (une équipe KoppaFoot, ou un simple nom), puis la date, le format et le lieu ;</li>
+    <li><span class="m">2</span> le <b>score final</b> ;</li>
+    <li><span class="m">3</span> <b>qui a marqué</b> : les boutons <b>+</b> ajoutent des buts et des passes à chaque joueur (facultatif).</li>
+  </ul>
+  <p>Touche <span class="m">4</span> <span class="bouton">Relire avant de valider</span>.</p>
+  <figure class="haut"><img src="captures/39-renseigner-match.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">9</span>Relis, puis valide</h3>
+  <p>Vérifie le score et les noms, puis touche <span class="m">1</span> <span class="bouton">Valider ce match</span>. Un match renseigné <b>ne se modifie plus</b> : en cas d'erreur, supprime-le et ressaisis-le.</p>
+  <figure class="moyen"><img src="captures/40-relire.jpg"></figure>
+  <div class="encadre attention"><span class="t">Ce qui compte, et pour qui</span>Contre une équipe <b>hors KoppaFoot</b>, le résultat compte tout de suite dans le bilan de ton club. Contre une équipe <b>KoppaFoot</b>, rien ne compte tant que son manager n'a pas confirmé le score. Chez tes joueurs, un match renseigné ajoute <b>un match joué</b> à ceux que tu as nommés ; les buts et les passes, eux, ne comptent que pour les matchs suivis en direct.</div>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/41-calendrier-joueur.jpg"></figure>
+  <div>
+    <h3><span class="n">10</span>Tout est dans le calendrier</h3>
+    <p>Tes joueurs retrouvent chaque match et chaque créneau d'entraînement dans leur <b>Calendrier</b> : un point vert pour un match, violet pour un entraînement.</p>
+    <p>Un toucher sur un jour <span class="m">1</span> affiche le détail du match, avec le lien vers sa fiche et l'<b>itinéraire</b> jusqu'au terrain.</p>
+  </div>
+</div>
+
+<!-- ================= 07 FEUILLE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 07</div>
+  <h2>Avant le match : la feuille de match</h2>
+  <p class="chapo">Voici comment annoncer ton équipe avant le coup d'envoi : qui est titulaire, qui est remplaçant, avec quel numéro et à quel poste.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre la fiche du match</h3>
+  <p>Dans <b>Matchs amicaux</b>, onglet <b>À venir</b>, touche la carte du match. Sa fiche s'ouvre sur l'onglet <b>Infos</b> : date, lieu, format, et le pronostic ouvert aux visiteurs.</p>
+  <p>Tant que ta feuille n'est pas faite, un bandeau te le rappelle. Touche <span class="m">1</span> <span class="bouton">Remplir la feuille de match</span>, puis à nouveau <span class="bouton">Remplir la feuille de match</span> dans l'onglet <b>Composition</b>.</p>
+  <figure class="moyen"><img src="captures/42-fiche-match.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Choisis la formation</h3>
+  <p>Le panneau <b>Configuration tactique</b> s'ouvre. Choisis <span class="m">1</span> la <b>formation</b> : le terrain se dessine au fur et à mesure, avec les numéros. Le compteur <span class="m">2</span> indique le nombre de titulaires (ici 11 sur 11) et de remplaçants.</p>
+  <figure class="moyen"><img src="captures/43a-feuille-terrain.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Règle chaque joueur</h3>
+  <p>Tout ton effectif est listé, joueurs avec et sans compte. Les onze premiers sont proposés titulaires, les suivants remplaçants. Pour chaque joueur :</p>
+  <ul>
+    <li><span class="m">3</span> vérifie son <b>numéro</b> (repris de l'onglet Effectif) ;</li>
+    <li><span class="m">4</span> change son <b>poste</b> pour ce match si besoin ;</li>
+    <li><span class="m">5</span> choisis son <b>rôle</b> : <b>Titu</b> (titulaire), <b>Sub</b> (remplaçant) ou <b>Retiré</b> (absent ce jour-là).</li>
+  </ul>
+  <p>Touche <span class="m">6</span> <span class="bouton">Envoyer à l'arbitre</span>.</p>
+  <figure class="haut"><img src="captures/43b-feuille-joueurs.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ta feuille est validée</h3>
+  <p>Le terrain montre ton onze et ton banc, et le bloc <span class="m">1</span> <b>Feuille de match validée</b> confirme que numéros et rôles sont transmis. <span class="bouton">Modifier la feuille</span> reste possible jusqu'au coup d'envoi.</p>
+  <p>Le manager adverse fait la même chose de son côté.</p>
+  <figure class="haut"><img src="captures/44-feuille-validee.jpg"></figure>
+</section>
+
+<!-- ================= 08 APRES LE MATCH ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 08</div>
+  <h2>Après le match</h2>
+  <p class="chapo">Le match est joué et le score est sur sa fiche. Voici comment le valider avec ton adversaire, noter tes joueurs et suivre le bilan de ton équipe.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Valide le résultat</h3>
+  <p>Ouvre la fiche du match : l'onglet <b>Fil du match</b> montre le score, les buteurs, l'homme du match et tout le déroulé.</p>
+  <p>Le statut <span class="m">1</span> <b>En attente</b> indique que les deux managers doivent confirmer le résultat. Si le score et les événements sont justes, touche <span class="m">2</span> <span class="bouton">Valider le match</span>. Sinon, <span class="m">3</span> <span class="bouton">Contester</span>, en expliquant pourquoi.</p>
+  <figure class="moyen"><img src="captures/45-valider-resultat.jpg"></figure>
+  <div class="encadre info"><span class="t">Pas de réponse ?</span>Sans action dans les <b>12 heures</b>, le match est validé automatiquement. Ce statut n'est visible que des managers et de leur staff.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Validé par les deux camps</h3>
+  <p>Quand ton adversaire a validé à son tour, le statut passe à <span class="m">1</span> <b>Validé par les deux camps</b> : vous êtes d'accord sur le résultat.</p>
+  <p>Le résultat, lui, compte déjà depuis le coup de sifflet final : dans le bilan des deux équipes, et, pour les buts, passes et cartons, dans les statistiques des joueurs.</p>
+  <figure class="haut"><img src="captures/46-resultat-valide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Le bilan de ton équipe</h3>
+  <p>Sur la page de l'équipe, l'onglet <b>Stats</b> se met à jour tout seul : victoires, nuls, défaites, buts marqués et encaissés, forme récente, meilleur buteur et meilleur passeur.</p>
+  <figure class="haut"><img src="captures/47-stats-equipe.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Les statistiques de chaque joueur</h3>
+  <p>Chaque joueur avec un compte retrouve ses matchs, ses buts et ses passes sur son profil. Pour un joueur <b>sans compte</b>, touche <span class="bouton">Stats</span> sur sa ligne, dans l'onglet <b>Effectif</b> : sa carrière y est tenue, et elle le suivra le jour où il créera son compte (fusion, chapitre 4).</p>
+  <figure class="moyen"><img src="captures/48-stats-joueur-sans-compte.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Note tes joueurs</h3>
+  <p>Dans <b>Matchs amicaux</b>, onglet <b>Terminés</b>, tous tes résultats sont réunis. Sur un match terminé, touche <span class="m">1</span> <span class="bouton">Noter les joueurs</span>.</p>
+  <figure class="moyen"><img src="captures/49-matchs-termines.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Une note sur 10 pour chacun</h3>
+  <p>Fais glisser <span class="m">1</span> le curseur de chaque joueur (de 1 à 10), puis touche <span class="m">2</span> <span class="bouton">Enregistrer</span>.</p>
+  <figure class="moyen"><img src="captures/50-noter-joueurs.jpg"></figure>
+</section>
+
+<!-- ================= 09 COMPETITION ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 09</div>
+  <h2>Inscrire ton équipe à une compétition</h2>
+  <p class="chapo">Voici comment engager ton club dans un tournoi organisé sur KoppaFoot. Ton effectif te suit : tu n'as rien à ressaisir.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre « Mes compétitions »</h3>
+  <p>Dans <b>MySpace</b>, touche <b>Mes compétitions</b>. Le bloc <b>Inscrire mon équipe</b> liste les compétitions qui acceptent les inscriptions. Sur celle qui t'intéresse, touche <span class="m">1</span> <span class="bouton">S'inscrire</span>.</p>
+  <figure class="petit"><img src="captures/51-mes-competitions.jpg"></figure>
+  <div class="encadre info"><span class="t">Une autre porte d'entrée</span>La page publique d'une compétition ouverte propose aussi le bouton <span class="bouton">Inscrire mon équipe</span>. Et un organisateur peut t'envoyer directement une invitation : elle arrive dans tes notifications.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Envoie ta demande</h3>
+  <ul>
+    <li><span class="m">1</span> l'<b>équipe</b> que tu inscris ;</li>
+    <li><span class="m">2</span> un <b>message</b> pour l'organisateur (facultatif) ;</li>
+    <li><span class="m">3</span> les <b>frais d'inscription</b>, s'il y en a : ils se règlent directement auprès de l'organisateur, KoppaFoot n'encaisse rien ;</li>
+    <li><span class="m">4</span> le <b>règlement</b> : lis-le et coche la case pour l'accepter.</li>
+  </ul>
+  <p>Touche <span class="m">5</span> <span class="bouton">Envoyer</span>.</p>
+  <figure class="moyen"><img src="captures/52-inscription.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Attends la validation</h3>
+  <p>Ta demande est <span class="m">1</span> <b>En attente</b> : c'est l'organisateur qui décide. Tu peux encore l'annuler. Tu recevras une notification dès sa réponse.</p>
+  <figure class="petit"><img src="captures/53-demande-en-attente.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ton équipe est inscrite</h3>
+  <p>L'organisateur a accepté : la compétition apparaît dans <b>Mes compétitions</b> <span class="m">1</span>, avec son statut, et ton équipe avec le nombre de joueurs engagés. Touche-la pour ouvrir ton équipe dans la compétition.</p>
+  <figure class="petit"><img src="captures/54-equipe-inscrite.jpg"></figure>
+</section>
+
+<div class="cote large etape">
+  <figure><img src="captures/55-effectif-engage.jpg"></figure>
+  <div>
+    <h3><span class="n">5</span>Ton effectif engagé</h3>
+    <p>Tout ton effectif a été repris, avec les numéros. Les joueurs qui ont un compte y sont <b>liés</b> : leurs buts et leurs cartons de la compétition iront dans leurs statistiques.</p>
+    <ul>
+      <li><span class="m">1</span> <span class="bouton">Resynchroniser</span> reprend les joueurs arrivés dans ton club depuis l'inscription ;</li>
+      <li><span class="m">2</span> <span class="bouton">Ajouter un joueur</span> en ajoute un pour cette compétition seulement ; le crayon et la corbeille modifient ou retirent un joueur ;</li>
+      <li><span class="m">3</span> <b>Rattachements</b> : un joueur qui se reconnaît sur la page publique de l'équipe touche « C'est moi ». Valide sa demande ici, et ses statistiques rejoignent son compte.</li>
+    </ul>
+    <p>Le nom de l'équipe et sa poule restent décidés par l'organisateur.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">6</span>Suis la compétition</h3>
+  <p>La page publique de la compétition affiche <span class="m">1</span> ton inscription (<b>Inscrite</b>), puis, au fil du tournoi, le calendrier, le classement, le tableau final et les buteurs. Touche <span class="m">2</span> <span class="bouton">Suivre</span> pour être prévenu de chaque nouveauté.</p>
+  <figure class="moyen"><img src="captures/56-page-publique.jpg"></figure>
+  <div class="encadre info"><span class="t">Et les matchs de la compétition ?</span>C'est l'organisateur qui programme le calendrier et suit les matchs. Ta composition type (chapitre 5) lui fait gagner du temps : la feuille de ton équipe part de là.</div>
+</section>
+
+<!-- ================= AIDE-MEMOIRE ================= -->
+<section class="page-break memo">
+  <h2>Un match amical, de A à Z</h2>
+  <p class="sous">À garder sous la main : les dix gestes du manager, de l'invitation au bilan.</p>
+  <ol>
+    <li><span><b>Ton effectif est prêt</b> : joueurs invités ou ajoutés sans compte, numéros enregistrés (<b>Dossards</b>).</span></li>
+    <li><span><b>Matchs amicaux</b> → <b>Défier une équipe</b> (ou <b>Programmer un amical</b> si l'adversaire n'est pas sur KoppaFoot).</span></li>
+    <li><span>Date, heure, terrain, format → <b>Envoyer le défi</b>.</span></li>
+    <li><span>L'adversaire accepte : le match passe dans <b>À venir</b>, tes joueurs sont convoqués.</span></li>
+    <li><span>Un changement ? <b>Modifier</b> (l'adversaire accepte) ou <b>Déplacer</b> (hors KoppaFoot).</span></li>
+    <li><span>Avant le match : fiche du match → <b>Remplir la feuille de match</b>.</span></li>
+    <li><span>Formation, numéros, postes, <b>Titu</b> / <b>Sub</b> / <b>Retiré</b> → <b>Envoyer à l'arbitre</b>.</span></li>
+    <li><span>Après le match : fiche du match → <b>Valider le match</b> (ou <b>Contester</b>). Sans réponse, validé au bout de 12 heures.</span></li>
+    <li><span><b>Terminés</b> → <b>Noter les joueurs</b>.</span></li>
+    <li><span>Regarde ton bilan dans l'onglet <b>Stats</b> de ton équipe.</span></li>
+  </ol>
+</section>
+
+<section class="page-break faq">
+  <header class="chapitre-tete" style="break-before:auto">
+    <div class="numero">Annexe</div>
+    <h2>Questions fréquentes</h2>
+    <div class="barre"></div>
+  </header>
+  <dl>
+    <dt>Un de mes joueurs n'a pas de smartphone.</dt>
+    <dd>Ajoute-le comme joueur <b>sans compte</b> (chapitre 4). Il joue, marque et prend des cartons comme les autres. S'il crée un compte plus tard, <b>Fusionner un joueur</b> lui rend toute sa carrière.</dd>
+    <dt>Mon adversaire n'est pas sur KoppaFoot.</dt>
+    <dd>Utilise <b>Programmer un amical</b> (chapitre 6, partie B). Le match est programmé tout de suite, sans défi à accepter.</dd>
+    <dt>Après un match contre une équipe hors KoppaFoot, les statistiques de mes joueurs n'ont pas bougé.</dt>
+    <dd>Personne en face ne peut contresigner la feuille. Sur la fiche du match, le bloc <b>Statistiques non attribuées</b> te laisse les attribuer sous ta responsabilité, avec <b>Attribuer les statistiques</b>. C'est définitif.</dd>
+    <dt>J'ai renseigné un match passé, mais les buts n'apparaissent pas chez mes joueurs.</dt>
+    <dd>C'est normal : un match renseigné compte dans le bilan du club et ajoute un match joué aux joueurs nommés, mais seuls les matchs suivis en direct comptent les buts et les passes.</dd>
+    <dt>Le score du match est faux.</dt>
+    <dd>Ne le valide pas : touche <b>Contester</b> sur la fiche du match et explique pourquoi. Le match est marqué <b>contesté</b> pour les deux managers, avec ton explication.</dd>
+    <dt>Le match doit changer de date.</dt>
+    <dd>Sur sa carte, dans <b>À venir</b> : <b>Modifier</b> envoie la demande à l'adversaire, qui l'accepte ou la refuse. Contre une équipe hors KoppaFoot, <b>Déplacer</b> change la date tout de suite.</dd>
+    <dt>Quelqu'un peut-il gérer l'équipe avec moi ?</dt>
+    <dd>Oui : nomme-le dans le <b>staff</b> et coche <b>Lui donner les droits du manager</b> (chapitre 4). Il gère l'équipe comme toi, sauf le staff et la suppression.</dd>
+    <dt>Je ne veux plus recevoir de candidatures.</dt>
+    <dd><b>Paramètres</b> → <b>Statut de recrutement</b> : coupe-le. Ton équipe n'apparaît plus dans le mercato.</dd>
+    <dt>Comment supprimer mon équipe ?</dt>
+    <dd><b>Paramètres</b> → <b>Zone dangereuse</b> → <b>Supprimer l'équipe</b>. Attention : c'est définitif.</dd>
+    <dt>Besoin d'aide ?</dt>
+    <dd>Touche ton avatar (tes initiales, en haut à droite), puis, dans <b>Support</b> : <b>Questions fréquentes</b>, ou <b>Nous faire un retour</b> pour écrire à l'équipe KoppaFoot.</dd>
+  </dl>
+</section>
+
+</body>
+</html>

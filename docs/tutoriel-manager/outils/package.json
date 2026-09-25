@@ -1,14 +1,14 @@
 {
-  "name": "koppafoot-tutoriel-organisateur-outils",
+  "name": "koppafoot-tutoriel-manager-outils",
   "private": true,
-  "description": "Captures d'écran et PDF du tutoriel organisateur (voir ../README.md).",
+  "description": "Captures d'écran et PDF du tutoriel manager (voir ../README.md).",
   "type": "module",
   "scripts": {
     "emulateurs": "cp ../../../firestore.rules ../../../firestore.indexes.json ../../../storage.rules emulateurs/ && firebase emulators:start --project demo-koppafoot --only auth,firestore,storage --config emulateurs/firebase.json",
     "captures": "./run-all.sh",
     "reduire": "python3 reduire-captures.py",
     "pdf": "node build-pdf.mjs",
-    "verifier": "python3 verifier-pdf.py ../Tutoriel-organisateur-KoppaFoot.pdf"
+    "verifier": "python3 verifier-pdf.py ../Tutoriel-manager-KoppaFoot.pdf"
   },
   "devDependencies": {
     "firebase-tools": "^15.31.0",
