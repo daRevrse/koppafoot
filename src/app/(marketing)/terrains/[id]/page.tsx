@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -233,12 +234,17 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               id="reserver"
               className="scroll-mt-[calc(var(--marketing-header-h,75px)+1.5rem)]"
             >
-              <BookingRequest
-                venueId={id}
-                available={venue.available}
-                pricePerHour={venue.pricePerHour}
-                horaires={venue.horaires}
-              />
+              {/* Suspense : le formulaire lit le créneau dans l'adresse
+                  (useSearchParams), ce qui le rend côté navigateur. Sans cette
+                  frontière, c'est toute la fiche qui perdait son rendu serveur. */}
+              <Suspense fallback={<div className="mt-10 h-96 border border-gray-200/70 bg-white" />}>
+                <BookingRequest
+                  venueId={id}
+                  available={venue.available}
+                  pricePerHour={venue.pricePerHour}
+                  horaires={venue.horaires}
+                />
+              </Suspense>
             </div>
           )}
 

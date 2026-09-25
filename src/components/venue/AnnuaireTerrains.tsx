@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Search, SlidersHorizontal, X } from "lucide-react";
+import { MapPin, Search, SlidersHorizontal, X, Clock, CalendarCheck } from "lucide-react";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, libelleEquipement,
+  dateCourte, finCreneau, libreA, libellePlage, plageDuJour, type Occupation,
 } from "@/lib/terrains";
 import { LignesDeTerrain, Etiquette, Fanion, EtatVide, LienBouton } from "@/components/venue/venue-ui";
+import type { HorairesOuverture } from "@/types";
 
 // ============================================
 // L'annuaire, côté navigation.
@@ -21,6 +23,16 @@ import { LignesDeTerrain, Etiquette, Fanion, EtatVide, LienBouton } from "@/comp
 // version au placard proposait « Paris, Lyon, Marseille, Toulouse » à un
 // produit dont les terrains sont à Lomé : trois filtres sur quatre ne
 // rendaient rien, et le quatrième non plus.
+//
+// « QUAND JOUER ? » EST LA PREMIÈRE QUESTION de celui qui arrive, et la liste
+// n'y répondait pas : il fallait ouvrir chaque fiche pour découvrir que le
+// terrain fermait à 20 h, ou qu'il était déjà pris samedi. Un jour et une
+// heure posés, la liste ne garde que les terrains ouverts ET libres, et le
+// créneau suit jusqu'au formulaire de la fiche.
+//
+// SUR TÉLÉPHONE, UNE LIGNE PAR TERRAIN. La carte d'ordinateur, photo 4:3
+// pleine largeur, montrait un terrain par écran : on ne compare pas trois
+// terrains en faisant défiler trois écrans.
 // ============================================
 
 export interface TerrainListe {
@@ -34,6 +46,41 @@ export interface TerrainListe {
   amenities: string[];
   photoUrl: string | null;
   available: boolean;
+  horaires: HorairesOuverture | null;
+  /** Les créneaux déjà pris à venir : date, heure, durée, rien d'autre. */
+  occupations: Occupation[];
+}
+
+/** Le créneau cherché, quand il y en a un. */
+interface Creneau {
+  date: string;
+  time: string;
+  duration: number;
+}
+
+const DUREES = [
+  { value: "1", label: "1 h" },
+  { value: "1.5", label: "1 h 30" },
+  { value: "2", label: "2 h" },
+];
+
+const rienAEcouter = () => () => {};
+
+/**
+ * La date du jour, LUE DANS LE NAVIGATEUR : le rendu serveur se fait à Paris,
+ * et autour de minuit il n'y est pas le même jour qu'à Lomé. Côté serveur,
+ * `null` : la carte n'annonce pas d'horaires plutôt que ceux d'un autre jour.
+ */
+function useAujourdhui(): string | null {
+  return useSyncExternalStore(
+    rienAEcouter,
+    () => {
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    },
+    () => null,
+  );
 }
 
 /**
@@ -56,7 +103,7 @@ const TOUS = "tous";
  */
 function Vignette({ terrain }: { terrain: TerrainListe }) {
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-900">
+    <div className="relative aspect-square w-24 shrink-0 overflow-hidden bg-gray-900 sm:aspect-[4/3] sm:w-full">
       {terrain.photoUrl ? (
         <>
           {/* next/image plutôt qu'`<img>` : la vignette fait 400px de large au
@@ -66,7 +113,7 @@ function Vignette({ terrain }: { terrain: TerrainListe }) {
             src={terrain.photoUrl}
             alt=""
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes="(max-width: 640px) 96px, (max-width: 1024px) 50vw, 33vw"
             className={`object-cover transition-transform duration-500 group-hover:scale-[1.03] ${
               terrain.available ? "" : "grayscale"
             }`}
@@ -81,57 +128,94 @@ function Vignette({ terrain }: { terrain: TerrainListe }) {
       )}
 
       {!terrain.available && (
-        <span className="absolute left-0 top-0 bg-gray-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">
+        <span className="absolute left-0 top-0 bg-gray-900 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white sm:px-3 sm:py-1.5 sm:text-[10px]">
           Fermé
         </span>
       )}
 
-      <p className="absolute bottom-0 left-0 right-0 px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/90">
+      <p className="absolute bottom-0 left-0 right-0 hidden px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/90 sm:block">
         {aUnPrix(terrain.pricePerHour) ? prixHeure(terrain.pricePerHour) : "Prix à convenir"}
       </p>
     </div>
   );
 }
 
-function Carte({ terrain }: { terrain: TerrainListe }) {
+/** « ?date=…&heure=…&duree=… » : le créneau cherché, pour préremplir la fiche. */
+const versLaFiche = (id: string, c: Creneau | null) =>
+  c
+    ? `/terrains/${id}?${new URLSearchParams({ date: c.date, heure: c.time, duree: String(c.duration) })}#reserver`
+    : `/terrains/${id}`;
+
+function Carte({
+  terrain,
+  creneau,
+  aujourdhui,
+}: {
+  terrain: TerrainListe;
+  creneau: Creneau | null;
+  aujourdhui: string | null;
+}) {
   const equipements = terrain.amenities
     .map((a) => libelleEquipement(a))
     .filter((l): l is string => Boolean(l));
 
+  // Les horaires du jour qui intéresse : celui du créneau cherché, sinon
+  // aujourd'hui. Rien quand le propriétaire ne les a pas posés.
+  const jour = creneau?.date ?? aujourdhui;
+  const plage = jour ? plageDuJour(terrain.horaires, jour) : undefined;
+
   return (
     <Link
-      href={`/terrains/${terrain.id}`}
-      className="group flex flex-col bg-white transition-colors hover:bg-gray-50"
+      href={versLaFiche(terrain.id, creneau)}
+      className="group flex gap-4 bg-white p-3 transition-colors hover:bg-gray-50 sm:flex-col sm:gap-0 sm:p-0"
     >
       <Vignette terrain={terrain} />
 
-      <div className="flex flex-1 flex-col p-5">
-        <h2 className="font-display text-xl font-black uppercase leading-[1.05] tracking-tight text-gray-900">
+      <div className="flex min-w-0 flex-1 flex-col sm:p-5">
+        <h2 className="font-display text-base font-black uppercase leading-[1.05] tracking-tight text-gray-900 sm:text-xl">
           {terrain.name}
         </h2>
 
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
+        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-gray-500 sm:mt-2">
           <MapPin size={12} className="shrink-0 text-gray-400" />
           <span className="truncate">
             {[terrain.address, terrain.city].filter(Boolean).join(", ") || "Adresse non précisée"}
           </span>
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 sm:mt-4 sm:gap-x-4">
           <span>{formatCourt(terrain.fieldSize)}</span>
           <span aria-hidden className="text-gray-200">/</span>
           <span>{surfaceCourte(terrain.fieldSurface)}</span>
         </div>
 
+        {/* Sur téléphone, le tarif quitte la photo, trop petite pour lui. */}
+        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-700 sm:hidden">
+          {aUnPrix(terrain.pricePerHour) ? prixHeure(terrain.pricePerHour) : "Prix à convenir"}
+        </p>
+
+        {creneau ? (
+          <p className="mt-2 inline-flex w-fit items-center gap-1.5 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-800 sm:mt-3">
+            <CalendarCheck size={12} />
+            {/* Le jour est déjà dans le compteur, au-dessus de la liste. */}
+            Libre {creneau.time} → {finCreneau(creneau.time, creneau.duration)}
+          </p>
+        ) : plage !== undefined ? (
+          <p className={`mt-2 flex items-center gap-1.5 text-[11px] font-bold sm:mt-3 ${plage ? "text-gray-600" : "text-gray-400"}`}>
+            <Clock size={12} className="shrink-0 text-gray-400" />
+            {plage ? `Aujourd'hui ${libellePlage(plage)}` : "Fermé aujourd'hui"}
+          </p>
+        ) : null}
+
         {equipements.length > 0 && (
-          <p className="mt-3 line-clamp-1 text-[11px] font-semibold text-gray-500">
+          <p className="mt-3 hidden line-clamp-1 text-[11px] font-semibold text-gray-500 sm:block">
             {equipements.slice(0, 3).join(" · ")}
             {equipements.length > 3 && ` +${equipements.length - 3}`}
           </p>
         )}
 
-        <span className="mt-5 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors group-hover:text-emerald-700">
-          Voir le terrain
+        <span className="mt-5 hidden items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors group-hover:text-emerald-700 sm:inline-flex">
+          {creneau ? "Demander ce créneau" : "Voir le terrain"}
           <span aria-hidden className="transition-transform group-hover:translate-x-1">→</span>
         </span>
       </div>
@@ -146,6 +230,17 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
   const [surface, setSurface] = useState(TOUS);
   const [ouvertsSeuls, setOuvertsSeuls] = useState(false);
   const [filtresOuverts, setFiltresOuverts] = useState(false);
+  const [date, setDate] = useState("");
+  const [heure, setHeure] = useState("");
+  const [duree, setDuree] = useState("1.5");
+  const [tri, setTri] = useState<"pertinence" | "prix">("pertinence");
+  const aujourdhui = useAujourdhui();
+
+  /** Un créneau ne vaut que complet : un jour sans heure ne dit pas quand. */
+  const creneau = useMemo<Creneau | null>(
+    () => (date && heure ? { date, time: heure, duration: Number(duree) } : null),
+    [date, heure, duree],
+  );
 
   const villes = useMemo(() => {
     const set = new Set(terrains.map((t) => t.city).filter((c): c is string => Boolean(c)));
@@ -154,17 +249,31 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
 
   const resultats = useMemo(() => {
     const besoin = plie(q.trim());
-    return terrains.filter((t) => {
+    const garde = terrains.filter((t) => {
       if (ouvertsSeuls && !t.available) return false;
       if (ville !== TOUS && t.city !== ville) return false;
       if (format !== TOUS && t.fieldSize !== format) return false;
       if (surface !== TOUS && t.fieldSurface !== surface) return false;
+      // Un créneau posé écarte les terrains fermés à ce moment, ceux déjà
+      // pris, et ceux qui ne prennent pas de demande du tout.
+      if (creneau) {
+        if (!t.available) return false;
+        const { ouvert, libre } = libreA(t.horaires, t.occupations, creneau);
+        if (!ouvert || !libre) return false;
+      }
       if (!besoin) return true;
       return plie(`${t.name} ${t.city ?? ""} ${t.address ?? ""}`).includes(besoin);
     });
-  }, [terrains, q, ville, format, surface, ouvertsSeuls]);
+    if (tri === "prix") {
+      // Les « prix à convenir » à la fin : on ne compare pas un tarif à rien.
+      const prix = (t: TerrainListe) => (aUnPrix(t.pricePerHour) ? t.pricePerHour : Infinity);
+      return [...garde].sort((a, b) => prix(a) - prix(b));
+    }
+    return garde;
+  }, [terrains, q, ville, format, surface, ouvertsSeuls, creneau, tri]);
 
-  const filtre = ville !== TOUS || format !== TOUS || surface !== TOUS || ouvertsSeuls || q.trim() !== "";
+  const filtre = ville !== TOUS || format !== TOUS || surface !== TOUS || ouvertsSeuls || q.trim() !== ""
+    || !!creneau;
 
   const reinitialiser = () => {
     setQ("");
@@ -172,6 +281,8 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
     setFormat(TOUS);
     setSurface(TOUS);
     setOuvertsSeuls(false);
+    setDate("");
+    setHeure("");
   };
 
   const ouverts = terrains.filter((t) => t.available).length;
@@ -233,10 +344,49 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
               <button
                 type="button"
                 onClick={reinitialiser}
+                aria-label="Tout effacer"
                 className="flex shrink-0 items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500"
               >
-                <X size={13} /> Tout effacer
+                {/* L'icône seule sur téléphone : le libellé mangeait le champ
+                    de recherche, réduit à trois lettres. */}
+                <X size={13} /> <span className="hidden sm:inline">Tout effacer</span>
               </button>
+            )}
+          </div>
+
+          {/* Quand jouer : hors du panneau replié, parce que c'est LA question. */}
+          {/* UNE SEULE RANGÉE, même sur téléphone : la barre colle en haut, et
+              chaque ligne qu'elle gagne est une ligne de liste en moins. */}
+          <div className="mt-3 grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap">
+            <span className="hidden text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 sm:inline">
+              Quand ?
+            </span>
+            <input
+              type="date"
+              value={date}
+              min={aujourdhui ?? undefined}
+              onChange={(e) => setDate(e.target.value)}
+              aria-label="Quand jouer : le jour"
+              className="min-w-0 border border-gray-200/70 bg-white px-2 py-2 text-xs font-semibold text-gray-900 focus:border-gray-900 focus:outline-none"
+            />
+            <input
+              type="time"
+              step={1800}
+              value={heure}
+              onChange={(e) => setHeure(e.target.value)}
+              aria-label="Quand jouer : l'heure"
+              className="min-w-0 border border-gray-200/70 bg-white px-2 py-2 text-xs font-semibold text-gray-900 focus:border-gray-900 focus:outline-none"
+            />
+            <select
+              value={duree}
+              onChange={(e) => setDuree(e.target.value)}
+              aria-label="Quand jouer : la durée"
+              className="border border-gray-200/70 bg-white px-2 py-2 text-xs font-semibold text-gray-900 focus:border-gray-900 focus:outline-none"
+            >
+              {DUREES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            {date && !heure && (
+              <span className="col-span-3 text-[11px] font-bold text-gray-400">Ajoutez une heure</span>
             )}
           </div>
 
@@ -271,6 +421,19 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
                     Masquer les terrains fermés
                   </span>
                 </label>
+              </div>
+
+              <div>
+                <Etiquette className="mb-2">Trier</Etiquette>
+                <select
+                  value={tri}
+                  onChange={(e) => setTri(e.target.value as "pertinence" | "prix")}
+                  aria-label="Trier les terrains"
+                  className="w-full border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 focus:border-gray-900 focus:outline-none"
+                >
+                  <option value="pertinence">Les ouverts d&apos;abord</option>
+                  <option value="prix">Prix croissant</option>
+                </select>
               </div>
 
               <div className="sm:col-span-2">
@@ -324,6 +487,7 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
           <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
             <Etiquette aria-live="polite">
               {resultats.length} terrain{resultats.length > 1 ? "s" : ""}
+              {creneau && ` libre${resultats.length > 1 ? "s" : ""} ${dateCourte(creneau.date)} à ${creneau.time}`}
               {filtre && ` sur ${terrains.length}`}
             </Etiquette>
             <Link
@@ -357,7 +521,9 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
                   </button>
                 }
               >
-                Aucun terrain ne réunit ces critères. Élargissez la recherche.
+                {creneau
+                  ? "Aucun terrain n'est ouvert et libre à ce moment. Essayez une autre heure ou un autre jour."
+                  : "Aucun terrain ne réunit ces critères. Élargissez la recherche."}
               </EtatVide>
             )
           ) : (
@@ -366,7 +532,7 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
             // vignettes flottantes.
             <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2 lg:grid-cols-3">
               {resultats.map((t) => (
-                <Carte key={t.id} terrain={t} />
+                <Carte key={t.id} terrain={t} creneau={creneau} aujourdhui={aujourdhui} />
               ))}
             </div>
           )}

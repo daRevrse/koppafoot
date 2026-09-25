@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, Check, AlertTriangle, Lock, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,9 +81,22 @@ export default function BookingRequest({
   const [horaires, setHoraires] = useState<HorairesOuverture | null>(horairesInitiaux);
   const [telephone, setTelephone] = useState("");
   const [message, setMessage] = useState("");
-  const [date, setDate] = useState(aujourdhui());
-  const [time, setTime] = useState("18:00");
-  const [dureeChoisie, setDureeChoisie] = useState("1.5");
+  // LE CRÉNEAU CHERCHÉ DANS L'ANNUAIRE ARRIVE PAR L'ADRESSE (?date, ?heure,
+  // ?duree) : l'équipe l'a déjà choisi, elle n'a pas à le ressaisir. Chaque
+  // valeur est vérifiée, une adresse bricolée retombe sur les défauts.
+  const params = useSearchParams();
+  const [date, setDate] = useState(() => {
+    const d = params.get("date");
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= aujourdhui() ? d : aujourdhui();
+  });
+  const [time, setTime] = useState(() => {
+    const h = params.get("heure");
+    return h && /^([01]\d|2[0-3]):[0-5]\d$/.test(h) ? h : "18:00";
+  });
+  const [dureeChoisie, setDureeChoisie] = useState(() => {
+    const d = params.get("duree");
+    return d && DUREES.some((x) => x.value === d) ? d : "1.5";
+  });
   const [busy, setBusy] = useState(false);
   const [envoye, setEnvoye] = useState(false);
 
@@ -205,7 +219,11 @@ export default function BookingRequest({
               à qui il confie son terrain, et vous devez pouvoir suivre sa réponse.
             </p>
             <Link
-              href={`/login?for=creneau&next=/terrains/${venueId}`}
+              // Le créneau choisi dans l'annuaire voyage avec le retour : sans
+              // lui, l'équipe revenait de l'inscription sur un formulaire vide.
+              href={`/login?for=creneau&next=${encodeURIComponent(
+                `/terrains/${venueId}${params.toString() ? `?${params}` : ""}#reserver`,
+              )}`}
               className="mt-5 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
             >
               Créer mon compte

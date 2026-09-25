@@ -274,3 +274,34 @@ export function reservationDuMatch(
     proposition: brut.proposition ?? null,
   };
 }
+
+// ─── L'annuaire : un terrain pour un créneau ────────────────
+
+/** Un créneau déjà pris, tel que l'annuaire le reçoit : ni nom ni motif. */
+export interface Occupation {
+  date: string;
+  time: string;
+  duration: number;
+}
+
+/**
+ * Un terrain peut-il accueillir ce créneau ?
+ *
+ * DEUX RÉPONSES, pas une : « ouvert » dit les horaires du propriétaire,
+ * « libre » dit ses réservations. La liste les confond en « disponible »,
+ * mais la carte doit pouvoir dire POURQUOI un terrain n'apparaît pas — un
+ * terrain fermé le dimanche n'est pas un terrain complet.
+ *
+ * Sans horaires renseignés, le terrain est ouvert : on n'exclut personne au
+ * nom d'une règle que le propriétaire n'a jamais posée.
+ */
+export function libreA(
+  horaires: HorairesOuverture | null,
+  occupations: Occupation[],
+  creneau: Occupation,
+): { ouvert: boolean; libre: boolean } {
+  return {
+    ouvert: horsHoraires(horaires, creneau) === null,
+    libre: !occupations.some((o) => seChevauchent(o, creneau)),
+  };
+}
