@@ -30,6 +30,9 @@ import { avatarColor } from "@/components/feed/PostCard";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import CarteMatch from "@/components/team/CarteMatch";
 import type { BilanClub } from "@/lib/bilan-club";
+
+/** Le bilan de la route publique, forme comprise (voir lib/bilan-club-serveur). */
+type BilanPublic = BilanClub & { forme: ("V" | "N" | "D")[] };
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
@@ -791,7 +794,7 @@ function GhostStatsModal({
  * Ni `memberIds` ni `managerId` n'en font partie : ils restent vides ici, ce
  * qui fait tomber d'elles-memes les vues reservees au manager.
  */
-async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanClub } | null> {
+async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanPublic } | null> {
   try {
     const res = await fetch(`/api/public/team/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
@@ -800,7 +803,7 @@ async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanCl
     // Le bilan calculé par la route : amicaux ET compétitions (voir
     // lib/bilan-club-serveur). La page ne charge que les amicaux, elle ne
     // pourrait pas le refaire seule.
-    const bilan: BilanClub = {
+    const bilan: BilanPublic = {
       joues: team.matches_played ?? 0,
       gagnes: team.wins ?? 0,
       nuls: team.draws ?? 0,
@@ -808,6 +811,7 @@ async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanCl
       butsPour: team.goals_for ?? 0,
       butsContre: team.goals_against ?? 0,
       sansEncaisser: team.clean_sheets ?? 0,
+      forme: Array.isArray(team.form) ? team.form : [],
     };
     return { bilan, team: {
       id: team.id,
@@ -829,6 +833,7 @@ async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanCl
       galleryUrls: team.gallery_urls ?? [],
       isGhost: team.is_ghost ?? false,
       followersCount: team.followers_count ?? 0,
+      squadCount: team.squad_count ?? team.member_count ?? 0,
       memberIds: [],
       managerId: "",
     } as unknown as Team };
@@ -853,7 +858,7 @@ export default function TeamDetailPage() {
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   /** Le bilan de la route publique, le même pour tous les lecteurs. */
-  const [bilanServeur, setBilanServeur] = useState<BilanClub | null>(null);
+  const [bilanServeur, setBilanServeur] = useState<BilanPublic | null>(null);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("roster");
@@ -1372,7 +1377,12 @@ export default function TeamDetailPage() {
   // Squad size = accounts on the roster + ghost players. The manager is not
   // in member_ids (createTeam starts it empty), so this is the real count,
   // memberIds alone silently dropped every player without a smartphone.
-  const squadCount = team.memberIds.length + ghostPlayers.length;
+  //
+  // Un visiteur ne charge ni les comptes ni les fantômes : il lit le nombre
+  // que la route publique a compté (`squadCount`, posé par fetchPublicTeam).
+  const squadCount = user
+    ? team.memberIds.length + ghostPlayers.length
+    : (team as Team & { squadCount?: number }).squadCount ?? 0;
   // Combien de formats sont deja prepares : le compteur de l onglet.
   const nombreDeCompositions = Object.values(team.compositionsTypes ?? {}).filter(
     (c) => c.lineup.length > 0,
@@ -1414,13 +1424,18 @@ export default function TeamDetailPage() {
       }
     : bilanLocal;
 
-  /** Les cinq derniers résultats, du plus récent au plus ancien. */
-  const forme = matchsTermines.slice(0, 5).map((m) => {
+  /**
+   * Les cinq derniers résultats, du plus récent au plus ancien. Ceux de la
+   * route d'abord, pour la même raison que le bilan : ils comptent aussi les
+   * compétitions.
+   */
+  const formeLocale = matchsTermines.slice(0, 5).map((m) => {
     const nous = m.homeTeamId === teamId ? m.scoreHome : m.scoreAway;
     const eux = m.homeTeamId === teamId ? m.scoreAway : m.scoreHome;
     if (nous == null || eux == null) return "?" as const;
     return nous > eux ? ("V" as const) : nous < eux ? ("D" as const) : ("N" as const);
   });
+  const forme: ("V" | "N" | "D" | "?")[] = bilanServeur ? bilanServeur.forme : formeLocale;
 
   /**
    * Le classement interne, comptes ET joueurs sans compte confondus.
@@ -1580,7 +1595,9 @@ export default function TeamDetailPage() {
             l'effectif, qui est ce qu'on vient voir. */}
         {[
           { id: "apropos", label: "À propos", count: 0 },
-          { id: "roster", label: "Effectif", count: members.length },
+          // Le même nombre que la liste qu'il ouvre, qui montre aussi les
+          // joueurs sans compte : l'onglet disait 5 sur une liste de 18.
+          { id: "roster", label: "Effectif", count: squadCount },
           ...(isTeamManager
             ? [{ id: "compositions", label: "Compositions", count: nombreDeCompositions }]
             : []),

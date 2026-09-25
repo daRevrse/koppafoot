@@ -1,5 +1,7 @@
 import { adminDb } from "@/lib/firebase-admin";
-import { bilanDuClub, type BilanClub, type MatchPourBilan } from "@/lib/bilan-club";
+import {
+  bilanDuClub, compteDansLeBilan, type BilanClub, type MatchPourBilan,
+} from "@/lib/bilan-club";
 
 // ============================================
 // LE BILAN COMPLET D'UN CLUB : ses amicaux ET ses matchs de compétition.
@@ -27,8 +29,22 @@ import { bilanDuClub, type BilanClub, type MatchPourBilan } from "@/lib/bilan-cl
 // palmarès.
 // ============================================
 
-function versBilan(m: FirebaseFirestore.DocumentData): MatchPourBilan {
+/** Un match pour le bilan, plus de quoi le ranger dans le temps. */
+export type MatchDate = MatchPourBilan & {
+  /** « AAAA-MM-JJHH:MM » : se trie comme une chaîne. */
+  quand: string;
+};
+
+export type Resultat = "V" | "N" | "D";
+
+export type BilanComplet = BilanClub & {
+  /** Les cinq derniers résultats, du plus récent au plus ancien. */
+  forme: Resultat[];
+};
+
+function versBilan(m: FirebaseFirestore.DocumentData): MatchDate {
   return {
+    quand: `${m.date ?? ""}${m.time ?? ""}`,
     status: String(m.status ?? ""),
     homeTeamId: (m.home_team_id as string) ?? null,
     awayTeamId: (m.away_team_id as string) ?? null,
@@ -38,7 +54,7 @@ function versBilan(m: FirebaseFirestore.DocumentData): MatchPourBilan {
 }
 
 /** Les amicaux : deux requêtes, un match nomme ses équipes dans deux champs. */
-async function amicaux(teamId: string): Promise<MatchPourBilan[]> {
+async function amicaux(teamId: string): Promise<MatchDate[]> {
   const [chezNous, chezEux] = await Promise.all([
     adminDb.collection("matches").where("home_team_id", "==", teamId).get(),
     adminDb.collection("matches").where("away_team_id", "==", teamId).get(),
@@ -53,11 +69,11 @@ async function amicaux(teamId: string): Promise<MatchPourBilan[]> {
  * (`nous`) deviennent `teamId`, les matchs où il n'est pas sont écartés.
  * Exporté pour être vérifiable sans base.
  */
-export function auNomDuClub(
-  matchs: MatchPourBilan[],
+export function auNomDuClub<T extends MatchPourBilan>(
+  matchs: T[],
   nous: Set<string>,
   teamId: string,
-): MatchPourBilan[] {
+): T[] {
   return matchs.flatMap((m) => {
     const chezNous = !!m.homeTeamId && nous.has(m.homeTeamId);
     const chezEux = !!m.awayTeamId && nous.has(m.awayTeamId);
@@ -73,7 +89,7 @@ export function auNomDuClub(
 }
 
 /** Les matchs de compétition terminés, réécrits au nom du club. */
-async function enCompetition(teamId: string): Promise<MatchPourBilan[]> {
+async function enCompetition(teamId: string): Promise<MatchDate[]> {
   const competitions = await adminDb.collection("competitions").get();
   const parts = await Promise.all(
     competitions.docs
@@ -97,16 +113,35 @@ async function enCompetition(teamId: string): Promise<MatchPourBilan[]> {
 }
 
 /**
+ * La forme : les `n` derniers matchs comptés, du plus récent au plus ancien.
+ * Même filtre que le bilan (voir compteDansLeBilan), pour que la forme ne
+ * raconte jamais un match que le bilan ignore.
+ */
+export function formeDuClub(matchs: MatchDate[], teamId: string, n = 5): Resultat[] {
+  return matchs
+    .filter((m) => compteDansLeBilan(m) && (m.homeTeamId === teamId) !== (m.awayTeamId === teamId))
+    .sort((a, b) => b.quand.localeCompare(a.quand))
+    .slice(0, n)
+    .map((m) => {
+      const chezNous = m.homeTeamId === teamId;
+      const pour = (chezNous ? m.scoreHome : m.scoreAway) as number;
+      const contre = (chezNous ? m.scoreAway : m.scoreHome) as number;
+      return pour > contre ? "V" : pour < contre ? "D" : "N";
+    });
+}
+
+/**
  * Amicaux + compétitions. Ne jette pas pour une compétition illisible : sa
  * part manque, le reste du bilan tient — et le journal dit laquelle.
  */
-export async function bilanCompletDuClub(teamId: string): Promise<BilanClub> {
+export async function bilanCompletDuClub(teamId: string): Promise<BilanComplet> {
   const [a, c] = await Promise.all([
     amicaux(teamId),
     enCompetition(teamId).catch((err) => {
       console.error(`bilanCompletDuClub(${teamId}) : compétitions illisibles`, err);
-      return [] as MatchPourBilan[];
+      return [] as MatchDate[];
     }),
   ]);
-  return bilanDuClub([...a, ...c], teamId);
+  const tous = [...a, ...c];
+  return { ...bilanDuClub(tous, teamId), forme: formeDuClub(tous, teamId) };
 }

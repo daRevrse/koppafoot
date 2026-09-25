@@ -45,6 +45,11 @@ export async function GET(
     }
     // Le nombre de membres est une information d'équipe ; la liste ne l'est pas.
     out.member_count = Array.isArray(data.member_ids) ? data.member_ids.length : 0;
+    // L'effectif entier : les comptes ET les joueurs sans compte, saisis par
+    // le manager. Un nombre, jamais les noms — la sous-collection reste
+    // fermée aux visiteurs. Sans lui, un visiteur lisait « Effectif 0 ».
+    const fantomes = await snap.ref.collection("ghost_players").count().get();
+    out.squad_count = (out.member_count as number) + fantomes.data().count;
 
     /**
      * LE BILAN SE CALCULE, IL NE SE LIT PLUS.
@@ -68,6 +73,7 @@ export async function GET(
     out.goals_for = bilan.butsPour;
     out.goals_against = bilan.butsContre;
     out.clean_sheets = bilan.sansEncaisser;
+    out.form = bilan.forme;
 
     return NextResponse.json({ team: out });
   } catch (err) {
