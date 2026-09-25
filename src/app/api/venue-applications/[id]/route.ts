@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendNotificationEmail, venueApplicationDecisionHtml } from "@/lib/email";
 import { sendPushToUser } from "@/lib/fcm-server";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 
 /**
  * PATCH /api/venue-applications/[id], décision de l'administrateur.
@@ -35,7 +36,10 @@ export async function PATCH(
     }
 
     const callerSnap = await adminDb.collection("users").doc(callerUid).get();
-    if (!callerSnap.exists || callerSnap.data()?.user_type !== "superadmin") {
+    // Le drapeau ET l'ancien `user_type`, comme toutes les routes
+    // d'administration : ne lire que le second refusait l'approbation à un
+    // administrateur qui n'a que le drapeau.
+    if (!callerSnap.exists || !estSuperadmin(callerSnap.data())) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
@@ -66,9 +70,19 @@ export async function PATCH(
 
     if (approved) {
       const surface = application.field_surface ?? "synthetic";
+
+      // LE TÉLÉPHONE DE LA CANDIDATURE REJOINT LE COMPTE, s'il n'en avait pas.
+      // C'est celui que « Contacter le responsable » donne aux équipes : resté
+      // sur la candidature, il ne servait à personne, et la fiche d'un
+      // propriétaire sans numéro de compte ne donnait aucun moyen de l'appeler.
+      const compte = (await adminDb.collection("users").doc(application.uid).get()).data();
+      const telephone = typeof application.phone === "string" ? application.phone.trim() : "";
+      const aUnTelephone = typeof compte?.phone === "string" && compte.phone.trim() !== "";
+
       const [, venueRef] = await Promise.all([
         adminDb.collection("users").doc(application.uid).update({
           is_venue_owner: true,
+          ...(telephone && !aUnTelephone ? { phone: telephone } : {}),
           updated_at: FieldValue.serverTimestamp(),
         }),
         // Le terrain naît avec la casquette : la candidature portait déjà sa
