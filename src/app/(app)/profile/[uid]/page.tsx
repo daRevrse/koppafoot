@@ -523,6 +523,7 @@ async function fetchPublicProfile(
       matchesPlayed: profile.matches_played ?? 0,
       goals: profile.goals ?? 0,
       assists: profile.assists ?? 0,
+      followersCount: profile.followers_count ?? 0,
       // Le cast passe par `unknown` a dessein : UserProfile exige email,
       // phone et quelques champs de compte que cette projection ne porte pas
       //, c'est tout l'interet de la projection. La page ne lit aucun d'eux.
@@ -655,6 +656,17 @@ export default function PublicProfilePage() {
           setProfile(null);
           setLoading(false);
           return;
+        }
+
+        // LE BILAN VIENT TOUJOURS DE LA PROJECTION. Connecté, on lit le
+        // document brut, dont les trois compteurs ne couvrent que les
+        // amicaux : un joueur de tournoi y avait 0 but. La projection, elle,
+        // additionne les compétitions (voir lib/bilan-public). Même fiche,
+        // même bilan, qu'on soit connecté ou non.
+        if (currentUser && pub?.profile) {
+          p.matchesPlayed = pub.profile.matchesPlayed;
+          p.goals = pub.profile.goals;
+          p.assists = pub.profile.assists;
         }
 
         setProfile(p);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { aUnProfilPublic } from "@/lib/espaces-acces";
 import { bilanPublicDuJoueur } from "@/lib/bilan-public";
+import { bilanDuClub } from "@/lib/bilan-club";
 import type { LinkedCompPlayer } from "@/types";
 
 /**
@@ -27,6 +28,9 @@ const PUBLIC_FIELDS = [
   "bio", "location_city", "position", "skill_level", "strong_foot",
   "height", "weight", "date_of_birth", "user_type", "evolution_role",
   "jersey_number", "gallery_urls",
+  // Un nombre, pas une liste : il dit combien, jamais qui. La fiche
+  // l'affichait à 0 pour tout visiteur, faute de le recevoir.
+  "followers_count",
 ] as const;
 
 export async function GET(
@@ -76,23 +80,47 @@ export async function GET(
     ]);
 
     const seen = new Set<string>();
-    const teams = [...asMember.docs, ...asManager.docs].flatMap((d) => {
-      if (seen.has(d.id)) return [];
+    const equipes = [...asMember.docs, ...asManager.docs].filter((d) => {
+      if (seen.has(d.id)) return false;
       seen.add(d.id);
+      return true;
+    });
+
+    // LE BILAN DES ÉQUIPES SE CALCULE, comme sur la fiche d'équipe (voir
+    // /api/public/team/[id] et lib/bilan-club) : les compteurs du document
+    // ne redescendent jamais. Le taux de victoire d'un manager se lisait
+    // sur eux, et racontait autre chose que la fiche de son propre club.
+    const teams = await Promise.all(equipes.map(async (d) => {
       const t = d.data();
-      return [{
+      const [chezNous, chezEux] = await Promise.all([
+        adminDb.collection("matches").where("home_team_id", "==", d.id).get(),
+        adminDb.collection("matches").where("away_team_id", "==", d.id).get(),
+      ]);
+      const parId = new Map<string, FirebaseFirestore.DocumentData>();
+      for (const m of [...chezNous.docs, ...chezEux.docs]) parId.set(m.id, m.data());
+      const bilan = bilanDuClub(
+        [...parId.values()].map((m) => ({
+          status: String(m.status ?? ""),
+          homeTeamId: (m.home_team_id as string) ?? null,
+          awayTeamId: (m.away_team_id as string) ?? null,
+          scoreHome: typeof m.score_home === "number" ? m.score_home : null,
+          scoreAway: typeof m.score_away === "number" ? m.score_away : null,
+        })),
+        d.id,
+      );
+      return {
         id: d.id,
         name: t.name ?? "",
         city: t.city ?? null,
         color: t.color ?? null,
         logoUrl: t.logo_url ?? null,
-        wins: t.wins ?? 0,
-        draws: t.draws ?? 0,
-        losses: t.losses ?? 0,
-        matchesPlayed: t.matches_played ?? 0,
+        wins: bilan.gagnes,
+        draws: bilan.nuls,
+        losses: bilan.perdus,
+        matchesPlayed: bilan.joues,
         isManager: t.manager_id === uid,
-      }];
-    });
+      };
+    }));
 
     // LA RÈGLE C : une page publique demande d'avoir quelque chose à y
     // montrer — un rôle activé (ou hérité), ou une équipe. Voir

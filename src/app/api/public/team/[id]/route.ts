@@ -23,6 +23,8 @@ const PUBLIC_FIELDS = [
   "color", "level", "is_recruiting", "max_members",
   "achievements",
   "gallery_urls", "is_ghost",
+  // Un nombre, pas une liste d'abonnés : un visiteur voyait « 0 abonné ».
+  "followers_count",
 ] as const;
 
 export async function GET(

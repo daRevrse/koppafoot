@@ -29,6 +29,7 @@ import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/
 import { avatarColor } from "@/components/feed/PostCard";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import CarteMatch from "@/components/team/CarteMatch";
+import { bilanDuClub } from "@/lib/bilan-club";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
@@ -815,6 +816,7 @@ async function fetchPublicTeam(id: string): Promise<Team | null> {
       achievements: team.achievements ?? [],
       galleryUrls: team.gallery_urls ?? [],
       isGhost: team.is_ghost ?? false,
+      followersCount: team.followers_count ?? 0,
       memberIds: [],
       managerId: "",
     } as unknown as Team;
@@ -919,6 +921,12 @@ export default function TeamDetailPage() {
         // Fetch matches
         const teamMatches = await getMatchesByTeamIds([data.id]);
         setMatches(teamMatches);
+        // Le bilan d'en-tête se recalcule sur ces matchs, comme pour un
+        // visiteur (voir /api/public/team/[id]) : connecté, il se lisait sur
+        // les compteurs du document, et les deux lecteurs ne voyaient pas
+        // la même fiche. Voir lib/bilan-club.
+        const b = bilanDuClub(teamMatches, data.id);
+        setTeam({ ...data, matchesPlayed: b.joues, wins: b.gagnes, draws: b.nuls, losses: b.perdus });
       }
     } catch {
       // Silent
