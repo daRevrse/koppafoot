@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Radio, MapPin, Shield, Inbox, Ticket, Trophy,
-  User, Briefcase, Flag, LayoutGrid,
+  LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +12,6 @@ import { getMatchesIModerate } from "@/lib/firestore";
 import { isOrganizer, isScorer, isVenueOwner, isSuperAdmin } from "@/lib/hats";
 import { ROLE_DESTINATIONS } from "@/config/role-destinations";
 import { useT } from "@/i18n";
-import type { EvolutionRole } from "@/types";
 
 // ============================================
 // Ce qu'un compte peut ouvrir : son rôle d'un côté, ses casquettes de l'autre.
@@ -32,19 +31,11 @@ export interface Espace {
 }
 
 /**
- * L'icone suit le role ; le NOM du menu, non.
- *
- * Il s'appelle « MySpace » pour tout le monde : un compte cumule un role et
- * des casquettes, et « Espace joueur » mentait des qu'un joueur organisait
+ * Le menu s'appelle « MySpace » pour tout le monde : un compte cumule un role
+ * et des casquettes, et « Espace joueur » mentait des qu'un joueur organisait
  * aussi une competition, le menu contenait alors deux familles dont une
  * seule etait nommee.
  */
-const ROLE_ICONS: Record<EvolutionRole, LucideIcon> = {
-  player: User,
-  manager: Briefcase,
-  referee: Flag,
-};
-
 const NOM_DU_MENU = "MySpace";
 
 export interface Espaces {
@@ -132,9 +123,9 @@ export function useEspaces(): Espaces | null {
 
   return {
     label: NOM_DU_MENU,
-    // L'icone, elle, dit le role, c'est le seul endroit ou il se lit d'un
-    // coup d'oeil dans la barre.
-    Icon: (user.evolutionRole ? ROLE_ICONS[user.evolutionRole] : null) ?? LayoutGrid,
+    // Les 4 carres pour tous : l'icone du role (bonhomme, mallette) se
+    // confondait avec celle du profil, juste a cote dans la barre.
+    Icon: LayoutGrid,
     roleItems,
     hatItems,
   };

@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Users, Search, Plus, ChevronRight, Shield, MapPin, ClipboardCheck, Store,
-  Star, Settings, X, Loader2,
+  Users, Search, Plus, ChevronRight, Shield, MapPin, ClipboardCheck, ArrowLeftRight,
+  X, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTeamsIManage, getTeamsByPlayer, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
@@ -22,13 +22,6 @@ const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string }> = 
   emerald: { bg: "bg-emerald-100", icon: "text-emerald-600", stripe: "bg-emerald-500" },
   purple: { bg: "bg-purple-100", icon: "text-purple-600", stripe: "bg-purple-500" },
   orange: { bg: "bg-orange-100", icon: "text-orange-600", stripe: "bg-orange-500" },
-};
-
-const LEVEL_LABELS: Record<string, string> = {
-  beginner: "Débutant",
-  amateur: "Amateur",
-  intermediate: "Intermédiaire",
-  advanced: "Avancé",
 };
 
 const TEAM_COLORS = [
@@ -278,10 +271,6 @@ export default function TeamsPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <div className="h-9 flex-1 animate-pulse bg-gray-200" />
-                  <div className="h-9 w-24 animate-pulse bg-gray-100" />
-                </div>
               </div>
             </div>
           ))}
@@ -321,18 +310,23 @@ export default function TeamsPage() {
               sur la page qui la porte.
 
               Les convocations d'abord : on y repond, et une reponse a une
-              date limite — c'est le seul des deux qui presse. */}
-          <Link
-            href="/participations"
-            className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
-          >
-            <ClipboardCheck size={16} /> Mes convocations
-          </Link>
+              date limite — c'est le seul des deux qui presse.
+
+              Un manager ne recoit pas de convocation, il les envoie : le
+              lien ne se montre qu'aux joueurs. */}
+          {!isManager && (
+            <Link
+              href="/participations"
+              className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
+            >
+              <ClipboardCheck size={16} /> Mes convocations
+            </Link>
+          )}
           <Link
             href="/mercato"
             className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
           >
-            <Store size={16} /> Mercato
+            <ArrowLeftRight size={16} /> Mercato
           </Link>
           {isManager && (
             <button
@@ -358,96 +352,60 @@ export default function TeamsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: i * 0.08 }}
                 whileHover={{ y: -2 }}
-                className="group relative overflow-hidden border border-gray-200/70 bg-white transition-shadow"
               >
-                {/* Color stripe top */}
-                <div className={`h-1 ${colors.stripe}`} />
+                {/* LA CARTE ENTIERE EST LE LIEN. Elle portait deux boutons,
+                    « Voir l'equipe » et « Gerer », qui menaient a la meme
+                    page, un badge « Manager » sur une page que seul un
+                    manager voit ainsi, et le niveau, qui ne sert qu'au
+                    mercato. Restent le nom, la ville, le bilan, l'effectif. */}
+                <Link
+                  href={`/teams/${team.id}`}
+                  className="group relative block overflow-hidden border border-gray-200/70 bg-white transition-colors hover:border-gray-900"
+                >
+                  <div className={`h-1 ${colors.stripe}`} />
 
-                <div className="p-3.5 sm:p-5">
-                  {/* Team header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. */}
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${team.logoUrl ? "" : colors.bg}`}>
-                        {team.logoUrl
-                          ? <img src={team.logoUrl} alt={team.name} className="h-full w-full object-contain" />
-                          : <Shield size={24} className={colors.icon} />}
+                  <div className="flex items-center gap-3 p-3.5 sm:p-4">
+                    {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. */}
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden ${team.logoUrl ? "" : colors.bg}`}>
+                      {team.logoUrl
+                        ? <img src={team.logoUrl} alt={team.name} className="h-full w-full object-contain" />
+                        : <Shield size={24} className={colors.icon} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-bold text-gray-900 font-display">{team.name}</h3>
+                      <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
+                        {team.city && (
+                          <span className="flex min-w-0 items-center gap-1">
+                            <MapPin size={12} className="shrink-0" /> <span className="truncate">{team.city}</span>
+                          </span>
+                        )}
+                        <span className="flex shrink-0 items-center gap-1">
+                          <Users size={12} /> {team.memberIds.length + (ghostCounts.get(team.id) ?? 0)}/{team.maxMembers}
+                        </span>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 font-display">{team.name}</h3>
-                        <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                          <MapPin size={12} /> {team.city}
-                        </div>
-                      </div>
                     </div>
-                    {isManager && (
-                      <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                        <Shield size={12} /> Manager
-                      </span>
-                    )}
+                    <ChevronRight size={18} className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-900" />
                   </div>
 
-                  {/* LE BILAN, ENTIER. La carte montrait « Joueurs, Victoires,
-                      Défaites » et TAISAIT LES NULS, que l'equipe porte
-                      pourtant : un club a 1 victoire, 2 nuls et 0 defaite
-                      lisait « 1 victoire, 0 defaite » — un bilan de trois
-                      matchs dont il en manquait deux. V / N / D se lisent
-                      ensemble ou ne se lisent pas.
-
-                      « JOUEURS » EST PARTI D'ICI, et la place revient au
-                      bilan. Le meme nombre s'ecrivait DEUX FOIS sur la carte :
-                      en gros dans cette rangee, et en petit sous elle, ou il
-                      dit en plus le plafond de l'effectif — « 18/24 ». Des
-                      deux, c'est celui-la qui en dit le plus.
-
-                      Les libelles etaient au pluriel en dur, d'ou « 1
-                      Victoires » et « 1 Joueurs ». V / N / D est l'ecriture du
-                      football, et elle ne se decline pas. */}
-                  <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 bg-gray-50 p-2.5 sm:p-3">
+                  {/* LE BILAN, ENTIER : V / N / D se lisent ensemble ou ne
+                      se lisent pas (un bilan sans les nuls taisait des
+                      matchs). V / N / D est l'ecriture du football, elle ne
+                      se decline pas. */}
+                  <div className="grid grid-cols-3 border-t border-gray-100 bg-gray-50 py-2">
                     <div className="text-center">
-                      <p className="text-base sm:text-lg font-bold text-emerald-600 font-display">{team.wins}</p>
-                      <p className="text-xs text-gray-500">V</p>
+                      <p className="text-base font-bold text-emerald-600 font-display">{team.wins}</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-400">V</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-base sm:text-lg font-bold text-gray-600 font-display">{team.draws}</p>
-                      <p className="text-xs text-gray-500">N</p>
+                      <p className="text-base font-bold text-gray-600 font-display">{team.draws}</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-400">N</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-base sm:text-lg font-bold text-red-500 font-display">{team.losses}</p>
-                      <p className="text-xs text-gray-500">D</p>
+                      <p className="text-base font-bold text-red-500 font-display">{team.losses}</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-400">D</p>
                     </div>
                   </div>
-
-                  {/* Meta */}
-                  <div className="mt-3 sm:mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Star size={12} /> {LEVEL_LABELS[team.level] ?? team.level}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users size={12} /> {team.memberIds.length + (ghostCounts.get(team.id) ?? 0)}/{team.maxMembers}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="mt-3 sm:mt-4 flex gap-2">
-                    <Link
-                      href={`/teams/${team.id}`}
-                      className="flex flex-1 items-center justify-center gap-1 border border-gray-200/70 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Voir l&apos;équipe <ChevronRight size={14} />
-                    </Link>
-                    {isManager && (
-                      <Link
-                        href={`/teams/${team.id}`}
-                        className="flex items-center justify-center gap-1 border border-blue-200 px-3 py-2 text-xs sm:text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
-                      >
-                        <Settings size={14} /> Gérer
-                      </Link>
-                    )}
-                  </div>
-                </div>
+                </Link>
               </motion.div>
             );
           })}
