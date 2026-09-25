@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import {
-  ErreurReservation, annoncerDemande, appelant, notifier, quand, recopierSurLeMatch, surLeMatch,
+  ErreurReservation, annoncerDemande, appelant, lienDuMatch, notifier, quand, recopierSurLeMatch, surLeMatch,
 } from "@/lib/reservations-server";
 import { seChevauchent } from "@/lib/terrains";
 import type { FirestoreBooking, PropositionCreneau } from "@/types";
@@ -51,14 +51,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "Cette demande n'est pas la vôtre" }, { status: 403 });
     }
     const blocage = b.kind === "blocage";
-    const lien = b.match_id ? "/matches" : "/mes-reservations";
+    // Le match de la réservation, amical ou de compétition, s'il y en a un.
+    const match = b.match_id ? { mid: b.match_id, cid: b.competition_id ?? null } : null;
+    const lien = match ? lienDuMatch(match) : "/mes-reservations";
 
     switch (corps.action) {
       case "confirmer": {
         if (!proprietaire) return interdit();
         if (b.status !== "pending") return deja();
         await ref.update({ status: "confirmed", updated_at: FieldValue.serverTimestamp() });
-        if (b.match_id) await recopierSurLeMatch(b.match_id, surLeMatch(id, b, "confirmed"));
+        if (match) await recopierSurLeMatch(match, surLeMatch(id, b, "confirmed"));
         await notifier(b.user_id, {
           type: "booking_answer",
           title: "Créneau confirmé",
@@ -97,9 +99,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
         if (blocage) return NextResponse.json({ ok: true });
 
-        if (b.match_id) {
+        if (match) {
           await recopierSurLeMatch(
-            b.match_id,
+            match,
             surLeMatch(id, b, proprietaire ? "refused" : "cancelled", proposition),
           );
         }

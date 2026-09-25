@@ -261,6 +261,44 @@ export function dureeDuMatch(format: string | null | undefined): number {
   return 1;
 }
 
+/**
+ * Combien de temps réserver pour un match de compétition.
+ *
+ * Là, la compétition fixe la longueur des mi-temps : on y ajoute une
+ * demi-heure pour s'installer et libérer le terrain, arrondi à la
+ * demi-heure supérieure. Deux fois 45 minutes → 2 h ; deux fois 20 → 1 h 30.
+ */
+export function dureeEnCompetition(minutesDeJeu: number): number {
+  const minutes = Number.isFinite(minutesDeJeu) && minutesDeJeu > 0 ? minutesDeJeu : 90;
+  return Math.ceil((minutes + 30) / 30) / 2;
+}
+
+const cleDeNom = (nom: string | null | undefined) =>
+  (nom ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+/**
+ * Le terrain référencé qui porte ce nom, pour un calendrier importé où le
+ * lieu arrive en texte.
+ *
+ * Accents, casse et espaces ne comptent pas ; deux terrains du même nom, si :
+ * on ne demande pas un créneau au mauvais propriétaire sur une homonymie, le
+ * match garde alors son nom de lieu sans réservation.
+ */
+export function terrainNomme<T extends { name: string }>(
+  terrains: T[],
+  nom: string | null | undefined,
+): T | null {
+  const cle = cleDeNom(nom);
+  if (!cle) return null;
+  const trouves = terrains.filter((t) => cleDeNom(t.name) === cle);
+  return trouves.length === 1 ? trouves[0] : null;
+}
+
 /** La réservation recopiée sur un match, telle que Firestore la porte. */
 export function reservationDuMatch(
   brut: FirestoreReservationDuMatch | null | undefined,

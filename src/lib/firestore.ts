@@ -3367,6 +3367,7 @@ function toBooking(id: string, d: FirestoreBooking): Booking {
     status: d.status,
     kind: d.kind ?? (d.match_id ? "match" : "demande"),
     matchId: d.match_id ?? null,
+    competitionId: d.competition_id ?? null,
     matchLabel: d.match_label ?? null,
     contact: d.contact ?? null,
     message: d.message ?? null,

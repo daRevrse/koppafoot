@@ -58,3 +58,28 @@ export async function synchroniserTerrain(matchId: string): Promise<string | nul
     return err instanceof Error ? err.message : "La demande au terrain n'est pas partie.";
   }
 }
+
+/**
+ * La même chose pour des matchs de compétition, en une fois : un calendrier
+ * importé ou programmé d'un coup n'envoie qu'un email par propriétaire.
+ *
+ * Ne lève jamais non plus.
+ */
+export async function synchroniserTerrainsCompetition(cid: string, mids: string[]): Promise<string | null> {
+  const PAR_APPEL = 100;
+  try {
+    let echecs = 0;
+    for (let i = 0; i < mids.length; i += PAR_APPEL) {
+      const r = await appeler<{ echecs?: number }>(`/api/competitions/${cid}/terrain`, "POST", {
+        mids: mids.slice(i, i + PAR_APPEL),
+      });
+      echecs += r.echecs ?? 0;
+    }
+    if (echecs === 0) return null;
+    return echecs === 1
+      ? "La demande d'un match au terrain n'est pas partie."
+      : `Les demandes de ${echecs} matchs au terrain ne sont pas parties.`;
+  } catch (err) {
+    return err instanceof Error ? err.message : "La demande au terrain n'est pas partie.";
+  }
+}

@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
-  EQUIPEMENTS, JOURS, libelleEquipement, libellePlage, horairesParDefaut,
+  EQUIPEMENTS, JOURS, dateLongue, duree, libelleEquipement, libellePlage, horairesParDefaut, plageDuJour,
 } from "@/lib/terrains";
-import type { HorairesOuverture } from "@/types";
+import type { HorairesOuverture, ReservationDuMatch, Venue } from "@/types";
 
 // ============================================
 // Ce qui n'appartient qu'aux terrains.
@@ -327,5 +327,89 @@ export function TableHoraires({ horaires }: { horaires: HorairesOuverture }) {
         );
       })}
     </dl>
+  );
+}
+
+// ─── Le terrain d'un match ────────────────────────────────
+
+/**
+ * Où en est la demande faite au propriétaire du terrain, à côté de son nom.
+ *
+ * Le manager la cherche ici, sur la carte de son match, et nulle part
+ * ailleurs : c'est là qu'il voit si son samedi tient.
+ */
+export function EtatTerrain({ r }: { r: ReservationDuMatch | null }) {
+  if (!r || r.status === "cancelled") return null;
+  const etat = {
+    pending: { label: "Terrain : en attente", classe: "border-amber-200 bg-amber-50 text-amber-700" },
+    confirmed: { label: "Terrain confirmé", classe: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+    refused: { label: "Terrain refusé", classe: "border-red-200 bg-red-50 text-red-600" },
+  }[r.status];
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${etat.classe}`}>
+      {etat.label}
+    </span>
+  );
+}
+
+/**
+ * Le terrain a dit non : ce qu'il propose, et les deux issues.
+ *
+ * PRENDRE SA PROPOSITION ouvre la modification préremplie : le manager
+ * valide, le match se déplace, et la demande qui repart au terrain est
+ * confirmée d'office — le propriétaire l'a déjà acceptée en la proposant.
+ */
+export function RefusDuTerrain({
+  r,
+  onPrendre,
+  onChanger,
+}: {
+  r: ReservationDuMatch;
+  onPrendre: () => void;
+  onChanger: () => void;
+}) {
+  return (
+    <div className="mt-3 border border-red-200 bg-red-50 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+      <p className="text-xs font-bold leading-relaxed text-red-800">
+        {r.venueName}{" "}n&apos;est pas disponible à cet horaire.
+        {r.proposition && <> Le terrain propose le {dateLongue(r.proposition.date)} à {r.proposition.time}.</>}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {r.proposition && (
+          <button
+            type="button"
+            onClick={onPrendre}
+            className="bg-gray-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-white transition-colors hover:bg-emerald-700"
+          >
+            Prendre cet horaire
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onChanger}
+          className="border border-red-300 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-red-700 transition-colors hover:bg-red-100"
+        >
+          Changer de terrain ou d&apos;horaire
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Ce qu'il faut savoir en choisissant un terrain référencé pour un match.
+ *
+ * `duree` : ce qu'on demandera, en heures — le format d'un amical la dit,
+ * les mi-temps d'une compétition aussi (voir lib/terrains).
+ */
+export function AvisTerrain({ venue, date, duree: heures }: { venue: Venue | undefined; date: string; duree: number }) {
+  if (!venue) return null;
+  const plage = plageDuJour(venue.openingHours, date);
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-gray-500">
+      Le propriétaire recevra une demande de créneau de {duree(heures)} et vous
+      serez prévenu de sa réponse.
+      {plage !== undefined && date && <> Ouvert ce jour-là : {libellePlage(plage)}.</>}
+    </p>
   );
 }

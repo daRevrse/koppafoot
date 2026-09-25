@@ -18,6 +18,7 @@ import type {
 // Moved to lib/dates.ts, every read path needs it, not just competitions.
 // Re-exported so existing importers keep working.
 import { formatDate } from "./dates";
+import { reservationDuMatch } from "./terrains";
 export { formatDate };
 
 export function toCompetition(id: string, d: FirestoreCompetition): Competition {
@@ -102,6 +103,8 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     time: d.time,
     venueName: d.venue_name,
     venueCity: d.venue_city,
+    venueId: d.venue_id ?? null,
+    venueBooking: reservationDuMatch(d.venue_booking),
     status: d.status,
     scoreHome: d.score_home,
     scoreAway: d.score_away,

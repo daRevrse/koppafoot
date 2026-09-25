@@ -1,5 +1,5 @@
 import { dureeDuMatch } from "@/lib/terrains";
-import type { BookingStatus, MatchStatus, PropositionCreneau } from "@/types";
+import type { BookingStatus, CompMatchStatus, MatchStatus, PropositionCreneau } from "@/types";
 
 // ============================================
 // Le créneau d'un match sur un terrain référencé : ce qu'il faut demander,
@@ -17,11 +17,16 @@ import type { BookingStatus, MatchStatus, PropositionCreneau } from "@/types";
 
 /** Ce qu'on lit du match pour décider. `null` : le match n'existe plus. */
 export interface MatchPourTerrain {
-  status: MatchStatus;
+  status: MatchStatus | CompMatchStatus;
   venueId: string | null;
   date: string;
   time: string;
   format: string;
+  /**
+   * La durée à réserver, en heures, quand le format ne suffit pas à la dire :
+   * une compétition fixe la longueur de ses mi-temps, pas un amical.
+   */
+  duree?: number;
 }
 
 /** Une réservation déjà liée au match. */
@@ -62,9 +67,10 @@ export interface PlanTerrain {
  * Un défi envoyé en fait partie : la demande part dès la création, c'est ce
  * qui laisse au propriétaire le temps de répondre avant que l'adversaire
  * accepte. S'il refuse le défi, le match passe en « cancelled » et le créneau
- * se libère au calcul suivant.
+ * se libère au calcul suivant. « scheduled » est l'état d'un match de
+ * compétition programmé.
  */
-const A_RESERVER: MatchStatus[] = ["challenge", "pending", "upcoming", "delayed"];
+const A_RESERVER: (MatchStatus | CompMatchStatus)[] = ["challenge", "pending", "upcoming", "delayed", "scheduled"];
 
 const actif = (b: ReservationLiee) => b.status === "pending" || b.status === "confirmed";
 const memeCreneau = (b: { venueId: string; date: string; time: string }, v: CreneauVoulu) =>
@@ -80,8 +86,15 @@ export function planTerrain(match: MatchPourTerrain | null, liees: ReservationLi
   }
 
   const voulu: CreneauVoulu | null =
-    match && match.venueId && A_RESERVER.includes(match.status)
-      ? { venueId: match.venueId, date: match.date, time: match.time, duration: dureeDuMatch(match.format) }
+    // Sans jour ni heure — un match de compétition pas encore programmé —
+    // il n'y a pas de créneau à demander.
+    match && match.venueId && match.date && match.time && A_RESERVER.includes(match.status)
+      ? {
+          venueId: match.venueId,
+          date: match.date,
+          time: match.time,
+          duration: match.duree ?? dureeDuMatch(match.format),
+        }
       : null;
 
   if (!voulu) {

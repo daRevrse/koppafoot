@@ -500,6 +500,40 @@ export function bookingRequestHtml(
   `);
 }
 
+/**
+ * Plusieurs demandes d'un coup — un calendrier de compétition programmé ou
+ * importé. Un seul email qui les liste, plutôt qu'un par match.
+ */
+export function bookingRequestsDigestHtml(
+  ownerFirstName: string,
+  demandes: { terrain: string; quand: string; match: string | null; demandeur: string }[],
+): string {
+  const lignes = demandes
+    .map(
+      (d) => `
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
+          <strong>${echapper(d.quand)}</strong> · ${echapper(d.terrain)}<br />
+          <span style="color:#64748b;font-size:13px;">${echapper(d.match ?? d.demandeur)}</span>
+        </td>
+      </tr>`,
+    )
+    .join("");
+  const demandeurs = [...new Set(demandes.map((d) => d.demandeur))];
+  return emailLayout(`
+    <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${echapper(ownerFirstName)},</p>
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
+      ${demandes.length} demandes sur vos terrains
+    </h2>
+    <p style="margin:0 0 16px;">
+      ${demandeurs.length === 1 ? `<strong>${echapper(demandeurs[0])}</strong> demande` : "On vous demande"}
+      ces créneaux. Tant que tu n'as pas répondu, ils restent libres pour les autres.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">${lignes}</table>
+    ${ctaButton("Répondre aux demandes", `${APP_URL}/mes-terrains/reservations`)}
+  `);
+}
+
 /** Le texte d'un utilisateur, inoffensif dans du HTML. */
 function echapper(texte: string): string {
   return texte

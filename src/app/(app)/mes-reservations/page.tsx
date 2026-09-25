@@ -155,7 +155,7 @@ export default function MyBookingsPage() {
               </p>
               {b.matchId ? (
                 <Link
-                  href="/matches"
+                  href={b.competitionId ? `/organizer/competitions/${b.competitionId}/schedule` : "/matches"}
                   className="mt-2 inline-block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-800 underline"
                 >
                   Déplacer le match à cet horaire

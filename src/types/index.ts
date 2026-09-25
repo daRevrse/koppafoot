@@ -1353,6 +1353,11 @@ export interface FirestoreBooking {
   kind?: NatureReservation;
   /** Le match pour lequel le créneau est demandé, s'il y en a un. */
   match_id?: string | null;
+  /**
+   * La compétition de ce match, quand c'en est un de compétition : il vit
+   * alors sous `competitions/{id}/comp_matches`, pas dans `matches`.
+   */
+  competition_id?: string | null;
   /** « Étoile de Bè vs Lions d'Agoè », pour que le propriétaire sache qui joue. */
   match_label?: string | null;
   contact?: ContactReservation | null;
@@ -1386,6 +1391,7 @@ export interface Booking {
   status: BookingStatus;
   kind: NatureReservation;
   matchId: string | null;
+  competitionId: string | null;
   matchLabel: string | null;
   contact: ContactReservation | null;
   message: string | null;
@@ -1982,6 +1988,10 @@ export interface FirestoreCompMatch {
   time: string | null;
   venue_name: string | null;
   venue_city: string | null;
+  /** Le terrain référencé, s'il y en a un : voir `FirestoreMatch.venue_id`. */
+  venue_id?: string | null;
+  /** Où en est la demande faite au propriétaire. Écrit par le serveur seul. */
+  venue_booking?: FirestoreReservationDuMatch | null;
   status: CompMatchStatus;
   score_home: number | null;
   score_away: number | null;
@@ -2052,6 +2062,8 @@ export interface CompMatch {
   time: string | null;
   venueName: string | null;
   venueCity: string | null;
+  venueId: string | null;
+  venueBooking: ReservationDuMatch | null;
   status: CompMatchStatus;
   scoreHome: number | null;
   scoreAway: number | null;

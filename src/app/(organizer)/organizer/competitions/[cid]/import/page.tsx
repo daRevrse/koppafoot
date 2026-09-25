@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  ArrowLeft, Upload, Users, Shield, Calendar, Loader2, FileUp, AlertTriangle, Check,
+  ArrowLeft, Upload, Users, Shield, Calendar, Loader2, FileUp, AlertTriangle, Check, MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -19,7 +19,9 @@ import {
   type ImportRosterRow,
   type ImportMatchRow,
 } from "@/lib/competition-firestore";
-import type { Competition, CompTeam } from "@/types";
+import { getVenues } from "@/lib/firestore";
+import { terrainNomme } from "@/lib/terrains";
+import type { Competition, CompTeam, Venue } from "@/types";
 import toast from "react-hot-toast";
 import { normaliserPoste, libellePoste } from "@/lib/postes";
 
@@ -138,6 +140,15 @@ export default function CompetitionImportPage() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  /**
+   * Les terrains référencés : un stade importé qui porte le nom de l'un
+   * d'eux lui est rattaché, et le créneau demandé à son propriétaire.
+   */
+  const [venues, setVenues] = useState<Venue[]>([]);
+  useEffect(() => {
+    getVenues().then(setVenues).catch(() => setVenues([]));
+  }, []);
+
   const teamsFileRef = useRef<HTMLInputElement>(null);
   const rosterFileRef = useRef<HTMLInputElement>(null);
   const matchesFileRef = useRef<HTMLInputElement>(null);
@@ -244,12 +255,18 @@ export default function CompetitionImportPage() {
     if (validMatches.length === 0 || submitting) return;
     setSubmitting(true);
     try {
-      const result = await importMatches(cid, validMatches.map((m) => m.row));
+      const result = await importMatches(cid, validMatches.map((m) => m.row), venues);
       toast.success(
         `${result.created} match${result.created !== 1 ? "s" : ""} créé${
           result.created !== 1 ? "s" : ""
-        }${result.skipped > 0 ? ` · ${result.skipped} ignoré${result.skipped !== 1 ? "s" : ""}` : ""}`,
+        }${result.skipped > 0 ? ` · ${result.skipped} ignoré${result.skipped !== 1 ? "s" : ""}` : ""}${
+          result.terrains > 0
+            ? ` · ${result.terrains} sur un terrain référencé, demandé${result.terrains !== 1 ? "s" : ""} au propriétaire`
+            : ""
+        }`,
       );
+      // Les matchs sont créés ; seule la demande aux terrains a échoué.
+      if (result.terrain) toast.error(result.terrain);
       setMatchesText("");
       if (matchesFileRef.current) matchesFileRef.current.value = "";
     } catch (err) {
@@ -528,6 +545,15 @@ export default function CompetitionImportPage() {
             Les équipes doivent déjà exister dans la compétition (importez-les d&apos;abord). Les
             rencontres dont une équipe est introuvable seront ignorées.
           </p>
+          {venues.length > 0 && (
+            <p className="flex items-start gap-1.5 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              <MapPin size={13} className="mt-px shrink-0" />
+              <span>
+                Un stade qui porte le nom d&apos;un terrain référencé lui est rattaché : le créneau
+                est demandé à son propriétaire, qui reçoit un seul email pour tout l&apos;import.
+              </span>
+            </p>
+          )}
 
           <textarea
             value={matchesText}
@@ -601,7 +627,19 @@ export default function CompetitionImportPage() {
                           </td>
                           <td className="px-3 py-1.5 text-gray-500">{m.row.date ?? ","}</td>
                           <td className="px-3 py-1.5 text-gray-500">{m.row.time ?? ","}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{m.row.venue ?? ","}</td>
+                          <td className="px-3 py-1.5 text-gray-500">
+                            {terrainNomme(venues, m.row.venue) ? (
+                              <span
+                                title="Terrain référencé : le créneau sera demandé à son propriétaire"
+                                className="inline-flex items-center gap-1 font-semibold text-emerald-700"
+                              >
+                                <MapPin size={12} className="shrink-0" />
+                                {m.row.venue}
+                              </span>
+                            ) : (
+                              m.row.venue ?? ","
+                            )}
+                          </td>
                           <td className="px-3 py-1.5 text-gray-500">{m.row.group ?? ","}</td>
                         </tr>
                       );

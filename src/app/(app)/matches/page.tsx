@@ -44,10 +44,11 @@ import {
   createNotification,
 } from "@/lib/firestore";
 import { synchroniserTerrain } from "@/lib/reservations-client";
-import { dateLongue, duree, dureeDuMatch, horsHoraires, libellePlage, plageDuJour } from "@/lib/terrains";
+import { dateLongue, dureeDuMatch, horsHoraires } from "@/lib/terrains";
+import { AvisTerrain, EtatTerrain, RefusDuTerrain } from "@/components/venue/venue-ui";
 import { TEAM_SIZE_OPTIONS } from "@/lib/competition-format";
 import type {
-  Match, Team, Venue, PlayerRating, LineupEntry, MatchValidation, PropositionCreneau, ReservationDuMatch,
+  Match, Team, Venue, PlayerRating, LineupEntry, MatchValidation, PropositionCreneau,
 } from "@/types";
 import TirsAuBut from "@/components/match/TirsAuBut";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
@@ -157,83 +158,6 @@ const estAmical = (m: Match) => !m.awayManagerId;
 
 /** Les états où le match peut encore changer de terrain ou d'horaire. */
 const MODIFIABLE: Match["status"][] = ["challenge", "pending", "upcoming", "delayed"];
-
-/**
- * Où en est la demande faite au propriétaire du terrain, à côté de son nom.
- *
- * Le manager la cherche ici, sur la carte de son match, et nulle part
- * ailleurs : c'est là qu'il voit si son samedi tient.
- */
-function EtatTerrain({ r }: { r: ReservationDuMatch | null }) {
-  if (!r || r.status === "cancelled") return null;
-  const etat = {
-    pending: { label: "Terrain : en attente", classe: "border-amber-200 bg-amber-50 text-amber-700" },
-    confirmed: { label: "Terrain confirmé", classe: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-    refused: { label: "Terrain refusé", classe: "border-red-200 bg-red-50 text-red-600" },
-  }[r.status];
-  return (
-    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${etat.classe}`}>
-      {etat.label}
-    </span>
-  );
-}
-
-/**
- * Le terrain a dit non : ce qu'il propose, et les deux issues.
- *
- * PRENDRE SA PROPOSITION ouvre la modification préremplie : le manager
- * valide, le match se déplace, et la demande qui repart au terrain est
- * confirmée d'office — le propriétaire l'a déjà acceptée en la proposant.
- */
-function RefusDuTerrain({
-  r,
-  onPrendre,
-  onChanger,
-}: {
-  r: ReservationDuMatch;
-  onPrendre: () => void;
-  onChanger: () => void;
-}) {
-  return (
-    <div className="mt-3 border border-red-200 bg-red-50 px-4 py-3" onClick={(e) => e.stopPropagation()}>
-      <p className="text-xs font-bold leading-relaxed text-red-800">
-        {r.venueName} n&apos;est pas disponible à cet horaire.
-        {r.proposition && <> Le terrain propose le {dateLongue(r.proposition.date)} à {r.proposition.time}.</>}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {r.proposition && (
-          <button
-            type="button"
-            onClick={onPrendre}
-            className="bg-gray-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-white transition-colors hover:bg-emerald-700"
-          >
-            Prendre cet horaire
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onChanger}
-          className="border border-red-300 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-red-700 transition-colors hover:bg-red-100"
-        >
-          Changer de terrain ou d&apos;horaire
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Ce que le manager doit savoir en choisissant un terrain référencé. */
-function AvisTerrain({ venue, date, format }: { venue: Venue | undefined; date: string; format: string }) {
-  if (!venue) return null;
-  const plage = plageDuJour(venue.openingHours, date);
-  return (
-    <p className="mt-2 text-xs leading-relaxed text-gray-500">
-      Le propriétaire recevra une demande de créneau de {duree(dureeDuMatch(format))} et vous
-      serez prévenu de sa réponse.
-      {plage !== undefined && date && <> Ouvert ce jour-là : {libellePlage(plage)}.</>}
-    </p>
-  );
-}
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -1259,7 +1183,7 @@ export default function MatchesPage() {
                       ))}
                     </select>
                   )}
-                  <AvisTerrain venue={venues.find((v) => v.id === selectedVenueId)} date={matchDate} format={format} />
+                  <AvisTerrain venue={venues.find((v) => v.id === selectedVenueId)} date={matchDate} duree={dureeDuMatch(format)} />
                   {!selectedVenueId && (
                     <div className={`grid grid-cols-2 gap-2 ${venues.length > 0 ? "mt-2" : ""}`}>
                       <input
@@ -2215,7 +2139,7 @@ export default function MatchesPage() {
                     <AvisTerrain
                       venue={venues.find((v) => v.id === modVenueId)}
                       date={modDate}
-                      format={modifyingMatch.format}
+                      duree={dureeDuMatch(modifyingMatch.format)}
                     />
                     {!modVenueId && (
                       <div className={`grid grid-cols-2 gap-2 ${venues.length > 0 ? "mt-2" : ""}`}>
