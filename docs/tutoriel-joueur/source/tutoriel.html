@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Jouer avec KoppaFoot</title>
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+@page { size: A4; margin: 15mm 16mm 17mm;
+  @bottom-left { content: "KoppaFoot · Guide du joueur"; font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+}
+@page couverture { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --vert: #059669;
+  --vert-clair: #ecfdf5;
+  --encre: #111827;
+  --gris: #4b5563;
+  --gris-clair: #f3f4f6;
+  --orange: #ff5a1f;
+  --orange-clair: #fff4ed;
+  --ambre-clair: #fffbeb;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; color: var(--encre); background: #fff; }
+h1, h2, h3, .display { font-family: "Outfit", sans-serif; }
+p { margin: 0 0 2.2mm; }
+b, strong { font-weight: 700; }
+
+/* ---------- Couverture ---------- */
+.couverture { page: couverture; height: 296mm; width: 210mm; position: relative; overflow: hidden; color: #fff; background: #0b1512; }
+.couverture .photo { position: absolute; inset: 0; background: url(couverture.jpg) center 25%/cover; opacity: .6; }
+.couverture .voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.2) 35%, rgba(5,20,15,.95) 75%); }
+.couverture .contenu { position: absolute; left: 18mm; right: 18mm; bottom: 26mm; }
+.couverture .marque { position: absolute; top: 18mm; left: 18mm; font-family: "Outfit"; font-weight: 800; letter-spacing: .28em; font-size: 15pt; }
+.couverture .surtitre { font-family: "Outfit"; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #6ee7b7; font-size: 10pt; margin-bottom: 5mm; }
+.couverture h1 { font-weight: 900; text-transform: uppercase; font-size: 44pt; line-height: .92; letter-spacing: -.01em; margin: 0 0 7mm; }
+.couverture .phrase { font-size: 13pt; color: rgba(255,255,255,.82); max-width: 150mm; margin-bottom: 10mm; }
+.couverture .bas { display: flex; gap: 8mm; font-size: 9pt; color: rgba(255,255,255,.65); border-top: 1px solid rgba(255,255,255,.25); padding-top: 4mm; }
+
+/* ---------- Pages ---------- */
+.page-break { break-before: page; }
+.chapitre-tete { break-before: page; margin-bottom: 7mm; }
+.chapitre-tete .numero { font-family: "Outfit"; font-weight: 900; font-size: 11pt; letter-spacing: .2em; color: var(--vert); text-transform: uppercase; }
+.chapitre-tete h2 { font-weight: 900; font-size: 26pt; line-height: 1.05; margin: 1.5mm 0 3mm; text-transform: uppercase; }
+.chapitre-tete .chapo { font-size: 12pt; color: var(--gris); max-width: 160mm; }
+.chapitre-tete .barre { height: 3px; width: 22mm; background: var(--vert); margin-top: 4mm; }
+
+.etape { break-inside: avoid; margin: 0 0 7mm; }
+.etape h3 { font-weight: 800; font-size: 13pt; margin: 0 0 2mm; display: flex; align-items: center; gap: 2.5mm; break-after: avoid; }
+.etape h3 .n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--encre); color: #fff; font-size: 10pt; font-weight: 800; }
+.etape ol, .etape ul { margin: 0 0 3mm; padding-left: 6mm; }
+.etape li { margin-bottom: 1mm; }
+
+/* Repère orange dans le texte : renvoie au cadre numéroté de la capture */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 4.6mm; height: 4.6mm; border-radius: 50%; background: var(--orange); color: #fff; font-size: 7.5pt; font-weight: 800; font-family: "Outfit"; vertical-align: .2mm; margin: 0 .5mm; }
+.bouton { font-weight: 700; background: var(--gris-clair); border: 1px solid #e5e7eb; border-radius: 1.2mm; padding: 0 1.4mm; white-space: nowrap; }
+
+figure { margin: 2mm 0 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 135mm; margin: 0 auto; border: 1px solid #e5e7eb; }
+figure.petit img { max-height: 90mm; }
+figure.moyen img { max-height: 100mm; }
+figure.bandeau img { max-height: 72mm; }
+figure.haut img { max-height: 175mm; }
+figcaption { font-size: 8.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }
+
+/* Téléphone debout, ou capture très haute : texte à gauche, image à droite */
+.cote { display: flow-root; break-inside: avoid; }
+.cote > figure { float: right; width: 62mm; margin: 0 0 2mm 7mm; }
+.cote > div { overflow: hidden; }
+.cote figure img { max-height: 116mm; border: 0; border-radius: 0; box-shadow: none; }
+.cote.large > figure { width: 84mm; }
+.cote.large figure img { max-height: 200mm; border: 1px solid #e5e7eb; }
+
+.encadre { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 0; font-size: 10pt; }
+.encadre .t { font-family: "Outfit"; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; display: block; margin-bottom: .8mm; }
+.astuce { background: var(--vert-clair); border-left: 3px solid var(--vert); }
+.astuce .t { color: var(--vert); }
+.attention { background: var(--orange-clair); border-left: 3px solid var(--orange); }
+.attention .t { color: #c2410c; }
+.info { background: var(--gris-clair); border-left: 3px solid #9ca3af; }
+.info .t { color: #374151; }
+
+.sous-partie { font-family: "Outfit"; font-weight: 900; text-transform: uppercase; font-size: 12pt; letter-spacing: .06em; color: var(--vert); margin: 6mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d1fae5; break-after: avoid; }
+
+/* Sommaire */
+.sommaire { break-before: page; }
+.sommaire h2 { font-weight: 900; font-size: 26pt; text-transform: uppercase; margin: 0 0 6mm; }
+.sommaire ol { list-style: none; padding: 0; margin: 0; }
+.sommaire li { display: grid; grid-template-columns: 12mm 1fr; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid #e5e7eb; }
+.sommaire li .num { font-family: "Outfit"; font-weight: 900; font-size: 16pt; color: var(--vert); line-height: 1.1; }
+.sommaire li .titre { font-family: "Outfit"; font-weight: 700; font-size: 12pt; }
+.sommaire li .desc { color: var(--gris); font-size: 9.5pt; }
+
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 5mm; }
+.carte { border: 1px solid #e5e7eb; border-radius: 2mm; padding: 4mm; break-inside: avoid; }
+.carte h3 { margin: 0 0 2mm; font-size: 12pt; font-weight: 800; }
+.legende-repere { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; }
+.legende-repere .cadre { width: 34mm; height: 10mm; border: 2.5px solid var(--orange); border-radius: 2mm; position: relative; box-shadow: 0 0 0 3px rgba(255,90,31,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9pt; margin-left: 8mm; }
+.legende-repere .cadre::before { content: "1"; position: absolute; left: -8mm; top: 50%; transform: translateY(-50%); width: 6mm; height: 6mm; border-radius: 50%; background: var(--orange); color: #fff; font: 800 9pt/6mm "Outfit"; text-align: center; }
+
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 3mm; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.tableau-simple th { font-family: "Outfit"; font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
+
+/* Aide-mémoire */
+.memo { border: 2px solid var(--encre); border-radius: 3mm; padding: 6mm; }
+.memo h2 { margin: 0 0 1mm; font-weight: 900; text-transform: uppercase; font-size: 20pt; }
+.memo .sous { color: var(--gris); margin-bottom: 5mm; }
+.memo ol { counter-reset: g; list-style: none; padding: 0; margin: 0; }
+.memo li { counter-increment: g; display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; padding: 2.4mm 0; border-bottom: 1px dashed #d1d5db; }
+.memo li::before { content: counter(g); font-family: "Outfit"; font-weight: 900; font-size: 15pt; color: var(--vert); }
+.faq dt { font-family: "Outfit"; font-weight: 800; font-size: 11.5pt; margin-top: 4mm; }
+.faq dd { margin: 1mm 0 0; color: #374151; }
+</style>
+</head>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<section class="couverture">
+  <div class="photo"></div><div class="voile"></div>
+  <div class="marque">KOPPAFOOT</div>
+  <div class="contenu">
+    <div class="surtitre">Guide du joueur</div>
+    <h1>Joue avec KoppaFoot</h1>
+    <p class="phrase">Ton compte, ton profil, ton équipe, tes convocations, tes matchs et tes statistiques : voici comment faire, étape par étape, avec une capture d'écran à chaque geste.</p>
+    <div class="bas"><span>Édition septembre 2026</span><span>·</span><span>koppafoot.com/roles</span></div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="sommaire">
+  <h2>Au programme</h2>
+  <ol>
+    <li><span class="num">00</span><span><span class="titre">Avant de commencer</span><br><span class="desc">Ce qu'il te faut, et comment lire ce guide</span></span></li>
+    <li><span class="num">01</span><span><span class="titre">Créer ton compte de joueur</span><br><span class="desc">Et trouver tes outils, sur ordinateur comme sur téléphone</span></span></li>
+    <li><span class="num">02</span><span><span class="titre">Compléter ton profil</span><br><span class="desc">Poste, niveau, présentation, ta fiche publique et ta carte</span></span></li>
+    <li><span class="num">03</span><span><span class="titre">Rejoindre une équipe</span><br><span class="desc">Candidater, ou répondre à une invitation</span></span></li>
+    <li><span class="num">04</span><span><span class="titre">La vie de ton équipe</span><br><span class="desc">La page du club, les entraînements</span></span></li>
+    <li><span class="num">05</span><span><span class="titre">Tes convocations</span><br><span class="desc">Confirmer ta présence, et tout retrouver dans ton calendrier</span></span></li>
+    <li><span class="num">06</span><span><span class="titre">Le jour du match</span><br><span class="desc">Pronostic, composition, résultat</span></span></li>
+    <li><span class="num">07</span><span><span class="titre">Tes statistiques</span><br><span class="desc">Matchs, buts, cartons, minutes, homme du match</span></span></li>
+    <li><span class="num">08</span><span><span class="titre">Les compétitions</span><br><span class="desc">Quand ton équipe est inscrite à un tournoi</span></span></li>
+    <li><span class="num">+</span><span><span class="titre">Aide-mémoire et questions fréquentes</span><br><span class="desc">Ta semaine de joueur, sur une page</span></span></li>
+  </ol>
+</section>
+
+<!-- ================= 00 AVANT DE COMMENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 00</div>
+  <h2>Avant de commencer</h2>
+  <p class="chapo">Sur KoppaFoot, le joueur a sa fiche, ses équipes et ses convocations. Il répond à son manager d'un toucher, et ses buts, ses cartons et ses matchs sont comptés pour lui, match après match.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="intro-grille">
+  <div class="carte">
+    <h3>Ce qu'il te faut</h3>
+    <ul>
+      <li>Un <b>téléphone</b> (ou un ordinateur) avec Internet.</li>
+      <li>Une <b>adresse email</b> (ou un compte Google).</li>
+      <li>C'est tout. Ton manager n'a même pas besoin que tu sois inscrit pour te faire jouer, mais ton compte te permet de répondre aux convocations et de garder tes statistiques.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h3>Comment lire ce guide</h3>
+    <p>Sur chaque capture, un <b>cadre orange numéroté</b> te montre où toucher. Suis les numéros dans l'ordre.</p>
+    <div class="legende-repere"><span class="cadre">Bouton à toucher</span></div>
+    <p style="margin-top:3mm">Dans le texte, le même numéro renvoie au même cadre : <span class="m">1</span> <span class="m">2</span> <span class="m">3</span>…</p>
+  </div>
+</div>
+
+<div class="carte" style="margin-top:6mm">
+  <h3>L'exemple suivi dans ce guide</h3>
+  <p>On accompagne <b>Kafui Mensah</b>, attaquant de 24 ans à Lomé. Il s'inscrit, rejoint l'<b>Avenir d'Adakpamé</b> (le club d'<b>Edem Amouzou</b>), répond à ses convocations, marque contre l'<b>Olympique de Tokoin</b>, puis découvre la <b>Coupe des Quartiers 2026</b>, où son équipe est inscrite.</p>
+  <p style="margin:0">Tous les noms (joueurs, managers, équipes) sont <b>inventés</b> pour l'exemple.</p>
+</div>
+
+<div class="encadre info"><span class="t">Ordinateur ou téléphone ?</span>Tout se fait des deux côtés. Les écrans qu'on consulte au quotidien (convocations, entraînements, calendrier) sont montrés sur téléphone ; les autres sur ordinateur, plus lisibles en capture.</div>
+
+<!-- ================= 01 COMPTE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 01</div>
+  <h2>Créer ton compte de joueur</h2>
+  <p class="chapo">Voici comment créer ton compte en choisissant tout de suite le rôle de joueur. Deux minutes suffisent.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Choisis le rôle « Joueur »</h3>
+  <p>Dans ton navigateur, va sur <b>koppafoot.com/roles</b>. Sous l'affiche du joueur, touche <span class="m">1</span> <span class="bouton">Devenir joueur</span>.</p>
+  <figure class="moyen"><img src="captures/01-choisir-joueur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Remplis l'essentiel</h3>
+  <p>Tape <span class="m">1</span> ton prénom et ton nom, <span class="m">2</span> ton adresse email et <span class="m">3</span> un mot de passe (au moins 6 caractères). Touche <span class="m">4</span> <span class="bouton">Continuer</span>.</p>
+  <figure class="moyen"><img src="captures/02-inscription.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Plus rapide</span><span class="bouton">Continuer avec Google</span> crée ton compte en un geste si tu as une adresse Gmail.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Termine l'inscription</h3>
+  <p>Ta <span class="m">1</span> ville et ton téléphone sont <b>facultatifs</b>. Touche <span class="m">2</span> <span class="bouton">Créer mon compte</span>. KoppaFoot t'envoie un email : ouvre-le et touche le lien pour confirmer ton adresse.</p>
+  <figure class="moyen"><img src="captures/03-inscription-ville.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Trouve tes outils</h3>
+  <p>Sur ordinateur, le menu <b>MySpace</b>, en haut de l'écran, regroupe <span class="m">1</span> tes outils de joueur : <b>Mes équipes</b>, <b>Calendrier</b> et <b>Mes statistiques</b>.</p>
+  <p>Sur la page <b>Mes équipes</b>, deux boutons te serviront souvent : <span class="m">2</span> <b>Mes convocations</b> et <span class="m">3</span> le <b>Mercato</b>, pour trouver une équipe.</p>
+  <figure class="bandeau"><img src="captures/04-menu-myspace.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/05-telephone-espace.jpg"></figure>
+  <div>
+    <h3><span class="n">5</span>Sur téléphone : l'onglet « Espace »</h3>
+    <p>Sur téléphone, les mêmes outils sont dans l'onglet <b>Espace</b>, tout en bas de l'écran. Touche-le : la partie <span class="m">1</span> <b>Espace joueur</b> apparaît.</p>
+    <div class="encadre astuce"><span class="t">Astuce</span>Ajoute KoppaFoot à l'écran d'accueil de ton téléphone quand le navigateur te le propose : l'application s'ouvre alors d'un toucher, comme les autres.</div>
+    <div class="encadre info"><span class="t">La cloche, en haut</span>Invitations, convocations, nouvelles de ton équipe : tout arrive dans tes <b>notifications</b>, derrière la cloche. Le chiffre rouge compte celles que tu n'as pas lues.</div>
+  </div>
+</div>
+
+<!-- ================= 02 PROFIL ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 02</div>
+  <h2>Compléter ton profil</h2>
+  <p class="chapo">Voici comment te présenter : ton poste, ton niveau, quelques mots sur toi. C'est ce que lisent les managers quand ils cherchent un joueur.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre ton profil</h3>
+  <p>Touche ton avatar (tes initiales, en haut à droite), puis <span class="m">1</span> <b>Voir mon profil</b>.</p>
+  <figure class="petit"><img src="captures/06-menu-avatar.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Ta page de profil</h3>
+  <p><span class="m">1</span> <span class="bouton">Modifier</span> ouvre tes informations. <span class="m">2</span> L'appareil photo, sur ton avatar, change ta photo, et <span class="bouton">Couverture</span> l'image du bandeau. <span class="m">3</span> Les onglets rangent le reste : informations, palmarès, posts, galerie photo, ta carte, et les réglages de ton compte.</p>
+  <figure class="petit"><img src="captures/07-profil.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Présente-toi</h3>
+  <ul>
+    <li><span class="m">1</span> ta <b>bio</b> : quelques mots sur ton jeu et tes disponibilités ;</li>
+    <li><span class="m">2</span> tes <b>informations physiques</b> : pied fort, taille, poids, date de naissance (ton âge s'affiche, pas ta date) ;</li>
+    <li><span class="m">3</span> ton <b>poste</b> et ton <b>niveau</b> : ce sont les premiers filtres des managers au mercato.</li>
+  </ul>
+  <p>Touche <span class="m">4</span> <span class="bouton">Enregistrer</span>.</p>
+  <figure class="moyen"><img src="captures/08-modifier-profil.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ta fiche publique</h3>
+  <p>Le lien <b>Ma fiche publique</b>, sur ton profil, montre ce que voient les autres : ton poste, ta présentation, ton niveau, tes informations physiques et, plus tard, tes matchs, tes buts et tes équipes.</p>
+  <figure class="petit"><img src="captures/09-fiche-publique.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Ta carte KoppaFoot</h3>
+  <p>L'onglet <b>Carte FUT</b> crée une carte à ton nom, façon jeu vidéo. Touche <span class="m">1</span> <span class="bouton">Télécharger ma carte</span> pour la garder ou la partager.</p>
+  <figure class="petit"><img src="captures/10-carte-fut.jpg"></figure>
+</section>
+
+<!-- ================= 03 EQUIPE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 03</div>
+  <h2>Rejoindre une équipe</h2>
+  <p class="chapo">Voici les deux façons d'entrer dans une équipe : candidater toi-même, ou accepter l'invitation d'un manager.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Parcours les équipes qui recrutent</h3>
+  <p>Ouvre le <b>Mercato</b> (bouton de la page <b>Mes équipes</b>). L'onglet <b>Équipes</b> présente les clubs qui recrutent, avec leur niveau, leur ville et leur effectif. <span class="m">1</span> Cherche un nom, ou affine avec <span class="bouton">Filtres</span>.</p>
+  <p>Sur la carte d'une équipe, <span class="m">2</span> <span class="bouton">Détails</span> ouvre sa page, et <span class="m">3</span> <span class="bouton">Candidater</span> lui envoie ta demande.</p>
+  <figure class="moyen"><img src="captures/11-mercato-equipes.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Regarde l'équipe de plus près</h3>
+  <p>La page de l'équipe montre son effectif, ses matchs, ses statistiques, son palmarès. Assez pour savoir si elle te correspond.</p>
+  <figure class="petit"><img src="captures/12-details-equipe.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Envoie ta candidature</h3>
+  <p>Touche <span class="bouton">Candidater</span>. Écris <span class="m">1</span> un message au manager (ton poste, où tu habites, quand tu es libre), puis touche <span class="m">2</span> <span class="bouton">Envoyer</span>. Le manager reçoit une notification.</p>
+  <figure class="moyen"><img src="captures/13-candidater.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Suis ta candidature</h3>
+  <p>L'onglet <span class="m">1</span> <b>Candidatures</b> du mercato garde la trace de tes demandes : <span class="m">2</span> <b>En attente</b>, puis <b>Acceptée</b> ou <b>Refusée</b>.</p>
+  <figure class="petit"><img src="captures/14-candidature-envoyee.jpg"></figure>
+</section>
+
+<div class="sous-partie">Quand un manager t'invite</div>
+
+<section class="etape">
+  <h3><span class="n">5</span>Tu reçois une invitation</h3>
+  <p>Un manager t'a repéré au mercato et t'invite. Tu reçois une notification <span class="m">1</span> <b>Nouvelle invitation</b>, avec le nom de l'équipe.</p>
+  <figure class="petit"><img src="captures/15-notification-invitation.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Accepte ou décline</h3>
+  <p>Dans le mercato, onglet <b>Invitations</b>, lis le message du manager. Touche <span class="m">1</span> <span class="bouton">Accepter</span> pour rejoindre l'équipe, ou <span class="m">2</span> <span class="bouton">Décliner</span>.</p>
+  <p>Ici, Kafui a déjà candidaté à l'Avenir d'Adakpamé : il décline l'invitation de l'Olympique de Tokoin.</p>
+  <figure class="petit"><img src="captures/16-invitation-recue.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">7</span>Ta candidature est acceptée</h3>
+  <p>Le manager a dit oui : tu fais partie de l'équipe. Il t'envoie aussi une invitation <span class="m">1</span> « Suite à votre candidature… » : touche <span class="m">2</span> <span class="bouton">Accepter</span> pour la confirmer.</p>
+  <figure class="petit"><img src="captures/17-candidature-acceptee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">8</span>Ton équipe</h3>
+  <p>Ton équipe apparaît dans <b>Mes équipes</b> <span class="m">1</span>, avec son bilan. Tu peux jouer dans plusieurs équipes : elles s'ajoutent les unes sous les autres.</p>
+  <figure class="petit"><img src="captures/18-mes-equipes.jpg"></figure>
+</section>
+
+<!-- ================= 04 VIE DE L'EQUIPE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 04</div>
+  <h2>La vie de ton équipe</h2>
+  <p class="chapo">Voici comment suivre ton club au quotidien : l'effectif, les matchs, et les entraînements auxquels tu réponds présent.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>La page de ton équipe</h3>
+  <p>Touche ton équipe dans <b>Mes équipes</b>. Ses <span class="m">1</span> onglets te montrent l'effectif, les matchs, les statistiques du club, les entraînements, le palmarès et la galerie.</p>
+  <p>Dans l'<b>Effectif</b>, tu retrouves <span class="m">2</span> ta ligne, avec ton numéro de maillot (c'est ton manager qui le donne) et ton poste.</p>
+  <figure class="moyen"><img src="captures/19-page-equipe.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/20-seance.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Réponds aux entraînements</h3>
+    <p>Quand ton manager programme une séance, elle apparaît dans l'onglet <b>Entraînements</b>, avec la date, l'heure, le lieu et son message.</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Présent</span> si tu viens, ou <span class="m">2</span> <span class="bouton">Absent</span>. Ton manager voit tout de suite combien vous serez.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/21-seance-confirmee.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>C'est noté</h3>
+    <p>Ta réponse s'affiche sous la séance (<b>Présent</b>), et le compteur <span class="m">1</span> des joueurs confirmés augmente.</p>
+    <p>Les créneaux d'entraînement de chaque semaine, eux, sont dans ton <b>calendrier</b> (chapitre 5).</p>
+  </div>
+</div>
+
+<!-- ================= 05 CONVOCATIONS ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 05</div>
+  <h2>Tes convocations</h2>
+  <p class="chapo">Voici comment répondre quand ton manager te convoque pour un match, et où retrouver tout ton programme.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="encadre info" style="margin-bottom:6mm"><span class="t">Deux cas</span>Quand ton manager programme un match, il choisit : soit tout l'effectif est inscrit d'office sur la feuille (tu n'as rien à faire), soit chaque joueur doit <b>confirmer sa présence</b>. C'est ce second cas qu'on voit ici.</div>
+
+<div class="cote etape">
+  <figure><img src="captures/22-notification-convocation.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Tu es convoqué</h3>
+    <p>Tu reçois une notification <span class="m">1</span> <b>Convocation à un match</b>, avec les deux équipes et la date.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/23-mes-convocations.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Réponds depuis « Mes convocations »</h3>
+    <p>Ouvre <b>Mes convocations</b> (bouton de la page <b>Mes équipes</b>, ou la notification). L'onglet <b>Demandes</b> liste les matchs qui attendent ta réponse.</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Accepter</span> si tu viens, ou <span class="m">2</span> <span class="bouton">Décliner</span>.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/24-rejoins-le-combat.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>… ou depuis la fiche du match</h3>
+    <p>Sur la fiche du match, onglet <b>Composition</b>, tes coéquipiers convoqués sont listés, et le bloc <b>Rejoins le combat !</b> t'attend.</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Confirmer ma présence</span>, ou <span class="m">2</span> <span class="bouton">Je ne peux pas</span>.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/25-convocation-confirmee.jpg"></figure>
+  <div>
+    <h3><span class="n">4</span>Ta réponse est enregistrée</h3>
+    <p>La convocation passe dans l'onglet <b>Historique</b>, marquée <span class="m">1</span> <b>Confirmé</b>. Ton manager la voit, et peut t'inscrire sur la feuille de match.</p>
+    <p>Après le match, l'historique affiche aussi tes buts.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/26-calendrier.jpg"></figure>
+  <div>
+    <h3><span class="n">5</span>Ton calendrier</h3>
+    <p>Dans <b>MySpace</b> (ou <b>Espace</b> sur téléphone), <b>Calendrier</b> réunit les matchs de tes équipes (point vert) et les créneaux d'entraînement de chaque semaine (point violet).</p>
+    <p>Touche un jour <span class="m">1</span> : le match s'affiche en dessous, avec le lien vers sa fiche et l'<b>itinéraire</b> jusqu'au terrain.</p>
+  </div>
+</div>
+
+<!-- ================= 06 MATCH ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 06</div>
+  <h2>Le jour du match</h2>
+  <p class="chapo">Voici tout ce que la fiche du match te propose, avant, pendant et après la rencontre.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>La fiche du match</h3>
+  <p>Ouvre le match depuis ton calendrier ou tes notifications. Avant le coup d'envoi :</p>
+  <ul>
+    <li><span class="m">1</span> la <b>cloche</b> : touche-la pour suivre le match. Tu seras prévenu du coup d'envoi, de chaque but et de la fin, dès que le match est suivi en direct ;</li>
+    <li><span class="m">2</span> l'onglet <b>Composition</b> : la feuille de match, quand ton manager l'a remplie ;</li>
+    <li><span class="m">3</span> <b>Qui gagne ?</b> : ton pronostic.</li>
+  </ul>
+  <figure class="petit"><img src="captures/27-fiche-match.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Fais ton pronostic</h3>
+  <p>Touche l'équipe que tu vois gagner, ou <b>Nul</b>. Les pourcentages de tous les pronostics s'affichent. Tu peux changer d'avis jusqu'au coup d'envoi.</p>
+  <figure class="bandeau"><img src="captures/28-pronostic.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Regarde la composition</h3>
+  <p>Quand ton manager a envoyé la feuille de match, l'onglet <b>Composition</b> montre le onze sur le terrain, avec les numéros, et le banc en dessous. Tu y trouves <span class="m">1</span> ta place. L'onglet de l'équipe adverse montre la sienne.</p>
+  <figure class="petit"><img src="captures/29-composition.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Après le match</h3>
+  <p>Le match est joué. La fiche affiche le score et <span class="m">1</span> les buteurs, minute par minute. L'onglet <b>Fil du match</b> raconte tout le match : buts, cartons, remplacements, mi-temps, et <span class="m">2</span> l'<b>homme du match</b>.</p>
+  <figure class="moyen"><img src="captures/30-apres-match.jpg"></figure>
+</section>
+
+<!-- ================= 07 STATS ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 07</div>
+  <h2>Tes statistiques</h2>
+  <p class="chapo">Voici où retrouver ta saison. Rien à saisir : KoppaFoot compte pour toi, match après match.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>« Mes statistiques »</h3>
+  <p>Dans <b>MySpace</b>, touche <b>Mes statistiques</b> :</p>
+  <ul>
+    <li><span class="m">1</span> tes <b>compteurs</b> : matchs joués, titularisations, buts, cartons, minutes jouées, titres d'homme du match ;</li>
+    <li><span class="m">2</span> le détail <b>par compétition</b> : ici, les matchs amicaux avec l'Avenir d'Adakpamé ;</li>
+    <li><span class="m">3</span> <b>tes derniers matchs</b>, avec le score et ce que tu y as fait. Touche un match pour ouvrir sa fiche.</li>
+  </ul>
+  <figure class="haut"><img src="captures/31-mes-statistiques.jpg"></figure>
+  <div class="encadre info"><span class="t">Ce qui compte</span>Un match compte quand il est terminé et que tu figures sur la feuille de match. Les buts et les cartons sont ceux notés pendant le direct ; les minutes se calculent sur les entrées et sorties notées pendant le match.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Sur ta fiche publique</h3>
+  <p>Tes chiffres apparaissent aussi <span class="m">1</span> sur ta fiche publique, à côté de tes équipes. C'est ce que voient les managers qui s'intéressent à toi.</p>
+  <figure class="petit"><img src="captures/32-fiche-publique-stats.jpg"></figure>
+</section>
+
+<!-- ================= 08 COMPETITIONS ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 08</div>
+  <h2>Les compétitions</h2>
+  <p class="chapo">Ton manager inscrit l'équipe à un tournoi ? Voici comment tu le vois, et où suivre la compétition.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ton équipe est inscrite</h3>
+  <p>Quand l'organisateur accepte l'inscription de ton équipe, tu reçois une notification <span class="m">1</span> <b>Nouvelle compétition</b>. Tu n'as rien à faire : tu es inscrit avec elle, sous ton nom et ton numéro.</p>
+  <figure class="petit"><img src="captures/33-notification-competition.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Elle est dans tes statistiques</h3>
+  <p>Dans <b>Mes statistiques</b>, la compétition apparaît aussitôt <span class="m">1</span> dans le bloc <b>Par compétition</b> (« Inscrit, aucun match joué pour l'instant »). Touche-la pour ouvrir ton équipe dans la compétition.</p>
+  <figure class="petit"><img src="captures/34-stats-competition.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ton équipe dans la compétition</h3>
+  <p>L'effectif engagé s'affiche, et ta ligne porte la mention <span class="m">1</span> <b>Toi</b> : ton compte y est lié, tes buts et tes cartons du tournoi iront dans tes statistiques. <span class="m">2</span> <b>Résultats</b> montre les matchs de ton équipe.</p>
+  <figure class="haut"><img src="captures/35-equipe-competition.jpg"></figure>
+  <div class="encadre attention"><span class="t">Tu n'y vois pas « Toi » ?</span>Si l'organisateur a saisi ton nom à la main, ta ligne n'est pas reliée à ton compte. Parles-en à ton manager ou à l'organisateur : ta ligne peut être rattachée à ton compte.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Suis la compétition</h3>
+  <p>Sur la page de la compétition, touche <span class="m">1</span> <span class="bouton">Suivre</span> pour être prévenu de chaque nouveauté. Les onglets <span class="m">2</span> <b>Calendrier</b>, <b>Classement</b>, <b>Tableau</b> et <b>Buteurs</b> se remplissent au fil du tournoi.</p>
+  <figure class="petit"><img src="captures/36-page-competition.jpg"></figure>
+</section>
+
+<!-- ================= AIDE-MEMOIRE ================= -->
+<section class="page-break memo">
+  <h2>Ta semaine de joueur</h2>
+  <p class="sous">Les dix gestes à connaître, de la première inscription au match du dimanche.</p>
+  <ol>
+    <li><span><b>Profil à jour</b> : poste, niveau, bio. C'est ce que lisent les managers.</span></li>
+    <li><span><b>Pas encore d'équipe ?</b> Mes équipes → <b>Mercato</b> → Équipes → <b>Candidater</b>.</span></li>
+    <li><span><b>Une invitation ?</b> Mercato → Invitations → <b>Accepter</b> ou <b>Décliner</b>.</span></li>
+    <li><span><b>La cloche rouge</b> : ouvre tes notifications, tout y arrive.</span></li>
+    <li><span><b>Un entraînement</b> : page de l'équipe → Entraînements → <b>Présent</b> ou <b>Absent</b>.</span></li>
+    <li><span><b>Une convocation</b> : Mes convocations → <b>Accepter</b> (ou « Confirmer ma présence » sur la fiche du match).</span></li>
+    <li><span><b>Où et quand ?</b> Calendrier → touche le jour → <b>Itinéraire</b>.</span></li>
+    <li><span><b>Avant le match</b> : fiche du match → cloche pour suivre, pronostic, composition.</span></li>
+    <li><span><b>Après le match</b> : fiche du match → Fil du match, homme du match.</span></li>
+    <li><span><b>Ta saison</b> : Mes statistiques, et ta fiche publique.</span></li>
+  </ol>
+</section>
+
+<section class="page-break faq">
+  <header class="chapitre-tete" style="break-before:auto">
+    <div class="numero">Annexe</div>
+    <h2>Questions fréquentes</h2>
+    <div class="barre"></div>
+  </header>
+  <dl>
+    <dt>J'ai joué avant de créer mon compte. Mes matchs sont perdus ?</dt>
+    <dd>Non. Si ton manager t'avait ajouté comme joueur sans compte, demande-lui de te <b>fusionner</b> avec ton nouveau compte (onglet Effectif de son équipe) : tes matchs, tes buts et tes passes te suivent.</dd>
+    <dt>Je n'ai pas reçu ma convocation.</dt>
+    <dd>Si ton manager a choisi d'inscrire tout l'effectif d'office, il n'y a rien à confirmer : tu es déjà sur la feuille. Sinon, regarde <b>Mes convocations</b>, onglet <b>Demandes</b>.</dd>
+    <dt>J'ai confirmé, mais je ne peux finalement pas venir.</dt>
+    <dd>Préviens ton manager au plus vite : c'est lui qui compose la feuille de match et peut te retirer.</dd>
+    <dt>Mon but n'apparaît pas dans mes statistiques.</dt>
+    <dd>Les buts comptent quand ils sont notés pendant le direct. Pour un match saisi après coup par ton manager, seul le match joué est compté.</dd>
+    <dt>Mes passes décisives ne sont pas comptées.</dt>
+    <dd>Elles ne sont pas encore reprises dans « Mes statistiques » ni sur ta fiche publique. Tes buts, tes cartons et tes matchs, eux, le sont.</dd>
+    <dt>Je veux jouer dans deux équipes.</dt>
+    <dd>C'est possible : candidate ou accepte une invitation dans une autre équipe. Tes équipes s'ajoutent dans <b>Mes équipes</b>.</dd>
+    <dt>Je veux quitter une équipe.</dt>
+    <dd>Demande-le à ton manager : c'est lui qui retire un joueur de l'effectif.</dd>
+    <dt>Je suis aussi manager, ou arbitre.</dt>
+    <dd>Va sur <b>koppafoot.com/roles</b> et choisis ton autre rôle : tu gardes ton compte et ton historique.</dd>
+    <dt>Comment supprimer mon compte ?</dt>
+    <dd>Ton profil → onglet <b>Compte</b>. Attention : c'est définitif.</dd>
+    <dt>Besoin d'aide ?</dt>
+    <dd>Touche ton avatar (tes initiales, en haut à droite), puis, dans <b>Support</b> : <b>Questions fréquentes</b>, ou <b>Nous faire un retour</b> pour écrire à l'équipe KoppaFoot.</dd>
+  </dl>
+</section>
+
+</body>
+</html>
