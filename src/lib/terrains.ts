@@ -305,3 +305,94 @@ export function libreA(
     libre: !occupations.some((o) => seChevauchent(o, creneau)),
   };
 }
+
+// ─── Le planning du propriétaire ────────────────────────────
+
+const enMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return (Number.isNaN(h) ? 0 : h) * 60 + (Number.isNaN(m) ? 0 : m);
+};
+
+const isoLocale = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+/** Le lundi de la semaine d'une date : une semaine de terrain commence le lundi. */
+export function lundiDe(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return isoLocale(d);
+}
+
+/** Les sept jours à partir d'un lundi, ou d'une semaine plus loin (`decalage`). */
+export function joursDeLaSemaine(lundi: string, decalage = 0): string[] {
+  const d = new Date(`${lundi}T12:00:00`);
+  d.setDate(d.getDate() + decalage * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return isoLocale(x);
+  });
+}
+
+/**
+ * L'amplitude du planning, en minutes depuis minuit.
+ *
+ * Celle des horaires quand il y en a — la plus tôt des ouvertures, la plus
+ * tard des fermetures — 08:00 → 23:00 sinon. Élargie à l'heure pleine pour
+ * tout créneau qui en déborde : un blocage posé à 7 h sur un terrain qui
+ * ouvre à 8 h doit se voir, pas disparaître au-dessus de la grille.
+ */
+export function amplitude(
+  horaires: HorairesOuverture | null,
+  creneaux: { time: string; duration: number }[],
+): { debut: number; fin: number } {
+  const plages = horaires ? Object.values(horaires).filter((p): p is NonNullable<PlageOuverture> => !!p) : [];
+  let debut = plages.length ? Math.min(...plages.map((p) => enMinutes(p.ouvre))) : 8 * 60;
+  let fin = plages.length ? Math.max(...plages.map((p) => enMinutes(p.ferme))) : 23 * 60;
+  for (const c of creneaux) {
+    const d = enMinutes(c.time);
+    debut = Math.min(debut, d);
+    fin = Math.max(fin, d + Math.round(c.duration * 60));
+  }
+  return { debut: Math.floor(debut / 60) * 60, fin: Math.min(24 * 60, Math.ceil(fin / 60) * 60) };
+}
+
+/**
+ * Où dessiner chaque créneau d'une journée.
+ *
+ * `haut` et `hauteur` en minutes depuis le début du planning ; `colonne` sur
+ * `colonnes` quand des créneaux se chevauchent — deux demandes sur le même
+ * samedi 18 h doivent se voir CÔTE À CÔTE, pas l'une sous l'autre, c'est
+ * précisément ce que le propriétaire doit arbitrer.
+ */
+export function placer<T extends { time: string; duration: number }>(
+  creneaux: T[],
+  debut: number,
+): (T & { haut: number; hauteur: number; colonne: number; colonnes: number })[] {
+  const tries = [...creneaux].sort((a, b) => enMinutes(a.time) - enMinutes(b.time));
+  const places: (T & { haut: number; hauteur: number; colonne: number; colonnes: number })[] = [];
+  let groupe: typeof places = [];
+  let finDuGroupe = -1;
+  const fermer = () => {
+    const n = Math.max(1, ...groupe.map((g) => g.colonne + 1));
+    for (const g of groupe) g.colonnes = n;
+    groupe = [];
+  };
+
+  for (const c of tries) {
+    const d = enMinutes(c.time);
+    const f = d + Math.round(c.duration * 60);
+    if (d >= finDuGroupe) fermer();
+    // La première colonne libre du groupe en cours.
+    let colonne = 0;
+    while (groupe.some((g) => g.colonne === colonne && g.haut + debut + g.hauteur > d)) colonne += 1;
+    const p = { ...c, haut: d - debut, hauteur: f - d, colonne, colonnes: 1 };
+    groupe.push(p);
+    places.push(p);
+    finDuGroupe = Math.max(finDuGroupe, f);
+  }
+  fermer();
+  return places;
+}

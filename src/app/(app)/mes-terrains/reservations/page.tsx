@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays, Check, X, MapPin, AlertTriangle, User, Phone, Mail, MessageCircle,
-  Lock, Swords, CalendarPlus, History,
+  Lock, Swords, CalendarPlus, History, List, CalendarRange,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { onBookingsByOwner, onVenuesByOwner } from "@/lib/firestore";
 import { agirSurReservation, bloquerCreneau } from "@/lib/reservations-client";
 import { isVenueOwner } from "@/lib/hats";
+import PlanningSemaine from "@/components/venue/PlanningSemaine";
 import type { Booking, PropositionCreneau, Venue } from "@/types";
 import { dateLongue, duree, finCreneau, aujourdhui, seChevauchent } from "@/lib/terrains";
 import {
@@ -41,7 +42,10 @@ import {
 //    l'équipe prend d'un geste ;
 //  - LES CRÉNEAUX PRIS AILLEURS. Un habitué, un appel : le propriétaire les
 //    bloque ici, et la fiche publique les montre occupés ;
-//  - L'HISTORIQUE. Tout ce qui était passé disparaissait de l'écran.
+//  - L'HISTORIQUE. Tout ce qui était passé disparaissait de l'écran ;
+//  - LA SEMAINE. La liste dit ce qui est demandé, pas ce qui reste libre :
+//    la vue Semaine montre les soirs pris et libres d'un coup d'œil, et un
+//    créneau libre s'y bloque d'un geste (voir PlanningSemaine).
 //
 // Toutes les réponses passent par le serveur (voir lib/reservations-client),
 // qui prévient l'autre partie et met à jour le match quand il y en a un.
@@ -300,10 +304,19 @@ function Ligne({
 }
 
 /** Prendre un créneau soi-même : un habitué, une réservation au téléphone. */
-function Blocage({ terrains, onFermer }: { terrains: Venue[]; onFermer: () => void }) {
-  const [venueId, setVenueId] = useState(terrains[0]?.id ?? "");
-  const [date, setDate] = useState(aujourdhui());
-  const [time, setTime] = useState("18:00");
+function Blocage({
+  terrains,
+  onFermer,
+  initial,
+}: {
+  terrains: Venue[];
+  onFermer: () => void;
+  /** Le créneau touché dans le planning, s'il y en a un. */
+  initial?: { venueId: string; date: string; time: string } | null;
+}) {
+  const [venueId, setVenueId] = useState(initial?.venueId ?? terrains[0]?.id ?? "");
+  const [date, setDate] = useState(initial?.date ?? aujourdhui());
+  const [time, setTime] = useState(initial?.time ?? "18:00");
   const [dureeChoisie, setDureeChoisie] = useState("1.5");
   const [note, setNote] = useState("");
   const [occupe, setOccupe] = useState(false);
@@ -387,6 +400,11 @@ export default function ReservationsRecuesPage() {
   const [agit, setAgit] = useState<string | null>(null);
   const [blocage, setBlocage] = useState(false);
   const [historique, setHistorique] = useState(false);
+  const [vue, setVue] = useState<"liste" | "semaine">("liste");
+  /** Le créneau libre touché dans le planning : il préremplit le blocage. */
+  const [aBloquer, setABloquer] = useState<{ venueId: string; date: string; time: string } | null>(null);
+  /** La réservation touchée dans le planning : elle s'ouvre sous lui. */
+  const [choisie, setChoisie] = useState<string | null>(null);
   const { demander, Dialogue } = useConfirmation();
 
   useEffect(() => {
@@ -522,16 +540,80 @@ export default function ReservationsRecuesPage() {
         compteur={attente.length > 0 ? { valeur: attente.length, libelle: "en attente" } : undefined}
       />
 
-      {terrains.length > 0 && !blocage && (
-        <div className="mt-6">
-          <Bouton petit variante="contour" Icon={CalendarPlus} onClick={() => setBlocage(true)}>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        {terrains.length > 0 && !blocage ? (
+          <Bouton petit variante="contour" Icon={CalendarPlus} onClick={() => { setABloquer(null); setBlocage(true); }}>
             Bloquer un créneau
           </Bouton>
-        </div>
+        ) : <span />}
+        {terrains.length > 0 && (
+          <div role="group" aria-label="Affichage" className="flex border border-gray-200/70">
+            {([["liste", "Liste", List], ["semaine", "Semaine", CalendarRange]] as const).map(([v, label, Icone]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVue(v)}
+                aria-pressed={vue === v}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${
+                  vue === v ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                <Icone size={13} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {blocage && (
+        <Blocage
+          key={aBloquer ? `${aBloquer.venueId}-${aBloquer.date}-${aBloquer.time}` : "vide"}
+          terrains={terrains}
+          initial={aBloquer}
+          onFermer={() => { setBlocage(false); setABloquer(null); }}
+        />
       )}
-      {blocage && <Blocage terrains={terrains} onFermer={() => setBlocage(false)} />}
 
-      {demandes === null ? (
+      {vue === "semaine" && demandes && (
+        <>
+          <PlanningSemaine
+            reservations={demandes}
+            terrains={terrains}
+            choisie={choisie}
+            onCreneauLibre={(venueId, date, time) => {
+              setChoisie(null);
+              setABloquer({ venueId, date, time });
+              setBlocage(true);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onReservation={(b) => { setBlocage(false); setChoisie(b.id); }}
+          />
+          {(() => {
+            const b = demandes.find((x) => x.id === choisie);
+            if (!b) return null;
+            return (
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <Etiquette>Créneau choisi</Etiquette>
+                  <button
+                    type="button"
+                    onClick={() => setChoisie(null)}
+                    aria-label="Fermer"
+                    className="p-1 text-gray-400 transition-colors hover:text-gray-900"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+                <ul className="mt-2 border border-gray-200/70 bg-white">
+                  {ligne(b, b.status === "pending" ? conflits.get(b.id) ?? null : null)}
+                </ul>
+              </div>
+            );
+          })()}
+        </>
+      )}
+
+      {vue === "semaine" ? null : demandes === null ? (
         <EnCours />
       ) : aVenir.length === 0 && passees.length === 0 ? (
         <div className="mt-6">
