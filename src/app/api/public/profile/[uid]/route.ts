@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { aUnProfilPublic } from "@/lib/espaces-acces";
 import { bilanPublicDuJoueur } from "@/lib/bilan-public";
-import { bilanDuClub } from "@/lib/bilan-club";
+import { bilanCompletDuClub } from "@/lib/bilan-club-serveur";
 import type { LinkedCompPlayer } from "@/types";
 
 /**
@@ -87,27 +87,12 @@ export async function GET(
     });
 
     // LE BILAN DES ÉQUIPES SE CALCULE, comme sur la fiche d'équipe (voir
-    // /api/public/team/[id] et lib/bilan-club) : les compteurs du document
-    // ne redescendent jamais. Le taux de victoire d'un manager se lisait
+    // /api/public/team/[id] et lib/bilan-club-serveur), compétitions
+    // comprises : les compteurs du document ne redescendent jamais. Le taux de victoire d'un manager se lisait
     // sur eux, et racontait autre chose que la fiche de son propre club.
     const teams = await Promise.all(equipes.map(async (d) => {
       const t = d.data();
-      const [chezNous, chezEux] = await Promise.all([
-        adminDb.collection("matches").where("home_team_id", "==", d.id).get(),
-        adminDb.collection("matches").where("away_team_id", "==", d.id).get(),
-      ]);
-      const parId = new Map<string, FirebaseFirestore.DocumentData>();
-      for (const m of [...chezNous.docs, ...chezEux.docs]) parId.set(m.id, m.data());
-      const bilan = bilanDuClub(
-        [...parId.values()].map((m) => ({
-          status: String(m.status ?? ""),
-          homeTeamId: (m.home_team_id as string) ?? null,
-          awayTeamId: (m.away_team_id as string) ?? null,
-          scoreHome: typeof m.score_home === "number" ? m.score_home : null,
-          scoreAway: typeof m.score_away === "number" ? m.score_away : null,
-        })),
-        d.id,
-      );
+      const bilan = await bilanCompletDuClub(d.id);
       return {
         id: d.id,
         name: t.name ?? "",

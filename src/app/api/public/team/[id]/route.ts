@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { bilanDuClub } from "@/lib/bilan-club";
+import { bilanCompletDuClub } from "@/lib/bilan-club-serveur";
 
 /**
  * GET /api/public/team/[id], la fiche publique d'une équipe.
@@ -56,34 +56,18 @@ export async function GET(
      * pour un seul match terminé, et c'est la page PUBLIQUE qui le racontait.
      * Voir lib/bilan-club.
      *
-     * Deux requêtes, et pas une de plus : un match nomme ses deux équipes dans
-     * deux champs distincts, Firestore ne sait pas faire un OU entre eux. La
-     * route revalide toutes les cinq minutes, ces lectures ne se paient donc
-     * pas à chaque visiteur.
+     * Amicaux ET compétitions : voir lib/bilan-club-serveur. La route revalide
+     * toutes les cinq minutes, ces lectures ne se paient donc pas à chaque
+     * visiteur.
      */
-    const [chezNous, chezEux] = await Promise.all([
-      adminDb.collection("matches").where("home_team_id", "==", id).get(),
-      adminDb.collection("matches").where("away_team_id", "==", id).get(),
-    ]);
-    const parId = new Map<string, FirebaseFirestore.DocumentData>();
-    for (const d of [...chezNous.docs, ...chezEux.docs]) parId.set(d.id, d.data());
-
-    const bilan = bilanDuClub(
-      [...parId.values()].map((m) => ({
-        status: String(m.status ?? ""),
-        homeTeamId: (m.home_team_id as string) ?? null,
-        awayTeamId: (m.away_team_id as string) ?? null,
-        scoreHome: typeof m.score_home === "number" ? m.score_home : null,
-        scoreAway: typeof m.score_away === "number" ? m.score_away : null,
-      })),
-      id,
-    );
+    const bilan = await bilanCompletDuClub(id);
     out.matches_played = bilan.joues;
     out.wins = bilan.gagnes;
     out.draws = bilan.nuls;
     out.losses = bilan.perdus;
     out.goals_for = bilan.butsPour;
     out.goals_against = bilan.butsContre;
+    out.clean_sheets = bilan.sansEncaisser;
 
     return NextResponse.json({ team: out });
   } catch (err) {

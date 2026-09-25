@@ -29,7 +29,7 @@ import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/
 import { avatarColor } from "@/components/feed/PostCard";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import CarteMatch from "@/components/team/CarteMatch";
-import { bilanDuClub } from "@/lib/bilan-club";
+import type { BilanClub } from "@/lib/bilan-club";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
@@ -791,13 +791,25 @@ function GhostStatsModal({
  * Ni `memberIds` ni `managerId` n'en font partie : ils restent vides ici, ce
  * qui fait tomber d'elles-memes les vues reservees au manager.
  */
-async function fetchPublicTeam(id: string): Promise<Team | null> {
+async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanClub } | null> {
   try {
     const res = await fetch(`/api/public/team/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
     const { team } = await res.json();
     if (!team) return null;
-    return {
+    // Le bilan calculé par la route : amicaux ET compétitions (voir
+    // lib/bilan-club-serveur). La page ne charge que les amicaux, elle ne
+    // pourrait pas le refaire seule.
+    const bilan: BilanClub = {
+      joues: team.matches_played ?? 0,
+      gagnes: team.wins ?? 0,
+      nuls: team.draws ?? 0,
+      perdus: team.losses ?? 0,
+      butsPour: team.goals_for ?? 0,
+      butsContre: team.goals_against ?? 0,
+      sansEncaisser: team.clean_sheets ?? 0,
+    };
+    return { bilan, team: {
       id: team.id,
       name: team.name ?? "",
       city: team.city ?? null,
@@ -819,7 +831,7 @@ async function fetchPublicTeam(id: string): Promise<Team | null> {
       followersCount: team.followers_count ?? 0,
       memberIds: [],
       managerId: "",
-    } as unknown as Team;
+    } as unknown as Team };
   } catch {
     return null;
   }
@@ -840,6 +852,8 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  /** Le bilan de la route publique, le même pour tous les lecteurs. */
+  const [bilanServeur, setBilanServeur] = useState<BilanClub | null>(null);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("roster");
@@ -912,8 +926,26 @@ export default function TeamDetailPage() {
       // regles, donc on sert la projection publique, voir
       // /api/public/team/[id]. Elle ne porte ni effectif ni manager, donc la
       // page rend sa fiche sans les blocs qui en dependent.
-      const data = user ? await getTeamById(teamId) : await fetchPublicTeam(teamId);
+      //
+      // LE BILAN VIENT DE LA ROUTE PUBLIQUE, POUR TOUT LE MONDE. Connecté, il
+      // se lisait sur les compteurs du document, qui dérivent, et ignorait les
+      // compétitions : le manager et le visiteur ne voyaient pas la même fiche.
+      const [lu, pub] = await Promise.all([
+        user ? getTeamById(teamId) : Promise.resolve(null),
+        fetchPublicTeam(teamId),
+      ]);
+      const base = user ? lu : pub?.team ?? null;
+      const data = base && pub
+        ? {
+            ...base,
+            matchesPlayed: pub.bilan.joues,
+            wins: pub.bilan.gagnes,
+            draws: pub.bilan.nuls,
+            losses: pub.bilan.perdus,
+          }
+        : base;
       setTeam(data);
+      setBilanServeur(pub?.bilan ?? null);
       if (data && user) {
         // Fetch members
         const memberProfiles = await getUsersByIds(data.memberIds);
@@ -921,12 +953,6 @@ export default function TeamDetailPage() {
         // Fetch matches
         const teamMatches = await getMatchesByTeamIds([data.id]);
         setMatches(teamMatches);
-        // Le bilan d'en-tête se recalcule sur ces matchs, comme pour un
-        // visiteur (voir /api/public/team/[id]) : connecté, il se lisait sur
-        // les compteurs du document, et les deux lecteurs ne voyaient pas
-        // la même fiche. Voir lib/bilan-club.
-        const b = bilanDuClub(teamMatches, data.id);
-        setTeam({ ...data, matchesPlayed: b.joues, wins: b.gagnes, draws: b.nuls, losses: b.perdus });
       }
     } catch {
       // Silent
@@ -1364,7 +1390,7 @@ export default function TeamDetailPage() {
     .filter((m) => m.status === "completed")
     .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
 
-  const bilan = matchsTermines.reduce(
+  const bilanLocal = matchsTermines.reduce(
     (acc, m) => {
       const nous = m.homeTeamId === teamId ? m.scoreHome : m.scoreAway;
       const eux = m.homeTeamId === teamId ? m.scoreAway : m.scoreHome;
@@ -1377,6 +1403,16 @@ export default function TeamDetailPage() {
     },
     { pour: 0, contre: 0, sansEncaisser: 0, comptes: 0 },
   );
+  // Celui de la route d'abord : il compte aussi les compétitions, et un
+  // visiteur, qui ne charge aucun match, n'aurait sinon rien à lire.
+  const bilan = bilanServeur
+    ? {
+        pour: bilanServeur.butsPour,
+        contre: bilanServeur.butsContre,
+        sansEncaisser: bilanServeur.sansEncaisser,
+        comptes: bilanServeur.joues,
+      }
+    : bilanLocal;
 
   /** Les cinq derniers résultats, du plus récent au plus ancien. */
   const forme = matchsTermines.slice(0, 5).map((m) => {
