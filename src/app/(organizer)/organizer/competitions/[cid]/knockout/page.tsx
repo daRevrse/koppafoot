@@ -520,13 +520,16 @@ export default function CompetitionKnockoutPage() {
 
     setSavingSchedule(true);
     try {
-      await scheduleCompMatch(cid, scheduleMatch.id, {
+      // Le lieu se saisit ici en texte : un terrain référencé choisi depuis le
+      // calendrier reste attaché tant que son nom ne change pas.
+      const terrain = await scheduleCompMatch(cid, scheduleMatch.id, {
         date: slotForm.date,
         time: slotForm.time,
         venueName: slotForm.venueName,
         venueCity: slotForm.venueCity,
       });
       toast.success("Date et lieu enregistrés");
+      if (terrain) toast.error(terrain);
       setScheduleMatch(null);
     } catch (err) {
       console.error("Error scheduling knockout match:", err);

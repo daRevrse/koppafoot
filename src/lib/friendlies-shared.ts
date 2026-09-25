@@ -180,6 +180,10 @@ export function amicalVersCompMatch(id: string, d: Row): CompMatch | null {
     time: str(d.time),
     venueName: str(d.venue_name),
     venueCity: str(d.venue_city),
+    // La réservation du terrain ne concerne que ses managers : le tableau
+    // public n'en a rien à faire.
+    venueId: null,
+    venueBooking: null,
     status,
     scoreHome: num(d.score_home),
     scoreAway: num(d.score_away),

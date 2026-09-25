@@ -91,6 +91,8 @@ export async function getWorldBoard(): Promise<WorldGroup[]> {
         time,
         venueName: null,
         venueCity: null,
+        venueId: null,
+        venueBooking: null,
         status,
         scoreHome: m.scoreHome,
         scoreAway: m.scoreAway,

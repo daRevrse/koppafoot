@@ -41,9 +41,15 @@ import {
   tailleEffectif,
   totalJoueurs,
   quotaMinimum,
+  createNotification,
 } from "@/lib/firestore";
+import { synchroniserTerrain } from "@/lib/reservations-client";
+import { dateLongue, dureeDuMatch, horsHoraires } from "@/lib/terrains";
+import { AvisTerrain, EtatTerrain, RefusDuTerrain } from "@/components/venue/venue-ui";
 import { TEAM_SIZE_OPTIONS } from "@/lib/competition-format";
-import type { Match, Team, Venue, PlayerRating, LineupEntry, MatchValidation } from "@/types";
+import type {
+  Match, Team, Venue, PlayerRating, LineupEntry, MatchValidation, PropositionCreneau,
+} from "@/types";
 import TirsAuBut from "@/components/match/TirsAuBut";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
 import Link from "next/link";
@@ -149,6 +155,9 @@ const estRenseigne = (m: Match) => !!m.recordedAt;
 
 /** Un match sans manager en face : l'adversaire n'est pas sur la plateforme. */
 const estAmical = (m: Match) => !m.awayManagerId;
+
+/** Les états où le match peut encore changer de terrain ou d'horaire. */
+const MODIFIABLE: Match["status"][] = ["challenge", "pending", "upcoming", "delayed"];
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -467,6 +476,15 @@ export default function MatchesPage() {
 
     const isFriendly = createMode === "friendly";
     const venue = venues.find((v) => v.id === selectedVenueId);
+    // UN TERRAIN RÉFÉRENCÉ A SES HORAIRES : une heure hors plage partirait au
+    // propriétaire pour se faire refuser. On le dit ici, avant de créer.
+    if (venue) {
+      const hors = horsHoraires(venue.openingHours, { date: matchDate, time: matchTime, duration: dureeDuMatch(format) });
+      if (hors) {
+        toast.error(`${venue.name} : ${hors}`);
+        return;
+      }
+    }
     const venueName = venue?.name ?? customVenueName.trim();
     const venueCity = venue?.city ?? customVenueCity.trim();
     const homeTeamName = isHome ? team.name : awayTeamName;
@@ -505,7 +523,8 @@ export default function MatchesPage() {
         ? (awaySearchResults.find((t) => t.id === awayTeamId)?.logoUrl ?? null)
         : null;
 
-      await createMatch({
+      const matchId = await createMatch({
+        venueId: venue?.id ?? null,
         homeTeamId: isHome ? team.id : opponentTeamId,
         awayTeamId: isHome ? opponentTeamId : team.id,
         homeTeamName,
@@ -528,6 +547,16 @@ export default function MatchesPage() {
       });
 
       toast.success(isFriendly ? "Match programmé" : "Défi envoyé");
+
+      // Sur un terrain référencé, la demande de créneau part chez le
+      // propriétaire dans la foulée — pour un défi aussi, sans attendre que
+      // l'adversaire accepte : c'est ce qui laisse au terrain le temps de
+      // répondre.
+      if (venue) {
+        const echec = await synchroniserTerrain(matchId);
+        if (echec) toast.error(`Terrain : ${echec}`);
+        else toast.success(`Demande envoyée à ${venue.name}`);
+      }
       resetForm();
       setCreateMode(null);
       await fetchData();
@@ -537,6 +566,17 @@ export default function MatchesPage() {
     } finally {
       setCreating(false);
     }
+  };
+
+  /**
+   * Aligner le créneau du terrain sur le match, après un geste sur lui.
+   *
+   * Le geste est fait quoi qu'il arrive ; un échec ici se dit, sans défaire
+   * le reste, et le prochain geste rattrape l'écart.
+   */
+  const libererOuAligner = async (matchId: string) => {
+    const echec = await synchroniserTerrain(matchId);
+    if (echec) toast.error(`Terrain : ${echec}`);
   };
 
   /**
@@ -561,6 +601,8 @@ export default function MatchesPage() {
       // tout — et c'est exactement le geste de quelqu'un qui s'est trompé.
       if (estRenseigne(match)) await deleteRecordedMatch(match.id);
       else await deleteMatch(match.id);
+      // Le créneau demandé au terrain se libère avec le match.
+      if (match.venueId || match.venueBooking) void libererOuAligner(match.id);
       setMatches((prev) => prev.filter((m) => m.id !== match.id));
       toast.success("Match supprimé");
     } catch (err) {
@@ -598,6 +640,8 @@ export default function MatchesPage() {
   const handleCancelMatch = async (matchId: string) => {
     try {
       await cancelMatch(matchId);
+      const annule = matches.find((m) => m.id === matchId);
+      if (annule?.venueId || annule?.venueBooking) void libererOuAligner(matchId);
       // Wait for real-time listener or manually update
       setMatches((prev) => prev.map((m) => m.id === matchId ? { ...m, status: "cancelled" } : m));
     } catch (err) {
@@ -668,6 +712,8 @@ export default function MatchesPage() {
         "",
         match.format,
       );
+      // Défi refusé, match annulé : le terrain demandé par l'autre se libère.
+      if (match.venueId || match.venueBooking) void libererOuAligner(match.id);
       setChallenges((prev) => prev.filter((c) => c.id !== match.id));
     } catch (err) {
       console.error("Erreur lors du refus du défi:", err);
@@ -724,21 +770,53 @@ export default function MatchesPage() {
       const selectedVenue = venues.find((v) => v.id === modVenueId);
       const venueName = selectedVenue?.name || modVenueName.trim() || modifyingMatch.venueName;
       const venueCity = selectedVenue?.city || modVenueCity.trim() || modifyingMatch.venueCity;
+      // Un terrain référencé choisi l'emporte ; une saisie libre n'en désigne
+      // aucun, et libère donc le créneau demandé à l'ancien.
+      const venueId = selectedVenue?.id ?? null;
 
-      if (estAmical(modifyingMatch)) {
+      if (selectedVenue) {
+        const hors = horsHoraires(selectedVenue.openingHours, {
+          date: modDate, time: modTime, duration: dureeDuMatch(modifyingMatch.format),
+        });
+        if (hors) {
+          toast.error(`${selectedVenue.name} : ${hors}`);
+          return;
+        }
+      }
+
+      // UN DÉFI PAS ENCORE ACCEPTÉ SE DÉPLACE SANS DEMANDE : l'adversaire n'a
+      // rien accepté, il découvrira le nouvel horaire en lisant le défi. Lui
+      // demander de valider un changement sur un défi qu'il n'a pas encore
+      // vu n'a pas de sens — et c'est souvent le terrain qui l'impose.
+      const direct = estAmical(modifyingMatch) || modifyingMatch.status === "challenge";
+
+      if (direct) {
         // Personne en face pour accepter : la demande de modification restait
         // en suspens à vie et gelait le match. On déplace, et on prévient les
         // convoqués.
         await updateMatchSchedule(modifyingMatch.id, {
-          date: modDate, time: modTime, venueName, venueCity,
+          date: modDate, time: modTime, venueName, venueCity, venueId,
         });
-        toast.success("Match déplacé");
+        if (modifyingMatch.status === "challenge" && modifyingMatch.awayManagerId) {
+          await createNotification({
+            userId: modifyingMatch.awayManagerId,
+            type: "match_update",
+            title: "Défi modifié",
+            body: `${modifyingMatch.homeTeamName} vs ${modifyingMatch.awayTeamName} : ${dateLongue(modDate)} à ${modTime}${venueName ? `, ${venueName}` : ""}.`,
+            link: "/matches",
+          }).catch(() => {});
+        }
+        toast.success(estAmical(modifyingMatch) ? "Match déplacé" : "Défi modifié");
+        if (venueId || modifyingMatch.venueId || modifyingMatch.venueBooking) {
+          void libererOuAligner(modifyingMatch.id);
+        }
       } else {
         await requestMatchModification(modifyingMatch.id, {
           date: modDate,
           time: modTime,
           venueName,
           venueCity,
+          venueId,
           reason: modReason,
           requestedBy: user.uid,
         });
@@ -762,7 +840,12 @@ export default function MatchesPage() {
         time: match.modificationRequest.time,
         venue_name: match.modificationRequest.venueName,
         venue_city: match.modificationRequest.venueCity,
+        venue_id: match.modificationRequest.venueId ?? null,
       });
+      // Le match a bougé : le terrain suit, qu'il change ou non.
+      if (accepted && (match.modificationRequest.venueId || match.venueId || match.venueBooking)) {
+        void libererOuAligner(match.id);
+      }
     } catch (err) {
       console.error(err);
       alert("Erreur lors de la réponse à la modification");
@@ -845,11 +928,17 @@ export default function MatchesPage() {
     finally { setSavingRatings(false); }
   };
 
-  const openModifyModal = (match: Match) => {
+  /**
+   * Ouvrir la modification, éventuellement préremplie avec le créneau que le
+   * propriétaire du terrain a proposé en refusant : le manager n'a plus qu'à
+   * valider, et la demande qui repart est confirmée d'office.
+   */
+  const openModifyModal = (match: Match, proposition?: PropositionCreneau | null) => {
     setModifyingMatch(match);
-    setModDate(match.date);
-    setModTime(match.time);
-    const venue = venues.find((v) => v.name === match.venueName);
+    setModDate(proposition?.date ?? match.date);
+    setModTime(proposition?.time ?? match.time);
+    const venue = venues.find((v) => v.id === match.venueId)
+      ?? venues.find((v) => v.name === match.venueName);
     setModVenueId(venue?.id || "");
     setModVenueName(venue ? "" : match.venueName);
     setModVenueCity(venue ? "" : match.venueCity);
@@ -1094,6 +1183,7 @@ export default function MatchesPage() {
                       ))}
                     </select>
                   )}
+                  <AvisTerrain venue={venues.find((v) => v.id === selectedVenueId)} date={matchDate} duree={dureeDuMatch(format)} />
                   {!selectedVenueId && (
                     <div className={`grid grid-cols-2 gap-2 ${venues.length > 0 ? "mt-2" : ""}`}>
                       <input
@@ -1331,9 +1421,12 @@ export default function MatchesPage() {
                         <Clock size={12} /> {match.time}
                       </span>
                       {match.venueName ? (
-                        <span className="flex items-center gap-1">
-                          <MapPin size={12} /> {match.venueName}
-                        </span>
+                        <>
+                          <span className="flex items-center gap-1">
+                            <MapPin size={12} /> {match.venueName}
+                          </span>
+                          <EtatTerrain r={match.venueBooking} />
+                        </>
                       ) : (
                         <span className="flex items-center gap-1 text-amber-500">
                           <MapPin size={12} /> Terrain à définir
@@ -1527,9 +1620,12 @@ export default function MatchesPage() {
                           })()}
                         </span>
                         {match.venueName ? (
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} /> {match.venueName}
-                          </span>
+                          <>
+                            <span className="flex items-center gap-1">
+                              <MapPin size={12} /> {match.venueName}
+                            </span>
+                            <EtatTerrain r={match.venueBooking} />
+                          </>
                         ) : (
                           <span className="flex items-center gap-1 text-amber-500">
                             <MapPin size={12} /> Terrain à définir
@@ -1563,6 +1659,16 @@ export default function MatchesPage() {
                           );
                         })()}
                       </div>
+
+                      {match.venueBooking?.status === "refused"
+                        && user?.uid === match.managerId
+                        && MODIFIABLE.includes(match.status) && (
+                        <RefusDuTerrain
+                          r={match.venueBooking}
+                          onPrendre={() => openModifyModal(match, match.venueBooking?.proposition)}
+                          onChanger={() => openModifyModal(match)}
+                        />
+                      )}
 
                       {/* Referee + Players row (upcoming/delayed/draft only) */}
                       {(match.status === "upcoming" || match.status === "delayed" || isDraft) && (
@@ -2030,6 +2136,11 @@ export default function MatchesPage() {
                         ))}
                       </select>
                     )}
+                    <AvisTerrain
+                      venue={venues.find((v) => v.id === modVenueId)}
+                      date={modDate}
+                      duree={dureeDuMatch(modifyingMatch.format)}
+                    />
                     {!modVenueId && (
                       <div className={`grid grid-cols-2 gap-2 ${venues.length > 0 ? "mt-2" : ""}`}>
                         <input
@@ -2051,7 +2162,7 @@ export default function MatchesPage() {
                   </div>
                   {/* Le motif s'adresse au manager adverse. Sur un amical il n'y
                       en a pas : on ne demande pas de se justifier auprès de soi. */}
-                  {!estAmical(modifyingMatch) && (
+                  {!estAmical(modifyingMatch) && modifyingMatch.status !== "challenge" && (
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Motif de la modification</label>
                       <textarea
@@ -2085,7 +2196,8 @@ export default function MatchesPage() {
                   >
                     {submittingMod
                       ? <Loader2 size={16} className="animate-spin" />
-                      : estAmical(modifyingMatch) ? "Déplacer le match" : "Envoyer la demande"}
+                      : estAmical(modifyingMatch) ? "Déplacer le match"
+                      : modifyingMatch.status === "challenge" ? "Modifier le défi" : "Envoyer la demande"}
                   </button>
                 </div>
               </form>

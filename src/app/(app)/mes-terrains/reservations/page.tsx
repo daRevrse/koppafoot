@@ -2,16 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, X, MapPin, AlertTriangle, User } from "lucide-react";
+import {
+  CalendarDays, Check, X, MapPin, AlertTriangle, User, Phone, Mail, MessageCircle,
+  Lock, Swords, CalendarPlus, History, List, CalendarRange,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { onBookingsByOwner, updateBookingStatus } from "@/lib/firestore";
+import { onBookingsByOwner, onVenuesByOwner } from "@/lib/firestore";
+import { agirSurReservation, bloquerCreneau } from "@/lib/reservations-client";
 import { isVenueOwner } from "@/lib/hats";
-import type { Booking } from "@/types";
+import PlanningSemaine from "@/components/venue/PlanningSemaine";
+import type { Booking, PropositionCreneau, Venue } from "@/types";
 import { dateLongue, duree, finCreneau, aujourdhui, seChevauchent } from "@/lib/terrains";
 import {
-  Panneau, FilAriane, Fanion, Bouton, LienBouton, EtatVide, EnCours, Etiquette,
-  useConfirmation, type Ton,
+  Panneau, FilAriane, Fanion, Bouton, LienBouton, EtatVide, EnCours, Etiquette, Champ, Pastilles,
+  useConfirmation, classeChamp, type Ton,
 } from "@/components/venue/venue-ui";
 
 // ============================================
@@ -21,17 +26,29 @@ import {
 // demandés ailleurs, en tant que client. Un propriétaire a les deux : il loue
 // son terrain et peut jouer sur celui d'un autre.
 //
-// C'EST DÉSORMAIS LA SEULE PAGE QUI RÉPOND. /mes-terrains affichait la même
-// liste avec les mêmes boutons ; il n'en reste là-bas qu'un compteur.
+// C'EST LA SEULE PAGE QUI RÉPOND. /mes-terrains n'en garde qu'un compteur.
 //
 // LE CHEVAUCHEMENT EST CALCULÉ AVANT DE CONFIRMER. Deux équipes peuvent
 // parfaitement demander le même samedi 18 h — on ne bloque pas le dépôt — mais
 // accepter les deux est l'erreur qui coûte un client, et elle ne se voyait pas
-// dans une liste triée par date d'arrivée. Le produit la nomme au moment où
-// elle se commet.
+// dans une liste triée par date d'arrivée.
 //
-// Confirmer appartient au propriétaire, et les règles Firestore le tiennent :
-// un demandeur ne peut écrire que l'annulation.
+// CE QUI MANQUAIT POUR RÉPONDRE, et qui est là désormais :
+//  - COMMENT JOINDRE L'ÉQUIPE. Le paiement se règle entre elle et lui, hors
+//    de la plateforme, et il n'avait qu'un nom. Le téléphone s'appelle ou
+//    s'ouvre dans WhatsApp d'un geste ;
+//  - POUR QUOI. Une demande née d'un match dit lequel ;
+//  - UN « NON » QUI AIDE. Refuser peut proposer un autre créneau, que
+//    l'équipe prend d'un geste ;
+//  - LES CRÉNEAUX PRIS AILLEURS. Un habitué, un appel : le propriétaire les
+//    bloque ici, et la fiche publique les montre occupés ;
+//  - L'HISTORIQUE. Tout ce qui était passé disparaissait de l'écran ;
+//  - LA SEMAINE. La liste dit ce qui est demandé, pas ce qui reste libre :
+//    la vue Semaine montre les soirs pris et libres d'un coup d'œil, et un
+//    créneau libre s'y bloque d'un geste (voir PlanningSemaine).
+//
+// Toutes les réponses passent par le serveur (voir lib/reservations-client),
+// qui prévient l'autre partie et met à jour le match quand il y en a un.
 // ============================================
 
 const ETATS: Record<string, { label: string; ton: Ton }> = {
@@ -41,28 +58,169 @@ const ETATS: Record<string, { label: string; ton: Ton }> = {
   completed: { label: "Passé", ton: "neutre" },
 };
 
-function Ligne({
+const DUREES = [
+  { value: "1", label: "1 h" },
+  { value: "1.5", label: "1 h 30" },
+  { value: "2", label: "2 h" },
+  { value: "3", label: "3 h" },
+];
+
+/**
+ * Le lien WhatsApp d'un numéro, ou `null`.
+ *
+ * WhatsApp veut le numéro international. Un numéro local à huit chiffres est
+ * un numéro togolais — le produit vit à Lomé — et prend l'indicatif 228 ;
+ * au-delà, on ne devine pas, le lien d'appel suffit.
+ */
+function whatsappDe(tel: string): string | null {
+  const brut = tel.trim();
+  let chiffres = brut.replace(/\D/g, "");
+  if (brut.startsWith("00")) chiffres = chiffres.slice(2);
+  else if (!brut.startsWith("+")) {
+    if (chiffres.length !== 8) return null;
+    chiffres = `228${chiffres}`;
+  }
+  return chiffres.length >= 10 ? `https://wa.me/${chiffres}` : null;
+}
+
+function Contact({ b }: { b: Booking }) {
+  const tel = b.contact?.telephone;
+  const email = b.contact?.email;
+  if (!tel && !email) return null;
+  const wa = tel ? whatsappDe(tel) : null;
+  const lien =
+    "inline-flex items-center gap-1.5 border border-gray-200/70 px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900";
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {tel && (
+        <a href={`tel:${tel.replace(/\s/g, "")}`} className={lien}>
+          <Phone size={12} />
+          {tel}
+        </a>
+      )}
+      {wa && (
+        <a href={wa} target="_blank" rel="noopener noreferrer" className={lien}>
+          <MessageCircle size={12} />
+          WhatsApp
+        </a>
+      )}
+      {email && (
+        <a href={`mailto:${email}`} className={lien}>
+          <Mail size={12} />
+          Email
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Refuser, en proposant éventuellement autre chose. */
+function Refus({
   b,
-  conflit,
-  actions,
-  onRepondre,
+  onValider,
+  onFermer,
   occupe,
 }: {
   b: Booking;
-  conflit: Booking | null;
-  actions: boolean;
-  onRepondre: (b: Booking, statut: "confirmed" | "cancelled") => void;
+  onValider: (proposition: PropositionCreneau | null) => void;
+  onFermer: () => void;
   occupe: boolean;
 }) {
+  const [date, setDate] = useState(b.date);
+  const [time, setTime] = useState(b.time);
+  const [proposer, setProposer] = useState(false);
+
+  return (
+    <div className="mt-4 border border-gray-200/70 bg-gray-50 p-4">
+      <label className="flex cursor-pointer items-center gap-2.5">
+        <input
+          type="checkbox"
+          checked={proposer}
+          onChange={(e) => setProposer(e.target.checked)}
+          className="h-4 w-4 accent-emerald-600"
+        />
+        <span className="text-[11px] font-bold text-gray-700">
+          Proposer un autre créneau à l&apos;équipe
+        </span>
+      </label>
+
+      {proposer && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Champ label="Date" htmlFor={`p-date-${b.id}`}>
+            <input
+              id={`p-date-${b.id}`}
+              type="date"
+              min={aujourdhui()}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={classeChamp}
+            />
+          </Champ>
+          <Champ label="Heure" htmlFor={`p-heure-${b.id}`}>
+            <input
+              id={`p-heure-${b.id}`}
+              type="time"
+              step={1800}
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className={classeChamp}
+            />
+          </Champ>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Bouton
+          petit
+          variante="danger"
+          Icon={X}
+          occupe={occupe}
+          disabled={proposer && (!date || !time)}
+          onClick={() => onValider(proposer ? { date, time } : null)}
+        >
+          {proposer ? "Refuser et proposer" : "Refuser"}
+        </Bouton>
+        <Bouton petit variante="contour" onClick={onFermer} disabled={occupe}>
+          Retour
+        </Bouton>
+      </div>
+      {b.matchId && (
+        <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
+          {b.competitionId ? "L'organisateur" : "Le manager"} du match est prévenu, et invité à changer
+          d&apos;horaire ou de terrain.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Ligne({
+  b,
+  conflit,
+  occupe,
+  onAgir,
+}: {
+  b: Booking;
+  conflit: Booking | null;
+  occupe: boolean;
+  onAgir: (b: Booking, action: "confirmer" | "refuser" | "annuler", proposition?: PropositionCreneau | null) => void;
+}) {
+  const [refus, setRefus] = useState(false);
   const etat = ETATS[b.status] ?? ETATS.pending;
+  const blocage = b.kind === "blocage";
+  const aVenir = b.date >= aujourdhui();
 
   return (
     <li className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
-            <User size={13} className="shrink-0 text-gray-400" />
-            {b.userName || "Une équipe"}
+            {blocage ? (
+              <Lock size={13} className="shrink-0 text-gray-400" />
+            ) : (
+              <User size={13} className="shrink-0 text-gray-400" />
+            )}
+            {blocage ? (b.note || "Créneau bloqué") : (b.userName || "Une équipe")}
           </p>
           <p className="mt-1.5 text-[11px] font-bold text-gray-500">
             {dateLongue(b.date)} · {b.time} → {finCreneau(b.time, b.duration)} · {duree(b.duration)}
@@ -71,39 +229,37 @@ function Ligne({
             <MapPin size={11} />
             {b.venueName}
           </p>
+          {b.matchLabel && (
+            <p className="mt-2 inline-flex items-center gap-1.5 bg-gray-900 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-white">
+              <Swords size={11} />
+              {b.matchLabel}
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {actions ? (
-            <>
-              <Bouton
-                petit
-                Icon={Check}
-                occupe={occupe}
-                onClick={() => onRepondre(b, "confirmed")}
-              >
-                Confirmer
-              </Bouton>
-              <Bouton
-                petit
-                variante="danger"
-                Icon={X}
-                disabled={occupe}
-                onClick={() => onRepondre(b, "cancelled")}
-              >
-                Refuser
-              </Bouton>
-            </>
+          {b.status === "pending" && aVenir ? (
+            !refus && (
+              <>
+                <Bouton petit Icon={Check} occupe={occupe} onClick={() => onAgir(b, "confirmer")}>
+                  Confirmer
+                </Bouton>
+                <Bouton petit variante="danger" Icon={X} disabled={occupe} onClick={() => setRefus(true)}>
+                  Refuser
+                </Bouton>
+              </>
+            )
           ) : (
             <>
-              <Fanion ton={etat.ton}>{etat.label}</Fanion>
-              {b.status === "confirmed" && b.date >= aujourdhui() && (
+              {blocage ? <Fanion ton="neutre">Bloqué</Fanion> : <Fanion ton={etat.ton}>{etat.label}</Fanion>}
+              {b.status === "confirmed" && aVenir && (
                 <button
                   type="button"
-                  onClick={() => onRepondre(b, "cancelled")}
-                  className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500"
+                  disabled={occupe}
+                  onClick={() => onAgir(b, "annuler")}
+                  className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
                 >
-                  Annuler
+                  {blocage ? "Débloquer" : "Annuler"}
                 </button>
               )}
             </>
@@ -111,55 +267,176 @@ function Ligne({
         </div>
       </div>
 
+      {b.message && (
+        <p className="mt-3 border-l-2 border-emerald-500 bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-700">
+          {b.message}
+        </p>
+      )}
+
+      {!blocage && <Contact b={b} />}
+
+      {b.status === "cancelled" && b.proposition && (
+        <p className="mt-3 text-[11px] font-bold text-gray-500">
+          Vous avez proposé le {dateLongue(b.proposition.date)} à {b.proposition.time}.
+        </p>
+      )}
+
       {conflit && (
         <p className="mt-4 flex items-start gap-2.5 border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-amber-900">
           <AlertTriangle size={15} className="mt-px shrink-0 text-amber-600" />
           <span>
-            Chevauche un créneau déjà confirmé sur {conflit.venueName} :{" "}
-            {conflit.time} → {finCreneau(conflit.time, conflit.duration)} pour{" "}
-            {conflit.userName || "une équipe"}.
+            Chevauche un créneau déjà pris sur {conflit.venueName} :{" "}
+            {conflit.time} → {finCreneau(conflit.time, conflit.duration)}
+            {conflit.kind === "blocage" ? " (bloqué)" : ` pour ${conflit.userName || "une équipe"}`}.
           </span>
         </p>
       )}
+
+      {refus && (
+        <Refus
+          b={b}
+          occupe={occupe}
+          onFermer={() => setRefus(false)}
+          onValider={(p) => { onAgir(b, "refuser", p); }}
+        />
+      )}
     </li>
+  );
+}
+
+/** Prendre un créneau soi-même : un habitué, une réservation au téléphone. */
+function Blocage({
+  terrains,
+  onFermer,
+  initial,
+}: {
+  terrains: Venue[];
+  onFermer: () => void;
+  /** Le créneau touché dans le planning, s'il y en a un. */
+  initial?: { venueId: string; date: string; time: string } | null;
+}) {
+  const [venueId, setVenueId] = useState(initial?.venueId ?? terrains[0]?.id ?? "");
+  const [date, setDate] = useState(initial?.date ?? aujourdhui());
+  const [time, setTime] = useState(initial?.time ?? "18:00");
+  const [dureeChoisie, setDureeChoisie] = useState("1.5");
+  const [note, setNote] = useState("");
+  const [occupe, setOccupe] = useState(false);
+
+  const valider = async () => {
+    setOccupe(true);
+    try {
+      await bloquerCreneau({ venueId, date, time, duration: Number(dureeChoisie), note });
+      toast.success("Créneau bloqué : il apparaît pris sur la fiche.");
+      onFermer();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Le blocage a échoué");
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 space-y-4 border border-gray-200/70 bg-white p-5 sm:p-6">
+      <p className="text-sm leading-relaxed text-gray-600">
+        Un créneau pris hors de KoppaFoot — un habitué, un appel. Il apparaît
+        occupé sur la fiche publique, sans nom ni motif.
+      </p>
+      {terrains.length > 1 && (
+        <Champ label="Terrain" htmlFor="b-terrain">
+          <select
+            id="b-terrain"
+            value={venueId}
+            onChange={(e) => setVenueId(e.target.value)}
+            className={classeChamp}
+          >
+            {terrains.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+          </select>
+        </Champ>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Champ label="Date" htmlFor="b-date">
+          <input id="b-date" type="date" min={aujourdhui()} value={date}
+            onChange={(e) => setDate(e.target.value)} className={classeChamp} />
+        </Champ>
+        <Champ label="Heure" htmlFor="b-heure">
+          <input id="b-heure" type="time" step={1800} value={time}
+            onChange={(e) => setTime(e.target.value)} className={classeChamp} />
+        </Champ>
+      </div>
+      <div>
+        <Etiquette className="mb-2">Durée</Etiquette>
+        <Pastilles options={DUREES} value={dureeChoisie} onChange={setDureeChoisie} nom="Durée du blocage" />
+      </div>
+      <Champ label="Pour qui, pour quoi" htmlFor="b-note" optionnel aide="Pour vous seul : la fiche publique n'affiche que « déjà réservé ».">
+        <input id="b-note" type="text" maxLength={120} value={note}
+          onChange={(e) => setNote(e.target.value)} placeholder="ex: Les habitués du jeudi" className={classeChamp} />
+      </Champ>
+      <div className="flex flex-wrap gap-2">
+        <Bouton Icon={Lock} occupe={occupe} disabled={!venueId || !date || !time} onClick={valider}>
+          Bloquer le créneau
+        </Bouton>
+        <Bouton variante="contour" onClick={onFermer} disabled={occupe}>Annuler</Bouton>
+      </div>
+    </div>
+  );
+}
+
+function Section({ titre, children }: { titre: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-8">
+      <h2 className="border-b border-gray-200/70 pb-3">
+        <Etiquette className="tracking-[0.15em]">{titre}</Etiquette>
+      </h2>
+      <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
+        {children}
+      </ul>
+    </section>
   );
 }
 
 export default function ReservationsRecuesPage() {
   const { user, loading: authLoading } = useAuth();
   const [demandes, setDemandes] = useState<Booking[] | null>(null);
+  const [terrains, setTerrains] = useState<Venue[]>([]);
   const [agit, setAgit] = useState<string | null>(null);
+  const [blocage, setBlocage] = useState(false);
+  const [historique, setHistorique] = useState(false);
+  const [vue, setVue] = useState<"liste" | "semaine">("liste");
+  /** Le créneau libre touché dans le planning : il préremplit le blocage. */
+  const [aBloquer, setABloquer] = useState<{ venueId: string; date: string; time: string } | null>(null);
+  /** La réservation touchée dans le planning : elle s'ouvre sous lui. */
+  const [choisie, setChoisie] = useState<string | null>(null);
   const { demander, Dialogue } = useConfirmation();
 
   useEffect(() => {
     if (!user) return;
-    return onBookingsByOwner(user.uid, setDemandes);
+    const a = onBookingsByOwner(user.uid, setDemandes);
+    const b = onVenuesByOwner(user.uid, setTerrains);
+    return () => { a(); b(); };
   }, [user]);
 
   const today = aujourdhui();
-  const liste = useMemo(() => (demandes ?? []).filter((b) => b.date >= today), [demandes, today]);
-
-  const confirmees = useMemo(
-    () => liste.filter((b) => b.status === "confirmed"),
-    [liste],
-  );
-
-  /** Pour chaque demande en attente, le créneau confirmé qu'elle recouvre. */
-  const conflits = useMemo(() => {
-    const map = new Map<string, Booking>();
-    for (const b of liste) {
-      if (b.status !== "pending") continue;
-      const heurt = confirmees.find((c) => c.venueId === b.venueId && seChevauchent(c, b));
-      if (heurt) map.set(b.id, heurt);
-    }
-    return map;
-  }, [liste, confirmees]);
-
   const parDate = (a: Booking, b: Booking) =>
     a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
 
-  const attente = useMemo(() => liste.filter((b) => b.status === "pending").sort(parDate), [liste]);
-  const traitees = useMemo(() => liste.filter((b) => b.status !== "pending").sort(parDate), [liste]);
+  const aVenir = useMemo(() => (demandes ?? []).filter((b) => b.date >= today), [demandes, today]);
+  const passees = useMemo(
+    () => (demandes ?? []).filter((b) => b.date < today).sort((a, b) => parDate(b, a)),
+    [demandes, today],
+  );
+  const attente = useMemo(() => aVenir.filter((b) => b.status === "pending").sort(parDate), [aVenir]);
+  const prises = useMemo(() => aVenir.filter((b) => b.status === "confirmed").sort(parDate), [aVenir]);
+  const ecartees = useMemo(() => aVenir.filter((b) => b.status === "cancelled").sort(parDate), [aVenir]);
+
+  /** Pour chaque demande en attente, le créneau déjà pris qu'elle recouvre. */
+  const conflits = useMemo(() => {
+    const map = new Map<string, Booking>();
+    for (const b of attente) {
+      const heurt = prises.find((c) => c.venueId === b.venueId && seChevauchent(c, b));
+      if (heurt) map.set(b.id, heurt);
+    }
+    return map;
+  }, [attente, prises]);
 
   if (authLoading) return <EnCours hauteur="h-[60vh] items-center" />;
   if (!user) return null;
@@ -179,20 +456,23 @@ export default function ReservationsRecuesPage() {
     );
   }
 
-  const repondre = async (b: Booking, statut: "confirmed" | "cancelled") => {
+  const agir = async (
+    b: Booking,
+    action: "confirmer" | "refuser" | "annuler",
+    proposition?: PropositionCreneau | null,
+  ) => {
     const heurt = conflits.get(b.id);
 
     // Confirmer par-dessus un créneau déjà pris : on ne l'interdit pas — le
-    // propriétaire connaît son terrain, il peut avoir deux surfaces ou savoir
-    // que l'autre équipe se désiste — mais on le lui dit en toutes lettres.
-    if (statut === "confirmed" && heurt) {
+    // propriétaire connaît son terrain, il peut avoir deux surfaces — mais on
+    // le lui dit en toutes lettres.
+    if (action === "confirmer" && heurt) {
       const ok = await demander({
         titre: "Deux équipes sur le même créneau ?",
         corps: (
           <>
             {b.userName || "Cette équipe"} demande {b.time} → {finCreneau(b.time, b.duration)},
-            et {heurt.userName || "une autre équipe"} a déjà{" "}
-            {heurt.time} → {finCreneau(heurt.time, heurt.duration)} de confirmé sur{" "}
+            et {heurt.time} → {finCreneau(heurt.time, heurt.duration)} est déjà pris sur{" "}
             {heurt.venueName}. Confirmer les deux, c&apos;est en décevoir une.
           </>
         ),
@@ -201,32 +481,49 @@ export default function ReservationsRecuesPage() {
       if (!ok) return;
     }
 
-    if (statut === "cancelled" && b.status === "confirmed") {
-      const ok = await demander({
-        titre: "Annuler un créneau confirmé ?",
-        corps: (
-          <>
-            {b.userName || "L'équipe"} avait ce créneau pour le {dateLongue(b.date)}.
-            Elle sera prévenue de l&apos;annulation.
-          </>
-        ),
-        action: "Annuler le créneau",
-        danger: true,
-      });
+    if (action === "annuler") {
+      const ok = await demander(
+        b.kind === "blocage"
+          ? {
+              titre: "Débloquer ce créneau ?",
+              corps: <>Il redevient libre sur la fiche, le {dateLongue(b.date)} à {b.time}.</>,
+              action: "Débloquer",
+            }
+          : {
+              titre: "Annuler un créneau confirmé ?",
+              corps: (
+                <>
+                  {b.userName || "L'équipe"} avait ce créneau pour le {dateLongue(b.date)}.
+                  Elle sera prévenue de l&apos;annulation.
+                </>
+              ),
+              action: "Annuler le créneau",
+              danger: true,
+            },
+      );
       if (!ok) return;
     }
 
     setAgit(b.id);
     try {
-      await updateBookingStatus(b, statut, "proprietaire");
-      toast.success(statut === "confirmed" ? "Créneau confirmé, l'équipe est prévenue" : "Demande refusée");
+      await agirSurReservation(b.id, action, proposition);
+      toast.success(
+        action === "confirmer"
+          ? "Créneau confirmé, l'équipe est prévenue"
+          : action === "refuser"
+            ? proposition ? "Refusé, votre proposition est envoyée" : "Demande refusée"
+            : b.kind === "blocage" ? "Créneau débloqué" : "Créneau annulé, l'équipe est prévenue",
+      );
     } catch (err) {
-      console.error("Booking answer failed:", err);
-      toast.error("L'enregistrement a échoué");
+      toast.error(err instanceof Error ? err.message : "L'enregistrement a échoué");
     } finally {
       setAgit(null);
     }
   };
+
+  const ligne = (b: Booking, conflit: Booking | null = null) => (
+    <Ligne key={b.id} b={b} conflit={conflit} occupe={agit === b.id} onAgir={agir} />
+  );
 
   return (
     <div className="mx-auto max-w-4xl pb-24">
@@ -244,61 +541,125 @@ export default function ReservationsRecuesPage() {
         compteur={attente.length > 0 ? { valeur: attente.length, libelle: "en attente" } : undefined}
       />
 
-      {demandes === null ? (
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        {terrains.length > 0 && !blocage ? (
+          <Bouton petit variante="contour" Icon={CalendarPlus} onClick={() => { setABloquer(null); setBlocage(true); }}>
+            Bloquer un créneau
+          </Bouton>
+        ) : <span />}
+        {terrains.length > 0 && (
+          <div role="group" aria-label="Affichage" className="flex border border-gray-200/70">
+            {([["liste", "Liste", List], ["semaine", "Semaine", CalendarRange]] as const).map(([v, label, Icone]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVue(v)}
+                aria-pressed={vue === v}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${
+                  vue === v ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                <Icone size={13} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {blocage && (
+        <Blocage
+          key={aBloquer ? `${aBloquer.venueId}-${aBloquer.date}-${aBloquer.time}` : "vide"}
+          terrains={terrains}
+          initial={aBloquer}
+          onFermer={() => { setBlocage(false); setABloquer(null); }}
+        />
+      )}
+
+      {vue === "semaine" && demandes && (
+        <>
+          <PlanningSemaine
+            reservations={demandes}
+            terrains={terrains}
+            choisie={choisie}
+            onCreneauLibre={(venueId, date, time) => {
+              setChoisie(null);
+              setABloquer({ venueId, date, time });
+              setBlocage(true);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onReservation={(b) => { setBlocage(false); setChoisie(b.id); }}
+          />
+          {(() => {
+            const b = demandes.find((x) => x.id === choisie);
+            if (!b) return null;
+            return (
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <Etiquette>Créneau choisi</Etiquette>
+                  <button
+                    type="button"
+                    onClick={() => setChoisie(null)}
+                    aria-label="Fermer"
+                    className="p-1 text-gray-400 transition-colors hover:text-gray-900"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+                <ul className="mt-2 border border-gray-200/70 bg-white">
+                  {ligne(b, b.status === "pending" ? conflits.get(b.id) ?? null : null)}
+                </ul>
+              </div>
+            );
+          })()}
+        </>
+      )}
+
+      {vue === "semaine" ? null : demandes === null ? (
         <EnCours />
-      ) : liste.length === 0 ? (
+      ) : aVenir.length === 0 && passees.length === 0 ? (
         <div className="mt-6">
           <EtatVide
             Icon={CalendarDays}
             titre="Aucune demande"
             action={<LienBouton href="/mes-terrains" variante="contour">Voir mes terrains</LienBouton>}
           >
-            Rien à venir sur vos terrains. Une fiche avec photo et tarif reçoit
-            plus de demandes qu&apos;une fiche vide.
+            Rien à venir sur vos terrains. Une fiche avec photo, tarif et
+            horaires reçoit plus de demandes qu&apos;une fiche vide.
           </EtatVide>
         </div>
       ) : (
         <>
           {attente.length > 0 && (
-            <section className="mt-6">
-              <h2 className="border-b border-gray-200/70 pb-3">
-                <Etiquette className="tracking-[0.15em]">
-                  En attente de réponse ({attente.length})
-                </Etiquette>
-              </h2>
-              <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
-                {attente.map((b) => (
-                  <Ligne
-                    key={b.id}
-                    b={b}
-                    conflit={conflits.get(b.id) ?? null}
-                    actions
-                    onRepondre={repondre}
-                    occupe={agit === b.id}
-                  />
-                ))}
-              </ul>
-            </section>
+            <Section titre={`En attente de réponse (${attente.length})`}>
+              {attente.map((b) => ligne(b, conflits.get(b.id) ?? null))}
+            </Section>
           )}
 
-          {traitees.length > 0 && (
-            <section className="mt-8">
-              <h2 className="border-b border-gray-200/70 pb-3">
-                <Etiquette className="tracking-[0.15em]">Déjà traitées</Etiquette>
-              </h2>
-              <ul className="divide-y divide-gray-200/70 border-x border-b border-gray-200/70 bg-white">
-                {traitees.map((b) => (
-                  <Ligne
-                    key={b.id}
-                    b={b}
-                    conflit={null}
-                    actions={false}
-                    onRepondre={repondre}
-                    occupe={agit === b.id}
-                  />
-                ))}
-              </ul>
-            </section>
+          {prises.length > 0 && (
+            <Section titre="À venir">{prises.map((b) => ligne(b))}</Section>
+          )}
+
+          {ecartees.length > 0 && (
+            <Section titre="Refusées ou annulées">{ecartees.map((b) => ligne(b))}</Section>
+          )}
+
+          {aVenir.length === 0 && (
+            <p className="mt-8 text-sm text-gray-500">Rien à venir sur vos terrains.</p>
+          )}
+
+          {passees.length > 0 && (
+            historique ? (
+              <Section titre={`Passées (${passees.length})`}>{passees.map((b) => ligne(b))}</Section>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setHistorique(true)}
+                className="mt-8 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-900"
+              >
+                <History size={13} />
+                Voir l&apos;historique ({passees.length})
+              </button>
+            )
           )}
 
           <p className="mt-8">

@@ -12,7 +12,7 @@ import {
 } from "@/lib/firestore";
 import { uploadVenuePhoto } from "@/lib/storage";
 import { alleger, poidsLisible, REGLAGES } from "@/lib/images";
-import type { Venue, Booking } from "@/types";
+import type { Venue, Booking, HorairesOuverture } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, aujourdhui,
@@ -20,6 +20,7 @@ import {
 import {
   Panneau, FilAriane, Champ, Etiquette, Pastilles, ChoixEquipements, ListeEquipements,
   Bouton, LienBouton, EtatVide, EnCours, LignesDeTerrain, useConfirmation, classeChamp,
+  ChoixHoraires, horairesCoherents,
 } from "@/components/venue/venue-ui";
 
 // ============================================
@@ -52,6 +53,7 @@ interface Brouillon {
   /** Les photos deja enregistrees. Les nouvelles arrivent a part, en fichiers. */
   galerie: string[];
   available: boolean;
+  horaires: HorairesOuverture | null;
 }
 
 /** Au-dela, une fiche devient un album et personne ne fait defiler. */
@@ -59,7 +61,7 @@ const GALERIE_MAX = 6;
 
 const brouillonVide = (city: string): Brouillon => ({
   name: "", address: "", city, fieldSize: "11v11", fieldSurface: "synthetic",
-  prix: "", equipements: [], photoUrl: null, galerie: [], available: true,
+  prix: "", equipements: [], photoUrl: null, galerie: [], available: true, horaires: null,
 });
 
 const depuisTerrain = (v: Venue): Brouillon => ({
@@ -73,6 +75,7 @@ const depuisTerrain = (v: Venue): Brouillon => ({
   photoUrl: v.photoUrl,
   galerie: v.galleryUrls ?? [],
   available: v.available,
+  horaires: v.openingHours,
 });
 
 /**
@@ -89,6 +92,8 @@ function manques(v: Venue): string[] {
   if (!aUnPrix(v.pricePerHour)) liste.push("un tarif");
   if (!v.amenities?.length) liste.push("les équipements");
   if (!v.address?.trim()) liste.push("l'adresse");
+  // Sans eux, une équipe peut demander 6 h du matin et attendre un refus.
+  if (!v.openingHours) liste.push("les horaires");
   return liste;
 }
 
@@ -370,6 +375,14 @@ function Formulaire({
         />
       </div>
 
+      <div>
+        <Etiquette className="mb-2">Horaires d&apos;ouverture</Etiquette>
+        <ChoixHoraires
+          value={brouillon.horaires}
+          onChange={(h) => setBrouillon({ ...brouillon, horaires: h })}
+        />
+      </div>
+
       {/* Un terrain fermé pour travaux reste référencé mais cesse d'être
           proposé : le retirer et le ressaisir ensuite serait une punition. */}
       <label className="flex cursor-pointer items-center gap-2.5 border-t border-gray-200/70 pt-5">
@@ -583,6 +596,10 @@ export default function MyVenuesPage() {
   };
 
   const enregistrer = async () => {
+    if (!horairesCoherents(brouillon.horaires)) {
+      toast.error("Un jour ferme avant d'ouvrir : corrige les horaires.");
+      return;
+    }
     setOccupe(true);
     try {
       const prix = Number(brouillon.prix);
@@ -596,6 +613,7 @@ export default function MyVenuesPage() {
         pricePerHour: Number.isFinite(prix) && prix > 0 ? Math.round(prix) : 0,
         amenities: brouillon.equipements,
         available: brouillon.available,
+        openingHours: brouillon.horaires,
       };
 
       // Les images ont besoin de l'identifiant du terrain pour leur chemin de
@@ -661,8 +679,9 @@ export default function MyVenuesPage() {
     <div className="mx-auto max-w-4xl pb-24">
       <FilAriane
         items={[
+          // Plus de « Mon rôle » entre les deux : gérer un terrain est une
+          // casquette, pas un rôle, et ce lien menait au choix du rôle.
           { href: "/", label: "Direct" },
-          { href: "/roles#choisir", label: "Mon rôle" },
           { label: "Mes terrains" },
         ]}
       />

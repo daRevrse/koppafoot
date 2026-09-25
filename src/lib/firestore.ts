@@ -24,7 +24,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
-import { dateLongue } from "@/lib/terrains";
+import { horairesLus, reservationDuMatch } from "@/lib/terrains";
 import type {
   Team, FirestoreTeam, Achievement,
   Match, FirestoreMatch, MatchStatus,
@@ -141,6 +141,8 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     homeTeamLogo: d.home_team_logo ?? null, awayTeamLogo: d.away_team_logo ?? null,
     managerId: d.manager_id, date: d.date, time: d.time,
     venueName: d.venue_name, venueCity: d.venue_city, status: d.status,
+    venueId: d.venue_id ?? null,
+    venueBooking: reservationDuMatch(d.venue_booking),
     effectiveStatus: effectiveStatus as any, // Cast to any until type is fully propagated or updated
     result: d.result, scoreHome: d.score_home, scoreAway: d.score_away,
     refereeId: d.referee_id, refereeName: d.referee_name,
@@ -199,6 +201,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       time: d.modification_request.time,
       venueName: d.modification_request.venue_name,
       venueCity: d.modification_request.venue_city,
+      venueId: d.modification_request.venue_id ?? null,
       reason: d.modification_request.reason,
       requestedBy: d.modification_request.requested_by,
     } : null,
@@ -377,6 +380,7 @@ function toVenue(id: string, d: FirestoreVenue): Venue {
     pricePerHour: d.price_per_hour ?? 0, amenities: d.amenities ?? [],
     available: d.available ?? true, photoUrl: d.photo_url ?? null,
     galleryUrls: d.gallery_urls ?? [],
+    openingHours: horairesLus(d.opening_hours),
     createdAt: d.created_at, updatedAt: d.updated_at,
   };
 }
@@ -1075,6 +1079,9 @@ export async function getMatchesByTeamIds(teamIds: string[]): Promise<Match[]> {
 export async function createMatch(data: {
   homeTeamId: string; awayTeamId: string; homeTeamName: string; awayTeamName: string;
   managerId: string; awayManagerId: string; date: string; time: string; venueName: string; venueCity: string;
+  // Le terrain référencé, s'il y en a un : c'est lui qui déclenche la demande
+  // de créneau au propriétaire (voir /api/matches/[mid]/terrain).
+  venueId?: string | null;
   // L'écusson des deux camps, recopié ici : voir `FirestoreMatch.home_team_logo`.
   // Null pour une équipe hors plateforme, qui n'a pas de fiche et donc pas de
   // blason.
@@ -1105,6 +1112,9 @@ export async function createMatch(data: {
     manager_id: data.managerId, away_manager_id: data.awayManagerId,
     date: data.date, time: data.time,
     venue_name: data.venueName, venue_city: data.venueCity,
+    // `venue_booking` n'est PAS écrit ici : seul le serveur le pose, une fois
+    // la demande faite au propriétaire (voir firestore.rules).
+    venue_id: data.venueId ?? null,
     status, result: null, score_home: null, score_away: null,
     referee_id: null, referee_name: null, referee_status: "none",
     local_referee_name: data.localRefereeName ?? null,
@@ -1748,7 +1758,10 @@ export async function respondToMatchChallenge(
 
 export async function requestMatchModification(
   matchId: string,
-  data: { date: string; time: string; venueName: string; venueCity: string; reason: string; requestedBy: string }
+  data: {
+    date: string; time: string; venueName: string; venueCity: string; reason: string; requestedBy: string;
+    venueId?: string | null;
+  }
 ): Promise<void> {
   await updateDoc(doc(db, "matches", matchId), {
     modification_request: {
@@ -1756,6 +1769,7 @@ export async function requestMatchModification(
       time: data.time,
       venue_name: data.venueName,
       venue_city: data.venueCity,
+      venue_id: data.venueId ?? null,
       reason: data.reason,
       requested_by: data.requestedBy,
     },
@@ -1774,11 +1788,12 @@ export async function requestMatchModification(
  */
 export async function updateMatchSchedule(
   matchId: string,
-  data: { date: string; time: string; venueName: string; venueCity: string },
+  data: { date: string; time: string; venueName: string; venueCity: string; venueId?: string | null },
 ): Promise<void> {
   await updateDoc(doc(db, "matches", matchId), {
     date: data.date, time: data.time,
     venue_name: data.venueName, venue_city: data.venueCity,
+    venue_id: data.venueId ?? null,
     modification_request: null,
     updated_at: serverTimestamp(),
   });
@@ -1813,7 +1828,7 @@ export async function updateMatchSchedule(
 export async function respondToMatchModification(
   matchId: string,
   accepted: boolean,
-  currentMod: { date: string; time: string; venue_name: string; venue_city: string }
+  currentMod: { date: string; time: string; venue_name: string; venue_city: string; venue_id?: string | null }
 ): Promise<void> {
   const updates: Record<string, any> = {
     modification_request: null,
@@ -1825,6 +1840,7 @@ export async function respondToMatchModification(
     updates.time = currentMod.time;
     updates.venue_name = currentMod.venue_name;
     updates.venue_city = currentMod.venue_city;
+    updates.venue_id = currentMod.venue_id ?? null;
   }
 
   await updateDoc(doc(db, "matches", matchId), updates);
@@ -3349,6 +3365,15 @@ function toBooking(id: string, d: FirestoreBooking): Booking {
     duration: d.duration,
     totalPrice: d.total_price,
     status: d.status,
+    kind: d.kind ?? (d.match_id ? "match" : "demande"),
+    matchId: d.match_id ?? null,
+    competitionId: d.competition_id ?? null,
+    matchLabel: d.match_label ?? null,
+    contact: d.contact ?? null,
+    message: d.message ?? null,
+    proposition: d.proposition ?? null,
+    note: d.note ?? null,
+    cancelledBy: d.cancelled_by ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -3387,6 +3412,7 @@ export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "update
     available: data.available,
     photo_url: data.photoUrl,
     gallery_urls: data.galleryUrls ?? [],
+    opening_hours: data.openingHours ?? null,
     rating: 0,
     review_count: 0,
     created_at: serverTimestamp(),
@@ -3409,6 +3435,8 @@ export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id
   if (data.photoUrl !== undefined) updates.photo_url = data.photoUrl;
   // `[]` est une valeur légitime : c'est ainsi qu'on vide une galerie.
   if (data.galleryUrls !== undefined) updates.gallery_urls = data.galleryUrls;
+  // `null` aussi : c'est ainsi qu'on revient à « horaires non précisés ».
+  if (data.openingHours !== undefined) updates.opening_hours = data.openingHours;
 
   updates.updated_at = serverTimestamp();
   await updateDoc(doc(db, "venues", venueId), updates);
@@ -3418,56 +3446,6 @@ export async function deleteVenue(venueId: string): Promise<void> {
   await deleteDoc(doc(db, "venues", venueId));
 }
 
-/**
- * Dépose une demande de créneau.
- *
- * Toujours en `pending` : la confirmation appartient au propriétaire, et les
- * règles refusent d'ailleurs qu'une demande naisse dans un autre état.
- *
- * `total_price` reste à zéro, la plateforme n'encaisse rien et ne connaît
- * pas les tarifs. Le champ existe dans le modèle, on ne lui fait pas dire ce
- * qu'on ne sait pas.
- */
-export async function createBooking(data: {
-  venueId: string;
-  venueName: string;
-  ownerId: string;
-  userId: string;
-  userName: string;
-  date: string;
-  time: string;
-  duration: number;
-}): Promise<string> {
-  const ref = await addDoc(collection(db, "bookings"), {
-    venue_id: data.venueId,
-    venue_name: data.venueName,
-    owner_id: data.ownerId,
-    user_id: data.userId,
-    user_name: data.userName,
-    date: data.date,
-    time: data.time,
-    duration: data.duration,
-    total_price: 0,
-    status: "pending",
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  });
-
-  // LE PROPRIÉTAIRE EST PRÉVENU, sans quoi la demande n'existe que pour qui
-  // pense à ouvrir la page. C'est ce qui manquait au parcours : un créneau
-  // demandé le mardi et découvert le samedi n'est pas une réservation, c'est
-  // un rendez-vous manqué. `catch` silencieux, la demande est déjà écrite et
-  // vaut plus que son accusé de réception.
-  createNotification({
-    userId: data.ownerId,
-    type: "booking_request",
-    title: "Demande de créneau",
-    body: `${data.userName || "Une équipe"} demande ${data.venueName} le ${dateLongue(data.date)} à ${data.time}.`,
-    link: "/mes-terrains/reservations",
-  }).catch(() => {});
-
-  return ref.id;
-}
 
 /** Les demandes déposées par ce compte, la plus récente d'abord. */
 export function onBookingsByUser(userId: string, callback: (data: Booking[]) => void): Unsubscribe {
@@ -3484,68 +3462,6 @@ export function onBookingsByOwner(ownerId: string, callback: (data: Booking[]) =
   });
 }
 
-/**
- * Répondre à une demande de créneau, et le DIRE à l'autre partie.
- *
- * La signature prend la demande entière, pas seulement son identifiant : il
- * faut savoir qui prévenir, et de quoi. La relire ici aurait coûté un aller-
- * retour de plus alors que les quatre appelants l'ont déjà sous la main.
- *
- * `parQui` n'est pas déductible du statut : les deux parties peuvent annuler,
- * et « le propriétaire a annulé » ne se dit pas comme « l'équipe s'est
- * désistée ». C'est la même écriture, ce n'est pas la même nouvelle.
- */
-export async function updateBookingStatus(
-  booking: Pick<Booking, "id" | "venueId" | "venueName" | "ownerId" | "userId" | "userName" | "date" | "time">,
-  status: Booking["status"],
-  parQui: "proprietaire" | "demandeur",
-): Promise<void> {
-  await updateDoc(doc(db, "bookings", booking.id), {
-    status,
-    updated_at: serverTimestamp(),
-  });
-
-  const quand = `${dateLongue(booking.date)} à ${booking.time}`;
-
-  // Le destinataire est toujours l'AUTRE : celui qui agit sait ce qu'il vient
-  // de faire, se le notifier ferait sonner son propre téléphone.
-  const pour = parQui === "proprietaire" ? booking.userId : booking.ownerId;
-
-  const message = (): { title: string; body: string; link: string } | null => {
-    if (parQui === "proprietaire") {
-      if (status === "confirmed") {
-        return {
-          title: "Créneau confirmé",
-          body: `${booking.venueName} est à vous le ${quand}.`,
-          link: "/mes-reservations",
-        };
-      }
-      if (status === "cancelled") {
-        return {
-          title: "Créneau refusé",
-          body: `La demande sur ${booking.venueName} du ${quand} n'a pas été retenue.`,
-          link: "/mes-reservations",
-        };
-      }
-      return null;
-    }
-    // Le demandeur se désiste : le propriétaire doit savoir que son créneau
-    // se libère, c'est une place qu'il peut redonner.
-    if (status === "cancelled") {
-      return {
-        title: "Demande annulée",
-        body: `${booking.userName || "Une équipe"} libère ${booking.venueName} du ${quand}.`,
-        link: "/mes-terrains/reservations",
-      };
-    }
-    return null;
-  };
-
-  const m = message();
-  if (m) {
-    createNotification({ userId: pour, type: "booking_answer", ...m }).catch(() => {});
-  }
-}
 
 /**
  * Updates the referee status for a match

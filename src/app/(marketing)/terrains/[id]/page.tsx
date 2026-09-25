@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -7,9 +8,12 @@ import BookingRequest from "@/components/venue/BookingRequest";
 import ContactResponsable from "@/components/venue/ContactResponsable";
 import GalerieTerrain from "@/components/venue/GalerieTerrain";
 import {
-  libelleFormat, libelleSurface, prixHeure, aUnPrix,
+  libelleFormat, libelleSurface, prixHeure, aUnPrix, horairesLus,
 } from "@/lib/terrains";
-import { LignesDeTerrain, FilAriane, Etiquette, ListeEquipements } from "@/components/venue/venue-ui";
+import {
+  LignesDeTerrain, FilAriane, Etiquette, ListeEquipements, TableHoraires,
+} from "@/components/venue/venue-ui";
+import type { HorairesOuverture } from "@/types";
 
 // ============================================
 // La fiche publique d'un terrain.
@@ -51,6 +55,7 @@ interface VenueView {
   photoUrl: string | null;
   galleryUrls: string[];
   available: boolean;
+  horaires: HorairesOuverture | null;
 }
 
 async function readVenue(id: string): Promise<VenueView | null> {
@@ -77,6 +82,7 @@ async function readVenue(id: string): Promise<VenueView | null> {
       ? (v.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string")
       : [],
     available: v.available !== false,
+    horaires: horairesLus(v.opening_hours),
   };
 }
 
@@ -228,17 +234,30 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               id="reserver"
               className="scroll-mt-[calc(var(--marketing-header-h,75px)+1.5rem)]"
             >
-              <BookingRequest
-                venueId={id}
-                venueName={venue.name}
-                ownerId={venue.ownerId}
-                available={venue.available}
-                pricePerHour={venue.pricePerHour}
-              />
+              {/* Suspense : le formulaire lit le créneau dans l'adresse
+                  (useSearchParams), ce qui le rend côté navigateur. Sans cette
+                  frontière, c'est toute la fiche qui perdait son rendu serveur. */}
+              <Suspense fallback={<div className="mt-10 h-96 border border-gray-200/70 bg-white" />}>
+                <BookingRequest
+                  venueId={id}
+                  available={venue.available}
+                  pricePerHour={venue.pricePerHour}
+                  horaires={venue.horaires}
+                />
+              </Suspense>
             </div>
           )}
 
           <GalerieTerrain photos={venue.galleryUrls} nomTerrain={venue.name} />
+
+          {/* Les horaires, avant les équipements : ils disent QUAND on peut
+              venir, ce qui décide d'une demande ; les douches, non. */}
+          {venue.horaires && (
+            <div className="mt-10">
+              <Etiquette className="mb-3">Horaires</Etiquette>
+              <TableHoraires horaires={venue.horaires} />
+            </div>
+          )}
 
           {venue.amenities.length > 0 && (
             <div className="mt-10">

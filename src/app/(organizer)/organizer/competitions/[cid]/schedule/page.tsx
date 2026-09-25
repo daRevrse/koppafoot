@@ -19,11 +19,14 @@ import {
   createCompMatch,
   describeBracketSlotSource,
 } from "@/lib/competition-firestore";
-import { hasGroupStage } from "@/lib/competition-format";
+import { hasGroupStage, matchDuration } from "@/lib/competition-format";
+import { getVenues } from "@/lib/firestore";
+import { dureeEnCompetition, horsHoraires } from "@/lib/terrains";
+import { AvisTerrain, EtatTerrain, RefusDuTerrain } from "@/components/venue/venue-ui";
 import { uploadMatchBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import MatchResultModal from "@/components/competition/MatchResultModal";
-import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
+import type { Competition, CompMatch, CompMatchRound, CompTeam, Venue } from "@/types";
 import toast from "react-hot-toast";
 
 interface RowState {
@@ -31,7 +34,11 @@ interface RowState {
   time: string;
   venueName: string;
   venueCity: string;
+  /** Un terrain référencé, "" pour un lieu en texte libre. */
+  venueId: string;
 }
+
+const LIGNE_VIDE: RowState = { date: "", time: "", venueName: "", venueCity: "", venueId: "" };
 
 /**
  * « 2026-07-24 » se lit mal quand on cherche un match dans une liste.
@@ -100,8 +107,19 @@ export default function CompetitionSchedulePage() {
     time: "",
     venueName: "",
     venueCity: "",
+    venueId: "",
   });
   const [addingMatch, setAddingMatch] = useState(false);
+
+  /**
+   * LES TERRAINS RÉFÉRENCÉS. Y programmer un match en demande le créneau à
+   * leur propriétaire, qui confirme ou refuse ; sa réponse s'affiche sur la
+   * ligne du match. La saisie libre reste là pour tous les autres lieux.
+   */
+  const [venues, setVenues] = useState<Venue[]>([]);
+  useEffect(() => {
+    getVenues().then(setVenues).catch(() => setVenues([]));
+  }, []);
 
   // Per-row input state keyed by match id; never holds undefined (use "").
   const [rows, setRows] = useState<Record<string, RowState>>({});
@@ -217,6 +235,7 @@ export default function CompetitionSchedulePage() {
           time: m.time ?? "",
           venueName: m.venueName ?? "",
           venueCity: m.venueCity ?? "",
+          venueId: m.venueId ?? "",
         };
         changed = true;
       }
@@ -303,8 +322,41 @@ export default function CompetitionSchedulePage() {
   const updateRow = (id: string, key: keyof RowState, value: string) => {
     setRows((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] ?? { date: "", time: "", venueName: "", venueCity: "" }), [key]: value },
+      [id]: { ...(prev[id] ?? LIGNE_VIDE), [key]: value },
     }));
+  };
+
+  /** Choisir un terrain référencé reprend son nom et sa ville ; "" rend la saisie libre. */
+  const choisirTerrain = (id: string, venueId: string) => {
+    const v = venues.find((x) => x.id === venueId);
+    setRows((prev) => {
+      const r = prev[id] ?? LIGNE_VIDE;
+      return { ...prev, [id]: v ? { ...r, venueId, venueName: v.name, venueCity: v.city } : { ...r, venueId: "" } };
+    });
+  };
+
+  /** Ce qu'on demande au terrain : deux mi-temps et de quoi s'installer. */
+  const dureeTerrain = dureeEnCompetition(competition ? matchDuration(competition.format) : 90);
+
+  /**
+   * UN TERRAIN RÉFÉRENCÉ A SES HORAIRES : une heure hors plage partirait au
+   * propriétaire pour se faire refuser. On le dit avant d'enregistrer.
+   */
+  const horsDesHoraires = (venueId: string, date: string, time: string): string | null => {
+    const v = venues.find((x) => x.id === venueId);
+    if (!v || !date || !time) return null;
+    const hors = horsHoraires(v.openingHours, { date, time, duration: dureeTerrain });
+    return hors ? `${v.name} : ${hors}` : null;
+  };
+
+  const deplier = (id: string) => setDeplies((prev) => new Set(prev).add(id));
+
+  /** Le terrain a proposé un autre horaire : la ligne s'ouvre, préremplie. */
+  const prendreProposition = (m: CompMatch) => {
+    const p = m.venueBooking?.proposition;
+    if (!p) return;
+    setRows((prev) => ({ ...prev, [m.id]: { ...(prev[m.id] ?? LIGNE_VIDE), date: p.date, time: p.time } }));
+    deplier(m.id);
   };
 
   // Effective slot for a match = its edited row, falling back to saved values.
@@ -383,6 +435,7 @@ export default function CompetitionSchedulePage() {
       time: "",
       venueName: "",
       venueCity: "",
+      venueId: "",
     });
     setAddOpen(true);
   };
@@ -395,6 +448,14 @@ export default function CompetitionSchedulePage() {
         const g = teams.find((t) => t.id === value)?.group;
         if (g) next.group = g;
       }
+      // Un terrain référencé apporte son nom et sa ville.
+      if (key === "venueId") {
+        const v = venues.find((x) => x.id === value);
+        if (v) {
+          next.venueName = v.name;
+          next.venueCity = v.city;
+        }
+      }
       return next;
     });
   };
@@ -406,6 +467,11 @@ export default function CompetitionSchedulePage() {
     }
     if (addForm.homeTeamId === addForm.awayTeamId) {
       toast.error("Une équipe ne peut pas jouer contre elle-même");
+      return;
+    }
+    const hors = horsDesHoraires(addForm.venueId, addForm.date, addForm.time);
+    if (hors) {
+      toast.error(hors);
       return;
     }
     // Slot-conflict check against existing matches (same venue + date + time).
@@ -427,7 +493,7 @@ export default function CompetitionSchedulePage() {
     const knockout = addForm.stage === "knockout";
     setAddingMatch(true);
     try {
-      await createCompMatch(cid, {
+      const { terrain } = await createCompMatch(cid, {
         stage: addForm.stage,
         homeTeamId: addForm.homeTeamId,
         awayTeamId: addForm.awayTeamId,
@@ -437,8 +503,11 @@ export default function CompetitionSchedulePage() {
         time: addForm.time || null,
         venueName: addForm.venueName || null,
         venueCity: addForm.venueCity || null,
+        venueId: addForm.venueId || null,
       });
       toast.success("Match ajouté");
+      // Le match est créé ; seule la demande au terrain a échoué.
+      if (terrain) toast.error(terrain);
       setAddOpen(false);
     } catch (err) {
       console.error("Error adding match:", err);
@@ -449,7 +518,13 @@ export default function CompetitionSchedulePage() {
   };
 
   const handleSave = async (id: string) => {
-    const row = rows[id] ?? { date: "", time: "", venueName: "", venueCity: "" };
+    const row = rows[id] ?? LIGNE_VIDE;
+
+    const hors = horsDesHoraires(row.venueId, row.date, row.time);
+    if (hors) {
+      toast.error(hors);
+      return;
+    }
 
     // Warn on double-booking before saving (same venue + date + time).
     if (conflictIds.has(id)) {
@@ -461,13 +536,15 @@ export default function CompetitionSchedulePage() {
 
     setSavingId(id);
     try {
-      await scheduleCompMatch(cid, id, {
+      const terrain = await scheduleCompMatch(cid, id, {
         date: row.date,
         time: row.time,
         venueName: row.venueName,
         venueCity: row.venueCity,
+        venueId: row.venueId || null,
       });
       toast.success("Match enregistré");
+      if (terrain) toast.error(terrain);
     } catch (err) {
       console.error("Error scheduling match:", err);
       toast.error("Impossible d'enregistrer le match");
@@ -500,19 +577,27 @@ export default function CompetitionSchedulePage() {
       toast.error("Choisis une nouvelle date");
       return;
     }
+    const venueId = (rows[postponeMatch.id]?.venueId ?? postponeMatch.venueId ?? "") || null;
+    const hors = venueId && horsDesHoraires(venueId, postponeDate, postponeTime || (postponeMatch.time ?? ""));
+    if (hors) {
+      toast.error(hors);
+      return;
+    }
     setSavingPostpone(true);
     try {
-      await scheduleCompMatch(cid, postponeMatch.id, {
+      const terrain = await scheduleCompMatch(cid, postponeMatch.id, {
         date: postponeDate,
         time: postponeTime || (postponeMatch.time ?? ""),
         venueName: rows[postponeMatch.id]?.venueName ?? postponeMatch.venueName ?? "",
         venueCity: rows[postponeMatch.id]?.venueCity ?? postponeMatch.venueCity ?? "",
+        venueId,
       });
+      if (terrain) toast.error(terrain);
       // Also reset row state so the UI picks up the new date.
       setRows((prev) => ({
         ...prev,
         [postponeMatch.id]: {
-          ...(prev[postponeMatch.id] ?? { date: "", time: "", venueName: "", venueCity: "" }),
+          ...(prev[postponeMatch.id] ?? LIGNE_VIDE),
           date: postponeDate,
           time: postponeTime || (postponeMatch.time ?? ""),
         },
@@ -542,7 +627,7 @@ export default function CompetitionSchedulePage() {
 
   // One schedulable match: teams, status badges, inline date/heure/stade/ville.
   const renderMatchRow = (match: CompMatch) => {
-    const row = rows[match.id] ?? { date: "", time: "", venueName: "", venueCity: "" };
+    const row = rows[match.id] ?? LIGNE_VIDE;
     const saving = savingId === match.id;
     const conflict = conflictIds.has(match.id);
     const past = match.status !== "completed" && match.status !== "cancelled" && isMatchPast(match);
@@ -563,9 +648,13 @@ export default function CompetitionSchedulePage() {
       row.date !== (match.date ?? "") ||
       row.time !== (match.time ?? "") ||
       row.venueName !== (match.venueName ?? "") ||
-      row.venueCity !== (match.venueCity ?? "");
+      row.venueCity !== (match.venueCity ?? "") ||
+      row.venueId !== (match.venueId ?? "");
     const ouvert = deplies.has(match.id) || modifie;
     const programme = Boolean(row.date || row.time || row.venueName);
+    const terrain = venues.find((v) => v.id === row.venueId);
+    // La réponse du terrain ne compte que tant que le match est à jouer.
+    const aJouer = match.status === "scheduled";
 
     return (
       <div
@@ -597,6 +686,9 @@ export default function CompetitionSchedulePage() {
                 Date dépassée
               </span>
             )}
+            {/* La réponse du terrain, avec les autres états du match : elle
+                reste lisible ligne ouverte comme repliée. */}
+            {aJouer && <EtatTerrain r={match.venueBooking} />}
             {conflict && (
               <span
                 title="Créneau déjà pris (stade + date + heure)"
@@ -678,6 +770,19 @@ export default function CompetitionSchedulePage() {
           </div>
         )}
 
+        {/* LE TERRAIN A DIT NON. Sa proposition, s'il en a fait une, se prend
+            d'un geste : la ligne s'ouvre préremplie, il reste à enregistrer —
+            et la demande qui repart est confirmée d'office. */}
+        {aJouer && match.venueBooking?.status === "refused" && (
+          <div className="mb-3">
+            <RefusDuTerrain
+              r={match.venueBooking}
+              onPrendre={() => prendreProposition(match)}
+              onChanger={() => deplier(match.id)}
+            />
+          </div>
+        )}
+
         {/* CE QUI EST PREVU, EN TOUTES LETTRES. La ligne ne portait la date
             que dans un champ de saisie : la replier l'aurait fait disparaitre,
             et un calendrier dont on ne lit pas les dates n'est pas un
@@ -738,29 +843,51 @@ export default function CompetitionSchedulePage() {
               className=" border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
             />
           </label>
-          <label className="flex flex-1 flex-col gap-1">
-            <span className="text-[11px] font-medium text-gray-500">Stade</span>
-            <input
-              type="text"
-              placeholder="Nom du stade"
-              value={row.venueName}
-              onChange={(e) => updateRow(match.id, "venueName", e.target.value)}
-              className="min-w-[8rem] border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
-            />
-          </label>
-          <label className="flex flex-1 flex-col gap-1">
-            <span className="flex items-center gap-1 text-[11px] font-medium text-gray-500">
-              <MapPin size={11} />
-              Ville
-            </span>
-            <input
-              type="text"
-              placeholder="Ville"
-              value={row.venueCity}
-              onChange={(e) => updateRow(match.id, "venueCity", e.target.value)}
-              className="min-w-[7rem] border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
-            />
-          </label>
+          {(venues.length > 0 || row.venueId) && (
+            <label className="flex flex-1 flex-col gap-1">
+              <span className="text-[11px] font-medium text-gray-500">Terrain</span>
+              <select
+                value={row.venueId}
+                onChange={(e) => choisirTerrain(match.id, e.target.value)}
+                className="min-w-[10rem] border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              >
+                <option value="">Autre lieu (saisie libre)</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>{v.name}, {v.city}</option>
+                ))}
+                {/* Un terrain retiré de l'annuaire depuis : on le garde
+                    affiché plutôt que de le perdre sans le dire. */}
+                {row.venueId && !terrain && <option value={row.venueId}>{row.venueName || "Terrain retiré"}</option>}
+              </select>
+            </label>
+          )}
+          {!row.venueId && (
+            <>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-[11px] font-medium text-gray-500">Stade</span>
+                <input
+                  type="text"
+                  placeholder="Nom du stade"
+                  value={row.venueName}
+                  onChange={(e) => updateRow(match.id, "venueName", e.target.value)}
+                  className="min-w-[8rem] border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="flex items-center gap-1 text-[11px] font-medium text-gray-500">
+                  <MapPin size={11} />
+                  Ville
+                </span>
+                <input
+                  type="text"
+                  placeholder="Ville"
+                  value={row.venueCity}
+                  onChange={(e) => updateRow(match.id, "venueCity", e.target.value)}
+                  className="min-w-[7rem] border border-gray-200/70 px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                />
+              </label>
+            </>
+          )}
           <button
             type="button"
             onClick={() => handleSave(match.id)}
@@ -787,6 +914,8 @@ export default function CompetitionSchedulePage() {
           )}
         </div>
         )}
+
+        {ouvert && aJouer && <AvisTerrain venue={terrain} date={row.date} duree={dureeTerrain} />}
 
         {/* Occupied slots hint for the entered venue */}
         {ouvert && row.venueName.trim() && (() => {
@@ -1116,7 +1245,7 @@ export default function CompetitionSchedulePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div className="col-span-1">
                     {addForm.stage === "knockout" ? (
                       <>
@@ -1164,27 +1293,47 @@ export default function CompetitionSchedulePage() {
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     />
                   </div>
-                  <div className="col-span-1">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Ville</label>
-                    <input
-                      type="text"
-                      placeholder="Ville"
-                      value={addForm.venueCity}
-                      onChange={(e) => setAdd("venueCity", e.target.value)}
-                      className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    />
-                  </div>
                 </div>
 
+                {/* Le lieu : un terrain référencé si l'annuaire en compte,
+                    le stade et la ville en toutes lettres sinon. */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Stade</label>
-                  <input
-                    type="text"
-                    placeholder="Nom du stade"
-                    value={addForm.venueName}
-                    onChange={(e) => setAdd("venueName", e.target.value)}
-                    className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  {venues.length > 0 && (
+                    <select
+                      value={addForm.venueId}
+                      onChange={(e) => setAdd("venueId", e.target.value)}
+                      className="w-full border border-gray-200/70 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    >
+                      <option value="">Autre lieu (saisie libre)</option>
+                      {venues.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}, {v.city}</option>
+                      ))}
+                    </select>
+                  )}
+                  <AvisTerrain
+                    venue={venues.find((v) => v.id === addForm.venueId)}
+                    date={addForm.date}
+                    duree={dureeTerrain}
                   />
+                  {!addForm.venueId && (
+                    <div className={`grid grid-cols-2 gap-3 ${venues.length > 0 ? "mt-2" : ""}`}>
+                      <input
+                        type="text"
+                        placeholder="Nom du stade"
+                        value={addForm.venueName}
+                        onChange={(e) => setAdd("venueName", e.target.value)}
+                        className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Ville"
+                        value={addForm.venueCity}
+                        onChange={(e) => setAdd("venueCity", e.target.value)}
+                        className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
                   {/* Occupied slots hint for the chosen venue */}
                   {addForm.venueName.trim() && (() => {
                     const taken = takenSlotsFor(addForm.venueName).sort((a, b) =>

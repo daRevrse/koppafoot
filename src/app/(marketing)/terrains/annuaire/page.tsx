@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin";
 import AnnuaireTerrains, { type TerrainListe } from "@/components/venue/AnnuaireTerrains";
+import { horairesLus, type Occupation } from "@/lib/terrains";
 
 // ============================================
 // L'annuaire des terrains.
@@ -20,6 +21,11 @@ import AnnuaireTerrains, { type TerrainListe } from "@/components/venue/Annuaire
 // La lecture passe par le SDK admin plutôt que par le client : la liste est
 // la même pour tout le monde, la calculer une fois côté serveur évite autant
 // de lectures Firestore que de visiteurs.
+//
+// LES CRÉNEAUX PRIS VOYAGENT AVEC LA LISTE, pour répondre à « où jouer samedi
+// à 18 h » sans ouvrir chaque fiche. Date, heure et durée, rien d'autre : ce
+// que chaque fiche publie déjà (voir /api/public/venue/[id]/slots), jamais
+// le nom d'une équipe ni le motif d'un blocage.
 // ============================================
 
 export const revalidate = 120;
@@ -30,8 +36,36 @@ export const metadata = {
     "Tous les terrains référencés sur KoppaFoot : format, surface, équipements et tarif. Demandez un créneau au propriétaire.",
 };
 
+/**
+ * Les créneaux confirmés à venir, par terrain.
+ *
+ * Une seule requête sur le statut, la date filtrée ici : un filtre d'égalité
+ * et une plage sur deux champs différents demanderaient un index composite,
+ * pour une collection qui tient encore en mémoire.
+ */
+async function lireOccupations(): Promise<Map<string, Occupation[]>> {
+  const aujourdhui = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const snap = await adminDb.collection("bookings").where("status", "==", "confirmed").get();
+  const parTerrain = new Map<string, Occupation[]>();
+  for (const d of snap.docs) {
+    const b = d.data();
+    if (typeof b.venue_id !== "string" || typeof b.date !== "string" || b.date < aujourdhui) continue;
+    const liste = parTerrain.get(b.venue_id) ?? [];
+    liste.push({
+      date: b.date,
+      time: typeof b.time === "string" ? b.time : "00:00",
+      duration: typeof b.duration === "number" ? b.duration : 1,
+    });
+    parTerrain.set(b.venue_id, liste);
+  }
+  return parTerrain;
+}
+
 async function lireTerrains(): Promise<TerrainListe[]> {
-  const snap = await adminDb.collection("venues").get();
+  const [snap, occupations] = await Promise.all([
+    adminDb.collection("venues").get(),
+    lireOccupations().catch(() => new Map<string, Occupation[]>()),
+  ]);
   const s = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim() : null);
   const n = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : 0);
 
@@ -49,6 +83,8 @@ async function lireTerrains(): Promise<TerrainListe[]> {
         amenities: Array.isArray(v.amenities) ? (v.amenities as unknown[]).filter((a): a is string => typeof a === "string") : [],
         photoUrl: s(v.photo_url),
         available: v.available !== false,
+        horaires: horairesLus(v.opening_hours),
+        occupations: occupations.get(d.id) ?? [],
       };
     })
     // Les terrains ouverts d'abord, puis l'ordre alphabétique. Un terrain
