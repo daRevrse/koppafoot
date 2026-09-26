@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import TerrainCompo, { nomCourt } from "@/components/match/TerrainCompo";
+import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import type { LineupEntry } from "@/types";
 
 // ============================================
@@ -22,14 +24,54 @@ import type { LineupEntry } from "@/types";
 // lib/postes), et choisi match par match par le manager. Le dessin lui-même
 // vit dans TerrainCompo, partagé avec l'éditeur de feuille : un joueur doit
 // se trouver au même endroit qu'on lise le match ou qu'on le compose.
+//
+// LE MANAGER FERME LA FEUILLE, sous le banc, comme sur une feuille de match
+// imprimée. Lui seul, pas le staff : voir /api/public/team/[id]/manager.
 // ============================================
+
+/** Le manager d'un camp, tel que le publie /api/public/team/[id]/manager. */
+interface ManagerPublic {
+  uid: string;
+  nom: string;
+  photo: string | null;
+}
+
+/**
+ * Une requête par club et par visite : basculer d'onglet démonte ce
+ * composant, et revenir sur la composition ne doit pas refaire l'appel.
+ */
+const managersDejaDemandes = new Map<string, Promise<ManagerPublic | null>>();
+
+function managerDuClub(clubId: string): Promise<ManagerPublic | null> {
+  let p = managersDejaDemandes.get(clubId);
+  if (!p) {
+    p = fetch(`/api/public/team/${encodeURIComponent(clubId)}/manager`)
+      // « Pas de manager » répond 200 ; tout le reste est un échec.
+      .then((r) => {
+        if (!r.ok) throw new Error(`manager ${r.status}`);
+        return r.json();
+      })
+      .then((j: { manager?: ManagerPublic | null }) => j.manager ?? null)
+      .catch(() => {
+        // Un échec ne se garde pas : la visite suivante retentera.
+        managersDejaDemandes.delete(clubId);
+        return null;
+      });
+    managersDejaDemandes.set(clubId, p);
+  }
+  return p;
+}
 
 export default function MatchLineups({
   home, away, photos,
 }: {
-  /** `formation` : « 4-3-3 » quand le manager en a annoncé une. */
-  home: { name: string; entries: LineupEntry[]; formation?: string | null };
-  away: { name: string; entries: LineupEntry[]; formation?: string | null };
+  /**
+   * `formation` : « 4-3-3 » quand le manager en a annoncé une.
+   * `clubId` : l'équipe KoppaFoot du camp, d'où l'on tire son manager.
+   * Absent pour un adversaire hors KoppaFoot, qui n'en a pas chez nous.
+   */
+  home: { name: string; entries: LineupEntry[]; formation?: string | null; clubId?: string | null };
+  away: { name: string; entries: LineupEntry[]; formation?: string | null; clubId?: string | null };
   /**
    * Le visage des joueurs, par identifiant de ligne de feuille.
    *
@@ -45,7 +87,25 @@ export default function MatchLineups({
     home.entries.length === 0 && away.entries.length > 0 ? "away" : "home",
   );
 
+  // Les deux managers d'un coup, à l'ouverture : la bascule reste instantanée.
+  const [managers, setManagers] = useState<{ home: ManagerPublic | null; away: ManagerPublic | null }>({
+    home: null, away: null,
+  });
+  const clubDomicile = home.clubId ?? null;
+  const clubExterieur = away.clubId ?? null;
+  useEffect(() => {
+    let annule = false;
+    Promise.all([
+      clubDomicile ? managerDuClub(clubDomicile) : null,
+      clubExterieur ? managerDuClub(clubExterieur) : null,
+    ]).then(([h, a]) => {
+      if (!annule) setManagers({ home: h, away: a });
+    });
+    return () => { annule = true; };
+  }, [clubDomicile, clubExterieur]);
+
   const equipe = cote === "home" ? home : away;
+  const manager = managers[cote];
   // Tous les titulaires, sans plafond a onze : une competition se joue en NvN
   // (voir lib/terrain), et couper a onze aurait fait disparaitre des joueurs
   // d'un match a quatorze autant qu'il inventait des trous dans un 5v5.
@@ -115,6 +175,21 @@ export default function MatchLineups({
             </div>
           )}
         </>
+      )}
+
+      {manager && (
+        <div className="mt-3 flex min-w-0 items-center gap-2.5">
+          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
+            Manager
+          </span>
+          <Link
+            href={`/profile/${manager.uid}`}
+            className="flex min-w-0 items-center gap-2 text-[12px] font-black text-gray-700 hover:text-emerald-700"
+          >
+            <PlayerAvatar name={manager.nom} photo={manager.photo} size={24} />
+            <span className="truncate">{manager.nom}</span>
+          </Link>
+        </div>
       )}
     </div>
   );

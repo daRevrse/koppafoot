@@ -1312,8 +1312,8 @@ export default function MatchDetailPage() {
                   MatchLineups. */}
               <div className="bg-white p-4 sm:p-5">
                 <MatchLineups
-                  home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup), formation: match.homeFormation }}
-                  away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup), formation: match.awayFormation }}
+                  home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup), formation: match.homeFormation, clubId: match.homeTeamId }}
+                  away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup), formation: match.awayFormation, clubId: match.awayTeamId }}
                   photos={photosDeLEffectif}
                 />
               </div>
