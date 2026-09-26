@@ -243,7 +243,7 @@ export default function CompetitionRosterPage() {
               transition={{ delay: 0.05 }}
               className="mt-0.5 text-sm text-gray-500"
             >
-              {players.length} joueur{players.length !== 1 ? "s" : ""} dans l&apos;effectif
+              {players.length} joueur{players.length !== 1 ? "s" : ""}{" "}dans l&apos;effectif
             </motion.p>
           </div>
         </div>
@@ -456,7 +456,7 @@ export default function CompetitionRosterPage() {
                 Supprimer le joueur ?
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                <span className="font-semibold text-gray-700">{deleting.name}</span> sera retiré de
+                <span className="font-semibold text-gray-700">{deleting.name}</span>{" "}sera retiré de
                 l&apos;effectif. Cette action est irréversible.
               </p>
               <div className="mt-6 flex items-center justify-end gap-3">

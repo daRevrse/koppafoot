@@ -382,7 +382,7 @@ export default function CorpsArbitralPage() {
                 {moi?.role === "scoreur" && (
                   <p className="border-t border-gray-200/70 bg-sky-50/50 px-4 py-3 text-xs leading-relaxed text-sky-900 sm:px-5">
                     Quand {c.chefNom} t&apos;emmène sur un match, il apparaît dans{" "}
-                    <Link href="/live-ops" className="font-bold underline decoration-dotted underline-offset-2">Mes directs</Link> :
+                    <Link href="/live-ops" className="font-bold underline decoration-dotted underline-offset-2">Mes directs</Link>{" "}:
                     c&apos;est toi qui tiens la console.
                   </p>
                 )}

@@ -149,7 +149,7 @@ export default function TeamManagerInvitePage() {
           ) : (
             <>
               <p className="text-sm font-bold leading-relaxed text-gray-600">
-                <span className="text-gray-900">{invite.invitedByName}</span> t&apos;invite
+                <span className="text-gray-900">{invite.invitedByName}</span>{" "}t&apos;invite
                 à prendre la gestion de cette équipe. En acceptant, tu en deviens
                 propriétaire et manager.
               </p>

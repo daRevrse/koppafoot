@@ -601,7 +601,7 @@ function SelecteurDeJoueur({
             onClick={onRetirer}
             className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-200/70 px-4 py-3.5 text-xs font-black uppercase tracking-[0.12em] text-red-600 transition-colors hover:bg-red-50"
           >
-            <UserMinus size={14} /> Libérer l&apos;emplacement
+            <UserMinus size={14} />{" "}Libérer l&apos;emplacement
           </button>
         )}
       </div>

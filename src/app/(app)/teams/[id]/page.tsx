@@ -2702,7 +2702,7 @@ export default function TeamDetailPage() {
             </p>
             <button onClick={() => setShowDeleteModal(true)}
               className="mt-4 flex w-full items-center justify-center gap-2 bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-all sm:w-auto sm:justify-start">
-              <Trash2 size={14} /> Supprimer l&apos;equipe
+              <Trash2 size={14} />{" "}Supprimer l&apos;equipe
             </button>
           </div>
           )}

@@ -131,7 +131,7 @@ export default function CarteEtatDeForme({
                 </div>
               ) : (
                 <p className="text-sm font-semibold text-gray-500">
-                  Pas encore assez de matchs notés : il en faut {MATCHS_NOTES_MINIMUM} sur
+                  Pas encore assez de matchs notés : il en faut {MATCHS_NOTES_MINIMUM}{" "}sur
                   les cinq derniers. Une entrée en jeu trop courte n&apos;est pas notée.
                 </p>
               )}

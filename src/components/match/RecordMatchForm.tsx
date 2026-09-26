@@ -247,13 +247,13 @@ export default function RecordMatchForm({ teams, managerId, onClose, onRecorded 
         <p className="mt-4 border border-gray-200/70 bg-gray-50 p-3 text-xs leading-relaxed text-gray-600">
           {contreUnCompte ? (
             <>
-              <strong className="font-semibold text-gray-800">{advNom}</strong> est sur KoppaFoot : rien ne
+              <strong className="font-semibold text-gray-800">{advNom}</strong>{" "}est sur KoppaFoot : rien ne
               comptera tant que son manager n&apos;aura pas confirmé ce score. Le match s&apos;affichera en
               attente.
             </>
           ) : (
             <>
-              <strong className="font-semibold text-gray-800">{advNom}</strong> n&apos;est pas sur KoppaFoot :
+              <strong className="font-semibold text-gray-800">{advNom}</strong>{" "}n&apos;est pas sur KoppaFoot :
               le résultat compte immédiatement dans le bilan de ton club et dans la carrière des joueurs nommés.
             </>
           )}
