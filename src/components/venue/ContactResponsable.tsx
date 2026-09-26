@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Phone, Mail, Loader2, X, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -93,6 +94,12 @@ export default function ContactResponsable({
 
   if (ownerId && firebaseUser?.uid === ownerId) return null;
 
+  // LA FENÊTRE VIT SOUS <body>, PAS DANS LA COLONNE. Sur ordinateur, le
+  // bouton est dans une colonne collante (`sticky`), qui ouvre son propre
+  // empilement : la fenêtre y était enfermée, et le pied de page de la fiche
+  // passait par-dessus, masquant la moitié des coordonnées. Le portail la
+  // rend au niveau de la page, au-dessus de tout.
+
   return (
     <>
       <button
@@ -104,7 +111,7 @@ export default function ContactResponsable({
         Contacter le responsable
       </button>
 
-      {ouvert && (
+      {ouvert && createPortal(
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
           <button
             type="button"
@@ -218,7 +225,8 @@ export default function ContactResponsable({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
