@@ -202,7 +202,7 @@ function Refus({
       </div>
       {b.matchId && (
         <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
-          {b.competitionId ? "L'organisateur" : "Le manager"} du match est prévenu, et invité à changer
+          {b.competitionId ? "L'organisateur" : "Le manager"}{" "}du match est prévenu, et invité à changer
           d&apos;horaire ou de terrain.
         </p>
       )}

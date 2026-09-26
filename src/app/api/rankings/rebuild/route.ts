@@ -47,8 +47,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({
       ok: true,
-      performances: classements.performances.length,
-      gardiens: classements.gardiens.length,
+      joueurs: classements.joueurs.length,
       matchsRetenus: classements.matchsRetenus,
       formes,
     });

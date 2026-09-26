@@ -14,11 +14,12 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Flame, ChevronLeft, ChevronRight, ChevronDown, Star, Trophy,
-  MapPin, CalendarDays, Goal, Footprints, ArrowUp, ArrowDown,
+  MapPin, CalendarDays,
 } from "lucide-react";
 import { onCompMatches, listCompTeams, setCompetitionFollow } from "@/lib/competition-firestore";
 import toast from "react-hot-toast";
-import type { LigneClassement, LignePubliee } from "@/lib/classement";
+import type { LigneJoueurPubliee, TriClassement } from "@/lib/classement";
+import LigneDeClassement from "@/components/classement/LigneDeClassement";
 import { stageLabel } from "@/lib/competition-format";
 import { cleDuJour, decalerDeJours, libelleDuJour } from "@/lib/dates";
 import {
@@ -1167,20 +1168,19 @@ function stageTagLabel(match: CompMatch): string | null {
 // ---- Top performances ---------------------------------------------------------------
 
 /**
- * Les cinq meilleures contributions de la plateforme, sur les cinq derniers
- * matchs de chacun.
+ * Les cinq meilleurs joueurs de la plateforme, gardiens compris, sur les cinq
+ * derniers matchs de chacun.
  *
- * ELLE NE CALCULE PLUS RIEN. Elle le faisait, sur les seuls matchs que le
- * tableau du Direct avait sous la main, et ce raccourci mentait doublement :
- * il ignorait les compétitions hors écran, et il déduisait la présence d'un
- * joueur de ses buts — un joueur muet depuis six journées disparaissait, un
- * joueur qui n'a pas joué mais dont un homonyme a marqué apparaissait.
+ * ELLE NE CALCULE RIEN. Le classement vient du serveur, calculé sur la
+ * feuille de match à la fin de chaque rencontre (voir lib/classement), et la
+ * ligne est celle de la page complète (LigneDeClassement) : deux dessins
+ * d'une même ligne dérivaient au premier retouche.
  *
- * Le classement vient maintenant du serveur, calculé sur la feuille de match
- * à la fin de chaque rencontre (voir lib/classement). La carte l'affiche,
- * c'est tout.
+ * LA NOTE D'ABORD, LES BUTS ET PASSES À DÉFAUT. Tant que personne n'a assez
+ * de matchs notés — les premières semaines d'une plateforme —, la carte
+ * montre les meilleurs contributeurs plutôt qu'un vide ; l'appelant choisit.
  */
-function TopPerformancesCard({ lignes }: { lignes: LignePubliee<LigneClassement>[] }) {
+function TopPerformancesCard({ top }: { top: { tri: TriClassement; lignes: LigneJoueurPubliee[] } }) {
   return (
     <div className="border border-gray-200/70 bg-white">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
@@ -1193,7 +1193,7 @@ function TopPerformancesCard({ lignes }: { lignes: LignePubliee<LigneClassement>
         </span>
       </div>
 
-      {lignes.length === 0 ? (
+      {top.lignes.length === 0 ? (
         /* Le classement se remplit match après match : tant que les feuilles
            ne sont pas saisies, il n'a personne à montrer. Mieux vaut le dire
            que d'afficher une carte vide, qui se lit comme une panne. */
@@ -1203,44 +1203,9 @@ function TopPerformancesCard({ lignes }: { lignes: LignePubliee<LigneClassement>
           Personne n&apos;y figure encore.
         </p>
       ) : (
-        <div className="px-4">
-          {lignes.map((row, i) => (
-            <div
-              key={row.cle}
-              className="flex items-center gap-3 border-t border-gray-200/70 py-2.5 first:border-0"
-            >
-              <span
-                className={`w-4 shrink-0 text-center text-[11px] font-black tabular-nums ${
-                  i === 0 ? "text-amber-500" : "text-gray-300"
-                }`}
-              >
-                {i + 1}
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-black text-gray-900">
-                  {row.nom}
-                </span>
-                {/* Le détail sous le nom : d'où viennent les G/A. Sans lui,
-                    « 22 » ne dit pas si le joueur marque ou fait marquer. */}
-                <span className="mt-0.5 flex items-center gap-2.5 text-[11px] font-black tabular-nums text-gray-500">
-                  <span className="flex items-center gap-1">
-                    {row.buts}
-                    <Goal size={12} className="text-emerald-600" />
-                  </span>
-                  <span className="flex items-center gap-1">
-                    {row.passes}
-                    <Footprints size={12} className="text-orange-500" />
-                  </span>
-                </span>
-              </span>
-
-              <span className="shrink-0 text-[13px] font-black tabular-nums text-gray-900">
-                {row.total} <span className="text-gray-400">G/A</span>
-              </span>
-
-              <MouvementBadge mouvement={row.mouvement} />
-            </div>
+        <div className="border-t border-gray-200/70">
+          {top.lignes.map((ligne) => (
+            <LigneDeClassement key={ligne.cle} ligne={ligne} tri={top.tri} compacte />
           ))}
         </div>
       )}
@@ -1256,41 +1221,12 @@ function TopPerformancesCard({ lignes }: { lignes: LignePubliee<LigneClassement>
   );
 }
 
-/**
- * La flèche : ce que le joueur a gagné ou perdu depuis le calcul précédent.
- *
- * Rien du tout sur une entrée nouvelle. Elle n'a pas grimpé de vingt places,
- * elle vient d'arriver, et une flèche verte géante le raconterait de travers.
- */
-export function MouvementBadge({ mouvement }: { mouvement: number | null }) {
-  if (mouvement === null) return <span className="w-9 shrink-0" />;
-  if (mouvement === 0) {
-    return (
-      <span className="flex w-9 shrink-0 items-center justify-center text-[11px] font-black text-gray-300">
-        –
-      </span>
-    );
-  }
-  const monte = mouvement > 0;
-  return (
-    <span
-      className={`flex w-9 shrink-0 items-center justify-center gap-0.5 rounded-full py-0.5 text-[11px] font-black tabular-nums ${
-        monte ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
-      }`}
-    >
-      {monte ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-      {Math.abs(mouvement)}
-    </span>
-  );
-}
-
-
 // ---- Page ---------------------------------------------------------------------------
 
 export default function DirectHomeV2({
   initialFeed,
   worldCompetitions = [],
-  topPerformances = [],
+  topPerformances = { tri: "note", lignes: [] },
 }: {
   initialFeed: CompetitionFeed[];
   /** Le football mondial, lu chez football-data.org cote serveur. */
@@ -1302,7 +1238,7 @@ export default function DirectHomeV2({
    * que le tableau avait sous la main, ce qui ignorait les competitions hors
    * ecran et deduisait la presence d'un joueur de ses buts.
    */
-  topPerformances?: LignePubliee<LigneClassement>[];
+  topPerformances?: { tri: TriClassement; lignes: LigneJoueurPubliee[] };
 }) {
   const [feed, setFeed] = useState<CompetitionFeed[]>(initialFeed);
   const [teams, setTeams] = useState<CompTeam[]>([]);
@@ -1648,7 +1584,7 @@ export default function DirectHomeV2({
               remplace : une pastille qu'on voit tout de suite vaut mieux
               qu'une carte complete qu'on ne voit jamais. */}
           <div className="hidden lg:block">
-            <TopPerformancesCard lignes={topPerformances} />
+            <TopPerformancesCard top={topPerformances} />
           </div>
         </div>
 

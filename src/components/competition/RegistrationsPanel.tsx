@@ -177,7 +177,7 @@ export default function RegistrationsPanel({
           </p>
           <p className="mt-0.5 text-xs font-medium text-gray-400">
             {billable.filter((r) => r.feeStatus === "paid").length}/{billable.length} équipe
-            {billable.length !== 1 ? "s" : ""} à jour · suivi manuel, KoppaFoot n&apos;encaisse
+            {billable.length !== 1 ? "s" : ""}{" "}à jour · suivi manuel, KoppaFoot n&apos;encaisse
             rien.
           </p>
           <div className="mt-3 space-y-1.5">

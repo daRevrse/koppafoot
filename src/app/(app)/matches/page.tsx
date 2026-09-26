@@ -1251,7 +1251,7 @@ export default function MatchesPage() {
                         <CalendarPlus size={14} className="shrink-0 text-primary-600" />
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium text-primary-700">
-                            « {awaySearchQuery.trim()} » n&apos;est pas sur KoppaFoot
+                            « {awaySearchQuery.trim()}{" "}» n&apos;est pas sur KoppaFoot
                           </span>
                           <span className="block text-xs text-gray-500">
                             Programmer un amical contre cette équipe

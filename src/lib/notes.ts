@@ -204,6 +204,30 @@ export function notesDuCamp(
   return notes;
 }
 
+/**
+ * La moyenne de plusieurs notes, LES PLUS RECENTES PESANT DAVANTAGE : la
+ * derniere cinq fois ce que pese la cinquieme (poids 5, 4, 3, 2, 1). C'est
+ * ce qu'on vaut maintenant, pas il y a un mois.
+ *
+ * Une seule definition pour l'etat de forme (lib/etat-de-forme) et le
+ * classement de la plateforme (lib/classement) : un joueur doit lire le meme
+ * chiffre sur sa pastille de forme et dans le classement.
+ *
+ * `notes` va du plus recent au plus ancien, sans les matchs non notes.
+ * Arrondie au dixieme ; `null` sans aucune note.
+ */
+export function moyennePonderee(notes: number[], fenetre = 5): number | null {
+  if (notes.length === 0) return null;
+  let somme = 0;
+  let poids = 0;
+  notes.forEach((n, i) => {
+    const p = Math.max(1, fenetre - i);
+    somme += n * p;
+    poids += p;
+  });
+  return Math.round((somme / poids) * 10) / 10;
+}
+
 /** « 7.4 » s'ecrit « 7,4 » ici, et une note absente ne s'ecrit pas. */
 export function formaterNote(note: number | null): string {
   return note === null ? "–" : note.toFixed(1).replace(".", ",");

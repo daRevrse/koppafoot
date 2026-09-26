@@ -886,7 +886,7 @@ export default function CompetitionKnockoutPage() {
           <p className="mt-4 text-base font-bold text-gray-900">Pas encore de phase finale</p>
           <p className="mt-1 max-w-md text-sm text-gray-500">
             Choisissez la taille du tableau : l&apos;arbre est créé vide, et vous décidez
-            vous-même d&apos;où vient chaque place, «&nbsp;1<sup>er</sup> poule A&nbsp;»,
+            vous-même d&apos;où vient chaque place, «&nbsp;1<sup>er</sup>{" "}poule A&nbsp;»,
             «&nbsp;2<sup>e</sup> meilleur 3<sup>e</sup>&nbsp;». Pas besoin d&apos;attendre la fin
             des poules.
           </p>

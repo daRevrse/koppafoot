@@ -64,7 +64,7 @@ export default function EquipeArbitraleDuMatch({ match, corps }: {
         </ul>
       ) : corps ? (
         <p className="mt-2 text-xs leading-relaxed text-gray-500">
-          Tu viens seul pour l&apos;instant. Emmène un scoreur de « {corps.nom} » : c&apos;est lui qui
+          Tu viens seul pour l&apos;instant. Emmène un scoreur de « {corps.nom}{" "}» : c&apos;est lui qui
           tiendra la console pendant que tu diriges.
         </p>
       ) : (
