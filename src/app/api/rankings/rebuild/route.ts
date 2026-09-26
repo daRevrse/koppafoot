@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
-import { recalculerClassements } from "@/lib/classement-admin";
+import { matchsDeLaPlateforme, recalculerClassements } from "@/lib/classement-admin";
+import { publierFormes } from "@/lib/formes-admin";
 
 /**
  * POST /api/rankings/rebuild, recalcule le classement des joueurs.
@@ -18,6 +19,11 @@ import { recalculerClassements } from "@/lib/classement-admin";
  *
  * L'échec est silencieux côté appelant : un classement en retard d'un match
  * est un désagrément, un coup de sifflet final qui échoue est une perte.
+ *
+ * L'ÉTAT DE FORME DES JOUEURS SE REFAIT ICI AUSSI, sur la même lecture de
+ * matchs (voir lib/formes-admin) : il change au même moment, pour la même
+ * raison. Son échec n'emporte pas le classement, qui est déjà publié quand
+ * il commence.
  */
 export const dynamic = "force-dynamic";
 
@@ -33,12 +39,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const classements = await recalculerClassements();
+    const matchs = await matchsDeLaPlateforme();
+    const classements = await recalculerClassements(matchs);
+    const formes = await publierFormes(matchs).catch((err) => {
+      console.error("POST /api/rankings/rebuild: formes non publiées", err);
+      return null;
+    });
     return NextResponse.json({
       ok: true,
       performances: classements.performances.length,
       gardiens: classements.gardiens.length,
       matchsRetenus: classements.matchsRetenus,
+      formes,
     });
   } catch (err) {
     console.error("POST /api/rankings/rebuild failed:", err);

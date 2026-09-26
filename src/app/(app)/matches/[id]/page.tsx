@@ -42,6 +42,9 @@ import {
 import PredictionPoll from "@/components/match/PredictionPoll";
 import MatchModerators from "@/components/match/MatchModerators";
 import { useEcussons } from "@/hooks/useEcussons";
+import { useFormes } from "@/hooks/useFormes";
+import { JOUABLE, LIBELLE_CONDITION, cleFormeCompte, cleFormeLigne, conditionASignaler } from "@/lib/etat-de-forme";
+import { PastillesEtatDeForme } from "@/components/forme/badges";
 
 // ============================================
 // Helpers
@@ -343,6 +346,28 @@ export default function MatchDetailPage() {
     () => Object.fromEntries(teamMembers.map((m) => [m.uid, m.profilePictureUrl ?? null])),
     [teamMembers],
   );
+
+  /**
+   * L'ÉTAT DE FORME DE L'EFFECTIF DU MATCH, sur la ligne de chacun.
+   *
+   * C'est ici qu'il sert le plus : au moment de choisir qui commence. La
+   * condition vient des profils et des fiches déjà chargés, la forme d'une
+   * seule lecture (voir lib/formes-admin). Un joueur sans compte a sa forme
+   * rangée sous sa ligne dans NOTRE club, c'est là que ses matchs l'ont mise.
+   */
+  const { formes: formesDuMatch } = useFormes(
+    monEffectifDeMatch.map((j) =>
+      j.sansCompte ? (myTeamId ? cleFormeLigne(myTeamId, j.id) : null) : cleFormeCompte(j.id),
+    ),
+  );
+  const etatDe = (joueur: { id: string; sansCompte: boolean }) => ({
+    condition: joueur.sansCompte
+      ? ghostPlayers.find((g) => g.id === joueur.id)?.condition
+      : teamMembers.find((m) => m.uid === joueur.id)?.condition,
+    forme: formesDuMatch[
+      joueur.sansCompte ? (myTeamId ? cleFormeLigne(myTeamId, joueur.id) : "") : cleFormeCompte(joueur.id)
+    ],
+  });
 
   /**
    * La feuille en cours, sous la forme que le terrain sait lire. Elle suit la
@@ -1578,6 +1603,23 @@ export default function MatchDetailPage() {
                                 Dossard {dossard.trim()} déjà pris par un compte
                               </p>
                             )}
+                            {(() => {
+                              const { condition, forme } = etatDe(joueur);
+                              const signalee = conditionASignaler(condition);
+                              return (
+                                <>
+                                  <PastillesEtatDeForme sombre className="mt-1.5" condition={condition} forme={forme} />
+                                  {/* ON AVERTIT, ON N'EMPÊCHE PAS : une déclaration
+                                      oubliée ne doit pas interdire d'aligner un
+                                      joueur qui est bel et bien là. */}
+                                  {signalee && !JOUABLE[signalee.statut] && role !== "out" && (
+                                    <p className="mt-1 text-[10px] font-bold text-amber-300">
+                                      Déclaré {LIBELLE_CONDITION[signalee.statut].toLowerCase()}&nbsp;: à confirmer avant de l&apos;aligner.
+                                    </p>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
 
                           <input

@@ -16,7 +16,9 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import { toCompMatch } from "@/lib/competition-mappers";
+import { matchDuration } from "@/lib/competition-format";
 import { calculerClassements, mouvements } from "@/lib/classement";
+import type { MatchPourForme } from "@/lib/etat-de-forme";
 import type {
   ClassementsPublies, ContributionDirecte, LigneClassement, LigneGardien,
   LignePubliee, MatchAClasser,
@@ -30,6 +32,9 @@ const VIDE: ClassementsPublies = {
   performances: [], gardiens: [], matchsRetenus: 0, calculeLe: null,
 };
 
+/** Un match de la plateforme : de quoi le classer, et de quoi en tirer une forme. */
+export type MatchDeLaPlateforme = MatchAClasser & MatchPourForme;
+
 /**
  * Tous les matchs qui comptent : les compétitions de la plateforme, et les
  * amicaux.
@@ -37,9 +42,13 @@ const VIDE: ClassementsPublies = {
  * Pas le football mondial : le fournisseur externe ne donne pas le détail par
  * joueur, et ses matchs n'ont pas de feuille chez nous. Un classement de
  * joueurs togolais n'a de toute façon rien à voir avec la Ligue 1.
+ *
+ * Chaque match porte aussi sa DURÉE et son LIEN, que le classement ignore et
+ * dont l'état de forme a besoin (voir lib/etat-de-forme) : les deux calculs
+ * partagent cette lecture, qui est de loin ce qu'ils coûtent de plus cher.
  */
-async function matchsDeLaPlateforme(): Promise<MatchAClasser[]> {
-  const matchs: MatchAClasser[] = [];
+export async function matchsDeLaPlateforme(): Promise<MatchDeLaPlateforme[]> {
+  const matchs: MatchDeLaPlateforme[] = [];
 
   // PAS LES COMPETITIONS D'ENTRAINEMENT. La console leur affiche un bandeau
   // qui promet « aucune statistique n'est comptée », et cette promesse doit
@@ -52,7 +61,12 @@ async function matchsDeLaPlateforme(): Promise<MatchAClasser[]> {
       const snap = await adminDb
         .collection("competitions").doc(c.id)
         .collection("comp_matches").where("status", "==", "completed").get();
-      return snap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
+      const dureeMatchMin = matchDuration(c.format);
+      return snap.docs.map((d) => ({
+        ...toCompMatch(d.id, d.data() as FirestoreCompMatch),
+        dureeMatchMin,
+        lien: `/c/${c.slug}/matches/${d.id}`,
+      }));
     }),
   );
   for (const lot of parCompetition) matchs.push(...lot);
@@ -67,7 +81,9 @@ async function matchsDeLaPlateforme(): Promise<MatchAClasser[]> {
   const amicaux = await adminDb
     .collection("matches").where("status", "==", "completed").get();
   for (const d of amicaux.docs) {
-    matchs.push(amicalEnCompMatch(d.id, d.data() as FirestoreMatch));
+    // Un amical ne stocke pas sa durée : la mi-temps réglementaire fait foi,
+    // comme dans la console (voir lib/console-pilote).
+    matchs.push({ ...amicalEnCompMatch(d.id, d.data() as FirestoreMatch), lien: `/matches/${d.id}`, amical: true });
   }
 
   return matchs;
@@ -165,8 +181,11 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
  * à lui-même — c'est voulu, une flèche dit « depuis la dernière fois », pas
  * « depuis un moment ».
  */
-export async function recalculerClassements(): Promise<ClassementsPublies> {
-  const matchs = await matchsDeLaPlateforme();
+export async function recalculerClassements(
+  /** Les matchs déjà lus, quand l'appelant s'en sert aussi (voir lib/formes-admin). */
+  dejaLus?: MatchAClasser[],
+): Promise<ClassementsPublies> {
+  const matchs = dejaLus ?? await matchsDeLaPlateforme();
   const { performances, gardiens, matchsRetenus } = calculerClassements(matchs);
 
   const ref = adminDb.doc(DOC);

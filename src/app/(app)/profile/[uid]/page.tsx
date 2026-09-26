@@ -47,6 +47,9 @@ import type { UserProfile, Post } from "@/types";
 import { PostCard, timeAgo } from "@/components/feed/PostCard";
 import ProfileBanner from "@/components/profile/ProfileBanner";
 import { useReplieAuDefilement } from "@/hooks/useReplieAuDefilement";
+import { useFormes } from "@/hooks/useFormes";
+import CarteEtatDeForme from "@/components/forme/CarteEtatDeForme";
+import { cleFormeCompte } from "@/lib/etat-de-forme";
 import toast from "react-hot-toast";
 
 /**
@@ -646,6 +649,9 @@ export default function PublicProfilePage() {
 
   const isOwnProfile = currentUser?.uid === uid;
 
+  // La forme calculée se lit sans compte, comme les matchs dont elle vient.
+  const { formes, charge: formeChargee } = useFormes(uid ? [cleFormeCompte(uid)] : []);
+
   // Chargement de la fiche.
   //
   // On attend que l'authentification soit TRANCHEE avant de lire. Sans cette
@@ -1165,6 +1171,19 @@ export default function PublicProfilePage() {
           {/* ═══ OVERVIEW ═══ */}
           {activeTab === "overview" && (
             <div>
+              {/* L'état de forme en lecture : la condition ne s'y déclare
+                  pas, même sur sa propre fiche — voir plus haut, une page
+                  publique montre ce qu'un visiteur verrait. */}
+              {isPlayer && (
+                <div className="mb-5">
+                  <CarteEtatDeForme
+                    forme={formes[cleFormeCompte(profile.uid)] ?? null}
+                    formeChargee={formeChargee}
+                    condition={profile.condition}
+                    conditionConnue={Boolean(currentUser)}
+                  />
+                </div>
+              )}
               {isPlayer && <PlayerSection profile={profile} />}
               {isManager && <ManagerSection profile={profile} teams={teams} />}
               {isReferee && <RefereeSection profile={profile} bilan={arbitrage} />}

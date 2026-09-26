@@ -50,6 +50,7 @@ import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
+import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
 import type { FirestoreLineupEntry } from "@/types";
 
 // ============================================
@@ -83,6 +84,7 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     goals: d.goals ?? 0,
     assists: d.assists ?? 0,
     matchesPlayed: d.matches_played ?? 0,
+    condition: lireCondition(d.condition),
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -322,6 +324,9 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     organizerName: data.organizer_name ?? null,
     galleryPhotos: data.gallery_photos ?? [],
     trophies: data.trophies ?? [],
+    // La condition déclarée : c'est ici que l'effectif et la feuille de match
+    // la lisent, sur les profils qu'ils chargent déjà.
+    condition: lireCondition(data.condition),
   };
 }
 
@@ -3618,6 +3623,44 @@ export async function updateGhostPlayer(
   if (data.position !== undefined) update.position = data.position;
   if (data.squadNumber !== undefined) update.squad_number = data.squadNumber.trim() || null;
   await updateDoc(ref, update);
+}
+
+/**
+ * La condition d'un joueur sans compte, déclarée par son manager.
+ *
+ * `null` efface la déclaration : le joueur redevient « rien de déclaré », ce
+ * qui se lit apte. Les règles réservent l'écriture à ceux qui gèrent
+ * l'équipe, comme le reste de la fiche.
+ */
+export async function declarerConditionFantome(
+  teamId: string,
+  ghostId: string,
+  condition: { statut: StatutCondition; retourPrevu?: string | null; note?: string | null } | null,
+): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId, "ghost_players", ghostId), {
+    condition: condition ? versFirestoreCondition(condition) : null,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Prévient le manager qu'un joueur vient de changer de condition.
+ *
+ * Après l'écriture, jamais à sa place : la route relit la condition sur le
+ * document (voir /api/joueurs/condition). Best-effort — la déclaration est
+ * déjà enregistrée, un échec ici ne la défait pas et ne se montre pas.
+ */
+export async function prevenirDuChangementDeCondition(): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) return;
+  try {
+    await fetch("/api/joueurs/condition", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${await current.getIdToken()}` },
+    });
+  } catch {
+    // Voir plus haut : rien à dire au joueur.
+  }
 }
 
 /**

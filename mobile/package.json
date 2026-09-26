@@ -55,7 +55,8 @@
     "moduleNameMapper": {
       "^~/(.*)$": "<rootDir>/src/$1",
       "^@/(.*)$": "<rootDir>/../src/$1",
-      "^yup$": "<rootDir>/node_modules/yup"
+      "^yup$": "<rootDir>/node_modules/yup",
+      "^@babel/runtime/(.*)$": "<rootDir>/node_modules/@babel/runtime/$1"
     }
   }
 }

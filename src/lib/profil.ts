@@ -10,6 +10,7 @@
 // ============================================
 
 import { formatDate } from "@/lib/dates";
+import { lireCondition } from "@/lib/etat-de-forme";
 import type { AuthProvider, FirestoreUser, SignupData, UserProfile } from "@/types";
 
 /** L'identifiant de fournisseur Firebase, dans le vocabulaire du profil. */
@@ -87,6 +88,7 @@ export function firestoreToProfile(uid: string, data: FirestoreUser): UserProfil
     trophies: data.trophies ?? [],
     // Competition roster lines validated as being this user
     linkedCompPlayers: data.linked_comp_players ?? [],
+    condition: lireCondition(data.condition),
   };
 }
 

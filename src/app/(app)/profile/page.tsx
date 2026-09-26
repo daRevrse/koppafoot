@@ -26,6 +26,7 @@ import LoginMethodsCard from "@/components/auth/LoginMethodsCard";
 import { useT } from "@/i18n";
 import type { Post } from "@/types";
 import ProfileBanner from "@/components/profile/ProfileBanner";
+import MonEtatDeForme from "@/components/forme/MonEtatDeForme";
 
 // ============================================
 // Schema
@@ -509,6 +510,13 @@ export default function ProfilePage() {
                 <InfoRow icon={MapPin} label="Ville" value={user.locationCity} />
               </div>
             </div>
+            {/* L'état de forme, pour qui joue : c'est d'ici qu'on déclare une
+                blessure, sur la fiche qu'on ouvre pour parler de soi. */}
+            {isPlayerRole && (
+              <div className="md:col-span-3">
+                <MonEtatDeForme />
+              </div>
+            )}
             {/* Physical Info Card */}
             {showPhysical && (
               <div className="border border-gray-200/70 bg-white p-4 md:col-span-3">
