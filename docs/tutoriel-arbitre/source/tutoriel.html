@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Arbitrer avec KoppaFoot</title>
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+@page { size: A4; margin: 15mm 16mm 17mm;
+  @bottom-left { content: "KoppaFoot · Guide de l'arbitre"; font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+}
+@page couverture { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --vert: #059669;
+  --vert-clair: #ecfdf5;
+  --encre: #111827;
+  --gris: #4b5563;
+  --gris-clair: #f3f4f6;
+  --orange: #ff5a1f;
+  --orange-clair: #fff4ed;
+  --ambre-clair: #fffbeb;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; color: var(--encre); background: #fff; }
+h1, h2, h3, .display { font-family: "Outfit", sans-serif; }
+p { margin: 0 0 2.2mm; }
+b, strong { font-weight: 700; }
+
+/* ---------- Couverture ---------- */
+.couverture { page: couverture; height: 296mm; width: 210mm; position: relative; overflow: hidden; color: #fff; background: #0b1512; }
+.couverture .photo { position: absolute; inset: 0; background: url(couverture.jpg) center 25%/cover; opacity: .6; }
+.couverture .voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.2) 35%, rgba(5,20,15,.95) 75%); }
+.couverture .contenu { position: absolute; left: 18mm; right: 18mm; bottom: 26mm; }
+.couverture .marque { position: absolute; top: 18mm; left: 18mm; font-family: "Outfit"; font-weight: 800; letter-spacing: .28em; font-size: 15pt; }
+.couverture .surtitre { font-family: "Outfit"; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #6ee7b7; font-size: 10pt; margin-bottom: 5mm; }
+.couverture h1 { font-weight: 900; text-transform: uppercase; font-size: 44pt; line-height: .92; letter-spacing: -.01em; margin: 0 0 7mm; }
+.couverture .phrase { font-size: 13pt; color: rgba(255,255,255,.82); max-width: 150mm; margin-bottom: 10mm; }
+.couverture .bas { display: flex; gap: 8mm; font-size: 9pt; color: rgba(255,255,255,.65); border-top: 1px solid rgba(255,255,255,.25); padding-top: 4mm; }
+
+/* ---------- Pages ---------- */
+.page-break { break-before: page; }
+.chapitre-tete { break-before: page; margin-bottom: 7mm; }
+.chapitre-tete .numero { font-family: "Outfit"; font-weight: 900; font-size: 11pt; letter-spacing: .2em; color: var(--vert); text-transform: uppercase; }
+.chapitre-tete h2 { font-weight: 900; font-size: 26pt; line-height: 1.05; margin: 1.5mm 0 3mm; text-transform: uppercase; }
+.chapitre-tete .chapo { font-size: 12pt; color: var(--gris); max-width: 160mm; }
+.chapitre-tete .barre { height: 3px; width: 22mm; background: var(--vert); margin-top: 4mm; }
+
+.etape { break-inside: avoid; margin: 0 0 7mm; }
+.etape h3 { font-weight: 800; font-size: 13pt; margin: 0 0 2mm; display: flex; align-items: center; gap: 2.5mm; break-after: avoid; }
+.etape h3 .n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--encre); color: #fff; font-size: 10pt; font-weight: 800; }
+.etape ol, .etape ul { margin: 0 0 3mm; padding-left: 6mm; }
+.etape li { margin-bottom: 1mm; }
+
+/* Repère orange dans le texte : renvoie au cadre numéroté de la capture */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 4.6mm; height: 4.6mm; border-radius: 50%; background: var(--orange); color: #fff; font-size: 7.5pt; font-weight: 800; font-family: "Outfit"; vertical-align: .2mm; margin: 0 .5mm; }
+.bouton { font-weight: 700; background: var(--gris-clair); border: 1px solid #e5e7eb; border-radius: 1.2mm; padding: 0 1.4mm; white-space: nowrap; }
+
+figure { margin: 2mm 0 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 135mm; margin: 0 auto; border: 1px solid #e5e7eb; }
+figure.petit img { max-height: 90mm; }
+figure.moyen img { max-height: 100mm; }
+figure.bandeau img { max-height: 72mm; }
+figure.haut img { max-height: 175mm; }
+figcaption { font-size: 8.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }
+
+/* Téléphone debout, ou capture très haute : texte à gauche, image à droite */
+.cote { display: flow-root; break-inside: avoid; }
+.cote > figure { float: right; width: 62mm; margin: 0 0 2mm 7mm; }
+.cote > div { overflow: hidden; }
+.cote figure img { max-height: 112mm; border: 0; border-radius: 0; box-shadow: none; }
+.cote.large > figure { width: 84mm; }
+.cote.large figure img { max-height: 200mm; border: 1px solid #e5e7eb; }
+
+.encadre { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 0; font-size: 10pt; }
+.encadre .t { font-family: "Outfit"; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; display: block; margin-bottom: .8mm; }
+.astuce { background: var(--vert-clair); border-left: 3px solid var(--vert); }
+.astuce .t { color: var(--vert); }
+.attention { background: var(--orange-clair); border-left: 3px solid var(--orange); }
+.attention .t { color: #c2410c; }
+.info { background: var(--gris-clair); border-left: 3px solid #9ca3af; }
+.info .t { color: #374151; }
+
+.sous-partie { font-family: "Outfit"; font-weight: 900; text-transform: uppercase; font-size: 12pt; letter-spacing: .06em; color: var(--vert); margin: 6mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d1fae5; break-after: avoid; }
+
+/* Sommaire */
+.sommaire { break-before: page; }
+.sommaire h2 { font-weight: 900; font-size: 26pt; text-transform: uppercase; margin: 0 0 6mm; }
+.sommaire ol { list-style: none; padding: 0; margin: 0; }
+.sommaire li { display: grid; grid-template-columns: 12mm 1fr; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid #e5e7eb; }
+.sommaire li .num { font-family: "Outfit"; font-weight: 900; font-size: 16pt; color: var(--vert); line-height: 1.1; }
+.sommaire li .titre { font-family: "Outfit"; font-weight: 700; font-size: 12pt; }
+.sommaire li .desc { color: var(--gris); font-size: 9.5pt; }
+
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 5mm; }
+.carte { border: 1px solid #e5e7eb; border-radius: 2mm; padding: 4mm; break-inside: avoid; }
+.carte h3 { margin: 0 0 2mm; font-size: 12pt; font-weight: 800; }
+.legende-repere { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; }
+.legende-repere .cadre { width: 34mm; height: 10mm; border: 2.5px solid var(--orange); border-radius: 2mm; position: relative; box-shadow: 0 0 0 3px rgba(255,90,31,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9pt; margin-left: 8mm; }
+.legende-repere .cadre::before { content: "1"; position: absolute; left: -8mm; top: 50%; transform: translateY(-50%); width: 6mm; height: 6mm; border-radius: 50%; background: var(--orange); color: #fff; font: 800 9pt/6mm "Outfit"; text-align: center; }
+
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 3mm; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.tableau-simple th { font-family: "Outfit"; font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
+
+/* Aide-mémoire */
+.memo { border: 2px solid var(--encre); border-radius: 3mm; padding: 6mm; }
+.memo h2 { margin: 0 0 1mm; font-weight: 900; text-transform: uppercase; font-size: 20pt; }
+.memo .sous { color: var(--gris); margin-bottom: 5mm; }
+.memo ol { counter-reset: g; list-style: none; padding: 0; margin: 0; }
+.memo li { counter-increment: g; display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; padding: 2.4mm 0; border-bottom: 1px dashed #d1d5db; }
+.memo li::before { content: counter(g); font-family: "Outfit"; font-weight: 900; font-size: 15pt; color: var(--vert); }
+.faq dt { font-family: "Outfit"; font-weight: 800; font-size: 11.5pt; margin-top: 4mm; }
+.faq dd { margin: 1mm 0 0; color: #374151; }
+
+/* Deux téléphones côte à côte */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; break-inside: avoid; margin: 2mm 0 0; }
+.duo figure img { max-height: 86mm; border: 0; }
+/* Captures de téléphone couchées (une bande de l'écran) : pas en pleine largeur */
+figure.etroit img { max-width: 112mm; }
+/* Deux captures d'ordinateur côte à côte : elles gardent leur cadre */
+.duo.cadre figure img { border: 1px solid #e5e7eb; }
+figure.grand img { max-height: 122mm; }
+/* L'étiquette des schémas, reprise dans le texte */
+.schema { display: inline-block; font: 800 7pt/1 "Outfit", sans-serif; letter-spacing: .14em; background: var(--encre); color: #fff; padding: 1mm 1.5mm; border-radius: .8mm; vertical-align: .4mm; }
+.appareils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 6mm; }
+.appareils .carte { text-align: left; }
+.appareils .carte .ch { font-family: "Outfit"; font-weight: 900; color: var(--vert); font-size: 10pt; letter-spacing: .12em; text-transform: uppercase; }
+.appareils .carte h3 { margin-top: 1mm; }
+.avantages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 5mm 0 0; }
+.avantages div { background: var(--vert-clair); border-radius: 2mm; padding: 3.5mm 4mm; break-inside: avoid; }
+.avantages b.t { display: block; font-family: "Outfit"; font-size: 11.5pt; margin-bottom: 1mm; }
+</style>
+
+</head>
+<body>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<section class="couverture">
+  <div class="photo"></div><div class="voile"></div>
+  <div class="marque">KOPPAFOOT</div>
+  <div class="contenu">
+    <div class="surtitre">Guide de l'arbitre</div>
+    <h1>Siffle, on s'occupe du reste</h1>
+    <p class="phrase">Trouver des matchs à arbitrer, former ton corps arbitral, l'emmener sur tes rencontres et lire les notes des managers : voici comment faire, étape par étape, avec une capture d'écran à chaque geste.</p>
+    <div class="bas"><span>Édition septembre 2026</span><span>·</span><span>koppafoot.com/roles</span></div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="sommaire">
+  <h2>Au programme</h2>
+  <ol>
+    <li><span class="num">00</span><span><span class="titre">Avant de commencer</span><br><span class="desc">Avant, pendant, après : ce que fait l'arbitre sur KoppaFoot</span></span></li>
+    <li><span class="num">01</span><span><span class="titre">Devenir arbitre</span><br><span class="desc">Ton compte, ta licence</span></span></li>
+    <li><span class="num">02</span><span><span class="titre">Former ton corps arbitral</span><br><span class="desc">Tes assistants et tes scoreurs, réunis une fois pour toutes</span></span></li>
+    <li><span class="num">03</span><span><span class="titre">Trouver un match</span><br><span class="desc">Te porter candidat sur un match qui cherche un arbitre</span></span></li>
+    <li><span class="num">04</span><span><span class="titre">Répondre à une invitation</span><br><span class="desc">Quand un manager vient te chercher</span></span></li>
+    <li><span class="num">05</span><span><span class="titre">Emmener ton équipe</span><br><span class="desc">Choisir, match par match, qui t'accompagne</span></span></li>
+    <li><span class="num">06</span><span><span class="titre">Le jour du match</span><br><span class="desc">Les feuilles de match, la console, le désistement</span></span></li>
+    <li><span class="num">07</span><span><span class="titre">Après le match</span><br><span class="desc">Tes notes, ton historique, ta fiche publique</span></span></li>
+    <li><span class="num">08</span><span><span class="titre">Sur téléphone</span><br><span class="desc">Tes désignations dans la poche</span></span></li>
+    <li><span class="num">+</span><span><span class="titre">Aide-mémoire et questions fréquentes</span><br><span class="desc">Ta semaine d'arbitre, sur une page</span></span></li>
+  </ol>
+</section>
+
+<!-- ================= 00 AVANT DE COMMENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 00</div>
+  <h2>Avant de commencer</h2>
+  <p class="chapo">Sur le terrain, tu as un sifflet en main, pas un téléphone. KoppaFoot te sert donc <b>avant</b> le match et <b>après</b>. Pendant, c'est ton scoreur qui tient la console et raconte la rencontre en direct.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="avantages">
+  <div><b class="t">Avant</b>Tu trouves tes matchs : un manager t'invite, ou tu te portes candidat. Tu choisis qui vient avec toi : tes assistants, ton scoreur.</div>
+  <div><b class="t">Pendant</b>Tu diriges la rencontre. Ton scoreur saisit les buts, les cartons et les changements. La console reste ouverte pour toi, en secours.</div>
+  <div><b class="t">Après</b>Chaque manager note ton arbitrage. Tu retrouves tes notes, ton bilan, et ta fiche publique les montre aux prochains managers.</div>
+</div>
+
+<div class="intro-grille">
+  <div class="carte">
+    <h3>Ce qu'il te faut</h3>
+    <ul>
+      <li>Un <b>téléphone</b> ou un ordinateur avec Internet, et une <b>adresse email</b>.</li>
+      <li>Ton <b>numéro de licence</b> et ton <b>niveau</b>, si tu en as un : ils te présentent aux managers.</li>
+      <li>Pour ton corps arbitral : les noms des <b>arbitres</b> et des <b>scoreurs</b> avec qui tu officies. Ils ont chacun leur compte KoppaFoot.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h3>Comment lire ce guide</h3>
+    <p>Sur chaque capture, un <b>cadre orange numéroté</b> te montre où toucher. Suis les numéros dans l'ordre.</p>
+    <div class="legende-repere"><span class="cadre">Bouton à toucher</span></div>
+    <p style="margin-top:3mm;margin-bottom:0">Dans le texte, le même numéro renvoie au même cadre : <span class="m">1</span> <span class="m">2</span> <span class="m">3</span>…</p>
+  </div>
+</div>
+
+<div class="carte" style="margin-top:6mm">
+  <h3>L'exemple suivi dans ce guide</h3>
+  <p>On accompagne <b>Komi Adjovi</b>, arbitre de niveau régional à Lomé. Il forme son corps arbitral, <b>« Les Sifflets du Golfe »</b>, avec <b>Yao Mensah</b>, arbitre assistant, et <b>Afi Lawson</b>, scoreuse. Deux managers font appel à lui : <b>Edem Amouzou</b>, de l'Avenir d'Adakpamé, et <b>Kokou Tepe</b>, de l'Olympique de Tokoin.</p>
+  <p style="margin:0">Tous les noms (arbitres, scoreuse, managers, équipes) sont <b>inventés</b> pour l'exemple.</p>
+</div>
+
+<div class="encadre info"><span class="t">Un rôle à la fois</span>Joueur, manager ou arbitre : sur KoppaFoot, tu choisis ce que tu es sur le terrain, et tu peux en changer depuis <b>Évolution</b> sans rien perdre. Les scoreurs, eux, ne sont pas un rôle : c'est une casquette validée par l'équipe KoppaFoot, qui s'ajoute à n'importe quel compte.</div>
+
+<!-- ================= 01 DEVENIR ARBITRE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 01</div>
+  <h2>Devenir arbitre</h2>
+  <p class="chapo">Voici comment créer ton compte d'arbitre et renseigner ta licence. Cinq minutes suffisent.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="cote large etape">
+  <figure><img src="captures/01-role-arbitre.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Choisis le rôle Arbitre</h3>
+    <p>Va sur <b>koppafoot.com/roles</b>. Descends jusqu'aux trois rôles, et sur la carte <b>Arbitre</b>, touche <span class="m">1</span> <span class="bouton">Devenir arbitre</span>.</p>
+    <div class="encadre astuce"><span class="t">Tu as déjà un compte ?</span>Connecte-toi, puis va dans <b>Évolution</b> et active le rôle <b>Arbitre</b> : tu gardes tout ce que tu avais.</div>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">2</span>Crée ton compte</h3>
+  <p>Remplis <span class="m">1</span> ton prénom et ton nom, <span class="m">2</span> ton email et <span class="m">3</span> un mot de passe, puis touche <span class="m">4</span> <span class="bouton">Continuer</span>. Sur l'écran suivant, indique <span class="m">1</span> ta <b>ville</b> et touche <span class="m">2</span> <span class="bouton">Créer mon compte</span>.</p>
+  <div class="duo cadre">
+    <figure><img src="captures/02-inscription.jpg"></figure>
+    <figure><img src="captures/03-inscription-ville.jpg"></figure>
+  </div>
+  <div class="encadre info"><span class="t">Ta ville compte</span>C'est elle qui décide des matchs qu'on te montre d'abord, et c'est par elle que les managers de ta ville te trouvent.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Suis la liste « Pour bien démarrer »</h3>
+  <p>En haut de l'accueil, KoppaFoot te donne tes quatre premières étapes : compléter ton profil, renseigner ta licence, former ton corps arbitral, prendre ton premier match. Elles se cochent toutes seules, au fil de ce guide.</p>
+  <figure class="moyen"><img src="captures/04-bien-demarrer.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Renseigne ta licence</h3>
+  <p>Touche ton avatar (tes initiales, en haut à droite), puis <b>Mon profil</b>. La carte <b>Ma licence d'arbitre</b> montre ce que les managers verront. Touche <span class="m">1</span> <span class="bouton">Compléter</span>.</p>
+  <figure class="bandeau"><img src="captures/05-licence-vide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <p>Indique <span class="m">1</span> ton <b>numéro de licence</b>, <span class="m">2</span> ton <b>niveau</b> (stagiaire, régional, national, international) et <span class="m">3</span> tes <b>années d'expérience</b>, puis touche <span class="m">4</span> <span class="bouton">Enregistrer</span>.</p>
+  <figure class="bandeau"><img src="captures/06-licence-edition.jpg"></figure>
+  <figure class="bandeau"><img src="captures/07-licence-remplie.jpg"><figcaption>Ta licence, telle qu'elle est enregistrée.</figcaption></figure>
+  <div class="encadre info"><span class="t">Ton numéro reste discret</span>Sur ta fiche publique, seuls les trois premiers caractères de ton numéro de licence apparaissent. Personne ne vérifie la licence aujourd'hui : elle sert à te présenter.</div>
+</section>
+
+<!-- ================= 02 CORPS ARBITRAL ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 02</div>
+  <h2>Former ton corps arbitral</h2>
+  <p class="chapo">Ton corps arbitral, c'est ton équipe permanente : les arbitres qui t'assistent, et les scoreurs qui tiennent la console pendant que tu diriges. Tu le formes une fois ; ensuite, tu l'emmènes sur tes matchs.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Crée-le</h3>
+  <p>Menu <b>MySpace</b> → <b>Corps arbitral</b>. Donne-lui <span class="m">1</span> un <b>nom</b>, celui que les managers verront à côté du tien, puis touche <span class="m">2</span> <span class="bouton">Créer mon corps arbitral</span>.</p>
+  <figure class="bandeau"><img src="captures/08-creer-corps.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Invite ton équipe</h3>
+  <p>Ton corps arbitral est créé, avec toi comme <b>arbitre principal</b>. Deux boutons : <span class="m">1</span> <span class="bouton">Inviter un arbitre</span> pour tes assistants, <span class="m">2</span> <span class="bouton">Inviter un scoreur</span> pour la console.</p>
+  <figure class="bandeau"><img src="captures/09-corps-cree.jpg"></figure>
+</section>
+
+<div class="duo cadre etape">
+  <figure><img src="captures/10-inviter-arbitre.jpg"><figcaption><span class="m">1</span> Cherche par nom, puis <span class="m">2</span> Inviter. La liste montre les comptes qui ont le rôle Arbitre.</figcaption></figure>
+  <figure><img src="captures/11-inviter-scoreur.jpg"><figcaption>Même chose pour un scoreur : <span class="m">1</span> Inviter. Seuls les scoreurs validés par KoppaFoot y figurent.</figcaption></figure>
+</div>
+
+<section class="etape">
+  <h3><span class="n">3</span>Suis tes invitations</h3>
+  <p>Tant qu'elles n'ont pas répondu, tes invitations restent <span class="m">1</span> <b>en attente</b>. Tu peux en <b>annuler</b> une à tout moment.</p>
+  <figure class="moyen"><img src="captures/12-invitations-envoyees.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ce que voit la personne invitée</h3>
+  <p>Yao reçoit une notification. Sur sa page <b>Corps arbitral</b>, l'invitation l'attend : il touche <span class="m">1</span> <span class="bouton">Rejoindre</span>, ou <span class="m">2</span> <span class="bouton">Décliner</span>. Tu es prévenu de sa réponse.</p>
+  <figure class="bandeau"><img src="captures/13-invitation-recue.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Ton corps arbitral au complet</h3>
+  <p>Yao et Afi ont accepté. Chacun porte son rôle : <b>arbitre assistant</b> ou <b>scoreur</b>. Tu peux <b>retirer</b> un membre, ou <b>dissoudre</b> le corps ; les personnes concernées sont prévenues.</p>
+  <figure class="moyen"><img src="captures/14-corps-complet.jpg"></figure>
+  <div class="encadre info"><span class="t">Bon à savoir</span>Tu ne diriges qu'un corps arbitral, mais on peut être membre de plusieurs : un scoreur peut rendre service à plusieurs arbitres. Un membre peut aussi <b>quitter</b> un corps depuis la même page.</div>
+</section>
+
+<!-- ================= 03 TROUVER UN MATCH ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 03</div>
+  <h2>Trouver un match</h2>
+  <p class="chapo">Des managers programment des matchs sans arbitre. Voici comment les trouver et te proposer.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre tes désignations</h3>
+  <p>Menu <b>MySpace</b> → <b>Mes désignations</b>. Trois onglets : <b>Mes matchs</b>, <b>Trouver un match</b>, <b>Historique</b>. Au début, rien ne t'attend : touche <span class="m">1</span> <span class="bouton">Trouver un match à arbitrer</span>.</p>
+  <figure class="moyen"><img src="captures/15-designations-vide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Porte-toi candidat</h3>
+  <p>Les matchs qui cherchent un arbitre, du plus proche au plus lointain. Par défaut, ceux de <span class="m">1</span> <b>ta ville</b> ; touche <b>Partout</b> pour voir les autres. Sur le match qui t'intéresse, touche <span class="m">2</span> <span class="bouton">Me porter candidat</span>.</p>
+  <figure class="moyen"><img src="captures/16-marche.jpg"></figure>
+  <div class="encadre info"><span class="t">Ce que tu ne verras pas ici</span>Les matchs déjà passés, ceux qui ont déjà un arbitre, et ceux que tu joues ou que tu gères : on n'arbitre pas le match de sa propre équipe.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Attends la réponse du manager</h3>
+  <p>Ta candidature part au manager, qui est prévenu tout de suite. Dans <b>Mes matchs</b>, elle attend <span class="m">1</span> sa <b>réponse</b>. Tu as changé d'avis ? Touche <span class="m">2</span> <span class="bouton">Retirer ma candidature</span>.</p>
+  <figure class="bandeau"><img src="captures/17-candidature-envoyee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ce que voit le manager</h3>
+  <p>Sur la carte de son match, Edem voit « Un arbitre se propose ». <span class="m">1</span> Ton nom mène à <b>ta fiche</b> : ta licence, ton expérience, tes notes. D'où l'intérêt d'une fiche complète. Il touche <span class="m">2</span> <span class="bouton">Accepter l'arbitre</span> ou <span class="m">3</span> <span class="bouton">Refuser</span>.</p>
+  <figure class="moyen"><img src="captures/18-cote-manager-candidature.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Tu es désigné</h3>
+  <p>Edem a accepté : la cloche sonne, <span class="m">1</span> « Tu arbitres ce match ». Le match passe dans tes <b>désignations confirmées</b>.</p>
+  <figure class="bandeau etroit"><img src="captures/19-notif-confirme.jpg"></figure>
+</section>
+
+<!-- ================= 04 INVITATION ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 04</div>
+  <h2>Répondre à une invitation</h2>
+  <p class="chapo">L'autre chemin : c'est le manager qui vient te chercher. Voici ce qu'il voit, et comment répondre.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="cote large etape">
+  <figure><img src="captures/20-manager-cherche.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Un manager te cherche</h3>
+    <p>Kokou programme un match pour le dimanche. Sur sa carte, il touche <b>Trouver un arbitre</b> : les arbitres de la ville du match s'affichent, avec leur niveau et leur expérience.</p>
+    <p>Sous ton nom, <span class="m">1</span> <b>ton corps arbitral</b> : Kokou sait que tu viens avec un assistant et un scoreur, donc qu'il n'aura pas à chercher quelqu'un pour la console. Il touche <span class="m">2</span> <span class="bouton">Inviter</span>.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">2</span>Tu es prévenu</h3>
+  <p>La cloche sonne : <span class="m">1</span> « On te propose un match », avec la date, l'heure et les équipes.</p>
+  <figure class="bandeau etroit"><img src="captures/21-notif-invitation.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Accepte ou décline</h3>
+  <p>Dans <b>Mes désignations</b>, les invitations passent devant tout le reste. Touche <span class="m">1</span> <span class="bouton">Accepter</span>, ou <span class="m">2</span> <span class="bouton">Décliner</span>. Dans les deux cas, le manager est prévenu ; s'il a décliné, il invite quelqu'un d'autre.</p>
+  <figure class="bandeau"><img src="captures/22-invitation.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Réponds vite</span>Un match n'invite qu'un arbitre à la fois. Tant que tu n'as pas répondu, le manager attend ; s'il attend trop, il peut retirer son invitation.</div>
+</section>
+
+<!-- ================= 05 TON EQUIPE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 05</div>
+  <h2>Emmener ton équipe</h2>
+  <p class="chapo">Tu es désigné. Pour chaque match, tu choisis qui t'accompagne dans ton corps arbitral : jusqu'à deux assistants, et un scoreur.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Compose ton équipe</h3>
+  <p>Sur la carte du match confirmé, le bloc <span class="m">1</span> <b>Ton équipe pour ce match</b> te dit que tu viens seul. Touche <span class="m">2</span> <span class="bouton">Composer mon équipe</span>.</p>
+  <figure class="bandeau"><img src="captures/23-confirme-seul.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/24-composer.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Choisis qui vient</h3>
+    <ol>
+      <li><span class="m">1</span> Coche tes <b>arbitres assistants</b> : deux au plus.</li>
+      <li><span class="m">2</span> Choisis ton <b>scoreur</b> : c'est lui qui tiendra la console. Tu peux aussi choisir « Pas de scoreur ».</li>
+      <li>Touche <span class="m">3</span> <span class="bouton">Enregistrer</span>.</li>
+    </ol>
+    <p>Chacun reçoit une notification : Yao qu'il t'assiste, Afi qu'elle tient la console.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ton équipe est prête</h3>
+  <p>La carte montre <span class="m">1</span> ton équipe, et <span class="m">2</span> qui tient la console pendant le match. Le bouton de la console devient <span class="m">3</span> <span class="bouton">Console (en secours)</span> : tu ne l'ouvres que si ton scoreur ne peut pas. Tu peux <b>modifier</b> l'équipe jusqu'au coup d'envoi.</p>
+  <figure class="moyen"><img src="captures/25-equipe-composee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ce que voit chacun</h3>
+  <p>Afi retrouve le match dans <b>Mes directs</b>, son espace de scoreuse, avec <span class="m">1</span> le nom de l'arbitre qu'elle accompagne. Yao le retrouve dans ses désignations, rubrique <b>En renfort</b>, <span class="m">1</span> comme assistant.</p>
+  <figure class="bandeau"><img src="captures/27-scoreuse-directs.jpg"><figcaption>Côté Afi, la scoreuse : Mes directs.</figcaption></figure>
+  <figure class="bandeau"><img src="captures/28-assistant-renfort.jpg"><figcaption>Côté Yao, l'assistant : Mes désignations.</figcaption></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Sur la fiche du match</h3>
+  <p>Tout le monde voit qui officie : dans l'onglet <b>Infos</b> de la fiche, <span class="m">1</span> l'arbitre, l'assistant et le scoreur. Sur la carte de leur match, les managers le voient aussi.</p>
+  <figure class="moyen"><img src="captures/26-fiche-officiels.jpg"></figure>
+  <figure class="bandeau etroit"><img src="captures/29-cote-manager-equipe.jpg"><figcaption>Côté Edem, le manager : <span class="m">1</span> l'arbitre et son équipe.</figcaption></figure>
+  <div class="encadre attention"><span class="t">Un match qui a déjà un scoreur</span>Si le manager a déjà confié la console à quelqu'un, tu composes ton équipe sans scoreur : deux consoles sur un même match, ce serait deux fois le même but.</div>
+</section>
+
+<!-- ================= 06 LE JOUR DU MATCH ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 06</div>
+  <h2>Le jour du match</h2>
+  <p class="chapo">Avant le coup d'envoi, chaque manager valide la feuille de match de son équipe. Ensuite, tu diriges, et ton scoreur raconte le match.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Avant le coup d'envoi : les feuilles de match</h3>
+  <p>Chaque manager valide la feuille de match de son équipe : ses titulaires, ses remplaçants. La console s'ouvre sur ces deux feuilles. Tant qu'elles ne sont pas validées toutes les deux, KoppaFoot l'écrit <span class="m">1</span>, et le bouton <span class="m">2</span> <span class="bouton">Coup d'envoi</span> reste grisé.</p>
+  <figure class="moyen"><img src="captures/30-console-avant-match.jpg"></figure>
+  <div class="encadre info"><span class="t">Et pendant le match ?</span>Tu diriges. Ton scoreur lance le chrono, saisit les buts, les cartons et les changements, et siffle la fin dans la console. Si personne ne peut la tenir, ouvre-la toi-même depuis <b>Console (en secours)</b>, avant et après la rencontre.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Si tu ne peux plus venir : désiste-toi</h3>
+  <p>Un empêchement ? Sur la carte du match, touche <span class="m">1</span> <span class="bouton">Me désister</span>, puis confirme. Fais-le dès que tu le sais : c'est possible jusqu'au coup d'envoi.</p>
+  <figure class="bandeau"><img src="captures/31-desister.jpg"></figure>
+  <p>Les managers sont prévenus <span class="m">1</span>, et le match cherche de nouveau un arbitre. Ton équipe aussi est prévenue : elle venait pour toi.</p>
+  <figure class="bandeau etroit"><img src="captures/32-manager-desistement.jpg"><figcaption>Ce que reçoit Kokou, le manager.</figcaption></figure>
+  <div class="encadre attention"><span class="t">Le match bouge ?</span>Si un manager déplace ou annule le match, toi et ton équipe êtes prévenus aussitôt. Vérifie la date et le terrain la veille.</div>
+</section>
+
+<!-- ================= 07 APRES LE MATCH ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 07</div>
+  <h2>Après le match</h2>
+  <p class="chapo">Afi a sifflé la fin dans la console : 2-1 pour l'Avenir d'Adakpamé. Place aux retours des managers.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="cote large etape">
+  <figure><img src="captures/33-manager-note.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Les managers te notent</h3>
+    <p>Sur la fiche du match terminé, chaque manager valide le score et note ton arbitrage. Voici ce que voit Edem :</p>
+    <ol>
+      <li><span class="m">1</span> il valide le score (ou le conteste) ;</li>
+      <li><span class="m">2</span> il note l'arbitrage, de 1 à 5 ;</li>
+      <li><span class="m">3</span> il peut ajouter un commentaire ;</li>
+      <li><span class="m">4</span> il envoie.</li>
+    </ol>
+    <p>Kokou fait de même de son côté. Tu reçois une note par équipe.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">2</span>Tu es prévenu</h3>
+  <p>Chaque note sonne : <span class="m">1</span> « Une note de 5/5 », « Une note de 4/5 », avec l'équipe qui l'a donnée.</p>
+  <figure class="bandeau etroit"><img src="captures/34-notif-notes.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ton historique</h3>
+  <p>Mes désignations → <b>Historique</b> : <span class="m">1</span> ton bilan (matchs dirigés, note moyenne, nombre d'avis), puis chaque match avec son score et <span class="m">2</span> la note de chaque équipe.</p>
+  <figure class="moyen"><img src="captures/35-historique.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ta fiche publique</h3>
+  <p>C'est ce que regarde un manager avant de t'inviter : <span class="m">1</span> tes matchs arbitrés et ta note moyenne, <span class="m">2</span> ton corps arbitral, ta licence et ton expérience. Le détail des notes et des commentaires reste pour toi.</p>
+  <figure class="moyen"><img src="captures/36-fiche-publique.jpg"></figure>
+</section>
+
+<!-- ================= 08 TELEPHONE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 08</div>
+  <h2>Sur téléphone</h2>
+  <p class="chapo">Tout se fait aussi sur téléphone : c'est là que tu répondras à la plupart des invitations.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="duo etape">
+  <figure><img src="captures/37-tel-designations.jpg"><figcaption>Tes désignations, avec <span class="m">1</span> ton équipe pour chaque match.</figcaption></figure>
+  <figure><img src="captures/38-tel-espace.jpg"><figcaption>L'onglet <b>Espace</b>, en bas : <span class="m">1</span> Mes désignations et Corps arbitral.</figcaption></figure>
+</div>
+
+<div class="encadre astuce"><span class="t">Installe KoppaFoot sur ton téléphone</span>Mets KoppaFoot sur ton écran d'accueil et active les notifications (avatar → <b>Paramètres</b> → <b>Sur cet appareil</b> → <b>Oui</b>) : chaque invitation sonne comme un message. Tout est expliqué dans le <b>guide d'installation</b>.</div>
+
+<!-- ================= AIDE-MEMOIRE ================= -->
+<section class="page-break memo">
+  <h2>Ta semaine d'arbitre</h2>
+  <p class="sous">Les gestes à connaître, de l'invitation à la note.</p>
+  <ol>
+    <li><span><b>Une fois pour toutes</b> : Mon profil → <b>Ma licence d'arbitre</b> → numéro, niveau, expérience.</span></li>
+    <li><span><b>Ton équipe</b> : MySpace → <b>Corps arbitral</b> → inviter un arbitre, inviter un scoreur.</span></li>
+    <li><span><b>Une invitation sonne</b> : Mes désignations → <b>Accepter</b> ou <b>Décliner</b>.</span></li>
+    <li><span><b>Tu cherches un match</b> : Mes désignations → <b>Trouver un match</b> → <b>Me porter candidat</b>.</span></li>
+    <li><span><b>Tu es confirmé</b> : sur la carte du match → <b>Composer mon équipe</b> → assistants, scoreur.</span></li>
+    <li><span><b>La veille</b> : vérifie l'heure et le terrain ; KoppaFoot te prévient si le match bouge.</span></li>
+    <li><span><b>Le jour J</b> : les managers valident leurs feuilles, ton scoreur tient la console, tu diriges.</span></li>
+    <li><span><b>Un empêchement</b> : <b>Me désister</b>, le plus tôt possible. Les managers et ton équipe sont prévenus.</span></li>
+    <li><span><b>Après</b> : les notes arrivent ; relis-les dans <b>Historique</b>.</span></li>
+  </ol>
+</section>
+
+<section class="page-break faq">
+  <header class="chapitre-tete" style="break-before:auto">
+    <div class="numero">Annexe</div>
+    <h2>Questions fréquentes</h2>
+    <div class="barre"></div>
+  </header>
+  <dl>
+    <dt>« Trouver un match » est vide.</dt>
+    <dd>Touche <b>Partout</b> pour voir les autres villes. On n'y voit que les matchs à venir, sans arbitre, que tu ne joues pas et que tu ne gères pas.</dd>
+    <dt>Puis-je arbitrer un match de mon équipe ?</dt>
+    <dd>Non. KoppaFoot refuse la candidature, et les managers ne peuvent pas t'inviter sur ce match. Même règle pour les membres de ton corps arbitral.</dd>
+    <dt>Un manager peut-il me retirer d'un match ?</dt>
+    <dd>Oui, jusqu'au coup d'envoi. Tu es prévenu, et ton équipe aussi.</dd>
+    <dt>Mon scoreur ne peut pas venir.</dt>
+    <dd>Sur la carte du match → <b>Modifier</b> : choisis un autre scoreur de ton corps arbitral. Personne ? Ouvre la console toi-même, en secours.</dd>
+    <dt>Je suis scoreur, pas arbitre.</dt>
+    <dd>Un arbitre t'invite dans son corps arbitral : l'invitation arrive dans la cloche et sur la page <b>Corps arbitral</b>. Quand il t'emmène sur un match, celui-ci apparaît dans <b>Mes directs</b>.</dd>
+    <dt>Qui voit mes notes ?</dt>
+    <dd>Toi, en détail, dans ton historique. Sur ta fiche publique, seuls ta note moyenne et le nombre d'avis apparaissent.</dd>
+    <dt>Et les matchs de compétition ?</dt>
+    <dd>Les désignations concernent les matchs amicaux programmés par les managers. Une compétition organise ses matchs elle-même, avec ses propres modérateurs.</dd>
+    <dt>Ma licence est-elle vérifiée ?</dt>
+    <dd>Pas aujourd'hui : elle te présente aux managers. Renseigne-la honnêtement, c'est ta crédibilité.</dd>
+    <dt>Besoin d'aide ?</dt>
+    <dd>Touche ton avatar (tes initiales, en haut à droite), puis, dans <b>Support</b> : <b>Questions fréquentes</b>, ou <b>Nous faire un retour</b> pour écrire à l'équipe KoppaFoot.</dd>
+  </dl>
+</section>
+
+</body>
+</html>

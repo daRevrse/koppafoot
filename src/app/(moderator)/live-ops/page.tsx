@@ -12,6 +12,14 @@ import toast from "react-hot-toast";
 import LiveTrainingCard from "@/components/competition/LiveTrainingCard";
 import type { Competition, Match } from "@/types";
 
+/** « sam. 3 oct. » : la date brute (« 2026-10-03 ») se lisait mal d'un coup d'œil. */
+function jourCourt(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+}
+
 export default function LiveOpsHome() {
   const { user, firebaseUser } = useAuth();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
@@ -137,7 +145,7 @@ export default function LiveOpsHome() {
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
-                      <Calendar size={11} /> {m.date} à {m.time}
+                      <Calendar size={11} /> {jourCourt(m.date)} à {m.time}
                     </span>
                     {m.venueName && (
                       <span className="flex items-center gap-1">
@@ -209,7 +217,7 @@ export default function LiveOpsHome() {
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
-                      <Calendar size={11} /> {m.date} à {m.time}
+                      <Calendar size={11} /> {jourCourt(m.date)} à {m.time}
                     </span>
                     {m.venueName && (
                       <span className="flex items-center gap-1">
