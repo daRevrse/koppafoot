@@ -1,0 +1,56 @@
+diff --git a/next.config.ts b/next.config.ts
+index 3bb4f36..542e46d 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -37,6 +37,8 @@ const nextConfig: NextConfig = {
+     ];
+   },
+   images: {
++    // LOCAL ONLY (tutorial screenshots) — do not commit.
++    ...(process.env.NEXT_PUBLIC_USE_EMULATORS === "1" ? { unoptimized: true } : {}),
+     remotePatterns: [
+       {
+         protocol: "https",
+diff --git a/src/lib/firebase.ts b/src/lib/firebase.ts
+index efb4b0f..581ad5f 100644
+--- a/src/lib/firebase.ts
++++ b/src/lib/firebase.ts
+@@ -1,7 +1,7 @@
+ import { initializeApp, getApps } from "firebase/app";
+-import { getAuth } from "firebase/auth";
+-import { getFirestore } from "firebase/firestore";
+-import { getStorage } from "firebase/storage";
++import { getAuth, connectAuthEmulator } from "firebase/auth";
++import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
++import { getStorage, connectStorageEmulator } from "firebase/storage";
+ import { getMessaging, type Messaging } from "firebase/messaging";
+ 
+ const firebaseConfig = {
+@@ -20,6 +20,14 @@ export const auth = getAuth(app);
+ export const db = getFirestore(app);
+ export const storage = getStorage(app);
+ 
++// LOCAL ONLY (tutorial screenshots) — do not commit.
++if (process.env.NEXT_PUBLIC_USE_EMULATORS === "1" && !(globalThis as any).__kfEmu) {
++  (globalThis as any).__kfEmu = true;
++  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
++  connectFirestoreEmulator(db, "127.0.0.1", 8080);
++  connectStorageEmulator(storage, "127.0.0.1", 9199);
++}
++
+ let _messaging: Messaging | null = null;
+ export function getClientMessaging(): Messaging | null {
+   if (typeof window === "undefined") return null;
+diff --git a/src/lib/terrains.ts b/src/lib/terrains.ts
+index 031e0cb..7f92f34 100644
+--- a/src/lib/terrains.ts
++++ b/src/lib/terrains.ts
+@@ -326,6 +326,8 @@ const HOTES_PHOTOS = new Set(["firebasestorage.googleapis.com", "koppafoot.fireb
+  */
+ export function photoAffichable(url: string): boolean {
+   if (url.startsWith("/") && !url.startsWith("//")) return true;
++  // Émulateur Storage local (tutoriels) : jamais commité.
++  if (url.startsWith("http://127.0.0.1:9199/")) return true;
+   try {
+     const u = new URL(url);
+     return u.protocol === "https:" && HOTES_PHOTOS.has(u.hostname);
