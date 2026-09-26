@@ -34,6 +34,7 @@ export const fr = {
   "espace.mesReservations": "Mes réservations",
   "espace.competitionsOrganisees": "Compétitions organisées",
   "espace.consoleLive": "Console live",
+  "espace.corpsArbitral": "Corps arbitral",
   "espace.mesTerrains": "Mes terrains",
   "espace.reservationsRecues": "Réservations reçues",
   "espace.administration": "Administration",

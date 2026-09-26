@@ -74,7 +74,7 @@ export default function PWAInstallPrompt() {
             </button>
             <button
               onClick={() => setFerme(true)}
-              className="rounded-lg p-2 text-white/20 transition-all hover:bg-white/5 hover:text-white/50"
+              className="rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-500"
               aria-label="Fermer"
             >
               <X size={16} />

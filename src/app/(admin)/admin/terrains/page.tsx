@@ -15,6 +15,9 @@ import { libelleFormat, libelleSurface } from "@/lib/terrains";
 //
 // À l'approbation, l'API pose la casquette ET crée le terrain à partir de la
 // fiche déjà saisie, rien n'est redemandé au candidat.
+//
+// Un refus s'accompagne d'un MOTIF, que le candidat lit sur sa page, dans sa
+// notification et dans l'email : c'est ce qu'il corrige avant de redéposer.
 // ============================================
 
 interface Application {
@@ -30,6 +33,7 @@ interface Application {
   field_surface: string | null;
   motivation: string | null;
   status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
 }
 
 const STATUS_STYLE: Record<Application["status"], string> = {
@@ -48,6 +52,8 @@ export default function AdminVenueApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [acting, setActing] = useState<string | null>(null);
+  /** La candidature dont on rédige le refus, et son motif. */
+  const [refus, setRefus] = useState<{ id: string; motif: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!firebaseUser) return;
@@ -71,7 +77,7 @@ export default function AdminVenueApplicationsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const decide = async (id: string, action: "approve" | "reject") => {
+  const decide = async (id: string, action: "approve" | "reject", motif = "") => {
     if (!firebaseUser) return;
     setActing(id);
     try {
@@ -79,7 +85,7 @@ export default function AdminVenueApplicationsPage() {
       const res = await fetch(`/api/venue-applications/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, motif }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Erreur."); return; }
@@ -88,7 +94,10 @@ export default function AdminVenueApplicationsPage() {
           ? "Terrain publié. Le candidat est prévenu (notification, push, email)."
           : "Candidature refusée.",
       );
-      setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status: data.status } : a)));
+      setApplications((prev) => prev.map((a) => (
+        a.id === id ? { ...a, status: data.status, rejection_reason: motif.trim() || null } : a
+      )));
+      setRefus(null);
     } catch {
       toast.error("Erreur réseau.");
     } finally {
@@ -178,7 +187,48 @@ export default function AdminVenueApplicationsPage() {
                 )}
               </div>
 
-              {a.status === "pending" && (
+              {a.status === "rejected" && a.rejection_reason && (
+                <p className="mt-4 border-l-2 border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-gray-600">
+                  Motif : {a.rejection_reason}
+                </p>
+              )}
+
+              {a.status === "pending" && refus?.id === a.id && (
+                <div className="mt-5 space-y-3 border-t border-gray-200/70 pt-4">
+                  <label htmlFor={`motif-${a.id}`} className="block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                    Motif du refus, envoyé au candidat
+                  </label>
+                  <textarea
+                    id={`motif-${a.id}`}
+                    rows={3}
+                    maxLength={500}
+                    value={refus.motif}
+                    onChange={(e) => setRefus({ id: a.id, motif: e.target.value })}
+                    placeholder="ex: Précise ton lien avec le terrain : propriétaire, gérant, association…"
+                    className="w-full resize-none border border-gray-200/70 px-3 py-2.5 text-sm text-gray-900 focus:border-gray-900 focus:outline-none"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => decide(a.id, "reject", refus.motif)}
+                      disabled={acting === a.id}
+                      className="flex items-center gap-1.5 border border-red-500 bg-red-500 px-5 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-white transition-colors hover:bg-red-600 disabled:opacity-40"
+                    >
+                      {acting === a.id ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+                      Confirmer le refus
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefus(null)}
+                      className="border border-gray-200/70 px-5 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {a.status === "pending" && refus?.id !== a.id && (
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -191,7 +241,7 @@ export default function AdminVenueApplicationsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => decide(a.id, "reject")}
+                    onClick={() => setRefus({ id: a.id, motif: "" })}
                     disabled={acting === a.id}
                     className="flex items-center gap-1.5 border border-gray-200/70 px-5 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:border-red-500 hover:text-red-500 disabled:opacity-40"
                   >

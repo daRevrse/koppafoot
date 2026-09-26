@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Organiser sa compétition avec KoppaFoot</title>
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+@page { size: A4; margin: 15mm 16mm 17mm;
+  @bottom-left { content: "KoppaFoot · Guide de l'organisateur"; font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+}
+@page couverture { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --vert: #059669;
+  --vert-clair: #ecfdf5;
+  --encre: #111827;
+  --gris: #4b5563;
+  --gris-clair: #f3f4f6;
+  --orange: #ff5a1f;
+  --orange-clair: #fff4ed;
+  --ambre-clair: #fffbeb;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; color: var(--encre); background: #fff; }
+h1, h2, h3, .display { font-family: "Outfit", sans-serif; }
+p { margin: 0 0 2.2mm; }
+b, strong { font-weight: 700; }
+
+/* ---------- Couverture ---------- */
+.couverture { page: couverture; height: 296mm; width: 210mm; position: relative; overflow: hidden; color: #fff; background: #0b1512; }
+.couverture .photo { position: absolute; inset: 0; background: url(couverture.jpg) center/cover; opacity: .55; }
+.couverture .voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.2) 0%, rgba(0,0,0,.35) 40%, rgba(5,20,15,.95) 78%); }
+.couverture .contenu { position: absolute; left: 18mm; right: 18mm; bottom: 26mm; }
+.couverture .marque { position: absolute; top: 18mm; left: 18mm; font-family: "Outfit"; font-weight: 800; letter-spacing: .28em; font-size: 15pt; }
+.couverture .surtitre { font-family: "Outfit"; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #6ee7b7; font-size: 10pt; margin-bottom: 5mm; }
+.couverture h1 { font-weight: 900; text-transform: uppercase; font-size: 44pt; line-height: .92; letter-spacing: -.01em; margin: 0 0 7mm; }
+.couverture .phrase { font-size: 13pt; color: rgba(255,255,255,.8); max-width: 140mm; margin-bottom: 10mm; }
+.couverture .bas { display: flex; gap: 8mm; font-size: 9pt; color: rgba(255,255,255,.65); border-top: 1px solid rgba(255,255,255,.25); padding-top: 4mm; }
+
+/* ---------- Pages ---------- */
+.page-break { break-before: page; }
+.chapitre-tete { break-before: page; margin-bottom: 7mm; }
+.chapitre-tete .numero { font-family: "Outfit"; font-weight: 900; font-size: 11pt; letter-spacing: .2em; color: var(--vert); text-transform: uppercase; }
+.chapitre-tete h2 { font-weight: 900; font-size: 26pt; line-height: 1.05; margin: 1.5mm 0 3mm; text-transform: uppercase; }
+.chapitre-tete .chapo { font-size: 12pt; color: var(--gris); max-width: 160mm; }
+.chapitre-tete .barre { height: 3px; width: 22mm; background: var(--vert); margin-top: 4mm; }
+
+.etape { break-inside: avoid; margin: 0 0 7mm; }
+.etape h3 { font-weight: 800; font-size: 13pt; margin: 0 0 2mm; display: flex; align-items: center; gap: 2.5mm; break-after: avoid; }
+.etape h3 .n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--encre); color: #fff; font-size: 10pt; font-weight: 800; }
+.etape ol, .etape ul { margin: 0 0 3mm; padding-left: 6mm; }
+.etape li { margin-bottom: 1mm; }
+.etape.continue { break-inside: auto; }
+
+/* Repère orange dans le texte : renvoie au cadre numéroté de la capture */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 4.6mm; height: 4.6mm; border-radius: 50%; background: var(--orange); color: #fff; font-size: 7.5pt; font-weight: 800; font-family: "Outfit"; vertical-align: .2mm; margin: 0 .5mm; }
+.bouton { font-weight: 700; background: var(--gris-clair); border: 1px solid #e5e7eb; border-radius: 1.2mm; padding: 0 1.4mm; white-space: nowrap; }
+
+figure { margin: 2mm 0 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 135mm; margin: 0 auto; border: 1px solid #e5e7eb; }
+figure.petit img { max-height: 90mm; }
+figure.moyen img { max-height: 110mm; }
+figure.bandeau img { max-height: 72mm; }
+figcaption { font-size: 8.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }
+
+/* Téléphone debout : texte à gauche, capture à droite */
+.cote { display: flow-root; break-inside: avoid; }
+.cote > figure { float: right; width: 62mm; margin: 0 0 2mm 7mm; }
+.cote > div { overflow: hidden; }
+.cote figure img { max-height: 130mm; border: 0; border-radius: 0; box-shadow: none; }
+
+.encadre { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 0; font-size: 10pt; }
+.encadre .t { font-family: "Outfit"; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; display: block; margin-bottom: .8mm; }
+.astuce { background: var(--vert-clair); border-left: 3px solid var(--vert); }
+.astuce .t { color: var(--vert); }
+.attention { background: var(--orange-clair); border-left: 3px solid var(--orange); }
+.attention .t { color: #c2410c; }
+.info { background: var(--gris-clair); border-left: 3px solid #9ca3af; }
+.info .t { color: #374151; }
+
+.sous-partie { font-family: "Outfit"; font-weight: 900; text-transform: uppercase; font-size: 12pt; letter-spacing: .06em; color: var(--vert); margin: 6mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d1fae5; break-after: avoid; }
+
+/* Sommaire */
+.sommaire { break-before: page; }
+.sommaire h2 { font-weight: 900; font-size: 26pt; text-transform: uppercase; margin: 0 0 6mm; }
+.sommaire ol { list-style: none; padding: 0; margin: 0; counter-reset: ch; }
+.sommaire li { display: grid; grid-template-columns: 12mm 1fr; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid #e5e7eb; }
+.sommaire li .num { font-family: "Outfit"; font-weight: 900; font-size: 16pt; color: var(--vert); line-height: 1.1; }
+.sommaire li .titre { font-family: "Outfit"; font-weight: 700; font-size: 12pt; }
+.sommaire li .desc { color: var(--gris); font-size: 9.5pt; }
+
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 5mm; }
+.carte { border: 1px solid #e5e7eb; border-radius: 2mm; padding: 4mm; break-inside: avoid; }
+.carte h3 { margin: 0 0 2mm; font-size: 12pt; font-weight: 800; }
+.legende-repere { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; }
+.legende-repere .cadre { width: 34mm; height: 10mm; border: 2.5px solid var(--orange); border-radius: 2mm; position: relative; box-shadow: 0 0 0 3px rgba(255,90,31,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9pt; }
+.legende-repere .cadre::before { content: "1"; position: absolute; left: -8mm; top: 50%; transform: translateY(-50%); width: 6mm; height: 6mm; border-radius: 50%; background: var(--orange); color: #fff; font: 800 9pt/6mm "Outfit"; text-align: center; }
+
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 3mm; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.tableau-simple th { font-family: "Outfit"; font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
+code, .code { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: 9pt; background: var(--gris-clair); padding: .2mm 1.2mm; border-radius: 1mm; }
+
+/* Aide-mémoire */
+.memo { border: 2px solid var(--encre); border-radius: 3mm; padding: 6mm; }
+.memo h2 { margin: 0 0 1mm; font-weight: 900; text-transform: uppercase; font-size: 20pt; }
+.memo .sous { color: var(--gris); margin-bottom: 5mm; }
+.memo ol { counter-reset: g; list-style: none; padding: 0; margin: 0; }
+.memo li { counter-increment: g; display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; padding: 2.4mm 0; border-bottom: 1px dashed #d1d5db; }
+.memo li::before { content: counter(g); font-family: "Outfit"; font-weight: 900; font-size: 15pt; color: var(--vert); }
+.faq dt { font-family: "Outfit"; font-weight: 800; font-size: 11.5pt; margin-top: 4mm; }
+.faq dd { margin: 1mm 0 0; color: #374151; }
+</style>
+</head>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<section class="couverture">
+  <div class="photo"></div><div class="voile"></div>
+  <div class="marque">KOPPAFOOT</div>
+  <div class="contenu">
+    <div class="surtitre">Guide de l'organisateur</div>
+    <h1>Organise ta compétition avec KoppaFoot</h1>
+    <p class="phrase">Du compte à la finale, et le jour du match avec la console live : voici comment faire, étape par étape, avec une capture d'écran à chaque geste.</p>
+    <div class="bas"><span>Édition septembre 2026</span><span>·</span><span>koppafoot.com/organisateurs</span></div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="sommaire">
+  <h2>Au programme</h2>
+  <ol>
+    <li><span class="num">00</span><span><span class="titre">Avant de commencer</span><br><span class="desc">Ce qu'il te faut, et comment lire ce guide</span></span></li>
+    <li><span class="num">01</span><span><span class="titre">Créer ton compte</span><br><span class="desc">Une adresse email ou un compte Google suffit</span></span></li>
+    <li><span class="num">02</span><span><span class="titre">Devenir organisateur</span><br><span class="desc">Déposer ta candidature et ouvrir ton espace</span></span></li>
+    <li><span class="num">03</span><span><span class="titre">Créer ta compétition</span><br><span class="desc">Nom, logo, format, dates</span></span></li>
+    <li><span class="num">04</span><span><span class="titre">Ajouter les équipes et les joueurs</span><br><span class="desc">Une par une, ou toutes d'un coup depuis un tableur</span></span></li>
+    <li><span class="num">05</span><span><span class="titre">Composer les poules</span><br><span class="desc">À la main ou par tirage au sort</span></span></li>
+    <li><span class="num">06</span><span><span class="titre">Programmer le calendrier</span><br><span class="desc">Les matchs se créent tout seuls, tu donnes les dates</span></span></li>
+    <li><span class="num">07</span><span><span class="titre">T'entourer d'une équipe</span><br><span class="desc">Confier la saisie des matchs à des bénévoles</span></span></li>
+    <li><span class="num">08</span><span><span class="titre">Publier et partager</span><br><span class="desc">Ta page publique, suivie sans compte</span></span></li>
+    <li><span class="num">09</span><span><span class="titre">Le jour du match : la console live</span><br><span class="desc">Feuille de match, chrono, buts, cartons, remplacements</span></span></li>
+    <li><span class="num">10</span><span><span class="titre">Pas de direct ? Saisis le score après</span><br><span class="desc">Et regarde les classements se calculer seuls</span></span></li>
+    <li><span class="num">11</span><span><span class="titre">La phase finale</span><br><span class="desc">Le tableau, les dates, les résultats</span></span></li>
+    <li><span class="num">12</span><span><span class="titre">Clôturer la compétition</span><br><span class="desc">Le meilleur joueur, et la suite</span></span></li>
+    <li><span class="num">+</span><span><span class="titre">Aide-mémoire du jour de match et questions fréquentes</span><br><span class="desc">La page à imprimer pour le bord du terrain</span></span></li>
+  </ol>
+</section>
+
+<!-- ================= 00 AVANT DE COMMENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 00</div>
+  <h2>Avant de commencer</h2>
+  <p class="chapo">KoppaFoot tient le calendrier, calcule les classements et diffuse tes matchs en direct. Toi, tu gères le terrain.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="intro-grille">
+  <div class="carte">
+    <h3>Ce qu'il te faut</h3>
+    <ul>
+      <li>Un <b>ordinateur</b> ou un <b>téléphone</b> avec Internet, pour préparer la compétition.</li>
+      <li>Un <b>téléphone</b> au bord du terrain, les jours de match, pour le direct.</li>
+      <li>Une <b>adresse email</b> (ou un compte Google).</li>
+      <li>La liste de tes équipes et de leurs joueurs. Un tableau Excel ou Google Sheets fait gagner beaucoup de temps.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h3>Comment lire ce guide</h3>
+    <p>Sur chaque capture, un <b>cadre orange numéroté</b> te montre où toucher. Suis les numéros dans l'ordre.</p>
+    <div class="legende-repere"><span class="cadre">Bouton à toucher</span></div>
+    <p style="margin-top:3mm">Dans le texte, le même numéro renvoie au même cadre : <span class="m">1</span> <span class="m">2</span> <span class="m">3</span>…</p>
+  </div>
+</div>
+
+<div class="carte" style="margin-top:6mm">
+  <h3>L'exemple suivi dans ce guide</h3>
+  <p>On accompagne <b>Kossi Mensah</b>, qui organise la <b>Coupe des Quartiers 2026</b> à Lomé : <b>8 équipes</b>, <b>2 poules de 4</b>, puis des demi-finales, une petite finale et une finale, du 5 au 20 décembre.</p>
+  <p style="margin:0">Tous les noms (organisateur, équipes, joueurs) sont <b>inventés</b> pour l'exemple. Remplace-les simplement par les tiens.</p>
+</div>
+
+<div class="encadre info"><span class="t">Ordinateur ou téléphone ?</span>Les deux marchent partout. Dans ce guide, la préparation est montrée sur ordinateur (c'est plus confortable pour saisir), et la console live sur téléphone, parce que c'est là qu'on s'en sert.</div>
+
+<!-- ================= 01 COMPTE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 01</div>
+  <h2>Créer ton compte</h2>
+  <p class="chapo">Voici comment créer ton compte KoppaFoot en deux minutes. Si tu as déjà un compte, passe directement au chapitre 2.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre la page des organisateurs</h3>
+  <p>Dans ton navigateur, va sur <b>koppafoot.com/organisateurs</b>, puis touche <span class="m">1</span> <span class="bouton">Déposer ma candidature</span>.</p>
+  <figure class="moyen"><img src="captures/01-page-organisateurs.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Demande à créer un compte</h3>
+  <p>La page te demande d'abord un compte. Touche <span class="m">1</span> <span class="bouton">Créer mon compte</span>.</p>
+  <figure class="petit"><img src="captures/02-creer-mon-compte.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Choisis comment t'inscrire</h3>
+  <p>Deux possibilités :</p>
+  <ul>
+    <li><span class="m">1</span> <b>Créer un compte</b> avec ton adresse email (c'est ce qu'on fait ici) ;</li>
+    <li><span class="m">2</span> <b>Continuer avec Google</b> : le plus rapide si tu as une adresse Gmail. Choisis ton compte Google, complète ton profil, puis passe directement au chapitre 2.</li>
+  </ul>
+  <figure class="moyen"><img src="captures/03-fenetre-connexion.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Remplis l'essentiel</h3>
+  <p>Tape ton <span class="m">1</span> prénom et ton nom, ton <span class="m">2</span> adresse email et <span class="m">3</span> un mot de passe (au moins 6 caractères). Puis touche <span class="m">4</span> <span class="bouton">Continuer</span>.</p>
+  <figure class="moyen"><img src="captures/04-inscription-etape-1.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Termine ton profil</h3>
+  <p>Ta ville et ton téléphone sont <b>facultatifs</b> (ils serviront à préremplir ta candidature). Touche <span class="m">1</span> <span class="bouton">Créer mon compte</span>.</p>
+  <figure class="moyen"><img src="captures/05-inscription-etape-2.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Confirme ton adresse email</h3>
+  <p>Le message <b>« Compte créé ! Vérifiez votre email. »</b> s'affiche. Ouvre ta boîte mail et touche le lien reçu de KoppaFoot pour confirmer ton adresse.</p>
+  <figure class="bandeau"><img src="captures/06-compte-cree.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Astuce</span>Pas d'email au bout de quelques minutes ? Regarde dans le dossier <b>Spam</b> ou <b>Promotions</b>.</div>
+</section>
+
+<!-- ================= 02 ORGANISATEUR ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 02</div>
+  <h2>Devenir organisateur</h2>
+  <p class="chapo">Voici comment demander ton accès organisateur. L'équipe KoppaFoot vérifie chaque demande, puis ton espace s'ouvre.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Remplis ta candidature</h3>
+  <p>Reviens sur <b>koppafoot.com/organisateurs</b> et touche à nouveau <span class="bouton">Déposer ma candidature</span>. Le formulaire s'affiche :</p>
+  <ul>
+    <li><span class="m">1</span> <b>Nom de l'organisateur</b> : ton nom, ton association ou ta ligue. Il s'affichera en « Organisé par » sur tes compétitions.</li>
+    <li><span class="m">2</span> <b>Ton projet</b> : en quelques phrases, le format, le nombre d'équipes, le lieu, les dates, ton expérience.</li>
+    <li>Le nom de la compétition, la ville et le téléphone, puis <span class="m">3</span> <span class="bouton">Envoyer ma candidature</span>.</li>
+  </ul>
+  <figure class="moyen"><img src="captures/07-candidature.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Attends la réponse</h3>
+  <p>Ta candidature est <b>en cours d'examen</b>. Tu recevras la réponse par email et par notification.</p>
+  <figure class="petit"><img src="captures/08-candidature-envoyee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ouvre ton espace organisateur</h3>
+  <p>Une fois ta candidature acceptée, la même page t'accueille : touche <span class="m">1</span> <span class="bouton">Ouvrir mon espace organisateur</span>.</p>
+  <figure class="petit"><img src="captures/09-deja-organisateur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Retrouve ton espace à tout moment</h3>
+  <p>Depuis n'importe quelle page : touche <span class="m">1</span> <span class="bouton">MySpace</span> dans le menu du haut, puis <span class="m">2</span> <b>Compétitions organisées</b>.</p>
+  <figure class="bandeau"><img src="captures/10-menu-myspace.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Sur téléphone</span>Le plus simple : ouvre <b>koppafoot.com/organizer</b> et ajoute la page à tes <b>favoris</b> (ou sur ton écran d'accueil). Elle ouvre directement ton espace organisateur.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Voici ton espace</h3>
+  <p>La page <b>Mes compétitions</b> est vide pour l'instant. Touche <span class="m">1</span> <span class="bouton">Nouvelle compétition</span> pour commencer.</p>
+  <figure class="moyen"><img src="captures/11-mes-competitions.jpg"></figure>
+</section>
+
+<!-- ================= 03 COMPETITION ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 03</div>
+  <h2>Créer ta compétition</h2>
+  <p class="chapo">Voici comment créer ta compétition sur une seule page, en quatre blocs. Tu pourras tout modifier plus tard avec le bouton <span class="bouton">Modifier</span>.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Informations générales</h3>
+  <ul>
+    <li><span class="m">1</span> Le <b>nom</b>. Il donne aussi l'adresse de ta page publique (ici <code>/coupe-des-quartiers-2026</code>).</li>
+    <li><span class="m">2</span> Une <b>description</b> courte (facultatif).</li>
+    <li><span class="m">3</span> Le <b>logo</b> et <span class="m">4</span> la <b>bannière</b> (facultatifs) : touche <span class="bouton">Choisir une image</span> et prends une image dans ton téléphone ou ton ordinateur. KoppaFoot l'allège toute seule.</li>
+  </ul>
+  <figure class="moyen"><img src="captures/12-infos-generales.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Choisis le type de compétition</h3>
+  <table class="tableau-simple">
+    <tr><th>Type</th><th>Pour qui ?</th></tr>
+    <tr><td><b>Coupe</b></td><td>Élimination directe : un match perdu et c'est fini.</td></tr>
+    <tr><td><b>Championnat</b></td><td>Tout le monde dans un seul groupe, le classement désigne le vainqueur.</td></tr>
+    <tr><td><b>Poules + phase finale</b></td><td>Comme la Coupe du monde : des poules, puis un tableau. <i>C'est notre exemple.</i></td></tr>
+    <tr><td><b>Championnat + play-offs</b></td><td>Un seul groupe, puis les premiers disputent un tableau final.</td></tr>
+  </table>
+  <p>Touche la carte qui te convient <span class="m">1</span>. Le type décide des écrans suivants : une coupe n'aura pas d'écran de poules, un championnat pas de tableau final.</p>
+  <figure class="moyen"><img src="captures/13-type-competition.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Règle le format</h3>
+  <ul>
+    <li><span class="m">1</span> <b>Type de jeu</b> : 11 contre 11, 7 contre 7, 5 contre 5…</li>
+    <li><span class="m">2</span> <b>Durée d'une mi-temps</b> : ici 30 minutes. Le chrono de la console live s'arrêtera tout seul à la fin de chaque période.</li>
+    <li><span class="m">3</span> <b>Nombre de poules</b>, <b>équipes par poule</b> et <b>qualifiés par poule</b> : ici 2 poules de 4, les 2 premiers qualifiés.</li>
+    <li>En dessous : l'aller-retour, le match pour la 3<sup>e</sup> place et les points (3 pour une victoire, 1 pour un nul, 0 pour une défaite).</li>
+  </ul>
+  <figure class="moyen"><img src="captures/14-format.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Dates et lieu, puis crée</h3>
+  <p>Indique les dates de <span class="m">1</span> début et de fin, et <span class="m">2</span> la ville (facultatif). Touche <span class="m">3</span> <span class="bouton">Créer la compétition</span>.</p>
+  <figure class="petit"><img src="captures/15-dates-et-lieu.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Ton tableau de bord</h3>
+  <p>C'est ton point de départ pour tout le reste :</p>
+  <ul>
+    <li><span class="m">1</span> <b>Mise en place</b> : la liste des étapes (Équipes, Poules, Calendrier, Phase finale, Staff). Chacune se coche toute seule quand elle est faite. Touche une ligne pour y aller.</li>
+    <li><span class="m">2</span> <b>Statut</b> : ta compétition naît en <b>Brouillon</b>, donc invisible du public. On la publiera au chapitre 8.</li>
+  </ul>
+  <figure><img src="captures/16-tableau-de-bord.jpg"></figure>
+</section>
+
+<!-- ================= 04 EQUIPES ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 04</div>
+  <h2>Ajouter les équipes et les joueurs</h2>
+  <p class="chapo">Voici comment inscrire tes équipes et leurs effectifs. Les joueurs sont nécessaires pour la feuille de match et le direct.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre la page Équipes</h3>
+  <p>Depuis le tableau de bord, touche <b>Équipes</b>. Deux façons d'ajouter : <span class="m">1</span> <span class="bouton">Ajouter une équipe</span>, une par une, ou <span class="m">2</span> <span class="bouton">Importer</span>, toutes d'un coup (étape 5).</p>
+  <figure class="moyen"><img src="captures/17-equipes-vide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Ajoute une équipe à la main</h3>
+  <p>Tape <span class="m">1</span> le nom, <span class="m">2</span> l'abréviation (3 lettres, affichée sur le tableau de score), choisis <span class="m">3</span> une couleur et <span class="m">4</span> un logo (facultatif). Touche <span class="m">5</span> <span class="bouton">Ajouter</span>.</p>
+  <figure class="moyen"><img src="captures/18-nouvelle-equipe.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ouvre son effectif</h3>
+  <p>L'équipe apparaît dans la liste. Touche <span class="m">1</span> <span class="bouton">Effectif</span> pour ajouter ses joueurs.</p>
+  <p><span class="m">2</span> <span class="bouton">Inviter un manager</span> est facultatif : le responsable de l'équipe reçoit un email et peut ensuite gérer lui-même son effectif.</p>
+  <figure class="petit"><img src="captures/19-equipe-ajoutee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ajoute un joueur</h3>
+  <p>Touche <span class="bouton">Ajouter un joueur</span>, tape <span class="m">1</span> son nom et <span class="m">2</span> son numéro de dossard, choisis son poste si tu veux, puis <span class="m">3</span> <span class="bouton">Ajouter</span>. Recommence pour chaque joueur.</p>
+  <figure class="moyen"><img src="captures/20-nouveau-joueur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Gagne du temps : importe toutes les équipes</h3>
+  <p>Tu as tes équipes dans un tableau Excel ou Google Sheets ? Touche <span class="bouton">Importer</span> sur la page Équipes, puis :</p>
+  <ol>
+    <li>Reste sur l'onglet <span class="m">1</span> <b>Équipes</b>.</li>
+    <li>Dans ton tableur, sélectionne les colonnes <b>Équipe · Sigle · Poule · Couleur</b> (seul le nom est obligatoire), copie, et <span class="m">2</span> colle dans la grande zone.</li>
+    <li>Vérifie <span class="m">3</span> l'aperçu, puis touche <span class="m">4</span> <span class="bouton">Importer 7 équipes</span>.</li>
+  </ol>
+  <figure><img src="captures/21-import-equipes.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Importe les joueurs, équipe par équipe</h3>
+  <ol>
+    <li>Passe sur l'onglet <span class="m">1</span> <b>Joueurs</b>.</li>
+    <li><span class="m">2</span> Choisis l'équipe à compléter.</li>
+    <li><span class="m">3</span> Colle ses joueurs : <b>Nom · Dossard · Poste</b> (le poste est facultatif).</li>
+    <li>Vérifie l'aperçu et touche <span class="m">4</span> <span class="bouton">Importer</span>. Passe à l'équipe suivante.</li>
+  </ol>
+  <figure><img src="captures/22-import-joueurs.jpg"></figure>
+  <div class="encadre attention"><span class="t">Attention</span>Importer des joueurs <b>remplace</b> l'effectif actuel de l'équipe. Pour ajouter un seul joueur, utilise plutôt <span class="bouton">Ajouter un joueur</span>.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">7</span>Vérifie ta liste</h3>
+  <p>Toutes tes équipes sont inscrites, avec le nombre de joueurs de chacune. Le petit <b>crayon</b> sert à modifier une équipe (par exemple pour ajouter son logo), la <b>corbeille</b> à la retirer.</p>
+  <figure><img src="captures/23-equipes-inscrites.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">8</span>L'effectif d'une équipe</h3>
+  <p>Touche <span class="bouton">Effectif</span> sur une équipe pour voir ses joueurs, en corriger un (crayon) ou en ajouter un <span class="m">1</span>.</p>
+  <figure class="moyen"><img src="captures/24-effectif.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Astuce</span>Tu peux aussi laisser les clubs <b>s'inscrire eux-mêmes</b> : passe ta compétition en statut <b>Inscriptions</b> (chapitre 8) et envoie le lien de ta page publique. Tu valides ensuite chaque demande.</div>
+</section>
+
+<!-- ================= 05 POULES ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 05</div>
+  <h2>Composer les poules</h2>
+  <p class="chapo">Voici comment répartir tes équipes dans les poules. Depuis le tableau de bord, touche <b>Poules</b>.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Répartis les équipes</h3>
+  <p>Deux façons :</p>
+  <ul>
+    <li><span class="m">1</span> <span class="bouton">Tirage aléatoire</span> : KoppaFoot fait le tirage au sort pour toi ;</li>
+    <li><span class="m">2</span> à la main : pour chaque équipe, choisis sa poule dans le menu.</li>
+  </ul>
+  <figure><img src="captures/25-poules-vides.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Valide</h3>
+  <p>Chaque poule doit compter exactement le bon nombre d'équipes (ici 4). Touche alors <span class="m">1</span> <span class="bouton">Valider les poules</span>.</p>
+  <figure><img src="captures/26-poules-composees.jpg"></figure>
+</section>
+
+<!-- ================= 06 CALENDRIER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 06</div>
+  <h2>Programmer le calendrier</h2>
+  <p class="chapo">Voici comment créer tous les matchs de poule d'un coup, puis leur donner une date, une heure et un terrain. Depuis le tableau de bord, touche <b>Calendrier</b>.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Crée les matchs</h3>
+  <ul>
+    <li><span class="m">1</span> <span class="bouton">ou générer un round-robin</span> : KoppaFoot crée tous les matchs de chaque poule (chaque équipe rencontre une fois toutes les autres). C'est le plus simple.</li>
+    <li><span class="m">2</span> <span class="bouton">Importer des matchs</span> : si ton calendrier existe déjà dans un tableur (Domicile · Extérieur · Date · Heure · Stade · Poule).</li>
+  </ul>
+  <figure><img src="captures/27-calendrier-vide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Les matchs sont créés</h3>
+  <p>Ici, 12 matchs : 6 par poule. Il reste à les dater. Touche <span class="m">1</span> <span class="bouton">Programmer</span> sur un match.</p>
+  <figure class="moyen"><img src="captures/28-matchs-generes.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Donne une date, une heure, un terrain</h3>
+  <p>Remplis <span class="m">1</span> la date, <span class="m">2</span> l'heure, <span class="m">3</span> le stade et la ville, puis touche <span class="m">4</span> <span class="bouton">Enregistrer</span>. Fais de même pour chaque match.</p>
+  <figure class="bandeau"><img src="captures/29-programmer-un-match.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Astuce</span>KoppaFoot te rappelle les créneaux déjà pris sur un terrain, et affiche <b>Conflit</b> si deux matchs tombent au même endroit à la même heure.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ton calendrier est prêt</h3>
+  <p>Chaque match affiche sa date, son heure et son terrain. <span class="bouton">Modifier</span> permet de changer un créneau à tout moment.</p>
+  <figure><img src="captures/30-calendrier-programme.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Où en es-tu ?</h3>
+  <p>De retour au tableau de bord, la mise en place affiche <b>3 étapes sur 4</b> : équipes, poules et calendrier sont faits. La phase finale viendra après les poules (chapitre 11).</p>
+  <figure class="moyen"><img src="captures/31-mise-en-place-avancee.jpg"></figure>
+</section>
+
+<!-- ================= 07 STAFF ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 07</div>
+  <h2>T'entourer d'une équipe</h2>
+  <p class="chapo">Tu ne peux pas être sur tous les terrains à la fois. Voici comment confier la saisie des matchs à des bénévoles, sans leur donner accès au reste. Depuis le tableau de bord, touche <b>Staff</b>.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Deux façons de confier les matchs</h3>
+  <ul>
+    <li><span class="m">1</span> <b>Un code d'accès</b> : pour un bénévole. Tu choisis ce qu'il peut saisir (toute la compétition, une poule, un seul match…).</li>
+    <li><span class="m">2</span> <b>Un modérateur</b> : pour un membre de confiance qui a déjà un compte KoppaFoot. Tape son email et touche <span class="bouton">Ajouter</span>. Il a accès au direct de tous les matchs, mais jamais à la configuration.</li>
+  </ul>
+  <figure><img src="captures/32-staff.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Crée un code d'accès</h3>
+  <p>Touche <span class="bouton">Créer un code</span>, puis remplis :</p>
+  <ul>
+    <li><span class="m">1</span> <b>Pour qui ?</b> : un nom pour t'y retrouver (ici « Afi, poule A ») ;</li>
+    <li><span class="m">2</span> <b>Portée</b> : ce que la personne pourra saisir ;</li>
+    <li><span class="m">3</span> <b>Expire le</b> : conseillé, la fin du tournoi.</li>
+  </ul>
+  <p>Touche <span class="m">4</span> <span class="bouton">Générer le code</span>.</p>
+  <figure class="moyen"><img src="captures/33-nouveau-code.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Envoie le code</h3>
+  <p>Touche <span class="m">1</span> <span class="bouton">Partager le lien</span> pour l'envoyer directement (WhatsApp, SMS…), ou <span class="m">2</span> <span class="bouton">Copier le code</span>. Ton bénévole ouvre le lien, active le code avec son compte, et ne voit que les matchs que tu lui as confiés.</p>
+  <figure class="moyen"><img src="captures/34-code-cree.jpg"></figure>
+  <div class="encadre info"><span class="t">Bon à savoir</span>Tu peux révoquer un code à tout moment depuis la même page.</div>
+</section>
+
+<!-- ================= 08 PUBLIER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 08</div>
+  <h2>Publier et partager</h2>
+  <p class="chapo">Voici comment rendre ta compétition visible, et le lien à envoyer aux joueurs et aux supporters. Tout se passe sur le tableau de bord.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Le statut de ta compétition</h3>
+  <table class="tableau-simple">
+    <tr><th>Statut</th><th>Ce que ça veut dire</th></tr>
+    <tr><td><b>Brouillon</b></td><td>Invisible du public : tu prépares tranquillement.</td></tr>
+    <tr><td><b>Inscriptions</b></td><td>Ta page publique s'ouvre, les clubs peuvent demander à s'inscrire.</td></tr>
+    <tr><td><b>Phase de groupes</b></td><td>Les matchs de poule se jouent.</td></tr>
+    <tr><td><b>Phase finale</b></td><td>Le tableau final se joue.</td></tr>
+    <tr><td><b>Terminée</b></td><td>La compétition est finie, les résultats restent consultables.</td></tr>
+  </table>
+  <p>Touche un statut <span class="m">1</span> pour le choisir. Bonne nouvelle : KoppaFoot avance souvent le statut tout seul. Ici, la compétition est passée en <b>Phase de groupes</b> dès la création des matchs.</p>
+  <figure class="bandeau"><img src="captures/36-statut.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Partage ta page publique</h3>
+  <p>En haut du tableau de bord, le bloc <b>Ta page publique</b> donne l'adresse à partager (ici <code>koppafoot.com/c/coupe-des-quartiers-2026</code>). Touche <span class="m">1</span> <span class="bouton">Voir</span> pour l'ouvrir, <span class="m">2</span> <span class="bouton">Partager</span> pour l'envoyer.</p>
+  <figure class="bandeau"><img src="captures/35-page-publique-partage.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/37-page-publique-mobile.jpg"></figure>
+  <div>
+    <h3 style="font-family:Outfit;font-weight:800;font-size:13pt;margin:0 0 2mm;display:flex;gap:2.5mm;align-items:baseline"><span class="n" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:7mm;height:7mm;border-radius:50%;background:#111827;color:#fff;font-size:10pt">3</span>Ce que voit le public</h3>
+    <p>Sans créer de compte, n'importe qui peut suivre ta compétition sur son téléphone :</p>
+    <ul>
+      <li><b>Calendrier</b> : tous les matchs, les scores en direct ;</li>
+      <li><b>Classement</b> : calculé tout seul après chaque match ;</li>
+      <li><b>Tableau</b> : la phase finale ;</li>
+      <li><b>Buteurs</b> : le classement des buteurs.</li>
+    </ul>
+    <p>Le bouton <b>Suivre</b> permet de recevoir une notification à chaque but.</p>
+  </div>
+</div>
+
+<!-- ================= 09 CONSOLE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 09</div>
+  <h2>Le jour du match : la console live</h2>
+  <p class="chapo">Voici comment faire vivre un match en direct depuis ton téléphone : la feuille de match, le chrono, les buts, les cartons et les remplacements. Chaque geste apparaît aussitôt sur la page publique.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="encadre attention" style="margin-bottom:6mm"><span class="t">Avant d'aller au terrain</span>Charge ton téléphone, vérifie que tu as du réseau (données mobiles), et connecte-toi à KoppaFoot avant le match.</div>
+
+<div class="sous-partie">A · Avant le coup d'envoi</div>
+
+<div class="cote etape">
+  <figure><img src="captures/38-ouvrir-la-console.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Ouvre la console du match</h3>
+    <p>Sur ton téléphone, ouvre ton espace (<b>koppafoot.com/organizer</b>), ta compétition, puis <b>Calendrier</b>. Sur le bon match, touche <span class="m">1</span> <span class="bouton">Console live</span>.</p>
+    <div class="encadre info"><span class="t">Bénévole ?</span>Avec un code d'accès, la console s'ouvre depuis ton espace, sur les seuls matchs qui t'ont été confiés.</div>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/39-feuille-vide.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Remplis la feuille de match</h3>
+    <p>La console commence par les <b>feuilles de match</b> des deux équipes. Pour chaque joueur présent, touche <span class="m">2</span> sa ligne :</p>
+    <ul>
+      <li>un toucher : il devient <b>Titulaire</b> ;</li>
+      <li>quand tous les titulaires sont choisis (ici 11), les suivants deviennent <b>Remplaçants</b> ;</li>
+      <li>touche encore pour le changer ou le retirer.</li>
+    </ul>
+    <p>Le compteur <span class="m">1</span> t'indique où tu en es.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/40-feuille-remplie.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>Valide les deux feuilles</h3>
+    <p>Quand le compteur <span class="m">1</span> est bon, touche <span class="m">2</span> <span class="bouton">Valider la feuille</span>.</p>
+    <p>Passe ensuite sur l'onglet de <b>l'autre équipe</b>, en haut, et fais pareil.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/41-feuilles-validees.jpg"></figure>
+  <div>
+    <h3><span class="n">4</span>Coup d'envoi</h3>
+    <p>Les deux feuilles sont validées. Au coup de sifflet de l'arbitre, touche <span class="m">1</span> <span class="bouton">Coup d'envoi</span>.</p>
+    <p><span class="bouton">Revoir les feuilles</span> permet de corriger une feuille avant de commencer.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/42-tourne-ton-telephone.jpg"></figure>
+  <div>
+    <h3><span class="n">5</span>Tourne ton téléphone</h3>
+    <p>La console se tient <b>à l'horizontale</b> : les deux équipes y sont côte à côte, chacune de son côté du terrain. Tourne ton téléphone et touche l'écran pour continuer.</p>
+  </div>
+</div>
+
+<div class="sous-partie">B · Pendant le match</div>
+
+<section class="etape">
+  <h3><span class="n">6</span>Lance le chrono</h3>
+  <p>Touche <span class="m">1</span> <span class="bouton">Lancer</span>. Le chrono démarre, et le match passe « en direct » sur la page publique.</p>
+  <figure class="bandeau"><img src="captures/43-console-avant-lancer.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">7</span>La console en un coup d'œil</h3>
+  <ul>
+    <li><span class="m">1</span> Le <b>chrono</b> et la période. <span class="bouton">Arrêter</span> met le chrono en pause ; les boutons <b>−</b> et <b>+</b> ajoutent du temps additionnel.</li>
+    <li><span class="m">2</span> Les <b>joueurs sur le terrain</b>, à leur place. Touche un joueur pour noter ce qu'il vient de faire.</li>
+    <li><span class="m">3</span> Les boutons d'équipe : <b>Corner</b>, <b>Coup franc</b>, <b>Touche</b>, <b>Penalty</b>. Et <b>Ballon</b>, pour indiquer quelle équipe a le ballon (facultatif, pour la possession).</li>
+    <li>En bas, le <b>banc</b> de chaque équipe.</li>
+  </ul>
+  <figure class="bandeau"><img src="captures/44-console-en-cours.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">8</span>Un but ? Touche le buteur</h3>
+  <p>Touche le joueur qui a marqué. Son menu s'ouvre, avec la minute déjà notée. Touche <span class="m">1</span> <span class="bouton">But</span>.</p>
+  <p>Le même menu sert pour <span class="m">2</span> un <b>carton</b>, <span class="m">3</span> un <b>remplacement</b>, un tir, un hors-jeu ou une faute.</p>
+  <figure class="bandeau"><img src="captures/45-actions-joueur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">9</span>Qui a fait la passe ?</h3>
+  <p>KoppaFoot demande la <b>passe décisive</b> : touche <span class="m">1</span> le passeur, ou <span class="m">2</span> <span class="bouton">Aucune passe décisive</span>.</p>
+  <figure class="bandeau"><img src="captures/46-passe-decisive.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">10</span>Le score change tout seul</h3>
+  <p>Le tableau d'affichage passe à <span class="m">1</span> <b>1 – 0</b>, partout en même temps : dans ta console et sur la page publique.</p>
+  <figure class="bandeau"><img src="captures/47-but-marque.jpg"></figure>
+  <div class="encadre info"><span class="t">Pourquoi le bouton But est grisé ?</span>Juste après un but, il reste verrouillé quelques secondes : ça évite de compter deux fois le même but par un double toucher.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">11</span>Un carton</h3>
+  <p>Touche le joueur, puis <span class="bouton">Carton jaune</span> (ou <span class="bouton">Carton rouge</span>). Le carton apparaît <span class="m">1</span> sur le joueur. Un deuxième jaune entraîne l'exclusion.</p>
+  <figure class="bandeau"><img src="captures/48-carton-jaune.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">12</span>Un remplacement</h3>
+  <p>Touche le joueur qui <b>sort</b>, puis <span class="bouton">Remplacer</span>. Choisis <span class="m">1</span> le joueur qui <b>entre</b>. Il prend sa place sur le terrain.</p>
+  <figure class="bandeau"><img src="captures/49-qui-entre.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">13</span>Une erreur ? L'historique</h3>
+  <p>Touche le bouton <b>ⓘ</b> en haut à droite (<b>Compteurs et historique</b>) : tous les événements du match s'affichent. Sur un but, <span class="bouton">Vérifier (VAR)</span> le signale au public comme « en vérification », et <span class="bouton">Refuser le but</span> l'annule et corrige le score.</p>
+  <figure class="bandeau"><img src="captures/50-historique.jpg"></figure>
+</section>
+
+<div class="sous-partie">C · La mi-temps</div>
+
+<section class="etape">
+  <h3><span class="n">14</span>Le chrono s'arrête tout seul</h3>
+  <p>À la fin de la période (ici 30:00, plus le temps additionnel que tu as ajouté), le chrono s'arrête. Au sifflet de l'arbitre, touche <span class="m">1</span> <span class="bouton">Mi-temps</span>.</p>
+  <figure class="bandeau"><img src="captures/51-fin-premiere-periode.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">15</span>Reprends la seconde période</h3>
+  <p>Au coup d'envoi de la seconde période, touche <span class="m">1</span> <span class="bouton">Reprise</span>. Le chrono repart. Note les événements comme en première période.</p>
+  <figure class="bandeau"><img src="captures/52-mi-temps.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/53-public-en-direct.jpg"></figure>
+  <div>
+    <h3><span class="n">16</span>Pendant ce temps, dans les tribunes…</h3>
+    <p>Voici ce que voient les supporters sur la page publique : le match est marqué <b>EN DIRECT</b>, avec le score à jour.</p>
+    <p>Ceux qui ont touché <b>Suivre</b> reçoivent une notification à chaque but.</p>
+  </div>
+</div>
+
+<div class="sous-partie">D · La fin du match</div>
+
+<section class="etape">
+  <h3><span class="n">17</span>Fin du match</h3>
+  <p>À la fin du temps réglementaire, le chrono s'arrête à nouveau. Au coup de sifflet final, touche <span class="m">1</span> <span class="bouton">Fin du match</span>.</p>
+  <figure class="bandeau"><img src="captures/54-fin-du-temps-reglementaire.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">18</span>Confirme le score final</h3>
+  <p>KoppaFoot rappelle le score final. Vérifie-le, puis touche <span class="m">1</span> <span class="bouton">Coup de sifflet final</span>. Le direct se ferme et la feuille devient définitive.</p>
+  <figure class="bandeau"><img src="captures/55-terminer-le-match.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">19</span>Désigne l'homme du match</h3>
+  <p>KoppaFoot te propose les meilleurs joueurs du match. Touche <span class="m">1</span> l'homme du match, ou <span class="m">2</span> <span class="bouton">Terminer sans désigner</span>.</p>
+  <figure class="bandeau"><img src="captures/56-homme-du-match.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">20</span>C'est fini !</h3>
+  <p>Tu reviens au calendrier : le match affiche son <span class="m">1</span> score final. Le classement de la poule et celui des buteurs sont déjà à jour. En cas d'erreur, <span class="m">2</span> <span class="bouton">Score &amp; buteurs</span> permet de corriger.</p>
+  <figure class="bandeau"><img src="captures/57-resultat-dans-le-calendrier.jpg"></figure>
+  <div class="encadre attention"><span class="t">À retenir</span>Ne quitte pas la page de la console avant le coup de sifflet final. Si ton téléphone s'éteint, rouvre simplement la console : le match reprend où il en était.</div>
+</section>
+
+<!-- ================= 10 APRES COUP ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 10</div>
+  <h2>Pas de direct ? Saisis le score après</h2>
+  <p class="chapo">Pas de réseau au terrain, ou personne pour tenir la console ? Voici comment enregistrer le résultat après le match. Les classements se recalculent de la même façon.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Retrouve le match</h3>
+  <p>Dans le <b>Calendrier</b>, une fois la date passée, le match est signalé <b>Date dépassée</b>. Touche <span class="m">1</span> <span class="bouton">Ajouter score</span>.</p>
+  <p>Le match n'a pas eu lieu ? <span class="bouton">Reporter</span> permet de choisir une nouvelle date.</p>
+  <figure class="bandeau"><img src="captures/58-date-depassee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Tape le score et les buteurs</h3>
+  <ol>
+    <li>Tape <span class="m">1</span> le score des deux équipes.</li>
+    <li>Une ligne apparaît pour chaque but : choisis <span class="m">2</span> le buteur et, si tu veux, la minute. « Contre son camp » se coche en dessous.</li>
+    <li>Choisis l'homme du match (facultatif), puis touche <span class="m">3</span> <span class="bouton">Valider le score</span>.</li>
+  </ol>
+  <figure class="moyen"><img src="captures/59-ajouter-le-score.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/60-classement.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>Le classement se calcule tout seul</h3>
+    <p>Sur la page publique, onglet <b>Classement</b> : matchs joués, victoires, nuls, défaites, buts et points, pour chaque poule. Les équipes qualifiées sont mises en évidence.</p>
+    <p>Tu n'as rien à calculer.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/61-buteurs.jpg"></figure>
+  <div>
+    <h3><span class="n">4</span>Et le classement des buteurs</h3>
+    <p>L'onglet <b>Buteurs</b> se met à jour avec chaque but, qu'il ait été noté dans la console live ou saisi après le match.</p>
+  </div>
+</div>
+
+<!-- ================= 11 PHASE FINALE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 11</div>
+  <h2>La phase finale</h2>
+  <p class="chapo">Les poules sont terminées. Voici comment créer le tableau final, y placer les qualifiés et le faire vivre jusqu'à la finale. Depuis le tableau de bord, touche <b>Phase finale</b>.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Crée le tableau</h3>
+  <ul>
+    <li>Le plus simple : <span class="m">3</span> <span class="bouton">ou générer automatiquement</span>. KoppaFoot crée le tableau et y place les qualifiés selon les classements des poules.</li>
+    <li>Pour le construire toi-même : choisis <span class="m">1</span> la taille du tableau puis <span class="m">2</span> <span class="bouton">Dessiner le tableau</span>.</li>
+  </ul>
+  <figure><img src="captures/62-phase-finale-vide.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Indique d'où vient chaque équipe</h3>
+  <p>Le tableau est créé : demi-finales, finale et petite finale. KoppaFoot te signale <span class="m">1</span> ce qu'il reste à vérifier. Pour chaque place, choisis dans le menu <span class="m">2</span> sa <b>provenance</b> : « 1<sup>er</sup> poule A », « 2<sup>e</sup> poule B »…</p>
+  <figure><img src="captures/63-tableau-genere.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Attribue les places</h3>
+  <p>Touche <span class="m">1</span> <span class="bouton">Attribuer les places</span> : chaque place reçoit l'équipe qui correspond au classement. Puis <span class="m">2</span> <span class="bouton">Passer en phase finale</span> pour changer le statut de la compétition.</p>
+  <figure><img src="captures/64-places-attribuees.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Date et lieu des matchs</h3>
+  <p>Sous chaque match, touche <span class="m">1</span> <b>Aucune date</b>. Remplis la date, l'heure, le stade et la ville, puis <span class="bouton">Enregistrer</span>.</p>
+  <figure class="bandeau"><img src="captures/65a-aucune-date.jpg"></figure>
+  <figure class="petit" style="margin-top:4mm"><img src="captures/65-date-demi-finale.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Les vainqueurs avancent tout seuls</h3>
+  <p>Les matchs de la phase finale se jouent comme les autres : avec la <b>console live</b> (chapitre 9) ou en saisissant le score après (chapitre 10). Le vainqueur de chaque demi-finale est <b>placé automatiquement</b> en finale.</p>
+  <div class="encadre info"><span class="t">Match nul ?</span>En phase finale, il faut un vainqueur : en cas d'égalité, KoppaFoot te demande le résultat des <b>tirs au but</b>.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>La petite finale se remplit à la main</h3>
+  <p>Pour le match de la 3<sup>e</sup> place, place les deux perdants des demi-finales : touche le <b>crayon</b> d'une place, <span class="m">1</span> choisis l'équipe, puis <span class="m">2</span> ✓ pour valider.</p>
+  <figure class="bandeau"><img src="captures/66-placer-a-la-main.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">7</span>La finale</h3>
+  <p>Le score de la finale se saisit comme les autres : en direct, ou avec <span class="bouton">Ajouter score</span> puis <span class="m">1</span> <span class="bouton">Valider le score</span>.</p>
+  <figure><img src="captures/67-score-finale.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">8</span>Le tableau complet</h3>
+  <p>Chaque vainqueur porte un petit trophée. Ici, <b>AS Bè</b> remporte la Coupe des Quartiers 2026.</p>
+  <figure><img src="captures/68-tableau-complet.jpg"></figure>
+</section>
+
+<!-- ================= 12 CLOTURE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 12</div>
+  <h2>Clôturer la compétition</h2>
+  <p class="chapo">La finale est jouée. Voici comment terminer proprement ta compétition et désigner le meilleur joueur du tournoi.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Passe la compétition en « Terminée »</h3>
+  <p>Sur le tableau de bord, dans le bloc <b>Statut</b>, touche <span class="m">1</span> <b>Terminée</b>. Les abonnés sont prévenus, et les résultats restent en ligne.</p>
+  <figure class="bandeau"><img src="captures/69-passer-en-terminee.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Désigne le meilleur joueur du tournoi</h3>
+  <p>Un nouveau bloc apparaît : <b>Meilleur joueur du tournoi</b>. KoppaFoot classe les candidats par nombre de titres d'homme du match, puis par buts. Touche <span class="m">1</span> le joueur choisi.</p>
+  <figure class="bandeau"><img src="captures/70-meilleur-joueur.jpg"></figure>
+  <figure class="bandeau" style="margin-top:3mm"><img src="captures/71-meilleur-joueur-designe.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/72-public-terminee.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>La page publique, compétition terminée</h3>
+    <p>La page affiche <b>Terminée</b> et met en avant le <b>meilleur joueur du tournoi</b>.</p>
+    <p>L'onglet <b>Tableau</b> garde tout le parcours jusqu'à la finale.</p>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/73-public-tableau.jpg"></figure>
+  <div>
+    <h3><span class="n">4</span>Et l'an prochain ?</h3>
+    <p>Sur le tableau de bord, le bouton <span class="bouton">Dupliquer</span> crée une nouvelle édition en reprenant le type, le format et les équipes. Le calendrier et les résultats repartent de zéro.</p>
+  </div>
+</div>
+
+<!-- ================= AIDE-MEMOIRE ================= -->
+<section class="page-break memo">
+  <h2>Le jour du match en 10 gestes</h2>
+  <p class="sous">À imprimer, ou à garder sur ton téléphone, pour le bord du terrain.</p>
+  <ol>
+    <li><span><b>Avant de partir</b> : téléphone chargé, données mobiles, compte KoppaFoot connecté.</span></li>
+    <li><span><b>koppafoot.com/organizer</b> → ta compétition → <b>Calendrier</b> → le bon match → <b>Console live</b>.</span></li>
+    <li><span><b>Feuille de match</b> : touche chaque joueur présent (titulaire, puis remplaçant) → <b>Valider la feuille</b>. Pareil pour l'autre équipe.</span></li>
+    <li><span><b>Coup d'envoi</b>, puis tourne ton téléphone à l'horizontale.</span></li>
+    <li><span><b>Lancer</b> au premier coup de sifflet.</span></li>
+    <li><span><b>But</b> : touche le buteur → But → le passeur (ou « Aucune passe décisive »).</span></li>
+    <li><span><b>Carton</b> ou <b>remplacement</b> : touche le joueur → Carton jaune / rouge, ou Remplacer → qui entre.</span></li>
+    <li><span><b>Mi-temps</b> quand le chrono s'arrête, puis <b>Reprise</b> pour la seconde période.</span></li>
+    <li><span><b>Une erreur ?</b> Le bouton ⓘ (historique) → Refuser le but, ou corrige après avec « Score &amp; buteurs ».</span></li>
+    <li><span><b>Fin du match</b> → Coup de sifflet final → homme du match. Terminé !</span></li>
+  </ol>
+</section>
+
+<section class="page-break faq">
+  <header class="chapitre-tete" style="break-before:auto">
+    <div class="numero">Annexe</div>
+    <h2>Questions fréquentes</h2>
+    <div class="barre"></div>
+  </header>
+  <dl>
+    <dt>Faut-il du réseau sur le terrain ?</dt>
+    <dd>Pour le direct, oui. Sans réseau, saisis les résultats après la rencontre (chapitre 10) : classements et statistiques se recalculent pareil.</dd>
+    <dt>Qui peut modifier ma compétition ?</dt>
+    <dd>Toi seul. Les bénévoles (codes d'accès) et les modérateurs saisissent les matchs que tu leur confies, sans toucher au calendrier, aux équipes ni au format.</dd>
+    <dt>Je me suis trompé de score ou de buteur.</dt>
+    <dd>Pendant le match : bouton ⓘ de la console (historique). Après le match : <b>Score &amp; buteurs</b> dans le calendrier.</dd>
+    <dt>Un match est reporté.</dt>
+    <dd>Dans le calendrier, touche <b>Modifier</b> sur le match pour changer la date. Si la date est déjà passée, utilise <b>Reporter</b>.</dd>
+    <dt>Mon téléphone s'est éteint pendant le match.</dt>
+    <dd>Rallume-le et rouvre la console du match : tout ce qui a été noté est enregistré, le match reprend où il en était.</dd>
+    <dt>Une équipe abandonne en cours de compétition.</dt>
+    <dd>Sur la page <b>Équipes</b>, le bouton en forme de cercle barré permet de la <b>disqualifier</b> (avec un motif, par exemple « forfait général »), sans effacer les matchs déjà joués.</dd>
+    <dt>Comment supprimer ma compétition ?</dt>
+    <dd>Tableau de bord → <b>Actions</b> → <b>Supprimer</b>. Pour confirmer, il faut taper le nom exact de la compétition. Attention : c'est définitif.</dd>
+    <dt>Besoin d'aide ?</dt>
+    <dd>Touche ton avatar (tes initiales, en haut à droite), puis, dans <b>Support</b> : <b>Questions fréquentes</b>, ou <b>Nous faire un retour</b> pour écrire à l'équipe KoppaFoot.</dd>
+  </dl>
+</section>
+
+</body>
+</html>

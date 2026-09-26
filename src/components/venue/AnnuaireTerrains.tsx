@@ -376,7 +376,7 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
               Où jouer
             </h1>
             <p className="mt-4 max-w-md text-base leading-relaxed text-gray-600">
-              Choisissez un terrain et demandez votre créneau : le propriétaire vous répond directement.
+              Choisis un terrain et demande ton créneau : le propriétaire te répond directement.
             </p>
           </div>
           <div className="relative order-1 aspect-[2/1] overflow-hidden bg-emerald-800 sm:aspect-[16/9] lg:order-2 lg:aspect-[2/1]">
@@ -467,7 +467,7 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
           </div>
 
           {date && !heure && (
-            <p className="mt-2 text-xs font-semibold text-gray-500">Ajoutez une heure pour voir les terrains libres.</p>
+            <p className="mt-2 text-xs font-semibold text-gray-500">Ajoute une heure pour voir les terrains libres.</p>
           )}
 
           {/* Le panneau vit dans la barre qui colle en haut : sur téléphone,
@@ -586,8 +586,8 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
                 action={<Bouton onClick={reinitialiser}>Effacer les filtres</Bouton>}
               >
                 {creneau
-                  ? "Aucun terrain n'est ouvert et libre à ce moment. Essayez une autre heure ou un autre jour."
-                  : "Aucun terrain ne réunit ces critères. Élargissez la recherche."}
+                  ? "Aucun terrain n'est ouvert et libre à ce moment. Essaie une autre heure ou un autre jour."
+                  : "Aucun terrain ne réunit ces critères. Élargis la recherche."}
               </EtatVide>
             )
           ) : (

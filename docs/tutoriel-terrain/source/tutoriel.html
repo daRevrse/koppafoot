@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Gérer son terrain avec KoppaFoot</title>
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+@page { size: A4; margin: 15mm 16mm 17mm;
+  @bottom-left { content: "KoppaFoot · Guide du gérant de terrain"; font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+}
+@page couverture { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --vert: #059669;
+  --vert-clair: #ecfdf5;
+  --encre: #111827;
+  --gris: #4b5563;
+  --gris-clair: #f3f4f6;
+  --orange: #ff5a1f;
+  --orange-clair: #fff4ed;
+  --ambre-clair: #fffbeb;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; color: var(--encre); background: #fff; }
+h1, h2, h3, .display { font-family: "Outfit", sans-serif; }
+p { margin: 0 0 2.2mm; }
+b, strong { font-weight: 700; }
+
+/* ---------- Couverture ---------- */
+.couverture { page: couverture; height: 296mm; width: 210mm; position: relative; overflow: hidden; color: #fff; background: #0b1512; }
+.couverture .photo { position: absolute; inset: 0; background: url(couverture.jpg) center 25%/cover; opacity: .6; }
+.couverture .voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.2) 35%, rgba(5,20,15,.95) 75%); }
+.couverture .contenu { position: absolute; left: 18mm; right: 18mm; bottom: 26mm; }
+.couverture .marque { position: absolute; top: 18mm; left: 18mm; font-family: "Outfit"; font-weight: 800; letter-spacing: .28em; font-size: 15pt; }
+.couverture .surtitre { font-family: "Outfit"; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #6ee7b7; font-size: 10pt; margin-bottom: 5mm; }
+.couverture h1 { font-weight: 900; text-transform: uppercase; font-size: 44pt; line-height: .92; letter-spacing: -.01em; margin: 0 0 7mm; }
+.couverture .phrase { font-size: 13pt; color: rgba(255,255,255,.82); max-width: 150mm; margin-bottom: 10mm; }
+.couverture .bas { display: flex; gap: 8mm; font-size: 9pt; color: rgba(255,255,255,.65); border-top: 1px solid rgba(255,255,255,.25); padding-top: 4mm; }
+
+/* ---------- Pages ---------- */
+.page-break { break-before: page; }
+.chapitre-tete { break-before: page; margin-bottom: 7mm; }
+.chapitre-tete .numero { font-family: "Outfit"; font-weight: 900; font-size: 11pt; letter-spacing: .2em; color: var(--vert); text-transform: uppercase; }
+.chapitre-tete h2 { font-weight: 900; font-size: 26pt; line-height: 1.05; margin: 1.5mm 0 3mm; text-transform: uppercase; }
+.chapitre-tete .chapo { font-size: 12pt; color: var(--gris); max-width: 160mm; }
+.chapitre-tete .barre { height: 3px; width: 22mm; background: var(--vert); margin-top: 4mm; }
+
+.etape { break-inside: avoid; margin: 0 0 7mm; }
+.etape h3 { font-weight: 800; font-size: 13pt; margin: 0 0 2mm; display: flex; align-items: center; gap: 2.5mm; break-after: avoid; }
+.etape h3 .n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--encre); color: #fff; font-size: 10pt; font-weight: 800; }
+.etape ol, .etape ul { margin: 0 0 3mm; padding-left: 6mm; }
+.etape li { margin-bottom: 1mm; }
+
+/* Repère orange dans le texte : renvoie au cadre numéroté de la capture */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 4.6mm; height: 4.6mm; border-radius: 50%; background: var(--orange); color: #fff; font-size: 7.5pt; font-weight: 800; font-family: "Outfit"; vertical-align: .2mm; margin: 0 .5mm; }
+.bouton { font-weight: 700; background: var(--gris-clair); border: 1px solid #e5e7eb; border-radius: 1.2mm; padding: 0 1.4mm; white-space: nowrap; }
+
+figure { margin: 2mm 0 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 135mm; margin: 0 auto; border: 1px solid #e5e7eb; }
+figure.petit img { max-height: 90mm; }
+figure.moyen img { max-height: 100mm; }
+figure.bandeau img { max-height: 72mm; }
+figure.haut img { max-height: 175mm; }
+figcaption { font-size: 8.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }
+
+/* Téléphone debout, ou capture très haute : texte à gauche, image à droite */
+.cote { display: flow-root; break-inside: avoid; }
+.cote > figure { float: right; width: 62mm; margin: 0 0 2mm 7mm; }
+.cote > div { overflow: hidden; }
+.cote figure img { max-height: 112mm; border: 0; border-radius: 0; box-shadow: none; }
+.cote.large > figure { width: 84mm; }
+.cote.large figure img { max-height: 200mm; border: 1px solid #e5e7eb; }
+
+.encadre { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 0; font-size: 10pt; }
+.encadre .t { font-family: "Outfit"; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; display: block; margin-bottom: .8mm; }
+.astuce { background: var(--vert-clair); border-left: 3px solid var(--vert); }
+.astuce .t { color: var(--vert); }
+.attention { background: var(--orange-clair); border-left: 3px solid var(--orange); }
+.attention .t { color: #c2410c; }
+.info { background: var(--gris-clair); border-left: 3px solid #9ca3af; }
+.info .t { color: #374151; }
+
+.sous-partie { font-family: "Outfit"; font-weight: 900; text-transform: uppercase; font-size: 12pt; letter-spacing: .06em; color: var(--vert); margin: 6mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d1fae5; break-after: avoid; }
+
+/* Sommaire */
+.sommaire { break-before: page; }
+.sommaire h2 { font-weight: 900; font-size: 26pt; text-transform: uppercase; margin: 0 0 6mm; }
+.sommaire ol { list-style: none; padding: 0; margin: 0; }
+.sommaire li { display: grid; grid-template-columns: 12mm 1fr; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid #e5e7eb; }
+.sommaire li .num { font-family: "Outfit"; font-weight: 900; font-size: 16pt; color: var(--vert); line-height: 1.1; }
+.sommaire li .titre { font-family: "Outfit"; font-weight: 700; font-size: 12pt; }
+.sommaire li .desc { color: var(--gris); font-size: 9.5pt; }
+
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 5mm; }
+.carte { border: 1px solid #e5e7eb; border-radius: 2mm; padding: 4mm; break-inside: avoid; }
+.carte h3 { margin: 0 0 2mm; font-size: 12pt; font-weight: 800; }
+.legende-repere { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; }
+.legende-repere .cadre { width: 34mm; height: 10mm; border: 2.5px solid var(--orange); border-radius: 2mm; position: relative; box-shadow: 0 0 0 3px rgba(255,90,31,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9pt; margin-left: 8mm; }
+.legende-repere .cadre::before { content: "1"; position: absolute; left: -8mm; top: 50%; transform: translateY(-50%); width: 6mm; height: 6mm; border-radius: 50%; background: var(--orange); color: #fff; font: 800 9pt/6mm "Outfit"; text-align: center; }
+
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 3mm; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.tableau-simple th { font-family: "Outfit"; font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
+
+/* Aide-mémoire */
+.memo { border: 2px solid var(--encre); border-radius: 3mm; padding: 6mm; }
+.memo h2 { margin: 0 0 1mm; font-weight: 900; text-transform: uppercase; font-size: 20pt; }
+.memo .sous { color: var(--gris); margin-bottom: 5mm; }
+.memo ol { counter-reset: g; list-style: none; padding: 0; margin: 0; }
+.memo li { counter-increment: g; display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; padding: 2.4mm 0; border-bottom: 1px dashed #d1d5db; }
+.memo li::before { content: counter(g); font-family: "Outfit"; font-weight: 900; font-size: 15pt; color: var(--vert); }
+.faq dt { font-family: "Outfit"; font-weight: 800; font-size: 11.5pt; margin-top: 4mm; }
+.faq dd { margin: 1mm 0 0; color: #374151; }
+
+/* Deux téléphones côte à côte */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; break-inside: avoid; margin: 2mm 0 0; }
+.duo figure img { max-height: 86mm; border: 0; }
+/* Captures de téléphone couchées (une bande de l'écran) : pas en pleine largeur */
+figure.etroit img { max-width: 112mm; }
+/* Deux captures d'ordinateur côte à côte : elles gardent leur cadre */
+.duo.cadre figure img { border: 1px solid #e5e7eb; }
+figure.grand img { max-height: 122mm; }
+/* L'étiquette des schémas, reprise dans le texte */
+.schema { display: inline-block; font: 800 7pt/1 "Outfit", sans-serif; letter-spacing: .14em; background: var(--encre); color: #fff; padding: 1mm 1.5mm; border-radius: .8mm; vertical-align: .4mm; }
+.appareils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 6mm; }
+.appareils .carte { text-align: left; }
+.appareils .carte .ch { font-family: "Outfit"; font-weight: 900; color: var(--vert); font-size: 10pt; letter-spacing: .12em; text-transform: uppercase; }
+.appareils .carte h3 { margin-top: 1mm; }
+.avantages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 5mm 0 0; }
+.avantages div { background: var(--vert-clair); border-radius: 2mm; padding: 3.5mm 4mm; break-inside: avoid; }
+.avantages b.t { display: block; font-family: "Outfit"; font-size: 11.5pt; margin-bottom: 1mm; }
+</style>
+
+</head>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<section class="couverture">
+  <div class="photo"></div><div class="voile"></div>
+  <div class="marque">KOPPAFOOT</div>
+  <div class="contenu">
+    <div class="surtitre">Guide du gérant de terrain</div>
+    <h1>Remplis ton terrain avec KoppaFoot</h1>
+    <p class="phrase">Référencer ton terrain, compléter sa fiche, répondre aux demandes des équipes, bloquer les créneaux de tes habitués : voici comment faire, étape par étape, avec une capture d'écran à chaque geste.</p>
+    <div class="bas"><span>Édition septembre 2026</span><span>·</span><span>koppafoot.com/terrains</span></div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="sommaire">
+  <h2>Au programme</h2>
+  <ol>
+    <li><span class="num">00</span><span><span class="titre">Avant de commencer</span><br><span class="desc">Ce que fait MyFields, ce qu'il te faut, comment lire ce guide</span></span></li>
+    <li><span class="num">01</span><span><span class="titre">Référencer ton terrain</span><br><span class="desc">De la vitrine MyFields à la candidature envoyée</span></span></li>
+    <li><span class="num">02</span><span><span class="titre">La réponse de KoppaFoot</span><br><span class="desc">Terrain publié, ou refusé avec un motif</span></span></li>
+    <li><span class="num">03</span><span><span class="titre">Compléter ta fiche</span><br><span class="desc">Photo, tarif, équipements, horaires, contact</span></span></li>
+    <li><span class="num">04</span><span><span class="titre">Répondre aux demandes</span><br><span class="desc">Confirmer, refuser en proposant un autre créneau, annuler</span></span></li>
+    <li><span class="num">05</span><span><span class="titre">Les matchs programmés sur ton terrain</span><br><span class="desc">Quand un manager choisit ton terrain pour son match</span></span></li>
+    <li><span class="num">06</span><span><span class="titre">Bloquer tes créneaux</span><br><span class="desc">Tes habitués chaque semaine, et ta semaine d'un coup d'œil</span></span></li>
+    <li><span class="num">07</span><span><span class="titre">Gérer tes terrains</span><br><span class="desc">En ajouter un, fermer pour travaux, retirer</span></span></li>
+    <li><span class="num">08</span><span><span class="titre">Sur téléphone</span><br><span class="desc">Ton espace terrain dans la poche</span></span></li>
+    <li><span class="num">+</span><span><span class="titre">Aide-mémoire et questions fréquentes</span><br><span class="desc">Ta semaine de gérant, sur une page</span></span></li>
+  </ol>
+</section>
+
+<!-- ================= 00 AVANT DE COMMENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 00</div>
+  <h2>Avant de commencer</h2>
+  <p class="chapo">MyFields, c'est l'espace des terrains sur KoppaFoot. Ton terrain entre dans l'annuaire, les équipes te demandent un créneau, et tu confirmes ou tu refuses. La plateforme n'encaisse rien : le règlement se fait entre toi et l'équipe, comme d'habitude.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="avantages">
+  <div><b class="t">Trouvé</b>Ton terrain apparaît dans l'annuaire et la recherche, avec sa photo, son tarif et ses horaires.</div>
+  <div><b class="t">Demandé</b>Les équipes demandent une date, une heure, une durée. Tu es prévenu tout de suite.</div>
+  <div><b class="t">Maître de ton planning</b>Tu confirmes, tu refuses, tu proposes un autre horaire, tu bloques les soirs déjà pris.</div>
+</div>
+
+<div class="intro-grille">
+  <div class="carte">
+    <h3>Ce qu'il te faut</h3>
+    <ul>
+      <li>Un <b>téléphone</b> ou un ordinateur avec Internet, et une <b>adresse email</b>.</li>
+      <li>Les informations du terrain : <b>nom, adresse, format, surface</b>, une <b>photo</b>, ton <b>tarif</b> et tes <b>horaires</b>.</li>
+      <li>Être le <b>propriétaire, le gérant ou l'exploitant</b> du lieu : l'équipe KoppaFoot relit chaque fiche avant de la publier.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h3>Comment lire ce guide</h3>
+    <p>Sur chaque capture, un <b>cadre orange numéroté</b> te montre où toucher. Suis les numéros dans l'ordre.</p>
+    <div class="legende-repere"><span class="cadre">Bouton à toucher</span></div>
+    <p style="margin-top:3mm;margin-bottom:0">Dans le texte, le même numéro renvoie au même cadre : <span class="m">1</span> <span class="m">2</span> <span class="m">3</span>…</p>
+  </div>
+</div>
+
+<div class="carte" style="margin-top:6mm">
+  <h3>L'exemple suivi dans ce guide</h3>
+  <p>On accompagne <b>Yawo Agbeko</b>, gérant du <b>Complexe sportif de Bè</b>, à Lomé. Deux clubs lui demandent des créneaux : l'<b>Avenir d'Adakpamé</b> d'Edem Amouzou et l'<b>Olympique de Tokoin</b> de Kokou Tepe. Le jeudi soir, ses habitués occupent le terrain.</p>
+  <p style="margin:0">Tous les noms (gérants, managers, équipes) sont <b>inventés</b> pour l'exemple.</p>
+</div>
+
+<div class="encadre info"><span class="t">Gérant, et joueur aussi ?</span>Gérer un terrain s'ajoute à ton compte : si tu es déjà joueur, manager ou arbitre sur KoppaFoot, tu le restes. Tu peux utiliser ton compte actuel.</div>
+
+<!-- ================= 01 REFERENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 01</div>
+  <h2>Référencer ton terrain</h2>
+  <p class="chapo">Voici comment présenter ton terrain à KoppaFoot : un compte, puis une courte candidature. Cinq minutes suffisent.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Va sur la vitrine MyFields</h3>
+  <p>Dans ton navigateur, va sur <b>koppafoot.com/terrains</b> (ou, depuis KoppaFoot, menu <b>Koppa Links</b> → <b>MyFields</b>). Touche <span class="m">1</span> <span class="bouton">Référencer mon terrain</span>.</p>
+  <figure class="moyen"><img src="captures/01-vitrine.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Crée ton compte</h3>
+  <p>La fiche du terrain sera rattachée à ton compte : c'est par lui que les équipes te demanderont un créneau. Touche <span class="m">1</span> <span class="bouton">Créer mon compte</span>.</p>
+  <figure class="bandeau etroit"><img src="captures/02-il-faut-un-compte.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Tu as déjà un compte KoppaFoot ?</span>Connecte-toi sur la page suivante : tu arrives directement à l'étape 4.</div>
+</section>
+
+<div class="duo cadre etape">
+  <figure><img src="captures/03-connexion-myfields.jpg"><figcaption>Touche <span class="m">1</span> « Créer un compte ».</figcaption></figure>
+  <figure><img src="captures/04-inscription.jpg"><figcaption><span class="m">1</span> prénom et nom, <span class="m">2</span> email, <span class="m">3</span> mot de passe, <span class="m">4</span> Continuer.</figcaption></figure>
+</div>
+
+<section class="etape">
+  <h3><span class="n">3</span>Termine l'inscription</h3>
+  <p>Indique ta <b>ville</b>, puis touche <span class="bouton">Créer mon compte</span>. KoppaFoot te ramène <b>tout seul</b> à la candidature. Il t'envoie aussi un email : ouvre-le et touche le lien pour confirmer ton adresse.</p>
+</section>
+
+<div class="cote large etape">
+  <figure><img src="captures/05-candidature.jpg"></figure>
+  <div>
+    <h3><span class="n">4</span>Remplis ta candidature</h3>
+    <ol>
+      <li><span class="m">1</span> Le <b>nom</b> du terrain, tel que les équipes le connaissent.</li>
+      <li><span class="m">2</span> La <b>ville</b>.</li>
+      <li><span class="m">3</span> Un <b>téléphone</b>. Lis la note dessous : il sera montré aux membres connectés qui touchent « Contacter le responsable ». Tu pourras le remplacer par celui de l'accueil (chapitre 03).</li>
+      <li><span class="m">4</span> L'<b>adresse</b> : rue, quartier.</li>
+      <li><span class="m">5</span> Le <b>format</b> et la <b>surface</b>.</li>
+      <li><span class="m">6</span> <b>Ton lien avec le terrain</b> : propriétaire, gérant, association qui l'exploite. C'est ce qui décide le plus souvent.</li>
+      <li>Touche <span class="m">7</span> <span class="bouton">Envoyer ma candidature</span>.</li>
+    </ol>
+    <div class="encadre info"><span class="t">Le reste viendra après</span>Photo, tarif, équipements et horaires se complètent dans ton espace, une fois le terrain publié.</div>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">5</span>Ta demande est en examen</h3>
+  <p>Elle est <span class="m">1</span> <b>en cours d'examen</b> : l'équipe KoppaFoot la relit. Tant que personne ne l'a relue, tu peux encore <span class="m">2</span> la <b>modifier</b> (une faute dans le nom, une adresse oubliée) ou <span class="m">3</span> la <b>retirer</b>.</p>
+  <figure class="moyen"><img src="captures/06-en-attente.jpg"></figure>
+</section>
+
+<!-- ================= 02 REPONSE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 02</div>
+  <h2>La réponse de KoppaFoot</h2>
+  <p class="chapo">L'équipe KoppaFoot relit ta fiche. Tu es prévenu de sa réponse par une notification, sur ton téléphone et par email.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ton terrain est publié</h3>
+  <p>La notification <span class="m">1</span> <b>Terrain publié</b> arrive derrière la cloche, en haut de l'écran. Ton terrain est dans l'annuaire, créé à partir de ta candidature : rien à ressaisir. Touche la notification : elle t'emmène dans <b>Mes terrains</b>.</p>
+  <figure class="bandeau etroit"><img src="captures/07-notif-publie.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Si ta demande n'est pas retenue</h3>
+  <p>La page de ta candidature te dit <span class="m">1</span> <b>pourquoi</b> : le motif de l'équipe KoppaFoot est aussi dans la notification et dans l'email. Corrige ce qu'il demande, puis touche <span class="m">2</span> <span class="bouton">Redéposer ma demande</span> : le formulaire se rouvre.</p>
+  <figure class="moyen"><img src="captures/09-refus-motif.jpg"></figure>
+  <div class="encadre info"><span class="t">Pourquoi une relecture ?</span>Référencer un terrain, c'est publier une adresse et se présenter comme celui qui le gère. On vérifie ce lien pour qu'aucune équipe ne se déplace pour rien.</div>
+</section>
+
+<!-- ================= 03 FICHE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 03</div>
+  <h2>Compléter ta fiche</h2>
+  <p class="chapo">Une équipe qui hésite entre deux terrains choisit sur la photo et le tarif. Voici comment compléter ta fiche pour être choisi.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Ouvre ton espace terrain</h3>
+  <p>Sur ordinateur, le menu <b>MySpace</b>, en haut, regroupe ton espace terrain : <span class="m">1</span> <b>Mes terrains</b>, pour tes fiches, et <span class="m">2</span> <b>Réservations reçues</b>, pour les demandes des équipes. Sur téléphone, c'est l'onglet <b>Espace</b> (chapitre 08).</p>
+  <figure class="bandeau"><img src="captures/10-menu-myspace.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Mes terrains</h3>
+  <p>Ta fiche est là, avec <span class="m">1</span> ce qui lui manque encore. Touche <span class="m">2</span> le <b>crayon</b> pour la modifier. L'<span class="m">3</span> <b>œil</b> ouvre la fiche publique, telle que la voient les équipes.</p>
+  <figure class="moyen"><img src="captures/11-mes-terrains.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ajoute une photo</h3>
+  <p><span class="m">1</span> <span class="bouton">Ajouter une photo</span> : c'est la photo de couverture, en tête de la fiche et dans l'annuaire. Elle est réduite automatiquement. <span class="m">2</span> <b>Autres photos</b> : jusqu'à six vues de plus (les vestiaires, l'éclairage de nuit, les tribunes).</p>
+  <figure class="bandeau"><img src="captures/12-fiche-photo.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Tarif, équipements, horaires</h3>
+  <p><span class="m">1</span> Ton <b>tarif horaire</b>, en FCFA : laissé vide, la fiche affiche « prix à convenir », et les équipes voient le total estimé de leur créneau. <span class="m">2</span> Ce qu'on trouve <b>sur place</b> : touche chaque équipement pour l'allumer. <span class="m">3</span> Touche <b>Préciser les horaires</b>, puis règle l'ouverture et la fermeture du <b>lundi</b>. <span class="m">4</span> <b>Le lundi pour tous les jours</b> recopie ces horaires ; ajuste ensuite un jour différent, ou décoche un jour de fermeture.</p>
+  <figure><img src="captures/13-fiche-tarif.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Les horaires font foi</span>Une équipe ne peut pas demander un créneau en dehors : tu n'as plus à refuser les demandes de 6 h du matin.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Ton contact, et l'état du terrain</h3>
+  <p><span class="m">1</span> Lis ce que montre « Contacter le responsable » : ton nom, un numéro et ton email, aux seuls membres connectés de KoppaFoot. <span class="m">2</span> Donne le <b>téléphone du terrain</b> (l'accueil du complexe) si tu ne veux pas montrer le tien ; laissé vide, c'est celui de ton compte. <span class="m">3</span> Décoche <b>Montrer aussi mon email</b> pour le garder pour toi. <span class="m">4</span> <b>Ouvert aux demandes</b> : décoche-le quand le terrain est fermé (chapitre 07). Touche <span class="m">5</span> <span class="bouton">Enregistrer</span>.</p>
+  <figure class="bandeau"><img src="captures/14-fiche-contact.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Ta fiche est complète</h3>
+  <p>La photo, le tarif et les équipements s'affichent ; la note « Il manque… » a disparu.</p>
+  <figure class="bandeau etroit"><img src="captures/15-carte-complete.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">7</span>Ce que voient les équipes</h3>
+  <p>Sur la fiche publique, les équipes voient <span class="m">1</span> si le terrain prend des demandes, <span class="m">2</span> le format, la surface et le tarif, tes horaires et tes équipements, et <span class="m">3</span> le formulaire pour <b>demander un créneau</b>.</p>
+  <figure class="grand"><img src="captures/16-fiche-publique.jpg"></figure>
+</section>
+
+<div class="duo cadre etape">
+  <figure><img src="captures/18-contact-vu.jpg"><figcaption>« Contacter le responsable », vu par une équipe connectée : le numéro de l'accueil.</figcaption></figure>
+  <figure><img src="captures/17-ta-fiche.jpg"><figcaption>Sur ta propre fiche : <span class="m">1</span> tes réservations reçues, <span class="m">2</span> la fiche à modifier.</figcaption></figure>
+</div>
+
+<!-- ================= 04 DEMANDES ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 04</div>
+  <h2>Répondre aux demandes</h2>
+  <p class="chapo">Une équipe demande un créneau : voici comment la lire, la joindre, et répondre. Tant que tu n'as pas répondu, le créneau reste libre pour les autres.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Tu es prévenu</h3>
+  <p>Chaque demande sonne <span class="m">1</span> derrière la cloche, sur ton téléphone et par email. L'email contient le <b>téléphone de l'équipe</b> : tu peux l'appeler sans ouvrir KoppaFoot.</p>
+  <figure class="bandeau etroit"><img src="captures/19-notif-demandes.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Ouvre tes réservations reçues</h3>
+  <p>Sur <b>Mes terrains</b>, le cadre <span class="m">1</span> compte les demandes en attente. Touche-le (ou MySpace → <b>Réservations reçues</b>).</p>
+  <figure class="bandeau etroit"><img src="captures/20-compteur.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Lis la demande</h3>
+  <p>Chaque demande dit <span class="m">1</span> <b>qui</b> la fait, et pour quelle équipe, puis la date, l'heure et la durée. <span class="m">2</span> Appelle l'équipe, écris-lui sur <b>WhatsApp</b> ou par email d'un toucher. <span class="m">3</span> Lis son mot : combien ils seront, ce qu'il leur faut. Puis <span class="m">4</span> <span class="bouton">Confirmer</span> ou <span class="m">5</span> <span class="bouton">Refuser</span>.</p>
+  <figure><img src="captures/21-demandes.jpg"></figure>
+  <div class="encadre info"><span class="t">Le paiement, entre vous</span>KoppaFoot n'encaisse rien et ne prend aucune commission. Réglez l'arrivée, l'acompte et le paiement entre vous, par téléphone ou sur place.</div>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Confirme, et gare aux chevauchements</h3>
+  <p>Tu as confirmé l'Avenir d'Adakpamé, de 18 h à 19 h 30 : l'équipe est prévenue, et le créneau apparaît <b>occupé</b> sur ta fiche. La demande de l'Olympique de Tokoin, à 18 h 30, <span class="m">1</span> <b>chevauche</b> désormais ce créneau : KoppaFoot te le signale. Tu peux quand même la confirmer (si tu as deux terrains, par exemple), mais le plus simple est de <span class="m">2</span> <b>refuser en proposant</b> un autre horaire.</p>
+  <figure><img src="captures/22-chevauchement.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">5</span>Refuse en proposant un autre créneau</h3>
+  <p>Coche <span class="m">1</span> <b>Proposer un autre créneau à l'équipe</b>, choisis <span class="m">2</span> la date et l'heure qui te vont (ici, 20 h le même samedi), puis touche <span class="m">3</span> <span class="bouton">Refuser et proposer</span>. L'équipe reçoit ta proposition et la prend <b>d'un seul toucher</b>, dans ses réservations.</p>
+  <figure><img src="captures/23-refus-proposition.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>Ton samedi est rempli</h3>
+  <p>Kokou a pris la proposition : <span class="m">1</span> l'Olympique de Tokoin est <b>confirmé à 20 h</b>, sans nouvelle demande à traiter (tu es prévenu : « Ta proposition est prise »). Un empêchement ? <span class="m">2</span> <b>Annuler</b> libère un créneau confirmé ; l'équipe est prévenue. <span class="m">3</span> La demande refusée reste dans <b>Refusées ou annulées</b>.</p>
+  <figure><img src="captures/24-a-venir.jpg"></figure>
+</section>
+
+<!-- ================= 05 MATCHS ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 05</div>
+  <h2>Les matchs programmés sur ton terrain</h2>
+  <p class="chapo">Un manager qui programme un match, ou un organisateur qui monte le calendrier de sa compétition, peut choisir ton terrain dans la liste. La demande t'arrive toute seule, avec le nom du match.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Côté manager : il choisit ton terrain</h3>
+  <p>En programmant son amical du dimanche, Edem choisit <span class="m">1</span> <b>Complexe sportif de Bè</b> dans la liste des terrains. KoppaFoot <span class="m">2</span> lui annonce la demande de créneau, et tes horaires de ce jour-là.</p>
+  <figure><img src="captures/25-match-choix-terrain.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>La demande porte le match</h3>
+  <p>Dans tes réservations reçues, la demande affiche <span class="m">1</span> <b>le match</b> : « Avenir d'Adakpamé vs Dynamo de Bè ». Réponds comme pour les autres : <span class="m">2</span> <span class="bouton">Confirmer</span>, ou refuser (le manager est alors invité à changer d'horaire ou de terrain).</p>
+  <figure><img src="captures/26-demande-match.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Le manager voit ta réponse</h3>
+  <p>Sur la carte de son match, il lit <span class="m">1</span> <b>Terrain confirmé</b>. Si le match est déplacé ou annulé, la demande suit toute seule : le créneau se libère, et tu en es prévenu.</p>
+  <figure><img src="captures/27-match-confirme.jpg"></figure>
+  <div class="encadre astuce"><span class="t">Une journée de championnat, un seul email</span>Quand un organisateur programme toute une journée de compétition sur ton terrain, chaque match arrive dans tes réservations, mais tu ne reçois qu'<b>un email récapitulatif</b>.</div>
+</section>
+
+<!-- ================= 06 BLOQUER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 06</div>
+  <h2>Bloquer tes créneaux</h2>
+  <p class="chapo">Un habitué, une réservation prise au téléphone : bloque ces créneaux dans KoppaFoot. Ta fiche les montre occupés, et personne ne te demande un soir déjà pris.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Bloque tes habitués, chaque semaine</h3>
+  <p>Dans <b>Réservations reçues</b>, touche <span class="bouton">Bloquer un créneau</span>. Choisis <span class="m">1</span> la <b>date</b> et l'<b>heure</b> du premier créneau, puis <span class="m">2</span> la <b>durée</b>. Coche <span class="m">3</span> <b>Chaque semaine</b> (le même jour, à la même heure) et choisis <span class="m">4</span> <b>jusqu'au</b> quand (au plus 26 semaines d'un coup). <span class="m">5</span> <b>Pour qui, pour quoi</b> : une note pour toi seul. Touche <span class="m">6</span> <span class="bouton">Bloquer 12 créneaux</span>.</p>
+  <figure class="moyen"><img src="captures/28-bloquer.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Ta série, en une ligne</h3>
+  <p>Les douze jeudis tiennent sur <b>une seule ligne</b> : <span class="m">1</span> chaque jeudi, jusqu'au 17 décembre. Un jeudi férié ? <span class="m">2</span> <b>Débloquer ce jour</b> libère cette date seulement. Tes habitués arrêtent ? <span class="m">3</span> <b>Débloquer la série</b> libère cette date et toutes les suivantes.</p>
+  <figure><img src="captures/29-serie.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ta semaine d'un coup d'œil</h3>
+  <p>Touche <b>Semaine</b> (en haut à droite de la liste). Chaque réservation a sa couleur : <b>jaune</b> en attente, <b>vert</b> confirmée, <b>gris</b> bloquée. <span class="m">1</span> Change de semaine avec les flèches. <span class="m">2</span> <b>Touche un créneau libre</b> pour le bloquer directement, ou une réservation pour la voir en détail.</p>
+  <figure class="haut"><img src="captures/30-semaine.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">4</span>Ce que voient les équipes</h3>
+  <p>Sur ta fiche, les créneaux pris s'affichent <span class="m">1</span> dans <b>Déjà réservé</b> : l'heure seulement, sans nom ni motif. Une équipe qui choisit quand même un créneau occupé est prévenue avant d'envoyer sa demande.</p>
+  <figure class="bandeau etroit"><img src="captures/31-deja-reserve.jpg"></figure>
+</section>
+
+<!-- ================= 07 GERER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 07</div>
+  <h2>Gérer tes terrains</h2>
+  <p class="chapo">Un deuxième terrain, des travaux, une fermeture : voici comment tenir tes fiches à jour.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Plusieurs terrains, une fermeture</h3>
+  <ul>
+    <li><span class="m">1</span> <span class="bouton">Ajouter un terrain</span> : ton deuxième terrain se référence <b>sans nouvelle candidature</b>. Toutes les demandes arrivent dans les mêmes réservations reçues ; la vue Semaine se règle terrain par terrain.</li>
+    <li><span class="m">2</span> L'<b>état</b> du terrain : <b>Ouvert</b> ou <b>Fermé</b>. Des travaux ? Modifie la fiche et décoche <b>Ouvert aux demandes</b> : la fiche reste en ligne, les demandes s'arrêtent. Recoche-le à la réouverture.</li>
+    <li><span class="m">3</span> La <b>corbeille</b> retire le terrain de KoppaFoot.</li>
+  </ul>
+  <figure class="moyen"><img src="captures/32-plusieurs.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/33-retirer.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Retirer un terrain</h3>
+    <p>Avant de confirmer, KoppaFoot te dit ce que le retrait va toucher :</p>
+    <ul>
+      <li>les demandes <b>en attente</b> sont closes, et leurs équipes prévenues ;</li>
+      <li>les créneaux <b>déjà confirmés</b> restent dans tes réservations reçues : honore-les, ou annule-les en prévenant l'équipe ;</li>
+      <li>tes créneaux <b>bloqués</b> disparaissent.</li>
+    </ul>
+    <div class="encadre attention"><span class="t">C'est définitif</span>La fiche sort de l'annuaire. Pour une fermeture temporaire, décoche plutôt « Ouvert aux demandes ».</div>
+  </div>
+</div>
+
+<!-- ================= 08 TELEPHONE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 08</div>
+  <h2>Sur téléphone</h2>
+  <p class="chapo">Tout se fait aussi sur téléphone : c'est souvent là qu'on répond à une demande, entre deux matchs.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="duo etape">
+  <figure><img src="captures/34-tel-espace.jpg"><figcaption>L'onglet <b>Espace</b>, en bas : <span class="m">1</span> Mes terrains et Réservations reçues.</figcaption></figure>
+  <figure><img src="captures/35-tel-reservations.jpg"><figcaption>Tes réservations : <span class="m">1</span> appeler, <span class="m">2</span> écrire sur WhatsApp, d'un toucher.</figcaption></figure>
+</div>
+
+<div class="encadre astuce"><span class="t">Installe KoppaFoot sur ton téléphone</span>Mets KoppaFoot sur ton écran d'accueil et active les notifications (avatar → <b>Paramètres</b> → <b>Sur cet appareil</b> → <b>Oui</b>) : chaque demande sonne comme un message. Tout est expliqué dans le <b>guide d'installation</b>.</div>
+
+<!-- ================= AIDE-MEMOIRE ================= -->
+<section class="page-break memo">
+  <h2>Ta semaine de gérant</h2>
+  <p class="sous">Les gestes à connaître, de la candidature au samedi complet.</p>
+  <ol>
+    <li><span><b>Référencer</b> : koppafoot.com/terrains → <b>Référencer mon terrain</b> → candidature.</span></li>
+    <li><span><b>Fiche complète</b> : Mes terrains → crayon → photo, tarif, équipements, horaires, contact → <b>Enregistrer</b>.</span></li>
+    <li><span><b>Une demande sonne</b> : Réservations reçues → lis qui, quand, combien → appelle si besoin.</span></li>
+    <li><span><b>Oui</b> : <b>Confirmer</b>. L'équipe est prévenue, le créneau est pris sur la fiche.</span></li>
+    <li><span><b>Non, mais…</b> : <b>Refuser</b> → « Proposer un autre créneau » → l'équipe le prend d'un toucher.</span></li>
+    <li><span><b>Alerte orange</b> : deux demandes se chevauchent. Choisis, propose un autre horaire à l'autre.</span></li>
+    <li><span><b>Un match</b> arrive avec son nom : on y répond de la même façon.</span></li>
+    <li><span><b>Les habitués</b> : Bloquer un créneau → <b>Chaque semaine</b> → jusqu'au…</span></li>
+    <li><span><b>Ta semaine</b> : Réservations reçues → <b>Semaine</b> ; touche un créneau libre pour le bloquer.</span></li>
+    <li><span><b>Fermé pour travaux</b> : Mes terrains → crayon → décoche <b>Ouvert aux demandes</b>.</span></li>
+  </ol>
+</section>
+
+<section class="page-break faq">
+  <header class="chapitre-tete" style="break-before:auto">
+    <div class="numero">Annexe</div>
+    <h2>Questions fréquentes</h2>
+    <div class="barre"></div>
+  </header>
+  <dl>
+    <dt>Combien ça coûte ?</dt>
+    <dd>Rien. KoppaFoot n'encaisse aucun paiement et ne prend aucune commission.</dd>
+    <dt>Comment les équipes me paient-elles ?</dt>
+    <dd>Entre vous, comme d'habitude : sur place, en espèces ou par mobile money. Le tarif affiché sur la fiche est indicatif ; mettez-vous d'accord par téléphone.</dd>
+    <dt>Deux équipes veulent le même créneau.</dt>
+    <dd>KoppaFoot te signale le chevauchement. Confirme l'une, et refuse l'autre en lui proposant un autre horaire.</dd>
+    <dt>Une équipe a réservé, puis ne vient pas.</dt>
+    <dd>Rien n'est automatique : garde son numéro, et à la prochaine demande, appelle-la avant de confirmer, ou refuse.</dd>
+    <dt>Je ne veux pas montrer mon numéro personnel.</dt>
+    <dd>Mes terrains → crayon → <b>Téléphone du terrain</b> : mets le numéro de l'accueil. Décoche aussi « Montrer aussi mon email ». Ces coordonnées ne sont montrées qu'aux membres connectés, jamais aux visiteurs sans compte.</dd>
+    <dt>Une équipe demande à 6 h du matin.</dt>
+    <dd>Renseigne tes horaires d'ouverture (chapitre 03) : les demandes en dehors ne peuvent plus partir.</dd>
+    <dt>J'ai plusieurs terrains.</dt>
+    <dd>Mes terrains → <b>Ajouter un terrain</b>, sans nouvelle candidature. Toutes les demandes arrivent dans tes réservations reçues ; chaque ligne dit sur quel terrain.</dd>
+    <dt>Ma candidature a été refusée.</dt>
+    <dd>Lis le motif sur la page de ta candidature, corrige, puis <b>Redéposer ma demande</b>. Le plus souvent, il manquait ton lien avec le terrain.</dd>
+    <dt>Je veux changer le nom ou l'adresse du terrain.</dt>
+    <dd>Mes terrains → crayon, puis <b>Enregistrer</b>. La fiche publique se met à jour dans la minute.</dd>
+    <dt>Besoin d'aide ?</dt>
+    <dd>Touche ton avatar (tes initiales, en haut à droite), puis, dans <b>Support</b> : <b>Questions fréquentes</b>, ou <b>Nous faire un retour</b> pour écrire à l'équipe KoppaFoot.</dd>
+  </dl>
+</section>
+
+</body>
+</html>

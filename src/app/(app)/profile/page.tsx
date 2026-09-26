@@ -9,11 +9,12 @@ import {
   nomPersonne, telephoneOptionnel, villeOptionnelle,
 } from "@/lib/champs-valides";
 import toast from "react-hot-toast";
+import { NIVEAUX_LICENCE } from "@/lib/arbitrage-client";
 import {
   Camera, Edit3, Save, X, Loader2, MapPin, Calendar, Mail, Phone,
   Trophy, ImageIcon, FileText, CreditCard, Plus, Trash2,
   Ruler, Weight, Footprints, Cake, LogOut, AlertTriangle, KeyRound, Settings,
-  ChevronRight,
+  ChevronRight, Flag,
 } from "lucide-react";
 import { deleteField } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -562,6 +563,49 @@ export default function ProfilePage() {
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
+            {/* LA LICENCE D'ARBITRE, qu'on ne voyait qu'en passant en
+                modification. C'est pourtant ce que les managers regardent sur
+                la fiche publique avant d'inviter : l'arbitre doit voir d'un
+                coup d'œil ce qu'il leur montre, et ce qui manque. */}
+            {isRefereeRole && (
+              <div className="border border-gray-200/70 bg-white p-4 md:col-span-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <Flag size={16} className="text-violet-600" />
+                    Ma licence d&apos;arbitre
+                  </h3>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="flex shrink-0 items-center gap-1.5 border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-100"
+                  >
+                    <Edit3 size={13} />
+                    {user.licenseLevel && user.licenseNumber ? "Modifier" : "Compléter"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {[
+                    { label: "Niveau", valeur: user.licenseLevel ? NIVEAUX_LICENCE[user.licenseLevel] ?? user.licenseLevel : null },
+                    { label: "N° de licence", valeur: user.licenseNumber || null },
+                    {
+                      label: "Expérience",
+                      valeur: typeof user.experienceYears === "number"
+                        ? `${user.experienceYears} an${user.experienceYears > 1 ? "s" : ""}`
+                        : null,
+                    },
+                  ].map(({ label, valeur }) => (
+                    <div key={label} className="border border-gray-200/70 bg-gray-50 p-2.5">
+                      <p className="text-[11px] text-gray-500">{label}</p>
+                      <p className={`mt-0.5 text-sm font-semibold ${valeur ? "text-gray-900" : "text-gray-400"}`}>
+                        {valeur ?? "À renseigner"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] leading-relaxed text-gray-400">
+                  Sur ta fiche publique, le numéro de licence n&apos;apparaît qu&apos;en partie.
+                </p>
               </div>
             )}
           </div>

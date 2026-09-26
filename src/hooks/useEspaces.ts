@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Radio, MapPin, Shield, Inbox, Ticket, Trophy,
-  LayoutGrid,
+  LayoutGrid, UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -109,6 +109,11 @@ export function useEspaces(): Espaces | null {
   // amicaux que personne ne couvre, meme sans moderer quoi que ce soit.
   if (moderates || isScorer(user)) {
     hatItems.push({ href: "/live-ops", label: t("espace.consoleLive"), Icon: Radio });
+  }
+  // Le scoreur rejoint le corps arbitral d'un arbitre, qui l'emmène sur ses
+  // matchs pour tenir la console. L'arbitre a déjà l'entrée dans son rôle.
+  if (isScorer(user) && user.evolutionRole !== "referee") {
+    hatItems.push({ href: "/corps-arbitral", label: t("espace.corpsArbitral"), Icon: UsersRound });
   }
   if (isVenueOwner(user)) {
     hatItems.push({ href: "/mes-terrains", label: t("espace.mesTerrains"), Icon: MapPin });

@@ -426,15 +426,25 @@ service cloud.firestore {
     // `venue_booking` recopie la réponse du propriétaire du terrain sur le
     // match : seul /api/matches/[mid]/terrain l'écrit, avec le SDK admin. Un
     // manager ne doit pas pouvoir s'afficher un terrain « confirmé ».
+    //
+    // L'ARBITRE — `referee_id`, `referee_name`, `referee_status` — ne s'écrit
+    // plus que par /api/matches/[mid]/arbitre. Une branche laissait l'arbitre
+    // réécrire son propre statut : un candidat se passait « confirmé » sans
+    // l'accord du manager, et la branche 2 lui ouvrait alors tout le match.
+    // La route vérifie qui fait quoi, et prévient l'autre partie.
     function toucheAuxChampsDuServeur() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['validation_status', 'post_match_feedback', 'stats_credited_at', 'stats_credited_by', 'venue_booking']);
+        .hasAny(['validation_status', 'post_match_feedback', 'stats_credited_at', 'stats_credited_by', 'venue_booking',
+                 'referee_id', 'referee_name', 'referee_status',
+                 // L'équipe de l'arbitre (assistants, scoreur), composée par
+                 // la même route dans son corps arbitral.
+                 'equipe_arbitrale', 'equipe_arbitrale_ids']);
     }
 
     // ============================================
     // Matches collection
     // ============================================
-    // Les branches 3 et 4 utilisaient `hasAny`, qui ne contraint QUE la
+    // Les branches 3 (disparue depuis) et 4 utilisaient `hasAny`, qui ne contraint QUE la
     // présence d'une clé parmi la liste : toutes les autres restaient
     // librement modifiables. N'importe quel compte authentifié pouvait donc
     // réécrire le statut, le score ou le résultat de n'importe quel match.
@@ -447,7 +457,12 @@ service cloud.firestore {
         && !('validation_status' in request.resource.data)
         && !('post_match_feedback' in request.resource.data)
         && !('stats_credited_at' in request.resource.data)
-        && !('venue_booking' in request.resource.data);
+        && !('venue_booking' in request.resource.data)
+        // Un match naît sans arbitre : on en invite un ensuite, et il accepte.
+        && request.resource.data.get('referee_id', null) == null
+        && request.resource.data.get('referee_status', 'none') == 'none'
+        && !('equipe_arbitrale' in request.resource.data)
+        && !('equipe_arbitrale_ids' in request.resource.data);
       allow update: if isAuthenticated()
         && !toucheAuxChampsDuServeur()
         && (
@@ -463,24 +478,18 @@ service cloud.firestore {
           //    refusé, ce qui est pire que de ne rien lui montrer.
           || equipeDuMatchDeleguee(resource.data)
 
-          // 2. Confirmed Referee
-          || (resource.data.referee_id == request.auth.uid && resource.data.referee_status == 'confirmed')
-
-          // 3. Arbitre, en self-service : se porter candidat sur un match sans
-          //    arbitre, ou accepter/décliner sa propre désignation. Les
-          //    réponses côté manager (accepter/inviter) passent par la
-          //    branche 1.
+          // 2. L'arbitre confirmé, borné aux champs de la console. Il dirige
+          //    la rencontre ; il ne la déplace pas, ne change pas les équipes
+          //    et ne touche pas aux convocations. La branche lui ouvrait tout
+          //    le document.
+          //
+          //    (L'ancienne branche 3, le « self-service » de l'arbitre, n'est
+          //    plus : candidature, réponse à une invitation et désistement
+          //    passent par /api/matches/[mid]/arbitre.)
           || (
-               request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['referee_id', 'referee_name', 'referee_status', 'updated_at'])
-               && (
-                    (
-                      resource.data.get('referee_id', null) == null
-                      && request.resource.data.referee_id == request.auth.uid
-                      && request.resource.data.referee_status == 'pending'
-                    )
-                    || resource.data.referee_id == request.auth.uid
-                  )
+               resource.data.referee_id == request.auth.uid
+               && resource.data.referee_status == 'confirmed'
+               && champsDeLaConsole()
              )
 
           // 3 bis. Modérateur du match, borné aux champs de la console.
@@ -545,6 +554,32 @@ service cloud.firestore {
     match /match_validations/{matchId} {
       allow get: if isAuthenticated() && (concerneParLaValidation(matchId) || isSuperAdmin());
       allow list: if isAuthenticated() && request.auth.uid in resource.data.managers;
+      allow write: if false;
+    }
+
+    // ============================================
+    // Les notes de l'arbitre — `arbitrages/{matchId}`
+    // ============================================
+    // La note que chaque manager donne à l'arbitre, avec son retour d'après
+    // match. Elle est rangée dans `match_validations`, que l'arbitre ne lit pas
+    // (il n'est d'aucun camp), avec les commentaires et contestations des deux
+    // équipes. Le serveur la recopie ici, seule : l'arbitre lit ses notes sans
+    // lire le reste. Les écrire reste l'affaire de /api/matches/validation.
+    match /arbitrages/{matchId} {
+      allow read: if isAuthenticated() && resource.data.referee_id == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ============================================
+    // Les corps arbitraux — `corps_arbitraux/{id}`
+    // ============================================
+    // L'équipe permanente d'un arbitre : ses assistants et ses scoreurs. Un
+    // nom, une ville, des prénoms et des rôles — rien qui ne se lise déjà sur
+    // un match. Tout compte connecté le lit : le manager qui cherche un
+    // arbitre voit qui vient avec lui. Seul /api/corps-arbitral l'écrit : le
+    // chef invite, l'invité accepte, et personne ne s'ajoute tout seul.
+    match /corps_arbitraux/{corpsId} {
+      allow read: if isAuthenticated();
       allow write: if false;
     }
 

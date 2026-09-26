@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { campDuCompte, refValidation, validationInitiale } from "@/lib/validation-server";
+import { notifier } from "@/lib/reservations-server";
 import type { FirestoreMatch, FirestoreMatchValidation, StatutValidation } from "@/types";
 
 /**
@@ -147,8 +148,38 @@ export async function POST(req: NextRequest) {
         // n'a pas encore le sien : on le crée.
         tx.set(ref, { ...v, feedback, status: suivant });
       }
+
+      // LA NOTE, RECOPIÉE POUR L'ARBITRE. Il ne lit pas cette validation (il
+      // n'est d'aucun camp), et elle porte les commentaires des deux équipes :
+      // sa note va dans `arbitrages/{matchId}`, qu'il est seul à lire. Un camp
+      // qui renvoie son retour sans note retire la sienne.
+      if (m.referee_id && m.referee_status === "confirmed") {
+        tx.set(
+          adminDb.collection("arbitrages").doc(matchId),
+          {
+            referee_id: m.referee_id,
+            match_id: matchId,
+            home_team_name: m.home_team_name,
+            away_team_name: m.away_team_name,
+            date: m.date,
+            notes: { [camp]: note ?? FieldValue.delete() },
+            updated_at: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
       return suivant;
     });
+
+    if (note && m.referee_id && m.referee_status === "confirmed") {
+      const equipe = camp === "home" ? m.home_team_name : m.away_team_name;
+      await notifier(m.referee_id, {
+        type: "arbitrage",
+        title: `Une note de ${note}/5`,
+        body: `${equipe} a noté ton arbitrage de ${m.home_team_name} vs ${m.away_team_name}.`,
+        link: "/designations",
+      });
+    }
 
     return NextResponse.json({ ok: true, status });
   }

@@ -1,4 +1,4 @@
-import { Users, ClipboardCheck, CalendarDays, BarChart3, Medal, Swords } from "lucide-react";
+import { Users, UsersRound, ClipboardCheck, CalendarDays, BarChart3, Medal, Swords } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { EvolutionRole } from "@/types";
 
@@ -51,6 +51,7 @@ export const ROLE_DESTINATIONS: Partial<Record<EvolutionRole, RoleDestination[]>
   // fait : répondre aux invitations, se porter candidat, ouvrir la console.
   referee: [
     { href: "/designations", label: "Mes désignations", hint: "Invitations, matchs à arbitrer et console", Icon: ClipboardCheck },
+    { href: "/corps-arbitral", label: "Corps arbitral", hint: "Tes assistants et tes scoreurs", Icon: UsersRound },
     { href: "/calendar", label: "Calendrier", hint: "Les matchs que tu diriges", Icon: CalendarDays },
   ],
 };

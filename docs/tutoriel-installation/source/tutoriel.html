@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Installer KoppaFoot</title>
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+@page { size: A4; margin: 15mm 16mm 17mm;
+  @bottom-left { content: "KoppaFoot · Installer l’application"; font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "DM Sans", sans-serif; color: #9ca3af; }
+}
+@page couverture { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --vert: #059669;
+  --vert-clair: #ecfdf5;
+  --encre: #111827;
+  --gris: #4b5563;
+  --gris-clair: #f3f4f6;
+  --orange: #ff5a1f;
+  --orange-clair: #fff4ed;
+  --ambre-clair: #fffbeb;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; color: var(--encre); background: #fff; }
+h1, h2, h3, .display { font-family: "Outfit", sans-serif; }
+p { margin: 0 0 2.2mm; }
+b, strong { font-weight: 700; }
+
+/* ---------- Couverture ---------- */
+.couverture { page: couverture; height: 296mm; width: 210mm; position: relative; overflow: hidden; color: #fff; background: #0b1512; }
+.couverture .photo { position: absolute; inset: 0; background: url(couverture.jpg) center 25%/cover; opacity: .6; }
+.couverture .voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.2) 35%, rgba(5,20,15,.95) 75%); }
+.couverture .contenu { position: absolute; left: 18mm; right: 18mm; bottom: 26mm; }
+.couverture .marque { position: absolute; top: 18mm; left: 18mm; font-family: "Outfit"; font-weight: 800; letter-spacing: .28em; font-size: 15pt; }
+.couverture .surtitre { font-family: "Outfit"; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #6ee7b7; font-size: 10pt; margin-bottom: 5mm; }
+.couverture h1 { font-weight: 900; text-transform: uppercase; font-size: 44pt; line-height: .92; letter-spacing: -.01em; margin: 0 0 7mm; }
+.couverture .phrase { font-size: 13pt; color: rgba(255,255,255,.82); max-width: 150mm; margin-bottom: 10mm; }
+.couverture .bas { display: flex; gap: 8mm; font-size: 9pt; color: rgba(255,255,255,.65); border-top: 1px solid rgba(255,255,255,.25); padding-top: 4mm; }
+
+/* ---------- Pages ---------- */
+.page-break { break-before: page; }
+.chapitre-tete { break-before: page; margin-bottom: 7mm; }
+.chapitre-tete .numero { font-family: "Outfit"; font-weight: 900; font-size: 11pt; letter-spacing: .2em; color: var(--vert); text-transform: uppercase; }
+.chapitre-tete h2 { font-weight: 900; font-size: 26pt; line-height: 1.05; margin: 1.5mm 0 3mm; text-transform: uppercase; }
+.chapitre-tete .chapo { font-size: 12pt; color: var(--gris); max-width: 160mm; }
+.chapitre-tete .barre { height: 3px; width: 22mm; background: var(--vert); margin-top: 4mm; }
+
+.etape { break-inside: avoid; margin: 0 0 7mm; }
+.etape h3 { font-weight: 800; font-size: 13pt; margin: 0 0 2mm; display: flex; align-items: center; gap: 2.5mm; break-after: avoid; }
+.etape h3 .n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--encre); color: #fff; font-size: 10pt; font-weight: 800; }
+.etape ol, .etape ul { margin: 0 0 3mm; padding-left: 6mm; }
+.etape li { margin-bottom: 1mm; }
+
+/* Repère orange dans le texte : renvoie au cadre numéroté de la capture */
+.m { display: inline-flex; align-items: center; justify-content: center; width: 4.6mm; height: 4.6mm; border-radius: 50%; background: var(--orange); color: #fff; font-size: 7.5pt; font-weight: 800; font-family: "Outfit"; vertical-align: .2mm; margin: 0 .5mm; }
+.bouton { font-weight: 700; background: var(--gris-clair); border: 1px solid #e5e7eb; border-radius: 1.2mm; padding: 0 1.4mm; white-space: nowrap; }
+
+figure { margin: 2mm 0 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 135mm; margin: 0 auto; border: 1px solid #e5e7eb; }
+figure.petit img { max-height: 90mm; }
+figure.moyen img { max-height: 100mm; }
+figure.bandeau img { max-height: 72mm; }
+figure.haut img { max-height: 175mm; }
+figcaption { font-size: 8.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }
+
+/* Téléphone debout, ou capture très haute : texte à gauche, image à droite */
+.cote { display: flow-root; break-inside: avoid; }
+.cote > figure { float: right; width: 62mm; margin: 0 0 2mm 7mm; }
+.cote > div { overflow: hidden; }
+.cote figure img { max-height: 102mm; border: 0; border-radius: 0; box-shadow: none; }
+.cote.large > figure { width: 84mm; }
+.cote.large figure img { max-height: 200mm; border: 1px solid #e5e7eb; }
+
+.encadre { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 0; font-size: 10pt; }
+.encadre .t { font-family: "Outfit"; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; display: block; margin-bottom: .8mm; }
+.astuce { background: var(--vert-clair); border-left: 3px solid var(--vert); }
+.astuce .t { color: var(--vert); }
+.attention { background: var(--orange-clair); border-left: 3px solid var(--orange); }
+.attention .t { color: #c2410c; }
+.info { background: var(--gris-clair); border-left: 3px solid #9ca3af; }
+.info .t { color: #374151; }
+
+.sous-partie { font-family: "Outfit"; font-weight: 900; text-transform: uppercase; font-size: 12pt; letter-spacing: .06em; color: var(--vert); margin: 6mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d1fae5; break-after: avoid; }
+
+/* Sommaire */
+.sommaire { break-before: page; }
+.sommaire h2 { font-weight: 900; font-size: 26pt; text-transform: uppercase; margin: 0 0 6mm; }
+.sommaire ol { list-style: none; padding: 0; margin: 0; }
+.sommaire li { display: grid; grid-template-columns: 12mm 1fr; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid #e5e7eb; }
+.sommaire li .num { font-family: "Outfit"; font-weight: 900; font-size: 16pt; color: var(--vert); line-height: 1.1; }
+.sommaire li .titre { font-family: "Outfit"; font-weight: 700; font-size: 12pt; }
+.sommaire li .desc { color: var(--gris); font-size: 9.5pt; }
+
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 5mm; }
+.carte { border: 1px solid #e5e7eb; border-radius: 2mm; padding: 4mm; break-inside: avoid; }
+.carte h3 { margin: 0 0 2mm; font-size: 12pt; font-weight: 800; }
+.legende-repere { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; }
+.legende-repere .cadre { width: 34mm; height: 10mm; border: 2.5px solid var(--orange); border-radius: 2mm; position: relative; box-shadow: 0 0 0 3px rgba(255,90,31,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9pt; margin-left: 8mm; }
+.legende-repere .cadre::before { content: "1"; position: absolute; left: -8mm; top: 50%; transform: translateY(-50%); width: 6mm; height: 6mm; border-radius: 50%; background: var(--orange); color: #fff; font: 800 9pt/6mm "Outfit"; text-align: center; }
+
+.tableau-simple { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 3mm; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.tableau-simple th { font-family: "Outfit"; font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); }
+
+/* Aide-mémoire */
+.memo { border: 2px solid var(--encre); border-radius: 3mm; padding: 6mm; }
+.memo h2 { margin: 0 0 1mm; font-weight: 900; text-transform: uppercase; font-size: 20pt; }
+.memo .sous { color: var(--gris); margin-bottom: 5mm; }
+.memo ol { counter-reset: g; list-style: none; padding: 0; margin: 0; }
+.memo li { counter-increment: g; display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; padding: 2.4mm 0; border-bottom: 1px dashed #d1d5db; }
+.memo li::before { content: counter(g); font-family: "Outfit"; font-weight: 900; font-size: 15pt; color: var(--vert); }
+.faq dt { font-family: "Outfit"; font-weight: 800; font-size: 11.5pt; margin-top: 4mm; }
+.faq dd { margin: 1mm 0 0; color: #374151; }
+
+/* Deux téléphones côte à côte */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; break-inside: avoid; margin: 2mm 0 0; }
+.duo figure img { max-height: 86mm; border: 0; }
+/* Captures de téléphone couchées (une bande de l'écran) : pas en pleine largeur */
+figure.etroit img { max-width: 112mm; }
+/* L'étiquette des schémas, reprise dans le texte */
+.schema { display: inline-block; font: 800 7pt/1 "Outfit", sans-serif; letter-spacing: .14em; background: var(--encre); color: #fff; padding: 1mm 1.5mm; border-radius: .8mm; vertical-align: .4mm; }
+.appareils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 6mm; }
+.appareils .carte { text-align: left; }
+.appareils .carte .ch { font-family: "Outfit"; font-weight: 900; color: var(--vert); font-size: 10pt; letter-spacing: .12em; text-transform: uppercase; }
+.appareils .carte h3 { margin-top: 1mm; }
+.avantages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 5mm 0 0; }
+.avantages div { background: var(--vert-clair); border-radius: 2mm; padding: 3.5mm 4mm; break-inside: avoid; }
+.avantages b.t { display: block; font-family: "Outfit"; font-size: 11.5pt; margin-bottom: 1mm; }
+</style>
+</head>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<section class="couverture">
+  <div class="photo"></div><div class="voile"></div>
+  <div class="marque">KOPPAFOOT</div>
+  <div class="contenu">
+    <div class="surtitre">Guide d'installation</div>
+    <h1>KoppaFoot sur ton téléphone</h1>
+    <p class="phrase">Mettre KoppaFoot sur l'écran d'accueil d'un Android, d'un iPhone ou d'un ordinateur, puis recevoir les notifications de tes matchs : voici comment faire, étape par étape, avec une image à chaque geste.</p>
+    <div class="bas"><span>Édition septembre 2026</span><span>·</span><span>koppafoot.com</span></div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="sommaire">
+  <h2>Au programme</h2>
+  <ol>
+    <li><span class="num">00</span><span><span class="titre">Avant de commencer</span><br><span class="desc">Pourquoi installer KoppaFoot, et comment lire ce guide</span></span></li>
+    <li><span class="num">01</span><span><span class="titre">Sur un téléphone Android</span><br><span class="desc">Avec Chrome : un bouton, une confirmation, c'est fait</span></span></li>
+    <li><span class="num">02</span><span><span class="titre">Sur un iPhone</span><br><span class="desc">Avec Safari, par le bouton Partager</span></span></li>
+    <li><span class="num">03</span><span><span class="titre">Sur un ordinateur</span><br><span class="desc">Avec Chrome ou Edge, KoppaFoot dans sa propre fenêtre</span></span></li>
+    <li><span class="num">04</span><span><span class="titre">Activer les notifications</span><br><span class="desc">Convocations, invitations, buts en direct : être prévenu tout de suite</span></span></li>
+    <li><span class="num">+</span><span><span class="titre">Aide-mémoire et questions fréquentes</span><br><span class="desc">L'installation en trente secondes, sur une page</span></span></li>
+  </ol>
+</section>
+
+<!-- ================= 00 AVANT DE COMMENCER ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 00</div>
+  <h2>Avant de commencer</h2>
+  <p class="chapo">KoppaFoot n'est pas dans le Play Store ni dans l'App Store : c'est le site koppafoot.com qui s'installe, directement depuis ton navigateur. Rien à télécharger, rien à mettre à jour, et l'icône est sur ton écran d'accueil comme n'importe quelle application.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="avantages">
+  <div><b class="t">Un toucher</b>KoppaFoot s'ouvre depuis son icône, sans taper l'adresse ni chercher l'onglet.</div>
+  <div><b class="t">Plein écran</b>Plus de barre d'adresse ni de boutons du navigateur : toute la place pour tes matchs.</div>
+  <div><b class="t">Les notifications</b>Convocations, invitations, buts en direct. Sur iPhone, elles n'existent <b>que</b> dans l'application installée.</div>
+</div>
+
+<div class="appareils">
+  <div class="carte"><div class="ch">Chapitre 01</div><h3>Android</h3><p style="margin:0">Avec <b>Chrome</b> (ou Samsung Internet, Edge).</p></div>
+  <div class="carte"><div class="ch">Chapitre 02</div><h3>iPhone, iPad</h3><p style="margin:0">Avec <b>Safari</b>, l'application d'Apple.</p></div>
+  <div class="carte"><div class="ch">Chapitre 03</div><h3>Ordinateur</h3><p style="margin:0">Avec <b>Chrome</b> ou <b>Edge</b>, sur Windows, Mac ou Linux.</p></div>
+</div>
+<p style="margin-top:3mm">Lis seulement le chapitre de ton appareil, puis le <b>chapitre 04</b> pour les notifications.</p>
+
+<div class="intro-grille">
+  <div class="carte">
+    <h3>Comment lire ce guide</h3>
+    <p>Sur chaque image, un <b>cadre orange numéroté</b> te montre où toucher. Suis les numéros dans l'ordre.</p>
+    <div class="legende-repere"><span class="cadre">Bouton à toucher</span></div>
+    <p style="margin-top:3mm;margin-bottom:0">Dans le texte, le même numéro renvoie au même cadre : <span class="m">1</span> <span class="m">2</span> <span class="m">3</span>…</p>
+  </div>
+  <div class="carte">
+    <h3>Captures et schémas</h3>
+    <p>Les écrans de KoppaFoot sont de <b>vraies captures</b> de l'application.</p>
+    <p style="margin:0">Les fenêtres du navigateur et du téléphone (Chrome, Safari, l'écran d'accueil) changent d'une version à l'autre : elles sont <b>dessinées</b> et portent l'étiquette <span class="schema">SCHÉMA</span>. Chez toi, les mots et les couleurs peuvent varier un peu ; les gestes restent les mêmes.</p>
+  </div>
+</div>
+
+<div class="encadre info"><span class="t">L'exemple suivi</span>On accompagne <b>Kafui Mensah</b>, joueur de l'Avenir d'Adakpamé, déjà inscrit sur KoppaFoot. Son nom et ses équipes sont <b>inventés</b> pour l'exemple. Tu n'as pas encore de compte ? L'installation marche aussi avant de te connecter (chapitre 01, étape 5).</div>
+
+<!-- ================= 01 ANDROID ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 01</div>
+  <h2>Sur un téléphone Android</h2>
+  <p class="chapo">Voici comment installer KoppaFoot avec Chrome. KoppaFoot te le propose lui-même : un bouton, une confirmation, et l'icône est sur ton écran d'accueil.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="cote etape">
+  <figure><img src="captures/01-android-carte.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Ouvre KoppaFoot dans Chrome</h3>
+    <p>Ouvre <b>Chrome</b>, va sur <b>koppafoot.com</b> et connecte-toi comme d'habitude.</p>
+    <p>Quelques secondes plus tard, une carte verte apparaît en bas de l'écran : <b>« Mettez KoppaFoot sur l'écran d'accueil »</b>.</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Installer KoppaFoot</span>.</p>
+    <div class="encadre astuce"><span class="t">Pas maintenant ?</span><span class="bouton">Plus tard</span> range la carte pour un mois. Tu pourras installer quand tu veux depuis le menu de ton avatar (étape 4).</div>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/02-android-fenetre-chrome.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Confirme l'installation</h3>
+    <p>Chrome te demande : <b>« Installer l'application ? »</b>, avec l'icône et le nom de KoppaFoot.</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Installer</span>.</p>
+    <p>L'installation prend quelques secondes. Chrome te prévient quand c'est terminé.</p>
+    <div class="encadre info"><span class="t"><span class="schema">SCHÉMA</span></span>Cette fenêtre appartient à Chrome. Selon ta version, elle s'ouvre au milieu ou en bas de l'écran, et le bouton peut s'appeler <b>Ajouter</b>.</div>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/03-android-ecran-accueil.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>Ouvre KoppaFoot depuis son icône</h3>
+    <p>C'est fait : <span class="m">1</span> l'icône <b>KoppaFoot</b> est sur ton écran d'accueil (ou dans la liste de tes applications, si ton écran d'accueil est plein).</p>
+    <p>Touche-la : KoppaFoot s'ouvre en <b>plein écran</b>, sans la barre de Chrome. Tu es toujours connecté.</p>
+    <div class="encadre astuce"><span class="t">Range-la bien</span>Appuie longuement sur l'icône pour la déplacer où tu veux, à côté de tes applications préférées.</div>
+  </div>
+</div>
+
+<div class="sous-partie">La carte n'est pas apparue ? Trois autres chemins</div>
+
+<section class="etape">
+  <h3><span class="n">4</span>Depuis le menu de ton avatar</h3>
+  <p>En haut à droite, touche <span class="m">1</span> ton avatar (tes initiales, ou ta photo).</p>
+  <figure class="bandeau etroit"><img src="captures/04a-android-avatar.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/04b-android-menu.jpg"></figure>
+  <div>
+    <p>Ton menu s'ouvre depuis le bas de l'écran. Dans la partie <b>Application</b>, touche <span class="m">2</span> <span class="bouton">Installer KoppaFoot</span>, puis confirme comme à l'étape 2.</p>
+    <div class="encadre info"><span class="t">La ligne a disparu ?</span>La partie <b>Application</b> ne s'affiche que si l'installation est possible. Elle disparaît quand KoppaFoot est <b>déjà installé</b> : cherche l'icône sur ton écran d'accueil.</div>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">5</span>Depuis la page de connexion</h3>
+  <p>Pas encore connecté ? Sur la page <b>Connexion</b>, tout en bas, le cadre <b>Installer KoppaFoot</b> fait la même chose : touche <span class="m">1</span> <span class="bouton">Installer</span>.</p>
+  <figure class="bandeau etroit"><img src="captures/01-android-connexion.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/05-android-menu-chrome.jpg"></figure>
+  <div>
+    <h3><span class="n">6</span>Depuis le menu de Chrome</h3>
+    <p>C'est le chemin qui marche toujours, même quand KoppaFoot ne propose rien.</p>
+    <ol>
+      <li>Touche <span class="m">1</span> les <b>trois points</b>, en haut à droite de Chrome.</li>
+      <li>Touche <span class="m">2</span> <b>Ajouter à l'écran d'accueil</b> (ou <b>Installer l'application</b>, selon ta version).</li>
+      <li>Confirme avec <span class="bouton">Installer</span>.</li>
+    </ol>
+    <div class="encadre attention"><span class="t">Aucune de ces options ?</span>Tu es peut-être en <b>navigation privée</b> (onglet sombre) : ouvre koppafoot.com dans un onglet normal. Ou KoppaFoot est ouvert <b>dans une autre application</b> (WhatsApp, Facebook…) : touche les trois points de cette page et choisis <b>Ouvrir dans Chrome</b>.</div>
+  </div>
+</div>
+
+<!-- ================= 02 IPHONE ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 02</div>
+  <h2>Sur un iPhone</h2>
+  <p class="chapo">Sur iPhone, pas de bouton « Installer » : Apple réserve l'installation au bouton <b>Partager</b> de Safari. Voici comment faire, en quatre touchers. C'est aussi ce qui débloque les notifications.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="cote etape">
+  <figure><img src="captures/06-iphone-carte.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Ouvre KoppaFoot dans Safari</h3>
+    <p>Ouvre <b>Safari</b> (la boussole bleue), va sur <b>koppafoot.com</b> et connecte-toi.</p>
+    <p>Quelques secondes plus tard, <span class="m">1</span> une carte verte te rappelle la marche à suivre : <b>Partager</b>, puis <b>« Sur l'écran d'accueil »</b>. La voici en détail.</p>
+    <div class="encadre attention"><span class="t">Safari, pas une autre application</span>Si tu as ouvert le lien depuis WhatsApp, Instagram ou Facebook, tu n'es pas dans Safari. Cherche le bouton <b>Ouvrir dans Safari</b> (souvent derrière <b>···</b> ou la boussole), puis recommence.</div>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/07-iphone-partager.jpg"></figure>
+  <div>
+    <h3><span class="n">2</span>Touche « Partager »</h3>
+    <p>En bas de Safari, touche <span class="m">1</span> le bouton <b>Partager</b> : un carré avec une flèche vers le haut.</p>
+    <div class="encadre info"><span class="t">Tu ne le vois pas ?</span>Fais défiler la page un peu vers le haut : la barre de Safari réapparaît. Sur certains iPhone, la barre est <b>en haut</b> de l'écran, ou <b>Partager</b> est rangé derrière le bouton <b>···</b>.</div>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/08-iphone-sur-ecran-accueil.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>Touche « Sur l'écran d'accueil »</h3>
+    <p>La feuille de partage s'ouvre. Fais-la défiler vers le bas et touche <span class="m">1</span> <b>Sur l'écran d'accueil</b> (avec un petit <b>+</b> dans un carré).</p>
+    <div class="encadre astuce"><span class="t">Introuvable ?</span>Tout en bas de la liste, <b>Modifier les actions</b> permet de l'ajouter, puis de la placer en haut pour la prochaine fois.</div>
+  </div>
+</div>
+
+<div class="cote etape">
+  <figure><img src="captures/09-iphone-ajouter.jpg"></figure>
+  <div>
+    <h3><span class="n">4</span>Touche « Ajouter »</h3>
+    <p>L'iPhone te montre l'icône et le nom <b>KoppaFoot</b>. Laisse le nom tel quel.</p>
+    <p>Si l'option <b>Ouvrir comme app web</b> est présente, laisse-la <b>activée</b> (en vert).</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Ajouter</span>, en haut à droite.</p>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">5</span>Ouvre KoppaFoot depuis son icône</h3>
+  <p>L'icône <span class="m">1</span> <b>KoppaFoot</b> est sur ton écran d'accueil. Touche-la : l'application s'ouvre en plein écran, sur l'écran de lancement de KoppaFoot.</p>
+  <div class="duo">
+    <figure><img src="captures/10-iphone-ecran-accueil.jpg"><figcaption>Ton écran d'accueil (schéma)</figcaption></figure>
+    <figure><img src="captures/10b-iphone-ouverture.jpg"><figcaption>L'écran de lancement de KoppaFoot</figcaption></figure>
+  </div>
+  <div class="encadre attention"><span class="t">Connecte-toi une fois de plus</span>Sur iPhone, l'application installée ne partage pas la session de Safari : à la première ouverture, connecte-toi avec ton email (ou Google). Ensuite, tu restes connecté.</div>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/11-iphone-menu.jpg"></figure>
+  <div>
+    <h3><span class="n">6</span>Retrouver la marche à suivre</h3>
+    <p>La carte verte est partie ? Touche ton avatar, en haut à droite : dans la partie <span class="m">1</span> <b>Application</b>, KoppaFoot te rappelle les deux gestes.</p>
+    <div class="encadre astuce"><span class="t">Ouvre toujours l'icône</span>Pour tes notifications, c'est important : sur iPhone, elles ne marchent <b>que</b> dans KoppaFoot ouvert depuis l'écran d'accueil, jamais dans Safari. Tout est expliqué au chapitre 04.</div>
+    <div class="encadre info"><span class="t">Sur iPad</span>Les mêmes gestes : le bouton <b>Partager</b> est en haut, à droite de l'adresse.</div>
+  </div>
+</div>
+
+<!-- ================= 03 ORDINATEUR ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 03</div>
+  <h2>Sur un ordinateur</h2>
+  <p class="chapo">Voici comment installer KoppaFoot avec Chrome ou Edge. Il s'ouvre alors dans sa propre fenêtre, sans onglets, et se lance depuis le menu Démarrer, le Dock ou le bureau.</p>
+  <div class="barre"></div>
+</header>
+
+<section class="etape">
+  <h3><span class="n">1</span>Touche « Installer KoppaFoot »</h3>
+  <p>Ouvre <b>koppafoot.com</b> dans Chrome ou Edge et connecte-toi. Quelques secondes plus tard, la carte <b>« Mettez KoppaFoot sur l'écran d'accueil »</b> apparaît en bas à droite. Clique sur <span class="m">1</span> <span class="bouton">Installer KoppaFoot</span>.</p>
+  <figure><img src="captures/12a-ordinateur-carte.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">2</span>Ou depuis le menu de ton avatar</h3>
+  <p>Clique sur <span class="m">1</span> ton avatar, en haut à droite, puis, dans la partie <b>Application</b>, sur <span class="m">2</span> <span class="bouton">Installer KoppaFoot</span>.</p>
+  <figure class="moyen"><img src="captures/12b-ordinateur-menu.jpg"></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">3</span>Ou depuis la barre d'adresse</h3>
+  <p>Dans la barre d'adresse, à droite, clique sur <span class="m">1</span> la petite <b>icône d'installation</b> (un écran avec une flèche). La fenêtre <b>Installer l'application ?</b> s'ouvre : clique sur <span class="m">2</span> <span class="bouton">Installer</span>. C'est aussi la fenêtre qui s'ouvre après les étapes 1 et 2.</p>
+  <figure><img src="captures/13-ordinateur-barre-adresse.jpg"></figure>
+  <div class="encadre info"><span class="t">Et après ?</span>KoppaFoot s'ouvre dans sa propre fenêtre. Pour le retrouver : le <b>menu Démarrer</b> sur Windows, le <b>Launchpad</b> ou le <b>Dock</b> sur Mac. Pas d'icône dans la barre d'adresse ? Ouvre le menu <b>⋮</b> du navigateur : l'installation y figure aussi (dans Chrome, sous <b>Caster, enregistrer et partager</b> ; dans Edge, sous <b>Applications</b>). Sur Mac avec Safari : menu <b>Fichier</b> → <b>Ajouter au Dock</b>.</div>
+</section>
+
+<!-- ================= 04 NOTIFICATIONS ================= -->
+<header class="chapitre-tete">
+  <div class="numero">Chapitre 04</div>
+  <h2>Activer les notifications</h2>
+  <p class="chapo">Une convocation, une invitation, un défi, un but dans une compétition que tu suis : avec les notifications, ton téléphone te prévient tout de suite, même KoppaFoot fermé. Voici comment les activer.</p>
+  <div class="barre"></div>
+</header>
+
+<div class="cote etape">
+  <figure><img src="captures/14-android-menu-parametres.jpg"></figure>
+  <div>
+    <h3><span class="n">1</span>Ouvre les Paramètres</h3>
+    <p>Touche ton avatar, en haut à droite, puis <span class="m">1</span> <b>Paramètres</b>.</p>
+    <div class="encadre attention"><span class="t">Sur iPhone</span>Fais-le dans KoppaFoot <b>ouvert depuis son icône</b> (chapitre 02), pas dans Safari. Sinon, voir l'étape 5.</div>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">2</span>Réponds « Oui » pour cet appareil</h3>
+  <p>En haut de la page, dans <b>Notifications</b>, la ligne <b>Sur cet appareil</b> est sur <b>Non</b>. Touche <span class="m">1</span> <span class="bouton">Oui</span>.</p>
+  <figure class="bandeau etroit"><img src="captures/15-notifs-inactif.jpg"></figure>
+</section>
+
+<div class="cote etape">
+  <figure><img src="captures/16-notifs-autoriser.jpg"></figure>
+  <div>
+    <h3><span class="n">3</span>Autorise KoppaFoot</h3>
+    <p>Ton téléphone (ou ton navigateur) te demande si KoppaFoot peut t'envoyer des notifications.</p>
+    <p>Touche <span class="m">1</span> <span class="bouton">Autoriser</span>.</p>
+    <div class="encadre attention"><span class="t">Ne touche pas « Ne pas autoriser »</span>Un refus est définitif pour ce téléphone : KoppaFoot ne pourra plus te redemander. Si c'est déjà fait, pas de panique, l'étape 6 explique comment revenir en arrière.</div>
+  </div>
+</div>
+
+<section class="etape">
+  <h3><span class="n">4</span>C'est activé</h3>
+  <p><span class="m">1</span> <span class="bouton">Oui</span> est maintenant sélectionné et la petite cloche n'est plus barrée. Les notifications arrivent sur <b>cet appareil</b>.</p>
+  <figure class="bandeau etroit"><img src="captures/17-notifs-actif.jpg"></figure>
+  <div class="encadre info"><span class="t">Un réglage par appareil</span>Activer sur ton téléphone n'active pas ton ordinateur, et inversement : refais les étapes 1 à 3 sur chaque appareil où tu veux être prévenu. Pour arrêter, touche <span class="bouton">Non</span> : seul cet appareil est concerné.</div>
+</section>
+
+<div class="sous-partie">Cas particuliers</div>
+
+<section class="etape">
+  <h3><span class="n">5</span>Sur iPhone : « Disponible une fois l'application installée »</h3>
+  <p>Ce message veut dire que tu es dans <b>Safari</b> : il n'y a pas de bouton Oui ni Non. Installe KoppaFoot (chapitre 02), ouvre-le <b>depuis son icône</b>, puis retourne dans <b>Paramètres</b> : cette fois, <span class="m">1</span> <span class="bouton">Oui</span> est là.</p>
+  <figure class="bandeau etroit"><img src="captures/18-iphone-notifs-safari.jpg"><figcaption>Dans Safari</figcaption></figure>
+  <figure class="bandeau etroit"><img src="captures/18b-iphone-notifs-app.jpg"><figcaption>Dans KoppaFoot, ouvert depuis l'écran d'accueil</figcaption></figure>
+</section>
+
+<section class="etape">
+  <h3><span class="n">6</span>« Bloquées dans les réglages du navigateur »</h3>
+  <p>Ce message veut dire que <b>Ne pas autoriser</b> a été touché un jour. KoppaFoot ne peut plus rien demander : c'est toi qui dois rouvrir la porte, dans les réglages.</p>
+  <figure class="bandeau etroit"><img src="captures/19-notifs-refuse.jpg"></figure>
+  <table class="tableau-simple">
+    <tr><th style="width:34mm">Appareil</th><th>Où autoriser les notifications</th></tr>
+    <tr><td><b>Android</b>, application installée</td><td>Appui long sur l'icône KoppaFoot → <b>Infos sur l'application</b> → <b>Notifications</b> → activer.</td></tr>
+    <tr><td><b>Android</b>, dans Chrome</td><td>À gauche de l'adresse, touche l'icône des réglages du site → <b>Autorisations</b> → <b>Notifications</b> → <b>Autoriser</b>.</td></tr>
+    <tr><td><b>iPhone</b></td><td>Application <b>Réglages</b> → <b>Notifications</b> → <b>KoppaFoot</b> → <b>Autoriser les notifications</b>.</td></tr>
+    <tr><td><b>Ordinateur</b></td><td>À gauche de l'adresse, clique sur l'icône des réglages du site → <b>Notifications</b> → <b>Autoriser</b>.</td></tr>
+  </table>
+  <p>Reviens ensuite dans <b>Paramètres</b> et recharge la page : le bouton <span class="bouton">Oui</span> est de retour. Touche-le.</p>
+</section>
+
+<!-- ================= AIDE-MEMOIRE ================= -->
+<section class="page-break memo">
+  <h2>L'installation en 30 secondes</h2>
+  <p class="sous">Ce qu'il faut retenir, appareil par appareil.</p>
+  <ol>
+    <li><span><b>Android</b> : Chrome → koppafoot.com → carte verte <b>Installer KoppaFoot</b> → <b>Installer</b>.</span></li>
+    <li><span><b>Android, sans carte</b> : avatar → Application → <b>Installer KoppaFoot</b>. Ou Chrome → ⋮ → <b>Ajouter à l'écran d'accueil</b>.</span></li>
+    <li><span><b>iPhone</b> : Safari → koppafoot.com → <b>Partager</b> → <b>Sur l'écran d'accueil</b> → <b>Ajouter</b>.</span></li>
+    <li><span><b>iPhone, ensuite</b> : ouvre toujours KoppaFoot <b>depuis son icône</b>, et connecte-toi une fois de plus.</span></li>
+    <li><span><b>Ordinateur</b> : Chrome ou Edge → carte verte ou avatar → <b>Installer KoppaFoot</b> → <b>Installer</b>.</span></li>
+    <li><span><b>Notifications</b> : avatar → <b>Paramètres</b> → Sur cet appareil → <b>Oui</b> → <b>Autoriser</b>.</span></li>
+    <li><span><b>Sur chaque appareil</b> : le réglage des notifications est à refaire sur ton téléphone et sur ton ordinateur.</span></li>
+    <li><span><b>« Bloquées »</b> : réglages du téléphone ou du navigateur → Notifications → <b>Autoriser</b>, puis <b>Oui</b> dans Paramètres.</span></li>
+  </ol>
+</section>
+
+<section class="page-break faq">
+  <header class="chapitre-tete" style="break-before:auto">
+    <div class="numero">Annexe</div>
+    <h2>Questions fréquentes</h2>
+    <div class="barre"></div>
+  </header>
+  <dl>
+    <dt>Est-ce une vraie application ? Pourquoi pas le Play Store ou l'App Store ?</dt>
+    <dd>C'est le site KoppaFoot, installé comme une application : même icône, plein écran, notifications. Il ne passe pas par un store, s'installe en quelques secondes et prend très peu de place.</dd>
+    <dt>Faut-il la mettre à jour ?</dt>
+    <dd>Non. Chaque fois que tu l'ouvres, tu as la dernière version de KoppaFoot, comme sur le site.</dd>
+    <dt>Je ne vois ni la carte verte ni « Installer KoppaFoot ».</dt>
+    <dd>Trois raisons possibles : KoppaFoot est <b>déjà installé</b> (cherche l'icône, ou la liste de tes applications) ; tu es en <b>navigation privée</b> ; ou ton navigateur ne sait pas installer d'application. Sur Android et ordinateur, utilise Chrome ou Edge ; sur iPhone, Safari et le bouton Partager.</dd>
+    <dt>J'ai touché « Plus tard ». La carte reviendra ?</dt>
+    <dd>Oui, au bout d'un mois. Sans attendre : avatar → <b>Application</b> → <b>Installer KoppaFoot</b>.</dd>
+    <dt>Je dois me reconnecter dans l'application ?</dt>
+    <dd>Sur Android et ordinateur, en général non. Sur iPhone, oui, une fois : l'application installée ne partage pas la session de Safari.</dd>
+    <dt>Je ne reçois pas de notifications.</dt>
+    <dd>Vérifie, sur <b>cet appareil</b>, que <b>Paramètres → Sur cet appareil</b> est sur <b>Oui</b>. Sur iPhone, ouvre KoppaFoot depuis son icône, pas depuis Safari. Vérifie aussi que ton téléphone n'est pas en mode <b>Ne pas déranger</b> ou <b>Concentration</b>.</dd>
+    <dt>Quelles notifications vais-je recevoir ?</dt>
+    <dd>Ce qui te concerne directement (invitation, convocation, défi, réponse à ta candidature), la vie de tes équipes, les nouvelles de ce que tu suis, le direct des compétitions que tu suis, et, plus rarement, les annonces de l'équipe KoppaFoot. Les mêmes nouvelles restent aussi derrière la <b>cloche</b>, en haut de l'écran.</dd>
+    <dt>J'ai changé de téléphone.</dt>
+    <dd>Installe KoppaFoot sur le nouveau (chapitre 01 ou 02), puis réactive les notifications (chapitre 04) : elles sont liées à l'appareil, pas au compte.</dd>
+    <dt>Comment désinstaller KoppaFoot ?</dt>
+    <dd><b>Android</b> : appui long sur l'icône → <b>Désinstaller</b>. <b>iPhone</b> : appui long sur l'icône → <b>Supprimer l'app</b>. <b>Ordinateur</b> : dans la fenêtre KoppaFoot, menu <b>⋮</b> → <b>Désinstaller KoppaFoot</b>. Ton compte, lui, ne bouge pas : tu le retrouves sur koppafoot.com.</dd>
+    <dt>Besoin d'aide ?</dt>
+    <dd>Touche ton avatar, puis, dans <b>Support</b> : <b>Questions fréquentes</b>, ou <b>Nous faire un retour</b> pour écrire à l'équipe KoppaFoot.</dd>
+  </dl>
+</section>
+
+</body>
+</html>

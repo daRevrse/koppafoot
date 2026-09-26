@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { aUnProfilPublic } from "@/lib/espaces-acces";
 import { bilanPublicDuJoueur } from "@/lib/bilan-public";
 import { bilanCompletDuClub } from "@/lib/bilan-club-serveur";
+import { estArbitreServeur } from "@/lib/arbitrage-server";
 import type { LinkedCompPlayer } from "@/types";
 
 /**
@@ -31,6 +32,10 @@ const PUBLIC_FIELDS = [
   // Un nombre, pas une liste : il dit combien, jamais qui. La fiche
   // l'affichait à 0 pour tout visiteur, faute de le recevoir.
   "followers_count",
+  // L'arbitre : son niveau et son ancienneté, ce qu'un manager regarde avant
+  // de l'inviter. La fiche savait les afficher mais ne les recevait pas, faute
+  // d'être dans cette liste. Le numéro de licence sort masqué, plus bas.
+  "license_level", "experience_years",
 ] as const;
 
 export async function GET(
@@ -66,6 +71,48 @@ export async function GET(
     out.matches_played = bilan.matchesPlayed;
     out.goals = bilan.goals;
     out.assists = bilan.assists;
+
+    // LE BILAN DE L'ARBITRE. Les matchs qu'il a dirigés jusqu'au bout, et la
+    // moyenne des notes que lui ont données les managers en validant (voir
+    // /api/matches/validation, qui les range dans `arbitrages`). Les notes une
+    // à une restent privées ; seule leur moyenne se publie, avec leur nombre.
+    let arbitrage: {
+      matchs: number; note: number | null; avis: number;
+      corps: { nom: string; chef: boolean; membres: number } | null;
+    } | null = null;
+    if (estArbitreServeur(data)) {
+      if (typeof data.license_number === "string" && data.license_number.trim()) {
+        out.license_number = `${data.license_number.trim().slice(0, 3)}***`;
+      }
+      const [diriges, notes, corpsSnap] = await Promise.all([
+        adminDb.collection("matches").where("referee_id", "==", uid).get(),
+        adminDb.collection("arbitrages").where("referee_id", "==", uid).get(),
+        adminDb.collection("corps_arbitraux").where("membre_ids", "array-contains", uid).get(),
+      ]);
+      // Son corps arbitral : celui qu'il dirige d'abord, sinon le premier
+      // dont il est membre. Un nom et un effectif, pas la liste des membres.
+      const corpsDoc = corpsSnap.docs.find((d) => d.data().chef_id === uid) ?? corpsSnap.docs[0];
+      const matchs = diriges.docs.filter((d) => {
+        const m = d.data();
+        return m.status === "completed" && m.referee_status === "confirmed";
+      }).length;
+      const toutes = notes.docs.flatMap((d) => {
+        const n = (d.data().notes ?? {}) as Record<string, unknown>;
+        return [n.home, n.away].filter((x): x is number => typeof x === "number");
+      });
+      arbitrage = {
+        matchs,
+        corps: corpsDoc
+          ? {
+              nom: String(corpsDoc.data().nom ?? ""),
+              chef: corpsDoc.data().chef_id === uid,
+              membres: ((corpsDoc.data().membre_ids as string[] | undefined) ?? []).length,
+            }
+          : null,
+        avis: toutes.length,
+        note: toutes.length ? Math.round((toutes.reduce((a, b) => a + b, 0) / toutes.length) * 10) / 10 : null,
+      };
+    }
 
     // Ses equipes. Elles vivent dans `teams`, ferme aux visiteurs par les
     // regles, d'ou une fiche publique qui annoncait « Equipes (0) » a tout
@@ -139,7 +186,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ profile: out, teams });
+    return NextResponse.json({ profile: out, teams, arbitrage });
   } catch (err) {
     console.error("GET public profile failed:", err);
     return NextResponse.json({ profile: null }, { status: 500 });

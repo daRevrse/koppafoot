@@ -22,13 +22,13 @@ import { ArrowRight, CalendarCheck, Search, Wallet } from "lucide-react";
 export const metadata = {
   title: "Les terrains, KoppaFoot",
   description:
-    "Référencez votre terrain sur KoppaFoot : être trouvé par les équipes, recevoir des demandes de créneau et y répondre.",
+    "Référence ton terrain sur KoppaFoot : être trouvé par les équipes, recevoir des demandes de créneau et y répondre.",
 };
 
 const ETAPES: { n: string; titre: string; corps: string }[] = [
   {
     n: "01",
-    titre: "Votre terrain entre dans l'annuaire",
+    titre: "Ton terrain entre dans l'annuaire",
     corps:
       "Nom, ville, format, surface, équipements, tarif horaire, photo. C'est la fiche que verront les équipes qui cherchent où jouer, et c'est sur elle qu'elles choisissent.",
   },
@@ -36,13 +36,13 @@ const ETAPES: { n: string; titre: string; corps: string }[] = [
     n: "02",
     titre: "Les équipes demandent un créneau",
     corps:
-      "Une date, une heure, une durée. La demande arrive dans votre espace, et vous prévient — notification, téléphone, email. Les créneaux déjà confirmés sont affichés publiquement, pour que personne ne demande un samedi déjà pris.",
+      "Une date, une heure, une durée. La demande arrive dans ton espace, et te prévient — notification, téléphone, email. Les créneaux déjà confirmés sont affichés publiquement, pour que personne ne demande un samedi déjà pris.",
   },
   {
     n: "03",
-    titre: "Vous confirmez, ou vous refusez",
+    titre: "Tu confirmes, ou tu refuses",
     corps:
-      "Confirmer bloque le créneau et prévient l'équipe. Refuser le laisse libre. Rien ne se décide sans vous : le produit vérifie même qu'un créneau n'en chevauche pas un autre avant que vous ne l'acceptiez.",
+      "Confirmer bloque le créneau et prévient l'équipe. Refuser le laisse libre, et peut proposer un autre horaire. Rien ne se décide sans toi : le produit te prévient même quand un créneau en chevauche un autre avant que tu ne l'acceptes.",
   },
 ];
 
@@ -63,7 +63,7 @@ const PREUVES: { Icon: typeof Search; titre: string; corps: string }[] = [
     Icon: Wallet,
     titre: "Payé entre vous",
     corps:
-      "La plateforme n'encaisse rien et ne prend aucune commission. Vous annoncez votre tarif, le règlement reste votre affaire.",
+      "La plateforme n'encaisse rien et ne prend aucune commission. Tu annonces ton tarif, le règlement reste ton affaire.",
   },
 ];
 
@@ -177,9 +177,9 @@ export default function TerrainsPage() {
             Référencer un terrain
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
-            Déposez la fiche de votre terrain : nom, ville, format, surface.
+            Dépose la fiche de ton terrain : nom, ville, format, surface.
             On la relit, puis elle entre dans l&apos;annuaire, là où les équipes
-            cherchent où jouer — et d&apos;où elles vous écrivent.
+            cherchent où jouer — et d&apos;où elles t&apos;écrivent.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <Link

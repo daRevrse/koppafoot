@@ -43,7 +43,7 @@ import {
 
 const ETATS: Record<string, { label: string; ton: Ton; sens: string }> = {
   pending: { label: "En attente", ton: "attente", sens: "Le propriétaire n'a pas encore répondu." },
-  confirmed: { label: "Confirmé", ton: "ok", sens: "Le terrain est à vous sur ce créneau." },
+  confirmed: { label: "Confirmé", ton: "ok", sens: "Le terrain est à toi sur ce créneau." },
   cancelled: { label: "Annulé", ton: "refus", sens: "Ce créneau n'a pas été retenu." },
   completed: { label: "Passé", ton: "neutre", sens: "" },
 };
@@ -107,8 +107,8 @@ export default function MyBookingsPage() {
       const r = await agirSurReservation(b.id, "prendre-proposition");
       toast.success(
         r.status === "confirmed"
-          ? "Créneau pris : il est à vous."
-          : "Ce créneau a été pris entre-temps : votre demande est envoyée au propriétaire.",
+          ? "Créneau pris : il est à toi."
+          : "Ce créneau a été pris entre-temps : ta demande est envoyée au propriétaire.",
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "L'opération a échoué");
@@ -124,7 +124,7 @@ export default function MyBookingsPage() {
     const etat = b.status !== "cancelled" ? base
       : b.cancelledBy === "proprietaire" ? { ...base, label: "Refusé", sens: "Le propriétaire n'a pas retenu ce créneau." }
       : b.cancelledBy === "systeme" ? { ...base, label: "Libéré", sens: "Le match a changé : ce créneau s'est libéré." }
-      : { ...base, sens: "Vous avez annulé cette demande." };
+      : { ...base, sens: "Tu as annulé cette demande." };
     const offre = b.status === "cancelled" && b.proposition && b.proposition.date >= today ? b.proposition : null;
     return (
       <li className="flex flex-wrap items-start justify-between gap-4 p-5">
@@ -221,7 +221,7 @@ export default function MyBookingsPage() {
             titre="Aucune demande"
             action={<LienBouton href="/terrains/annuaire" Icon={Search}>Trouver un terrain</LienBouton>}
           >
-            Parcourez les terrains référencés, choisissez une date et demandez
+            Parcours les terrains référencés, choisis une date et demande
             le créneau. Le propriétaire répond, et tout se suit ici.
           </EtatVide>
         ) : (

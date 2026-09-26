@@ -409,7 +409,7 @@ function ManagerSection({ profile, teams }: { profile: UserProfile; teams: Equip
   );
 }
 
-function RefereeSection({ profile }: { profile: UserProfile }) {
+function RefereeSection({ profile, bilan }: { profile: UserProfile; bilan: BilanArbitre | null }) {
   const licenseLevel = profile.licenseLevel
     ? LICENSE_LEVEL_LABELS[profile.licenseLevel] ?? profile.licenseLevel
     : null;
@@ -419,6 +419,45 @@ function RefereeSection({ profile }: { profile: UserProfile }) {
 
   return (
     <div className="space-y-4">
+      {/* Ce qu'un manager regarde avant d'inviter : combien de matchs, et ce
+          qu'en ont pensé ceux qui l'ont eu au sifflet. */}
+      {bilan && (
+        <div className="grid grid-cols-2 border border-gray-200/70 bg-white">
+          <div className="border-r border-gray-200/70 p-4">
+            <p className="text-xs text-gray-500">Matchs arbitrés</p>
+            <p className="mt-1 font-display text-2xl font-black text-gray-900">{bilan.matchs}</p>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-gray-500">Note des managers</p>
+            {bilan.note !== null ? (
+              <p className="mt-1 flex items-baseline gap-1">
+                <span className="font-display text-2xl font-black text-gray-900">
+                  {bilan.note.toFixed(1).replace(".", ",")}
+                </span>
+                <span className="text-xs font-bold text-gray-400">/ 5 · {bilan.avis} avis</span>
+              </p>
+            ) : (
+              <p className="mt-1.5 text-sm font-semibold text-gray-400">Pas encore noté</p>
+            )}
+          </div>
+        </div>
+      )}
+      {bilan?.corps && (
+        <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
+          <Users size={20} className="shrink-0 text-violet-600" />
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500">
+              {bilan.corps.chef ? "Dirige le corps arbitral" : "Membre du corps arbitral"}
+            </p>
+            <p className="truncate font-semibold text-gray-900">
+              « {bilan.corps.nom} »
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                {bilan.corps.membres} officiel{bilan.corps.membres > 1 ? "s" : ""}
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
       {licenseLevel && (
         <div className="flex items-center gap-2">
           <Award size={16} className="text-purple-600" />
@@ -479,21 +518,31 @@ interface ApercuSansPage {
   photo: string | null;
 }
 
+/** Le bilan d'un arbitre, calculé par /api/public/profile/[uid]. */
+interface BilanArbitre {
+  matchs: number;
+  note: number | null;
+  avis: number;
+  /** Son corps arbitral, s'il en a un : nom, et s'il le dirige. */
+  corps?: { nom: string; chef: boolean; membres: number } | null;
+}
+
 async function fetchPublicProfile(
   uid: string,
 ): Promise<
-  | { profile: UserProfile; teams: EquipePubliee[]; apercu: null }
-  | { profile: null; teams: EquipePubliee[]; apercu: ApercuSansPage }
+  | { profile: UserProfile; teams: EquipePubliee[]; apercu: null; arbitrage: BilanArbitre | null }
+  | { profile: null; teams: EquipePubliee[]; apercu: ApercuSansPage; arbitrage: null }
   | null
 > {
   try {
     const res = await fetch(`/api/public/profile/${encodeURIComponent(uid)}`);
     if (!res.ok) return null;
-    const { profile, teams, sansProfilPublic } = await res.json();
+    const { profile, teams, sansProfilPublic, arbitrage } = await res.json();
     if (sansProfilPublic) {
       return {
         profile: null,
         teams: [],
+        arbitrage: null,
         apercu: {
           uid: sansProfilPublic.uid,
           nom: `${sansProfilPublic.first_name ?? ""} ${sansProfilPublic.last_name ?? ""}`.trim(),
@@ -524,6 +573,9 @@ async function fetchPublicProfile(
       goals: profile.goals ?? 0,
       assists: profile.assists ?? 0,
       followersCount: profile.followers_count ?? 0,
+      licenseLevel: profile.license_level ?? undefined,
+      licenseNumber: profile.license_number ?? undefined,
+      experienceYears: profile.experience_years ?? undefined,
       // Le cast passe par `unknown` a dessein : UserProfile exige email,
       // phone et quelques champs de compte que cette projection ne porte pas
       //, c'est tout l'interet de la projection. La page ne lit aucun d'eux.
@@ -531,7 +583,12 @@ async function fetchPublicProfile(
 
     // Les equipes arrivent deja au format de la page : l'endpoint les projette
     // en camelCase, il n'y a rien a retraduire ici.
-    return { profile: mapped, teams: (teams ?? []) as EquipePubliee[], apercu: null };
+    return {
+      profile: mapped,
+      teams: (teams ?? []) as EquipePubliee[],
+      apercu: null,
+      arbitrage: (arbitrage ?? null) as BilanArbitre | null,
+    };
   } catch {
     return null;
   }
@@ -564,6 +621,7 @@ export default function PublicProfilePage() {
   const lienFiche = typeof window === "undefined" ? "" : window.location.href;
   const [apercu, setApercu] = useState<ApercuSansPage | null>(null);
   const [teams, setTeams] = useState<EquipePubliee[]>([]);
+  const [arbitrage, setArbitrage] = useState<BilanArbitre | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shortlistEntryId, setShortlistEntryId] = useState<string | null>(null);
@@ -672,6 +730,7 @@ export default function PublicProfilePage() {
         setProfile(p);
         setFollowerCount(p.followersCount ?? 0);
         setTeams(pub?.teams ?? []);
+        setArbitrage(pub?.arbitrage ?? null);
       } catch {
         setError("Une erreur est survenue lors du chargement du profil.");
       } finally {
@@ -1108,7 +1167,7 @@ export default function PublicProfilePage() {
             <div>
               {isPlayer && <PlayerSection profile={profile} />}
               {isManager && <ManagerSection profile={profile} teams={teams} />}
-              {isReferee && <RefereeSection profile={profile} />}
+              {isReferee && <RefereeSection profile={profile} bilan={arbitrage} />}
               {ownsVenue(profile) && <VenueOwnerSection profile={profile} />}
             </div>
           )}

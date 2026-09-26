@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Phone, Mail, Loader2, X, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,7 +29,16 @@ interface Contact {
   email: string | null;
 }
 
-export default function ContactResponsable({ venueId, className = "" }: { venueId: string; className?: string }) {
+export default function ContactResponsable({
+  venueId,
+  ownerId = null,
+  className = "",
+}: {
+  venueId: string;
+  /** Le responsable ne se contacte pas lui-même : le bouton ne lui est pas montré. */
+  ownerId?: string | null;
+  className?: string;
+}) {
   const { firebaseUser } = useAuth();
   const [ouvert, setOuvert] = useState(false);
   const [contact, setContact] = useState<Contact | null>(null);
@@ -82,6 +92,14 @@ export default function ContactResponsable({ venueId, className = "" }: { venueI
     }
   };
 
+  if (ownerId && firebaseUser?.uid === ownerId) return null;
+
+  // LA FENÊTRE VIT SOUS <body>, PAS DANS LA COLONNE. Sur ordinateur, le
+  // bouton est dans une colonne collante (`sticky`), qui ouvre son propre
+  // empilement : la fenêtre y était enfermée, et le pied de page de la fiche
+  // passait par-dessus, masquant la moitié des coordonnées. Le portail la
+  // rend au niveau de la page, au-dessus de tout.
+
   return (
     <>
       <button
@@ -93,7 +111,7 @@ export default function ContactResponsable({ venueId, className = "" }: { venueI
         Contacter le responsable
       </button>
 
-      {ouvert && (
+      {ouvert && createPortal(
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
           <button
             type="button"
@@ -200,14 +218,15 @@ export default function ContactResponsable({ venueId, className = "" }: { venueI
                 </>
               ) : (
                 <p className="text-sm leading-relaxed text-gray-500">
-                  Ce responsable n&apos;a renseigné aucune coordonnée. Passez par
+                  Ce responsable n&apos;a renseigné aucune coordonnée. Passe par
                   la demande de créneau : il en est prévenu par notification et
                   par email.
                 </p>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

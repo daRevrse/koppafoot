@@ -179,6 +179,8 @@ export function playerOnboarding(
 export interface RefereeContext {
   /** Matchs où ce compte est inscrit comme arbitre, quel que soit le statut. */
   designationCount: number;
+  /** Corps arbitraux dont il fait partie, celui qu'il dirige compris. */
+  corpsCount: number;
 }
 
 /**
@@ -210,6 +212,15 @@ export function refereeOnboarding(
       href: "/profile",
       cta: "Renseigner ma licence",
       done: !!user.licenseLevel,
+    },
+    {
+      key: "corps",
+      label: "Former ton corps arbitral",
+      description:
+        "Invite tes assistants et un scoreur : pendant que tu diriges, c'est lui qui tient la console.",
+      href: "/corps-arbitral",
+      cta: "Créer mon corps arbitral",
+      done: ctx.corpsCount > 0,
     },
     {
       key: "designation",

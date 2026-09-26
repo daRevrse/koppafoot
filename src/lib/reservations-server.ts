@@ -109,7 +109,7 @@ export async function annoncerDemande(ownerId: string, b: Annonce): Promise<void
     ownerId,
     {
       type: "booking_request",
-      title: b.match ? "Un match demande votre terrain" : "Demande de créneau",
+      title: b.match ? "Un match demande ton terrain" : "Demande de créneau",
       body: `${b.demandeur} demande ${b.venueName} le ${quand(b)}${b.match ? ` pour ${b.match}` : ""}.`,
       link: "/mes-terrains/reservations",
     },
@@ -190,7 +190,7 @@ export async function annoncer(annonces: (Annonce & { ownerId: string })[]): Pro
     for (const a of liste) {
       await notifier(ownerId, {
         type: "booking_request",
-        title: a.match ? "Un match demande votre terrain" : "Demande de créneau",
+        title: a.match ? "Un match demande ton terrain" : "Demande de créneau",
         body: `${a.demandeur} demande ${a.venueName} le ${quand(a)}${a.match ? ` pour ${a.match}` : ""}.`,
         link: "/mes-terrains/reservations",
       });
@@ -199,7 +199,7 @@ export async function annoncer(annonces: (Annonce & { ownerId: string })[]): Pro
     if (proprietaire.email) {
       await sendNotificationEmail(
         proprietaire.email,
-        `${liste.length} demandes de créneau sur vos terrains`,
+        `${liste.length} demandes de créneau sur tes terrains`,
         bookingRequestsDigestHtml(
           proprietaire.prenom || "toi",
           liste.map((a) => ({ terrain: a.venueName, quand: quand(a), match: a.match ?? null, demandeur: a.demandeur })),
@@ -235,7 +235,7 @@ async function lireLeMatch(ref: RefMatch, uid: string): Promise<MatchLu | null> 
     if (!snap.exists) return null;
     const m = snap.data() as FirestoreMatch;
     if (uid !== m.manager_id && uid !== m.away_manager_id) {
-      throw new ErreurReservation("Ce match n'est pas le vôtre", 403);
+      throw new ErreurReservation("Ce match n'est pas le tien", 403);
     }
     return {
       etat: { status: m.status, venueId: m.venue_id ?? null, date: m.date, time: m.time, format: m.format },
@@ -249,7 +249,7 @@ async function lireLeMatch(ref: RefMatch, uid: string): Promise<MatchLu | null> 
   const equipe = [...(comp.organizer_ids ?? []), ...(comp.moderator_ids ?? [])] as string[];
   if (!equipe.includes(uid)) {
     const profil = (await adminDb.collection("users").doc(uid).get()).data();
-    if (!estSuperadmin(profil)) throw new ErreurReservation("Cette compétition n'est pas la vôtre", 403);
+    if (!estSuperadmin(profil)) throw new ErreurReservation("Cette compétition n'est pas la tienne", 403);
   }
   if (!snap.exists) return null;
 
@@ -391,7 +391,7 @@ export async function synchroniserTerrain(
     if (confirmee) {
       await notifier(venue.owner_id, {
         type: "booking_answer",
-        title: "Votre proposition est prise",
+        title: "Ta proposition est prise",
         body: `${nouvelle.match_label} se jouera sur ${nouvelle.venue_name} le ${quand(nouvelle)}.`,
         link: "/mes-terrains/reservations",
       });

@@ -6,28 +6,26 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Flag, Inbox, Search, History, Calendar, Clock, MapPin, Loader2,
   CheckCircle, XCircle, MonitorPlay, Send, Hourglass, Rocket, Radio,
-  ArrowRight,
+  ArrowRight, Star, Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  onRefereeAssignments,
-  getMatchesLookingForReferee,
-  respondToRefereeInvitation,
-  withdrawRefereeApplication,
-  applyToMatchAsReferee,
+  onRefereeAssignments, getMatchesLookingForReferee, getMesNotesDArbitre,
+  onMesCorpsArbitraux, onMatchsEnRenfort,
 } from "@/lib/firestore";
-import type { Match } from "@/types";
+import EquipeArbitraleDuMatch from "@/components/match/EquipeArbitraleDuMatch";
+import { gesteArbitre } from "@/lib/arbitrage-client";
+import type { CorpsArbitral, Match } from "@/types";
 
 // ============================================
 // Mes désignations, l'écran de l'arbitre.
 //
 // POURQUOI IL MANQUAIT. Toute la mécanique existait déjà — se porter
 // candidat, accepter une invitation, se retirer, ouvrir la console d'un
-// match qu'on dirige — dans lib/firestore, dans les règles Firestore
-// (branche 3 de `matches`) et dans les index. Ce qui n'existait pas, c'est
+// match qu'on dirige. Ce qui n'existait pas, c'est
 // l'endroit d'où l'arbitre s'en sert : son espace ne lui proposait que sa
 // fiche et deux lignes « Bientôt ». Un rôle activable qui n'ouvre aucun
 // écran n'est pas un rôle, c'est une case à cocher.
@@ -41,6 +39,12 @@ import type { Match } from "@/types";
 // candidature pendant que la page est ouverte doit faire apparaître le
 // bouton de la console sans rechargement : c'est souvent le même quart
 // d'heure, au bord du terrain.
+//
+// CHAQUE GESTE PASSE PAR LE SERVEUR (/api/matches/[mid]/arbitre). Il
+// s'écrivait d'ici, directement sur le match, et rien n'empêchait un
+// candidat de se déclarer confirmé lui-même. Le serveur tranche désormais, et
+// prévient le manager : une candidature dont personne n'est averti n'est
+// jamais lue.
 // ============================================
 
 type Onglet = "designations" | "marche" | "historique";
@@ -181,6 +185,16 @@ export default function DesignationsPage() {
   const [marcheCharge, setMarcheCharge] = useState(false);
   const [maVilleSeulement, setMaVilleSeulement] = useState(true);
 
+  // Le corps arbitral que je dirige, pour composer l'équipe de chaque match ;
+  // et les matchs où c'est moi qui accompagne un autre arbitre.
+  const [monCorps, setMonCorps] = useState<CorpsArbitral | null>(null);
+  const [renforts, setRenforts] = useState<Match[]>([]);
+
+  // Les notes des managers, lues à l'ouverture de l'historique. Elles
+  // n'existaient que dans la validation du match, que l'arbitre ne lit pas :
+  // il était noté sans jamais le savoir.
+  const [notes, setNotes] = useState<Map<string, { home?: number; away?: number }> | null>(null);
+
   // Un compte peut porter le rôle sans l'avoir activé dans Évolution :
   // c'est le cas de tous ceux inscrits avant qu'Évolution existe. Les
   // renvoyer serait leur fermer une page qu'ils sont pourtant en droit
@@ -198,6 +212,16 @@ export default function DesignationsPage() {
       setChargement(false);
     });
     return () => stop();
+  }, [user, estArbitre]);
+
+  useEffect(() => {
+    if (!user || !estArbitre) return;
+    const a = onMesCorpsArbitraux(user.uid, (l) => setMonCorps(l.find((c) => c.chefId === user.uid) ?? null));
+    const b = onMatchsEnRenfort(user.uid, setRenforts);
+    return () => {
+      a();
+      b();
+    };
   }, [user, estArbitre]);
 
   const chargerMarche = useCallback(async () => {
@@ -228,6 +252,16 @@ export default function DesignationsPage() {
     if (onglet === "marche" && marche === null) chargerMarche();
   }, [onglet, marche, chargerMarche]);
 
+  useEffect(() => {
+    if (onglet !== "historique" || notes !== null || !user) return;
+    getMesNotesDArbitre(user.uid)
+      .then((l) => setNotes(new Map(l.map((n) => [n.matchId, n.notes]))))
+      .catch((err) => {
+        console.error("Désignations : notes indisponibles", err);
+        setNotes(new Map());
+      });
+  }, [onglet, notes, user]);
+
   // ── Répartition ────────────────────────────────────────────
   const { invitations, confirmes, candidatures, historique } = useMemo(() => {
     const vivants = mes.filter((m) => !estArchive(m));
@@ -237,11 +271,29 @@ export default function DesignationsPage() {
         .filter((m) => m.refereeStatus === "confirmed")
         .sort((a, b) => a.date.localeCompare(b.date)),
       candidatures: vivants.filter((m) => m.refereeStatus === "pending"),
+      // Seuls les matchs qu'on a vraiment dirigés : une candidature restée
+      // sans réponse sur un match joué depuis n'est pas un match arbitré.
       historique: mes
-        .filter(estArchive)
+        .filter((m) => estArchive(m) && m.refereeStatus === "confirmed")
         .sort((a, b) => b.date.localeCompare(a.date)),
     };
   }, [mes]);
+
+  const renfortsAVenir = useMemo(
+    () => renforts.filter((m) => !estArchive(m)).sort((a, b) => a.date.localeCompare(b.date)),
+    [renforts],
+  );
+
+  /** Le bilan en tête de l'historique : matchs dirigés, et la note moyenne. */
+  const bilan = useMemo(() => {
+    const diriges = historique.filter((m) => m.status === "completed" && m.refereeStatus === "confirmed");
+    const toutes = diriges.flatMap((m) => {
+      const n = notes?.get(m.id);
+      return [n?.home, n?.away].filter((x): x is number => typeof x === "number");
+    });
+    const moyenne = toutes.length ? toutes.reduce((a, b) => a + b, 0) / toutes.length : null;
+    return { matchs: diriges.length, avis: toutes.length, moyenne };
+  }, [historique, notes]);
 
   const villeArbitre = (user?.locationCity ?? "").trim();
   const marcheAffiche = useMemo(() => {
@@ -256,14 +308,16 @@ export default function DesignationsPage() {
   }, [marche, maVilleSeulement, villeArbitre]);
 
   // ── Actions ────────────────────────────────────────────────
-  const agir = async (matchId: string, action: () => Promise<void>, succes: string) => {
+  const agir = async (matchId: string, action: () => Promise<unknown>, succes: string) => {
     setEnCours((s) => new Set(s).add(matchId));
     try {
       await action();
       toast.success(succes);
     } catch (err) {
       console.error("Désignations : action refusée", err);
-      toast.error("L'action n'a pas pu être enregistrée");
+      // Le serveur dit pourquoi : match déjà pourvu, déjà commencé, joué
+      // par l'arbitre lui-même… C'est plus utile qu'un « ça n'a pas marché ».
+      toast.error(err instanceof Error ? err.message : "L'action n'a pas pu être enregistrée");
     } finally {
       setEnCours((s) => {
         const suivant = new Set(s);
@@ -276,27 +330,36 @@ export default function DesignationsPage() {
   const repondre = (match: Match, accepte: boolean) =>
     agir(
       match.id,
-      () => respondToRefereeInvitation(match.id, accepte),
-      accepte ? "Désignation acceptée" : "Désignation déclinée",
+      () => gesteArbitre(match.id, accepte ? "accepter" : "decliner"),
+      accepte ? "Désignation acceptée, le manager est prévenu" : "Désignation déclinée",
     );
 
   const seRetirer = (match: Match) =>
-    agir(match.id, () => withdrawRefereeApplication(match.id), "Candidature retirée");
+    agir(match.id, () => gesteArbitre(match.id, "retirer"), "Candidature retirée");
 
-  const postuler = (match: Match) => {
-    if (!user) return;
-    const nom = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Arbitre";
-    return agir(
+  /**
+   * SE DÉSISTER, c'est laisser deux équipes sans arbitre : on le demande une
+   * seconde fois, et le manager est prévenu pour en trouver un autre.
+   */
+  const seDesister = (match: Match) => {
+    const ok = window.confirm(
+      `Tu ne pourras pas arbitrer ${match.homeTeamName} vs ${match.awayTeamName} ?\n\nLes managers seront prévenus pour trouver un autre arbitre.`,
+    );
+    if (!ok) return;
+    return agir(match.id, () => gesteArbitre(match.id, "desister"), "Désistement envoyé aux managers");
+  };
+
+  const postuler = (match: Match) =>
+    agir(
       match.id,
       async () => {
-        await applyToMatchAsReferee(match.id, user.uid, nom);
+        await gesteArbitre(match.id, "postuler");
         // Le match quitte le marché sur-le-champ : il réapparaîtra dans
         // « Mes désignations » par le flux temps réel, pas ici.
         setMarche((prev) => (prev ?? []).filter((m) => m.id !== match.id));
       },
       "Candidature envoyée au manager",
     );
-  };
 
   // ── Rendus ─────────────────────────────────────────────────
   if (!user) return null;
@@ -326,7 +389,7 @@ export default function DesignationsPage() {
       cle: "designations",
       label: "Mes matchs",
       Icon: Flag,
-      compte: invitations.length + confirmes.length + candidatures.length,
+      compte: invitations.length + confirmes.length + candidatures.length + renfortsAVenir.length,
     },
     { cle: "marche", label: "Trouver un match", Icon: Search, compte: 0 },
     { cle: "historique", label: "Historique", Icon: History, compte: historique.length },
@@ -344,7 +407,10 @@ export default function DesignationsPage() {
           Mes désignations
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Les matchs sur lesquels on te désigne, et ceux qui cherchent encore un arbitre.
+          Les matchs sur lesquels on te désigne, et ceux qui cherchent encore un arbitre.{" "}
+          <Link href="/corps-arbitral" className="font-bold text-gray-700 underline decoration-dotted underline-offset-2 hover:text-gray-900">
+            {monCorps ? `Ton corps arbitral : « ${monCorps.nom} »` : "Crée ton corps arbitral"}
+          </Link>
         </p>
       </motion.div>
 
@@ -421,7 +487,7 @@ export default function DesignationsPage() {
 
           {/* Rien nulle part : une seule invitation à agir, pas trois
               sections vides empilées sous leurs titres. */}
-          {invitations.length === 0 && confirmes.length === 0 && candidatures.length === 0 && (
+          {invitations.length === 0 && confirmes.length === 0 && candidatures.length === 0 && renfortsAVenir.length === 0 && (
             <Vide
               Icon={Flag}
               titre="Aucune désignation pour le moment"
@@ -460,19 +526,89 @@ export default function DesignationsPage() {
                           {enDirect ? "En direct" : "Confirmé"}
                         </span>
                       </div>
+                      <EquipeArbitraleDuMatch match={match} corps={monCorps} />
+                      {/* LA CONSOLE, EN SECOURS QUAND UN SCOREUR VIENT. L'arbitre
+                          dirige sur le terrain : pendant le match, c'est son
+                          scoreur qui saisit. Il la garde pour les feuilles
+                          avant le coup d'envoi, et pour le cas où personne
+                          d'autre ne peut la tenir. */}
+                      {match.equipeArbitrale?.scoreur && (
+                        <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                          Pendant le match, c&apos;est <strong className="text-gray-700">{match.equipeArbitrale.scoreur.nom}</strong>{" "}
+                          qui tient la console. Tu ne l&apos;ouvres qu&apos;en secours.
+                        </p>
+                      )}
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Link href={`/matches/${match.id}/manage`} className={btnPlein}>
+                        <Link
+                          href={`/matches/${match.id}/manage`}
+                          className={match.equipeArbitrale?.scoreur ? btnVide : btnPlein}
+                        >
                           <MonitorPlay size={14} />
-                          {enDirect ? "Reprendre la console" : "Ouvrir la console"}
+                          {match.equipeArbitrale?.scoreur
+                            ? "Console (en secours)"
+                            : enDirect ? "Reprendre la console" : "Ouvrir la console"}
                         </Link>
                         <Link href={`/matches/${match.id}`} className={btnVide}>
                           Feuille de match <ArrowRight size={14} />
                         </Link>
+                        {!enDirect && (
+                          <button
+                            onClick={() => seDesister(match)}
+                            disabled={enCours.has(match.id)}
+                            className="inline-flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-bold text-gray-400 transition-colors hover:text-red-600 disabled:opacity-50"
+                          >
+                            {enCours.has(match.id) ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <XCircle size={14} />
+                            )}
+                            Me désister
+                          </button>
+                        )}
                       </div>
                     </Carte>
                   );
                 })}
               </AnimatePresence>
+            </section>
+          )}
+
+          {/* Les matchs où j'accompagne un autre arbitre, dans son corps
+              arbitral : c'est lui qui a choisi, je n'ai qu'à venir. */}
+          {renfortsAVenir.length > 0 && (
+            <section className="space-y-3">
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                En renfort
+              </p>
+              {renfortsAVenir.map((match, i) => {
+                const scoreur = match.equipeArbitrale?.scoreur?.uid === user.uid;
+                return (
+                  <Carte key={match.id} index={i}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <EnTeteMatch match={match} />
+                      </div>
+                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
+                        <Users size={12} /> {scoreur ? "Scoreur" : "Assistant"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs text-gray-500">
+                      Avec {match.refereeName}, arbitre principal
+                      {match.equipeArbitrale?.corpsNom ? <> · « {match.equipeArbitrale.corpsNom} »</> : null}.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {scoreur && (
+                        <Link href={`/matches/${match.id}/manage`} className={btnPlein}>
+                          <MonitorPlay size={14} /> Ouvrir la console
+                        </Link>
+                      )}
+                      <Link href={`/matches/${match.id}`} className={btnVide}>
+                        Feuille de match <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </Carte>
+                );
+              })}
             </section>
           )}
 
@@ -595,32 +731,78 @@ export default function DesignationsPage() {
       {/* ── Historique ───────────────────────────────────────── */}
       {!chargement && onglet === "historique" && (
         <div className="space-y-3">
-          {historique.map((match, i) => (
-            <Carte key={match.id} index={i}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <EnTeteMatch match={match} />
-                </div>
-                <div className="shrink-0 text-right">
-                  {match.status === "completed" ? (
-                    <p className="font-display text-xl font-black tracking-tight text-gray-900">
-                      {match.scoreHome ?? 0} - {match.scoreAway ?? 0}
-                    </p>
-                  ) : (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
-                      Annulé
-                    </span>
-                  )}
-                </div>
+          {bilan.matchs > 0 && (
+            <div className="grid grid-cols-2 border border-gray-200/70 bg-white">
+              <div className="border-r border-gray-200/70 p-4 sm:p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">Matchs dirigés</p>
+                <p className="mt-1 font-display text-3xl font-black tracking-tight text-gray-900">{bilan.matchs}</p>
               </div>
-            </Carte>
-          ))}
+              <div className="p-4 sm:p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">Note des managers</p>
+                {bilan.moyenne !== null ? (
+                  <p className="mt-1 flex items-baseline gap-1.5">
+                    <span className="font-display text-3xl font-black tracking-tight text-gray-900">
+                      {bilan.moyenne.toFixed(1).replace(".", ",")}
+                    </span>
+                    <span className="text-sm font-bold text-gray-400">/ 5</span>
+                    <span className="ml-1 text-xs text-gray-500">
+                      {bilan.avis} avis
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                    {notes === null ? "…" : "Pas encore de note : elle arrive quand un manager valide le match."}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {historique.map((match, i) => {
+            const n = notes?.get(match.id);
+            const recues = [
+              { equipe: match.homeTeamName, note: n?.home },
+              { equipe: match.awayTeamName, note: n?.away },
+            ].filter((x): x is { equipe: string; note: number } => typeof x.note === "number");
+            return (
+              <Carte key={match.id} index={i}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <EnTeteMatch match={match} />
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {match.status === "completed" ? (
+                      <p className="font-display text-xl font-black tracking-tight text-gray-900">
+                        {match.scoreHome ?? 0} - {match.scoreAway ?? 0}
+                      </p>
+                    ) : (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
+                        Annulé
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {recues.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-200/70 pt-3">
+                    {recues.map(({ equipe, note }) => (
+                      <span key={equipe} className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 text-xs text-amber-900">
+                        <span className="font-semibold">{equipe}</span>
+                        <span className="flex items-center gap-0.5 font-black">
+                          <Star size={11} className="fill-amber-400 text-amber-400" /> {note}/5
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Carte>
+            );
+          })}
 
           {historique.length === 0 && (
             <Vide
               Icon={History}
               titre="Aucun match arbitré"
-              texte="Les rencontres que tu auras dirigées se rangeront ici, avec leur score final."
+              texte={"Les rencontres que tu auras dirigées se rangeront ici, avec leur score final et la note que t'auront donnée les managers."}
             />
           )}
         </div>

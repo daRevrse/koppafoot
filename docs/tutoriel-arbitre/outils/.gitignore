@@ -1,0 +1,9 @@
+node_modules/
+captures-brutes/
+profiles/
+logs/
+actifs/
+state.json
+emulateurs/*.rules
+emulateurs/firestore.indexes.json
+*-debug.log

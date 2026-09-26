@@ -33,7 +33,7 @@ const ton = (b: Booking) =>
       : "border-amber-400 bg-amber-50 text-amber-900";
 
 const titre = (b: Booking) =>
-  b.kind === "blocage" ? (b.note || "Bloqué") : (b.matchLabel || b.userName || "Une équipe");
+  b.kind === "blocage" ? (b.note || "Bloqué") : (b.matchLabel || b.teamName || b.userName || "Une équipe");
 
 const hhmm = (min: number) =>
   `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -252,7 +252,7 @@ export default function PlanningSemaine({
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 border-l-4 border-amber-400 bg-amber-50" />En attente</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 border-l-4 border-emerald-500 bg-emerald-100" />Confirmé</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 border-l-4 border-gray-400 bg-gray-200" />Bloqué</span>
-        <span className="text-gray-400">Touchez un créneau libre pour le bloquer.</span>
+        <span className="text-gray-400">Touche un créneau libre pour le bloquer.</span>
       </div>
 
       {/* ─── Ordinateur : la semaine ─── */}

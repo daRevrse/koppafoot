@@ -4,6 +4,68 @@ import { FieldValue } from "firebase-admin/firestore";
 import { sendNotificationEmail, venueApplicationDecisionHtml } from "@/lib/email";
 import { sendPushToUser } from "@/lib/fcm-server";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { champsCandidature } from "@/lib/candidature-terrain";
+
+async function appelant(req: NextRequest): Promise<string | null> {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  try {
+    return (await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1])).uid;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * La candidature du candidat lui-même, tant qu'elle attend.
+ *
+ * MODIFIER OU RETIRER SA DEMANDE. Une fois envoyée, elle était figée : une
+ * faute dans le nom du terrain, une adresse oubliée, et il fallait attendre
+ * le refus pour recommencer. Tant que personne ne l'a relue, le candidat la
+ * corrige (PUT) ou la retire (DELETE). Après la décision, plus rien : c'est
+ * un dossier jugé.
+ */
+async function saCandidatureEnAttente(req: NextRequest, id: string) {
+  const uid = await appelant(req);
+  if (!uid) return { erreur: NextResponse.json({ error: "Non autorisé" }, { status: 401 }) };
+  const ref = adminDb.collection("venue_applications").doc(id);
+  const snap = await ref.get();
+  if (!snap.exists || snap.data()?.uid !== uid) {
+    return { erreur: NextResponse.json({ error: "Candidature introuvable" }, { status: 404 }) };
+  }
+  if (snap.data()?.status !== "pending") {
+    return { erreur: NextResponse.json({ error: "Ta candidature a déjà été relue." }, { status: 409 }) };
+  }
+  return { ref };
+}
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const r = await saCandidatureEnAttente(req, id);
+    if ("erreur" in r) return r.erreur;
+    const lu = champsCandidature(await req.json());
+    if ("erreur" in lu) return NextResponse.json({ error: lu.erreur }, { status: 400 });
+    await r.ref.update({ ...lu.champs, updated_at: FieldValue.serverTimestamp() });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("PUT venue application failed:", err);
+    return NextResponse.json({ error: "Une erreur est survenue" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const r = await saCandidatureEnAttente(req, id);
+    if ("erreur" in r) return r.erreur;
+    await r.ref.delete();
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE venue application failed:", err);
+    return NextResponse.json({ error: "Une erreur est survenue" }, { status: 500 });
+  }
+}
 
 /**
  * PATCH /api/venue-applications/[id], décision de l'administrateur.
@@ -15,6 +77,11 @@ import { estSuperadmin } from "@/lib/admin-api-auth";
  * compte effacerait ce que la personne est par ailleurs, c'est exactement ce
  * que faisait l'approbation d'organisateur, et ce qui rendait invisible un
  * organisateur qui joue.
+ *
+ * UN REFUS DIT POURQUOI. `motif` part avec la décision : il est gardé sur
+ * la candidature, affiché sur la page du candidat et repris dans la
+ * notification et l'email. Un refus sans raison laissait deviner quoi
+ * corriger avant de redéposer.
  */
 
 export async function PATCH(
@@ -22,18 +89,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
-
-    let callerUid: string;
-    try {
-      const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
-      callerUid = decoded.uid;
-    } catch {
-      return NextResponse.json({ error: "Token invalide" }, { status: 401 });
-    }
+    const callerUid = await appelant(req);
+    if (!callerUid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const callerSnap = await adminDb.collection("users").doc(callerUid).get();
     // Le drapeau ET l'ancien `user_type`, comme toutes les routes
@@ -43,7 +100,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
-    const { action } = (await req.json()) as { action?: string };
+    const { action, motif: motifBrut } = (await req.json()) as { action?: string; motif?: unknown };
+    const motif = action === "reject" && typeof motifBrut === "string" ? motifBrut.trim().slice(0, 500) : "";
     if (action !== "approve" && action !== "reject") {
       return NextResponse.json({ error: "action doit être approve ou reject" }, { status: 400 });
     }
@@ -62,6 +120,7 @@ export async function PATCH(
     const approved = action === "approve";
     await ref.update({
       status: approved ? "approved" : "rejected",
+      rejection_reason: motif || null,
       reviewed_by: callerUid,
       reviewed_at: FieldValue.serverTimestamp(),
     });
@@ -110,6 +169,13 @@ export async function PATCH(
         }),
       ]);
       venueId = venueRef.id;
+      // Le numéro donné dans la candidature devient celui du terrain, celui
+      // que « Contacter le responsable » montrera (voir /api/venues/[id]/contact).
+      await venueRef.collection("prive").doc("contact").set({
+        telephone: telephone || null,
+        email_visible: true,
+        updated_at: FieldValue.serverTimestamp(),
+      });
     }
 
     // ON PRÉVIENT LE CANDIDAT. Sans ça, une candidature approuvée ouvrait un
@@ -133,7 +199,7 @@ export async function PATCH(
         title: approved ? "Terrain publié" : "Candidature terrain",
         body: approved
           ? `${terrain} est en ligne. Complète sa fiche pour être choisi.`
-          : `La fiche de ${terrain} n'a pas été publiée cette fois.`,
+          : `La fiche de ${terrain} n'a pas été publiée cette fois.${motif ? ` Motif : ${motif}` : ""}`,
         link: lien,
         read: false,
         created_at: FieldValue.serverTimestamp(),
@@ -143,7 +209,7 @@ export async function PATCH(
         title: approved ? "Ton terrain est en ligne" : "Candidature terrain",
         body: approved
           ? `${terrain} est visible par les équipes. Ajoute une photo et un tarif.`
-          : "Ta demande n'a pas été retenue pour le moment.",
+          : motif ? `Ta demande n'a pas été retenue : ${motif}` : "Ta demande n'a pas été retenue pour le moment.",
         link: lien,
         // Une réponse à MA candidature, pas une annonce générale.
         category: "perso",
@@ -153,7 +219,7 @@ export async function PATCH(
         ? sendNotificationEmail(
             String(application.email),
             approved ? `${terrain} est en ligne sur KoppaFoot` : "Ta demande de référencement, KoppaFoot",
-            venueApplicationDecisionHtml(prenom, terrain, approved),
+            venueApplicationDecisionHtml(prenom, terrain, approved, motif || null),
           )
         : Promise.resolve(),
     ]).then((sorts) => {

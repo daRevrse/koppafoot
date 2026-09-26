@@ -245,6 +245,9 @@ export default function MatchDetailPage() {
     [match, estAmical],
   );
 
+  /** Un arbitre de la plateforme a dirigé ce match : les managers le notent. */
+  const arbitreANoter = !!match?.refereeId && match?.refereeStatus === "confirmed";
+
   /** Les mêmes que le garde de la console (voir matches/[id]/manage). */
   const peutTenirLaConsole = useMemo(() => {
     if (!match || !user) return false;
@@ -784,7 +787,25 @@ export default function MatchDetailPage() {
     coupDEnvoi: { date: match.date, time: match.time },
     lieu: { nom: match.venueName, ville: match.venueCity },
     format: match.format,
-    referee: { name: match.refereeName, confirmed: match.refereeStatus === "confirmed" },
+    // L'arbitre de la plateforme mène à sa fiche ; à défaut, l'arbitre local
+    // saisi à la création, qui ne s'affichait nulle part sur la fiche.
+    referee: match.refereeName && match.refereeStatus !== "none"
+      ? {
+          name: match.refereeName,
+          confirmed: match.refereeStatus === "confirmed",
+          href: match.refereeId ? `/profile/${match.refereeId}` : null,
+          note: match.refereeStatus === "invited" ? "Invité, sans réponse" : null,
+        }
+      : match.localRefereeName
+        ? { name: match.localRefereeName, confirmed: true, note: "Arbitre local" }
+        : null,
+    equipeArbitrale: match.equipeArbitrale && match.refereeStatus === "confirmed"
+      ? {
+          assistants: match.equipeArbitrale.assistants.map((a) => a.nom),
+          scoreur: match.equipeArbitrale.scoreur?.nom ?? null,
+          corps: match.equipeArbitrale.corpsNom || null,
+        }
+      : null,
   };
 
   return (
@@ -1958,7 +1979,10 @@ export default function MatchDetailPage() {
         >
           <div className="mb-6 sm:mb-8">
              <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-200/70 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
-             <p className="text-gray-500 text-xs sm:text-sm">Le match est terminé. Veuillez valider le score final, les évènements et noter l'arbitre pour clore officiellement la rencontre.</p>
+             <p className="text-gray-500 text-xs sm:text-sm">
+               Le match est terminé. Veuillez valider le score final et les évènements
+               {arbitreANoter ? <>, et noter l&apos;arbitre,</> : null} pour clore officiellement la rencontre.
+             </p>
              <div className="mt-4 p-3 sm:p-4 bg-amber-50 border border-amber-100">
                <p className="text-[11px] font-bold text-amber-700 flex items-start sm:items-center gap-2">
                  <AlertCircle size={14} className="shrink-0 mt-0.5 sm:mt-0" />
@@ -1981,12 +2005,14 @@ export default function MatchDetailPage() {
                      {monRetour.validation === 'validated' ? 'Match Validé' : 'Match Contesté'}
                    </span>
                 </div>
+                {monRetour.refereeRating ? (
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-400 uppercase font-black mr-2">Arbitrage :</span>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} size={16} className={i < (monRetour.refereeRating || 0) ? "text-amber-400 fill-amber-400" : "text-gray-300"} />
                   ))}
                 </div>
+                ) : null}
                 {monRetour.comments && (
                   <p className="text-sm text-gray-600 italic">« {monRetour.comments} »</p>
                 )}
@@ -2011,8 +2037,14 @@ export default function MatchDetailPage() {
                     </div>
                  </div>
 
+               {/* La note ne va qu'à un arbitre de la plateforme, confirmé :
+                   sans lui, elle partait quand même (cinq étoiles d'office)
+                   et ne notait personne. */}
+               {arbitreANoter && (
                <div>
-                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Noter l'arbitre (sur 5)</label>
+                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                   Noter l&apos;arbitre, {match.refereeName} (sur 5)
+                 </label>
                  <div className="flex flex-wrap gap-2">
                    {Array.from({ length: 5 }).map((_, i) => (
                      <button
@@ -2027,6 +2059,7 @@ export default function MatchDetailPage() {
                    ))}
                  </div>
                </div>
+               )}
 
                <div>
                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Commentaire ({validation === 'contested' ? 'Requis' : 'Optionnel'})</label>
@@ -2051,9 +2084,9 @@ export default function MatchDetailPage() {
                      await submitManagerFeedback(match.id, {
                        validation,
                        comments: managerComments,
-                       refereeRating
+                       ...(arbitreANoter ? { refereeRating } : {}),
                      });
-                     toast.success("Retour envoyé à l'arbitre !");
+                     toast.success(arbitreANoter ? "Retour enregistré, l'arbitre reçoit ta note" : "Retour enregistré");
                    } catch(e) {
                      console.error(e);
                      toast.error("Erreur lors de l'envoi du retour.");
@@ -2081,8 +2114,10 @@ export default function MatchDetailPage() {
           que l'onglet existait a trois centimetres au-dessus.
           Reste ce qu'une barre d'action doit porter : le seul geste que la
           page ne sait pas faire elle-meme. Cache sur un match termine ou
-          annule, la console est close des deux cotes. */}
-      {isManager && match?.status !== "completed" && match?.status !== "cancelled" && (
+          annule, la console est close des deux cotes.
+          Elle s'ouvre a tous ceux que la console accepte — l'arbitre
+          confirme d'abord, qui ne la trouvait que dans ses designations. */}
+      {peutTenirLaConsole && match?.status !== "completed" && match?.status !== "cancelled" && (
         <button
           onClick={() => router.push(`/matches/${id}/manage`)}
           className="mt-6 flex h-14 w-full items-center justify-center gap-2 bg-emerald-500 text-[11px] font-black uppercase tracking-widest text-white transition-colors hover:bg-emerald-600 sm:mt-8"

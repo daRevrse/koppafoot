@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, MapPin, Swords, Trophy } from "lucide-react";
+import { CalendarDays, Flag, MapPin, Radio, Swords, Trophy } from "lucide-react";
 import { Sifflet } from "@/components/ui/icones-foot";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import MiniEcusson from "@/components/match/MiniEcusson";
@@ -35,7 +35,20 @@ export interface MatchInfo {
   /** Le format de jeu, « 11v11 ». Absent sur une rencontre de compétition. */
   format?: string | null;
   /** L'arbitre. `null` quand la page n'a aucun officiel à annoncer. */
-  referee?: { name: string | null; confirmed: boolean } | null;
+  referee?: {
+    name: string | null;
+    confirmed: boolean;
+    /** Sa fiche, quand il a un compte : on veut savoir qui vient siffler. */
+    href?: string | null;
+    /** Ce qui remplace « Désigné » / « En attente », pour un arbitre local par exemple. */
+    note?: string | null;
+  } | null;
+  /** Ceux qui l'accompagnent, pris dans son corps arbitral. */
+  equipeArbitrale?: {
+    assistants: string[];
+    scoreur: string | null;
+    corps: string | null;
+  } | null;
   /** La compétition du match, pour la suivre. Absente sur un amical. */
   competition?: {
     id: string;
@@ -165,7 +178,31 @@ export default function MatchInfoList({
         visuel={<Sifflet {...ICONE} />}
         label="Arbitre"
         valeur={info.referee.name}
-        note={info.referee.confirmed ? "Désigné" : "En attente"}
+        href={info.referee.href}
+        note={info.referee.note ?? (info.referee.confirmed ? "Désigné" : "En attente")}
+      />,
+    );
+  }
+
+  if (info.equipeArbitrale?.assistants.length) {
+    lignes.push(
+      <Ligne
+        key="assist"
+        visuel={<Flag {...ICONE} />}
+        label={info.equipeArbitrale.assistants.length > 1 ? "Assistants" : "Assistant"}
+        valeur={info.equipeArbitrale.assistants.join(", ")}
+        note={info.equipeArbitrale.corps ? `« ${info.equipeArbitrale.corps} »` : null}
+      />,
+    );
+  }
+  if (info.equipeArbitrale?.scoreur) {
+    lignes.push(
+      <Ligne
+        key="scoreur"
+        visuel={<Radio {...ICONE} />}
+        label="Scoreur"
+        valeur={info.equipeArbitrale.scoreur}
+        note="Tient la console"
       />,
     );
   }
