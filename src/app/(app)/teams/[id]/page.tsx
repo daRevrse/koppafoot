@@ -8,7 +8,7 @@ import {
   Shield, MapPin, Users, Star, ChevronLeft, Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
-  Plus, Camera, UserCheck, BarChart2, ShieldCheck,
+  Plus, Camera, UserCheck, BarChart2, ShieldCheck, HeartPulse,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,8 +22,13 @@ import {
   followTeam, unfollowTeam, isFollowingTeam,
   onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
   onGhostPlayersByTeam, createGhostPlayer, updateGhostPlayer, deleteGhostPlayer,
+  declarerConditionFantome,
   setTeamStaff,
 } from "@/lib/firestore";
+import { useFormes } from "@/hooks/useFormes";
+import { cleFormeCompte, cleFormeLigne, conditionEnVigueur } from "@/lib/etat-de-forme";
+import { PastillesEtatDeForme } from "@/components/forme/badges";
+import EditeurCondition from "@/components/forme/EditeurCondition";
 import { TITRES_STAFF, estProprietaireEquipe, peutGererEquipe } from "@/lib/team-access";
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
@@ -785,6 +790,51 @@ function GhostStatsModal({
   );
 }
 
+/**
+ * La condition d'un joueur sans compte, déclarée par son manager.
+ *
+ * Il ne peut pas le faire lui-même — c'est précisément ce qui fait de lui un
+ * joueur sans compte. Sans cette fenêtre, sa blessure n'existait que dans la
+ * tête de son manager, et la feuille de match ne pouvait pas la rappeler.
+ */
+function ConditionFantomeModal({
+  ghost,
+  teamId,
+  onClose,
+}: {
+  ghost: GhostPlayer;
+  teamId: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-6"
+      >
+        <h3 className="mb-1 text-lg font-bold text-gray-900">
+          Condition de {ghost.firstName} {ghost.lastName}
+        </h3>
+        <p className="mb-5 text-xs text-gray-400">
+          Il n&apos;a pas de compte : c&apos;est au club de la déclarer pour lui.
+        </p>
+        <EditeurCondition
+          initiale={conditionEnVigueur(ghost.condition)}
+          pourUnAutre
+          onAnnuler={onClose}
+          onEnregistrer={async (c) => {
+            await declarerConditionFantome(teamId, ghost.id, c);
+            toast.success("Condition enregistrée");
+            onClose();
+          }}
+        />
+      </motion.div>
+    </div>
+  );
+}
+
 // ============================================
 // Main Component
 // ============================================
@@ -1009,6 +1059,15 @@ export default function TeamDetailPage() {
     const unsub = onGhostPlayersByTeam(teamId, setGhostPlayers);
     return unsub;
   }, [teamId, user]);
+
+  // LA FORME DE TOUT L'EFFECTIF, EN UNE LECTURE (voir lib/formes-admin). Les
+  // comptes par leur identifiant, les joueurs sans compte par leur ligne dans
+  // CE club : c'est là que leurs matchs les ont rangés.
+  const { formes } = useFormes([
+    ...members.map((m) => cleFormeCompte(m.uid)),
+    ...ghostPlayers.map((g) => cleFormeLigne(teamId, g.id)),
+  ]);
+  const [conditionCible, setConditionCible] = useState<GhostPlayer | null>(null);
 
   // Check follow status
   useEffect(() => {
@@ -1867,6 +1926,13 @@ export default function TeamDetailPage() {
                             <MapPin size={11} /> {member.locationCity}
                             {pos && <span className={`ml-1 px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
                           </div>
+                          {/* Condition déclarée, forme calculée : ce que le
+                              manager regarde avant de cocher « titulaire ». */}
+                          <PastillesEtatDeForme
+                            className="mt-1.5"
+                            condition={member.condition}
+                            forme={formes[cleFormeCompte(member.uid)]}
+                          />
                         </div>
                       </div>
                       {isTeamManager && (
@@ -1928,6 +1994,11 @@ export default function TeamDetailPage() {
                               {POSITION_LABELS[ghost.position] ?? ghost.position}
                             </span>
                           </div>
+                          <PastillesEtatDeForme
+                            className="mt-1.5"
+                            condition={ghost.condition}
+                            forme={formes[cleFormeLigne(teamId, ghost.id)]}
+                          />
                         </div>
                       </div>
                       {isTeamManager && (
@@ -1936,6 +2007,11 @@ export default function TeamDetailPage() {
                             onClick={() => setGhostStatsTarget(ghost)}
                             className="flex items-center gap-1 border border-gray-200/70 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                             <BarChart2 size={12} /> <span>Stats</span>
+                          </button>
+                          <button
+                            onClick={() => setConditionCible(ghost)}
+                            className="flex items-center gap-1 border border-gray-200/70 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            <HeartPulse size={12} /> <span>Condition</span>
                           </button>
                           <button
                             onClick={() => { setEditingGhost(ghost); setShowGhostModal(true); }}
@@ -2661,6 +2737,15 @@ export default function TeamDetailPage() {
           <GhostStatsModal
             ghost={ghostStatsTarget}
             onClose={() => setGhostStatsTarget(null)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {conditionCible && (
+          <ConditionFantomeModal
+            ghost={conditionCible}
+            teamId={teamId}
+            onClose={() => setConditionCible(null)}
           />
         )}
       </AnimatePresence>

@@ -17,6 +17,7 @@ import {
   type PlayerStats, type PlayerAppearance,
 } from "@/lib/player-stats";
 import type { LinkedCompPlayer, Match } from "@/types";
+import MonEtatDeForme from "@/components/forme/MonEtatDeForme";
 
 // ============================================
 // Mes statistiques, the player's own record: every competition roster line
@@ -241,6 +242,11 @@ export default function StatsPage() {
           </p> */}
         </div>
       </div>
+
+      {/* L'ÉTAT DE FORME EN TÊTE, avant le bilan : le bilan dit ce qu'on a
+          fait sur une saison, la forme dit comment on arrive au prochain
+          match — et c'est ici que le joueur déclare une blessure. */}
+      <MonEtatDeForme />
 
       {rows.length === 0 ? (
         <div className=" border border-gray-200/70 bg-white p-8 text-center">

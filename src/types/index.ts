@@ -2,6 +2,7 @@ import type { PushPrefs } from "@/lib/push-categories";
 import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
 import type { Possession, PossessionStockee } from "@/lib/possession";
+import type { ConditionJoueur, FirestoreConditionJoueur } from "@/lib/etat-de-forme";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -132,6 +133,11 @@ export interface UserProfile {
   trophies?: { title: string; year: number; description?: string }[];
   // Competition roster lines validated as being this user
   linkedCompPlayers?: LinkedCompPlayer[];
+  /**
+   * Ce que le joueur déclare de sa condition : apte, blessé, suspendu…
+   * Voir lib/etat-de-forme. Absent = rien de déclaré, ce qui se lit « apte ».
+   */
+  condition?: ConditionJoueur | null;
 }
 
 // Signup form data before Firestore write
@@ -216,6 +222,8 @@ export interface FirestoreUser {
   /** Ce que le compte accepte de recevoir en push, par catégorie. Absent =
    *  tout accepté, voir lib/push-categories. */
   push_prefs?: PushPrefs;
+  /** Voir `UserProfile.condition`. Écrite par son propriétaire seul. */
+  condition?: FirestoreConditionJoueur | null;
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -1555,6 +1563,11 @@ export interface FirestoreGhostPlayer {
   goals?: number;
   assists?: number;
   matches_played?: number;
+  /**
+   * Sa condition, déclarée par son MANAGER : un joueur sans compte ne peut
+   * pas dire lui-même qu'il est blessé. Voir lib/etat-de-forme.
+   */
+  condition?: FirestoreConditionJoueur | null;
   created_at: string;
   updated_at: string;
 }
@@ -1570,6 +1583,8 @@ export interface GhostPlayer {
   goals: number;
   assists: number;
   matchesPlayed: number;
+  /** Voir `FirestoreGhostPlayer.condition`. */
+  condition: ConditionJoueur | null;
   createdAt: string;
   updatedAt: string;
 }
