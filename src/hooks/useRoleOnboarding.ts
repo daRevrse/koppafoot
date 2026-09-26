@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTeamsByManager, getGhostPlayersByTeam, getMatchesByReferee } from "@/lib/firestore";
+import { getTeamsByManager, getGhostPlayersByTeam, getMatchesByReferee, getMesCorpsArbitraux } from "@/lib/firestore";
 import { listCompTeamsByManager } from "@/lib/competition-firestore";
 import {
   managerOnboarding,
@@ -46,13 +46,19 @@ export function useRoleOnboarding(): OnboardingProgress | null {
         // Une seule lecture : « a-t-il déjà un match ? », quel qu'en soit le
         // statut. Une candidature en attente compte, le geste est fait.
         try {
-          const designations = await getMatchesByReferee(user.uid);
+          const [designations, corps] = await Promise.all([
+            getMatchesByReferee(user.uid),
+            getMesCorpsArbitraux(user.uid).catch(() => []),
+          ]);
           if (!cancelled) {
-            setProgress(refereeOnboarding(user, { designationCount: designations.length }));
+            setProgress(refereeOnboarding(user, {
+              designationCount: designations.length,
+              corpsCount: corps.length,
+            }));
           }
         } catch (err) {
           console.error("useRoleOnboarding: failed to load referee context", err);
-          if (!cancelled) setProgress(refereeOnboarding(user, { designationCount: 0 }));
+          if (!cancelled) setProgress(refereeOnboarding(user, { designationCount: 0, corpsCount: 0 }));
         }
         return;
       }

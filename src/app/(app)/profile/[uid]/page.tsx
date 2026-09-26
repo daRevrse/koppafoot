@@ -442,6 +442,22 @@ function RefereeSection({ profile, bilan }: { profile: UserProfile; bilan: Bilan
           </div>
         </div>
       )}
+      {bilan?.corps && (
+        <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
+          <Users size={20} className="shrink-0 text-violet-600" />
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500">
+              {bilan.corps.chef ? "Dirige le corps arbitral" : "Membre du corps arbitral"}
+            </p>
+            <p className="truncate font-semibold text-gray-900">
+              « {bilan.corps.nom} »
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                {bilan.corps.membres} officiel{bilan.corps.membres > 1 ? "s" : ""}
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
       {licenseLevel && (
         <div className="flex items-center gap-2">
           <Award size={16} className="text-purple-600" />
@@ -507,6 +523,8 @@ interface BilanArbitre {
   matchs: number;
   note: number | null;
   avis: number;
+  /** Son corps arbitral, s'il en a un : nom, et s'il le dirige. */
+  corps?: { nom: string; chef: boolean; membres: number } | null;
 }
 
 async function fetchPublicProfile(

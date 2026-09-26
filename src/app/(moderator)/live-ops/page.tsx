@@ -145,6 +145,14 @@ export default function LiveOpsHome() {
                       </span>
                     )}
                   </p>
+                  {/* Confié par un arbitre de son corps arbitral : on sait
+                      pour qui on tient la console, et qui dirige sur le terrain. */}
+                  {m.equipeArbitrale?.scoreur?.uid === user?.uid && m.refereeName && (
+                    <p className="mt-1 truncate text-[11px] font-semibold text-sky-700">
+                      Scoreur de {m.refereeName}
+                      {m.equipeArbitrale?.corpsNom ? ` · « ${m.equipeArbitrale.corpsNom} »` : ""}
+                    </p>
+                  )}
                 </div>
                 {m.status === "live" ? (
                   <span className="shrink-0 bg-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">

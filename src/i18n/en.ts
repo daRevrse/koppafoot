@@ -31,6 +31,7 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "espace.mesReservations": "My bookings",
   "espace.competitionsOrganisees": "Competitions I run",
   "espace.consoleLive": "Live console",
+  "espace.corpsArbitral": "Refereeing crew",
   "espace.mesTerrains": "My pitches",
   "espace.reservationsRecues": "Booking requests",
   "espace.administration": "Administration",

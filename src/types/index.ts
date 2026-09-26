@@ -408,6 +408,70 @@ export interface MatchModificationRequest {
   requestedBy: string;
 }
 
+/** Un membre d'un corps arbitral, tel qu'on le recopie sur un match. */
+export interface MembreNomme {
+  uid: string;
+  nom: string;
+}
+
+/** Voir `FirestoreMatch.equipe_arbitrale`. */
+export interface FirestoreEquipeArbitrale {
+  corps_id: string;
+  corps_nom: string;
+  assistants: MembreNomme[];
+  scoreur: MembreNomme | null;
+  /**
+   * Le scoreur a-t-il été ajouté à `moderator_ids` par cette composition ?
+   * S'il couvrait déjà le match de lui-même, le retirer de l'équipe ne doit
+   * pas lui reprendre la console qu'il avait prise.
+   */
+  scoreur_ajoute?: boolean;
+}
+
+export interface EquipeArbitrale {
+  corpsId: string;
+  corpsNom: string;
+  assistants: MembreNomme[];
+  scoreur: MembreNomme | null;
+}
+
+/** Ce qu'on fait dans un corps arbitral : arbitrer (assistant) ou tenir la console. */
+export type RoleDansLeCorps = "arbitre" | "scoreur";
+
+/**
+ * Un CORPS ARBITRAL — `corps_arbitraux/{id}`.
+ *
+ * L'équipe permanente d'un arbitre : les arbitres qui l'assistent et les
+ * scoreurs qui tiennent la console pendant qu'il dirige. Il la crée, y
+ * invite, et pour chaque match où il est désigné choisit qui vient avec lui.
+ * Un arbitre ne dirige qu'un corps ; on peut être membre de plusieurs.
+ * Écrit uniquement par /api/corps-arbitral.
+ */
+export interface FirestoreCorpsArbitral {
+  nom: string;
+  chef_id: string;
+  chef_nom: string;
+  ville: string | null;
+  membres: Record<string, { nom: string; role: RoleDansLeCorps; depuis: string }>;
+  /** Le chef et ses membres, pour les requêtes `array-contains`. */
+  membre_ids: string[];
+  invitations: Record<string, { nom: string; role: RoleDansLeCorps; le: string }>;
+  invite_ids: string[];
+  created_at: unknown;
+  updated_at: unknown;
+}
+
+export interface CorpsArbitral {
+  id: string;
+  nom: string;
+  chefId: string;
+  chefNom: string;
+  ville: string | null;
+  /** Le chef n'y figure pas : il est `chefId`. */
+  membres: { uid: string; nom: string; role: RoleDansLeCorps; depuis: string }[];
+  invitations: { uid: string; nom: string; role: RoleDansLeCorps; le: string }[];
+}
+
 export interface FirestoreMatch {
   home_team_id: string;
   away_team_id: string;
@@ -437,6 +501,15 @@ export interface FirestoreMatch {
   referee_name: string | null;
   referee_status: "confirmed" | "pending" | "invited" | "none";
   local_referee_name?: string | null;
+  /**
+   * L'ÉQUIPE DE L'ARBITRE sur ce match : ses assistants et son scoreur, pris
+   * dans son corps arbitral (voir `FirestoreCorpsArbitral`). L'arbitre dirige
+   * sur le terrain, sifflet en main : c'est son scoreur qui tient la console.
+   * Écrite par /api/matches/[mid]/arbitre, jamais par un navigateur.
+   */
+  equipe_arbitrale?: FirestoreEquipeArbitrale | null;
+  /** Les uid de cette équipe (assistants et scoreur), pour la retrouver d'une requête. */
+  equipe_arbitrale_ids?: string[];
   format: MatchFormat;
   /**
    * L'ÉCUSSON DES DEUX CAMPS, RECOPIÉ SUR LE MATCH.
@@ -872,6 +945,8 @@ export interface Match {
   awayOnPitch: string[];
   /** Voir `FirestoreMatch.moderator_ids`. */
   moderatorIds: string[];
+  /** Voir `FirestoreMatch.equipe_arbitrale`. */
+  equipeArbitrale?: EquipeArbitrale | null;
   /** Voir `FirestoreMatch.home_ghost_lineup`. */
   homeGhostLineup: LineupEntry[];
   awayGhostLineup: LineupEntry[];

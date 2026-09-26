@@ -43,6 +43,8 @@ import type {
   Notification, FirestoreNotification, NotificationType,
   MatchValidation, FirestoreMatchValidation,
   CompositionType,
+  EquipeArbitrale, FirestoreEquipeArbitrale,
+  CorpsArbitral, FirestoreCorpsArbitral,
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
@@ -119,6 +121,17 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
   };
 }
 
+/** L'équipe de l'arbitre, en camelCase ; `null` quand il vient seul. */
+export function equipeArbitraleLue(e: FirestoreEquipeArbitrale | null | undefined): EquipeArbitrale | null {
+  if (!e?.corps_id) return null;
+  return {
+    corpsId: e.corps_id,
+    corpsNom: e.corps_nom ?? "",
+    assistants: e.assistants ?? [],
+    scoreur: e.scoreur ?? null,
+  };
+}
+
 export function toMatch(id: string, d: FirestoreMatch): Match {
   let effectiveStatus = d.status;
 
@@ -151,6 +164,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     playersTotal: d.players_total ?? 0,
     awayManagerId: d.away_manager_id ?? "",
     moderatorIds: d.moderator_ids ?? [],
+    equipeArbitrale: equipeArbitraleLue(d.equipe_arbitrale),
     penaltyHome: d.penalty_home ?? null,
     penaltyAway: d.penalty_away ?? null,
     recordedAt: d.recorded_at ?? null,
@@ -1555,8 +1569,14 @@ function quandLeMatch(m: { date: string; time?: string | null }): string {
  */
 async function prevenirLArbitre(m: FirestoreMatch, title: string, body: string): Promise<void> {
   if (!m.referee_id || (m.referee_status ?? "none") === "none") return;
-  await createNotification({ userId: m.referee_id, type: "arbitrage", title, body, link: "/designations" })
-    .catch((err) => console.warn("Arbitre non prévenu :", err));
+  // Son équipe aussi : l'assistant et le scoreur viennent pour la même date.
+  const equipe = [
+    ...(m.equipe_arbitrale?.assistants ?? []),
+    ...(m.equipe_arbitrale?.scoreur ? [m.equipe_arbitrale.scoreur] : []),
+  ];
+  await Promise.all([m.referee_id, ...equipe.map((x) => x.uid)].map((userId) =>
+    createNotification({ userId, type: "arbitrage", title, body, link: "/designations" })
+      .catch((err) => console.warn("Arbitrage non prévenu :", err))));
 }
 
 /**
@@ -2552,6 +2572,82 @@ export async function getMesNotesDArbitre(refereeId: string): Promise<NotesDArbi
     const n = (d.data().notes ?? {}) as { home?: number; away?: number };
     return { matchId: d.id, notes: { home: n.home, away: n.away } };
   });
+}
+
+// ============================================
+// Corps arbitraux (lecture ; l'écriture passe par /api/corps-arbitral)
+// ============================================
+
+export function toCorpsArbitral(id: string, d: FirestoreCorpsArbitral): CorpsArbitral {
+  return {
+    id,
+    nom: d.nom,
+    chefId: d.chef_id,
+    chefNom: d.chef_nom,
+    ville: d.ville ?? null,
+    membres: Object.entries(d.membres ?? {})
+      .map(([uid, x]) => ({ uid, nom: x.nom, role: x.role, depuis: x.depuis }))
+      .sort((a, b) => a.role.localeCompare(b.role) || a.nom.localeCompare(b.nom)),
+    invitations: Object.entries(d.invitations ?? {})
+      .map(([uid, x]) => ({ uid, nom: x.nom, role: x.role, le: x.le }))
+      .sort((a, b) => a.le.localeCompare(b.le)),
+  };
+}
+
+/** Les corps dont on fait partie, celui qu'on dirige compris. */
+export function onMesCorpsArbitraux(uid: string, callback: (data: CorpsArbitral[]) => void): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "corps_arbitraux"), where("membre_ids", "array-contains", uid)),
+    (snap) => callback(snap.docs.map((d) => toCorpsArbitral(d.id, d.data() as FirestoreCorpsArbitral))),
+    (err) => console.error("onMesCorpsArbitraux :", err),
+  );
+}
+
+/** Même lecture, une fois (la liste de départ de l'arbitre). */
+export async function getMesCorpsArbitraux(uid: string): Promise<CorpsArbitral[]> {
+  const snap = await getDocs(query(collection(db, "corps_arbitraux"), where("membre_ids", "array-contains", uid)));
+  return snap.docs.map((d) => toCorpsArbitral(d.id, d.data() as FirestoreCorpsArbitral));
+}
+
+/** Les corps qui nous invitent, en attente de notre réponse. */
+export function onInvitationsCorpsArbitral(uid: string, callback: (data: CorpsArbitral[]) => void): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "corps_arbitraux"), where("invite_ids", "array-contains", uid)),
+    (snap) => callback(snap.docs.map((d) => toCorpsArbitral(d.id, d.data() as FirestoreCorpsArbitral))),
+    (err) => console.error("onInvitationsCorpsArbitral :", err),
+  );
+}
+
+/** Le corps que dirige chacun de ces arbitres, s'il en dirige un. */
+export async function getCorpsDirigesPar(uids: string[]): Promise<Map<string, CorpsArbitral>> {
+  const out = new Map<string, CorpsArbitral>();
+  for (let i = 0; i < uids.length; i += 30) {
+    const lot = uids.slice(i, i + 30);
+    if (lot.length === 0) continue;
+    const snap = await getDocs(query(collection(db, "corps_arbitraux"), where("chef_id", "in", lot)));
+    snap.docs.forEach((d) => {
+      const c = toCorpsArbitral(d.id, d.data() as FirestoreCorpsArbitral);
+      out.set(c.chefId, c);
+    });
+  }
+  return out;
+}
+
+/** Les scoreurs validés (la casquette `is_scorer`), pour les inviter dans un corps. */
+export async function searchScoreurs(): Promise<UserProfile[]> {
+  const snap = await getDocs(query(
+    collection(db, "users"), where("is_scorer", "==", true), where("is_active", "==", true),
+  ));
+  return snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
+}
+
+/** Les matchs où l'on accompagne un arbitre : assistant ou scoreur de son équipe. */
+export function onMatchsEnRenfort(uid: string, callback: (data: Match[]) => void): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "matches"), where("equipe_arbitrale_ids", "array-contains", uid)),
+    (snap) => callback(snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch))),
+    (err) => console.error("onMatchsEnRenfort :", err),
+  );
 }
 
 export async function startMatchTimer(matchId: string): Promise<void> {

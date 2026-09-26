@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, MapPin, Swords, Trophy } from "lucide-react";
+import { CalendarDays, Flag, MapPin, Radio, Swords, Trophy } from "lucide-react";
 import { Sifflet } from "@/components/ui/icones-foot";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import MiniEcusson from "@/components/match/MiniEcusson";
@@ -42,6 +42,12 @@ export interface MatchInfo {
     href?: string | null;
     /** Ce qui remplace « Désigné » / « En attente », pour un arbitre local par exemple. */
     note?: string | null;
+  } | null;
+  /** Ceux qui l'accompagnent, pris dans son corps arbitral. */
+  equipeArbitrale?: {
+    assistants: string[];
+    scoreur: string | null;
+    corps: string | null;
   } | null;
   /** La compétition du match, pour la suivre. Absente sur un amical. */
   competition?: {
@@ -174,6 +180,29 @@ export default function MatchInfoList({
         valeur={info.referee.name}
         href={info.referee.href}
         note={info.referee.note ?? (info.referee.confirmed ? "Désigné" : "En attente")}
+      />,
+    );
+  }
+
+  if (info.equipeArbitrale?.assistants.length) {
+    lignes.push(
+      <Ligne
+        key="assist"
+        visuel={<Flag {...ICONE} />}
+        label={info.equipeArbitrale.assistants.length > 1 ? "Assistants" : "Assistant"}
+        valeur={info.equipeArbitrale.assistants.join(", ")}
+        note={info.equipeArbitrale.corps ? `« ${info.equipeArbitrale.corps} »` : null}
+      />,
+    );
+  }
+  if (info.equipeArbitrale?.scoreur) {
+    lignes.push(
+      <Ligne
+        key="scoreur"
+        visuel={<Radio {...ICONE} />}
+        label="Scoreur"
+        valeur={info.equipeArbitrale.scoreur}
+        note="Tient la console"
       />,
     );
   }

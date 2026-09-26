@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Home, Flame, Trophy, Star, Settings, ChevronRight,
   ClipboardList, Shield, Radio, LogIn, Rocket, User, Briefcase, UserPlus, Check,
-  Users, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
+  Users, UsersRound, BarChart3, Plus, GraduationCap, Store, Swords, ClipboardCheck, CalendarDays,
   Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -83,6 +83,7 @@ const ROLE_SPACE_ITEMS: Partial<Record<EvolutionRole, SpaceItem[]>> = {
   // on va le chercher match par match.
   referee: [
     { path: "/designations", icon: ClipboardCheck, label: "Mes désignations" },
+    { path: "/corps-arbitral", icon: UsersRound, label: "Corps arbitral" },
     { path: "/calendar", icon: CalendarDays, label: "Calendrier" },
   ],
 };

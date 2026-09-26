@@ -3,9 +3,13 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { campDuCompte, managersDuMatch } from "@/lib/validation-server";
 import { notifier } from "@/lib/reservations-server";
-import { estArbitreServeur, joueCeMatch, nomDuCompte } from "@/lib/arbitrage-server";
+import {
+  champsSansEquipe, estArbitreServeur, joueCeMatch, membresDeLEquipe, nomDuCompte,
+} from "@/lib/arbitrage-server";
 import { dateLongue } from "@/lib/terrains";
-import type { FirestoreMatch } from "@/types";
+import type {
+  FirestoreCorpsArbitral, FirestoreEquipeArbitrale, FirestoreMatch, MembreNomme,
+} from "@/types";
 
 // ============================================
 // POST /api/matches/[mid]/arbitre, l'arbitrage d'un amical.
@@ -24,7 +28,11 @@ import type { FirestoreMatch } from "@/types";
 //    désignation confirmée, avant le coup d'envoi) ;
 //  - un MANAGER ou le staff d'une des deux équipes : valider ou refuser une
 //    candidature, inviter un arbitre, annuler (l'invitation, ou la
-//    désignation d'un arbitre confirmé).
+//    désignation d'un arbitre confirmé) ;
+//  - l'ARBITRE CONFIRMÉ, encore : composer son équipe pour ce match, prise
+//    dans son corps arbitral (voir /api/corps-arbitral) — jusqu'à deux
+//    assistants, et un scoreur, qui reçoit la console : pendant le match,
+//    l'arbitre a un sifflet en main, pas un téléphone.
 //
 // Tout passe par une transaction : deux arbitres qui postulent à la même
 // seconde, un seul l'emporte, l'autre reçoit une réponse claire.
@@ -34,12 +42,15 @@ export const dynamic = "force-dynamic";
 
 type Action =
   | "postuler" | "retirer" | "accepter" | "decliner" | "desister"
-  | "valider" | "refuser" | "inviter" | "annuler";
+  | "valider" | "refuser" | "inviter" | "annuler" | "composer";
 
 const ACTIONS: Action[] = [
   "postuler", "retirer", "accepter", "decliner", "desister",
-  "valider", "refuser", "inviter", "annuler",
+  "valider", "refuser", "inviter", "annuler", "composer",
 ];
+
+/** Le trio arbitral : l'arbitre et deux assistants. */
+const ASSISTANTS_MAX = 2;
 
 /** Un match qui se prépare : on peut encore y désigner quelqu'un. */
 const EN_PREPARATION = ["pending", "upcoming", "delayed"];
@@ -56,6 +67,11 @@ interface Issue {
   arbitre: { uid: string; nom: string };
   /** Pour `annuler` : retirait-on une invitation ou un arbitre confirmé ? */
   avant?: FirestoreMatch["referee_status"];
+  /** L'équipe qui accompagnait l'arbitre et qui n'est plus attendue. */
+  equipeLiberee?: MembreNomme[];
+  /** Pour `composer` : qui arrive, qui s'en va, et dans quel rôle. */
+  arrivees?: { membre: MembreNomme; role: "assistant" | "scoreur" }[];
+  departs?: MembreNomme[];
 }
 
 /** La veille, pour ne pas refuser un match du jour à cause du fuseau. */
@@ -72,7 +88,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ mid: st
   }
 
   const { mid } = await params;
-  const corps = (await req.json().catch(() => ({}))) as { action?: unknown; arbitreId?: unknown };
+  const corps = (await req.json().catch(() => ({}))) as {
+    action?: unknown; arbitreId?: unknown; assistants?: unknown; scoreur?: unknown;
+  };
   const action = corps.action as Action;
   if (!ACTIONS.includes(action)) return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
 
@@ -112,6 +130,46 @@ export async function POST(req: Request, { params }: { params: Promise<{ mid: st
     cible = { uid: arbitreId, nom: nomDuCompte(d) };
   }
 
+  // COMPOSER : l'équipe se choisit dans le corps arbitral du chef, et chacun
+  // de ses membres passe les mêmes gardes que l'arbitre lui-même.
+  let composition: { corpsId: string; corpsNom: string; assistants: MembreNomme[]; scoreur: MembreNomme | null } | null = null;
+  if (action === "composer") {
+    const corpsSnap = await adminDb.collection("corps_arbitraux").where("chef_id", "==", uid).limit(1).get();
+    if (corpsSnap.empty) {
+      return NextResponse.json({ error: "Crée d'abord ton corps arbitral pour y choisir ton équipe." }, { status: 409 });
+    }
+    const ca = corpsSnap.docs[0].data() as FirestoreCorpsArbitral;
+    const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+    const assistantsIds = [...new Set(ids(corps.assistants))];
+    const scoreurId = typeof corps.scoreur === "string" && corps.scoreur ? corps.scoreur : null;
+    if (assistantsIds.length > ASSISTANTS_MAX) {
+      return NextResponse.json({ error: `Deux assistants au plus.` }, { status: 400 });
+    }
+    for (const a of assistantsIds) {
+      if (ca.membres?.[a]?.role !== "arbitre") {
+        return NextResponse.json({ error: "Un assistant doit être un arbitre de ton corps arbitral." }, { status: 400 });
+      }
+    }
+    if (scoreurId && ca.membres?.[scoreurId]?.role !== "scoreur") {
+      return NextResponse.json({ error: "Le scoreur doit être un scoreur de ton corps arbitral." }, { status: 400 });
+    }
+    for (const u of [...assistantsIds, ...(scoreurId ? [scoreurId] : [])]) {
+      const nom = ca.membres[u].nom;
+      if (managersDuMatch(m0).includes(u) || (await campDuCompte(m0, u))) {
+        return NextResponse.json({ error: `${nom} gère une des deux équipes : il ne peut pas officier sur ce match.` }, { status: 400 });
+      }
+      if (await joueCeMatch(mid, u, m0)) {
+        return NextResponse.json({ error: `${nom} joue ce match : il ne peut pas officier.` }, { status: 400 });
+      }
+    }
+    composition = {
+      corpsId: corpsSnap.docs[0].id,
+      corpsNom: ca.nom,
+      assistants: assistantsIds.map((a) => ({ uid: a, nom: ca.membres[a].nom })),
+      scoreur: scoreurId ? { uid: scoreurId, nom: ca.membres[scoreurId].nom } : null,
+    };
+  }
+
   try {
     const r = await adminDb.runTransaction<Issue>(async (tx) => {
       const snap = await tx.get(ref);
@@ -149,8 +207,60 @@ export async function POST(req: Request, { params }: { params: Promise<{ mid: st
         case "desister":
           if (!cEstLui || statut !== "confirmed") throw new Refus("Tu n'es pas désigné sur ce match.");
           if (!pasCommence) throw new Refus("Le match a commencé : il est trop tard pour te désister.");
-          ecrire(libre);
-          return { statut: "none", arbitre: { uid, nom: m.referee_name ?? nomDuCompte(appelant) } };
+          // Son équipe part avec lui : elle venait pour lui.
+          ecrire({ ...libre, ...champsSansEquipe(m) });
+          return {
+            statut: "none",
+            arbitre: { uid, nom: m.referee_name ?? nomDuCompte(appelant) },
+            equipeLiberee: membresDeLEquipe(m.equipe_arbitrale),
+          };
+
+        case "composer": {
+          if (!cEstLui || statut !== "confirmed") throw new Refus("Tu n'es pas désigné sur ce match.", 403);
+          if (!enPrep) throw new Refus("Ce match ne se prépare plus : son équipe arbitrale est figée.");
+          const c = composition!;
+          const avant = m.equipe_arbitrale ?? null;
+          const mods = new Set(m.moderator_ids ?? []);
+          // Le scoreur d'avant rend la console, si c'est l'équipe qui la lui avait donnée.
+          if (avant?.scoreur && avant.scoreur_ajoute && avant.scoreur.uid !== c.scoreur?.uid) {
+            mods.delete(avant.scoreur.uid);
+          }
+          // Deux consoles pour un match, c'est deux saisies du même but.
+          const autres = [...mods].filter((u) => u !== c.scoreur?.uid);
+          if (c.scoreur && autres.length > 0) {
+            throw new Refus("Ce match a déjà un scoreur : compose ton équipe sans scoreur.");
+          }
+          let ajoute = false;
+          if (c.scoreur) {
+            const garde = avant?.scoreur?.uid === c.scoreur.uid && avant.scoreur_ajoute;
+            ajoute = garde ? true : !mods.has(c.scoreur.uid);
+            mods.add(c.scoreur.uid);
+          }
+          const vide = c.assistants.length === 0 && !c.scoreur;
+          const equipe: FirestoreEquipeArbitrale | null = vide ? null : {
+            corps_id: c.corpsId,
+            corps_nom: c.corpsNom,
+            assistants: c.assistants,
+            scoreur: c.scoreur,
+            scoreur_ajoute: ajoute,
+          };
+          ecrire({
+            equipe_arbitrale: equipe,
+            equipe_arbitrale_ids: membresDeLEquipe(equipe).map((x) => x.uid),
+            moderator_ids: [...mods],
+          });
+          const avantIds = new Set(membresDeLEquipe(avant).map((x) => x.uid));
+          const apresIds = new Set(membresDeLEquipe(equipe).map((x) => x.uid));
+          return {
+            statut: "confirmed",
+            arbitre: { uid, nom: m.referee_name ?? nomDuCompte(appelant) },
+            arrivees: [
+              ...c.assistants.filter((a) => !avantIds.has(a.uid)).map((membre) => ({ membre, role: "assistant" as const })),
+              ...(c.scoreur && !avantIds.has(c.scoreur.uid) ? [{ membre: c.scoreur, role: "scoreur" as const }] : []),
+            ],
+            departs: membresDeLEquipe(avant).filter((x) => !apresIds.has(x.uid)),
+          };
+        }
 
         case "valider":
         case "refuser":
@@ -175,8 +285,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ mid: st
           if (!estManager) throw new Refus("Seuls les managers du match peuvent retirer l'arbitre.", 403);
           if (statut !== "invited" && statut !== "confirmed") throw new Refus("Aucun arbitre à retirer.");
           if (!pasCommence) throw new Refus("Le match a commencé : l'arbitre ne peut plus être retiré.");
-          ecrire(libre);
-          return { statut: "none", avant: statut, arbitre: { uid: m.referee_id!, nom: m.referee_name ?? "L'arbitre" } };
+          ecrire({ ...libre, ...champsSansEquipe(m) });
+          return {
+            statut: "none",
+            avant: statut,
+            arbitre: { uid: m.referee_id!, nom: m.referee_name ?? "L'arbitre" },
+            equipeLiberee: membresDeLEquipe(m.equipe_arbitrale),
+          };
       }
     });
 
@@ -213,6 +328,16 @@ async function prevenir(
   const qui = r.arbitre.nom;
   const manager = nomDuCompte(profilAuteur, "Le manager");
 
+  // L'équipe de l'arbitre n'est plus attendue : elle venait pour lui.
+  if (r.equipeLiberee?.length) {
+    await Promise.all(r.equipeLiberee.map((x) => notifier(x.uid, {
+      type: "arbitrage",
+      title: "Match libéré",
+      body: `${qui} n'arbitre plus ${match}${le} : tu n'y es plus attendu.`,
+      link: "/corps-arbitral",
+    })));
+  }
+
   switch (action) {
     case "postuler":
       return void (await auxManagers("Un arbitre se propose", `${qui} se propose pour arbitrer ${match}${le}. Accepte ou refuse sur la carte du match.`));
@@ -230,6 +355,24 @@ async function prevenir(
       return void (await alArbitre("Candidature non retenue", `Ta candidature pour ${match} n'a pas été retenue.`));
     case "inviter":
       return void (await alArbitre("On te propose un match", `${manager} te propose d'arbitrer ${match}${le}. Accepte ou décline dans tes désignations.`));
+    case "composer":
+      await Promise.all([
+        ...(r.arrivees ?? []).map(({ membre, role }) => notifier(membre.uid, {
+          type: "arbitrage",
+          title: role === "scoreur" ? "Tu tiens la console" : "Tu es arbitre assistant",
+          body: role === "scoreur"
+            ? `${qui} te confie la console de ${match}${le}. Le match t'attend dans tes directs.`
+            : `${qui} t'emmène comme assistant sur ${match}${le}.`,
+          link: role === "scoreur" ? "/live-ops" : "/designations",
+        })),
+        ...(r.departs ?? []).map((membre) => notifier(membre.uid, {
+          type: "arbitrage",
+          title: "Changement d'équipe",
+          body: `${qui} a recomposé son équipe pour ${match} : tu n'y es plus attendu.`,
+          link: "/corps-arbitral",
+        })),
+      ]);
+      return;
     case "annuler":
       return void (await alArbitre(
         r.avant === "confirmed" ? "Désignation annulée" : "Invitation annulée",

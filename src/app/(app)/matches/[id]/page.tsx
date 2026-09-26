@@ -799,6 +799,13 @@ export default function MatchDetailPage() {
       : match.localRefereeName
         ? { name: match.localRefereeName, confirmed: true, note: "Arbitre local" }
         : null,
+    equipeArbitrale: match.equipeArbitrale && match.refereeStatus === "confirmed"
+      ? {
+          assistants: match.equipeArbitrale.assistants.map((a) => a.nom),
+          scoreur: match.equipeArbitrale.scoreur?.nom ?? null,
+          corps: match.equipeArbitrale.corpsNom || null,
+        }
+      : null,
   };
 
   return (

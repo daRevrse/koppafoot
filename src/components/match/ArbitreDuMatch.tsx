@@ -7,9 +7,9 @@ import toast from "react-hot-toast";
 import {
   Award, Flag, Loader2, MapPin, Search, Send, UserRound, X, XCircle,
 } from "lucide-react";
-import { searchReferees } from "@/lib/firestore";
+import { getCorpsDirigesPar, searchReferees } from "@/lib/firestore";
 import { gesteArbitre, NIVEAUX_LICENCE, type GesteArbitre } from "@/lib/arbitrage-client";
-import type { Match, UserProfile } from "@/types";
+import type { CorpsArbitral, Match, UserProfile } from "@/types";
 
 // ============================================
 // L'arbitre d'un match, vu par ses managers.
@@ -142,12 +142,26 @@ export default function ArbitreDuMatch({
     };
     return (
       <div onClick={stop} className="mt-4 flex flex-wrap items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-        <p className="flex min-w-0 items-center gap-2 text-xs text-emerald-900">
-          <Flag size={13} className="shrink-0 text-emerald-600" />
-          <span className="min-w-0">
-            Arbitre : <NomArbitre match={match} className="font-bold" />
-          </span>
-        </p>
+        <div className="min-w-0 text-xs text-emerald-900">
+          <p className="flex items-center gap-2">
+            <Flag size={13} className="shrink-0 text-emerald-600" />
+            <span className="min-w-0">
+              Arbitre : <NomArbitre match={match} className="font-bold" />
+            </span>
+          </p>
+          {/* Qui vient avec lui : c'est souvent la vraie question du manager,
+              « qui tient la console ? ». */}
+          {match.equipeArbitrale && (
+            <p className="mt-1 pl-[21px] text-emerald-800/80">
+              {[
+                match.equipeArbitrale.assistants.length > 0
+                  ? `${match.equipeArbitrale.assistants.length > 1 ? "Assistants" : "Assistant"} : ${match.equipeArbitrale.assistants.map((a) => a.nom).join(", ")}`
+                  : null,
+                match.equipeArbitrale.scoreur ? `Scoreur : ${match.equipeArbitrale.scoreur.nom}` : null,
+              ].filter(Boolean).join(" · ")}
+            </p>
+          )}
+        </div>
         {ouvert && (
           <button
             onClick={retirer}
@@ -203,7 +217,12 @@ function TrouverArbitre({
   const [ici, setIci] = useState(!!ville);
   const [niveau, setNiveau] = useState("");
   const [nom, setNom] = useState("");
-  const [resultat, setResultat] = useState<{ cle: string; liste: UserProfile[] } | null>(null);
+  const [resultat, setResultat] = useState<{
+    cle: string;
+    liste: UserProfile[];
+    /** Le corps arbitral que dirige chacun, pour savoir qui vient avec lui. */
+    corps: Map<string, CorpsArbitral>;
+  } | null>(null);
   const [choisi, setChoisi] = useState<string | null>(null);
   const champ = useRef<HTMLInputElement>(null);
 
@@ -211,6 +230,7 @@ function TrouverArbitre({
   const villeCherchee = ici && ville ? ville : "";
   const cle = `${villeCherchee}|${niveau}`;
   const liste = resultat?.cle === cle ? resultat.liste : null;
+  const corpsDe = resultat?.corps ?? new Map<string, CorpsArbitral>();
 
   useEffect(() => {
     let perime = false;
@@ -226,8 +246,9 @@ function TrouverArbitre({
         console.error("Recherche d'arbitres :", err);
         return [] as UserProfile[];
       })
-      .then((l) => {
-        if (!perime) setResultat({ cle, liste: l });
+      .then(async (l) => {
+        const corps = await getCorpsDirigesPar(l.map((a) => a.uid)).catch(() => new Map<string, CorpsArbitral>());
+        if (!perime) setResultat({ cle, liste: l, corps });
       });
     return () => {
       perime = true;
@@ -369,6 +390,18 @@ function TrouverArbitre({
                           <span>{a.experienceYears} an{a.experienceYears > 1 ? "s" : ""} d&apos;expérience</span>
                         )}
                       </p>
+                      {corpsDe.get(a.uid) && (() => {
+                        const c = corpsDe.get(a.uid)!;
+                        const scoreurs = c.membres.filter((m) => m.role === "scoreur").length;
+                        const arbitres = c.membres.filter((m) => m.role === "arbitre").length;
+                        return (
+                          <p className="mt-1 truncate text-[11px] text-gray-500">
+                            <span className="font-bold text-gray-700">« {c.nom} »</span>
+                            {arbitres > 0 && <> · {arbitres} assistant{arbitres > 1 ? "s" : ""}</>}
+                            {scoreurs > 0 && <> · {scoreurs} scoreur{scoreurs > 1 ? "s" : ""}</>}
+                          </p>
+                        );
+                      })()}
                     </div>
                     <button
                       onClick={() => {
@@ -390,7 +423,7 @@ function TrouverArbitre({
 
         <p className="border-t border-gray-200/70 px-5 py-3 text-[11px] leading-relaxed text-gray-400 sm:px-6">
           L&apos;arbitre reçoit ton invitation par notification et l&apos;accepte depuis ses désignations.
-          Un seul arbitre à la fois : tu pourras annuler l&apos;invitation s&apos;il tarde à répondre.
+          S&apos;il a un corps arbitral, il vient avec ses assistants et un scoreur qui tient la console.
         </p>
       </div>
     </div>,

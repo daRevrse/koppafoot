@@ -76,15 +76,22 @@ export async function GET(
     // moyenne des notes que lui ont données les managers en validant (voir
     // /api/matches/validation, qui les range dans `arbitrages`). Les notes une
     // à une restent privées ; seule leur moyenne se publie, avec leur nombre.
-    let arbitrage: { matchs: number; note: number | null; avis: number } | null = null;
+    let arbitrage: {
+      matchs: number; note: number | null; avis: number;
+      corps: { nom: string; chef: boolean; membres: number } | null;
+    } | null = null;
     if (estArbitreServeur(data)) {
       if (typeof data.license_number === "string" && data.license_number.trim()) {
         out.license_number = `${data.license_number.trim().slice(0, 3)}***`;
       }
-      const [diriges, notes] = await Promise.all([
+      const [diriges, notes, corpsSnap] = await Promise.all([
         adminDb.collection("matches").where("referee_id", "==", uid).get(),
         adminDb.collection("arbitrages").where("referee_id", "==", uid).get(),
+        adminDb.collection("corps_arbitraux").where("membre_ids", "array-contains", uid).get(),
       ]);
+      // Son corps arbitral : celui qu'il dirige d'abord, sinon le premier
+      // dont il est membre. Un nom et un effectif, pas la liste des membres.
+      const corpsDoc = corpsSnap.docs.find((d) => d.data().chef_id === uid) ?? corpsSnap.docs[0];
       const matchs = diriges.docs.filter((d) => {
         const m = d.data();
         return m.status === "completed" && m.referee_status === "confirmed";
@@ -95,6 +102,13 @@ export async function GET(
       });
       arbitrage = {
         matchs,
+        corps: corpsDoc
+          ? {
+              nom: String(corpsDoc.data().nom ?? ""),
+              chef: corpsDoc.data().chef_id === uid,
+              membres: ((corpsDoc.data().membre_ids as string[] | undefined) ?? []).length,
+            }
+          : null,
         avis: toutes.length,
         note: toutes.length ? Math.round((toutes.reduce((a, b) => a + b, 0) / toutes.length) * 10) / 10 : null,
       };

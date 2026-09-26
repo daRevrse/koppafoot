@@ -435,7 +435,10 @@ service cloud.firestore {
     function toucheAuxChampsDuServeur() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['validation_status', 'post_match_feedback', 'stats_credited_at', 'stats_credited_by', 'venue_booking',
-                 'referee_id', 'referee_name', 'referee_status']);
+                 'referee_id', 'referee_name', 'referee_status',
+                 // L'équipe de l'arbitre (assistants, scoreur), composée par
+                 // la même route dans son corps arbitral.
+                 'equipe_arbitrale', 'equipe_arbitrale_ids']);
     }
 
     // ============================================
@@ -457,7 +460,9 @@ service cloud.firestore {
         && !('venue_booking' in request.resource.data)
         // Un match naît sans arbitre : on en invite un ensuite, et il accepte.
         && request.resource.data.get('referee_id', null) == null
-        && request.resource.data.get('referee_status', 'none') == 'none';
+        && request.resource.data.get('referee_status', 'none') == 'none'
+        && !('equipe_arbitrale' in request.resource.data)
+        && !('equipe_arbitrale_ids' in request.resource.data);
       allow update: if isAuthenticated()
         && !toucheAuxChampsDuServeur()
         && (
@@ -562,6 +567,19 @@ service cloud.firestore {
     // lire le reste. Les écrire reste l'affaire de /api/matches/validation.
     match /arbitrages/{matchId} {
       allow read: if isAuthenticated() && resource.data.referee_id == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ============================================
+    // Les corps arbitraux — `corps_arbitraux/{id}`
+    // ============================================
+    // L'équipe permanente d'un arbitre : ses assistants et ses scoreurs. Un
+    // nom, une ville, des prénoms et des rôles — rien qui ne se lise déjà sur
+    // un match. Tout compte connecté le lit : le manager qui cherche un
+    // arbitre voit qui vient avec lui. Seul /api/corps-arbitral l'écrit : le
+    // chef invite, l'invité accepte, et personne ne s'ajoute tout seul.
+    match /corps_arbitraux/{corpsId} {
+      allow read: if isAuthenticated();
       allow write: if false;
     }
 

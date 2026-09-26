@@ -6,15 +6,19 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Flag, Inbox, Search, History, Calendar, Clock, MapPin, Loader2,
   CheckCircle, XCircle, MonitorPlay, Send, Hourglass, Rocket, Radio,
-  ArrowRight, Star,
+  ArrowRight, Star, Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
-import { onRefereeAssignments, getMatchesLookingForReferee, getMesNotesDArbitre } from "@/lib/firestore";
+import {
+  onRefereeAssignments, getMatchesLookingForReferee, getMesNotesDArbitre,
+  onMesCorpsArbitraux, onMatchsEnRenfort,
+} from "@/lib/firestore";
+import EquipeArbitraleDuMatch from "@/components/match/EquipeArbitraleDuMatch";
 import { gesteArbitre } from "@/lib/arbitrage-client";
-import type { Match } from "@/types";
+import type { CorpsArbitral, Match } from "@/types";
 
 // ============================================
 // Mes désignations, l'écran de l'arbitre.
@@ -181,6 +185,11 @@ export default function DesignationsPage() {
   const [marcheCharge, setMarcheCharge] = useState(false);
   const [maVilleSeulement, setMaVilleSeulement] = useState(true);
 
+  // Le corps arbitral que je dirige, pour composer l'équipe de chaque match ;
+  // et les matchs où c'est moi qui accompagne un autre arbitre.
+  const [monCorps, setMonCorps] = useState<CorpsArbitral | null>(null);
+  const [renforts, setRenforts] = useState<Match[]>([]);
+
   // Les notes des managers, lues à l'ouverture de l'historique. Elles
   // n'existaient que dans la validation du match, que l'arbitre ne lit pas :
   // il était noté sans jamais le savoir.
@@ -203,6 +212,16 @@ export default function DesignationsPage() {
       setChargement(false);
     });
     return () => stop();
+  }, [user, estArbitre]);
+
+  useEffect(() => {
+    if (!user || !estArbitre) return;
+    const a = onMesCorpsArbitraux(user.uid, (l) => setMonCorps(l.find((c) => c.chefId === user.uid) ?? null));
+    const b = onMatchsEnRenfort(user.uid, setRenforts);
+    return () => {
+      a();
+      b();
+    };
   }, [user, estArbitre]);
 
   const chargerMarche = useCallback(async () => {
@@ -259,6 +278,11 @@ export default function DesignationsPage() {
         .sort((a, b) => b.date.localeCompare(a.date)),
     };
   }, [mes]);
+
+  const renfortsAVenir = useMemo(
+    () => renforts.filter((m) => !estArchive(m)).sort((a, b) => a.date.localeCompare(b.date)),
+    [renforts],
+  );
 
   /** Le bilan en tête de l'historique : matchs dirigés, et la note moyenne. */
   const bilan = useMemo(() => {
@@ -365,7 +389,7 @@ export default function DesignationsPage() {
       cle: "designations",
       label: "Mes matchs",
       Icon: Flag,
-      compte: invitations.length + confirmes.length + candidatures.length,
+      compte: invitations.length + confirmes.length + candidatures.length + renfortsAVenir.length,
     },
     { cle: "marche", label: "Trouver un match", Icon: Search, compte: 0 },
     { cle: "historique", label: "Historique", Icon: History, compte: historique.length },
@@ -383,7 +407,10 @@ export default function DesignationsPage() {
           Mes désignations
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Les matchs sur lesquels on te désigne, et ceux qui cherchent encore un arbitre.
+          Les matchs sur lesquels on te désigne, et ceux qui cherchent encore un arbitre.{" "}
+          <Link href="/corps-arbitral" className="font-bold text-gray-700 underline decoration-dotted underline-offset-2 hover:text-gray-900">
+            {monCorps ? `Ton corps arbitral : « ${monCorps.nom} »` : "Crée ton corps arbitral"}
+          </Link>
         </p>
       </motion.div>
 
@@ -460,7 +487,7 @@ export default function DesignationsPage() {
 
           {/* Rien nulle part : une seule invitation à agir, pas trois
               sections vides empilées sous leurs titres. */}
-          {invitations.length === 0 && confirmes.length === 0 && candidatures.length === 0 && (
+          {invitations.length === 0 && confirmes.length === 0 && candidatures.length === 0 && renfortsAVenir.length === 0 && (
             <Vide
               Icon={Flag}
               titre="Aucune désignation pour le moment"
@@ -499,10 +526,27 @@ export default function DesignationsPage() {
                           {enDirect ? "En direct" : "Confirmé"}
                         </span>
                       </div>
+                      <EquipeArbitraleDuMatch match={match} corps={monCorps} />
+                      {/* LA CONSOLE, EN SECOURS QUAND UN SCOREUR VIENT. L'arbitre
+                          dirige sur le terrain : pendant le match, c'est son
+                          scoreur qui saisit. Il la garde pour les feuilles
+                          avant le coup d'envoi, et pour le cas où personne
+                          d'autre ne peut la tenir. */}
+                      {match.equipeArbitrale?.scoreur && (
+                        <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                          Pendant le match, c&apos;est <strong className="text-gray-700">{match.equipeArbitrale.scoreur.nom}</strong>{" "}
+                          qui tient la console. Tu ne l&apos;ouvres qu&apos;en secours.
+                        </p>
+                      )}
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Link href={`/matches/${match.id}/manage`} className={btnPlein}>
+                        <Link
+                          href={`/matches/${match.id}/manage`}
+                          className={match.equipeArbitrale?.scoreur ? btnVide : btnPlein}
+                        >
                           <MonitorPlay size={14} />
-                          {enDirect ? "Reprendre la console" : "Ouvrir la console"}
+                          {match.equipeArbitrale?.scoreur
+                            ? "Console (en secours)"
+                            : enDirect ? "Reprendre la console" : "Ouvrir la console"}
                         </Link>
                         <Link href={`/matches/${match.id}`} className={btnVide}>
                           Feuille de match <ArrowRight size={14} />
@@ -526,6 +570,45 @@ export default function DesignationsPage() {
                   );
                 })}
               </AnimatePresence>
+            </section>
+          )}
+
+          {/* Les matchs où j'accompagne un autre arbitre, dans son corps
+              arbitral : c'est lui qui a choisi, je n'ai qu'à venir. */}
+          {renfortsAVenir.length > 0 && (
+            <section className="space-y-3">
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                En renfort
+              </p>
+              {renfortsAVenir.map((match, i) => {
+                const scoreur = match.equipeArbitrale?.scoreur?.uid === user.uid;
+                return (
+                  <Carte key={match.id} index={i}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <EnTeteMatch match={match} />
+                      </div>
+                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
+                        <Users size={12} /> {scoreur ? "Scoreur" : "Assistant"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs text-gray-500">
+                      Avec {match.refereeName}, arbitre principal
+                      {match.equipeArbitrale?.corpsNom ? <> · « {match.equipeArbitrale.corpsNom} »</> : null}.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {scoreur && (
+                        <Link href={`/matches/${match.id}/manage`} className={btnPlein}>
+                          <MonitorPlay size={14} /> Ouvrir la console
+                        </Link>
+                      )}
+                      <Link href={`/matches/${match.id}`} className={btnVide}>
+                        Feuille de match <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </Carte>
+                );
+              })}
             </section>
           )}
 
