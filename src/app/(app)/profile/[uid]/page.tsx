@@ -1,6 +1,5 @@
 "use client";
 
-import { isVenueOwner as ownsVenue } from "@/lib/hats";
 import { aUnProfilPublic } from "@/lib/espaces-acces";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
@@ -11,17 +10,10 @@ import {
   Loader2,
   Users,
   Trophy,
-  Star,
-  Building2,
-  Award,
   CheckCircle,
   Plus,
   UserPlus,
   UserMinus,
-  Ruler,
-  Weight,
-  Footprints,
-  Cake,
   Heart,
   MessageCircle,
   ImageIcon,
@@ -48,34 +40,9 @@ import { PostCard, timeAgo } from "@/components/feed/PostCard";
 import ProfileBanner from "@/components/profile/ProfileBanner";
 import { useReplieAuDefilement } from "@/hooks/useReplieAuDefilement";
 import { useFormes } from "@/hooks/useFormes";
-import CarteEtatDeForme from "@/components/forme/CarteEtatDeForme";
+import BilanDuProfil, { type BilanArbitre, type EquipePubliee } from "@/components/profile/BilanDuProfil";
 import { cleFormeCompte } from "@/lib/etat-de-forme";
 import toast from "react-hot-toast";
-
-/**
- * Une équipe telle que /api/public/profile/[uid] la projette : ce qui
- * s'affiche, et rien de plus.
- *
- * La page castait cette projection en `Team`, qui exige une quinzaine de
- * champs que l'endpoint ne publie pas — d'où deux données déjà servies mais
- * jamais lues ici, l'écusson et `isManager`. Le type dit maintenant la
- * vérité, et la carte peut s'en servir.
- */
-interface EquipePubliee {
-  id: string;
-  name: string;
-  city: string | null;
-  /** Une CLÉ de palette (« emerald », « blue »…), jamais une couleur CSS. */
-  color: string | null;
-  logoUrl: string | null;
-  wins: number;
-  draws: number;
-  losses: number;
-  matchesPlayed: number;
-  /** Ce joueur dirige-t-il cette équipe ? Calculé par l'endpoint. */
-  isManager?: boolean;
-}
-
 
 // ============================================
 // Constants
@@ -89,38 +56,27 @@ const POSITION_LABELS: Record<string, string> = {
   any: "Polyvalent",
 };
 
-const SKILL_LEVEL_LABELS: Record<string, string> = {
-  beginner: "Débutant",
-  amateur: "Amateur",
-  intermediate: "Intermédiaire",
-  advanced: "Confirmé",
-};
+type PublicTab = "posts" | "galerie" | "palmares";
 
-const LICENSE_LEVEL_LABELS: Record<string, string> = {
-  trainee: "Stagiaire",
-  regional: "Régional",
-  national: "National",
-  international: "International",
-};
-
-const FOOT_LABELS: Record<string, string> = {
-  left: "Gauche",
-  right: "Droit",
-  both: "Les deux",
-};
-
-function calculateAge(dateOfBirth: string): number | null {
-  if (!dateOfBirth) return null;
-  const birth = new Date(dateOfBirth);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
+/**
+ * MÊME RÈGLE QUE SUR SON PROPRE PROFIL : pas de palmarès sans rôle. Une
+ * fiche publique existe dès qu'il y a quelque chose à montrer, et un compte
+ * sans rôle en a une s'il appartient à une équipe — mais il n'a, lui, aucun
+ * titre à exposer.
+ */
+function sansRoleSportif(p: UserProfile): boolean {
+  const r = p.evolutionRole ?? p.userType;
+  return r !== "player" && r !== "manager" && r !== "referee";
 }
 
-
-type PublicTab = "overview" | "posts" | "galerie" | "palmares";
+/**
+ * L'onglet d'ouverture, maintenant que l'Aperçu est remonté dans la carte de
+ * bilan : le palmarès quand il y a des trophées, les posts sinon. Ouvrir sur
+ * « Aucun trophée », c'était poser un vide sous la carte.
+ */
+function ongletParDefaut(p: UserProfile | null): PublicTab {
+  return p && !sansRoleSportif(p) && (p.trophies ?? []).length > 0 ? "palmares" : "posts";
+}
 
 // ============================================
 // Sub-components
@@ -133,56 +89,6 @@ const PASTILLE_AFFICHE =
 /** Les memes, dans la barre repliee : elle est deja verte, pas de voile. */
 const PASTILLE_BARRE =
   "flex h-9 w-9 shrink-0 items-center justify-center border border-white/25 text-white/80 transition-colors hover:border-white hover:text-white";
-
-/**
- * LES ECUSSONS, A GAUCHE DU BILAN. L'esquisse ouvre la rangee par eux : on
- * reconnait un joueur a ses couleurs avant de lire ses chiffres.
- *
- * Quatre au plus, et le reste en nombre : au-dela, la rangee ne tient plus
- * sur un telephone et la lecture n'y gagne rien.
- */
-function CaseEquipes({ teams }: { teams: EquipePubliee[] }) {
-  const montres = teams.slice(0, 4);
-  const reste = teams.length - montres.length;
-
-  return (
-    /* PLEINE LARGEUR SUR TELEPHONE. Cote a cote avec les chiffres, la case
-       prenait la moitie de la rangee et « Passes déc. » passait sur deux
-       lignes ; les ecussons prennent leur propre ligne en dessous de 640 px. */
-    <div className="flex w-full min-w-0 items-center gap-3 border-b border-gray-200/70 px-5 py-4 sm:w-auto sm:shrink-0 sm:border-b-0 sm:py-5">
-      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-        Équipes
-      </span>
-      {/* CHAQUE ECUSSON EST UN LIEN. Ils ont remplace les cartes d'equipe de
-          l'onglet « Apercu » — s'ils ne menaient nulle part, la fiche
-          n'offrirait plus aucun chemin vers le club. `hover:z-10` pour que
-          celui qu'on survole passe devant ses voisins, qui le chevauchent. */}
-      <div className="flex items-center -space-x-2">
-        {montres.map((t) => (
-          <Link
-            key={t.id}
-            href={`/teams/${t.id}`}
-            title={t.name}
-            aria-label={t.name}
-            className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gray-100 text-[10px] font-black text-gray-500 transition-transform hover:z-10 hover:scale-110"
-          >
-            {t.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={t.logoUrl} alt="" className="h-full w-full object-contain" />
-            ) : (
-              t.name.slice(0, 2).toUpperCase()
-            )}
-          </Link>
-        ))}
-        {reste > 0 && (
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-gray-900 text-[10px] font-black text-white">
-            +{reste}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /**
  * LES TROIS POINTS. « Suivre » se decide en regardant quelqu'un, il reste au
@@ -272,239 +178,6 @@ function MenuFiche({
   );
 }
 
-/** Une case de la rangee de bilan, sous la banniere. */
-function BilanCase({ label, value, suffixe }: { label: string; value: number; suffixe?: string }) {
-  return (
-    <div className="px-3 py-5 text-center">
-      <span className="block font-display text-3xl font-black tabular-nums leading-none text-gray-900 sm:text-4xl">
-        {value}{suffixe}
-      </span>
-      <span className="mt-2 block text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-
-/**
- * Une équipe du joueur, sur sa fiche publique.
- *
- * ELLE MÈNE À L'ÉQUIPE. C'était un rectangle inerte portant un nom et une
- * ville : sur la fiche d'un joueur, son club est pourtant le lien qu'on
- * cherche. Elle reprend donc l'écusson, le filet de couleur et la pastille
- * « Manager » de l'annuaire des équipes — une équipe se reconnaît au même
- * dessin partout — et elle dit ce qu'il y a à dire, le bilan, plutôt que de
- * laisser un cadre aux trois quarts vide.
- */
-
-// ============================================
-// Physical Info Card
-// ============================================
-
-function PhysicalInfoCard({ profile }: { profile: UserProfile }) {
-  const age = profile.dateOfBirth ? calculateAge(profile.dateOfBirth) : null;
-  const hasAnyInfo = profile.strongFoot || profile.height || profile.weight || age !== null;
-  if (!hasAnyInfo) return null;
-
-  return (
-    <div>
-      <h3 className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-        Informations physiques
-      </h3>
-      {/* Un seul bloc decoupe par des filets, plutot que quatre tuiles qui
-          flottent : quatre valeurs d'une meme fiche forment un tableau, pas
-          quatre objets independants. */}
-      <div className="grid grid-cols-2 border-x border-b border-gray-200/70 sm:grid-cols-4">
-        {([
-          profile.strongFoot ? { Icon: Footprints, label: "Pied fort", value: FOOT_LABELS[profile.strongFoot] } : null,
-          profile.height ? { Icon: Ruler, label: "Taille", value: `${profile.height} cm` } : null,
-          profile.weight ? { Icon: Weight, label: "Poids", value: `${profile.weight} kg` } : null,
-          age !== null ? { Icon: Cake, label: "Âge", value: `${age} ans` } : null,
-        ].filter(Boolean) as { Icon: typeof Ruler; label: string; value: string }[]).map(({ Icon, label, value }) => (
-          <div key={label} className="border-t border-gray-200/70 bg-white px-4 py-5 text-center [&+&]:border-l">
-            <Icon size={17} strokeWidth={1.5} className="mx-auto text-gray-300" />
-            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">{label}</p>
-            <p className="mt-1 font-display text-lg font-black leading-none text-gray-900">{value}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// Role-specific sections
-// ============================================
-
-function PlayerSection({ profile }: { profile: UserProfile }) {
-  const level = profile.skillLevel ? SKILL_LEVEL_LABELS[profile.skillLevel] ?? profile.skillLevel : null;
-  const age = profile.dateOfBirth ? calculateAge(profile.dateOfBirth) : null;
-  const physique = Boolean(profile.strongFoot || profile.height || profile.weight || age !== null);
-
-  /* L'ONGLET NE RESTE PAS VIDE. Il portait les equipes, et elles sont
-     remontees dans le bandeau : sur un joueur qui n'a renseigne ni niveau ni
-     mensurations, il ne restait qu'un rectangle blanc. Une phrase vaut mieux
-     — elle dit que la fiche est jeune, pas qu'elle est cassee. */
-  if (!level && !physique) {
-    return (
-      <p className="py-8 text-center text-sm text-gray-400">
-        Ce joueur n&apos;a pas encore renseigné son profil sportif.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Le poste ne revient pas ici : la banniere le porte deja, sous le
-          nom. Deux fois le meme mot sur un ecran de telephone, c'est une fois
-          de trop. */}
-      {level && (
-        <div className="flex flex-wrap gap-2">
-          <span className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
-            <Star size={14} /> {level}
-          </span>
-        </div>
-      )}
-
-      <PhysicalInfoCard profile={profile} />
-    </div>
-  );
-}
-
-function ManagerSection({ profile, teams }: { profile: UserProfile; teams: EquipePubliee[] }) {
-  const totalMatches = teams.reduce((sum, t) => sum + t.matchesPlayed, 0);
-  const totalWins = teams.reduce((sum, t) => sum + t.wins, 0);
-  const globalWinRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
-
-  // Meme raison que cote joueur : les cartes d'equipe sont parties dans le
-  // bandeau, l'onglet ne doit pas se reduire a un rectangle blanc.
-  if (!profile.teamName && totalMatches === 0) {
-    return (
-      <p className="py-8 text-center text-sm text-gray-400">
-        Ce manager n&apos;a pas encore de match dirigé.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {profile.teamName && (
-        <p className="text-sm text-gray-600">
-          Équipe principale :{" "}
-          <span className="font-semibold text-gray-900">{profile.teamName}</span>
-        </p>
-      )}
-
-      {totalMatches > 0 && (
-        <div className="flex items-center gap-4 border border-emerald-100 bg-emerald-50 p-4">
-          <Trophy size={24} className="text-emerald-600" />
-          <div>
-            {/* Le bandeau donne le pourcentage, cette carte donne ce qui le
-                fonde : « 20 victoires sur 39 matchs » n'est pas une redite. */}
-            <p className="text-sm font-semibold text-gray-900">Taux de victoire global</p>
-            <p className="text-2xl font-bold text-emerald-600">{globalWinRate}%</p>
-            <p className="text-xs text-gray-500">{totalWins} victoires sur {totalMatches} matchs</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RefereeSection({ profile, bilan }: { profile: UserProfile; bilan: BilanArbitre | null }) {
-  const licenseLevel = profile.licenseLevel
-    ? LICENSE_LEVEL_LABELS[profile.licenseLevel] ?? profile.licenseLevel
-    : null;
-  const maskedLicense = profile.licenseNumber
-    ? profile.licenseNumber.slice(0, 3) + "***"
-    : null;
-
-  return (
-    <div className="space-y-4">
-      {/* Ce qu'un manager regarde avant d'inviter : combien de matchs, et ce
-          qu'en ont pensé ceux qui l'ont eu au sifflet. */}
-      {bilan && (
-        <div className="grid grid-cols-2 border border-gray-200/70 bg-white">
-          <div className="border-r border-gray-200/70 p-4">
-            <p className="text-xs text-gray-500">Matchs arbitrés</p>
-            <p className="mt-1 font-display text-2xl font-black text-gray-900">{bilan.matchs}</p>
-          </div>
-          <div className="p-4">
-            <p className="text-xs text-gray-500">Note des managers</p>
-            {bilan.note !== null ? (
-              <p className="mt-1 flex items-baseline gap-1">
-                <span className="font-display text-2xl font-black text-gray-900">
-                  {bilan.note.toFixed(1).replace(".", ",")}
-                </span>
-                <span className="text-xs font-bold text-gray-400">/ 5 · {bilan.avis} avis</span>
-              </p>
-            ) : (
-              <p className="mt-1.5 text-sm font-semibold text-gray-400">Pas encore noté</p>
-            )}
-          </div>
-        </div>
-      )}
-      {bilan?.corps && (
-        <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
-          <Users size={20} className="shrink-0 text-violet-600" />
-          <div className="min-w-0">
-            <p className="text-xs text-gray-500">
-              {bilan.corps.chef ? "Dirige le corps arbitral" : "Membre du corps arbitral"}
-            </p>
-            <p className="truncate font-semibold text-gray-900">
-              « {bilan.corps.nom} »
-              <span className="ml-2 text-xs font-normal text-gray-500">
-                {bilan.corps.membres} officiel{bilan.corps.membres > 1 ? "s" : ""}
-              </span>
-            </p>
-          </div>
-        </div>
-      )}
-      {licenseLevel && (
-        <div className="flex items-center gap-2">
-          <Award size={16} className="text-purple-600" />
-          <span className="border border-purple-200 bg-purple-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-purple-700">
-            Licence {licenseLevel}
-          </span>
-        </div>
-      )}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {maskedLicense && (
-          <div className=" border border-gray-200/70 bg-white p-4">
-            <p className="text-xs text-gray-500">N° de licence</p>
-            <p className="mt-1 font-semibold text-gray-900 font-mono">{maskedLicense}</p>
-          </div>
-        )}
-        {typeof profile.experienceYears === "number" && (
-          <div className=" border border-gray-200/70 bg-white p-4">
-            <p className="text-xs text-gray-500">Années d&apos;expérience</p>
-            <p className="mt-1 font-semibold text-gray-900">
-              {profile.experienceYears} an{profile.experienceYears > 1 ? "s" : ""}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function VenueOwnerSection({ profile }: { profile: UserProfile }) {
-  return (
-    <div className="space-y-4">
-      {profile.companyName && (
-        <div className="flex items-center gap-3 border border-gray-200/70 bg-white p-4">
-          <Building2 size={20} className="text-orange-500" />
-          <div>
-            <p className="text-xs text-gray-500">Société</p>
-            <p className="font-semibold text-gray-900">{profile.companyName}</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ============================================
 // Main Page
 // ============================================
@@ -519,15 +192,6 @@ interface ApercuSansPage {
   uid: string;
   nom: string;
   photo: string | null;
-}
-
-/** Le bilan d'un arbitre, calculé par /api/public/profile/[uid]. */
-interface BilanArbitre {
-  matchs: number;
-  note: number | null;
-  avis: number;
-  /** Son corps arbitral, s'il en a un : nom, et s'il le dirige. */
-  corps?: { nom: string; chef: boolean; membres: number } | null;
 }
 
 async function fetchPublicProfile(
@@ -635,8 +299,10 @@ export default function PublicProfilePage() {
   const [followLoading, setFollowLoading] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<PublicTab>("overview");
+  // L'onglet CHOISI, `null` tant qu'on n'a touché à rien : l'onglet affiché
+  // en découle, voir `ongletParDefaut`.
+  const [choixOnglet, setChoixOnglet] = useState<PublicTab | null>(null);
+  const activeTab: PublicTab = choixOnglet ?? ongletParDefaut(profile);
 
   // Posts state
   const [posts, setPosts] = useState<Post[]>([]);
@@ -945,49 +611,25 @@ export default function PublicProfilePage() {
 
   const initials = `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
 
-  // MÊME RÈGLE QUE SUR SON PROPRE PROFIL : pas de palmarès sans rôle. Une
-  // fiche publique existe dès qu'il y a quelque chose à montrer, et un compte
-  // sans rôle en a une s'il appartient à une équipe — mais il n'a, lui, aucun
-  // titre à exposer.
-  // Lu sur `profile` et non sur les trois indicateurs plus bas : ils sont
-  // déclarés après cette liste, et les remonter déplacerait le commentaire qui
-  // les explique loin d'eux.
   const roleDuProfil = profile.evolutionRole ?? profile.userType;
-  const sansRole = roleDuProfil !== "player" && roleDuProfil !== "manager" && roleDuProfil !== "referee";
 
-  const publicTabs: { key: PublicTab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-    { key: "overview", label: "Aperçu", icon: Users },
-    ...(sansRole ? [] : [{ key: "palmares" as PublicTab, label: "Palmarès", icon: Trophy }]),
-    { key: "posts", label: "Posts", icon: FileText },
-    { key: "galerie", label: "Galerie", icon: ImageIcon },
+  // PLUS D'ONGLET « APERÇU » : tout ce qu'il portait tient dans la carte de
+  // bilan, sous l'affiche (voir BilanDuProfil). Il ne reste ici que ce qui
+  // se parcourt.
+  const publicTabs: { key: PublicTab; label: string }[] = [
+    ...(sansRoleSportif(profile) ? [] : [{ key: "palmares" as PublicTab, label: "Palmarès" }]),
+    { key: "posts", label: "Posts" },
+    { key: "galerie", label: "Galerie" },
   ];
 
-  // Ce qu'on EST sur le terrain n'est pas ce qu'est son COMPTE. `user_type`
-  // dit organizer, manager ou superadmin, c'est un type de compte. Le role
-  // Evolution dit joueur. Un organisateur qui joue avait donc une fiche vide :
-  // ses informations physiques etaient bien en base, mais la section qui les
-  // porte ne s'affichait que pour user_type === "player".
-  //
-  // Les deux signaux comptent : le role Evolution quand il existe, le type de
-  // compte pour les comptes anciens qui n'en ont jamais choisi.
-  const isPlayer = profile.evolutionRole === "player" || profile.userType === "player";
-  const isManager = profile.evolutionRole === "manager" || profile.userType === "manager";
-  const isReferee = profile.evolutionRole === "referee" || profile.userType === "referee";
-
   // Sous le nom : LE POSTE, ET RIEN D'AUTRE. Le club y figurait aussi, et
-  // c'etait une redite — les ecussons du bandeau le disent juste en dessous,
-  // avec les autres, et l'onglet « Apercu » les nomme. Un joueur a un poste,
-  // il peut avoir plusieurs maillots.
+  // c'etait une redite — les ecussons de la carte de bilan le disent juste en
+  // dessous, avec les autres. Un joueur a un poste, il peut avoir plusieurs
+  // maillots.
   const posteLisible = profile.position
     ? POSITION_LABELS[profile.position] ?? profile.position
     : null;
   const surtitre = posteLisible ?? ROLE_LABELS[roleDuProfil] ?? profile.locationCity;
-
-  // Le bilan d'un manager se lit sur ses equipes, pas sur `users` : ce sont
-  // elles qui portent le bilan, et la projection publique les sert deja.
-  const matchsDirigees = teams.reduce((n, t) => n + t.matchesPlayed, 0);
-  const victoires = teams.reduce((n, t) => n + t.wins, 0);
-  const pourcentVictoires = matchsDirigees > 0 ? Math.round((victoires / matchsDirigees) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-6xl pb-24">
@@ -1116,38 +758,17 @@ export default function PublicProfilePage() {
           }
         />
 
-        {/* LE BANDEAU DE BILAN. Il vivait au fond de l'onglet « Apercu »,
-            sous les badges et les mensurations : des nombres qu'on ouvre la
-            fiche pour lire, et qu'il fallait chercher. L'esquisse les pose en
-            rangee juste sous l'affiche, avec les ecussons a gauche, et elle a
-            raison — c'est la premiere chose qui doit remonter au defilement.
-
-            UN ARBITRE N'EN A PAS. Rien de ce qu'il fait n'est publie
-            aujourd'hui : une rangee de zeros vaudrait moins que pas de
-            rangee du tout. */}
-        {(isPlayer || isManager) && (
-          <div className="mt-6 flex flex-wrap items-stretch border border-gray-200/70 bg-white sm:divide-x sm:divide-gray-200/70">
-            {teams.length > 0 && <CaseEquipes teams={teams} />}
-            {/* `w-full` sur telephone : quand la case des ecussons prend sa
-                propre ligne, `flex-1` seul ne donne a celle-ci aucune base et
-                les chiffres debordaient a droite de la carte. */}
-            <div className="grid w-full grid-cols-3 divide-x divide-gray-200/70 sm:w-auto sm:flex-1">
-              {isPlayer ? (
-                <>
-                  <BilanCase label="Matchs" value={profile.matchesPlayed ?? 0} />
-                  <BilanCase label="Buts" value={profile.goals ?? 0} />
-                  <BilanCase label="Passes déc." value={profile.assists ?? 0} />
-                </>
-              ) : (
-                <>
-                  <BilanCase label="Équipes" value={teams.length} />
-                  <BilanCase label="Matchs" value={matchsDirigees} />
-                  <BilanCase label="% vict." value={pourcentVictoires} suffixe="%" />
-                </>
-              )}
-            </div>
-          </div>
-        )}
+        {/* LA CARTE DE BILAN : les écussons, la forme, les chiffres du rôle,
+            et le reste en une ligne. C'est la première chose qui doit
+            remonter au défilement, et elle porte désormais tout l'ancien
+            onglet « Aperçu ». Voir BilanDuProfil. */}
+        <BilanDuProfil
+          profile={profile}
+          teams={teams}
+          arbitrage={arbitrage}
+          forme={formes[cleFormeCompte(profile.uid)] ?? null}
+          formeChargee={formeChargee}
+        />
 
         {/* Une seule carte, dont les onglets changent le contenu. */}
         <div className="mt-6 border border-gray-200/70 bg-white">
@@ -1155,7 +776,7 @@ export default function PublicProfilePage() {
             {publicTabs.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                onClick={() => setChoixOnglet(t.key)}
                 className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
                   activeTab === t.key
                     ? "border-gray-900 text-gray-900"
@@ -1168,29 +789,6 @@ export default function PublicProfilePage() {
           </div>
 
           <div className="p-5">
-          {/* ═══ OVERVIEW ═══ */}
-          {activeTab === "overview" && (
-            <div>
-              {/* L'état de forme en lecture : la condition ne s'y déclare
-                  pas, même sur sa propre fiche — voir plus haut, une page
-                  publique montre ce qu'un visiteur verrait. */}
-              {isPlayer && (
-                <div className="mb-5">
-                  <CarteEtatDeForme
-                    forme={formes[cleFormeCompte(profile.uid)] ?? null}
-                    formeChargee={formeChargee}
-                    condition={profile.condition}
-                    conditionConnue={Boolean(currentUser)}
-                  />
-                </div>
-              )}
-              {isPlayer && <PlayerSection profile={profile} />}
-              {isManager && <ManagerSection profile={profile} teams={teams} />}
-              {isReferee && <RefereeSection profile={profile} bilan={arbitrage} />}
-              {ownsVenue(profile) && <VenueOwnerSection profile={profile} />}
-            </div>
-          )}
-
           {/* ═══ PALMARÈS ═══ */}
           {activeTab === "palmares" && (
             <div className="space-y-4">
