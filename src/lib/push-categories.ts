@@ -66,6 +66,9 @@ export function categorieDuType(type: NotificationType): PushCategory {
     case "booking_request":
     case "booking_answer":
     case "venue_application":
+    // L'arbitrage aussi : on t'invite, on te répond, on se désiste — c'est à
+    // toi qu'on parle, jamais une annonce.
+    case "arbitrage":
       return "perso";
     case "team_activity":
       return "equipe";

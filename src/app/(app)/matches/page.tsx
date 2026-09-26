@@ -36,7 +36,6 @@ import {
   respondToMatchChallenge,
   requestMatchModification,
   respondToMatchModification,
-  respondToRefereeApplication,
   getRatingsForMatch,
   ratePlayer,
   tailleEffectif,
@@ -53,6 +52,7 @@ import type {
 } from "@/types";
 import TirsAuBut from "@/components/match/TirsAuBut";
 import MiniEcusson from "@/components/match/MiniEcusson";
+import ArbitreDuMatch from "@/components/match/ArbitreDuMatch";
 import { libelleDuJour } from "@/lib/dates";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
 import Link from "next/link";
@@ -327,7 +327,6 @@ export default function MatchesPage() {
   const [modVenueCity, setModVenueCity] = useState("");
   const [submittingMod, setSubmittingMod] = useState(false);
   const [respondingToMod, setRespondingToMod] = useState<string | null>(null);
-  const [respondingToRef, setRespondingToRef] = useState<string | null>(null);
 
   // Form state
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -1000,18 +999,6 @@ export default function MatchesPage() {
       alert("Erreur lors de la réponse à la modification");
     } finally {
       setRespondingToMod(null);
-    }
-  };
-
-  const handleRespondReferee = async (matchId: string, accepted: boolean) => {
-    setRespondingToRef(matchId);
-    try {
-      await respondToRefereeApplication(matchId, accepted);
-    } catch (err) {
-      console.error(err);
-      alert("Erreur lors de la réponse à l'arbitre");
-    } finally {
-      setRespondingToRef(null);
     }
   };
 
@@ -1758,33 +1745,11 @@ export default function MatchesPage() {
                         </div>
                       )}
 
-                      {/* Referee application management */}
-                      {match.refereeStatus === "pending" && match.managerId === user?.uid && (
-                        <div className="mt-4 border border-amber-200 bg-amber-50 p-3 sm:p-4">
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Award size={16} className="text-amber-600 shrink-0" />
-                              <span className="text-sm font-bold text-amber-900">Demande d&apos;arbitrage</span>
-                            </div>
-                            <span className="text-xs font-bold text-amber-700 italic truncate">{match.refereeName}</span>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <button
-                              onClick={() => handleRespondReferee(match.id, true)}
-                              disabled={respondingToRef === match.id}
-                              className="flex-1 bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                            >
-                              {respondingToRef === match.id ? "Validation..." : "Accepter l'arbitre"}
-                            </button>
-                            <button
-                              onClick={() => handleRespondReferee(match.id, false)}
-                              disabled={respondingToRef === match.id}
-                              className="flex-1 border border-amber-300 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors disabled:opacity-50"
-                            >
-                              Refuser
-                            </button>
-                          </div>
-                        </div>
+                      {/* L'arbitre : le chercher, répondre à une candidature,
+                          suivre une invitation, retirer un arbitre. Pour les
+                          deux managers du match, et leur staff. */}
+                      {monCamp(match) && ["pending", "upcoming", "delayed", "live"].includes(match.status) && (
+                        <ArbitreDuMatch match={match} aujourdhui={aujourdhui()} />
                       )}
 
                       {/* Arbitre local */}

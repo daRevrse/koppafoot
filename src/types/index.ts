@@ -1538,7 +1538,11 @@ export type NotificationType =
   | "booking_answer"
   /** Décision sur une candidature « propriétaire de terrain ». Une
    *  approbation ouvrait un espace dont personne n'était prévenu. */
-  | "venue_application";
+  | "venue_application"
+  /** L'arbitrage d'un match : candidature, invitation, réponse, désistement.
+   *  Envoyée à l'arbitre ou aux managers, selon qui doit agir. Sans elle,
+   *  une candidature n'existait que pour le manager qui ouvrait sa page. */
+  | "arbitrage";
 
 export interface FirestoreNotification {
   user_id: string;

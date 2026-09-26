@@ -24,7 +24,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
-import { horairesLus, reservationDuMatch } from "@/lib/terrains";
+import { dateLongue, horairesLus, reservationDuMatch } from "@/lib/terrains";
 import type {
   Team, FirestoreTeam, Achievement,
   Match, FirestoreMatch, MatchStatus,
@@ -1525,11 +1525,38 @@ export async function deleteRecordedMatch(matchId: string): Promise<void> {
 }
 
 export async function cancelMatch(matchId: string): Promise<void> {
+  const avant = await getDoc(doc(db, "matches", matchId));
   await cancelMatchParticipations(matchId);
   await updateDoc(doc(db, "matches", matchId), {
     status: "cancelled",
     updated_at: serverTimestamp(),
   });
+  const m = avant.data() as FirestoreMatch | undefined;
+  if (m) {
+    await prevenirLArbitre(m, "Match annulé",
+      `${m.home_team_name} vs ${m.away_team_name}, prévu ${quandLeMatch(m)}, est annulé.`);
+  }
+}
+
+/** « le samedi 3 octobre à 09:00 ». */
+function quandLeMatch(m: { date: string; time?: string | null }): string {
+  if (!m.date) return "";
+  return `le ${dateLongue(m.date)}${m.time ? ` à ${m.time}` : ""}`;
+}
+
+/**
+ * Prévenir l'arbitre d'un match qui bouge, ou qui n'a plus lieu.
+ *
+ * Les convoqués l'étaient déjà (voir updateMatchSchedule) ; l'arbitre,
+ * jamais : désigné pour samedi 9 h, il pouvait se présenter devant un terrain
+ * vide. Il l'est dès qu'il est sur le match, confirmé ou pas encore — une
+ * invitation ou une candidature en attente porte sur la date qui vient de
+ * changer. Sans effet si personne n'arbitre.
+ */
+async function prevenirLArbitre(m: FirestoreMatch, title: string, body: string): Promise<void> {
+  if (!m.referee_id || (m.referee_status ?? "none") === "none") return;
+  await createNotification({ userId: m.referee_id, type: "arbitrage", title, body, link: "/designations" })
+    .catch((err) => console.warn("Arbitre non prévenu :", err));
 }
 
 /**
@@ -1790,6 +1817,7 @@ export async function updateMatchSchedule(
   matchId: string,
   data: { date: string; time: string; venueName: string; venueCity: string; venueId?: string | null },
 ): Promise<void> {
+  const avant = await getDoc(doc(db, "matches", matchId));
   await updateDoc(doc(db, "matches", matchId), {
     date: data.date, time: data.time,
     venue_name: data.venueName, venue_city: data.venueCity,
@@ -1797,6 +1825,8 @@ export async function updateMatchSchedule(
     modification_request: null,
     updated_at: serverTimestamp(),
   });
+  const m = avant.data() as FirestoreMatch | undefined;
+  if (m) await prevenirLArbitreDuDeplacement(m, data.date, data.time, data.venueName);
 
   // Les participations portent une copie de la date et du terrain : sans ça,
   // le joueur garde l'ancien créneau dans son agenda.
@@ -1843,7 +1873,19 @@ export async function respondToMatchModification(
     updates.venue_id = currentMod.venue_id ?? null;
   }
 
+  const avant = accepted ? await getDoc(doc(db, "matches", matchId)) : null;
   await updateDoc(doc(db, "matches", matchId), updates);
+  const m = avant?.data() as FirestoreMatch | undefined;
+  if (m) await prevenirLArbitreDuDeplacement(m, currentMod.date, currentMod.time, currentMod.venue_name);
+}
+
+/** Le match change de date, d'heure ou de terrain : l'arbitre le sait. */
+async function prevenirLArbitreDuDeplacement(
+  m: FirestoreMatch, date: string, time: string, terrain: string,
+): Promise<void> {
+  if (m.date === date && m.time === time && m.venue_name === terrain) return;
+  await prevenirLArbitre(m, "Match déplacé",
+    `${m.home_team_name} vs ${m.away_team_name} se jouera ${quandLeMatch({ date, time })}${terrain ? `, ${terrain}` : ""}.`);
 }
 
 // ============================================
@@ -2459,26 +2501,21 @@ export async function getMatchesByCity(city: string, limitCount = 15): Promise<M
 // Referee Business Logic
 // ============================================
 
+// Les gestes de l'arbitrage (postuler, répondre, inviter, retirer) ne
+// s'écrivent plus d'ici : voir lib/arbitrage-client et
+// /api/matches/[mid]/arbitre. Restent les lectures.
+
 export async function getMatchesLookingForReferee(): Promise<Match[]> {
-  // Show matches where referee_status is 'none' or 'pending' (someone else applied but not confirmed)
-  // And status is 'pending' (accepted challenge) or 'upcoming'
+  // Les matchs sans arbitre qui se préparent encore : défi accepté, programmé,
+  // ou reporté (un match reporté a toujours besoin de quelqu'un au sifflet).
   const q = query(
     collection(db, "matches"),
     where("referee_status", "==", "none"),
-    where("status", "in", ["pending", "upcoming"]),
+    where("status", "in", ["pending", "upcoming", "delayed"]),
     orderBy("created_at", "desc")
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => toMatch(d.id, d.data() as FirestoreMatch));
-}
-
-export async function applyToMatchAsReferee(matchId: string, refereeId: string, refereeName: string): Promise<void> {
-  await updateDoc(doc(db, "matches", matchId), {
-    referee_id: refereeId,
-    referee_name: refereeName,
-    referee_status: "pending",
-    updated_at: serverTimestamp(),
-  });
 }
 
 export function onRefereeAssignments(refereeId: string, callback: (data: Match[]) => void): Unsubscribe {
@@ -2497,64 +2534,23 @@ export function onRefereeAssignments(refereeId: string, callback: (data: Match[]
   );
 }
 
-export async function respondToRefereeApplication(matchId: string, accepted: boolean): Promise<void> {
-  if (accepted) {
-    await updateDoc(doc(db, "matches", matchId), {
-      referee_status: "confirmed",
-      updated_at: serverTimestamp(),
-    });
-  } else {
-    await updateDoc(doc(db, "matches", matchId), {
-      referee_id: null,
-      referee_name: null,
-      referee_status: "none",
-      updated_at: serverTimestamp(),
-    });
-  }
-}
-
-export async function inviteRefereeToMatch(matchId: string, refereeId: string, refereeName: string): Promise<void> {
-  await updateDoc(doc(db, "matches", matchId), {
-    referee_id: refereeId,
-    referee_name: refereeName,
-    referee_status: "invited",
-    updated_at: serverTimestamp(),
-  });
-}
-
-export async function respondToRefereeInvitation(matchId: string, accepted: boolean): Promise<void> {
-  if (accepted) {
-    await updateDoc(doc(db, "matches", matchId), {
-      referee_status: "confirmed",
-      updated_at: serverTimestamp(),
-    });
-  } else {
-    await updateDoc(doc(db, "matches", matchId), {
-      referee_id: null,
-      referee_name: null,
-      referee_status: "none",
-      updated_at: serverTimestamp(),
-    });
-  }
-}
-
 /**
- * L'arbitre retire sa candidature d'un match où le manager n'a pas encore
- * tranché.
+ * Les notes reçues par un arbitre, match par match.
  *
- * L'écriture est celle d'une invitation déclinée — on efface le nom, le
- * match repart sans arbitre — mais le geste n'est pas le même : décliner
- * répond à quelqu'un, se retirer revient sur sa propre demande. Les deux
- * appels s'écrivent donc en clair là où on les lit, plutôt qu'un
- * `respondToRefereeInvitation(id, false)` dont le nom mentirait sur ce que
- * l'arbitre vient de faire.
+ * Chaque manager note l'arbitre en validant le match ; la note est recopiée
+ * par le serveur dans `arbitrages/{matchId}`, que l'arbitre est seul à lire
+ * (voir /api/matches/validation). Une note par camp, de 1 à 5.
  */
-export async function withdrawRefereeApplication(matchId: string): Promise<void> {
-  await updateDoc(doc(db, "matches", matchId), {
-    referee_id: null,
-    referee_name: null,
-    referee_status: "none",
-    updated_at: serverTimestamp(),
+export interface NotesDArbitrage {
+  matchId: string;
+  notes: { home?: number; away?: number };
+}
+
+export async function getMesNotesDArbitre(refereeId: string): Promise<NotesDArbitrage[]> {
+  const snap = await getDocs(query(collection(db, "arbitrages"), where("referee_id", "==", refereeId)));
+  return snap.docs.map((d) => {
+    const n = (d.data().notes ?? {}) as { home?: number; away?: number };
+    return { matchId: d.id, notes: { home: n.home, away: n.away } };
   });
 }
 
@@ -3465,20 +3461,6 @@ export function onBookingsByOwner(ownerId: string, callback: (data: Booking[]) =
   });
 }
 
-
-/**
- * Updates the referee status for a match
- */
-export async function updateMatchRefereeStatus(
-  matchId: string,
-  status: "confirmed" | "declined" | "pending" | "invited" | "none"
-) {
-  const matchRef = doc(db, "matches", matchId);
-  await updateDoc(matchRef, {
-    referee_status: status,
-    updated_at: new Date().toISOString(),
-  });
-}
 
 /**
  * Contester un événement d'un match terminé.

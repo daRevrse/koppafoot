@@ -35,7 +35,14 @@ export interface MatchInfo {
   /** Le format de jeu, « 11v11 ». Absent sur une rencontre de compétition. */
   format?: string | null;
   /** L'arbitre. `null` quand la page n'a aucun officiel à annoncer. */
-  referee?: { name: string | null; confirmed: boolean } | null;
+  referee?: {
+    name: string | null;
+    confirmed: boolean;
+    /** Sa fiche, quand il a un compte : on veut savoir qui vient siffler. */
+    href?: string | null;
+    /** Ce qui remplace « Désigné » / « En attente », pour un arbitre local par exemple. */
+    note?: string | null;
+  } | null;
   /** La compétition du match, pour la suivre. Absente sur un amical. */
   competition?: {
     id: string;
@@ -165,7 +172,8 @@ export default function MatchInfoList({
         visuel={<Sifflet {...ICONE} />}
         label="Arbitre"
         valeur={info.referee.name}
-        note={info.referee.confirmed ? "Désigné" : "En attente"}
+        href={info.referee.href}
+        note={info.referee.note ?? (info.referee.confirmed ? "Désigné" : "En attente")}
       />,
     );
   }
