@@ -10,11 +10,11 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Classement des joueurs",
   description:
-    "Les cent meilleurs joueurs de KoppaFoot sur leurs cinq derniers matchs, "
-    + "toutes compétitions locales et matchs amicaux confondus.",
+    "Les meilleurs joueurs et gardiens de KoppaFoot, classés sur leur note des "
+    + "cinq derniers matchs, toutes compétitions locales et matchs amicaux confondus.",
 };
 
 export default async function TopPlayersPage() {
-  const { performances, gardiens } = await lireClassements();
-  return <ClassementComplet performances={performances} gardiens={gardiens} />;
+  const { joueurs } = await lireClassements();
+  return <ClassementComplet joueurs={joueurs} />;
 }

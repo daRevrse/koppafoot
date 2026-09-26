@@ -17,11 +17,10 @@ import { adminDb } from "@/lib/firebase-admin";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import { toCompMatch } from "@/lib/competition-mappers";
 import { matchDuration } from "@/lib/competition-format";
-import { calculerClassements, mouvements } from "@/lib/classement";
+import { calculerClassements, fusionnerClassements } from "@/lib/classement";
 import type { MatchPourForme } from "@/lib/etat-de-forme";
 import type {
-  ClassementsPublies, ContributionDirecte, LigneClassement, LigneGardien,
-  LignePubliee, MatchAClasser,
+  ClassementsPublies, ContributionDirecte, LigneJoueurPubliee, MatchAClasser,
 } from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
 import type { FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
@@ -29,7 +28,7 @@ import type { FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
 const DOC = "rankings/top_players";
 
 const VIDE: ClassementsPublies = {
-  performances: [], gardiens: [], matchsRetenus: 0, calculeLe: null,
+  joueurs: [], matchsRetenus: 0, calculeLe: null,
 };
 
 /** Un match de la plateforme : de quoi le classer, et de quoi en tirer une forme. */
@@ -183,39 +182,43 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
  */
 export async function recalculerClassements(
   /** Les matchs déjà lus, quand l'appelant s'en sert aussi (voir lib/formes-admin). */
-  dejaLus?: MatchAClasser[],
+  dejaLus?: MatchDeLaPlateforme[],
 ): Promise<ClassementsPublies> {
   const matchs = dejaLus ?? await matchsDeLaPlateforme();
-  const { performances, gardiens, matchsRetenus } = calculerClassements(matchs);
+  const { parNote, parContribution, matchsRetenus } = calculerClassements(matchs);
 
   const ref = adminDb.doc(DOC);
   const avant = (await ref.get()).data() as
-    | { cles_performances?: string[]; cles_gardiens?: string[] }
+    | { cles_note?: string[]; cles_contribution?: string[] }
     | undefined;
 
-  const mvtPerf = mouvements(performances, avant?.cles_performances ?? []);
-  const mvtGk = mouvements(gardiens, avant?.cles_gardiens ?? []);
-
   const publie: ClassementsPublies = {
-    performances: performances.map((l) => ({ ...l, mouvement: mvtPerf.get(l.cle) ?? null })),
-    gardiens: gardiens.map((l) => ({ ...l, mouvement: mvtGk.get(l.cle) ?? null })),
+    joueurs: fusionnerClassements(
+      { parNote, parContribution },
+      { note: avant?.cles_note ?? [], contribution: avant?.cles_contribution ?? [] },
+    ),
     matchsRetenus,
     calculeLe: new Date().toISOString(),
   };
 
+  // `set` et non `update` : le document est réécrit en entier, et les champs
+  // de l'ancien format (deux listes, performances et gardiens) disparaissent
+  // avec lui.
   await ref.set({
-    performances: publie.performances,
-    gardiens: publie.gardiens,
+    joueurs: publie.joueurs,
     matchs_retenus: matchsRetenus,
-    // Les clés du calcul qu'on vient de faire : ce sont elles qui serviront de
-    // « avant » au suivant.
-    cles_performances: performances.map((l) => l.cle),
-    cles_gardiens: gardiens.map((l) => l.cle),
+    // Les clés du calcul qu'on vient de faire, dans l'ordre de chaque tri :
+    // ce sont elles qui serviront de « avant » au suivant.
+    cles_note: parNote.map((l) => l.cle),
+    cles_contribution: parContribution.map((l) => l.cle),
     calcule_le: publie.calculeLe,
   });
 
   return publie;
 }
+
+/** Une tentative d'amorçage par instance et par quart d'heure, au plus. */
+let derniereTentative = 0;
 
 /**
  * Le classement publié, pour l'affichage.
@@ -223,15 +226,24 @@ export async function recalculerClassements(
  * Dégrade en classement vide plutôt que de lever : une page d'accueil ne doit
  * pas tomber parce qu'un classement manque. Le composant montre alors son
  * message d'attente.
+ *
+ * L'ANCIEN FORMAT SE RECALCULE UNE FOIS. Le document ne se réécrit qu'à la
+ * fin d'un match : sans ce rattrapage, le classement resterait vide entre la
+ * mise en service et le prochain coup de sifflet final. La tentative est
+ * bornée — une par instance et par quart d'heure —, pour qu'un échec ne se
+ * paie pas à chaque visite.
  */
 export async function lireClassements(): Promise<ClassementsPublies> {
   try {
     const snap = await adminDb.doc(DOC).get();
-    if (!snap.exists) return VIDE;
-    const d = snap.data() ?? {};
+    const d = snap.exists ? snap.data() ?? {} : null;
+    if (!d || !Array.isArray(d.joueurs)) {
+      if (Date.now() - derniereTentative < 15 * 60_000) return VIDE;
+      derniereTentative = Date.now();
+      return await recalculerClassements();
+    }
     return {
-      performances: (d.performances ?? []) as LignePubliee<LigneClassement>[],
-      gardiens: (d.gardiens ?? []) as LignePubliee<LigneGardien>[],
+      joueurs: d.joueurs as LigneJoueurPubliee[],
       matchsRetenus: (d.matchs_retenus ?? 0) as number,
       calculeLe: (d.calcule_le ?? null) as string | null,
     };

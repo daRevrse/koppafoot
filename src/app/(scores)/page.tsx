@@ -2,6 +2,18 @@ import DirectHomeV2 from "@/components/direct/DirectHomeV2";
 import { getDirectBoard } from "@/lib/direct-admin";
 import { getWorldCompetitions } from "@/lib/football-data";
 import { lireClassements } from "@/lib/classement-admin";
+import { classementPar, type LigneJoueurPubliee, type TriClassement } from "@/lib/classement";
+
+/**
+ * Les cinq de la carte d'accueil : les meilleures notes, gardiens compris. Tant
+ * que personne n'a assez de matchs notés, les meilleurs contributeurs — une
+ * carte vide se lit comme une panne.
+ */
+function topDeLAccueil(joueurs: LigneJoueurPubliee[]): { tri: TriClassement; lignes: LigneJoueurPubliee[] } {
+  const parNote = classementPar(joueurs, "note");
+  if (parNote.length > 0) return { tri: "note", lignes: parNote.slice(0, 5) };
+  return { tri: "contribution", lignes: classementPar(joueurs, "contribution").slice(0, 5) };
+}
 
 // Public home: the live-score "Direct" board, inside the scores shell
 // (ScoreShell) rather than the general app shell. Every public competition
@@ -28,7 +40,7 @@ export default async function Home() {
     <DirectHomeV2
       initialFeed={board}
       worldCompetitions={world}
-      topPerformances={classements.performances.slice(0, 5)}
+      topPerformances={topDeLAccueil(classements.joueurs)}
     />
   );
 }

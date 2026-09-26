@@ -46,7 +46,7 @@ const TON_FORME: Record<NiveauForme, { clair: string; sombre: string }> = {
 };
 
 /** Même fond que la note de la console (voir TerrainConsole) : une note se lit pareil partout. */
-const FOND_NOTE: Record<ReturnType<typeof tonNote>, string> = {
+export const FOND_NOTE: Record<ReturnType<typeof tonNote>, string> = {
   absente: "bg-gray-200 text-gray-500",
   faible: "bg-red-500 text-white",
   moyenne: "bg-gray-500 text-white",

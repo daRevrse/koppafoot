@@ -27,7 +27,7 @@
 import { cleDuJour } from "@/lib/dates";
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import { FENETRE } from "@/lib/classement";
-import { notesDuCamp } from "@/lib/notes";
+import { moyennePonderee, notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT, type MatchJoue } from "@/lib/player-stats";
 import type { LineupEntry } from "@/types";
 
@@ -275,14 +275,8 @@ export function formeDepuisMatchs(fenetre: MatchDeForme[]): FormeJoueur {
     return { niveau: null, indice: null, tendance: null, matchs, dernierMatch };
   }
 
-  let somme = 0;
-  let poids = 0;
-  notes.forEach((n, i) => {
-    const p = FENETRE_FORME - i;
-    somme += n * p;
-    poids += p;
-  });
-  const indice = Math.round((somme / poids) * 10) / 10;
+  // Voir `moyennePonderee` : la même que celle du classement.
+  const indice = moyennePonderee(notes, FENETRE_FORME) as number;
 
   // LA PENTE : les deux derniers matchs notés contre ceux d'avant. Un seul
   // match contre le reste ferait basculer la flèche sur un penalty manqué.
