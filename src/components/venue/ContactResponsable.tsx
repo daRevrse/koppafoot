@@ -28,7 +28,16 @@ interface Contact {
   email: string | null;
 }
 
-export default function ContactResponsable({ venueId, className = "" }: { venueId: string; className?: string }) {
+export default function ContactResponsable({
+  venueId,
+  ownerId = null,
+  className = "",
+}: {
+  venueId: string;
+  /** Le responsable ne se contacte pas lui-même : le bouton ne lui est pas montré. */
+  ownerId?: string | null;
+  className?: string;
+}) {
   const { firebaseUser } = useAuth();
   const [ouvert, setOuvert] = useState(false);
   const [contact, setContact] = useState<Contact | null>(null);
@@ -81,6 +90,8 @@ export default function ContactResponsable({ venueId, className = "" }: { venueI
       setCharge(false);
     }
   };
+
+  if (ownerId && firebaseUser?.uid === ownerId) return null;
 
   return (
     <>
@@ -200,7 +211,7 @@ export default function ContactResponsable({ venueId, className = "" }: { venueI
                 </>
               ) : (
                 <p className="text-sm leading-relaxed text-gray-500">
-                  Ce responsable n&apos;a renseigné aucune coordonnée. Passez par
+                  Ce responsable n&apos;a renseigné aucune coordonnée. Passe par
                   la demande de créneau : il en est prévenu par notification et
                   par email.
                 </p>

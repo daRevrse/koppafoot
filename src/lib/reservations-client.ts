@@ -11,14 +11,19 @@ import type { PropositionCreneau } from "@/types";
 // lisible quand il échoue.
 // ============================================
 
-async function appeler<T>(url: string, method: "POST" | "PATCH", corps: unknown): Promise<T> {
+/** Un appel authentifié, et une erreur lisible quand il échoue. */
+export async function appeler<T>(
+  url: string,
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+  corps?: unknown,
+): Promise<T> {
   const utilisateur = auth.currentUser;
   if (!utilisateur) throw new Error("Connecte-toi pour continuer.");
   const token = await utilisateur.getIdToken();
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(corps),
+    body: corps === undefined ? undefined : JSON.stringify(corps),
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error ?? "L'opération a échoué.");
@@ -28,21 +33,32 @@ async function appeler<T>(url: string, method: "POST" | "PATCH", corps: unknown)
 /** Une équipe demande un créneau depuis la fiche du terrain. */
 export const demanderCreneau = (d: {
   venueId: string; date: string; time: string; duration: number; telephone: string; message: string;
+  /** L'équipe qu'on manage et pour laquelle on demande, s'il y en a une. */
+  equipeId?: string | null;
 }) => appeler<{ id: string }>("/api/bookings", "POST", d);
 
-/** Le propriétaire bloque un créneau pris hors de la plateforme. */
+/**
+ * Le propriétaire bloque un créneau pris hors de la plateforme. Avec
+ * `jusqua`, le même créneau chaque semaine jusqu'à cette date.
+ */
 export const bloquerCreneau = (d: {
-  venueId: string; date: string; time: string; duration: number; note: string;
-}) => appeler<{ id: string }>("/api/bookings", "POST", { ...d, blocage: true });
+  venueId: string; date: string; time: string; duration: number; note: string; jusqua?: string | null;
+}) => appeler<{ id: string; nombre: number; jusqua: string }>("/api/bookings", "POST", { ...d, blocage: true });
 
 export type ActionReservation = "confirmer" | "refuser" | "annuler" | "prendre-proposition";
 
-/** Répondre à une demande, l'annuler, ou prendre le créneau proposé. */
+/**
+ * Répondre à une demande, l'annuler, ou prendre le créneau proposé.
+ * `serie` : sur un blocage répété, débloquer aussi les semaines suivantes.
+ */
 export const agirSurReservation = (
   id: string,
   action: ActionReservation,
   proposition?: PropositionCreneau | null,
-) => appeler<{ ok?: boolean; id?: string; status?: string }>(`/api/bookings/${id}`, "PATCH", { action, proposition });
+  serie?: boolean,
+) => appeler<{ ok?: boolean; id?: string; status?: string; nombre?: number }>(
+  `/api/bookings/${id}`, "PATCH", { action, proposition, serie },
+);
 
 /**
  * Aligner la réservation du terrain sur le match, après un geste sur lui.

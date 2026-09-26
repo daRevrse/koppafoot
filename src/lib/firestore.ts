@@ -3374,6 +3374,9 @@ function toBooking(id: string, d: FirestoreBooking): Booking {
     proposition: d.proposition ?? null,
     note: d.note ?? null,
     cancelledBy: d.cancelled_by ?? null,
+    serieId: d.serie_id ?? null,
+    teamId: d.team_id ?? null,
+    teamName: d.team_name ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };

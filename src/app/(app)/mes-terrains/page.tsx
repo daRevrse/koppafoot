@@ -8,12 +8,13 @@ import {
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  onVenuesByOwner, createVenue, updateVenue, deleteVenue, onBookingsByOwner,
+  onVenuesByOwner, createVenue, updateVenue, onBookingsByOwner,
 } from "@/lib/firestore";
 import { uploadVenuePhoto } from "@/lib/storage";
 import { alleger, poidsLisible, REGLAGES } from "@/lib/images";
 import type { Venue, Booking, HorairesOuverture } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
+import { apercuRetrait, lireReglageContact, reglerContact, retirerTerrain } from "@/lib/terrains-client";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, aujourdhui,
 } from "@/lib/terrains";
@@ -39,6 +40,11 @@ import {
 //
 // L'ANCIEN EN-TÊTE MENTAIT : il annonçait « la réservation en ligne n'existe
 // pas encore » sur la page même d'un propriétaire qui recevait des demandes.
+//
+// LE CONTACT SE RÈGLE ICI. « Contacter le responsable » montrait le numéro
+// et l'email du compte sans que personne l'ait dit au propriétaire. La fiche
+// dit désormais ce qui est montré, et à qui, et accepte le numéro de
+// l'accueil du terrain à la place du sien (voir /api/venues/[id]/contact).
 // ============================================
 
 interface Brouillon {
@@ -54,7 +60,12 @@ interface Brouillon {
   galerie: string[];
   available: boolean;
   horaires: HorairesOuverture | null;
+  /** Le numéro montré aux équipes ; vide : celui du compte. */
+  contactTelephone: string;
+  emailVisible: boolean;
 }
+
+const TELEPHONE = /^\+?[\d\s.-]{6,20}$/;
 
 /** Au-dela, une fiche devient un album et personne ne fait defiler. */
 const GALERIE_MAX = 6;
@@ -62,6 +73,7 @@ const GALERIE_MAX = 6;
 const brouillonVide = (city: string): Brouillon => ({
   name: "", address: "", city, fieldSize: "11v11", fieldSurface: "synthetic",
   prix: "", equipements: [], photoUrl: null, galerie: [], available: true, horaires: null,
+  contactTelephone: "", emailVisible: true,
 });
 
 const depuisTerrain = (v: Venue): Brouillon => ({
@@ -76,6 +88,9 @@ const depuisTerrain = (v: Venue): Brouillon => ({
   galerie: v.galleryUrls ?? [],
   available: v.available,
   horaires: v.openingHours,
+  // Relus à part (ils ne vivent pas dans la fiche publique), voir commencerEdition.
+  contactTelephone: "",
+  emailVisible: true,
 });
 
 /**
@@ -108,7 +123,10 @@ function Formulaire({
   setFichier,
   fichiersGalerie,
   setFichiersGalerie,
+  compte,
 }: {
+  /** Les coordonnées du compte : ce qui est montré quand la fiche n'en précise pas d'autres. */
+  compte: { telephone: string | null; email: string | null };
   brouillon: Brouillon;
   setBrouillon: (b: Brouillon) => void;
   onSubmit: () => void;
@@ -352,7 +370,7 @@ function Formulaire({
         label="Tarif horaire (FCFA)"
         htmlFor="v-prix"
         optionnel
-        aide="Laissé vide, la fiche affiche « prix à convenir ». La plateforme n'encaisse rien : le règlement se fait entre vous et l'équipe."
+        aide="Laissé vide, la fiche affiche « prix à convenir ». La plateforme n'encaisse rien : le règlement se fait entre toi et l'équipe."
       >
         <input
           id="v-prix"
@@ -381,6 +399,45 @@ function Formulaire({
           value={brouillon.horaires}
           onChange={(h) => setBrouillon({ ...brouillon, horaires: h })}
         />
+      </div>
+
+      <div className="space-y-3 border-t border-gray-200/70 pt-5">
+        <Etiquette>Contact montré aux équipes</Etiquette>
+        <p className="text-[11px] leading-relaxed text-gray-500">
+          Sur la fiche, « Contacter le responsable » montre ton nom, ce numéro
+          et ton email à tout membre connecté de KoppaFoot. Jamais aux
+          visiteurs sans compte.
+        </p>
+        <Champ
+          label="Téléphone du terrain"
+          htmlFor="v-tel"
+          optionnel
+          aide={compte.telephone
+            ? `Laissé vide : celui de ton compte, ${compte.telephone}.`
+            : "Laissé vide : aucun numéro n'est montré."}
+          erreur={brouillon.contactTelephone.trim() && !TELEPHONE.test(brouillon.contactTelephone.trim())
+            ? "Ce numéro semble incomplet." : null}
+        >
+          <input
+            id="v-tel"
+            type="tel"
+            autoComplete="tel"
+            value={brouillon.contactTelephone}
+            onChange={(e) => setBrouillon({ ...brouillon, contactTelephone: e.target.value })}
+            placeholder="ex: l'accueil du complexe"
+            className={classeChamp}
+          />
+        </Champ>
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={brouillon.emailVisible}
+            onChange={(e) => setBrouillon({ ...brouillon, emailVisible: e.target.checked })}
+          />
+          <span className="text-[11px] font-bold text-gray-600">
+            Montrer aussi mon email{compte.email ? ` (${compte.email})` : ""}
+          </span>
+        </label>
       </div>
 
       {/* Un terrain fermé pour travaux reste référencé mais cesse d'être
@@ -566,7 +623,7 @@ export default function MyVenuesPage() {
           action={<LienBouton href="/terrains/candidature">Référencer mon terrain</LienBouton>}
         >
           Référencer un terrain passe par une candidature : on relit la fiche
-          avant de la publier. Ça ne change rien à votre rôle sur le terrain.
+          avant de la publier. Ça ne change rien à ton rôle sur le terrain.
         </EtatVide>
       </div>
     );
@@ -586,6 +643,12 @@ export default function MyVenuesPage() {
     setFichiersGalerie([]);
     setAjout(false);
     setEdition(v.id);
+    // Le contact vit hors de la fiche publique : il se relit à part.
+    lireReglageContact(v.id)
+      .then((r) => {
+        if (r) setBrouillon((b) => ({ ...b, contactTelephone: r.telephone ?? "", emailVisible: r.emailVisible }));
+      })
+      .catch(() => {});
   };
 
   const fermer = () => {
@@ -600,6 +663,12 @@ export default function MyVenuesPage() {
       toast.error("Un jour ferme avant d'ouvrir : corrige les horaires.");
       return;
     }
+    const telephone = brouillon.contactTelephone.trim();
+    if (telephone && !TELEPHONE.test(telephone)) {
+      toast.error("Le téléphone du terrain semble incomplet.");
+      return;
+    }
+    const contact = { telephone, emailVisible: brouillon.emailVisible };
     setOccupe(true);
     try {
       const prix = Number(brouillon.prix);
@@ -633,6 +702,7 @@ export default function MyVenuesPage() {
       if (edition) {
         const medias = await televerser(edition);
         await updateVenue(edition, { ...commun, ...medias });
+        await reglerContact(edition, contact);
         toast.success("Terrain mis à jour");
       } else {
         const id = await createVenue({
@@ -641,6 +711,7 @@ export default function MyVenuesPage() {
         if (fichier || fichiersGalerie.length) {
           await updateVenue(id, await televerser(id));
         }
+        await reglerContact(id, contact);
         toast.success("Terrain référencé");
       }
       fermer();
@@ -653,13 +724,32 @@ export default function MyVenuesPage() {
   };
 
   const retirer = async (v: Venue) => {
+    // Ce que le retrait touchera, dit AVANT de le confirmer.
+    const suites = await apercuRetrait(v.id).catch(() => null);
     const ok = await demander({
       titre: `Retirer ${v.name} ?`,
       corps: (
         <>
           Le terrain sortira de l&apos;annuaire et de la recherche : les équipes
           ne le trouveront plus et ne pourront plus demander de créneau.
-          Les demandes déjà confirmées, elles, ne sont pas annulées.
+          {suites && suites.enAttente > 0 && (
+            <>
+              {" "}
+              {suites.enAttente > 1
+                ? `Les ${suites.enAttente} demandes en attente seront closes`
+                : "La demande en attente sera close"}
+              , et les équipes prévenues.
+            </>
+          )}
+          {suites && suites.confirmees > 0 && (
+            <>
+              {" "}
+              {suites.confirmees > 1
+                ? `Les ${suites.confirmees} créneaux déjà confirmés restent`
+                : "Le créneau déjà confirmé reste"}{" "}
+              dans tes réservations reçues : honore-les, ou annule-les en prévenant l&apos;équipe.
+            </>
+          )}
         </>
       ),
       action: "Retirer le terrain",
@@ -668,10 +758,12 @@ export default function MyVenuesPage() {
     if (!ok) return;
 
     try {
-      await deleteVenue(v.id);
-      toast.success("Terrain retiré");
-    } catch {
-      toast.error("La suppression a échoué");
+      const r = await retirerTerrain(v.id);
+      toast.success(r.closes > 0
+        ? `Terrain retiré, ${r.closes} demande${r.closes > 1 ? "s" : ""} close${r.closes > 1 ? "s" : ""}`
+        : "Terrain retiré");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "La suppression a échoué");
     }
   };
 
@@ -711,7 +803,7 @@ export default function MyVenuesPage() {
             </p>
             <p className={`mt-0.5 text-[11px] font-bold ${enAttente > 0 ? "text-amber-700" : "text-gray-500"}`}>
               {enAttente > 0
-                ? "Une équipe attend votre réponse."
+                ? "Une équipe attend ta réponse."
                 : "Les demandes reçues apparaissent ici."}
             </p>
           </div>
@@ -741,6 +833,7 @@ export default function MyVenuesPage() {
             setFichier={setFichier}
             fichiersGalerie={fichiersGalerie}
             setFichiersGalerie={setFichiersGalerie}
+            compte={{ telephone: user.phone ?? null, email: user.email ?? null }}
           />
         )}
 
@@ -769,6 +862,7 @@ export default function MyVenuesPage() {
                 setFichier={setFichier}
                 fichiersGalerie={fichiersGalerie}
                 setFichiersGalerie={setFichiersGalerie}
+                compte={{ telephone: user.phone ?? null, email: user.email ?? null }}
               />
             ) : (
               <CarteTerrain

@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MapPin, Check, ArrowRight, Clock, RotateCcw } from "lucide-react";
+import { MapPin, Check, ArrowRight, Clock, RotateCcw, Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { isVenueOwner } from "@/lib/hats";
 import { FORMATS, SURFACES } from "@/lib/terrains";
 import {
-  FilAriane, Champ, Pastilles, Bouton, LienBouton, Fanion, EnCours, classeChamp,
+  FilAriane, Champ, Pastilles, Bouton, LienBouton, Fanion, EnCours, classeChamp, useConfirmation,
 } from "@/components/venue/venue-ui";
 
 // ============================================
@@ -28,6 +28,11 @@ import {
 //
 // La casquette qui en découle S'AJOUTE au compte : on reste joueur, manager
 // ou arbitre en devenant propriétaire.
+//
+// TANT QU'ELLE ATTEND, ELLE SE CORRIGE OU SE RETIRE. Une faute dans le nom,
+// une adresse oubliée : il fallait attendre le refus pour recommencer. Et un
+// refus DIT POURQUOI, désormais : le motif de l'équipe KoppaFoot s'affiche
+// ici, au-dessus du bouton qui permet de redéposer.
 // ============================================
 
 interface Candidature {
@@ -35,6 +40,13 @@ interface Candidature {
   venue_name: string;
   city: string | null;
   status: "pending" | "approved" | "rejected";
+  address?: string | null;
+  field_size?: string | null;
+  field_surface?: string | null;
+  phone?: string | null;
+  motivation?: string | null;
+  /** Pourquoi elle n'a pas été retenue, quand l'équipe l'a dit. */
+  rejection_reason?: string | null;
 }
 
 function Cadre({ children }: { children: React.ReactNode }) {
@@ -101,6 +113,9 @@ export default function VenueApplicationPage() {
   const [dossier, setDossier] = useState<Candidature | false | null>(null);
   /** Après un refus, on peut redéposer : ce drapeau rouvre le formulaire. */
   const [redepose, setRedepose] = useState(false);
+  /** La demande en attente, rouverte pour être corrigée. */
+  const [edition, setEdition] = useState(false);
+  const { demander, Dialogue } = useConfirmation();
 
   useEffect(() => {
     if (!user) return;
@@ -114,7 +129,8 @@ export default function VenueApplicationPage() {
     if (!firebaseUser) return;
     try {
       const token = await firebaseUser.getIdToken();
-      const res = await fetch("/api/venue-applications", {
+      // `mine=1` : ses propres demandes, même pour un administrateur.
+      const res = await fetch("/api/venue-applications?mine=1", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { setDossier(false); return; }
@@ -141,27 +157,77 @@ export default function VenueApplicationPage() {
     if (Object.keys(prochaines).length) return;
 
     setSubmitting(true);
+    const corrige = edition && dossier && dossier.status === "pending";
     try {
       const token = await firebaseUser.getIdToken();
-      const res = await fetch("/api/venue-applications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ venueName, city, address, fieldSize, fieldSurface, phone, motivation }),
-      });
+      const res = await fetch(
+        corrige ? `/api/venue-applications/${dossier.id}` : "/api/venue-applications",
+        {
+          method: corrige ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ venueName, city, address, fieldSize, fieldSurface, phone, motivation }),
+        },
+      );
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "Erreur lors de l'envoi.");
-        // Une candidature déjà en cours : on relit plutôt que d'insister, la
-        // page affichera l'état réel au lieu de répéter l'erreur.
-        if (res.status === 409) { setRedepose(false); void lireDossier(); }
+        // Une candidature déjà en cours, ou déjà relue : on relit plutôt que
+        // d'insister, la page affichera l'état réel au lieu de répéter l'erreur.
+        if (res.status === 409) { setRedepose(false); setEdition(false); void lireDossier(); }
         return;
       }
       setRedepose(false);
-      setDossier({ id: data.id, venue_name: venueName, city, status: "pending" });
+      setEdition(false);
+      if (corrige) toast.success("Demande mise à jour");
+      setDossier({
+        id: corrige ? dossier.id : data.id, venue_name: venueName, city, status: "pending",
+        address, field_size: fieldSize, field_surface: fieldSurface, phone, motivation,
+      });
     } catch {
       toast.error("Erreur réseau. Réessaie.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /** Rouvrir la demande en attente, préremplie, pour la corriger. */
+  const corriger = (d: Candidature) => {
+    setVenueName(d.venue_name);
+    setCity(d.city ?? "");
+    setAddress(d.address ?? "");
+    setFieldSize(d.field_size ?? "11v11");
+    setFieldSurface(d.field_surface ?? "synthetic");
+    setPhone(d.phone ?? "");
+    setMotivation(d.motivation ?? "");
+    setErreurs({});
+    setEdition(true);
+  };
+
+  const retirer = async (d: Candidature) => {
+    if (!firebaseUser) return;
+    const ok = await demander({
+      titre: "Retirer ta demande ?",
+      corps: <>La fiche de {d.venue_name} ne sera pas relue. Tu pourras en déposer une autre quand tu veux.</>,
+      action: "Retirer ma demande",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch(`/api/venue-applications/${d.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Le retrait a échoué.");
+        if (res.status === 409) void lireDossier();
+        return;
+      }
+      toast.success("Demande retirée");
+      setDossier(false);
+    } catch {
+      toast.error("Erreur réseau. Réessaie.");
     }
   };
 
@@ -195,8 +261,8 @@ export default function VenueApplicationPage() {
             Référencer un terrain
           </h1>
           <p className="mt-5 text-base leading-relaxed text-gray-600">
-            Il faut un compte : la fiche du terrain sera rattachée au vôtre, et
-            c&apos;est par lui que les équipes vous demanderont un créneau.
+            Il faut un compte : la fiche du terrain sera rattachée au tien, et
+            c&apos;est par lui que les équipes te demanderont un créneau.
           </p>
           <LienBouton
             href="/login?for=terrain&next=/terrains/candidature"
@@ -213,7 +279,7 @@ export default function VenueApplicationPage() {
   // Un dossier en cours d'examen : on le MONTRE, avec ce qu'il contient et
   // ce qui va se passer. C'est le seul écran du parcours où la personne
   // attend quelqu'un d'autre.
-  if (dossier && dossier.status === "pending") {
+  if (dossier && dossier.status === "pending" && !edition) {
     return (
       <Cadre>
         <div className="border border-gray-200/70 bg-white p-8 sm:p-12">
@@ -233,18 +299,30 @@ export default function VenueApplicationPage() {
               <Clock size={17} className="mt-0.5 shrink-0 text-amber-600" />
               <span>
                 On relit la fiche. À l&apos;approbation, le terrain est publié
-                dans l&apos;annuaire, votre espace s&apos;ouvre et vous êtes
+                dans l&apos;annuaire, ton espace s&apos;ouvre et tu es
                 prévenu — notification, téléphone et email. Rien à resaisir.
               </span>
             </p>
           </div>
 
           <div className="mt-8 flex flex-wrap gap-2">
-            <LienBouton href="/terrains/annuaire" variante="contour">
-              Voir les terrains référencés
-            </LienBouton>
+            <Bouton Icon={Pencil} onClick={() => corriger(dossier)}>
+              Modifier ma demande
+            </Bouton>
+            <Bouton variante="contour" Icon={Trash2} onClick={() => retirer(dossier)}>
+              Retirer ma demande
+            </Bouton>
           </div>
+          <p className="mt-6">
+            <Link
+              href="/terrains/annuaire"
+              className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-emerald-700"
+            >
+              Voir les terrains déjà référencés →
+            </Link>
+          </p>
         </div>
+        <Dialogue />
       </Cadre>
     );
   }
@@ -265,9 +343,18 @@ export default function VenueApplicationPage() {
           }
         >
           La fiche de <strong className="font-black text-gray-900">{dossier.venue_name}</strong>{" "}
-          n&apos;a pas été retenue. Si vous êtes bien le propriétaire ou
-          l&apos;exploitant du lieu, redéposez-la en précisant votre lien avec
-          lui — c&apos;est ce qui manque le plus souvent.
+          n&apos;a pas été retenue.
+          {dossier.rejection_reason ? (
+            <span className="mt-4 block border-l-2 border-gray-300 bg-gray-50 px-4 py-3 text-left text-gray-700">
+              <strong className="font-black text-gray-900">Motif :</strong> {dossier.rejection_reason}
+            </span>
+          ) : (
+            <>
+              {" "}Si tu es bien le propriétaire ou l&apos;exploitant du lieu,
+              redépose-la en précisant ton lien avec lui — c&apos;est ce qui
+              manque le plus souvent.
+            </>
+          )}
         </Verdict>
       </Cadre>
     );
@@ -282,7 +369,7 @@ export default function VenueApplicationPage() {
           action={<LienBouton href="/mes-terrains" Icon={ArrowRight}>Ouvrir mes terrains</LienBouton>}
         >
           <strong className="font-black text-gray-900">{dossier.venue_name}</strong> est en ligne.
-          Complétez sa fiche — photo, tarif, équipements — pour être choisi.
+          Complète sa fiche — photo, tarif, équipements — pour être choisi.
         </Verdict>
       </Cadre>
     );
@@ -291,12 +378,12 @@ export default function VenueApplicationPage() {
   return (
     <Cadre>
       <h1 className="font-display text-3xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-4xl">
-        Référencer un terrain
+        {edition ? "Modifier ma demande" : "Référencer un terrain"}
       </h1>
       <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-600">
-        On relit chaque fiche avant publication : un terrain référencé engage
-        celui qui le gère. Ça ne change rien à votre rôle sur le terrain, on
-        reste joueur, manager ou arbitre en devenant propriétaire.
+        {edition
+          ? "Personne ne l'a encore relue : corrige ce qu'il faut, elle garde sa place dans la file."
+          : "On relit chaque fiche avant publication : un terrain référencé engage celui qui le gère. Ça ne change rien à ton rôle sur le terrain, on reste joueur, manager ou arbitre en devenant propriétaire."}
       </p>
 
       <div className="mt-8 space-y-5 border border-gray-200/70 bg-white p-6 sm:p-8">
@@ -322,7 +409,11 @@ export default function VenueApplicationPage() {
               className={classeChamp}
             />
           </Champ>
-          <Champ label="Téléphone" htmlFor="tel">
+          <Champ
+            label="Téléphone"
+            htmlFor="tel"
+            aide="Montré, avec ton nom et ton email, aux membres connectés qui touchent « Contacter le responsable » sur la fiche. Tu pourras le changer dans Mes terrains."
+          >
             <input
               id="tel"
               type="tel"
@@ -356,10 +447,10 @@ export default function VenueApplicationPage() {
         </div>
 
         <Champ
-          label="Votre lien avec ce terrain"
+          label="Ton lien avec ce terrain"
           htmlFor="lien"
           optionnel
-          aide="C'est ce qui décide le plus souvent : dites qui vous êtes pour ce lieu."
+          aide="C'est ce qui décide le plus souvent : dis qui tu es pour ce lieu."
         >
           <textarea
             id="lien"
@@ -371,12 +462,17 @@ export default function VenueApplicationPage() {
           />
         </Champ>
 
-        <Bouton Icon={MapPin} onClick={submit} occupe={submitting} className="w-full">
-          Envoyer ma candidature
+        <Bouton Icon={edition ? Check : MapPin} onClick={submit} occupe={submitting} className="w-full">
+          {edition ? "Enregistrer les modifications" : "Envoyer ma candidature"}
         </Bouton>
+        {edition && (
+          <Bouton variante="contour" onClick={() => setEdition(false)} disabled={submitting} className="w-full">
+            Annuler
+          </Bouton>
+        )}
 
         <p className="text-center text-[11px] leading-relaxed text-gray-400">
-          Photo, tarif et équipements se complètent après, dans votre espace.
+          Photo, tarif et équipements se complètent après, dans ton espace.
         </p>
       </div>
 

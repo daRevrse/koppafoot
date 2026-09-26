@@ -33,7 +33,7 @@ export const revalidate = 120;
 export const metadata = {
   title: "Où jouer, les terrains de KoppaFoot",
   description:
-    "Tous les terrains référencés sur KoppaFoot : format, surface, équipements et tarif. Demandez un créneau au propriétaire.",
+    "Tous les terrains référencés sur KoppaFoot : format, surface, équipements et tarif. Demande un créneau au propriétaire.",
 };
 
 /**

@@ -15,7 +15,8 @@ import type { FirestoreBooking, PropositionCreneau } from "@/types";
 //    soir qui lui irait, alors que lui sait lesquels sont libres ;
 //  - annuler : l'un ou l'autre. Le propriétaire qui annule un créneau déjà
 //    confirmé REFUSE, au sens de la synchronisation des matchs : on ne le lui
-//    redemandera pas ;
+//    redemandera pas. Sur un blocage répété, `serie: true` débloque d'un coup
+//    cette date et toutes les suivantes de la série ;
 //  - prendre-proposition : le DEMANDEUR accepte le créneau que le propriétaire
 //    lui a proposé. La nouvelle demande naît confirmée : il l'a déjà acceptée
 //    en la proposant. Réservé aux demandes faites depuis la fiche : pour un
@@ -38,7 +39,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const uid = await appelant(req);
     const { id } = await params;
-    const corps = (await req.json()) as { action?: Action; proposition?: Partial<PropositionCreneau> | null };
+    const corps = (await req.json()) as {
+      action?: Action; proposition?: Partial<PropositionCreneau> | null; serie?: boolean;
+    };
 
     const ref = adminDb.collection("bookings").doc(id);
     const snap = await ref.get();
@@ -48,7 +51,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const proprietaire = b.owner_id === uid;
     const demandeur = b.user_id === uid;
     if (!proprietaire && !demandeur) {
-      return NextResponse.json({ error: "Cette demande n'est pas la vôtre" }, { status: 403 });
+      return NextResponse.json({ error: "Cette demande n'est pas la tienne" }, { status: 403 });
     }
     const blocage = b.kind === "blocage";
     // Le match de la réservation, amical ou de compétition, s'il y en a un.
@@ -64,7 +67,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         await notifier(b.user_id, {
           type: "booking_answer",
           title: "Créneau confirmé",
-          body: `${b.venue_name} est à vous le ${quand(b)}${b.match_label ? ` pour ${b.match_label}` : ""}.`,
+          body: `${b.venue_name} est à toi le ${quand(b)}${b.match_label ? ` pour ${b.match_label}` : ""}.`,
           link: lien,
         });
         return NextResponse.json({ ok: true });
@@ -97,7 +100,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           updated_at: FieldValue.serverTimestamp(),
         });
 
-        if (blocage) return NextResponse.json({ ok: true });
+        if (blocage) {
+          // Toute la série à partir de cette date : les jeudis déjà passés
+          // restent dans l'historique tels qu'ils ont été.
+          if (corps.serie === true && b.serie_id && proprietaire) {
+            const serie = await adminDb.collection("bookings").where("serie_id", "==", b.serie_id).get();
+            const lot = adminDb.batch();
+            let n = 0;
+            for (const d of serie.docs) {
+              const x = d.data() as FirestoreBooking;
+              if (d.id === id || x.owner_id !== uid || x.status !== "confirmed" || x.date < b.date) continue;
+              lot.update(d.ref, { status: "cancelled", cancelled_by: "proprietaire", updated_at: FieldValue.serverTimestamp() });
+              n += 1;
+            }
+            if (n) await lot.commit();
+            return NextResponse.json({ ok: true, nombre: n + 1 });
+          }
+          return NextResponse.json({ ok: true, nombre: 1 });
+        }
 
         if (match) {
           await recopierSurLeMatch(
@@ -112,7 +132,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             type: "booking_answer",
             title: b.status === "confirmed" ? "Créneau annulé" : "Créneau refusé",
             body: `${b.venue_name} n'est pas disponible le ${quand(b)}${b.match_label ? ` pour ${b.match_label}` : ""}.${offre}`
-              + (b.match_id ? " Changez d'horaire ou de terrain." : ""),
+              + (b.match_id ? " Change d'horaire ou de terrain." : ""),
             link: lien,
           });
         } else {
@@ -162,7 +182,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (libre) {
           await notifier(b.owner_id, {
             type: "booking_answer",
-            title: "Votre proposition est prise",
+            title: "Ta proposition est prise",
             body: `${b.user_name || "L'équipe"} prend ${b.venue_name} le ${quand(creneau)}.`,
             link: "/mes-terrains/reservations",
           });
@@ -188,5 +208,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
-const interdit = () => NextResponse.json({ error: "Ce geste ne vous revient pas" }, { status: 403 });
+const interdit = () => NextResponse.json({ error: "Ce geste ne te revient pas" }, { status: 403 });
 const deja = () => NextResponse.json({ error: "Cette demande a déjà été traitée" }, { status: 409 });

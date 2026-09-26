@@ -20,7 +20,9 @@ import type { FirestoreBooking } from "@/types";
 //    posé ;
 //  - le PROPRIÉTAIRE bloque un créneau pris ailleurs — un habitué, un appel.
 //    Sans ça, les équipes demandaient des soirs déjà pris, et il refusait à
-//    la main ce que la fiche aurait pu leur dire.
+//    la main ce que la fiche aurait pu leur dire. Un habitué revient chaque
+//    semaine : le blocage peut se RÉPÉTER jusqu'à une date, en une série
+//    qu'on débloque d'un geste (voir `serie_id`).
 //
 // Les demandes nées d'un MATCH ne passent pas ici : voir
 // /api/matches/[mid]/terrain, qui les tient alignées sur le match.
@@ -32,6 +34,13 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DUREES = [1, 1.5, 2, 3];
 const TELEPHONE = /^\+?[\d\s.-]{6,20}$/;
+/** Six mois de jeudis : au-delà, un habitué se redemande. */
+const SEMAINES_MAX = 26;
+
+/** La même date, une semaine plus tard. Calcul en UTC, comme les dates stockées. */
+function semaineSuivante(date: string): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+}
 
 /**
  * Hier, en UTC : la marge d'un jour couvre tous les fuseaux, et le produit
@@ -49,6 +58,7 @@ export async function POST(req: Request) {
     const corps = (await req.json()) as {
       venueId?: unknown; date?: unknown; time?: unknown; duration?: unknown;
       telephone?: unknown; message?: unknown; blocage?: unknown; note?: unknown;
+      jusqua?: unknown; equipeId?: unknown;
     };
 
     const venueId = typeof corps.venueId === "string" ? corps.venueId : "";
@@ -72,29 +82,54 @@ export async function POST(req: Request) {
     // ─── Le propriétaire bloque un créneau ───
     if (corps.blocage === true) {
       if (venue.owner_id !== uid) {
-        return NextResponse.json({ error: "Ce terrain n'est pas le vôtre" }, { status: 403 });
+        return NextResponse.json({ error: "Ce terrain n'est pas le tien" }, { status: 403 });
       }
       const note = typeof corps.note === "string" ? corps.note.trim().slice(0, 120) : "";
-      const blocage: Omit<FirestoreBooking, "created_at" | "updated_at"> = {
-        venue_id: venueId, venue_name: venueName, owner_id: uid, user_id: uid,
-        user_name: note || "Créneau bloqué",
-        date, time, duration, total_price: 0,
-        status: "confirmed", kind: "blocage",
-        match_id: null, match_label: null, contact: null, message: null,
-        proposition: null, note: note || null, cancelled_by: null,
-      };
-      const ref = await adminDb.collection("bookings").add({
-        ...blocage,
-        created_at: FieldValue.serverTimestamp(),
-        updated_at: FieldValue.serverTimestamp(),
-      });
-      return NextResponse.json({ id: ref.id });
+
+      // Chaque semaine, du premier créneau jusqu'à `jusqua` inclus.
+      const dates = [date];
+      if (corps.jusqua !== undefined && corps.jusqua !== null && corps.jusqua !== "") {
+        const jusqua = typeof corps.jusqua === "string" ? corps.jusqua : "";
+        if (!DATE.test(jusqua) || jusqua < date) {
+          return NextResponse.json(
+            { error: "La fin de la répétition doit venir après le premier créneau." },
+            { status: 400 },
+          );
+        }
+        for (let d = semaineSuivante(date); d <= jusqua && dates.length < SEMAINES_MAX; d = semaineSuivante(d)) {
+          dates.push(d);
+        }
+      }
+
+      const serie = dates.length > 1 ? adminDb.collection("bookings").doc().id : null;
+      const lot = adminDb.batch();
+      const ids: string[] = [];
+      for (const jour of dates) {
+        const ref = adminDb.collection("bookings").doc();
+        ids.push(ref.id);
+        const blocage: Omit<FirestoreBooking, "created_at" | "updated_at"> = {
+          venue_id: venueId, venue_name: venueName, owner_id: uid, user_id: uid,
+          user_name: note || "Créneau bloqué",
+          date: jour, time, duration, total_price: 0,
+          status: "confirmed", kind: "blocage",
+          match_id: null, match_label: null, contact: null, message: null,
+          proposition: null, note: note || null, cancelled_by: null,
+          serie_id: serie,
+        };
+        lot.set(ref, {
+          ...blocage,
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
+        });
+      }
+      await lot.commit();
+      return NextResponse.json({ id: ids[0], nombre: dates.length, jusqua: dates[dates.length - 1] });
     }
 
     // ─── Une équipe demande un créneau ───
     if (venue.owner_id === uid) {
       return NextResponse.json(
-        { error: "C'est votre terrain : bloquez le créneau depuis vos réservations." },
+        { error: "C'est ton terrain : bloque le créneau depuis tes réservations reçues." },
         { status: 400 },
       );
     }
@@ -107,7 +142,7 @@ export async function POST(req: Request) {
     const telephone = typeof corps.telephone === "string" ? corps.telephone.trim() : "";
     if (!TELEPHONE.test(telephone)) {
       return NextResponse.json(
-        { error: "Un numéro de téléphone est nécessaire : c'est par lui que le propriétaire vous répondra." },
+        { error: "Un numéro de téléphone est nécessaire : c'est par lui que le propriétaire te répondra." },
         { status: 400 },
       );
     }
@@ -118,10 +153,23 @@ export async function POST(req: Request) {
     // si l'autre équipe se désiste. On ne bloque que ce qu'il a lui-même
     // exclu — ses horaires.
 
+    // L'équipe pour laquelle on demande : seulement une équipe que l'appelant
+    // manage, sinon n'importe qui se présenterait au nom de n'importe qui.
+    let equipe: { id: string; nom: string } | null = null;
+    if (typeof corps.equipeId === "string" && corps.equipeId) {
+      const t = await adminDb.collection("teams").doc(corps.equipeId).get();
+      if (!t.exists || t.data()?.manager_id !== uid) {
+        return NextResponse.json({ error: "Tu ne manages pas cette équipe." }, { status: 403 });
+      }
+      equipe = { id: t.id, nom: String(t.data()?.name ?? "Équipe") };
+    }
+
     const profil = await lireProfil(uid);
     const demande: Omit<FirestoreBooking, "created_at" | "updated_at"> = {
       venue_id: venueId, venue_name: venueName, owner_id: venue.owner_id, user_id: uid,
       user_name: profil.nom || "Une équipe",
+      team_id: equipe?.id ?? null,
+      team_name: equipe?.nom ?? null,
       date, time, duration, total_price: 0,
       status: "pending", kind: "demande",
       match_id: null, match_label: null,
@@ -145,7 +193,9 @@ export async function POST(req: Request) {
     }
 
     await annoncerDemande(venue.owner_id, {
-      venueName, date, time, demandeur: demande.user_name, telephone, message: demande.message,
+      venueName, date, time,
+      demandeur: equipe ? `${demande.user_name} (${equipe.nom})` : demande.user_name,
+      telephone, message: demande.message,
     });
 
     return NextResponse.json({ id: ref.id });

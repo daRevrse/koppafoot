@@ -40,7 +40,7 @@ export const CONTEXTES_AUTH: Record<string, ContexteAuth> = {
     marque: "MyFields",
     accroche: "Sans pelouse, pas de match",
     promesse:
-      "Référencez votre terrain, recevez les demandes de créneau des équipes, et répondez-y. La plateforme n'encaisse rien : le règlement reste entre vous.",
+      "Référence ton terrain, reçois les demandes de créneau des équipes, et réponds-y. La plateforme n'encaisse rien : le règlement reste entre vous.",
     titreConnexion: "Référencer un terrain",
     phraseConnexion: "Un compte d'abord, la fiche de ton terrain se saisit ensuite.",
     titreInscription: "Référencer un terrain",
@@ -55,11 +55,11 @@ export const CONTEXTES_AUTH: Record<string, ContexteAuth> = {
     marque: "MyFields",
     accroche: "Trouvez où jouer",
     promesse:
-      "Choisissez un terrain, demandez une date et une heure. Le propriétaire confirme ou refuse, et vous suivez sa réponse dans votre espace.",
+      "Choisis un terrain, demande une date et une heure. Le propriétaire confirme ou refuse, et tu suis sa réponse dans ton espace.",
     titreConnexion: "Demander un créneau",
     phraseConnexion: "Le propriétaire doit savoir à qui il confie son terrain.",
     titreInscription: "Demander un créneau",
-    phraseInscription: "Un compte, et vous pouvez réserver sur n'importe quel terrain référencé.",
+    phraseInscription: "Un compte, et tu peux réserver sur n'importe quel terrain référencé.",
     retour: { href: "/terrains/annuaire", label: "Où jouer" },
   },
 

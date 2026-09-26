@@ -449,8 +449,8 @@ export function AvisTerrain({ venue, date, duree: heures }: { venue: Venue | und
   const plage = plageDuJour(venue.openingHours, date);
   return (
     <p className="mt-2 text-xs leading-relaxed text-gray-500">
-      Le propriétaire recevra une demande de créneau de {duree(heures)} et vous
-      serez prévenu de sa réponse.
+      Le propriétaire recevra une demande de créneau de {duree(heures)} et tu
+      seras prévenu de sa réponse.
       {plage !== undefined && date && <> Ouvert ce jour-là : {libellePlage(plage)}.</>}
     </p>
   );

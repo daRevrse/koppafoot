@@ -438,6 +438,8 @@ export function venueApplicationDecisionHtml(
   firstName: string,
   venueName: string,
   approved: boolean,
+  /** Pourquoi la fiche n'est pas publiée, quand l'équipe l'a dit. */
+  motif: string | null = null,
 ): string {
   return approved
     ? emailLayout(`
@@ -463,6 +465,9 @@ export function venueApplicationDecisionHtml(
         propriétaire ou l'exploitant, redépose ta demande en précisant ton lien
         avec le lieu.
       </p>
+      ${motif ? `<p style="margin:0 0 16px;padding:12px 16px;background:#f8fafc;border-left:3px solid #94a3b8;">
+        <strong>Motif&nbsp;:</strong> ${echapper(motif)}
+      </p>` : ""}
       ${ctaButton("Redéposer ma demande", `${APP_URL}/terrains/candidature`, "#1e293b")}
     `);
 }
@@ -526,7 +531,7 @@ export function bookingRequestsDigestHtml(
       ${demandes.length} demandes sur vos terrains
     </h2>
     <p style="margin:0 0 16px;">
-      ${demandeurs.length === 1 ? `<strong>${echapper(demandeurs[0])}</strong> demande` : "On vous demande"}
+      ${demandeurs.length === 1 ? `<strong>${echapper(demandeurs[0])}</strong> demande` : "On te demande"}
       ces créneaux. Tant que tu n'as pas répondu, ils restent libres pour les autres.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">${lignes}</table>

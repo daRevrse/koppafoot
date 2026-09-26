@@ -3,17 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Check, AlertTriangle, Lock, Clock } from "lucide-react";
+import { CalendarDays, Check, AlertTriangle, Lock, Clock, Inbox, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { getVenueById } from "@/lib/firestore";
+import { getVenueById, getTeamsByManager } from "@/lib/firestore";
 import { demanderCreneau } from "@/lib/reservations-client";
 import {
   dateLongue, dateCourte, aujourdhui, duree, finCreneau, prixHeure, aUnPrix, seChevauchent,
-  horsHoraires, plageDuJour, libellePlage,
+  horsHoraires, plageDuJour, libellePlage, jourDe,
 } from "@/lib/terrains";
-import { Etiquette, Bouton, Pastilles, EnCours, Champ, classeChamp } from "@/components/venue/venue-ui";
-import type { HorairesOuverture } from "@/types";
+import {
+  Etiquette, Bouton, LienBouton, Pastilles, EnCours, Champ, classeChamp,
+} from "@/components/venue/venue-ui";
+import type { HorairesOuverture, Team } from "@/types";
 
 // ============================================
 // Demander un créneau sur un terrain.
@@ -42,6 +44,15 @@ import type { HorairesOuverture } from "@/types";
 // publique, une relecture au montage coûte un document et supprime la
 // fenêtre — y compris pour un visiteur sans compte.
 //
+// L'ÉQUIPE EST NOMMÉE. Un manager demandait au nom de son club, et le
+// propriétaire ne lisait qu'un nom de personne : il choisit désormais pour
+// quelle équipe il demande (une qu'il manage, vérifié par le serveur).
+//
+// SA PROPRE FICHE, LE PROPRIÉTAIRE N'Y DEMANDE RIEN. Il y voyait « Demander
+// un créneau » comme n'importe quelle équipe, pour une demande que le
+// serveur refusait ; il y trouve désormais ses deux portes : les demandes
+// reçues, où l'on bloque aussi un créneau, et la fiche à modifier.
+//
 // LE CHEVAUCHEMENT EST SIGNALÉ AVANT L'ENVOI. Les créneaux déjà confirmés
 // étaient affichés, mais rien ne disait que celui qu'on venait de choisir
 // tombait dedans : on découvrait le refus deux jours plus tard. On ne bloque
@@ -64,11 +75,14 @@ const DUREES = [
 
 export default function BookingRequest({
   venueId,
+  ownerId = null,
   available,
   pricePerHour = 0,
   horaires: horairesInitiaux = null,
 }: {
   venueId: string;
+  /** Le responsable du terrain : c'est à lui qu'on montre ses portes, pas le formulaire. */
+  ownerId?: string | null;
   /** L'état au moment du rendu serveur. Sert de valeur de départ, puis est relu. */
   available: boolean;
   pricePerHour?: number;
@@ -81,6 +95,8 @@ export default function BookingRequest({
   const [horaires, setHoraires] = useState<HorairesOuverture | null>(horairesInitiaux);
   const [telephone, setTelephone] = useState("");
   const [message, setMessage] = useState("");
+  const [equipes, setEquipes] = useState<Team[]>([]);
+  const [equipeId, setEquipeId] = useState("");
   // LE CRÉNEAU CHERCHÉ DANS L'ANNUAIRE ARRIVE PAR L'ADRESSE (?date, ?heure,
   // ?duree) : l'équipe l'a déjà choisi, elle n'a pas à le ressaisir. Chaque
   // valeur est vérifiée, une adresse bricolée retombe sur les défauts.
@@ -128,6 +144,20 @@ export default function BookingRequest({
     if (user?.phone) setTelephone((t) => t || user.phone || "");
   }, [user]);
 
+  // Les équipes qu'il manage : une seule, elle est choisie d'office.
+  useEffect(() => {
+    if (!user) return;
+    let vivant = true;
+    getTeamsByManager(user.uid)
+      .then((liste) => {
+        if (!vivant) return;
+        setEquipes(liste);
+        if (liste.length === 1) setEquipeId((e) => e || liste[0].id);
+      })
+      .catch(() => {});
+    return () => { vivant = false; };
+  }, [user]);
+
   /** Pourquoi ce créneau tombe hors des horaires, s'il y en a. */
   const hors = useMemo(
     () => horsHoraires(horaires, { date, time, duration: heures }),
@@ -159,6 +189,7 @@ export default function BookingRequest({
     try {
       await demanderCreneau({
         venueId, date, time, duration: heures, telephone: telephone.trim(), message: message.trim(),
+        equipeId: equipeId || null,
       });
       setEnvoye(true);
       toast.success("Demande envoyée");
@@ -169,6 +200,29 @@ export default function BookingRequest({
       setBusy(false);
     }
   };
+
+  if (user && ownerId && user.uid === ownerId) {
+    return (
+      <div className="border border-gray-200/70 bg-white">
+        <div className="border-b border-gray-200/70 px-6 py-5">
+          <h2 className="font-display text-xl font-black uppercase tracking-tight text-gray-900">
+            Ton terrain
+          </h2>
+        </div>
+        <div className="p-6">
+          <p className="text-sm leading-relaxed text-gray-600">
+            C&apos;est la fiche que voient les équipes. Leurs demandes arrivent
+            dans tes réservations reçues ; un créneau pris ailleurs s&apos;y
+            bloque aussi.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <LienBouton href="/mes-terrains/reservations" Icon={Inbox}>Réservations reçues</LienBouton>
+            <LienBouton href="/mes-terrains" variante="contour" Icon={Pencil}>Modifier la fiche</LienBouton>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     // @container : le formulaire vit dans une colonne étroite sur ordinateur
@@ -219,7 +273,7 @@ export default function BookingRequest({
           <>
             <p className="max-w-xl text-sm leading-relaxed text-gray-500">
               Demander un créneau demande un compte : le propriétaire doit savoir
-              à qui il confie son terrain, et vous devez pouvoir suivre sa réponse.
+              à qui il confie son terrain, et tu dois pouvoir suivre sa réponse.
             </p>
             <Link
               // Le créneau choisi dans l'annuaire voyage avec le retour : sans
@@ -237,7 +291,7 @@ export default function BookingRequest({
             <Check size={17} className="mt-0.5 shrink-0 text-emerald-600" />
             <p className="text-sm font-semibold leading-relaxed text-emerald-900">
               Demande envoyée pour le {dateLongue(date)} de {time} à {finCreneau(time, heures)}.
-              Le propriétaire est prévenu ; vous suivrez sa réponse dans{" "}
+              Le propriétaire est prévenu ; tu suivras sa réponse dans{" "}
               <Link href="/mes-reservations" className="underline">mes réservations</Link>.
             </p>
           </div>
@@ -306,11 +360,27 @@ export default function BookingRequest({
               )}
             </div>
 
+            {equipes.length > 0 && (
+              <div className="mt-6">
+                <Champ label="Pour quelle équipe" htmlFor="booking-equipe" aide="Le propriétaire saura qui vient jouer.">
+                  <select
+                    id="booking-equipe"
+                    value={equipeId}
+                    onChange={(e) => setEquipeId(e.target.value)}
+                    className={classeChamp}
+                  >
+                    <option value="">À titre personnel</option>
+                    {equipes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </Champ>
+              </div>
+            )}
+
             <div className="mt-6 grid gap-4 @lg:grid-cols-2">
               <Champ
-                label="Votre téléphone"
+                label="Ton téléphone"
                 htmlFor="booking-tel"
-                aide="Le propriétaire vous appelle pour confirmer et régler le créneau."
+                aide="Le propriétaire t'appelle pour confirmer et régler le créneau."
                 erreur={telephone && !telephoneValide ? "Ce numéro semble incomplet." : null}
               >
                 <input
@@ -339,7 +409,7 @@ export default function BookingRequest({
             {hors && (
               <p role="alert" className="mt-4 flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-sm font-semibold leading-relaxed text-red-800">
                 <Clock size={17} className="mt-0.5 shrink-0 text-red-500" />
-                <span>{hors} {plage === null ? "Choisissez un autre jour." : "Choisissez une autre heure."}</span>
+                <span>{hors} {plage === null ? "Choisis un autre jour." : "Choisis une autre heure."}</span>
               </p>
             )}
 
@@ -349,7 +419,7 @@ export default function BookingRequest({
                 <span>
                   Ce créneau en recoupe un déjà confirmé
                   {conflits[0] && ` (${conflits[0].time} → ${finCreneau(conflits[0].time, conflits[0].duration)})`}.
-                  Vous pouvez tout de même demander — le propriétaire tranchera —
+                  Tu peux tout de même demander — le propriétaire tranchera —
                   mais une autre heure a plus de chances d&apos;aboutir.
                 </span>
               </p>
@@ -376,8 +446,3 @@ export default function BookingRequest({
   );
 }
 
-/** « Samedi », le jour d'une date, avec sa majuscule. */
-function jourDe(iso: string): string {
-  const jour = dateLongue(iso).split(" ")[0] ?? "";
-  return jour.charAt(0).toUpperCase() + jour.slice(1);
-}

@@ -93,7 +93,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const where = venue.city ? ` à ${venue.city}` : "";
   return {
     title: `${venue.name}${where}, KoppaFoot`,
-    description: `${venue.name}${where} : format, surface, équipements et tarif. Demandez un créneau au propriétaire.`,
+    description: `${venue.name}${where} : format, surface, équipements et tarif. Demande un créneau au propriétaire.`,
     openGraph: venue.photos[0] ? { images: [venue.photos[0]] } : undefined,
   };
 }
@@ -195,12 +195,13 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
                 <Suspense fallback={<div className="h-96 border border-gray-200/70 bg-white" />}>
                   <BookingRequest
                     venueId={id}
+                    ownerId={venue.ownerId}
                     available={venue.available}
                     pricePerHour={venue.pricePerHour}
                     horaires={venue.horaires}
                   />
                 </Suspense>
-                <ContactResponsable venueId={id} className="mt-3 w-full" />
+                <ContactResponsable venueId={id} ownerId={venue.ownerId} className="mt-3 w-full" />
               </div>
             </aside>
           )}

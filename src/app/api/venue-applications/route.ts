@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { champsCandidature } from "@/lib/candidature-terrain";
 
 /**
  * Candidatures « propriétaire de terrain ».
@@ -22,6 +23,10 @@ import { estSuperadmin } from "@/lib/admin-api-auth";
  *
  * Tout passe par le SDK admin : la collection n'a pas de règles Firestore,
  * les clients n'y touchent jamais directement.
+ *
+ * `?mine=1` : ses propres candidatures seulement, même pour un
+ * administrateur. Sans ce filtre, un administrateur qui ouvrait la page de
+ * candidature y voyait le dossier en attente de quelqu'un d'autre.
  */
 
 async function verifyBearer(req: NextRequest): Promise<string | null> {
@@ -45,14 +50,8 @@ export async function POST(req: NextRequest) {
       fieldSize?: string; fieldSurface?: string; phone?: string; motivation?: string;
     };
 
-    const venueName = body.venueName?.trim().slice(0, 120) ?? "";
-    if (venueName.length < 2) {
-      return NextResponse.json({ error: "Indique le nom du terrain." }, { status: 400 });
-    }
-    const city = body.city?.trim().slice(0, 80) ?? "";
-    if (city.length < 2) {
-      return NextResponse.json({ error: "Indique la ville du terrain." }, { status: 400 });
-    }
+    const lu = champsCandidature(body);
+    if ("erreur" in lu) return NextResponse.json({ error: lu.erreur }, { status: 400 });
 
     const userSnap = await adminDb.collection("users").doc(uid).get();
     if (!userSnap.exists) {
@@ -83,13 +82,9 @@ export async function POST(req: NextRequest) {
       uid,
       name: `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Utilisateur",
       email: u.email ?? null,
-      phone: body.phone?.trim() || u.phone || null,
-      venue_name: venueName,
-      city,
-      address: body.address?.trim() || null,
-      field_size: body.fieldSize || "11v11",
-      field_surface: body.fieldSurface || "synthetic",
-      motivation: body.motivation?.trim() || null,
+      ...lu.champs,
+      phone: lu.champs.phone || u.phone || null,
+      rejection_reason: null,
       status: "pending",
       reviewed_by: null,
       reviewed_at: null,
@@ -109,16 +104,24 @@ export async function GET(req: NextRequest) {
     if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const caller = await adminDb.collection("users").doc(uid).get();
-    const isAdmin = estSuperadmin(caller.data());
+    const isAdmin = estSuperadmin(caller.data()) && req.nextUrl.searchParams.get("mine") !== "1";
 
-    const q = isAdmin
-      ? adminDb.collection("venue_applications").orderBy("created_at", "desc")
-      : adminDb.collection("venue_applications").where("uid", "==", uid);
+    if (isAdmin) {
+      const snap = await adminDb.collection("venue_applications").orderBy("created_at", "desc").get();
+      return NextResponse.json({ applications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+    }
 
-    const snap = await q.get();
-    return NextResponse.json({
-      applications: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
-    });
+    // Les siennes, de la plus ancienne à la plus récente : c'est la dernière
+    // qui fait foi quand il y en a plusieurs.
+    const snap = await adminDb.collection("venue_applications").where("uid", "==", uid).get();
+    const temps = (x: unknown) =>
+      x && typeof (x as { toMillis?: () => number }).toMillis === "function"
+        ? (x as { toMillis: () => number }).toMillis()
+        : 0;
+    const liste = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as { id: string; created_at?: unknown })
+      .sort((a, b) => temps(a.created_at) - temps(b.created_at));
+    return NextResponse.json({ applications: liste });
   } catch (err) {
     console.error("GET venue applications failed:", err);
     return NextResponse.json({ applications: [] });

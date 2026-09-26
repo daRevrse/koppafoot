@@ -1373,6 +1373,17 @@ export interface FirestoreBooking {
    * « systeme » : le match a été annulé ou déplacé, le créneau s'est libéré.
    */
   cancelled_by?: "proprietaire" | "demandeur" | "systeme" | null;
+  /**
+   * Les blocages répétés chaque semaine partagent cet identifiant : un
+   * habitué du jeudi se bloque en une fois, et se débloque de même.
+   */
+  serie_id?: string | null;
+  /**
+   * L'équipe pour laquelle le créneau est demandé, quand le demandeur en
+   * manage une. Sans elle, le propriétaire ne lisait qu'un nom de personne.
+   */
+  team_id?: string | null;
+  team_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1398,6 +1409,9 @@ export interface Booking {
   proposition: PropositionCreneau | null;
   note: string | null;
   cancelledBy: "proprietaire" | "demandeur" | "systeme" | null;
+  serieId: string | null;
+  teamId: string | null;
+  teamName: string | null;
   createdAt: string;
   updatedAt: string;
 }

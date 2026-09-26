@@ -104,6 +104,20 @@ export function dateLongue(iso: string): string {
   return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 }
 
+/** « Samedi », le jour d'une date, avec sa majuscule. */
+export function jourDe(iso: string): string {
+  const jour = dateLongue(iso).split(" ")[0] ?? "";
+  return jour.charAt(0).toUpperCase() + jour.slice(1);
+}
+
+/** La même date, `n` semaines plus tard (ou plus tôt). */
+export function plusSemaines(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + 7 * n);
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /** « sam. 23 août », quand la ligne est courte. */
 export function dateCourte(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
