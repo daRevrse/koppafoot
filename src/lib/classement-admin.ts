@@ -173,6 +173,33 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
 }
 
 /**
+ * Les photos de profil des joueurs classés qui ont un compte.
+ *
+ * RELEVÉES AU CALCUL, PAS À L'AFFICHAGE. Les lire à chaque rendu coûterait
+ * jusqu'à cent lectures par minute et par page ; ici, c'est une lecture
+ * groupée par match terminé. Une photo changée entre deux matchs attend le
+ * suivant : l'ancienne reste valable, chaque envoi ayant son propre fichier
+ * (voir lib/storage).
+ *
+ * Un échec laisse simplement les initiales : le classement se publie quand
+ * même.
+ */
+async function photosDesJoueurs(uids: string[]): Promise<Map<string, string>> {
+  const photos = new Map<string, string>();
+  if (uids.length === 0) return photos;
+  try {
+    const docs = await adminDb.getAll(...uids.map((uid) => adminDb.doc(`users/${uid}`)));
+    for (const d of docs) {
+      const url = d.get("profile_picture_url");
+      if (typeof url === "string" && url) photos.set(d.id, url);
+    }
+  } catch (err) {
+    console.error("photosDesJoueurs failed:", err);
+  }
+  return photos;
+}
+
+/**
  * Recalcule et publie. Rendu : ce qui vient d'être écrit.
  *
  * Idempotent : deux appels de suite donnent le même classement. Le second
@@ -192,11 +219,14 @@ export async function recalculerClassements(
     | { cles_note?: string[]; cles_contribution?: string[] }
     | undefined;
 
+  const joueurs = fusionnerClassements(
+    { parNote, parContribution },
+    { note: avant?.cles_note ?? [], contribution: avant?.cles_contribution ?? [] },
+  );
+  const photos = await photosDesJoueurs(joueurs.flatMap((l) => (l.uid ? [l.uid] : [])));
+
   const publie: ClassementsPublies = {
-    joueurs: fusionnerClassements(
-      { parNote, parContribution },
-      { note: avant?.cles_note ?? [], contribution: avant?.cles_contribution ?? [] },
-    ),
+    joueurs: joueurs.map((l) => ({ ...l, photo: (l.uid && photos.get(l.uid)) || null })),
     matchsRetenus,
     calculeLe: new Date().toISOString(),
   };

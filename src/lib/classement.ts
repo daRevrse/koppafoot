@@ -103,6 +103,11 @@ export type LigneJoueurPubliee = LigneJoueur & {
    */
   mouvementNote: number | null;
   mouvementContribution: number | null;
+  /**
+   * La photo de profil, relevée au calcul (voir lib/classement-admin). Absente
+   * d'une ligne sans compte, qui garde ses initiales.
+   */
+  photo?: string | null;
 };
 
 export interface ClassementsPublies {

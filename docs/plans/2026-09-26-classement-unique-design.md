@@ -21,7 +21,9 @@ La page Top performances avait deux onglets : les buts et les passes pour tout l
 
 6. **Une seule ligne dessinée** (`LigneDeClassement`), pour la page et pour la carte de l'accueil. Sur la page, une frise des cinq dernières notes aux couleurs de la console ; sur l'accueil et sur téléphone, ni frise ni club, qui n'y tiennent pas.
 
-7. **L'accueil montre les cinq meilleures notes**, et les meilleurs buts + passes tant que personne n'a trois matchs notés : une carte vide se lit comme une panne.
+7. **La photo de profil remplace les initiales**, avec l'avatar commun du site (`PlayerAvatar`). Elle est relevée au calcul, en une lecture groupée des comptes classés, et rangée sur la ligne publiée : la lire à chaque affichage coûterait jusqu'à cent lectures par minute et par page. Une photo changée entre deux matchs apparaît au calcul suivant ; l'ancienne reste valable d'ici là, chaque envoi ayant son propre fichier. Un joueur sans compte, ou sans photo, garde ses initiales.
+
+8. **L'accueil montre les cinq meilleures notes**, et les meilleurs buts + passes tant que personne n'a trois matchs notés : une carte vide se lit comme une panne.
 
 ## Au passage
 
@@ -30,4 +32,4 @@ Le compilateur de Next (SWC) mange l'espace de tête d'un texte JSX qui suit une
 ## Vérifications
 
 - `mobile/src/__tests__/classement.test.ts` : liste commune, égalité gardien/buteur, étiquette et statistiques du gardien, seuil de trois notes, but annulé par la VAR, match renseigné après coup, gardien reconnu à ses arrêts, rangs et flèches, ordre de chaque tri.
-- Parcours joués sur les émulateurs Firebase avec Playwright : recalcul à la première lecture, tri par note et par buts + passes, filtre Gardiens, panneau de méthode, carte de l'accueil, téléphone en thème clair et sombre.
+- Parcours joués sur les émulateurs Firebase avec Playwright : recalcul à la première lecture, tri par note et par buts + passes, filtre Gardiens, panneau de méthode, carte de l'accueil, photos de profil (comptes avec et sans photo, joueurs sans compte), téléphone en thème clair et sombre.

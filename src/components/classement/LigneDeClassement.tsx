@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Footprints, Goal, Hand, ShieldCheck } from "lucide-react";
 import { FOND_NOTE } from "@/components/forme/badges";
+import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { formaterNote, tonNote } from "@/lib/notes";
 import type { LigneJoueurPubliee, TriClassement } from "@/lib/classement";
 
@@ -16,13 +17,6 @@ import type { LigneJoueurPubliee, TriClassement } from "@/lib/classement";
 // gardien, qui porte en plus son étiquette : on ne cherche pas à deviner qui
 // garde les buts dans une liste de cent noms.
 // ============================================
-
-/** « Jean-Baptiste Mensah » → « JM ». */
-function initiales(nom: string): string {
-  const bouts = nom.trim().split(/\s+/).filter(Boolean);
-  if (bouts.length === 0) return "?";
-  return (bouts[0][0] + (bouts.length > 1 ? bouts[bouts.length - 1][0] : "")).toUpperCase();
-}
 
 /** Le podium se voit : or, argent, bronze ; le reste se tait. */
 const TEINTE_RANG: Record<number, string> = {
@@ -101,12 +95,7 @@ export default function LigneDeClassement({
         {rang}
       </span>
 
-      <span
-        aria-hidden
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-black text-gray-500"
-      >
-        {initiales(ligne.nom)}
-      </span>
+      <PlayerAvatar name={ligne.nom} photo={ligne.photo} size={32} />
 
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
