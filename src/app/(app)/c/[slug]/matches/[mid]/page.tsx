@@ -312,6 +312,14 @@ export default function PublicCompMatchView() {
   const ecusson = (teamId: string | null, copieDuMatch: string | null): string | null =>
     (teamId ? (compTeams.find((t) => t.id === teamId)?.logoUrl ?? null) : null) ?? copieDuMatch;
 
+  /**
+   * Le club KoppaFoot d'un camp, d'où la composition tire son manager. Null
+   * pour une équipe que l'organisateur a saisie sans qu'un manager l'ait
+   * revendiquée : elle n'a pas de manager chez nous.
+   */
+  const clubDuCamp = (teamId: string | null): string | null =>
+    (teamId ? compTeams.find((t) => t.id === teamId)?.claimedByTeamId : null) ?? null;
+
   const enPhaseFinale = match.stage !== "group";
   const standings = compFormat && !enPhaseFinale
     ? computeStandings(compMatches, compTeams, compFormat)
@@ -494,8 +502,14 @@ export default function PublicCompMatchView() {
                 qu'une composition porte. Voir MatchLineups. */}
             {activeTab === "lineups" && (
               <MatchLineups
-                home={{ name: match.homeTeamName, entries: match.homeLineup, formation: match.homeFormation }}
-                away={{ name: match.awayTeamName, entries: match.awayLineup, formation: match.awayFormation }}
+                home={{
+                  name: match.homeTeamName, entries: match.homeLineup, formation: match.homeFormation,
+                  clubId: clubDuCamp(match.homeTeamId),
+                }}
+                away={{
+                  name: match.awayTeamName, entries: match.awayLineup, formation: match.awayFormation,
+                  clubId: clubDuCamp(match.awayTeamId),
+                }}
               />
             )}
 
