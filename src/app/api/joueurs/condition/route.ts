@@ -47,8 +47,9 @@ function dateCourte(jour: string): string {
 
 function message(nom: string, c: ConditionJoueur): string {
   if (c.statut === "apte") return `${nom} est de nouveau apte.`;
-  const retour = c.retourPrevu ? ` · retour prévu le ${dateCourte(c.retourPrevu)}` : "";
-  return `${nom} : ${LIBELLE_CONDITION[c.statut].toLowerCase()}${retour}.`;
+  const statut = `${nom} : ${LIBELLE_CONDITION[c.statut].toLowerCase()}`;
+  // Pas de point final après la date : « 8 oct. » porte déjà le sien.
+  return c.retourPrevu ? `${statut}, retour prévu le ${dateCourte(c.retourPrevu)}` : `${statut}.`;
 }
 
 export async function POST(req: NextRequest) {

@@ -74,7 +74,7 @@ export default function CarteEtatDeForme({
                 </p>
               ) : enVigueur ? (
                 <>
-                  <BadgeCondition condition={enVigueur} apte className="text-[11px]!" />
+                  <BadgeCondition condition={enVigueur} apte date={false} className="text-[11px]!" />
                   <dl className="space-y-1 text-xs font-semibold text-gray-600">
                     {enVigueur.retourPrevu && (
                       <div className="flex gap-1">
@@ -122,7 +122,7 @@ export default function CarteEtatDeForme({
             <div className="space-y-3">
               {forme.niveau && forme.indice !== null ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <BadgeForme forme={forme} className="text-[11px]!" />
+                  <BadgeForme forme={forme} pente={false} className="text-[11px]!" />
                   {Pente && forme.tendance && (
                     <span className="flex items-center gap-1 text-xs font-bold text-gray-500">
                       <Pente size={13} /> {MOT_TENDANCE[forme.tendance]}

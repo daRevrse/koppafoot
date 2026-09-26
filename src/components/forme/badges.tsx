@@ -96,11 +96,14 @@ export function BadgeCondition({
   condition,
   apte = false,
   sombre = false,
+  date = true,
   className = "",
 }: {
   condition: ConditionJoueur | null | undefined;
   apte?: boolean;
   sombre?: boolean;
+  /** Faux quand la date de retour s'écrit déjà à côté, en toutes lettres. */
+  date?: boolean;
   className?: string;
 }) {
   const c = apte ? conditionEnVigueur(condition) : conditionASignaler(condition);
@@ -113,7 +116,7 @@ export function BadgeCondition({
     >
       <Icon size={11} className="shrink-0" />
       {LIBELLE_CONDITION[c.statut]}
-      {c.retourPrevu && <span className="font-bold normal-case tracking-normal">· {jourCourt(c.retourPrevu)}</span>}
+      {date && c.retourPrevu && <span className="font-bold normal-case tracking-normal">· {jourCourt(c.retourPrevu)}</span>}
     </span>
   );
 }
@@ -132,18 +135,21 @@ export function BadgeForme({
   forme,
   sombre = false,
   court = false,
+  pente = true,
   className = "",
 }: {
   forme: FormeJoueur | null | undefined;
   sombre?: boolean;
   /** Sans le libellé : l'indice et la pente seulement, pour une ligne serrée. */
   court?: boolean;
+  /** Faux quand la pente s'écrit déjà à côté, en toutes lettres. */
+  pente?: boolean;
   className?: string;
 }) {
   if (!forme?.niveau || forme.indice === null) return null;
   const jours = joursDepuis(forme.dernierMatch);
   const ancienne = jours !== null && jours > JOURS_SANS_MATCH;
-  const Pente = forme.tendance ? ICONE_TENDANCE[forme.tendance] : null;
+  const Pente = pente && forme.tendance ? ICONE_TENDANCE[forme.tendance] : null;
   const titre = [
     `${LIBELLE_FORME[forme.niveau]} : ${formaterNote(forme.indice)} de moyenne sur ${forme.matchs.length} match${forme.matchs.length > 1 ? "s" : ""}`,
     forme.tendance ? MOT_TENDANCE[forme.tendance] : null,

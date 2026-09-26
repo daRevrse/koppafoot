@@ -95,7 +95,7 @@ export default function EditeurCondition({
                 <span className="block text-[11px] font-black uppercase tracking-[0.12em]">
                   {LIBELLE_CONDITION[s]}
                 </span>
-                <span className={`block truncate text-[11px] font-semibold ${actif ? "text-white/70" : "text-gray-400"}`}>
+                <span className={`block text-[11px] font-semibold leading-snug ${actif ? "text-white/70" : "text-gray-400"}`}>
                   {AIDE_CONDITION[s]}
                 </span>
               </span>

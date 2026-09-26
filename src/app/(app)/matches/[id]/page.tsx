@@ -1614,7 +1614,7 @@ export default function MatchDetailPage() {
                                       joueur qui est bel et bien là. */}
                                   {signalee && !JOUABLE[signalee.statut] && role !== "out" && (
                                     <p className="mt-1 text-[10px] font-bold text-amber-300">
-                                      Déclaré {LIBELLE_CONDITION[signalee.statut].toLowerCase()} : à confirmer avant de l&apos;aligner.
+                                      Déclaré {LIBELLE_CONDITION[signalee.statut].toLowerCase()}&nbsp;: à confirmer avant de l&apos;aligner.
                                     </p>
                                   )}
                                 </>
