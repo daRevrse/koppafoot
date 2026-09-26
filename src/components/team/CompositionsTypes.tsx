@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { Loader2, Check, ChevronLeft, ChevronRight, Users, X, UserMinus } from "lucide-react";
 import toast from "react-hot-toast";
 import { poserCompositionType } from "@/lib/firestore";
-import { formationsPour } from "@/lib/formations";
-import { dispositif } from "@/lib/terrain";
+import { formationsPour, versFormation } from "@/lib/formations";
+import { dispositif, disposerSurTerrain, placerSurTerrain, type Emplacement } from "@/lib/terrain";
 import { TEAM_SIZE_OPTIONS } from "@/lib/competition-format";
 import { INITIALE_POSTE, LIBELLE_POSTE, POSTES, normaliserPoste, type Poste } from "@/lib/postes";
 import TerrainCompo from "@/components/match/TerrainCompo";
@@ -50,6 +50,14 @@ import type { CompositionType, GhostPlayer, LineupEntry, UserProfile } from "@/t
 //
 // LES JOUEURS SANS COMPTE SONT DES JOUEURS. Ils entrent dans le sélecteur
 // comme les autres, sans section à part : c'est souvent eux qui jouent.
+//
+// LA CASE TOUCHÉE EST CELLE OÙ LE JOUEUR VA. On ne retenait que le poste de
+// l'emplacement : le terrain rangeait ensuite la ligne dans l'ordre de
+// l'effectif, et l'arrière droit qu'on venait de choisir partait tout à
+// gauche. Chaque titulaire garde maintenant sa case (voir lib/terrain), et un
+// joueur se déplace en le faisant glisser. Choisir pour une case un joueur
+// déjà placé ailleurs ÉCHANGE les deux ; choisir un remplaçant envoie
+// l'occupant sur le banc.
 // ============================================
 
 type Role = "starter" | "substitute";
@@ -72,7 +80,7 @@ const POSTE_PAR_INITIALE: Record<string, Poste> = Object.fromEntries(
 
 /** Ce que le sélecteur vient faire : remplir un poste, ou garnir le banc. */
 type Demande =
-  | { quoi: "terrain"; poste: Poste; occupant: string | null }
+  | { quoi: "terrain"; poste: Poste; occupant: string | null; emplacement: Emplacement | null }
   | { quoi: "banc" };
 
 export default function CompositionsTypes({
@@ -147,22 +155,31 @@ export default function CompositionsTypes({
    * effacement volontaire.
    */
   const [brouillons, setBrouillons] = useState<
-    Record<string, { formation: string; roles: Record<string, Role>; postes: Record<string, Poste | null> }>
+    Record<string, {
+      formation: string;
+      roles: Record<string, Role>;
+      postes: Record<string, Poste | null>;
+      /** La case de chaque titulaire placé à la main. Voir lib/terrain. */
+      emplacements: Record<string, Emplacement>;
+    }>
   >({});
 
   const depuisEnregistree = (c: CompositionType | null) => {
     const roles: Record<string, Role> = {};
     const postes: Record<string, Poste | null> = {};
+    const emplacements: Record<string, Emplacement> = {};
     for (const e of c?.lineup ?? []) {
       roles[e.playerId] = e.role;
       postes[e.playerId] = e.position ?? null;
+      if (e.role === "starter" && e.emplacement) emplacements[e.playerId] = e.emplacement;
     }
     // Une formation enregistrée qui n'est plus au catalogue de ce format
     // retombe sur la première : mieux vaut une forme juste qu'un pas bloqué
     // sur une valeur qui n'existe plus.
     const formation =
       c?.formation && formations.includes(c.formation) ? c.formation : formations[0];
-    return { formation, roles, postes };
+    // Des cases posées pour une AUTRE formation ne veulent plus rien dire.
+    return { formation, roles, postes, emplacements: formation === c?.formation ? emplacements : {} };
   };
 
   const courant = brouillons[String(taille)] ?? depuisEnregistree(enregistree);
@@ -184,8 +201,16 @@ export default function CompositionsTypes({
         role: "starter" as const,
         userId: j.userId,
         position: courant.postes[j.id] ?? j.posteParDefaut ?? null,
+        emplacement: courant.emplacements[j.id] ?? null,
       })),
-    [titulaires, courant.postes],
+    [titulaires, courant.postes, courant.emplacements],
+  );
+
+  /** Où le terrain dessine chacun, en ce moment : c'est de là qu'on déplace. */
+  const formationCourante = useMemo(() => versFormation(courant.formation), [courant.formation]);
+  const disposition = useMemo(
+    () => disposerSurTerrain(surLeTerrain, taille, "haut", formationCourante),
+    [surLeTerrain, taille, formationCourante],
   );
 
   // ---- Les deux pas : le format, la formation -------------------------------
@@ -199,38 +224,75 @@ export default function CompositionsTypes({
   const pasFormation = (sens: 1 | -1) => {
     const i = formations.indexOf(courant.formation);
     const suivante = formations[i + sens];
-    if (suivante !== undefined) poser({ formation: suivante });
+    // Les cases choisies ne survivent pas à la formation : on repart des
+    // postes, que la nouvelle forme range à sa façon.
+    if (suivante !== undefined) poser({ formation: suivante, emplacements: {} });
   };
 
   // ---- Remplir un emplacement ----------------------------------------------
+
+  /**
+   * Mettre `joueurId` dans cette case. Voir `placerSurTerrain` : tout le monde
+   * se fige où il est, la case prise s'échange, et le poste suit la case.
+   */
+  const placer = (joueurId: string, vers: Emplacement) => {
+    if (!formationCourante) return;
+    const { placements, deloge } = placerSurTerrain(disposition.places, formationCourante, joueurId, vers);
+    const roles = { ...courant.roles };
+    const postes = { ...courant.postes };
+    const emplacements: Record<string, Emplacement> = {};
+    for (const [id, p] of Object.entries(placements)) {
+      emplacements[id] = p.emplacement;
+      postes[id] = p.poste;
+    }
+    const venaitDuBanc = roles[joueurId] === "substitute";
+    roles[joueurId] = "starter";
+    if (deloge) {
+      // Il prend la place de celui qu'il remplace : le remplaçant qui entre
+      // envoie l'occupant sur le banc, un joueur hors de la feuille le sort.
+      if (venaitDuBanc) roles[deloge] = "substitute";
+      else delete roles[deloge];
+      delete postes[deloge];
+    }
+    poser({ roles, postes, emplacements });
+  };
 
   const choisir = (joueurId: string) => {
     if (!demande) return;
     const roles = { ...courant.roles };
     const postes = { ...courant.postes };
+    const emplacements = { ...courant.emplacements };
 
     if (demande.quoi === "banc") {
       roles[joueurId] = "substitute";
+      delete emplacements[joueurId];
+    } else if (demande.emplacement && formationCourante) {
+      placer(joueurId, demande.emplacement);
+      setDemande(null);
+      return;
     } else {
       // L'ancien occupant sort : un emplacement ne tient qu'une personne.
       if (demande.occupant && demande.occupant !== joueurId) {
         delete roles[demande.occupant];
         delete postes[demande.occupant];
+        delete emplacements[demande.occupant];
       }
       roles[joueurId] = "starter";
       postes[joueurId] = demande.poste;
     }
 
-    poser({ roles, postes });
+    poser({ roles, postes, emplacements });
     setDemande(null);
   };
 
   const retirer = (joueurId: string) => {
     const roles = { ...courant.roles };
     const postes = { ...courant.postes };
+    const emplacements = { ...courant.emplacements };
     delete roles[joueurId];
     delete postes[joueurId];
-    poser({ roles, postes });
+    delete emplacements[joueurId];
+    poser({ roles, postes, emplacements });
     setDemande(null);
   };
 
@@ -246,6 +308,7 @@ export default function CompositionsTypes({
         role: courant.roles[j.id],
         userId: j.userId,
         position: courant.postes[j.id] ?? j.posteParDefaut ?? null,
+        emplacement: courant.roles[j.id] === "starter" ? courant.emplacements[j.id] ?? null : null,
       }));
 
     setEnregistrement(true);
@@ -318,10 +381,17 @@ export default function CompositionsTypes({
               quoi: "terrain",
               poste: POSTE_PAR_INITIALE[place.etiquette] ?? "midfielder",
               occupant: place.entry?.playerId ?? null,
+              emplacement: place.emplacement,
             })
           }
+          onDeplacer={placer}
         />
       </div>
+      {titulaires.length > 1 && (
+        <p className="-mt-1 text-center text-[11px] font-semibold text-gray-400">
+          Fais glisser un joueur pour le changer de place, ou sur un autre pour les échanger.
+        </p>
+      )}
 
       {/* LE BANC, en une ligne de pastilles. Il n'a pas besoin du terrain : un
           remplaçant n'a pas de place dessus, c'est même sa définition. */}
@@ -516,7 +586,9 @@ function SelecteurDeJoueur({
                 </span>
                 {role && (
                   <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">
-                    {role === "starter" ? "Titulaire" : "Banc"}
+                    {/* Choisir un titulaire pour une case l'y fait venir, et
+                        l'occupant prend sa place : autant le dire. */}
+                    {role === "starter" ? (posteVise ? "Échanger" : "Titulaire") : "Banc"}
                   </span>
                 )}
               </button>

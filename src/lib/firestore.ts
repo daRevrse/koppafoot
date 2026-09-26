@@ -50,6 +50,7 @@ import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
+import { lireEmplacement, type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
 import type { FirestoreLineupEntry } from "@/types";
 
@@ -183,11 +184,13 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
       userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
+      emplacement: lireEmplacement(e.emplacement),
     })),
     awayLineup: (d.away_lineup ?? d.away_ghost_lineup ?? []).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
       userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
+      emplacement: lireEmplacement(e.emplacement),
     })),
     homeLineupReady: d.home_lineup_ready ?? false,
     homeFormation: d.home_formation ?? null,
@@ -204,6 +207,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
       userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
+      emplacement: lireEmplacement(e.emplacement),
     })),
     awayGhostLineup: (d.away_ghost_lineup
       ?? (!d.away_manager_id && d.is_home ? d.ghost_lineup ?? [] : [])
@@ -211,6 +215,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
       userId: e.user_id ?? null,
       position: normaliserPoste(e.position),
+      emplacement: lireEmplacement(e.emplacement),
     })),
     modificationRequest: d.modification_request ? {
       date: d.modification_request.date,
@@ -1206,6 +1211,8 @@ export async function updateMatchLineup(
      * un 4-3-3 par ordre de feuille (voir lib/terrain).
      */
     position?: Poste | null;
+    /** La case choisie sur le terrain de l'éditeur. Voir `LineupEntry.emplacement`. */
+    emplacement?: Emplacement | null;
   }[],
   ghostEntries: LineupEntry[] = [],
   /**
@@ -1307,6 +1314,7 @@ export async function updateMatchLineup(
       number: a.squadNumber,
       role: a.role,
       position: a.position ?? null,
+      emplacement: a.role === "starter" ? a.emplacement ?? null : null,
       user_id: a.playerId,
     }];
   });
@@ -1325,6 +1333,7 @@ export async function updateMatchLineup(
       ...ghostsDemeles.map((e) => ({
         player_id: e.playerId, name: e.name, number: e.number, role: e.role,
         position: e.position ?? null,
+        emplacement: e.role === "starter" ? e.emplacement ?? null : null,
         user_id: e.userId ?? null,
       })),
     ],
@@ -2780,6 +2789,7 @@ export async function setMatchLineup(
     // `null` et non `undefined` : Firestore refuse `undefined`, et un poste
     // absent doit s'ecrire pour rester absent.
     position: e.position ?? null,
+    emplacement: e.emplacement ?? null,
   }));
   await updateDoc(doc(db, "matches", matchId), {
     [side === "home" ? "home_lineup" : "away_lineup"]: lignes,
@@ -3203,6 +3213,7 @@ function toCompositionsTypes(
         // Le poste est une chaine libre en base (voir FirestoreLineupEntry) :
         // on le ramene au vocabulaire du produit, comme partout ailleurs.
         position: normaliserPoste(e.position),
+        emplacement: lireEmplacement(e.emplacement),
       })),
       updatedAt: formatDate(c.updated_at),
     };
@@ -3243,6 +3254,9 @@ export async function poserCompositionType(
         // poste absent doit s'écrire pour rester absent.
         user_id: e.userId ?? null,
         position: e.position ?? null,
+        // La case choisie sur le terrain de l'écran Compositions : sans elle,
+        // l'arrière droit repartait à gauche à la relecture.
+        emplacement: e.emplacement ?? null,
       })),
       // Une date lisible, pas un horodatage serveur : `serverTimestamp()` ne
       // se pose pas à l'intérieur d'une valeur de map, seulement à la racine

@@ -3,6 +3,7 @@ import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
 import type { Possession, PossessionStockee } from "@/lib/possession";
 import type { ConditionJoueur, FirestoreConditionJoueur } from "@/lib/etat-de-forme";
+import type { Emplacement } from "@/lib/terrain";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -1926,6 +1927,16 @@ export interface FirestoreLineupEntry {
    * `home_team_name`, deja denormalise sur le match.
    */
   position?: string | null;
+  /**
+   * La case de la formation ou le manager a PLACE ce titulaire : ligne 0 le
+   * gardien, puis defense → attaque ; colonne 0 a gauche. Voir lib/terrain.
+   *
+   * Le poste dit la ligne, jamais la place dans la ligne : sans ce champ, un
+   * arriere droit se dessinait la ou l'ordre de la feuille le mettait.
+   * Absent sur les feuilles d'avant, et c'est le cas normal : le terrain
+   * range alors comme il l'a toujours fait.
+   */
+  emplacement?: Emplacement | null;
 }
 
 /** Une ligne de la saisie « qui a marqué » d'un match renseigné. */
@@ -1955,6 +1966,8 @@ export interface LineupEntry {
   userId?: string | null;
   /** Voir `FirestoreLineupEntry.position`. Null quand personne ne l'a saisi. */
   position?: Poste | null;
+  /** Voir `FirestoreLineupEntry.emplacement`. */
+  emplacement?: Emplacement | null;
 }
 
 export interface FirestoreCompTeam {

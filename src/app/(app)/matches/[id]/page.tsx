@@ -35,7 +35,7 @@ import { buteursDuMatch, buteursRenseignes } from "@/lib/buteurs";
 import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
-import { dispositif } from "@/lib/terrain";
+import { dispositif, disposerSurTerrain, placerSurTerrain, type Emplacement } from "@/lib/terrain";
 import {
   effectifParPoste, formationParDefaut, formationsPour, versFormation,
 } from "@/lib/formations";
@@ -116,6 +116,12 @@ export default function MatchDetailPage() {
      */
     role: "starter" | "substitute" | "out";
     position: Poste | null;
+    /**
+     * La case du terrain où le manager l'a posé (voir lib/terrain). Elle
+     * tombe dès qu'on change son poste ou son rôle à la main, ou la
+     * formation : le terrain le range alors de lui-même, comme avant.
+     */
+    emplacement?: Emplacement | null;
   }>>({});
   const [savingLineup, setSavingLineup] = useState(false);
   const [repondEnCours, setRepondEnCours] = useState(false);
@@ -388,6 +394,7 @@ export default function MatchDetailPage() {
         number: a?.squadNumber ?? j.dossardParDefaut,
         role: a?.role ?? "starter",
         position: a?.position ?? null,
+        emplacement: a?.emplacement ?? null,
       }];
     }),
     [monEffectifDeMatch, tempAssignments],
@@ -438,6 +445,37 @@ export default function MatchDetailPage() {
     formationChoisie
     ?? (formationDuCamp && formationsDispo.includes(formationDuCamp) ? formationDuCamp : null)
     ?? formationParDefaut(tailleDuMatch, dispositif(tailleDuMatch));
+
+  /**
+   * DÉPLACER UN JOUEUR SUR LE TERRAIN DE L'ÉDITEUR, en le faisant glisser.
+   *
+   * Le poste choisi dans la liste disait sur quelle LIGNE jouait chacun, rien
+   * de plus : l'ordre de la ligne restait celui de la feuille, et un manager
+   * ne pouvait pas mettre son ailier à droite. `placerSurTerrain` fige tout le
+   * monde là où il est dessiné, pose le joueur dans sa case et échange avec
+   * l'occupant ; le poste suit la case, et la liste se met à jour d'elle-même.
+   */
+  const formationEditeur = useMemo(() => versFormation(formation), [formation]);
+  const dispositionEditeur = useMemo(
+    () => disposerSurTerrain(titulairesEnCours, tailleDuMatch, "haut", formationEditeur),
+    [titulairesEnCours, tailleDuMatch, formationEditeur],
+  );
+  const deplacerDansLaFeuille = (joueurId: string, vers: Emplacement) => {
+    if (!formationEditeur) return;
+    const { placements } = placerSurTerrain(dispositionEditeur.places, formationEditeur, joueurId, vers);
+    setTempAssignments((prev) => {
+      const suivant = { ...prev };
+      for (const [id, p] of Object.entries(placements)) {
+        const actuel = suivant[id] ?? {
+          squadNumber: monEffectifDeMatch.find((j) => j.id === id)?.dossardParDefaut ?? "",
+          role: "starter" as const,
+          position: null,
+        };
+        suivant[id] = { ...actuel, position: p.poste, emplacement: p.emplacement };
+      }
+      return suivant;
+    });
+  };
 
   const formeAttendue = useMemo(() => {
     const f = versFormation(formation);
@@ -1380,10 +1418,18 @@ export default function MatchDetailPage() {
                                         if (restants > 0) restants -= 1;
                                       }
                                     }
+                                    // La case enregistrée, seulement si la
+                                    // formation n'a pas changé depuis : une case
+                                    // d'un 4-4-2 ne dit rien dans un 4-3-3.
+                                    const feuille = myTeamIsHome ? match.homeLineup : match.awayLineup;
+                                    const emplacement = formation === formationDuCamp && role === "starter"
+                                      ? feuille.find((e) => e.playerId === j.id && e.role === "starter")?.emplacement ?? null
+                                      : null;
                                     return [j.id, {
                                       squadNumber: j.dossardParDefaut,
                                       role,
                                       position: j.posteEnregistre ?? j.posteNaturel,
+                                      emplacement,
                                     }];
                                   }),
                                 ));
@@ -1456,7 +1502,16 @@ export default function MatchDetailPage() {
                         <button
                           key={f}
                           type="button"
-                          onClick={() => setFormationChoisie(f)}
+                          onClick={() => {
+                            setFormationChoisie(f);
+                            // Les cases choisies ne survivent pas à la
+                            // formation : on repart des postes.
+                            if (f !== formation) {
+                              setTempAssignments((prev) => Object.fromEntries(
+                                Object.entries(prev).map(([id, v]) => [id, { ...v, emplacement: null }]),
+                              ));
+                            }
+                          }}
                           aria-pressed={formation === f}
                           className={`px-3 py-2 text-[11px] font-black tabular-nums tracking-wider transition-colors ${
                             formation === f
@@ -1534,8 +1589,14 @@ export default function MatchDetailPage() {
                           formation={formation}
                           variante="sombre"
                           photos={photosDeLEffectif}
+                          onDeplacer={deplacerDansLaFeuille}
                         />
                       </div>
+                    )}
+                    {titulairesEnCours.length > 1 && (
+                      <p className="text-center text-[10px] font-bold text-white/35">
+                        Fais glisser un joueur pour le changer de place, ou sur un autre pour les échanger.
+                      </p>
                     )}
                   </div>
 
@@ -1573,7 +1634,18 @@ export default function MatchDetailPage() {
                           // dossard/role/poste SONT deja les valeurs
                           // courantes, valeur par defaut comprise : la ligne
                           // se reecrit entiere, sans relire l'etat.
-                          [joueur.id]: { squadNumber: dossard, role, position: poste, ...patch },
+                          //
+                          // SA CASE AVEC, sauf si on vient de changer son
+                          // poste ou son role a la main : le terrain doit
+                          // alors le ranger selon ce nouveau choix, pas le
+                          // laisser dans une case qui ne lui correspond plus.
+                          [joueur.id]: {
+                            squadNumber: dossard,
+                            role,
+                            position: poste,
+                            emplacement: "position" in patch || "role" in patch ? null : pose?.emplacement ?? null,
+                            ...patch,
+                          },
                         }));
                       return (
                         <div
@@ -1716,6 +1788,7 @@ export default function MatchDetailPage() {
                               // portaient un, et le terrain repliait donc tous
                               // les autres sur un 4-3-3 par ordre de feuille.
                               position: val.position,
+                              emplacement: val.emplacement ?? null,
                             }));
 
                           const ghostEntries = entrees
@@ -1733,6 +1806,7 @@ export default function MatchDetailPage() {
                                 // un joueur sans compte ne pouvait pas dépanner
                                 // ailleurs qu'à son poste.
                                 position: val.position ?? normaliserPoste(g.position),
+                                emplacement: val.emplacement ?? null,
                               };
                             });
 

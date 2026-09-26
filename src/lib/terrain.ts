@@ -18,11 +18,38 @@
 // afficherait quatre defenseurs que personne n'a declares. Si PERSONNE n'a de
 // poste, en revanche, cette ligne unique serait un tas informe : on retombe
 // alors sur le 4-3-3 par ordre de feuille, l'ancien comportement.
+//
+// L'EMPLACEMENT CHOISI PAR LE MANAGER PASSE AVANT TOUT LE RESTE. Le poste
+// dit sur quelle LIGNE un joueur joue, jamais a quelle place de la ligne : un
+// arriere droit et un arriere gauche sont deux defenseurs. Le terrain rangeait
+// donc chaque ligne dans l'ordre de la feuille, et le manager qui touchait la
+// place d'arriere droit voyait son joueur partir tout a gauche. Une ligne de
+// feuille peut maintenant porter son `emplacement` — ligne et colonne de la
+// formation — et le terrain le respecte a la case pres. Les autres joueurs se
+// rangent comme avant, dans les cases qui restent.
 // ============================================
 
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import { postePrefere, type Formation } from "@/lib/formations";
 import type { LineupEntry } from "@/types";
+
+/**
+ * Une case de la formation.
+ *
+ * `ligne` 0 est le gardien, puis les lignes de champ dans l'ordre ou on ECRIT
+ * la formation : la defense d'abord, l'attaque en dernier — « 4-3-3 » a ses
+ * quatre defenseurs en ligne 1. `colonne` 0 est l'aile GAUCHE de l'equipe,
+ * vue de son propre but vers l'attaque ; c'est la gauche du joueur, pas celle
+ * de l'ecran (voir le sens « gauche », qui les oppose).
+ *
+ * Elle n'a de sens que pour la formation ou elle a ete choisie. Changer de
+ * formation la rend caduque — les editeurs l'effacent alors, et le terrain
+ * ignore de lui-meme une case qui n'existe pas.
+ */
+export interface Emplacement {
+  ligne: number;
+  colonne: number;
+}
 
 export interface PlaceTerrain {
   x: number;
@@ -31,6 +58,11 @@ export interface PlaceTerrain {
   entry: LineupEntry | null;
   /** La lettre de l'emplacement : G, D, M, A, ou ? faute de poste declare. */
   etiquette: string;
+  /**
+   * La case de la formation. Null hors formation : les cinq rangs par poste
+   * n'ont pas de cases, seulement un ordre.
+   */
+  emplacement: Emplacement | null;
 }
 
 export interface Disposition {
@@ -301,7 +333,12 @@ const GEOMETRIES: Record<SensDAttaque, Geometrie> = {
     traversMax: 92,
     nomsSurLeTravers: true,
     plafond: 11,
-    place: (rang, travers) => ({ x: rang, y: travers }),
+    // LE MIROIR EST AUSSI EN TRAVERS. Une equipe qui attaque vers la gauche
+    // de l'ecran a son aile gauche EN BAS : c'est ce qu'on voit depuis la
+    // tribune. Tant que l'ordre d'une ligne n'etait que celui de la feuille,
+    // la question ne se posait pas ; maintenant que le manager place son
+    // arriere gauche a gauche, il doit l'y retrouver dans la console.
+    place: (rang, travers) => ({ x: rang, y: 20 + 92 - travers }),
   },
 };
 
@@ -361,12 +398,20 @@ function rangsParDefaut(
 /**
  * LES LIGNES D'UNE FORMATION, GARNIES AVEC CETTE FEUILLE.
  *
- * DEUX PASSES, ET L'ORDRE COMPTE. La premiere ne donne a chaque ligne que des
- * joueurs DE SON POSTE : sans elle, la ligne de defense se remplirait du
- * premier venu et le milieu declare finirait devant. La seconde comble ce qui
- * reste, en servant d'abord ceux QUI N'ONT PAS DE POSTE — ils n'expriment
- * aucune preference, autant qu'ils bouchent les trous avant qu'on deplace
- * quelqu'un qui, lui, a dit ou il joue.
+ * TROIS PASSES, ET L'ORDRE COMPTE.
+ *
+ * La premiere pose ceux dont le manager a CHOISI la case (`emplacement`) :
+ * c'est une decision, rien ne la deplace. Une case qui n'existe pas dans
+ * cette formation, ou deja prise par une ligne precedente de la feuille, ne
+ * vaut rien — le joueur se range alors comme les autres.
+ *
+ * La deuxieme ne donne a chaque ligne que des joueurs DE SON POSTE : sans
+ * elle, la ligne de defense se remplirait du premier venu et le milieu
+ * declare finirait devant. La troisieme comble ce qui reste, en servant
+ * d'abord ceux QUI N'ONT PAS DE POSTE — ils n'expriment aucune preference,
+ * autant qu'ils bouchent les trous avant qu'on deplace quelqu'un qui, lui, a
+ * dit ou il joue. Ces deux passes remplissent les cases LIBRES, de gauche a
+ * droite : elles ne touchent jamais a une case choisie.
  *
  * LA FORME CHOISIE L'EMPORTE SUR LES POSTES DECLARES, et c'est tout l'interet
  * de la choisir. Six defenseurs sur la feuille d'un 3-5-2 donnent trois
@@ -380,20 +425,34 @@ function rangsParDefaut(
  * concerne plutot que de laisser quelqu'un dehors : un rang trop charge se
  * voit, un joueur absent du terrain ne se voit pas.
  *
- * L'ordre de la feuille est conserve a l'interieur d'une ligne. C'est celui
- * que le manager a saisi, et le seul indice qu'on ait sur qui joue a gauche.
+ * Sans case choisie, l'ordre de la feuille est conserve a l'interieur d'une
+ * ligne : c'est le seul indice qu'on ait alors sur qui joue a gauche.
  */
 function rangsDeFormation(
   titulaires: LineupEntry[],
   formation: Formation,
-): { etiquette: string; joueurs: (LineupEntry | null)[] }[] {
+): { etiquette: string; cellules: (LineupEntry | null)[] }[] {
+  // La grille : le but, puis chaque ligne de champ a sa capacite.
+  const grille: (LineupEntry | null)[][] = [1, ...formation].map((n) =>
+    Array.from({ length: n }, () => null),
+  );
   const restants = [...titulaires];
   const retirer = (e: LineupEntry) => {
     const i = restants.indexOf(e);
     if (i >= 0) restants.splice(i, 1);
   };
 
-  // Le gardien d'abord : il a sa ligne a lui, et c'est le seul poste dont la
+  // 1. Les cases choisies.
+  for (const e of titulaires) {
+    const emp = e.emplacement;
+    if (!emp) continue;
+    const ligne = grille[emp.ligne];
+    if (!ligne || emp.colonne >= ligne.length || ligne[emp.colonne]) continue;
+    ligne[emp.colonne] = e;
+    retirer(e);
+  }
+
+  // Le gardien ensuite : il a sa ligne a lui, et c'est le seul poste dont la
   // formation ne parle pas — « 4-3-3 » compte dix joueurs de champ.
   //
   // PERSONNE N'A DECLARE DE POSTE : la premiere ligne de la feuille garde le
@@ -401,35 +460,42 @@ function rangsDeFormation(
   // mensonger que de laisser le but vide en placant onze joueurs de champ.
   // Mais si QUELQU'UN a un poste et que personne n'est gardien, le but reste
   // vide : la feuille a ete renseignee, et il y manque le gardien.
-  const aucunPoste = restants.every((e) => normaliserPoste(e.position) === null);
-  const gardien =
-    restants.find((e) => normaliserPoste(e.position) === "goalkeeper")
-    ?? (aucunPoste ? restants[0] ?? null : null);
-  if (gardien) retirer(gardien);
-
-  const lignes = formation.map((capacite, i) => ({
-    poste: postePrefere(formation, i),
-    capacite,
-    joueurs: [] as LineupEntry[],
-  }));
-
-  for (const l of lignes) {
-    for (const e of [...restants]) {
-      if (l.joueurs.length >= l.capacite) break;
-      if (normaliserPoste(e.position) === l.poste) {
-        l.joueurs.push(e);
-        retirer(e);
-      }
+  if (!grille[0][0]) {
+    const aucunPoste = restants.every((e) => normaliserPoste(e.position) === null);
+    const gardien =
+      restants.find((e) => normaliserPoste(e.position) === "goalkeeper")
+      ?? (aucunPoste ? restants[0] ?? null : null);
+    if (gardien) {
+      grille[0][0] = gardien;
+      retirer(gardien);
     }
   }
 
+  const lignes = formation.map((_, i) => ({
+    poste: postePrefere(formation, i),
+    cellules: grille[i + 1],
+  }));
+
+  // 2. Chaque ligne, avec les joueurs de son poste.
+  for (const l of lignes) {
+    for (let c = 0; c < l.cellules.length; c++) {
+      if (l.cellules[c]) continue;
+      const e = restants.find((x) => normaliserPoste(x.position) === l.poste);
+      if (!e) break;
+      l.cellules[c] = e;
+      retirer(e);
+    }
+  }
+
+  // 3. Les cases qui restent : ceux sans poste d'abord.
   const sansPoste = restants.filter((e) => normaliserPoste(e.position) === null);
   const avecPoste = restants.filter((e) => normaliserPoste(e.position) !== null);
   const aCaser = [...sansPoste, ...avecPoste];
   for (const l of lignes) {
-    while (l.joueurs.length < l.capacite && aCaser.length > 0) {
+    for (let c = 0; c < l.cellules.length && aCaser.length > 0; c++) {
+      if (l.cellules[c]) continue;
       const e = aCaser.shift()!;
-      l.joueurs.push(e);
+      l.cellules[c] = e;
       retirer(e);
     }
   }
@@ -439,7 +505,7 @@ function rangsDeFormation(
     const poste = normaliserPoste(e.position);
     const cible =
       lignes.find((l) => l.poste === poste) ?? lignes[Math.floor(lignes.length / 2)];
-    if (cible) cible.joueurs.push(e);
+    if (cible) cible.cellules.push(e);
   }
 
   const ETIQUETTES: Record<Poste, string> = {
@@ -447,16 +513,10 @@ function rangsDeFormation(
   };
 
   // Du gardien vers l'attaque : c'est l'ordre dans lequel la geometrie range
-  // ses rangs, et l'inverse de celui dans lequel on ECRIT une formation.
+  // ses rangs, et celui des `ligne` d'un emplacement.
   return [
-    { etiquette: "G", joueurs: [gardien] },
-    ...lignes.map((l) => ({
-      etiquette: ETIQUETTES[l.poste],
-      joueurs: [
-        ...l.joueurs,
-        ...Array.from({ length: Math.max(0, l.capacite - l.joueurs.length) }, () => null),
-      ],
-    })),
+    { etiquette: "G", cellules: grille[0] },
+    ...lignes.map((l) => ({ etiquette: ETIQUETTES[l.poste], cellules: l.cellules })),
   ];
 }
 
@@ -492,17 +552,21 @@ export function disposerSurTerrain(
   if (formation && formation.length > 0) {
     const rangs = rangsDeFormation(titulaires, formation);
     const largeur = g.traversMax - g.traversMin;
-    const plusCharge = Math.max(...rangs.map((r) => r.joueurs.length), 1);
+    const plusCharge = Math.max(...rangs.map((r) => r.cellules.length), 1);
     const ecart = plusCharge > 1 ? largeur / (plusCharge - 1) : largeur;
 
     const places: PlaceTerrain[] = [];
     rangs.forEach((rang, k) => {
-      const traverses = abscisses(rang.joueurs.length, plusCharge, g);
-      rang.joueurs.forEach((entry, i) => {
+      // La COLONNE donne la place en travers, que la case soit occupee ou
+      // non : c'est ce qui laisse un arriere droit a droite quand ses trois
+      // voisins ne sont pas encore choisis.
+      const traverses = abscisses(rang.cellules.length, plusCharge, g);
+      rang.cellules.forEach((entry, colonne) => {
         places.push({
-          ...g.place(g.rangDeFormation(k, formation.length), traverses[i]),
+          ...g.place(g.rangDeFormation(k, formation.length), traverses[colonne]),
           entry,
           etiquette: rang.etiquette,
+          emplacement: { ligne: k, colonne },
         });
       });
     });
@@ -546,6 +610,7 @@ export function disposerSurTerrain(
         ...g.place(g.rang(index), traverses[i]),
         entry: entry ?? null,
         etiquette: ligne.etiquette,
+        emplacement: null,
       });
     });
   }
@@ -565,4 +630,81 @@ export function disposerSurTerrain(
  */
 export function rayonPastille(ecart: number, max: number): number {
   return Math.min(max, (ecart / 2) * 0.88);
+}
+
+// ---- Placer a la main ----------------------------------------------------------
+
+/** Le poste que DIT une ligne de cette formation : le but, puis defense → attaque. */
+export function posteDeLigne(formation: Formation, ligne: number): Poste {
+  return ligne === 0 ? "goalkeeper" : postePrefere(formation, ligne - 1);
+}
+
+export function memeEmplacement(a: Emplacement | null | undefined, b: Emplacement | null | undefined): boolean {
+  return !!a && !!b && a.ligne === b.ligne && a.colonne === b.colonne;
+}
+
+/**
+ * Lit un emplacement en base, sans lui faire confiance : deux entiers
+ * positifs, ou rien. Une feuille ecrite avant ce champ n'en a pas, et c'est
+ * le cas normal.
+ */
+export function lireEmplacement(brut: unknown): Emplacement | null {
+  if (!brut || typeof brut !== "object") return null;
+  const { ligne, colonne } = brut as Record<string, unknown>;
+  const entier = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) < 30;
+  return entier(ligne) && entier(colonne) ? { ligne, colonne } : null;
+}
+
+/** Ou est chaque titulaire, et quel poste sa case lui donne. */
+export interface Placement {
+  emplacement: Emplacement;
+  poste: Poste;
+}
+
+/**
+ * Mettre un joueur dans une case — qu'il vienne d'une autre case, du banc, ou
+ * de nulle part.
+ *
+ * TOUT LE MONDE SE FIGE D'ABORD. Chaque titulaire recoit la case ou il est
+ * DESSINE en ce moment, y compris ceux que le terrain avait ranges tout seul.
+ * Sans ca, deplacer un joueur liberait sa case, et le rangement automatique
+ * faisait glisser ses voisins pour la combler : on bougeait un joueur, trois
+ * bougeaient. Ce qu'on voit ne change plus que la ou on l'a touche.
+ *
+ * LA CASE PRISE S'ECHANGE. L'occupant part la d'ou vient le joueur : dans son
+ * ancienne case s'il en avait une, sinon il est `deloge` — l'editeur decide
+ * alors de ce qu'il devient (le banc, en general).
+ *
+ * Le poste suit la case : un milieu pose en defense devient defenseur, sur ce
+ * match. C'est ce que le terrain montre, et ce que la feuille doit dire.
+ */
+export function placerSurTerrain(
+  places: PlaceTerrain[],
+  formation: Formation,
+  joueurId: string,
+  vers: Emplacement,
+): { placements: Record<string, Placement>; deloge: string | null } {
+  const placements: Record<string, Placement> = {};
+  const ou = (e: Emplacement): Placement => ({ emplacement: e, poste: posteDeLigne(formation, e.ligne) });
+
+  for (const p of places) {
+    if (p.entry && p.emplacement) placements[p.entry.playerId] = ou(p.emplacement);
+  }
+
+  const depart = placements[joueurId]?.emplacement ?? null;
+  const occupant =
+    places.find((p) => p.entry && memeEmplacement(p.emplacement, vers))?.entry?.playerId ?? null;
+  if (occupant === joueurId) return { placements, deloge: null };
+
+  placements[joueurId] = ou(vers);
+  let deloge: string | null = null;
+  if (occupant) {
+    if (depart) {
+      placements[occupant] = ou(depart);
+    } else {
+      delete placements[occupant];
+      deloge = occupant;
+    }
+  }
+  return { placements, deloge };
 }
