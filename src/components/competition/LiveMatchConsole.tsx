@@ -766,6 +766,12 @@ export default function LiveMatchConsole({
     const roster = side === "home" ? homeRoster : awayRoster;
     const sheet = side === "home" ? homeSheet : awaySheet;
     if (!roster) return;
+    // La case que le manager avait choisie sur son terrain (voir
+    // lib/terrain) : la revalidation par le scoreur ne doit pas la defaire
+    // pour un joueur qui reste titulaire.
+    const dejaSurLaFeuille = side === "home" ? match.homeLineup : match.awayLineup;
+    const caseDe = (id: string) =>
+      dejaSurLaFeuille.find((e) => e.playerId === id && e.role === "starter")?.emplacement ?? null;
 
     const entries: LineupEntry[] = roster
       .filter((p) => (sheet[p.id] ?? "out") !== "out")
@@ -782,6 +788,7 @@ export default function LiveMatchConsole({
         // pour placer les maillots. La ligne d'effectif l'ecrit en trois
         // orthographes, d'ou le normaliseur.
         position: normaliserPoste(p.position),
+        emplacement: sheet[p.id] === "starter" ? caseDe(p.id) : null,
       }));
 
     const starters = entries.filter((e) => e.role === "starter").length;

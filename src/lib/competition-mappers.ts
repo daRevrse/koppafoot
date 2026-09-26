@@ -9,6 +9,7 @@
 // ============================================
 
 import { normaliserPoste } from "@/lib/postes";
+import { lireEmplacement } from "@/lib/terrain";
 import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
@@ -126,6 +127,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
       // Normalise a la lecture : les lignes d'effectif portent le poste
       // en trois orthographes (voir lib/postes), les feuilles aussi.
       position: normaliserPoste(e.position),
+      emplacement: lireEmplacement(e.emplacement),
     })),
     awayLineup: (d.away_lineup ?? []).map((e) => ({
       playerId: e.player_id, name: e.name, number: e.number, role: e.role,
@@ -133,6 +135,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
       // Normalise a la lecture : les lignes d'effectif portent le poste
       // en trois orthographes (voir lib/postes), les feuilles aussi.
       position: normaliserPoste(e.position),
+      emplacement: lireEmplacement(e.emplacement),
     })),
     homeLineupReady: d.home_lineup_ready ?? false,
     homeFormation: d.home_formation ?? null,
