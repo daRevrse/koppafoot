@@ -205,3 +205,21 @@ export function ecartPercu(a: string, b: string): number {
 export function maillotsTropProches(a: CouleursEquipe, b: CouleursEquipe): boolean {
   return ecartPercu(a.maillot, b.maillot) < 25;
 }
+
+/**
+ * Un maillot se fond-il dans la pelouse ?
+ *
+ * Même mesure que `maillotsTropProches`, pour un autre voisin : l'herbe. Une
+ * équipe en vert posait des pastilles vertes sur un terrain vert, qu'un fin
+ * trait sombre séparait à peine — on vise mal ce qu'on distingue mal. Même
+ * réponse aussi : on ne recolore pas l'équipe, l'appelant ajoute un liseré.
+ *
+ * 35 ET NON 25. Entre deux équipes, on compare deux pastilles ; ici une
+ * pastille et la surface qui l'entoure de tous côtés, ce qui la fait fondre
+ * plus tôt. Mesuré sur le vert de la console : l'émeraude de la fiche d'équipe
+ * en est à 24, un vert clair à 31 — tous deux à peine lisibles ; le bleu, le
+ * rouge et le blanc sont au-delà de 70.
+ */
+export function seFondDansLaPelouse(maillot: string, pelouses: readonly string[]): boolean {
+  return pelouses.some((p) => ecartPercu(maillot, p) < 35);
+}

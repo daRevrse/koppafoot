@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { disposerSurTerrain, rayonPastille, CADRE, INTERLIGNE, type SensDAttaque } from "@/lib/terrain";
 import { versFormation } from "@/lib/formations";
 import {
-  COULEURS_PAR_DEFAUT, maillotsTropProches, type CouleursEquipe,
+  COULEURS_PAR_DEFAUT, maillotsTropProches, seFondDansLaPelouse, type CouleursEquipe,
 } from "@/lib/couleurs-equipe";
 import { LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import { formaterNote, tonNote, type NoteJoueur } from "@/lib/notes";
@@ -99,6 +99,12 @@ function nomCourt(nom: string, max = 11): string {
 const PELOUSE = "#15803d";
 const PELOUSE_EN_ATTENTE = "#14532d";
 
+/**
+ * Ce qui descend sous la ligne de base d'un nom — le « g », le « p » —, en
+ * unités du cadre debout. Voir le rayon de `Pelouse`.
+ */
+const DESCENTE = 1;
+
 function Lignes({ sens }: { sens: SensDAttaque }) {
   // `pointerEvents: none` : un trace SVG en `fill: none` n'est touchable que
   // sur son TRAIT, et la mediane comme le rond central traversent la pelouse
@@ -183,8 +189,18 @@ function Pelouse({
   // plafond ne vient pas du goût mais de la géométrie — au-delà, la pastille
   // recouvre le nom du rang précédent. La vraie cible du doigt est le cercle
   // transparent posé par-dessus, plus large que la pastille.
-  const r = rayonPastille(ecart, rayonMax);
   const c = CADRE[sens];
+  /**
+   * COUCHÉ, LE NOM MORDAIT SUR LA PASTILLE DU DESSOUS. Le rayon laisse au nom
+   * sa ligne de base, exactement sur le bord de la pastille suivante (voir
+   * lib/terrain) — mais les lettres qui descendent sous la ligne, le « g »
+   * d'Agbeko, passaient dessous. Couché, le corps du texte double, et ce qui
+   * descend avec lui : on lui réserve sa place, au prix d'un dixième du rayon.
+   * Debout, le calcul d'origine tient.
+   */
+  const r = sens === "haut"
+    ? rayonPastille(ecart, rayonMax)
+    : Math.min(rayonPastille(ecart, rayonMax), (ecart - INTERLIGNE - DESCENTE * c.echelle) / 2);
   // Ce qui doit garder sa taille à l'écran quel que soit le cadre. Voir
   // `Cadre.echelle`.
   const corpsDuNom = 3.2 * c.echelle;
@@ -296,15 +312,53 @@ function Pelouse({
                 className="pointer-events-none"
               />
             )}
+          </g>
+        );
+      })}
+
+      {/* LES NOMS, EN SECONDE PASSE, ET TOUCHABLES.
+
+          Ils étaient dessinés avec leur pastille, et laissaient passer le
+          doigt : un appui sur « K. Agbeko » tombait donc sur la cible du
+          joueur du dessous, dessinée après lui et plus large que sa pastille.
+          On touchait un nom, on saisissait pour son voisin — la faute la plus
+          coûteuse de la console.
+
+          Posés après TOUTES les pastilles, les noms passent devant chacune de
+          ces cibles, et chacun renvoie à son joueur. Le rectangle transparent
+          derrière le texte fait la cible : les lettres seules laisseraient
+          passer l'appui entre elles. Pas de rôle ni de nom accessibles : la
+          pastille les porte déjà, une seconde annonce serait du bruit. */}
+      {places.map((place) => {
+        const joueur = place.entry;
+        if (!joueur) return null;
+        const nom = nomCourt(joueur.name);
+        const ancre = Math.min(Math.max(place.x, c.nomMin), c.nomMax);
+        const base = place.y + r + INTERLIGNE;
+        const largeur = Math.max(nom.length * 0.56 * corpsDuNom, 2 * r);
+        return (
+          <g
+            key={`nom-${joueur.playerId}`}
+            onClick={() => onJoueur(joueur)}
+            aria-hidden="true"
+            className="cursor-pointer"
+          >
+            <rect
+              x={ancre - largeur / 2}
+              y={base - corpsDuNom * 0.8}
+              width={largeur}
+              height={corpsDuNom * 1.05}
+              fill="transparent"
+            />
             <text
-              x={Math.min(Math.max(place.x, c.nomMin), c.nomMax)}
-              y={place.y + r + INTERLIGNE}
+              x={ancre}
+              y={base}
               textAnchor="middle"
               className="font-bold pointer-events-none"
               style={{ fontSize: `${corpsDuNom}px` }}
               fill="#ffffff"
             >
-              {nomCourt(joueur.name)}
+              {nom}
             </text>
           </g>
         );
@@ -493,7 +547,16 @@ export default function TerrainsFaceAFace({
                   sens={k === "home" ? "droite" : "gauche"}
                   couleurs={k === "home" ? tenueHome : tenueAway}
                   formation={e.formation ?? null}
-                  contour={memeTon && miroir ? "#f8fafc" : undefined}
+                  // UN LISERÉ CLAIR, pour deux raisons : les deux équipes
+                  // jouent dans le même ton (le visiteur le porte), ou ce
+                  // maillot se fond dans la pelouse. Voir
+                  // `seFondDansLaPelouse` : on ne recolore jamais une équipe.
+                  contour={
+                    (memeTon && miroir)
+                    || seFondDansLaPelouse((k === "home" ? tenueHome : tenueAway).maillot, [PELOUSE, PELOUSE_EN_ATTENTE])
+                      ? "#f8fafc"
+                      : undefined
+                  }
                   enAttente={enAttente}
                   // DONNER, et non basculer : voir `onPelouse`. Un appui sur
                   // l'herbe du camp qui tient deja le ballon ne fait donc
