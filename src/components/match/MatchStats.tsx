@@ -23,15 +23,25 @@
 import type { LigneStat } from "@/lib/stats-match";
 
 export default function MatchStats({
-  lignes, homeTeamName, awayTeamName, compact = false,
+  lignes, homeTeamName, awayTeamName, compact = false, sombre = false,
 }: {
   lignes: LigneStat[];
   homeTeamName: string;
   awayTeamName: string;
   /** Serré, pour la colonne de la console. Aéré sur une fiche publique. */
   compact?: boolean;
+  /**
+   * Sur le fond sombre de la console, qui ne suit pas le thème : les mêmes
+   * lignes, dans les tons du reste de l'écran.
+   */
+  sombre?: boolean;
 }) {
   if (lignes.length === 0) return null;
+  const chiffre = sombre ? "text-white" : "text-gray-900";
+  const libelle = sombre ? "text-white/45" : "text-gray-400";
+  const legende = sombre ? "text-white/55" : "text-gray-500";
+  const piste = sombre ? "bg-white/10" : "bg-gray-100";
+  const visiteur = sombre ? "bg-white/35" : "bg-gray-300";
 
   return (
     <div className={compact ? "space-y-3" : "space-y-5"}>
@@ -47,32 +57,32 @@ export default function MatchStats({
         return (
           <div key={row.cle}>
             <div className="mb-1.5 flex items-baseline justify-between gap-3">
-              <span className={`text-left font-black tabular-nums text-gray-900 ${compact ? "w-10 text-sm" : "w-12 text-base"}`}>
+              <span className={`text-left font-black tabular-nums ${chiffre} ${compact ? "w-10 text-sm" : "w-12 text-base"}`}>
                 {valeur(row.home)}
               </span>
-              <span className="truncate text-[11px] font-black uppercase tracking-wide text-gray-400">
+              <span className={`truncate text-[11px] font-black uppercase tracking-wide ${libelle}`}>
                 {row.label}
               </span>
-              <span className={`text-right font-black tabular-nums text-gray-900 ${compact ? "w-10 text-sm" : "w-12 text-base"}`}>
+              <span className={`text-right font-black tabular-nums ${chiffre} ${compact ? "w-10 text-sm" : "w-12 text-base"}`}>
                 {valeur(row.away)}
               </span>
             </div>
-            <div className="flex h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div className={`flex h-1.5 overflow-hidden rounded-full ${piste}`}>
               <div className="bg-emerald-500 transition-all" style={{ width: `${homePct}%` }} />
-              <div className="bg-gray-300 transition-all" style={{ width: `${awayPct}%` }} />
+              <div className={`${visiteur} transition-all`} style={{ width: `${awayPct}%` }} />
             </div>
           </div>
         );
       })}
 
       <div className="flex items-center justify-between gap-3 pt-1 text-[10px] font-black uppercase tracking-wide">
-        <span className="flex min-w-0 items-center gap-1.5 text-gray-500">
+        <span className={`flex min-w-0 items-center gap-1.5 ${legende}`}>
           <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
           <span className="truncate">{homeTeamName}</span>
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 text-gray-500">
+        <span className={`flex min-w-0 items-center gap-1.5 ${legende}`}>
           <span className="truncate">{awayTeamName}</span>
-          <span className="h-2 w-2 shrink-0 rounded-full bg-gray-300" />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${visiteur}`} />
         </span>
       </div>
     </div>

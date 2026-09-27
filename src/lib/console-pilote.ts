@@ -25,7 +25,7 @@ import {
   initLiveCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
   finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
-  setCompPenaltyOutcome,
+  setCompPenaltyOutcome, retirerCompEvenements,
 } from "@/lib/competition-firestore";
 import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
@@ -34,13 +34,15 @@ import {
 } from "@/lib/competition-format";
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
+import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import {
   onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam, getTeamById,
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
   setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
   compositionTypePour,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
-  setMatchAddedTime, setMatchPenaltyOutcome,
+  setMatchAddedTime, setMatchPenaltyOutcome, retirerEvenementsAmical,
+  ecrituresEnvoyees,
 } from "@/lib/firestore";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import type {
@@ -75,6 +77,8 @@ export interface ReglesDuJeu {
 
 /** Un evenement tel que la console demande de l'ecrire. */
 export interface EvenementAEcrire {
+  /** Choisi par la console, pour ne pas attendre le serveur. Voir `addCompEvent`. */
+  id?: string;
   type: TypeEvenement;
   side: Cote;
   team_id: string;
@@ -181,6 +185,13 @@ export interface PiloteConsole {
   campsEligiblesMVP(): { home: boolean; away: boolean };
 
   ajouterEvenement(e: EvenementAEcrire): Promise<string>;
+  /**
+   * Retirer des evenements, avec ce qu'ils emportent. Le plan vient de
+   * lib/retrait-evenement ; l'ecriture part aussi hors ligne.
+   */
+  retirer(plan: PlanDeRetrait): Promise<void>;
+  /** Tout ce que l'appareil a ecrit est-il arrive ? Voir `ecrituresEnvoyees`. */
+  ecrituresEnvoyees(): Promise<void>;
   poserPasseur(eventId: string, p: { playerId: string; playerName: string } | null): Promise<void>;
   poserVictime(eventId: string, v: { playerId: string; playerName: string } | null): Promise<void>;
   /**
@@ -306,6 +317,8 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     campsEligiblesMVP: () => ({ home: true, away: true }),
 
     ajouterEvenement: (e) => addCompEvent(cid, mid, e),
+    retirer: (plan) => retirerCompEvenements(cid, mid, plan),
+    ecrituresEnvoyees,
     poserPasseur: (id, p) => setCompGoalAssist(cid, mid, id, p),
     poserVictime: (id, v) => setCompFoulVictim(cid, mid, id, v),
     poserIssuePenalty: (id, issue, t) => setCompPenaltyOutcome(cid, mid, id, issue, t),
@@ -522,6 +535,8 @@ export function piloteAmical(matchId: string): PiloteConsole {
     },
 
     ajouterEvenement: (e) => addMatchLiveEvent(matchId, e),
+    retirer: (plan) => retirerEvenementsAmical(matchId, plan),
+    ecrituresEnvoyees,
     poserPasseur: (id, p) => setMatchGoalAssist(matchId, id, p),
     poserVictime: (id, v) => setMatchFoulVictim(matchId, id, v),
     poserIssuePenalty: (id, issue, t) => setMatchPenaltyOutcome(matchId, id, issue, t),
