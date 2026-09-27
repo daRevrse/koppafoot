@@ -23,7 +23,7 @@
 import type { LigneStat } from "@/lib/stats-match";
 
 export default function MatchStats({
-  lignes, homeTeamName, awayTeamName, compact = false, sombre = false,
+  lignes, homeTeamName, awayTeamName, compact = false, sombre = false, couleurs,
 }: {
   lignes: LigneStat[];
   homeTeamName: string;
@@ -35,6 +35,12 @@ export default function MatchStats({
    * lignes, dans les tons du reste de l'écran.
    */
   sombre?: boolean;
+  /**
+   * La couleur de chaque équipe (voir `couleursDesBarres`). Sans elle, le
+   * vert et le gris d'avant — ceux de la console, qui ne connaît pas de
+   * fond où les poser autrement.
+   */
+  couleurs?: { home: string; away: string } | null;
 }) {
   if (lignes.length === 0) return null;
   const chiffre = sombre ? "text-white" : "text-gray-900";
@@ -42,6 +48,14 @@ export default function MatchStats({
   const legende = sombre ? "text-white/55" : "text-gray-500";
   const piste = sombre ? "bg-white/10" : "bg-gray-100";
   const visiteur = sombre ? "bg-white/35" : "bg-gray-300";
+  // Une classe quand on n'a pas de couleur, un style quand on en a une : la
+  // couleur d'une équipe n'est pas une classe que Tailwind connaît d'avance.
+  const peinture = (camp: "home" | "away") =>
+    couleurs
+      ? { className: "", style: { backgroundColor: couleurs[camp] } }
+      : { className: camp === "home" ? "bg-emerald-500" : visiteur, style: undefined };
+  const dom = peinture("home");
+  const ext = peinture("away");
 
   return (
     <div className={compact ? "space-y-3" : "space-y-5"}>
@@ -68,8 +82,8 @@ export default function MatchStats({
               </span>
             </div>
             <div className={`flex h-1.5 overflow-hidden rounded-full ${piste}`}>
-              <div className="bg-emerald-500 transition-all" style={{ width: `${homePct}%` }} />
-              <div className={`${visiteur} transition-all`} style={{ width: `${awayPct}%` }} />
+              <div className={`${dom.className} transition-all`} style={{ ...dom.style, width: `${homePct}%` }} />
+              <div className={`${ext.className} transition-all`} style={{ ...ext.style, width: `${awayPct}%` }} />
             </div>
           </div>
         );
@@ -77,12 +91,12 @@ export default function MatchStats({
 
       <div className="flex items-center justify-between gap-3 pt-1 text-[10px] font-black uppercase tracking-wide">
         <span className={`flex min-w-0 items-center gap-1.5 ${legende}`}>
-          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${dom.className}`} style={dom.style} />
           <span className="truncate">{homeTeamName}</span>
         </span>
         <span className={`flex min-w-0 items-center gap-1.5 ${legende}`}>
           <span className="truncate">{awayTeamName}</span>
-          <span className={`h-2 w-2 shrink-0 rounded-full ${visiteur}`} />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${ext.className}`} style={ext.style} />
         </span>
       </div>
     </div>

@@ -26,7 +26,7 @@ import type { Match, RecordedScorer } from "@/types";
 type Evt = Pick<
   NonNullable<Match["liveState"]>["events"][number],
   "type" | "minute" | "teamId" | "playerName" | "detail" | "varStatus"
->;
+> & { assistPlayerName?: string | null };
 
 export interface Buteur {
   nom: string;
@@ -36,6 +36,11 @@ export interface Buteur {
   nombre: number;
   /** But contre son camp. */
   csc: boolean;
+  /**
+   * Ceux qui lui ont donné ses buts, dans l'ordre et sans doublon. La console
+   * les nomme ; un but saisi avant qu'elle le fasse n'en a pas.
+   */
+  passeurs: string[];
 }
 
 export interface ButeursDuMatch {
@@ -62,11 +67,13 @@ export function buteursDuMatch(
     const liste = e.teamId === homeTeamId ? camps.home : camps.away;
     let buteur = liste.find((b) => b.nom === nom && b.csc === csc);
     if (!buteur) {
-      buteur = { nom, minutes: [], nombre: 0, csc };
+      buteur = { nom, minutes: [], nombre: 0, csc, passeurs: [] };
       liste.push(buteur);
     }
     buteur.nombre += 1;
     if (e.minute) buteur.minutes.push(`${e.minute}'`);
+    const passeur = e.assistPlayerName?.trim();
+    if (passeur && !csc && !buteur.passeurs.includes(passeur)) buteur.passeurs.push(passeur);
   }
   return camps;
 }
@@ -78,6 +85,6 @@ export function buteursDuMatch(
 export function buteursRenseignes(scorers: RecordedScorer[], camp: "home" | "away"): ButeursDuMatch {
   const liste: Buteur[] = scorers
     .filter((s) => s.buts > 0)
-    .map((s) => ({ nom: s.nom, minutes: [], nombre: s.buts, csc: false }));
+    .map((s) => ({ nom: s.nom, minutes: [], nombre: s.buts, csc: false, passeurs: [] }));
   return camp === "home" ? { home: liste, away: [] } : { home: [], away: liste };
 }

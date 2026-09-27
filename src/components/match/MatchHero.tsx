@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, Goal, Share2 } from "lucide-react";
 import TirsAuBut from "./TirsAuBut";
 import MiniEcusson from "./MiniEcusson";
+import { nomCourt } from "./TerrainCompo";
 import ClocheMatch, { useSuiviMatch } from "./ClocheMatch";
 import { useCompteARebours, formatCompteARebours } from "@/hooks/useCompteARebours";
 import { useReplieAuDefilement } from "@/hooks/useReplieAuDefilement";
@@ -124,31 +125,35 @@ function TeamCrest({ name, logo }: { name: string; logo: string | null }) {
   );
 }
 
-const POINT: Record<Resultat, string> = {
-  V: "bg-emerald-400",
-  N: "bg-white/40",
-  D: "bg-red-500",
+const PASTILLE: Record<Resultat, string> = {
+  V: "bg-emerald-400 text-black",
+  N: "bg-white/25 text-white",
+  D: "bg-red-500 text-white",
 };
 
 /**
- * La forme en cinq points, sous le nom. Le plus récent à droite, souligné.
+ * La forme en cinq pastilles, sous le nom. Le plus récent à droite, souligné.
  *
- * Des points sans lettre : à cette taille, la couleur seule tient dans la
- * ligne. Elle ne suffit pas à un daltonien rouge-vert, d'où le libellé lu
- * par les lecteurs d'écran, et la carte « Derniers résultats » de l'onglet
- * Infos, qui porte les lettres et les adversaires.
+ * DES LETTRES, ET PLUS DES POINTS. Un point rouge seul sous le nom d'une
+ * équipe, pendant un match, se lisait comme un carton rouge : une équipe qui
+ * n'avait joué qu'une fois, et perdu, semblait avoir un expulsé. La lettre
+ * dit ce que la couleur ne pouvait pas dire seule — et elle suffit enfin à un
+ * daltonien rouge-vert. La carte « Derniers résultats » de l'onglet Infos
+ * garde les adversaires.
  */
 function PointsDeForme({ forme }: { forme: Resultat[] }) {
   return (
     <span
       role="img"
       aria-label={`Forme, du plus ancien au plus récent : ${forme.map((r) => MOT_RESULTAT[r]).join(", ")}`}
-      className="mt-1.5 flex justify-center gap-1"
+      className="mt-1.5 flex justify-center gap-0.5"
     >
       {forme.map((r, i) => (
-        <span key={i} className="flex flex-col items-center gap-0.5">
-          <span className={`h-2 w-2 ${POINT[r]}`} />
-          <span className={`h-0.5 w-2 ${i === forme.length - 1 ? POINT[r] : "bg-transparent"}`} />
+        <span key={i} aria-hidden className="flex flex-col items-center gap-0.5">
+          <span className={`flex h-3.5 w-3.5 items-center justify-center text-[8px] font-black leading-none ${PASTILLE[r]}`}>
+            {r}
+          </span>
+          <span className={`h-0.5 w-3.5 ${i === forme.length - 1 ? PASTILLE[r].split(" ")[0] : "bg-transparent"}`} />
         </span>
       ))}
     </span>
@@ -181,7 +186,9 @@ function jourRelatif(iso: string): string | null {
  */
 function Camp({ side }: { side: HeroSide }) {
   const nom = (
-    <h2 className="truncate text-[11px] font-black uppercase tracking-tight sm:text-sm">
+    // Sur deux lignes plutôt que coupé : « ESPOIR NYÉKONAKP… » ne nommait
+    // plus l'équipe.
+    <h2 className="line-clamp-2 break-words text-[11px] font-black uppercase tracking-tight sm:text-sm">
       {side.name}
     </h2>
   );
@@ -206,7 +213,7 @@ function Camp({ side }: { side: HeroSide }) {
  */
 function ListeDeButeurs({ buteurs, droite }: { buteurs: Buteur[]; droite: boolean }) {
   return (
-    <ul className={`min-w-0 space-y-0.5 ${droite ? "text-left" : "text-right"}`}>
+    <ul className={`min-w-0 space-y-1 ${droite ? "text-left" : "text-right"}`}>
       {buteurs.map((b) => (
         <li key={`${b.nom}-${b.csc}`} className="break-words">
           {b.nom}
@@ -216,6 +223,13 @@ function ListeDeButeurs({ buteurs, droite }: { buteurs: Buteur[]; droite: boolea
           ) : b.nombre > 1 ? (
             <span className="ml-1.5 tabular-nums text-white/45">×{b.nombre}</span>
           ) : null}
+          {/* LE PASSEUR, DESSOUS ET PLUS PÂLE. La console le demande à
+              chaque but ; il n'apparaissait nulle part sur la fiche. */}
+          {b.passeurs.length > 0 && (
+            <span className="block text-[10px] font-semibold text-white/40">
+              passe de {b.passeurs.map((p) => nomCourt(p, 18)).join(", ")}
+            </span>
+          )}
         </li>
       ))}
     </ul>
@@ -281,10 +295,13 @@ export default function MatchHero({
   /** Ce qui se lit sous le score : la période, le chrono, l'état. */
   const etat = () => {
     if (isLive) {
+      // La période AU-DESSUS du chrono sur téléphone. Côte à côte, les deux
+      // débordaient de la colonne du milieu : « 1ère mi-temps » passait sur
+      // deux lignes et le chrono venait toucher le nom de l'équipe voisine.
       return (
-        <span className="flex items-center gap-2">
+        <span className="flex flex-col items-center gap-1 sm:flex-row sm:gap-2">
           {periodLabel && (
-            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-400">
+            <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.14em] text-emerald-400">
               {periodLabel}
             </span>
           )}

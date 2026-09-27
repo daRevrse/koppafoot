@@ -223,3 +223,41 @@ export function maillotsTropProches(a: CouleursEquipe, b: CouleursEquipe): boole
 export function seFondDansLaPelouse(maillot: string, pelouses: readonly string[]): boolean {
   return pelouses.some((p) => ecartPercu(maillot, p) < 35);
 }
+
+/** La barre d'une équipe qui n'a rien déclaré : le vert d'avant à domicile… */
+const BARRE_DOMICILE = "#10b981";
+/** … et le gris d'avant à l'extérieur. */
+const BARRE_EXTERIEUR = "#9ca3af";
+
+/**
+ * Les couleurs des barres de statistiques : chaque équipe dans la sienne.
+ *
+ * L'EXTÉRIEUR ÉTAIT GRIS, quelle que soit l'équipe. « Cartons jaunes 0 – 1 »
+ * dessinait une barre entièrement grise, qui se lisait « personne » au lieu
+ * de « un pour eux » : le gris est la couleur du rien, pas celle d'un camp.
+ *
+ * UNE BARRE N'EST PAS UN MAILLOT, et c'est ce qui autorise les deux replis
+ * que le terrain s'interdit (voir `maillotsTropProches`). Un maillot blanc
+ * peint une barre blanche sur une piste claire, c'est-à-dire pas de barre du
+ * tout : on la fonce, sans rien dire de ce que l'équipe porte. Deux équipes
+ * du même ton rendraient la barre d'un seul bloc : l'extérieur reprend le
+ * gris d'avant, et la légende sous les barres dit qui est qui.
+ *
+ * `piste` : la couleur sur laquelle les barres sont posées.
+ */
+export function couleursDesBarres(
+  home: string | null | undefined,
+  away: string | null | undefined,
+  piste = "#f3f4f6",
+): { home: string; away: string } {
+  const claire = luminance(piste) > 0.5;
+  const lisible = (c: string) =>
+    contraste(c, piste) >= 1.3 ? c : claire ? "#374151" : "#e5e7eb";
+  const h = lisible(versHex(home) ?? BARRE_DOMICILE);
+  let a = lisible(versHex(away) ?? BARRE_EXTERIEUR);
+  if (ecartPercu(h, a) < 25) {
+    // Le gris d'avant, sauf si c'est justement le ton du domicile.
+    a = ecartPercu(h, BARRE_EXTERIEUR) < 25 ? (claire ? "#111827" : "#ffffff") : BARRE_EXTERIEUR;
+  }
+  return { home: h, away: a };
+}

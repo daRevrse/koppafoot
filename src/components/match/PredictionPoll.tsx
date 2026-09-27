@@ -35,6 +35,12 @@ import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, 
 interface Side {
   label: string;
   logo: string | null;
+  /**
+   * Le sigle, « ENY ». Un tiers de téléphone ne tient pas « Espoir
+   * Nyékonakpoè » : le nom entier, coupé, devenait « ESPOIR NYÉK… ». Le
+   * sigle tient toujours ; le nom entier reste pour les lecteurs d'écran.
+   */
+  court?: string | null;
 }
 
 export default function PredictionPoll({
@@ -104,10 +110,10 @@ export default function PredictionPoll({
   if (counts !== null && closed && !chiffres) return null;
 
   const parts = pourcentages(counts ?? EMPTY_COUNTS);
-  const issues: { cle: Pick; nom: string; logo: string | null; pct: number; libelle: string }[] = [
-    { cle: "home", nom: home.label, logo: home.logo, pct: parts.home, libelle: `Victoire de ${home.label}` },
-    { cle: "draw", nom: "Nul", logo: null, pct: parts.draw, libelle: "Match nul" },
-    { cle: "away", nom: away.label, logo: away.logo, pct: parts.away, libelle: `Victoire de ${away.label}` },
+  const issues: { cle: Pick; nom: string; affiche: string; logo: string | null; pct: number; libelle: string }[] = [
+    { cle: "home", nom: home.label, affiche: home.court || home.label, logo: home.logo, pct: parts.home, libelle: `Victoire de ${home.label}` },
+    { cle: "draw", nom: "Nul", affiche: "Nul", logo: null, pct: parts.draw, libelle: "Match nul" },
+    { cle: "away", nom: away.label, affiche: away.court || away.label, logo: away.logo, pct: parts.away, libelle: `Victoire de ${away.label}` },
   ];
 
   // L'issue en tête, si elle est seule : deux issues à égalité ne dominent pas.
@@ -124,7 +130,7 @@ export default function PredictionPoll({
         {/* L'écusson descend dans la petite ligne quand le pourcentage prend
             la grande : il n'y a qu'une grande place par segment. */}
         {chiffres && i.cle !== "draw" && <MiniEcusson nom={i.nom} logo={i.logo} taille={14} />}
-        <span className="truncate uppercase tracking-wide">{i.nom}</span>
+        <span className="truncate uppercase tracking-wide">{i.affiche}</span>
         {mine === i.cle && <Check size={12} strokeWidth={3} aria-hidden className="shrink-0" />}
       </>
     ),
@@ -133,7 +139,8 @@ export default function PredictionPoll({
     ) : chiffres ? (
       `${i.pct}%`
     ) : i.cle === "draw" ? (
-      "N"
+      // Le signe de l'égalité, et non « N » : le mot est déjà au-dessus.
+      "="
     ) : (
       <MiniEcusson nom={i.nom} logo={i.logo} taille={20} />
     ),
