@@ -1,5 +1,6 @@
 "use client";
 
+import MiniEcusson from "@/components/match/MiniEcusson";
 import type { GroupStanding } from "@/lib/competition-firestore";
 
 // ============================================
@@ -43,12 +44,18 @@ export function pouleDuMatch(
 }
 
 export default function MatchStandings({
-  groupe, homeTeamId, awayTeamId,
+  groupe, homeTeamId, awayTeamId, compact = false,
 }: {
   groupe: GroupStanding;
   homeTeamId: string | null;
   awayTeamId: string | null;
+  /**
+   * Pour la colonne étroite du fil, sur grand écran : G, N et P y restent
+   * cachés quelle que soit la largeur de l'écran, comme sur téléphone.
+   */
+  compact?: boolean;
 }) {
+  const detail = compact ? "hidden" : "hidden sm:table-cell";
   return (
     <div>
       <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
@@ -59,16 +66,20 @@ export default function MatchStandings({
           l'écran était PTS — celle pour laquelle on ouvre un classement.
           Restent le nombre de matchs, la différence de buts et les points :
           de quoi lire un classement, sans faire glisser le tableau. */}
-      <table className="w-full text-sm">
+      {/* LES CHIFFRES À LEUR LARGEUR, L'ÉQUIPE AU RESTE. En disposition
+          automatique, le tableau partageait l'écran entre ses colonnes, et
+          « Étoile d'Adidogomé » était coupé à côté d'un « J » qui occupait
+          le quart de la ligne pour un seul chiffre. */}
+      <table className={`w-full table-fixed ${compact ? "text-[13px]" : "text-sm"}`}>
         <thead>
           <tr className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-400">
             <th className="py-1.5 pr-2 text-left font-black">Équipe</th>
-            <th className="px-1.5 py-1.5 text-right font-black">J</th>
-            <th className="hidden px-1.5 py-1.5 text-right font-black sm:table-cell">G</th>
-            <th className="hidden px-1.5 py-1.5 text-right font-black sm:table-cell">N</th>
-            <th className="hidden px-1.5 py-1.5 text-right font-black sm:table-cell">P</th>
-            <th className="px-1.5 py-1.5 text-right font-black">Diff</th>
-            <th className="py-1.5 pl-1.5 text-right font-black">Pts</th>
+            <th className="w-8 px-1 py-1.5 text-right font-black">J</th>
+            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`}>G</th>
+            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`}>N</th>
+            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`}>P</th>
+            <th className="w-12 px-1 py-1.5 text-right font-black">Diff</th>
+            <th className="w-10 py-1.5 pl-1 text-right font-black">Pts</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200/70">
@@ -76,24 +87,25 @@ export default function MatchStandings({
             const concerne = row.team.id === homeTeamId || row.team.id === awayTeamId;
             return (
               <tr key={row.team.id} className={concerne ? "bg-emerald-50/70" : undefined}>
-                <td className="max-w-0 py-2 pr-2">
-                  <span className="flex items-center gap-2">
+                <td className="py-2 pr-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     <span className="w-4 shrink-0 text-right text-[11px] font-black tabular-nums text-gray-400">
                       {i + 1}
                     </span>
+                    <MiniEcusson nom={row.team.name} logo={row.team.logoUrl} taille={18} />
                     <span className={`truncate ${concerne ? "font-black text-gray-900" : "font-bold text-gray-600"}`}>
                       {row.team.name}
                     </span>
                   </span>
                 </td>
-                <td className="px-1.5 py-2 text-right tabular-nums text-gray-500">{row.played}</td>
-                <td className="hidden px-1.5 py-2 text-right tabular-nums text-gray-500 sm:table-cell">{row.won}</td>
-                <td className="hidden px-1.5 py-2 text-right tabular-nums text-gray-500 sm:table-cell">{row.drawn}</td>
-                <td className="hidden px-1.5 py-2 text-right tabular-nums text-gray-500 sm:table-cell">{row.lost}</td>
-                <td className="px-1.5 py-2 text-right tabular-nums text-gray-500">
+                <td className="px-1 py-2 text-right tabular-nums text-gray-500">{row.played}</td>
+                <td className={`${detail} px-1 py-2 text-right tabular-nums text-gray-500`}>{row.won}</td>
+                <td className={`${detail} px-1 py-2 text-right tabular-nums text-gray-500`}>{row.drawn}</td>
+                <td className={`${detail} px-1 py-2 text-right tabular-nums text-gray-500`}>{row.lost}</td>
+                <td className="px-1 py-2 text-right tabular-nums text-gray-500">
                   {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
                 </td>
-                <td className="py-2 pl-1.5 text-right font-black tabular-nums text-gray-900">{row.points}</td>
+                <td className="py-2 pl-1 text-right font-black tabular-nums text-gray-900">{row.points}</td>
               </tr>
             );
           })}

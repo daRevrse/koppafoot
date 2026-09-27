@@ -36,6 +36,7 @@
 // même raison que celle du header : elle dépend du terminal.
 // ============================================
 
+import { useEffect, useRef, useState } from "react";
 import { VARIABLE_HAUTEUR_BARRE } from "./MatchHero";
 
 export interface MatchTab {
@@ -52,6 +53,50 @@ export default function MatchTabs({
   active: string;
   onChange: (id: string) => void;
 }) {
+  const rangee = useRef<HTMLDivElement>(null);
+
+  /**
+   * CE QUI DÉPASSE SE DIT. La rangée défile quand elle est plus large que
+   * l'écran, et rien ne le montrait : sur téléphone, « Classement » était
+   * coupé en « CLA » au bord, comme une faute de mise en page. Le bord qui
+   * cache un onglet s'estompe ; celui qui ne cache rien reste net.
+   */
+  const [coupe, setCoupe] = useState({ gauche: false, droite: false });
+  useEffect(() => {
+    const el = rangee.current;
+    if (!el) return;
+    const mesurer = () => {
+      const gauche = el.scrollLeft > 2;
+      const droite = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+      setCoupe((c) => (c.gauche === gauche && c.droite === droite ? c : { gauche, droite }));
+    };
+    el.addEventListener("scroll", mesurer, { passive: true });
+    // Il mesure aussi dès qu'il commence à observer : pas d'appel à la main.
+    const observateur = new ResizeObserver(mesurer);
+    observateur.observe(el);
+    return () => {
+      el.removeEventListener("scroll", mesurer);
+      observateur.disconnect();
+    };
+  }, [tabs.length]);
+
+  // L'onglet ouvert reste à l'écran, même quand la page l'a choisi seule.
+  // `scrollTo` sur la rangée, et non `scrollIntoView` : celui-ci ferait aussi
+  // défiler la page.
+  useEffect(() => {
+    const el = rangee.current;
+    const bouton = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!el || !bouton) return;
+    const avant = bouton.offsetLeft - 16;
+    const apres = bouton.offsetLeft + bouton.offsetWidth + 16 - el.clientWidth;
+    if (el.scrollLeft > avant) el.scrollTo({ left: avant, behavior: "smooth" });
+    else if (el.scrollLeft < apres) el.scrollTo({ left: apres, behavior: "smooth" });
+  }, [active]);
+
+  const masque = `linear-gradient(to right, ${
+    coupe.gauche ? "transparent 0, black 28px" : "black 0"
+  }, ${coupe.droite ? "black calc(100% - 36px), transparent 100%" : "black 100%"})`;
+
   return (
     <div
       // Pleine largeur, comme le tableau (`main` porte `p-3 lg:p-5`) : la
@@ -61,8 +106,10 @@ export default function MatchTabs({
       className="sticky z-30 -mx-3 border-b border-white/10 bg-black lg:-mx-5"
     >
       <div
+        ref={rangee}
         role="tablist"
         aria-label="Sections du match"
+        style={{ maskImage: masque, WebkitMaskImage: masque }}
         className="mx-auto flex max-w-4xl gap-6 overflow-x-auto px-4 [scrollbar-width:none] sm:gap-7 sm:px-6 [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((tab) => {

@@ -13,6 +13,13 @@ import { derniersResultats } from "@/lib/forme";
 import { repartirCent } from "@/lib/repartition";
 import { buteursDuMatch } from "@/lib/buteurs";
 import { aDesStats, lignesStats } from "@/lib/stats-match";
+import { matchDuration } from "@/lib/competition-format";
+import { notesDuCamp } from "@/lib/notes";
+import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
+import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
+import { couleursDesBarres } from "@/lib/couleurs-equipe";
+import { usePhotosDesComptes } from "@/hooks/usePhotosDesComptes";
+import { useMedia } from "@/hooks/useMedia";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
 import MatchLineups from "@/components/match/MatchLineups";
@@ -190,6 +197,16 @@ export default function PublicCompMatchView() {
     return () => clearInterval(interval);
   }, [match?.liveState, match?.status]);
 
+  // LES VISAGES DE LA FEUILLE, pour le terrain et l'homme du match. Appelé
+  // avant les retours anticipés plus bas : un hook ne se saute pas.
+  const photosParCompte = usePhotosDesComptes([
+    ...(match?.homeLineup ?? []).map((e) => e.userId),
+    ...(match?.awayLineup ?? []).map((e) => e.userId),
+    match?.mvpUserId,
+  ]);
+  // Sur grand écran, le fil a une colonne à côté de lui (voir plus bas).
+  const grandEcran = useMedia("(min-width: 1024px)");
+
   // Still resolving the slug (no cid yet) or awaiting the first match snapshot.
   if (loading || (cid && !match && !notFound)) {
     return (
@@ -345,6 +362,36 @@ export default function PublicCompMatchView() {
   const formeDom = derniersResultats(compMatches, match.homeTeamId, match);
   const formeExt = derniersResultats(compMatches, match.awayTeamId, match);
 
+  // CE QUE LE MATCH A FAIT DE CHACUN, pour le terrain et l'homme du match.
+  // Voir lib/recit-du-match.
+  const marques = marquesDesJoueurs(events);
+
+  // Le visage de chaque ligne de feuille qui a un compte derrière elle.
+  const photosParLigne: Record<string, string | null> = {};
+  for (const e of [...match.homeLineup, ...match.awayLineup]) {
+    if (e.userId) photosParLigne[e.playerId] = photosParCompte[e.userId] ?? null;
+  }
+
+  /**
+   * LA NOTE DE L'HOMME DU MATCH, celle que la console lui a vue (voir
+   * lib/notes) : même calcul, même durée que le classement de la plateforme,
+   * pour qu'il lise le même chiffre sur la fiche et dans sa forme.
+   */
+  const noteDeLHomme = (() => {
+    if (!match.mvpPlayerId || !match.mvpTeamId) return null;
+    const feuille = match.mvpTeamId === match.homeTeamId ? match.homeLineup : match.awayLineup;
+    const duree = compFormat ? matchDuration(compFormat) : DUREE_MATCH_DEFAUT;
+    const n = notesDuCamp(match, feuille, events, match.mvpTeamId, duree).get(match.mvpPlayerId);
+    return n ? { valeur: n.note, faits: n.faits } : null;
+  })();
+
+  const equipeDe = (teamId: string | null) => (teamId ? compTeams.find((t) => t.id === teamId) : undefined);
+  // Chaque équipe dans sa couleur, sur les barres de stats. Voir couleursDesBarres.
+  const couleursStats = couleursDesBarres(
+    equipeDe(match.homeTeamId)?.color ?? null,
+    equipeDe(match.awayTeamId)?.color ?? null,
+  );
+
   /**
    * FIL DU MATCH ET INFOS REMPLACENT « RÉSUMÉ ».
    *
@@ -364,14 +411,25 @@ export default function PublicCompMatchView() {
    * Stats, Classement et H2H restent des onglets, affichés seulement quand
    * ils ont quelque chose à montrer.
    */
-  const ongletParDefaut: Onglet = isLive || hasStats ? "feed" : "infos";
+  //
+  // L'HOMME DU MATCH OUVRE AUSSI LE FIL. Il y vit seul désormais (voir plus
+  // bas) : un match sans console mais avec un homme du match désigné
+  // s'ouvrirait sinon sur Infos, et on ne le verrait pas.
+  //
+  // PAS DE FIL AVANT LE COUP D'ENVOI : il ne pouvait qu'annoncer qu'il
+  // s'ouvrirait plus tard.
+  //
+  // DES LIBELLÉS COURTS, pour que la rangée tienne sur un téléphone :
+  // « Fil du match » et « Composition » poussaient « Classement » hors de
+  // l'écran, coupé en « CLA ».
+  const ongletParDefaut: Onglet = isLive || hasStats || match.mvpPlayerName ? "feed" : "infos";
   const TABS = [
-    { id: "feed" as const, label: "Fil du match", on: true },
+    { id: "feed" as const, label: "Fil", on: deroule.commence || events.length > 0 },
     { id: "infos" as const, label: "Infos", on: true },
-    // Toujours present, meme sans compo : l'onglet montre alors le terrain
-    // et dit « Pas de compo ». Le faire disparaitre laissait croire que la
-    // fonction n'existe pas.
-    { id: "lineups" as const, label: "Composition", on: true },
+    // Toujours present, meme sans compo : l'onglet dit alors qu'elle est a
+    // venir. Le faire disparaitre laissait croire que la fonction n'existe
+    // pas.
+    { id: "lineups" as const, label: "Compo", on: true },
     { id: "stats" as const, label: "Stats", on: hasStats },
     { id: "standings" as const, label: "Classement", on: hasStandings },
     { id: "h2h" as const, label: "H2H", on: hasH2H },
@@ -381,6 +439,80 @@ export default function PublicCompMatchView() {
   // doit pas laisser la page sur un panneau muet.
   const activeTab: Onglet =
     choixOnglet && TABS.some((t) => t.id === choixOnglet) ? choixOnglet : ongletParDefaut;
+
+  /**
+   * LE FIL, ET L'HOMME DU MATCH EN TÊTE.
+   *
+   * Il était au-dessus de TOUS les onglets : sur téléphone, un quart d'écran
+   * répété avant la composition, les stats et le classement. C'est le
+   * dénouement du récit, il vit avec le récit.
+   *
+   * SUR GRAND ÉCRAN, UNE COLONNE À CÔTÉ : les stats et la poule, pour ne pas
+   * laisser un fil de deux événements seul au milieu d'un écran vide.
+   */
+  const colonne = grandEcran && (hasStats || !!poule);
+  const fil = (
+    <div className={colonne ? "grid grid-cols-[minmax(0,1fr)_340px] items-start gap-4" : "space-y-4"}>
+      <div className="min-w-0 space-y-4">
+        <MvpDuMatch
+          name={match.mvpPlayerName}
+          teamName={
+            match.mvpTeamId
+              ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
+              : null
+          }
+          photo={match.mvpUserId ? (photosParCompte[match.mvpUserId] ?? null) : null}
+          motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId]) : null}
+          note={noteDeLHomme}
+          href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
+        />
+        {/* Chaque evenement du cote de son acteur, les reperes communs au
+            centre. Voir MatchTimeline. */}
+        <div className="bg-white p-4 sm:p-5">
+          <MatchTimeline
+            events={events}
+            homeTeamId={match.homeTeamId}
+            deroule={deroule}
+            // Le message par défaut, « Le match n'a pas encore commencé »,
+            // s'affichait aussi sous un 3-0 joué la semaine d'avant.
+            vide={
+              match.status === "completed"
+                ? "Aucun fait de jeu enregistré sur ce match"
+                : isLive
+                  ? "En attente du premier fait de jeu"
+                  : "Le fil s'ouvre au coup d'envoi"
+            }
+          />
+        </div>
+      </div>
+      {colonne && (
+        <aside className="min-w-0 space-y-4">
+          {hasStats && (
+            <section className="bg-white p-4">
+              <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Stats</h2>
+              <MatchStats
+                lignes={statRows}
+                homeTeamName={match.homeTeamName}
+                awayTeamName={match.awayTeamName}
+                couleurs={couleursStats}
+                compact
+              />
+            </section>
+          )}
+          {poule && (
+            <section className="bg-white p-4">
+              <MatchStandings
+                groupe={poule}
+                homeTeamId={match.homeTeamId}
+                awayTeamId={match.awayTeamId}
+                compact
+              />
+            </section>
+          )}
+        </aside>
+      )}
+    </div>
+  );
 
   return (
     <div className="pb-20">
@@ -437,19 +569,6 @@ export default function PublicCompMatchView() {
 
       {/* Une colonne unique et centrée. */}
       <div className="mx-auto mt-4 max-w-4xl space-y-4">
-        {/* L'homme du match, en tête de la colonne : c'est la distinction du
-            match, elle se lit avant le détail de ce qui s'y est passé, et elle
-            reste affichée quel que soit l'onglet ouvert. Ne rend rien tant que
-            personne n'a été désigné. */}
-        <MvpDuMatch
-          name={match.mvpPlayerName}
-          teamName={
-            match.mvpTeamId
-              ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
-              : null
-          }
-        />
-
         {/* Infos : le pronostic d'abord — c'est l'onglet ouvert avant le coup
             d'envoi, il reste donc la première chose sous le tableau — puis la
             forme des deux équipes, puis la compétition et de quoi la suivre. */}
@@ -457,8 +576,14 @@ export default function PublicCompMatchView() {
           <>
             <PredictionPoll
               matchId={mid}
-              home={{ label: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo) }}
-              away={{ label: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo) }}
+              home={{
+                label: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo),
+                court: equipeDe(match.homeTeamId)?.shortName,
+              }}
+              away={{
+                label: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo),
+                court: equipeDe(match.awayTeamId)?.shortName,
+              }}
               // Le pronostic ferme des que le match n'est plus a venir.
               closed={match.status !== "scheduled"}
             />
@@ -485,7 +610,9 @@ export default function PublicCompMatchView() {
           </>
         )}
 
-        {activeTab !== "infos" && (
+        {activeTab === "feed" && fil}
+
+        {activeTab !== "infos" && activeTab !== "feed" && (
           <div className="bg-white p-4 sm:p-5">
             {/* Les compteurs. Le rendu est partagé avec la fiche d'un
                 amical et avec la console : voir MatchStats. */}
@@ -494,6 +621,7 @@ export default function PublicCompMatchView() {
                 lignes={statRows}
                 homeTeamName={match.homeTeamName}
                 awayTeamName={match.awayTeamName}
+                couleurs={couleursStats}
               />
             )}
 
@@ -510,6 +638,10 @@ export default function PublicCompMatchView() {
                   name: match.awayTeamName, entries: match.awayLineup, formation: match.awayFormation,
                   clubId: clubDuCamp(match.awayTeamId),
                 }}
+                photos={photosParLigne}
+                marques={marques}
+                homme={match.mvpPlayerId}
+                aVenir={!deroule.commence}
               />
             )}
 
@@ -588,24 +720,6 @@ export default function PublicCompMatchView() {
               </div>
             )}
 
-            {/* Le fil : chaque evenement du cote de son acteur, les reperes
-                communs au centre. Voir MatchTimeline. */}
-            {activeTab === "feed" && (
-              <MatchTimeline
-                events={events}
-                homeTeamId={match.homeTeamId}
-                deroule={deroule}
-                // Le message par défaut, « Le match n'a pas encore commencé »,
-                // s'affichait aussi sous un 3-0 joué la semaine d'avant.
-                vide={
-                  match.status === "completed"
-                    ? "Aucun fait de jeu enregistré sur ce match"
-                    : isLive
-                      ? "En attente du premier fait de jeu"
-                      : "Le fil s'ouvre au coup d'envoi"
-                }
-              />
-            )}
           </div>
         )}
       </div>

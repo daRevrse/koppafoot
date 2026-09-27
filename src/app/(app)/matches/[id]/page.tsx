@@ -32,6 +32,11 @@ import MatchTimeline from "@/components/match/MatchTimeline";
 import MatchStats from "@/components/match/MatchStats";
 import { aDesStats, lignesStats } from "@/lib/stats-match";
 import { buteursDuMatch, buteursRenseignes } from "@/lib/buteurs";
+import { notesDuCamp } from "@/lib/notes";
+import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
+import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
+import { couleursDesBarres } from "@/lib/couleurs-equipe";
+import { usePhotosDesComptes } from "@/hooks/usePhotosDesComptes";
 import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
@@ -289,7 +294,8 @@ export default function MatchDetailPage() {
     if (idEquipeFantome && teamId === idEquipeFantome) {
       return ghostIsHome ? match!.homeTeamName : match!.awayTeamName;
     }
-    return playerName || "Action";
+    // Rien plutôt que « Action » : le fil écrit alors l'action seule.
+    return playerName || "";
   };
 
   /** Les joueurs sans compte de MON camp, tels qu'enregistrés sur ce match. */
@@ -790,6 +796,29 @@ export default function MatchDetailPage() {
     }
   };
 
+  // Le visage de l'homme du match. Avant les retours anticipés : un hook ne
+  // se saute pas.
+  const photosParCompte = usePhotosDesComptes([match?.mvpUserId]);
+
+  /**
+   * LA COULEUR DES DEUX CLUBS, pour les barres de stats. Une équipe hors
+   * plateforme n'a pas de fiche : elle garde le gris d'avant.
+   */
+  const [couleursClubs, setCouleursClubs] = useState<{ home: string | null; away: string | null } | null>(null);
+  const idDomicile = match?.homeTeamId ?? null;
+  const idExterieur = match?.awayTeamId ?? null;
+  useEffect(() => {
+    if (!idDomicile && !idExterieur) return;
+    let vivant = true;
+    Promise.all([
+      idDomicile ? getTeamById(idDomicile).catch(() => null) : null,
+      idExterieur ? getTeamById(idExterieur).catch(() => null) : null,
+    ]).then(([h, a]) => {
+      if (vivant) setCouleursClubs({ home: h?.color ?? null, away: a?.color ?? null });
+    });
+    return () => { vivant = false; };
+  }, [idDomicile, idExterieur]);
+
   if (loading) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
@@ -826,7 +855,25 @@ export default function MatchDetailPage() {
 
   // L'onglet ouvert suit le match tant qu'on n'en a choisi aucun : Infos avant
   // le coup d'envoi, le fil dès qu'il y a un fil. Voir la fiche compétition.
-  const ongletDemande = choixOnglet ?? (isLive || match.status === "completed" ? "feed" : "infos");
+  const ongletDemande = choixOnglet ?? (isLive || match.status === "completed" || match.mvpPlayerName ? "feed" : "infos");
+
+  // Ce que le match a fait de chacun : le terrain et l'homme du match le
+  // portent. Voir lib/recit-du-match.
+  const marques = marquesDesJoueurs(faitsDuMatch);
+
+  /**
+   * La note de l'homme du match, celle que la console lui a vue (voir
+   * lib/notes). Un amical ne stocke pas sa durée : la mi-temps réglementaire
+   * fait foi, comme pour le classement de la plateforme.
+   */
+  const noteDeLHomme = (() => {
+    if (!match.mvpPlayerId || !match.mvpTeamId) return null;
+    const feuille = match.mvpTeamId === match.homeTeamId
+      ? compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup)
+      : compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup);
+    const n = notesDuCamp(match, feuille, faitsDuMatch, match.mvpTeamId, DUREE_MATCH_DEFAUT).get(match.mvpPlayerId);
+    return n ? { valeur: n.note, faits: n.faits } : null;
+  })();
   // Stats a disparu (aucun fait saisi) alors qu'il était ouvert : on ne
   // laisse pas la page sur un panneau muet.
   const activeTab = ongletDemande === "stats" && !hasStats ? "feed" : ongletDemande;
@@ -927,14 +974,15 @@ export default function MatchDetailPage() {
         active={activeTab}
         onChange={(id) => setChoixOnglet(id as typeof activeTab)}
         tabs={[
-          { id: "feed", label: "Fil du match" },
+          // Des libellés courts : la rangée doit tenir sur un téléphone.
+          { id: "feed", label: "Fil" },
           { id: "infos", label: "Infos" },
           // Absent tant que rien n'a été saisi : un onglet qui n'affiche que
           // « Buts 0 – 0 » promet une lecture qu'il n'a pas.
           ...(hasStats ? [{ id: "stats", label: "Stats" }] : []),
           {
             id: "squad",
-            label: "Composition",
+            label: "Compo",
             badge: isManager ? (() => {
               // isMyTeamReady, et non un recalcul : voir le commentaire du second
               // bloc, plus bas dans cet onglet.
@@ -955,19 +1003,6 @@ export default function MatchDetailPage() {
           match, qui vivent maintenant dans le hero : garder la gouttiere de
           320px aurait ete garder une colonne pour rien. */}
       <div className="mx-auto mt-4 max-w-4xl space-y-4">
-
-      {/* L'homme du match, en tete de la colonne : c'est la distinction du
-          match, elle se lit avant le detail de ce qui s'y est passe, et elle
-          reste affichee quel que soit l'onglet ouvert. Ne rend rien tant que
-          personne n'a ete designe. */}
-      <MvpDuMatch
-        name={match.mvpPlayerName}
-        teamName={
-          match.mvpTeamId
-            ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
-            : null
-        }
-      />
 
       {/* Tab Content */}
       <div className="min-h-[400px]">
@@ -1023,6 +1058,23 @@ export default function MatchDetailPage() {
               exit={{ opacity: 0, x: 10 }}
               className="space-y-4"
             >
+              {/* L'homme du match, en tête du fil : c'est le dénouement du
+                  récit. Il était au-dessus de TOUS les onglets, un quart
+                  d'écran répété avant la composition et les stats. Ne rend
+                  rien tant que personne n'a été désigné. */}
+              <MvpDuMatch
+                name={match.mvpPlayerName}
+                teamName={
+                  match.mvpTeamId
+                    ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
+                    : null
+                }
+                photo={match.mvpUserId ? (photosParCompte[match.mvpUserId] ?? null) : null}
+                motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId]) : null}
+                note={noteDeLHomme}
+                href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
+              />
+
               {/* LE STATUT DE VALIDATION, POUR LES MANAGERS ET LEUR STAFF.
                   Il était sur le tableau d'affichage, à la vue de tous, et un
                   bandeau vert annonçait « validé par les deux managers » à
@@ -1292,6 +1344,7 @@ export default function MatchDetailPage() {
                   lignes={statRows}
                   homeTeamName={match.homeTeamName}
                   awayTeamName={match.awayTeamName}
+                  couleurs={couleursClubs ? couleursDesBarres(couleursClubs.home, couleursClubs.away) : null}
                 />
               </div>
             </motion.div>
@@ -1315,6 +1368,9 @@ export default function MatchDetailPage() {
                   home={{ name: match.homeTeamName, entries: compoDuCamp(match.homeTeamId, match.homeLineup, match.homeGhostLineup), formation: match.homeFormation, clubId: match.homeTeamId }}
                   away={{ name: match.awayTeamName, entries: compoDuCamp(match.awayTeamId, match.awayLineup, match.awayGhostLineup), formation: match.awayFormation, clubId: match.awayTeamId }}
                   photos={photosDeLEffectif}
+                  marques={marques}
+                  homme={match.mvpPlayerId}
+                  aVenir={match.status !== "live" && match.status !== "completed"}
                 />
               </div>
 

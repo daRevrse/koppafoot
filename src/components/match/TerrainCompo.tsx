@@ -5,6 +5,7 @@ import {
   disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS, type Emplacement, type PlaceTerrain,
 } from "@/lib/terrain";
 import { versFormation } from "@/lib/formations";
+import type { MarquesJoueur } from "@/lib/recit-du-match";
 import type { LineupEntry } from "@/types";
 
 // ============================================
@@ -129,12 +130,135 @@ function largeurEtiquette(texte: string, taillePolice: number): number {
   return texte.length * taillePolice * 0.54 + taillePolice * 1.1;
 }
 
+/** Les points d'un pentagone, centré sur (cx, cy) : le motif d'un ballon. */
+function pentagone(cx: number, cy: number, rayon: number): string {
+  return Array.from({ length: 5 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+    return `${(cx + rayon * Math.cos(a)).toFixed(2)},${(cy + rayon * Math.sin(a)).toFixed(2)}`;
+  }).join(" ");
+}
+
+/** Les points d'une étoile à cinq branches, centrée sur (cx, cy). */
+function etoile(cx: number, cy: number, rayon: number): string {
+  return Array.from({ length: 10 }, (_, i) => {
+    const r = i % 2 === 0 ? rayon : rayon * 0.42;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    return `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
+  }).join(" ");
+}
+
+/**
+ * CE QUE LE MATCH A FAIT DU JOUEUR, AUTOUR DE SA PASTILLE.
+ *
+ * La composition se lisait pareil avant et après le match. Quatre marques,
+ * chacune à sa place autour du disque pour qu'aucune n'en cache une autre :
+ * ses buts en haut à droite (le nombre dans le ballon quand il y en a
+ * plusieurs), son carton en haut à gauche, sa sortie en bas à droite avec la
+ * minute, l'homme du match en bas à gauche. Le nom, dessous, reste libre.
+ *
+ * Un `<title>` par marque : l'infobulle sur ordinateur, et ce que lit un
+ * lecteur d'écran.
+ */
+function Marques({ x, y, r, m, homme }: {
+  x: number; y: number; r: number;
+  m: MarquesJoueur | undefined;
+  homme: boolean;
+}) {
+  if (!m && !homme) return null;
+  const d = r * 0.78;
+  const b = Math.max(1.7, r * 0.46);
+  const buts = m?.buts ?? 0;
+  const csc = m?.csc ?? 0;
+  const sortie = m?.sortieA ?? null;
+  return (
+    <g pointerEvents="none">
+      {(buts > 0 || csc > 0) && (
+        <g>
+          <title>
+            {[
+              buts > 0 ? `${buts} but${buts > 1 ? "s" : ""}` : null,
+              csc > 0 ? `${csc} contre son camp` : null,
+            ].filter(Boolean).join(", ")}
+          </title>
+          <circle
+            cx={x + d} cy={y - d} r={b}
+            fill={buts > 0 ? "#ffffff" : "#fee2e2"}
+            stroke={buts > 0 ? "#111827" : "#dc2626"}
+            strokeWidth="0.35"
+          />
+          {buts + csc > 1 ? (
+            <text
+              x={x + d} y={y - d + b * 0.42}
+              textAnchor="middle" className="font-black"
+              style={{ fontSize: `${(b * 1.2).toFixed(2)}px` }}
+              fill={buts > 0 ? "#111827" : "#dc2626"}
+            >
+              {buts + csc}
+            </text>
+          ) : (
+            <polygon points={pentagone(x + d, y - d, b * 0.5)} fill={buts > 0 ? "#111827" : "#dc2626"} />
+          )}
+        </g>
+      )}
+
+      {m && (m.rouge || m.jaunes > 0) && (
+        <g>
+          <title>{m.rouge ? (m.jaunes >= 2 ? "Expulsé, second jaune" : "Carton rouge") : "Carton jaune"}</title>
+          {m.rouge && m.jaunes >= 2 && (
+            <rect
+              x={x - d - b * 0.55 - 0.5} y={y - d - b * 0.8 - 0.4}
+              width={b * 1.1} height={b * 1.6} rx="0.25"
+              fill="#facc15" stroke="#00000040" strokeWidth="0.2"
+            />
+          )}
+          <rect
+            x={x - d - b * 0.55} y={y - d - b * 0.8}
+            width={b * 1.1} height={b * 1.6} rx="0.25"
+            fill={m.rouge ? "#ef4444" : "#facc15"} stroke="#00000040" strokeWidth="0.2"
+          />
+        </g>
+      )}
+
+      {sortie !== null && (
+        <g>
+          <title>{sortie > 0 ? `Sorti à la ${sortie}e minute` : "Sorti en cours de match"}</title>
+          <circle cx={x + d} cy={y + r * 0.55} r={b} fill="#dc2626" />
+          <path
+            d={`M ${x + d} ${y + r * 0.55 + b * 0.62} l ${-b * 0.55} ${-b * 0.62} h ${b * 0.34} v ${-b * 0.5} h ${b * 0.42} v ${b * 0.5} h ${b * 0.34} z`}
+            fill="#ffffff"
+          />
+          {sortie > 0 && (
+            <text
+              x={x + d + b + 0.5} y={y + r * 0.55 + b * 0.45}
+              className="font-black"
+              style={{ fontSize: `${(b * 1.25).toFixed(2)}px`, paintOrder: "stroke" }}
+              fill="#ffffff" stroke="#0f2a1d" strokeWidth="0.45"
+            >
+              {sortie}&apos;
+            </text>
+          )}
+        </g>
+      )}
+
+      {homme && (
+        <g>
+          <title>Homme du match</title>
+          <circle cx={x - d} cy={y + r * 0.55} r={b} fill="#f59e0b" stroke="#ffffff" strokeWidth="0.3" />
+          <polygon points={etoile(x - d, y + r * 0.55, b * 0.68)} fill="#ffffff" />
+        </g>
+      )}
+    </g>
+  );
+}
+
 export default function TerrainCompo({
   titulaires,
   taille,
   formation,
   variante = "clair",
   photos,
+  marques,
+  homme,
   onPlaceClick,
   onDeplacer,
 }: {
@@ -152,6 +276,14 @@ export default function TerrainCompo({
    * la place du numéro quand il existe, jamais l'inverse.
    */
   photos?: Record<string, string | null | undefined>;
+  /**
+   * Ce que le match a fait de chaque joueur, par identifiant de ligne de
+   * feuille (voir lib/recit-du-match). Absent : une composition d'avant-match,
+   * ou l'éditeur.
+   */
+  marques?: Record<string, MarquesJoueur>;
+  /** L'identifiant de ligne de l'homme du match. */
+  homme?: string | null;
   /**
    * Rend les emplacements CLIQUABLES, et fait de ce terrain un éditeur.
    *
@@ -435,6 +567,14 @@ export default function TerrainCompo({
               {nom}
             </text>
           </>
+        )}
+
+        {joueur && mode === "normal" && (
+          <Marques
+            x={place.x} y={place.y} r={rr}
+            m={marques?.[joueur.playerId]}
+            homme={!!homme && homme === joueur.playerId}
+          />
         )}
       </g>
     );

@@ -1,11 +1,12 @@
 "use client";
 
-import { Goal, ArrowRightLeft, Flag, Hand, AlertTriangle, Target } from "lucide-react";
+import { Goal, ArrowDown, ArrowRightLeft, ArrowUp, Flag, Hand, AlertTriangle, Target } from "lucide-react";
 import { OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
 import {
   PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY, estStatistique, issuePenalty,
   penaltyDitParSonBut,
 } from "@/lib/evenements";
+import { joueursDuRemplacement } from "@/lib/recit-du-match";
 import type { Match } from "@/types";
 
 // ============================================
@@ -110,7 +111,19 @@ function Marqueur({ e, annule }: { e: Evt; annule: boolean }) {
   return null;
 }
 
-/** Un événement rangé dans son camp. `droite` inverse l'ordre et l'alignement. */
+/**
+ * Un événement rangé dans son camp. `droite` inverse l'ordre et l'alignement.
+ *
+ * LE JOUEUR D'ABORD, L'ACTION ENSUITE. La ligne ouvrait sur « BUT » en noir
+ * et en capitales, le nom du buteur dessous en gris : on lisait deux fois le
+ * ballon, et on cherchait qui. L'icône dit déjà l'action ; le nom prend la
+ * place forte, l'action passe en petit dessous, avec ce qui la complète — le
+ * passeur d'un but.
+ *
+ * UN REMPLACEMENT SUR DEUX LIGNES, l'entrant puis le sortant. Il tenait en
+ * une, « Sortant → Entrant », coupée à la largeur d'un camp : sur téléphone,
+ * on lisait « Mawuena Dossou → … », et celui qui entrait disparaissait.
+ */
 function Ligne({ e, droite, auteur, action }: {
   e: Evt; droite: boolean;
   auteur?: (e: Evt) => string;
@@ -127,26 +140,67 @@ function Ligne({ e, droite, auteur, action }: {
   // Accordé, et personne n'a encore dit ce qu'il en était. C'est l'état dans
   // lequel le tireur pose le ballon, et il dure le temps qu'il faut.
   const attente = e.type === "penalty" && !issue;
-  const detail = auteur
-    ? auteur(e)
-    : e.type === "substitution" && e.detail ? e.detail : e.playerName || "";
+  const nom = (auteur ? auteur(e) : e.playerName ?? "").trim();
+  // La page qui nomme l'auteur à la place de la donnée (une équipe hors
+  // plateforme, dont les « Joueur 9 » ne nomment personne) a le dernier mot,
+  // remplacements compris.
+  const nomSurcharge = !!auteur && nom !== (e.playerName ?? "").trim();
+  const remplacement = e.type === "substitution" && !nomSurcharge ? joueursDuRemplacement(e) : null;
+  const passeur = e.type === "goal" && e.detail !== OWN_GOAL_DETAIL ? e.assistPlayerName?.trim() : null;
   const commande = action?.(e);
+  const cote = droite ? "text-left" : "text-right";
+  const rangee = droite ? "flex-row" : "flex-row-reverse";
 
   return (
-    <div className={`flex min-w-0 items-start gap-1.5 ${droite ? "flex-row" : "flex-row-reverse"}`}>
-      <Marqueur e={e} annule={annule} />
-      <div className={`min-w-0 ${droite ? "text-left" : "text-right"}`}>
-        <p
-          className={`truncate text-[11px] font-black uppercase tracking-wide ${
-            annule ? "text-gray-400 line-through" : "text-gray-900"
-          }`}
-        >
-          {libelle(e)}
-        </p>
-        {detail && <p className="truncate text-[11px] font-bold text-gray-500">{detail}</p>}
+    <div className={`flex min-w-0 items-start gap-1.5 ${rangee}`}>
+      <span className="mt-0.5 flex h-4 shrink-0 items-center">
+        <Marqueur e={e} annule={annule} />
+      </span>
+      <div className={`min-w-0 ${cote}`}>
+        {remplacement ? (
+          <>
+            <p className="sr-only">Changement :</p>
+            {remplacement.entre && (
+              <p className={`flex items-center gap-1 text-[13px] font-black leading-tight text-gray-900 ${rangee}`}>
+                <ArrowUp size={11} strokeWidth={3} aria-label="Entre" className="shrink-0 text-emerald-600" />
+                <span className="min-w-0 break-words">{remplacement.entre}</span>
+              </p>
+            )}
+            {remplacement.sort && (
+              <p className={`mt-0.5 flex items-center gap-1 text-[11px] font-bold leading-tight text-gray-500 ${rangee}`}>
+                <ArrowDown size={11} strokeWidth={3} aria-label="Sort" className="shrink-0 text-red-500" />
+                <span className="min-w-0 break-words">{remplacement.sort}</span>
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            {nom && (
+              <p
+                className={`break-words text-[13px] font-black leading-tight ${
+                  annule ? "text-gray-400 line-through" : "text-gray-900"
+                }`}
+              >
+                {nom}
+              </p>
+            )}
+            <p
+              className={`${nom ? "mt-0.5" : ""} text-[10px] font-black uppercase leading-tight tracking-wide ${
+                annule ? "text-gray-400 line-through" : "text-gray-500"
+              }`}
+            >
+              {libelle(e)}
+            </p>
+            {passeur && (
+              <p className="mt-0.5 break-words text-[11px] font-semibold leading-tight text-gray-500">
+                passe de {passeur}
+              </p>
+            )}
+          </>
+        )}
         {(enCours || annule || attente) && (
           <span
-            className={`mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+            className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
               annule ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
             }`}
           >
