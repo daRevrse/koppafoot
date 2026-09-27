@@ -8,6 +8,7 @@ import {
   getDocs,
   documentId,
   getDoc,
+  getDocFromCache,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -19,6 +20,7 @@ import {
   increment,
   writeBatch,
   runTransaction,
+  waitForPendingWrites,
   type Transaction,
   type Unsubscribe,
   type QueryConstraint,
@@ -48,7 +50,8 @@ import type {
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
-import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
+import { nouvelIdEvenement, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
+import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
 import { lireEmplacement, type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
@@ -2842,6 +2845,8 @@ export async function setMatchOnPitch(
 export async function addMatchLiveEvent(
   matchId: string,
   event: {
+    /** Voir `addCompEvent` : l'identifiant choisi par la console. */
+    id?: string;
     type: TypeEvenement;
     side: "home" | "away";
     team_id: string;
@@ -2857,7 +2862,7 @@ export async function addMatchLiveEvent(
     out_player_name?: string | null;
   },
 ): Promise<string> {
-  const id = Math.random().toString(36).substring(2, 11);
+  const id = event.id ?? nouvelIdEvenement();
   const nouveau = {
     id,
     type: event.type,
@@ -2884,6 +2889,36 @@ export async function addMatchLiveEvent(
 
   await updateDoc(doc(db, "matches", matchId), updates);
   return id;
+}
+
+/**
+ * Attendre que toutes les écritures de l'appareil aient atteint le serveur.
+ *
+ * Avant de rejouer une retouche (voir lib/retouches-en-attente) : son
+ * événement est peut-être encore dans la file de Firestore, et la transaction
+ * qui le cherche sur le serveur ne l'y trouverait pas.
+ */
+export function ecrituresEnvoyees(): Promise<void> {
+  return waitForPendingWrites(db);
+}
+
+/** Retirer des événements d'un amical. Voir `retirerCompEvenements`. */
+export async function retirerEvenementsAmical(matchId: string, plan: PlanDeRetrait): Promise<void> {
+  const ref = doc(db, "matches", matchId);
+  const snap = await getDocFromCache(ref).catch(() => getDoc(ref));
+  const d = snap.data() as FirestoreMatch | undefined;
+  const bruts = (d?.live_state?.events ?? []).filter((e) => plan.ids.includes(e.id));
+  if (bruts.length === 0) return;
+
+  const updates: Record<string, unknown> = {
+    "live_state.events": arrayRemove(...bruts),
+    updated_at: serverTimestamp(),
+  };
+  if (plan.score.home) updates.score_home = increment(plan.score.home);
+  if (plan.score.away) updates.score_away = increment(plan.score.away);
+  if (plan.surLeTerrain.home) updates.home_on_pitch = plan.surLeTerrain.home;
+  if (plan.surLeTerrain.away) updates.away_on_pitch = plan.surLeTerrain.away;
+  await updateDoc(ref, updates);
 }
 
 /** Le passeur d'un but deja pose. Voir `setCompGoalAssist` pour le pourquoi. */

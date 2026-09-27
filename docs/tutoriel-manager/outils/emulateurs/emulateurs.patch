@@ -15,13 +15,17 @@ diff --git a/src/lib/firebase.ts b/src/lib/firebase.ts
 index efb4b0f..581ad5f 100644
 --- a/src/lib/firebase.ts
 +++ b/src/lib/firebase.ts
-@@ -1,7 +1,7 @@
+@@ -1,9 +1,9 @@
  import { initializeApp, getApps } from "firebase/app";
 -import { getAuth } from "firebase/auth";
--import { getFirestore } from "firebase/firestore";
+-import {
+-  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+-} from "firebase/firestore";
 -import { getStorage } from "firebase/storage";
 +import { getAuth, connectAuthEmulator } from "firebase/auth";
-+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
++import {
++  getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
++} from "firebase/firestore";
 +import { getStorage, connectStorageEmulator } from "firebase/storage";
  import { getMessaging, type Messaging } from "firebase/messaging";
  

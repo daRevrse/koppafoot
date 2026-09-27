@@ -243,3 +243,14 @@ export function penaltyDitParSonBut(e: { type: TypeEvenement; detail?: string | 
  * un but. Il ne change que la facon dont le fil le nomme.
  */
 export const PENALTY_GOAL_DETAIL = "pen";
+
+/**
+ * L'identifiant d'un événement de match, tiré côté client.
+ *
+ * La console le choisit elle-même avant d'écrire : elle peut ainsi raccrocher
+ * un passeur ou proposer « Annuler » sans attendre l'accusé du serveur, qui
+ * n'arrive pas quand le réseau manque.
+ */
+export function nouvelIdEvenement(): string {
+  return Math.random().toString(36).substring(2, 11);
+}

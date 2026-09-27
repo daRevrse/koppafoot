@@ -8,7 +8,7 @@ import {
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
   MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, Target,
-  ClipboardList,
+  ClipboardList, Trash2, WifiOff, CloudUpload,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -21,7 +21,7 @@ import { gardienDe } from "@/lib/terrain";
 import {
   EMOJI_EVENEMENT, EVENEMENTS_EQUIPE, ISSUES_PENALTY, LIBELLE_EVENEMENT,
   LIBELLE_ISSUE_PENALTY, PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY,
-  demandeUneVictime, estStatistique, issuePenalty, penaltyDitParSonBut,
+  demandeUneVictime, estStatistique, issuePenalty, nouvelIdEvenement, penaltyDitParSonBut,
   penaltyEnAttente, type IssuePenalty, type TypeEvenementEquipe,
   type TypeEvenementJoueur,
 } from "@/lib/evenements";
@@ -31,8 +31,16 @@ import {
 } from "@/lib/possession";
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { lignesStats } from "@/lib/stats-match";
+import { DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
+import {
+  ajouterRetouche, appliquerRetouches, estHorsLigne, lireFile, sansLesEvenements,
+  type Retouche,
+} from "@/lib/retouches-en-attente";
+import { useEnLigne } from "@/hooks/useEnLigne";
+import { useMedia } from "@/hooks/useMedia";
 import MatchStats from "@/components/match/MatchStats";
 import TerrainsFaceAFace, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
+import { nomCourt } from "@/components/match/TerrainCompo";
 import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 
@@ -166,6 +174,74 @@ function BandeauEquipe({
 // Component
 // ============================================
 
+/**
+ * LA BANDE DU HAUT, et ce qu'elle a à dire.
+ *
+ * Elle portait en permanence « Ne quitte pas cette page avant le coup de
+ * sifflet final » — une consigne qu'on lit une fois, affichée tout le match
+ * dans la hauteur la plus rare de la console couchée. Elle sert maintenant à
+ * ce qui change pendant le match, et se tait le reste du temps :
+ *
+ *   hors ligne     → combien de saisies attendent, et qu'elles partiront ;
+ *   envoi qui traîne → le réseau passe mal, les saisies partent quand même ;
+ *   à l'ouverture  → la consigne, le temps de la lire.
+ */
+function BandeauDEtat({
+  enLigne, enAttente, consigne,
+}: {
+  enLigne: boolean;
+  /** Écritures parties et pas encore confirmées, plus retouches en file. */
+  enAttente: number;
+  consigne: boolean;
+}) {
+  // « Qui traîne » : au-delà de deux secondes et demie. En deçà, c'est un
+  // aller-retour ordinaire, et l'annoncer ferait clignoter la bande à chaque
+  // saisie.
+  const occupe = enAttente > 0;
+  const [lent, setLent] = useState(false);
+  useEffect(() => {
+    if (!occupe) return;
+    const t = setTimeout(() => setLent(true), 2500);
+    return () => {
+      clearTimeout(t);
+      setLent(false);
+    };
+  }, [occupe]);
+
+  const saisies = `${enAttente} saisie${enAttente > 1 ? "s" : ""}`;
+  if (!enLigne) {
+    return (
+      <div role="status" className="flex shrink-0 items-center gap-1.5 bg-amber-500 px-2 py-px text-gray-950">
+        <WifiOff size={11} className="shrink-0" />
+        <p className="truncate text-[10px] font-black uppercase tracking-wide">
+          Hors ligne{enAttente > 0 ? ` · ${saisies} en attente` : ""} · continue, tout partira au retour du réseau
+        </p>
+      </div>
+    );
+  }
+  if (occupe && lent) {
+    return (
+      <div role="status" className="flex shrink-0 items-center gap-1.5 bg-white/10 px-2 py-px text-white/80">
+        <CloudUpload size={11} className="shrink-0 animate-pulse" />
+        <p className="truncate text-[10px] font-black uppercase tracking-wide">
+          Réseau lent · envoi de {saisies}
+        </p>
+      </div>
+    );
+  }
+  if (consigne) {
+    return (
+      <div className="flex shrink-0 items-center gap-1.5 bg-amber-500 px-2 py-px text-white">
+        <Shield size={10} className="shrink-0" />
+        <p className="truncate text-[10px] font-black uppercase tracking-wide">
+          Ne quitte pas cette page avant le coup de sifflet final
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function LiveMatchConsole({
   pilote, returnHref,
 }: {
@@ -183,7 +259,94 @@ export default function LiveMatchConsole({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [competition, setCompetition] = useState<Competition | null>(null);
-  const [match, setMatch] = useState<CompMatch | null>(null);
+  const [matchBrut, setMatch] = useState<CompMatch | null>(null);
+
+  /**
+   * LES RETOUCHES QUI ATTENDENT LE RÉSEAU : le passeur d'un but, la victime
+   * d'une faute, l'issue d'un penalty. Elles s'écrivent par transaction, et
+   * une transaction ne part pas hors ligne. On les garde donc ici — et sur
+   * l'appareil, pour qu'un rechargement ne les perde pas —, et on les rejoue
+   * quand le réseau revient. Voir lib/retouches-en-attente.
+   *
+   * Tenues par une référence ET un état : la référence pour les gestes lancés
+   * depuis un message (« Annuler »), qui voient la file du moment où ils sont
+   * lus, l'état pour le rendu.
+   */
+  const [retouches, setRetouches] = useState<Retouche[]>([]);
+  const retouchesRef = useRef<Retouche[]>([]);
+  const cleRetouches = matchBrut ? `koppafoot:console-retouches:${matchBrut.competitionId}:${matchBrut.id}` : null;
+  const majRetouches = useCallback((changer: (f: Retouche[]) => Retouche[]) => {
+    const suivante = changer(retouchesRef.current);
+    retouchesRef.current = suivante;
+    setRetouches(suivante);
+    if (!cleRetouches) return;
+    try {
+      if (suivante.length > 0) localStorage.setItem(cleRetouches, JSON.stringify(suivante));
+      else localStorage.removeItem(cleRetouches);
+    } catch {
+      // Stockage refusé (navigation privée) : la file tient jusqu'au rechargement.
+    }
+  }, [cleRetouches]);
+  useEffect(() => {
+    if (!cleRetouches) return;
+    let relue: Retouche[] = [];
+    try {
+      relue = lireFile(localStorage.getItem(cleRetouches));
+    } catch {
+      // Voir plus haut.
+    }
+    retouchesRef.current = relue;
+    setRetouches(relue);
+  }, [cleRetouches]);
+
+  /**
+   * LE MATCH TEL QU'IL SERA, retouches en attente appliquées. C'est lui que
+   * toute la console lit : le scoreur voit son passeur tout de suite, pas au
+   * retour du réseau.
+   */
+  const match = useMemo<CompMatch | null>(() => {
+    if (!matchBrut?.liveState || retouches.length === 0) return matchBrut;
+    return {
+      ...matchBrut,
+      liveState: { ...matchBrut.liveState, events: appliquerRetouches(matchBrut.liveState.events, retouches) },
+    };
+  }, [matchBrut, retouches]);
+  /** Le match du dernier rendu, pour les gestes lancés depuis un message. */
+  const matchRef = useRef<CompMatch | null>(null);
+  useEffect(() => {
+    matchRef.current = match;
+  }, [match]);
+
+  /**
+   * LES ÉCRITURES EN VOL. La console n'attend plus l'accusé du serveur pour
+   * rendre la main : c'est ce qui la figeait dès que le réseau tombait — dix-
+   * huit boutons grisés, sans un mot. Firestore garde l'écriture dans sa file
+   * et l'envoie au retour du réseau ; la console, elle, compte ce qui n'est
+   * pas encore parti, pour le dire.
+   */
+  const enLigne = useEnLigne();
+  /** La consigne « ne quitte pas » : le temps de la lire, à l'ouverture. */
+  const [consigneVisible, setConsigneVisible] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setConsigneVisible(false), 20_000);
+    return () => clearTimeout(t);
+  }, []);
+  /**
+   * UN GRAND ÉCRAN GARDE L'HISTORIQUE OUVERT, sous les terrains. Sur un
+   * ordinateur, la console laissait deux bandes vides au-dessus et en dessous
+   * des terrains, pendant qu'il fallait ouvrir un tiroir pour relire le match.
+   */
+  const panneauFixe = useMedia("(min-width: 1024px) and (min-height: 720px)");
+  const [enVol, setEnVol] = useState(0);
+  const suivre = useCallback((ecriture: Promise<unknown>, echec: string) => {
+    setEnVol((n) => n + 1);
+    ecriture
+      .catch((err) => {
+        console.error(echec, err);
+        toast.error(echec);
+      })
+      .finally(() => setEnVol((n) => Math.max(0, n - 1)));
+  }, []);
   const [loading, setLoading] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -461,14 +624,12 @@ export default function LiveMatchConsole({
     }
   }, [match?.status]);
 
-  const handlePauseTimer = useCallback(async () => {
-    try {
-      await pilote.pauserChrono(displayTime);
-      toast.success("Chronomètre arrêté");
-    } catch {
-      toast.error("Erreur technique");
-    }
-  }, [pilote, displayTime]);
+  // L'horloge part dans la file de Firestore comme le reste : sans réseau, elle
+  // s'arrête et repart quand même à l'écran. Voir `suivre`.
+  const handlePauseTimer = useCallback(() => {
+    suivre(pilote.pauserChrono(displayTime), "Le chronomètre n'a pas été arrêté");
+    toast.success("Chronomètre arrêté");
+  }, [pilote, displayTime, suivre]);
 
   // ---- Le temps additionnel, et la fin de la periode ------------------------
   //
@@ -513,15 +674,11 @@ export default function LiveMatchConsole({
    * Borne a zero et a quinze : au-dela ce n'est plus un temps additionnel mais
    * une faute de frappe, et l'horloge s'arreterait un quart d'heure trop tard.
    */
-  const poserAdditionnel = async (delta: number) => {
+  const poserAdditionnel = (delta: number) => {
     if (!mitempsEnCours) return;
     const suivant = Math.min(15, Math.max(0, minutesDeLaPeriode + delta));
     if (suivant === minutesDeLaPeriode) return;
-    try {
-      await pilote.poserTempsAdditionnel(mitempsEnCours, suivant);
-    } catch {
-      toast.error("Erreur technique");
-    }
+    suivre(pilote.poserTempsAdditionnel(mitempsEnCours, suivant), "Le temps additionnel n'a pas été enregistré");
   };
 
   // Timer logic, copied verbatim from the referee console. The live_state
@@ -580,13 +737,9 @@ export default function LiveMatchConsole({
     };
   }, [match?.liveState, match?.status, cibleDeLaPeriode, mitempsEnCours, pilote]);
 
-  const handleStartTimer = async () => {
-    try {
-      await pilote.demarrerChrono();
-      toast.success("Chronomètre lancé");
-    } catch {
-      toast.error("Erreur technique");
-    }
+  const handleStartTimer = () => {
+    suivre(pilote.demarrerChrono(), "Le chronomètre n'a pas été lancé");
+    toast.success("Chronomètre lancé");
   };
 
   // ---- La possession de balle ------------------------------------------------
@@ -704,10 +857,13 @@ export default function LiveMatchConsole({
 
   // Period 1 → half-time: snap the clock to the end of the first half, stop,
   // move to break (period 2).
-  const handleHalfTime = async () => {
-    try {
-      await pilote.pauserChrono(halfMs);
-      await pilote.changerPeriode(2);
+  // LES DEUX ÉCRITURES PARTENT ENSEMBLE, sans s'attendre : Firestore garde
+  // leur ordre. L'une après l'autre, la seconde ne partait qu'à l'accusé de la
+  // première — sans réseau, jamais : le chrono s'arrêtait, la mi-temps restait.
+  const handleHalfTime = () => {
+    suivre(pilote.pauserChrono(halfMs), "Le chronomètre n'a pas été arrêté");
+    suivre(pilote.changerPeriode(2), "La mi-temps n'a pas été enregistrée");
+    {
       if (match) {
         pilote.notifier(
           { title: "⏸️ Mi-temps", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}` },
@@ -715,17 +871,15 @@ export default function LiveMatchConsole({
         );
       }
       toast.success("Mi-temps");
-    } catch {
-      toast.error("Erreur technique");
     }
   };
 
   // Period 2 (break) → resume where the first half stopped, move to second
   // half (period 3).
-  const handleResume = async () => {
-    try {
-      await pilote.demarrerChrono();
-      await pilote.changerPeriode(3);
+  const handleResume = () => {
+    suivre(pilote.demarrerChrono(), "Le chronomètre n'a pas été relancé");
+    suivre(pilote.changerPeriode(3), "La reprise n'a pas été enregistrée");
+    {
       if (match) {
         pilote.notifier(
           { title: "▶️ Reprise du match", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps` },
@@ -733,8 +887,6 @@ export default function LiveMatchConsole({
         );
       }
       toast.success("Reprise du jeu");
-    } catch {
-      toast.error("Erreur technique");
     }
   };
 
@@ -827,10 +979,23 @@ export default function LiveMatchConsole({
     }
   };
 
-  // Organizer quit during live: navigate back.
-  const handleQuit = useCallback(() => {
-    router.push(returnHref);
-  }, [router, returnHref]);
+  // Organizer quit during live: navigate back — after saying what it means.
+  // Rien ne se perd (le match vit en base, le chrono continue), mais plus
+  // personne ne saisit : c'était la raison du bandeau permanent.
+  const handleQuit = useCallback(async () => {
+    const ok = await demander({
+      titre: "Quitter la console ?",
+      corps: (
+        <>
+          Le match continue et le chrono tourne, mais plus rien ne sera saisi tant
+          que personne ne reviendra sur cette page.
+        </>
+      ),
+      action: "Quitter",
+      danger: true,
+    });
+    if (ok) router.push(returnHref);
+  }, [demander, router, returnHref]);
 
   // ----- VAR: review a goal already on the board -----
   //
@@ -856,6 +1021,12 @@ export default function LiveMatchConsole({
 
   const handleVarVerdict = async (event: LiveEvent, status: GoalVarStatus) => {
     if (!match) return;
+    // Une décision de VAR se prend sur l'état du serveur (voir
+    // `setCompGoalVarStatus`) : sans réseau, elle ne peut pas partir.
+    if (!enLigne) {
+      toast.error("La VAR demande le réseau : attends son retour.");
+      return;
+    }
     const teamName = event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName;
     const who = event.playerName ? `${event.playerName} (${teamName})` : teamName;
 
@@ -891,6 +1062,156 @@ export default function LiveMatchConsole({
 
   // ----- La saisie, joueur par joueur -----
 
+  // ----- Retouches, retraits, annulation -----
+
+  /** Écrire une retouche par le pilote. Voir lib/retouches-en-attente. */
+  const ecrireRetouche = useCallback((r: Retouche): Promise<void> => {
+    if (r.genre === "passeur") return pilote.poserPasseur(r.eventId, r.valeur);
+    if (r.genre === "victime") return pilote.poserVictime(r.eventId, r.valeur);
+    return pilote.poserIssuePenalty(r.eventId, r.valeur.issue, r.valeur.tireur);
+  }, [pilote]);
+
+  /**
+   * Rejouer la file, dans l'ordre.
+   *
+   * APRÈS LES ÉCRITURES DE L'APPAREIL : le but d'un passeur en attente est
+   * peut-être lui-même encore dans la file de Firestore, et la transaction qui
+   * le cherche sur le serveur ne l'y trouverait pas. `ecrituresEnvoyees`
+   * attend qu'il y soit.
+   */
+  const envoiEnCours = useRef(false);
+  const envoyerLesRetouches = useCallback(async () => {
+    if (envoiEnCours.current || retouchesRef.current.length === 0) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    envoiEnCours.current = true;
+    try {
+      await pilote.ecrituresEnvoyees();
+      for (const r of [...retouchesRef.current]) {
+        try {
+          await ecrireRetouche(r);
+          // Par identité : une réponse plus récente à la même question a
+          // pu la remplacer entre-temps, et celle-là reste à écrire.
+          majRetouches((f) => f.filter((x) => x !== r));
+        } catch (err) {
+          if (estHorsLigne(err)) break;
+          // Refusée pour de bon : l'événement a été retiré ailleurs, ou
+          // l'écriture n'est pas permise. On l'abandonne, en le disant quand
+          // ce n'est pas le premier cas.
+          majRetouches((f) => f.filter((x) => x !== r));
+          if (!/introuvable/i.test(String((err as { message?: unknown })?.message ?? ""))) {
+            toast.error("Une précision n'a pas pu être enregistrée");
+          }
+        }
+      }
+    } finally {
+      envoiEnCours.current = false;
+    }
+  }, [pilote, ecrireRetouche, majRetouches]);
+
+  // Au retour du réseau, et toutes les vingt secondes tant qu'il en reste :
+  // `navigator.onLine` peut dire oui sur un réseau trop faible pour passer.
+  useEffect(() => {
+    if (!enLigne || retouches.length === 0) return;
+    void envoyerLesRetouches();
+    const t = setInterval(() => void envoyerLesRetouches(), 20_000);
+    return () => clearInterval(t);
+  }, [enLigne, retouches.length, envoyerLesRetouches]);
+
+  /** Poser une retouche : affichée tout de suite, écrite dès que possible. */
+  const retoucher = (r: Retouche) => {
+    majRetouches((f) => ajouterRetouche(f, r));
+    void envoyerLesRetouches();
+  };
+
+  /**
+   * RETIRER UN ÉVÉNEMENT, avec ce qu'il emporte (voir lib/retrait-evenement).
+   *
+   * Lit le match par sa référence : on arrive ici depuis « Annuler », un
+   * message créé plusieurs secondes plus tôt, et le match a pu bouger depuis.
+   *
+   * Depuis l'historique, on confirme : le geste est délibéré, et il peut
+   * défaire une exclusion. Depuis « Annuler », on ne confirme pas : c'est
+   * précisément le geste de la seconde d'après.
+   */
+  const retirerEvenement = async (eventId: string, confirmer: boolean) => {
+    const m = matchRef.current;
+    if (!m?.liveState) return;
+    const r = planDuRetrait(m.liveState.events, eventId, {
+      homeTeamId: m.homeTeamId,
+      surLeTerrain: { home: m.homeOnPitch, away: m.awayOnPitch },
+    });
+    if (!r.ok) {
+      toast.error(r.raison);
+      return;
+    }
+    const cible = m.liveState.events.find((e) => e.id === eventId);
+    const quoi = cible
+      ? `${LIBELLE_EVENEMENT[cible.type] ?? "Événement"}${cible.playerName ? ` de ${cible.playerName}` : ""}`
+      : "Événement";
+    if (confirmer) {
+      const emporte = r.plan.ids.length > 1;
+      const ok = await demander({
+        titre: `Retirer : ${quoi.toLowerCase()} ?`,
+        corps: (
+          <>
+            Il disparaît de l&apos;historique, des statistiques et des notes.
+            {r.plan.score.home + r.plan.score.away < 0 && " Le score perd ce but."}
+            {emporte && " L'exclusion et le second jaune partent ensemble."}
+            {r.plan.surLeTerrain.home || r.plan.surLeTerrain.away
+              ? " La pelouse revient à ce qu'elle était avant."
+              : ""}
+          </>
+        ),
+        action: "Retirer",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    const ids = r.plan.ids;
+    majRetouches((f) => sansLesEvenements(f, ids));
+    suivre(pilote.retirer(r.plan), "Le retrait n'a pas été enregistré");
+    // Les questions qui portaient sur lui n'ont plus d'objet.
+    setAssistPicker((a) => (a && ids.includes(a.eventId) ? null : a));
+    setVictime((v) => (v && ids.includes(v.eventId) ? null : v));
+    setPenaltyOuvert((p) => (p && ids.includes(p.eventId) ? null : p));
+    // Un but retiré rouvre le but tout de suite : c'est souvent pour le
+    // redonner au bon joueur.
+    if (m.liveState.events.some((e) => ids.includes(e.id) && e.type === "goal")) setGoalCooldown(0);
+    toast(`${quoi} : retiré`, { icon: "↩️" });
+  };
+
+  /**
+   * « ANNULER », quelques secondes après chaque saisie.
+   *
+   * La plupart des erreurs de console se voient à l'instant : le mauvais
+   * joueur touché, le mauvais bouton. Les réparer tout de suite, d'un geste,
+   * coûte moins que de les chercher plus tard dans l'historique.
+   */
+  const DUREE_ANNULATION = 6000;
+  const proposerAnnulation = (texte: string, eventId: string) => {
+    toast(
+      (t) => (
+        <span className="flex items-center gap-3">
+          <span className="min-w-0">{texte}</span>
+          <button
+            type="button"
+            onClick={() => {
+              toast.dismiss(t.id);
+              void retirerEvenement(eventId, false);
+            }}
+            className="shrink-0 border border-gray-300 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-gray-900 transition-colors hover:bg-gray-100"
+          >
+            Annuler
+          </button>
+        </span>
+      ),
+      // UN SEUL À LA FOIS, celui de la dernière saisie : empilés, ils
+      // recouvraient les corbeilles de l'historique et la croix des
+      // questions. Une saisie plus ancienne se corrige depuis l'historique.
+      { id: "annuler", duration: DUREE_ANNULATION },
+    );
+  };
+
   /**
    * Enregistre ce qu'un joueur vient de faire.
    *
@@ -899,7 +1220,7 @@ export default function LiveMatchConsole({
    * erreur d'écriture doive laisser le match en état. Ce qui les distingue
    * tient dans les branches : le score, la notification, l'expulsion.
    */
-  const enregistrerAction = async (
+  const enregistrerAction = (
     side: Side,
     entry: LineupEntry,
     type: TypeEvenementJoueur,
@@ -915,130 +1236,94 @@ export default function LiveMatchConsole({
     const minute = Math.floor(displayTime / 60000) + 1;
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
     const events = match.liveState.events ?? [];
+    const base = { side, team_id: teamId, period, minute, player_id: entry.playerId, player_name: entry.name };
 
-    setIsSubmitting(true);
-    try {
-      if (type === "goal") {
-        const goalId = await pilote.ajouterEvenement({
-          type: "goal",
-          side,
-          team_id: teamId,
-          period,
-          minute,
-          player_id: entry.playerId,
-          player_name: entry.name,
-        });
-        const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
-        const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
+    // RIEN N'EST ATTENDU ICI. L'identifiant est tiré d'avance, l'écriture part
+    // dans la file de Firestore, et la console rend la main aussitôt — réseau
+    // ou pas. Voir `suivre`.
+    if (type === "goal") {
+      const goalId = nouvelIdEvenement();
+      suivre(pilote.ajouterEvenement({ ...base, id: goalId, type: "goal" }), "Le but n'a pas été enregistré");
+      const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
+      const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
+      pilote.notifier(
+        { title: `⚽ BUT ! ${entry.name} (${minute}')`, body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}` },
+        competition,
+      );
+      proposerAnnulation(`⚽ But de ${entry.name}`, goalId);
+      setGoalCooldown(SECONDES_APRES_BUT);
+      // The goal is on the board; now the optional question.
+      setAssistPicker({
+        eventId: goalId,
+        side,
+        teamName,
+        scorerId: entry.playerId,
+        scorerName: entry.name,
+      });
+    } else if (type === "yellow_card") {
+      const priorYellows = events.filter(
+        (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
+      ).length;
+      const jauneId = nouvelIdEvenement();
+      suivre(pilote.ajouterEvenement({ ...base, id: jauneId, type: "yellow_card" }), "Le carton n'a pas été enregistré");
+      if (priorYellows >= 1) {
+        // Second yellow → automatic send-off. « Annuler » sur le jaune emporte
+        // le rouge qu'il a provoqué : voir lib/retrait-evenement.
+        suivre(
+          pilote.ajouterEvenement({ ...base, type: "red_card", detail: DETAIL_SECOND_JAUNE }),
+          "L'exclusion n'a pas été enregistrée",
+        );
+        suivre(pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId)), "La pelouse n'a pas été mise à jour");
         pilote.notifier(
-          { title: `⚽ BUT ! ${entry.name} (${minute}')`, body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}` },
+          { title: `🟥 Expulsion (${minute}')`, body: `${entry.name} (${teamName}), 2e carton jaune` },
           competition,
         );
-        toast.success("BUT !");
-        setGoalCooldown(SECONDES_APRES_BUT);
-        // The goal is on the board; now the optional question.
-        setAssistPicker({
-          eventId: goalId,
-          side,
-          teamName,
-          scorerId: entry.playerId,
-          scorerName: entry.name,
-        });
-      } else if (type === "yellow_card") {
-        const priorYellows = events.filter(
-          (e) => e.type === "yellow_card" && e.playerId === entry.playerId,
-        ).length;
-        await pilote.ajouterEvenement({
-          type: "yellow_card",
-          side,
-          team_id: teamId,
-          period,
-          minute,
-          player_id: entry.playerId,
-          player_name: entry.name,
-        });
-        if (priorYellows >= 1) {
-          // Second yellow → automatic send-off.
-          await pilote.ajouterEvenement({
-            type: "red_card",
-            side,
-            team_id: teamId,
-            period,
-            minute,
-            player_id: entry.playerId,
-            player_name: entry.name,
-            detail: "2e carton jaune",
-          });
-          await pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId));
-          pilote.notifier(
-            { title: `🟥 Expulsion (${minute}')`, body: `${entry.name} (${teamName}), 2e carton jaune` },
-            competition,
-          );
-          toast("2e jaune → exclusion", { icon: "🟥" });
-        } else {
-          pilote.notifier(
-            { title: `🟨 Carton jaune (${minute}')`, body: `${entry.name} (${teamName})` },
-            competition,
-          );
-          toast.success("Carton jaune enregistré");
-        }
-      } else if (type === "red_card") {
-        // Direct red card.
-        await pilote.ajouterEvenement({
-          type: "red_card",
-          side,
-          team_id: teamId,
-          period,
-          minute,
-          player_id: entry.playerId,
-          player_name: entry.name,
-        });
-        await pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId));
-        pilote.notifier(
-          { title: `🟥 Carton rouge (${minute}')`, body: `${entry.name} (${teamName})` },
-          competition,
-        );
-        toast("Carton rouge → exclusion", { icon: "🟥" });
+        proposerAnnulation(`🟥 2e jaune : ${entry.name} exclu`, jauneId);
       } else {
-        // Arrêt, faute, hors-jeu : l'historique du match, et rien d'autre.
-        //
-        // AUCUNE NOTIFICATION, volontairement. On réveille le téléphone d'un
-        // supporter pour un but ou une expulsion, pas pour un hors-jeu à la
-        // 12e. Ces trois-là existent pour les statistiques et pour le récit
-        // d'après-match ; les pousser noierait les deux qui comptent.
-        const id = await pilote.ajouterEvenement({
-          type,
-          side,
-          team_id: teamId,
-          period,
-          minute,
-          player_id: entry.playerId,
-          player_name: entry.name,
-        });
-        toast.success(LIBELLE_EVENEMENT[type]);
-
-        // La faute a deux acteurs. On la pose d'abord — elle est certaine —
-        // puis on demande sa victime, dans le camp d'en face.
-        //
-        // Il fallait aussi BASCULER L'ONGLET sur ce camp, sans quoi la
-        // question portait sur des joueurs qu'on ne voyait pas. Les deux
-        // terrains etant desormais a l'ecran, il n'y a plus rien a basculer.
-        if (demandeUneVictime(type)) {
-          const autre: Side = side === "home" ? "away" : "home";
-          setVictime({
-            eventId: id,
-            side: autre,
-            teamName: autre === "home" ? match.homeTeamName : match.awayTeamName,
-            auteur: entry.name,
-          });
-        }
+        pilote.notifier(
+          { title: `🟨 Carton jaune (${minute}')`, body: `${entry.name} (${teamName})` },
+          competition,
+        );
+        proposerAnnulation(`🟨 Carton jaune, ${entry.name}`, jauneId);
       }
-      setActions(null);
-    } catch {
-      toast.error("Erreur lors de l'enregistrement");
-    } finally {
-      setIsSubmitting(false);
+    } else if (type === "red_card") {
+      // Direct red card.
+      const rougeId = nouvelIdEvenement();
+      suivre(pilote.ajouterEvenement({ ...base, id: rougeId, type: "red_card" }), "Le carton n'a pas été enregistré");
+      suivre(pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId)), "La pelouse n'a pas été mise à jour");
+      pilote.notifier(
+        { title: `🟥 Carton rouge (${minute}')`, body: `${entry.name} (${teamName})` },
+        competition,
+      );
+      proposerAnnulation(`🟥 Carton rouge, ${entry.name}`, rougeId);
+    } else {
+      // Arrêt, faute, hors-jeu : l'historique du match, et rien d'autre.
+      //
+      // AUCUNE NOTIFICATION, volontairement. On réveille le téléphone d'un
+      // supporter pour un but ou une expulsion, pas pour un hors-jeu à la
+      // 12e. Ces trois-là existent pour les statistiques et pour le récit
+      // d'après-match ; les pousser noierait les deux qui comptent.
+      const id = nouvelIdEvenement();
+      suivre(pilote.ajouterEvenement({ ...base, id, type }), "L'action n'a pas été enregistrée");
+      proposerAnnulation(`${LIBELLE_EVENEMENT[type]}, ${entry.name}`, id);
+
+      // La faute a deux acteurs. On la pose d'abord — elle est certaine —
+      // puis on demande sa victime, dans le camp d'en face.
+      //
+      // Il fallait aussi BASCULER L'ONGLET sur ce camp, sans quoi la
+      // question portait sur des joueurs qu'on ne voyait pas. Les deux
+      // terrains etant desormais a l'ecran, il n'y a plus rien a basculer.
+      if (demandeUneVictime(type)) {
+        const autre: Side = side === "home" ? "away" : "home";
+        setVictime({
+          eventId: id,
+          side: autre,
+          teamName: autre === "home" ? match.homeTeamName : match.awayTeamName,
+          auteur: entry.name,
+        });
+      }
     }
+    setActions(null);
   };
 
   /**
@@ -1053,7 +1338,7 @@ export default function LiveMatchConsole({
    * — voir `estStatistique` dans lib/evenements. Ils remplissent les compteurs
    * de l'onglet Stats, et rien d'autre.
    */
-  const enregistrerEvenementEquipe = async (side: Side, type: TypeEvenementEquipe) => {
+  const enregistrerEvenementEquipe = (side: Side, type: TypeEvenementEquipe) => {
     if (!match?.liveState) return;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
     if (!teamId) {
@@ -1061,30 +1346,21 @@ export default function LiveMatchConsole({
       return;
     }
     const minute = Math.floor(displayTime / 60000) + 1;
-    setIsSubmitting(true);
-    try {
-      const id = await pilote.ajouterEvenement({
-        type,
-        side,
-        team_id: teamId,
-        period: match.liveState.currentPeriod ?? 1,
-        minute,
-      });
-      // LE PENALTY EST LE SEUL DES QUATRE QUI APPELLE UNE SUITE. Un corner est
-      // fini quand il est saisi ; un penalty accorde ne veut encore rien dire,
-      // et la question part donc immediatement. Elle se referme sans repondre
-      // — le scoreur regarde le tir — et le penalty reste alors en attente,
-      // visible dans le bandeau jusqu'a ce qu'il dise ce qu'il est devenu.
-      if (type === "penalty") {
-        setPenaltyOuvert({ eventId: id, side, minute });
-      } else {
-        toast.success(LIBELLE_EVENEMENT[type]);
-      }
-    } catch {
-      toast.error("Erreur lors de l'enregistrement");
-    } finally {
-      setIsSubmitting(false);
-    }
+    const id = nouvelIdEvenement();
+    suivre(
+      pilote.ajouterEvenement({ id, type, side, team_id: teamId, period: match.liveState.currentPeriod ?? 1, minute }),
+      "L'action n'a pas été enregistrée",
+    );
+    // LE PENALTY EST LE SEUL DES QUATRE QUI APPELLE UNE SUITE. Un corner est
+    // fini quand il est saisi ; un penalty accorde ne veut encore rien dire,
+    // et la question part donc immediatement. Elle se referme sans repondre
+    // — le scoreur regarde le tir — et le penalty reste alors en attente,
+    // visible dans le bandeau jusqu'a ce qu'il dise ce qu'il est devenu.
+    if (type === "penalty") setPenaltyOuvert({ eventId: id, side, minute });
+    proposerAnnulation(
+      `${LIBELLE_EVENEMENT[type]}, ${side === "home" ? match.homeTeamName : match.awayTeamName}`,
+      id,
+    );
   };
 
   /**
@@ -1104,16 +1380,17 @@ export default function LiveMatchConsole({
    *             frappe deux fois.
    *   retire  → rien. Le penalty n'a jamais eu lieu.
    *
-   * L'ISSUE S'ECRIT EN PREMIER, et c'est delibere. Rien dans cette
-   * application ne supprime un evenement : un but pose en double y resterait
-   * pour toujours. Si la seconde ecriture echoue, le penalty porte donc son
-   * issue sans son but — un manque, que le scoreur repare du geste ordinaire
-   * en posant le but sur son buteur, et que le message d'erreur lui dit.
-   * Dans l'autre ordre, la meme panne aurait laisse un penalty en attente
-   * AVEC son but deja au tableau, et la reponse suivante en aurait pose un
-   * second.
+   * L'ISSUE EST POSÉE EN PREMIER, et c'est délibéré. Si l'écriture de ce
+   * qu'elle produit échoue, le penalty porte son issue sans son but — un
+   * manque, que le scoreur répare du geste ordinaire en posant le but sur son
+   * buteur, et que le message d'erreur lui dit. Dans l'autre ordre, la même
+   * panne aurait laissé un penalty en attente AVEC son but déjà au tableau,
+   * et la réponse suivante en aurait posé un second.
+   *
+   * L'issue est une RETOUCHE (voir `retoucher`) : sans réseau, elle attend
+   * sur l'appareil, et la console l'affiche en attendant.
    */
-  const enregistrerIssuePenalty = async (
+  const enregistrerIssuePenalty = (
     eventId: string,
     side: Side,
     minute: number,
@@ -1130,141 +1407,118 @@ export default function LiveMatchConsole({
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
     const autre: Side = side === "home" ? "away" : "home";
 
-    setIsSubmitting(true);
-    try {
-      await pilote.poserIssuePenalty(
-        eventId,
-        issue,
-        tireur ? { playerId: tireur.playerId, playerName: tireur.name } : null,
-      );
-    } catch {
-      toast.error("Issue non enregistrée");
-      setIsSubmitting(false);
-      return;
-    }
-
+    retoucher({
+      genre: "penalty",
+      eventId,
+      valeur: { issue, tireur: tireur ? { playerId: tireur.playerId, playerName: tireur.name } : null },
+    });
     setPenaltyOuvert(null);
-    try {
-      if (issue === "marque") {
-        await pilote.ajouterEvenement({
-          type: "goal",
-          side,
-          team_id: teamId,
-          period,
-          minute,
-          player_id: tireur?.playerId ?? null,
-          player_name: tireur?.name ?? null,
-          // Ce qui fait dire « But sur penalty » au fil, et rien d'autre : un
-          // but sur penalty vaut un but. Voir PENALTY_GOAL_DETAIL.
-          detail: PENALTY_GOAL_DETAIL,
-        });
-        const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
-        const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
-        pilote.notifier(
-          {
-            title: `⚽ BUT SUR PENALTY ! ${tireur?.name ?? teamName} (${minute}')`,
-            body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
-          },
-          competition,
-        );
-        toast.success("BUT !");
-        setGoalCooldown(SECONDES_APRES_BUT);
-      } else if (issue === "rate") {
-        await pilote.ajouterEvenement({
-          type: "shot",
-          side,
-          team_id: teamId,
-          period,
-          minute,
-          player_id: tireur?.playerId ?? null,
-          player_name: tireur?.name ?? null,
-        });
-        toast("Penalty raté");
-      } else if (issue === "arrete") {
-        // LE GARDIEN QUI L'A ARRETE EST CELUI D'EN FACE, et c'est le seul
-        // joueur du terrain qui puisse l'avoir fait. On ne le demande donc
-        // pas : la feuille le dit. Sur une feuille ou personne n'a declare
-        // de gardien — deux tiers d'entre elles n'ont aucun poste — l'arret
-        // n'est porte par personne, et l'issue reste vraie.
-        const surLeTerrain = new Set(autre === "home" ? match.homeOnPitch : match.awayOnPitch);
-        const gardien = gardienDe(
-          (autre === "home" ? match.homeLineup : match.awayLineup)
-            .filter((e) => surLeTerrain.has(e.playerId)),
-        );
-        const teamAdverse = autre === "home" ? match.homeTeamId : match.awayTeamId;
-        if (gardien && teamAdverse) {
-          await pilote.ajouterEvenement({
-            type: "save",
-            side: autre,
-            team_id: teamAdverse,
-            period,
-            minute,
-            player_id: gardien.playerId,
-            player_name: gardien.name,
-          });
-          toast.success(`Penalty arrêté par ${gardien.name}`);
-        } else {
-          toast("Penalty arrêté");
-        }
-      } else {
-        toast(
-          pilote.genre === "competition"
-            ? "Penalty retiré par la VAR"
-            : "Penalty retiré",
-        );
-      }
-    } catch {
-      toast.error(
-        issue === "marque"
-          ? "Le but n'a pas été enregistré : pose-le sur son buteur"
-          : "Issue enregistrée, mais pas ce qu'elle a produit",
+
+    const echec = issue === "marque"
+      ? "Le but n'a pas été enregistré : pose-le sur son buteur"
+      : "Issue enregistrée, mais pas ce qu'elle a produit";
+    if (issue === "marque") {
+      const butId = nouvelIdEvenement();
+      suivre(pilote.ajouterEvenement({
+        id: butId,
+        type: "goal",
+        side,
+        team_id: teamId,
+        period,
+        minute,
+        player_id: tireur?.playerId ?? null,
+        player_name: tireur?.name ?? null,
+        // Ce qui fait dire « But sur penalty » au fil, et rien d'autre : un
+        // but sur penalty vaut un but. Voir PENALTY_GOAL_DETAIL.
+        detail: PENALTY_GOAL_DETAIL,
+      }), echec);
+      const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
+      const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
+      pilote.notifier(
+        {
+          title: `⚽ BUT SUR PENALTY ! ${tireur?.name ?? teamName} (${minute}')`,
+          body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
+        },
+        competition,
       );
-    } finally {
-      setIsSubmitting(false);
+      proposerAnnulation(`⚽ But sur penalty${tireur ? `, ${tireur.name}` : ""}`, butId);
+      setGoalCooldown(SECONDES_APRES_BUT);
+    } else if (issue === "rate") {
+      suivre(pilote.ajouterEvenement({
+        type: "shot",
+        side,
+        team_id: teamId,
+        period,
+        minute,
+        player_id: tireur?.playerId ?? null,
+        player_name: tireur?.name ?? null,
+      }), echec);
+      toast("Penalty raté");
+    } else if (issue === "arrete") {
+      // LE GARDIEN QUI L'A ARRETE EST CELUI D'EN FACE, et c'est le seul
+      // joueur du terrain qui puisse l'avoir fait. On ne le demande donc
+      // pas : la feuille le dit. Sur une feuille ou personne n'a declare
+      // de gardien — deux tiers d'entre elles n'ont aucun poste — l'arret
+      // n'est porte par personne, et l'issue reste vraie.
+      const surLeTerrain = new Set(autre === "home" ? match.homeOnPitch : match.awayOnPitch);
+      const gardien = gardienDe(
+        (autre === "home" ? match.homeLineup : match.awayLineup)
+          .filter((e) => surLeTerrain.has(e.playerId)),
+      );
+      const teamAdverse = autre === "home" ? match.homeTeamId : match.awayTeamId;
+      if (gardien && teamAdverse) {
+        suivre(pilote.ajouterEvenement({
+          type: "save",
+          side: autre,
+          team_id: teamAdverse,
+          period,
+          minute,
+          player_id: gardien.playerId,
+          player_name: gardien.name,
+        }), echec);
+        toast.success(`Penalty arrêté par ${gardien.name}`);
+      } else {
+        toast("Penalty arrêté");
+      }
+    } else {
+      toast(
+        pilote.genre === "competition"
+          ? "Penalty retiré par la VAR"
+          : "Penalty retiré",
+      );
     }
   };
 
   /**
-   * Hang the passer on the goal just recorded. Never blocks the console: if
-   * the write fails the goal itself is already safe on the board, so the
-   * error is worth a toast and nothing more.
+   * Hang the passer on the goal just recorded. Never blocks the console: the
+   * goal itself is already on the board, and the passer is a RETOUCHE — it
+   * waits on the device when the network is gone (see `retoucher`).
    */
-  const recordAssist = async (entry: LineupEntry) => {
+  const recordAssist = (entry: LineupEntry) => {
     if (!assistPicker) return;
-    setIsSubmitting(true);
-    try {
-      await pilote.poserPasseur(assistPicker.eventId, {
-        playerId: entry.playerId,
-        playerName: entry.name,
-      });
-      toast.success(`Passe décisive, ${entry.name}`);
-      setAssistPicker(null);
-    } catch {
-      toast.error("Passe non enregistrée");
-    } finally {
-      setIsSubmitting(false);
-    }
+    retoucher({
+      genre: "passeur",
+      eventId: assistPicker.eventId,
+      valeur: { playerId: entry.playerId, playerName: entry.name },
+    });
+    toast.success(`Passe décisive, ${entry.name}`);
+    setAssistPicker(null);
   };
 
   /**
    * Nommer celui qui a subi la faute. Jamais bloquant : la faute est déjà
-   * dans l'historique, la victime ne fait que l'enrichir.
+   * dans l'historique, la victime ne fait que l'enrichir — une retouche, qui
+   * attend le réseau s'il le faut.
    */
-  const enregistrerVictime = async (entry: LineupEntry) => {
+  const enregistrerVictime = (entry: LineupEntry) => {
     if (!victime) return;
-    setIsSubmitting(true);
-    try {
-      await pilote.poserVictime(victime.eventId, {
-        playerId: entry.playerId,
-        playerName: entry.name,
-      });
-      toast.success(`Faute sur ${entry.name}`);
-      setVictime(null);
-    } catch {
-      toast.error("Victime non enregistrée");
-    } finally {
-      setIsSubmitting(false);
-    }
+    retoucher({
+      genre: "victime",
+      eventId: victime.eventId,
+      valeur: { playerId: entry.playerId, playerName: entry.name },
+    });
+    toast.success(`Faute sur ${entry.name}`);
+    setVictime(null);
   };
 
   // ----- Substitutions -----
@@ -1290,7 +1544,7 @@ export default function LiveMatchConsole({
     setSubModal({ side, teamName, ...prerempli });
   };
 
-  const effectuerRemplacement = async (sortId: string, entreId: string) => {
+  const effectuerRemplacement = (sortId: string, entreId: string) => {
     if (!match?.liveState || !subModal) return;
     const { side } = subModal;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
@@ -1315,45 +1569,60 @@ export default function LiveMatchConsole({
     }
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
 
-    setIsSubmitting(true);
-    try {
-      const subMinute = Math.floor(displayTime / 60000) + 1;
-      await pilote.ajouterEvenement({
-        type: "substitution",
-        side,
-        team_id: teamId,
-        period: match.liveState.currentPeriod ?? 1,
-        minute: subMinute,
-        player_id: inEntry.playerId,
-        player_name: inEntry.name,
-        // Le sortant, par son identifiant et non plus seulement dans le texte
-        // de `detail` : c'est ce qui permet de recoller ses minutes, et un
-        // aller-retour d'amical en produit plusieurs.
-        out_player_id: outEntry.playerId,
-        out_player_name: outEntry.name,
-        detail: `${outEntry.name} → ${inEntry.name}`,
-      });
-      await pilote.poserSurLeTerrain(
-        side,
-        [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
-      );
-      pilote.notifier(
-        { title: `🔄 Changement (${subMinute}')`, body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})` },
-        competition,
-      );
-      toast.success("Changement effectué");
-      setSubModal(null);
-    } catch {
-      toast.error("Erreur lors de l'enregistrement");
-    } finally {
-      setIsSubmitting(false);
-    }
+    const subMinute = Math.floor(displayTime / 60000) + 1;
+    const remplacementId = nouvelIdEvenement();
+    suivre(pilote.ajouterEvenement({
+      id: remplacementId,
+      type: "substitution",
+      side,
+      team_id: teamId,
+      period: match.liveState.currentPeriod ?? 1,
+      minute: subMinute,
+      player_id: inEntry.playerId,
+      player_name: inEntry.name,
+      // Le sortant, par son identifiant et non plus seulement dans le texte
+      // de `detail` : c'est ce qui permet de recoller ses minutes, et un
+      // aller-retour d'amical en produit plusieurs.
+      out_player_id: outEntry.playerId,
+      out_player_name: outEntry.name,
+      detail: `${outEntry.name} → ${inEntry.name}`,
+    }), "Le changement n'a pas été enregistré");
+    suivre(pilote.poserSurLeTerrain(
+      side,
+      [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
+    ), "La pelouse n'a pas été mise à jour");
+    pilote.notifier(
+      { title: `🔄 Changement (${subMinute}')`, body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})` },
+      competition,
+    );
+    proposerAnnulation(`🔄 ${outEntry.name} → ${inEntry.name}`, remplacementId);
+    setSubModal(null);
   };
 
   // Whistle for full time: snap the clock to the end of the second half and
   // stop, then finish. On a knockout draw, collect penalties first.
+  /**
+   * LE COUP DE SIFFLET FINAL DEMANDE LE RÉSEAU, et tout ce que l'appareil
+   * garde encore. Il part par le serveur (statistiques, classement), qui ne
+   * lit que ce qu'il a reçu : terminer avec des saisies en attente les
+   * laisserait hors du match. On le dit, plutôt que de laisser le bouton
+   * tourner dans le vide.
+   */
+  const finPossible = (): boolean => {
+    if (!enLigne) {
+      toast.error("Pas de réseau : le coup de sifflet final attendra son retour. Le match continue de s'enregistrer.");
+      return false;
+    }
+    if (enVol > 0 || retouches.length > 0) {
+      toast.error("Des saisies partent encore : réessaie dans quelques secondes.");
+      return false;
+    }
+    return true;
+  };
+
   const handleFinishClick = async () => {
     if (!match) return;
+    if (!finPossible()) return;
     try {
       await pilote.pauserChrono(fullMs);
     } catch {
@@ -1387,6 +1656,7 @@ export default function LiveMatchConsole({
     opts?: { penaltyHome: number; penaltyAway: number },
     mvp?: CandidatMVP | null,
   ) => {
+    if (!finPossible()) return;
     setIsSubmitting(true);
     try {
       // D'ABORD LE MVP, ET SANS JAMAIS BLOQUER : un homme du match qui ne
@@ -1830,6 +2100,52 @@ export default function LiveMatchConsole({
     ];
   };
 
+  // Le contenu du tiroir, posé en deux endroits selon l'écran (voir le rendu).
+  const enTeteHistorique = (
+    <div className="mb-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <History className="text-white/40" size={16} />
+        <h3 className="text-[12px] font-black uppercase tracking-wide text-white">Événements</h3>
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">
+        {faitsRacontes.length} au total
+      </span>
+    </div>
+  );
+  const historique = (compact: boolean) => (
+    <EventTimeline
+      events={faitsRacontes}
+      homeTeamId={match.homeTeamId}
+      homeTeamName={match.homeTeamName}
+      awayTeamName={match.awayTeamName}
+      onVarVerdict={handleVarVerdict}
+      varPendingId={varPendingId}
+      onRetirer={(e) => void retirerEvenement(e.id, true)}
+      compact={compact}
+    />
+  );
+  const statistiques = (
+    <>
+      <div className="mb-3 flex items-center gap-2">
+        <BarChart3 className="text-white/40" size={16} />
+        <h3 className="text-[12px] font-black uppercase tracking-wide text-white">Statistiques</h3>
+      </div>
+      {statRows.length > 0 ? (
+        <MatchStats
+          lignes={statRows}
+          homeTeamName={match.homeTeamName}
+          awayTeamName={match.awayTeamName}
+          compact
+          sombre
+        />
+      ) : (
+        <p className="py-4 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
+          Rien de compté pour l&apos;instant
+        </p>
+      )}
+    </>
+  );
+
   // Exit affordance: live → organizer only ("Quitter"); moderator locked out.
   // Completed → everyone gets a normal back control.
   const showQuit = !isCompleted && isOrganizer;
@@ -1850,12 +2166,7 @@ export default function LiveMatchConsole({
           En tête de page, il se lit à l'ouverture et sort du champ dès le
           premier défilement. */}
       {!isCompleted && (
-        <div className="flex shrink-0 items-center gap-1.5 bg-amber-500 px-2 py-px text-white">
-          <Shield size={10} className="shrink-0" />
-          <p className="truncate text-[10px] font-black uppercase tracking-wide">
-            Ne quitte pas cette page avant le coup de sifflet final
-          </p>
-        </div>
+        <BandeauDEtat enLigne={enLigne} enAttente={enVol + retouches.length} consigne={consigneVisible} />
       )}
 
       {/* Sandbox banner, the console is otherwise indistinguishable from the
@@ -2034,7 +2345,7 @@ export default function LiveMatchConsole({
           <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-tight text-white/45">
             {match.awayTeamName}
           </span>
-          {!isCompleted && (
+          {!isCompleted && !panneauFixe && (
             <button
               type="button"
               onClick={() => setPlusDInfos((v) => !v)}
@@ -2100,14 +2411,14 @@ export default function LiveMatchConsole({
       <div className="relative flex min-h-0 flex-1 flex-col">
       {isCompleted ? (
         /* ----- Read-only completed summary ----- */
-        <div className=" border border-gray-200/70 bg-white p-5 shadow-gray-200/40 sm:p-8">
+        <div className="min-h-0 flex-1 overflow-y-auto border border-white/10 bg-white/[0.04] p-5 sm:p-8">
           <div className="mb-4 flex items-center gap-3 sm:mb-6">
-            <div className="flex h-10 w-10 items-center justify-center bg-emerald-50 text-emerald-600">
+            <div className="flex h-10 w-10 items-center justify-center bg-emerald-500/15 text-emerald-300">
               <CheckCircle2 size={22} />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-tight text-gray-900">Match terminé</h3>
-              <p className="text-xs font-medium text-gray-400">
+              <h3 className="text-sm font-black uppercase tracking-tight text-white">Match terminé</h3>
+              <p className="text-xs font-medium text-white/45">
                 Score final {match.scoreHome ?? 0} – {match.scoreAway ?? 0}
               </p>
             </div>
@@ -2160,70 +2471,37 @@ export default function LiveMatchConsole({
               Ces deux cartes ne servent pas à SAISIR. On les consulte entre
               deux actions, ou après le match — et elles pesaient sept cent
               cinquante pixels sous le terrain, en permanence, sur un écran de
-              téléphone qui en fait huit cents. La console entière faisait donc
-              plus de deux écrans de haut pour un scoreur qui n'en regarde
-              qu'un.
+              téléphone qui en fait huit cents.
 
-              Fermées par défaut, ouvertes d'un appui sur le bouton posé à
-              côté du déroulé. Sur grand écran, où la place ne manque pas,
-              elles restent visibles sans qu'on demande rien. */}
-          {/* IL EST POSE PAR-DESSUS, et non inséré dans la colonne.
-
-              Debout, il poussait simplement le terrain vers le bas et on
-              défilait. Couché, il n'y a plus de bas où pousser : tout ce qui
-              s'insère prend sa hauteur AU TERRAIN. Ces deux cartes ne servent
-              pas à saisir — on les consulte entre deux actions — donc elles
-              recouvrent, le temps qu'on les lise. */}
-          <div
-            className={`absolute inset-0 z-20 overflow-y-auto bg-[#0b1512]/95 p-2 space-y-3 backdrop-blur-sm ${
-              plusDInfos ? "" : "hidden"
-            }`}
-          >
-
-          {/* Events */}
-          <div className=" border border-gray-200/70 bg-white p-3 shadow-gray-200/50 sm:p-7">
-            <div className="mb-3 flex items-center justify-between sm:mb-6">
-              <div className="flex items-center gap-3">
-                <History className="text-gray-400" size={18} />
-                <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">Événements</h3>
+              SUR TÉLÉPHONE, ELLES RECOUVRENT, le temps qu'on les lise : couché,
+              tout ce qui s'insère prend sa hauteur au terrain. SUR GRAND
+              ÉCRAN, ELLES SONT POSÉES SOUS LES TERRAINS, en permanence : la
+              place y était, vide. Voir `panneauFixe`. */}
+          {panneauFixe ? (
+            <div className="grid h-56 shrink-0 grid-cols-[3fr_2fr] gap-2 border-t border-white/10 p-2">
+              <div className="min-h-0 overflow-y-auto border border-white/10 bg-white/[0.04] p-3">
+                {enTeteHistorique}
+                {historique(true)}
               </div>
-              <div className="rounded-full bg-gray-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                {faitsRacontes.length} Total
+              <div className="min-h-0 overflow-y-auto border border-white/10 bg-white/[0.04] p-3">
+                {statistiques}
               </div>
             </div>
-            <EventTimeline
-              events={faitsRacontes}
-              homeTeamId={match.homeTeamId}
-              homeTeamName={match.homeTeamName}
-              awayTeamName={match.awayTeamName}
-              onVarVerdict={handleVarVerdict}
-              varPendingId={varPendingId}
-            />
-          </div>
-
-          {/* Les compteurs, tels que le public les lira — mêmes noms, même
-              ordre, même rendu (voir MatchStats). C'est la seule façon pour le
-              scoreur de vérifier qu'il saisit ce qu'il croit saisir : la
-              plupart de ces lignes n'apparaissent nulle part ailleurs dans la
-              console, puisqu'elles ne passent pas dans le fil. */}
-          {statRows.length > 0 && (
-            <div className="border border-gray-200/70 bg-white p-3 sm:p-7">
-              <div className="mb-3 flex items-center gap-3">
-                <BarChart3 className="text-gray-400" size={18} />
-                <h3 className="text-sm font-black uppercase tracking-tight text-gray-900 italic">
-                  Statistiques
-                </h3>
+          ) : (
+            <div
+              className={`absolute inset-0 z-20 space-y-3 overflow-y-auto bg-[#0b1512]/95 p-2 backdrop-blur-sm ${
+                plusDInfos ? "" : "hidden"
+              }`}
+            >
+              <div className="border border-white/10 bg-white/[0.04] p-3 sm:p-5">
+                {enTeteHistorique}
+                {historique(false)}
               </div>
-              <MatchStats
-                lignes={statRows}
-                homeTeamName={match.homeTeamName}
-                awayTeamName={match.awayTeamName}
-                compact
-              />
+              {statRows.length > 0 && (
+                <div className="border border-white/10 bg-white/[0.04] p-3 sm:p-5">{statistiques}</div>
+              )}
             </div>
           )}
-
-          </div>
         </>
       )}
       </div>
@@ -2813,11 +3091,11 @@ function PlayerPickerModal({
   onIgnorer?: () => void;
 }) {
 
-  // Starters first, then substitutes, for a natural reading order.
-  const ordered = [...entries].sort((a, b) => {
-    if (a.role === b.role) return 0;
-    return a.role === "starter" ? -1 : 1;
-  });
+  // Les titulaires d'abord, le GARDIEN EN DERNIER parmi eux : c'est le moins
+  // probable des passeurs, et il ouvrait la liste. Les remplaçants ensuite.
+  const rang = (e: LineupEntry) =>
+    (e.role === "starter" ? 0 : 2) + (normaliserPoste(e.position) === "goalkeeper" ? 1 : 0);
+  const ordered = [...entries].sort((a, b) => rang(a) - rang(b));
 
   return (
     <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
@@ -2832,18 +3110,19 @@ function PlayerPickerModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md bg-white p-5 shadow-2xl sm:p-7"
+        className="relative w-full max-w-lg bg-white p-4 shadow-2xl sm:p-5"
       >
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          aria-label="Fermer"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
         >
           <X size={18} />
         </button>
-        <h2 className="text-xl font-black text-gray-900">
+        <h2 className="pr-10 text-lg font-black text-gray-900">
           {titre}
         </h2>
-        <p className="mb-6 mt-1 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
+        <p className="mb-3 mt-0.5 pr-10 text-[11px] font-bold uppercase tracking-tight text-gray-400 italic">
           {teamName} · {sousTitre}
         </p>
 
@@ -2852,32 +3131,42 @@ function PlayerPickerModal({
               // couchee, la console fait 393 px de haut quand `vh` en compte
               // 852. Voir ConsoleCouchee et `--console-h`, qui vaut la hauteur
               // reelle de la console — ou celle de la fenetre hors console.
-          style={{ maxHeight: "calc(var(--console-h, 100dvh) * 0.55)" }}
-          className="custom-scrollbar grid grid-cols-1 content-start gap-2 overflow-y-auto pr-1 sm:grid-cols-2"
+          // UNE GRILLE DE MAILLOTS, et non une liste de fiches. La liste
+          // montrait six joueurs sur dix en paysage : pour trouver le 9, il
+          // fallait faire défiler pendant que le jeu reprenait. Un numéro et
+          // un nom court tiennent dans un quart de largeur — dix joueurs
+          // dans trois rangées, sans défiler. Le défilement reste pour un
+          // banc très fourni.
+          style={{ maxHeight: "calc(var(--console-h, 100dvh) - 11rem)" }}
+          className="custom-scrollbar grid grid-cols-3 content-start gap-1.5 overflow-y-auto sm:grid-cols-4"
         >
-          {ordered.map((entry) => (
-            <button
-              key={entry.playerId}
-              disabled={isSubmitting}
-              onClick={() => onPick(entry)}
-              className="group flex items-center gap-3 border border-gray-200/70 bg-gray-50/50 px-4 py-3 text-left transition-all hover:border-gray-900 hover:bg-white active:scale-95 disabled:opacity-50"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-900 text-sm font-black text-white">
-                {entry.number || entry.name[0]?.toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-bold text-gray-900">{entry.name}</span>
-                  {yellowSet.has(entry.playerId) && (
-                    <span title="Carton jaune" className="h-3 w-2 shrink-0 border border-amber-500/30 bg-amber-400" />
-                  )}
+          {ordered.map((entry) => {
+            const remplacant = entry.role !== "starter";
+            return (
+              <button
+                key={entry.playerId}
+                disabled={isSubmitting}
+                onClick={() => onPick(entry)}
+                title={entry.name}
+                // Le nom ENTIER pour qui ne voit pas la grille : le nom court
+                // est un compromis d'affichage, pas une identité.
+                aria-label={`${entry.number ? `${entry.number} ` : ""}${entry.name}`}
+                className={`relative flex min-w-0 flex-col items-center gap-0.5 border px-1 py-2 transition-all hover:border-gray-900 active:scale-95 disabled:opacity-50 ${
+                  remplacant ? "border-dashed border-gray-300 bg-white" : "border-gray-200/70 bg-gray-50"
+                }`}
+              >
+                <span className="text-lg font-black leading-none tabular-nums text-gray-900">
+                  {entry.number || entry.name[0]?.toUpperCase()}
                 </span>
-                <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">
-                  {entry.role === "starter" ? "Titulaire" : "Remplaçant"}
+                <span className="w-full truncate text-center text-[11px] font-bold text-gray-600">
+                  {nomCourt(entry.name)}
                 </span>
-              </span>
-            </button>
-          ))}
+                {yellowSet.has(entry.playerId) && (
+                  <span title="Carton jaune" className="absolute right-1 top-1 h-3 w-2 border border-amber-500/30 bg-amber-400" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {ignorer && (
@@ -3011,6 +3300,19 @@ function ModaleMVP({
   );
 }
 
+/**
+ * L'historique du match, sur le fond sombre de la console.
+ *
+ * IL ÉTAIT BLANC, posé sur une console noire : un panneau d'une autre
+ * application, qui recouvrait les terrains. Il suit maintenant l'écran où il
+ * s'ouvre.
+ *
+ * IL NOMME LE PASSEUR. Il nommait la victime d'une faute, pas l'auteur de la
+ * passe d'un but : le scoreur ne pouvait pas vérifier qu'il l'avait bien posé.
+ *
+ * ET IL CORRIGE. Chaque ligne a sa corbeille tant que le match tourne : voir
+ * `retirerEvenement` et lib/retrait-evenement.
+ */
 function EventTimeline({
   events,
   homeTeamId,
@@ -3018,6 +3320,8 @@ function EventTimeline({
   awayTeamName,
   onVarVerdict,
   varPendingId,
+  onRetirer,
+  compact = false,
 }: {
   events: NonNullable<CompMatch["liveState"]>["events"];
   homeTeamId: string | null;
@@ -3026,14 +3330,16 @@ function EventTimeline({
   /** Omitted on a finished match: the feed is then read-only. */
   onVarVerdict?: (event: LiveEvent, status: GoalVarStatus) => void;
   varPendingId?: string | null;
+  /** Retirer une ligne. Absent sur un match terminé, qui ne se corrige plus ici. */
+  onRetirer?: (event: LiveEvent) => void;
+  /** Plus serré, pour le panneau posé sous les terrains sur grand écran. */
+  compact?: boolean;
 }) {
   if (events.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-14 text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-50">
-          <History size={28} className="text-gray-200" />
-        </div>
-        <p className="text-sm font-bold uppercase tracking-widest text-gray-300 italic">
+      <div className={`flex flex-col items-center justify-center text-center ${compact ? "py-6" : "py-14"}`}>
+        <History size={compact ? 20 : 28} className="mb-3 text-white/15" />
+        <p className="text-[11px] font-bold uppercase tracking-widest text-white/30">
           Aucun événement pour l&apos;instant
         </p>
       </div>
@@ -3047,7 +3353,7 @@ function EventTimeline({
   const lastGoalId = [...events].reverse().find((e) => e.type === "goal")?.id ?? null;
 
   return (
-    <div className="custom-scrollbar max-h-[220px] space-y-3 overflow-y-auto pr-2 sm:max-h-[350px] sm:space-y-4">
+    <div className={compact ? "space-y-2" : "space-y-3"}>
       {[...events].reverse().map((event) => {
         const isHome = event.teamId === homeTeamId;
         const isSub = event.type === "substitution";
@@ -3062,73 +3368,69 @@ function EventTimeline({
         const varBusy = varPendingId === event.id;
         const reviewable =
           isGoal && !!onVarVerdict && event.id === lastGoalId && !confirmed && !cancelled;
+        const titre = isGoal
+          ? event.detail === PENALTY_GOAL_DETAIL ? "But sur penalty" : "But"
+          : issue
+            ? RECIT_ISSUE_PENALTY[issue]
+            : LIBELLE_EVENEMENT[event.type];
         return (
           <motion.div
             key={event.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="group flex items-center gap-3.5 sm:gap-5"
+            className="flex items-center gap-3"
           >
             <div
-              className={`relative flex h-11 w-11 shrink-0 items-center justify-center border text-xs font-black ${
+              className={`flex shrink-0 items-center justify-center border text-xs font-black tabular-nums ${
+                compact ? "h-8 w-8" : "h-10 w-10"
+              } ${
                 cancelled
-                  ? "border-gray-200/70 bg-gray-50 text-gray-300"
+                  ? "border-white/10 text-white/25"
                   : checking
-                    ? "border-amber-200 bg-amber-50 text-amber-600"
-                    : "border-gray-200/70 bg-gray-50"
+                    ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
+                    : "border-white/10 bg-white/5 text-white/70"
               }`}
             >
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
               {event.minute ? `${event.minute}'` : ","}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                {isGoal && (
-                  <Goal size={16} className={cancelled ? "text-gray-300" : "text-amber-500"} />
-                )}
-                {event.type === "yellow_card" && (
-                  <span className="h-5 w-3.5 border border-amber-500/20 bg-amber-400" />
-                )}
-                {event.type === "red_card" && (
-                  <span className="h-5 w-3.5 border border-red-700/20 bg-red-600" />
-                )}
-                {isSub && <ArrowRightLeft size={16} className="text-sky-500" />}
-                {event.type === "save" && <Hand size={16} className="text-emerald-600" />}
-                {event.type === "foul" && <AlertTriangle size={16} className="text-orange-500" />}
-                {event.type === "offside" && <Flag size={16} className="text-gray-400" />}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                {isGoal && <Goal size={15} className={cancelled ? "text-white/25" : "text-amber-400"} />}
+                {event.type === "yellow_card" && <span className="h-4 w-3 bg-amber-400" />}
+                {event.type === "red_card" && <span className="h-4 w-3 bg-red-600" />}
+                {isSub && <ArrowRightLeft size={15} className="text-sky-400" />}
+                {event.type === "save" && <Hand size={15} className="text-emerald-400" />}
+                {event.type === "foul" && <AlertTriangle size={15} className="text-orange-400" />}
+                {event.type === "offside" && <Flag size={15} className="text-white/45" />}
                 {event.type === "penalty" && (
-                  <Target size={16} className={cancelled ? "text-gray-300" : "text-amber-500"} />
+                  <Target size={15} className={cancelled ? "text-white/25" : "text-amber-400"} />
                 )}
                 <span
-                  className={`text-sm font-black uppercase tracking-tight ${
-                    cancelled ? "text-gray-400 line-through" : "text-gray-900"
+                  className={`text-[13px] font-black uppercase tracking-tight ${
+                    cancelled ? "text-white/35 line-through" : "text-white"
                   }`}
                 >
-                  {isGoal
-                    ? event.detail === PENALTY_GOAL_DETAIL ? "BUT SUR PENALTY !" : "BUT !"
-                    : issue
-                      ? RECIT_ISSUE_PENALTY[issue]
-                      : LIBELLE_EVENEMENT[event.type]}
+                  {titre}
                 </span>
 
                 {/* Un penalty accordé et rien de plus : le scoreur n'a pas
                     encore dit ce qu'il est devenu, et cela se voit ici comme
                     dans le bandeau. */}
                 {event.type === "penalty" && !issue && (
-                  <span className="inline-flex items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                  <span className="inline-flex items-center gap-1 bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     En attente
                   </span>
                 )}
-
                 {checking && (
-                  <span className="inline-flex items-center gap-1 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                  <span className="inline-flex items-center gap-1 bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     VAR en cours
                   </span>
                 )}
                 {cancelled && (
-                  <span className="inline-flex items-center gap-1 bg-red-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-700">
+                  <span className="inline-flex items-center gap-1 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-300">
                     <Ban size={10} />
                     {/* « Retiré » tout court : la VAR n'existe pas sur un
                         amical, et ce fil est le meme des deux cotes. C'est le
@@ -3137,18 +3439,21 @@ function EventTimeline({
                   </span>
                 )}
                 {confirmed && (
-                  <span className="inline-flex items-center gap-1 bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                  <span className="inline-flex items-center gap-1 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
                     <Check size={10} />
                     Accordé VAR
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 text-xs font-bold uppercase tracking-tighter text-gray-400">
+              <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-tight text-white/45">
                 {isSub && event.detail ? (
-                  <span className="text-sky-600">{event.detail}</span>
+                  <span className="text-sky-300">{event.detail}</span>
                 ) : (
                   <>
                     {event.playerName ? `${event.playerName} • ` : ""}
+                    {/* Le passeur, que le scoreur vient de poser : c'est ici
+                        qu'il vérifie qu'il l'a bien fait. */}
+                    {isGoal && event.assistPlayerName ? `passe de ${event.assistPlayerName} • ` : ""}
                     {isHome ? homeTeamName : awayTeamName}
                     {/* Une faute a deux acteurs : la nommer sans sa victime
                         n'apprend que la moitié de ce qui s'est passé. */}
@@ -3162,13 +3467,13 @@ function EventTimeline({
               {/* VAR controls, last goal only, while the match is running */}
               {reviewable && onVarVerdict && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {varBusy && <Loader2 size={13} className="animate-spin text-gray-300" />}
+                  {varBusy && <Loader2 size={13} className="animate-spin text-white/40" />}
                   {!checking && (
                     <button
                       type="button"
                       disabled={varBusy}
                       onClick={() => onVarVerdict(event, "checking")}
-                      className="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] font-bold text-amber-200 transition-colors hover:bg-amber-400/20 disabled:opacity-50"
                     >
                       <MonitorPlay size={12} />
                       Vérifier (VAR)
@@ -3179,7 +3484,7 @@ function EventTimeline({
                       type="button"
                       disabled={varBusy}
                       onClick={() => onVarVerdict(event, "confirmed")}
-                      className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/20 disabled:opacity-50"
                     >
                       <Check size={12} />
                       But accordé
@@ -3189,7 +3494,7 @@ function EventTimeline({
                     type="button"
                     disabled={varBusy}
                     onClick={() => onVarVerdict(event, "cancelled")}
-                    className="inline-flex items-center gap-1 border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 border border-red-400/30 bg-red-400/10 px-2 py-1 text-[11px] font-bold text-red-200 transition-colors hover:bg-red-400/20 disabled:opacity-50"
                   >
                     <Ban size={12} />
                     Refuser le but
@@ -3197,25 +3502,23 @@ function EventTimeline({
                 </div>
               )}
             </div>
+
+            {/* LA CORBEILLE, VISIBLE SANS SURVOL : un téléphone n'en a pas.
+                Elle demande confirmation, parce qu'un retrait peut défaire
+                une exclusion ou un changement. */}
+            {onRetirer && (
+              <button
+                type="button"
+                onClick={() => onRetirer(event)}
+                aria-label={`Retirer : ${titre}${event.playerName ? `, ${event.playerName}` : ""}`}
+                className="flex h-9 w-9 shrink-0 items-center justify-center text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-300"
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
           </motion.div>
         );
       })}
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #e5e5e5;
-        }
-      `}</style>
     </div>
   );
 }

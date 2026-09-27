@@ -7,6 +7,7 @@ import {
   limit as firestoreLimit,
   getDocs,
   getDoc,
+  getDocFromCache,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -33,7 +34,10 @@ import type {
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { listGrantedCompetitionIds } from "./staff-access";
-import { OWN_GOAL_DETAIL, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
+import {
+  OWN_GOAL_DETAIL, nouvelIdEvenement, type IssuePenalty, type TypeEvenement,
+} from "@/lib/evenements";
+import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import type { PossessionStockee } from "@/lib/possession";
 import { synchroniserTerrainsCompetition } from "@/lib/reservations-client";
 import { terrainNomme } from "@/lib/terrains";
@@ -1293,6 +1297,12 @@ export async function addCompEvent(
   cid: string,
   mid: string,
   event: {
+    /**
+     * L'identifiant, quand la console le choisit elle-même : elle n'a alors
+     * pas à attendre l'accusé du serveur pour raccrocher un passeur ou
+     * proposer « Annuler ». Voir `nouvelIdEvenement`.
+     */
+    id?: string;
     type: TypeEvenement;
     side: "home" | "away";
     team_id: string;
@@ -1309,7 +1319,7 @@ export async function addCompEvent(
   },
 ): Promise<string> {
   const newEvent: StoredCompEvent = {
-    id: Math.random().toString(36).substring(2, 11),
+    id: event.id ?? nouvelIdEvenement(),
     type: event.type,
     period: event.period,
     minute: event.minute,
@@ -1337,6 +1347,40 @@ export async function addCompEvent(
   // The id goes back to the caller so the console can hang an assist on this
   // exact goal a moment later, see `setCompGoalAssist`.
   return newEvent.id;
+}
+
+/**
+ * Retirer des événements de l'historique, avec ce qu'ils emportent : leur
+ * point au tableau, et la pelouse qu'ils avaient changée. Le plan vient de
+ * lib/retrait-evenement.
+ *
+ * HORS LIGNE COMPRIS, et c'est pour ça qu'il n'y a pas de transaction ici.
+ * `arrayRemove` retire l'élément exact sans réécrire le tableau — donc sans
+ * effacer ce qu'un autre appareil vient d'y ajouter —, et `increment` corrige
+ * le score de la même façon. Les deux partent dans la file de Firestore quand
+ * le réseau manque.
+ *
+ * L'objet exact vient du document TEL QUE L'APPAREIL LE VOIT, écritures en
+ * attente comprises : c'est ce qui permet d'annuler un événement qui n'a pas
+ * encore atteint le serveur.
+ */
+export async function retirerCompEvenements(cid: string, mid: string, plan: PlanDeRetrait): Promise<void> {
+  const ref = compMatchRef(cid, mid);
+  const snap = await getDocFromCache(ref).catch(() => getDoc(ref));
+  const d = snap.data() as FirestoreCompMatch | undefined;
+  const bruts = (d?.live_state?.events ?? []).filter((e) => plan.ids.includes(e.id));
+  // Déjà parti (un autre appareil, ou un double appui) : rien à faire.
+  if (bruts.length === 0) return;
+
+  const updates: Record<string, unknown> = {
+    "live_state.events": arrayRemove(...bruts),
+    updated_at: serverTimestamp(),
+  };
+  if (plan.score.home) updates.score_home = increment(plan.score.home);
+  if (plan.score.away) updates.score_away = increment(plan.score.away);
+  if (plan.surLeTerrain.home) updates.home_on_pitch = plan.surLeTerrain.home;
+  if (plan.surLeTerrain.away) updates.away_on_pitch = plan.surLeTerrain.away;
+  await updateDoc(ref, updates);
 }
 
 /**
