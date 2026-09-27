@@ -667,7 +667,7 @@ function MatchRow({
           ) : (
             <>
               <span className="text-[11px] font-black tabular-nums text-gray-500">
-                {finished ? "Fin" : (match.time ?? ",")}
+                {finished ? "Fin" : (match.time ?? "–")}
               </span>
               {!finished && <span className="text-[10px] font-bold text-gray-300">-</span>}
             </>
@@ -1034,7 +1034,7 @@ function Spotlight({
                 ) : (
                   <>
                     <span className="font-display text-2xl font-black tabular-nums text-gray-900">
-                      {match.time ?? ","}
+                      {match.time ?? "–"}
                     </span>
                     <span className="mt-0.5 block text-[11px] font-black text-gray-400">
                       {match.date ? dayLabel(match.date) : "À programmer"}

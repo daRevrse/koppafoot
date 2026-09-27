@@ -156,8 +156,8 @@ export default function AdminTeamDetailPage() {
               </span>
             </Ligne>
             <Ligne label="Abonnés">{team.followersCount ?? 0}</Ligne>
-            <Ligne label="Créée le">{team.createdAt?.slice(0, 10) || ","}</Ligne>
-            <Ligne label="Modifiée le">{team.updatedAt?.slice(0, 10) || ","}</Ligne>
+            <Ligne label="Créée le">{team.createdAt?.slice(0, 10) || "–"}</Ligne>
+            <Ligne label="Modifiée le">{team.updatedAt?.slice(0, 10) || "–"}</Ligne>
           </dl>
           {team.slogan && (
             <p className="mt-3 border-l-2 border-gray-100 pl-3 text-sm italic text-gray-500">«&nbsp;{team.slogan}&nbsp;»</p>

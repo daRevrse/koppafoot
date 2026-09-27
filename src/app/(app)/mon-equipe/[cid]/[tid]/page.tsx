@@ -508,7 +508,7 @@ export default function MyTeamPage() {
               {roster.map((player) => (
                 <div key={player.id} className="flex items-center gap-3 px-4 py-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-                    {player.number || ","}
+                    {player.number || "–"}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>

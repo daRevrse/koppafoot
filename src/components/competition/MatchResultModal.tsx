@@ -409,7 +409,7 @@ export default function MatchResultModal({
                   placeholder="0"
                 />
               </div>
-              <span className="mt-5 text-xl font-bold text-gray-300">,</span>
+              <span className="mt-5 text-xl font-bold text-gray-300">–</span>
               <div className="flex flex-col items-center gap-1">
                 <span className="text-xs font-bold text-gray-600">{match.awayTeamName}</span>
                 <input

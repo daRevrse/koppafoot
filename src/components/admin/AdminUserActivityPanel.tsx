@@ -118,7 +118,7 @@ export default function AdminUserActivityPanel({
                   { label: "Matchs", valeur: a.matchesPlayed },
                   { label: "Buts", valeur: a.goals },
                   { label: "Passes", valeur: a.assists },
-                  { label: "Note moyenne", valeur: a.noteMoyenne ?? "," },
+                  { label: "Note moyenne", valeur: a.noteMoyenne ?? "–" },
                 ]} />
                 {a.equipesRejointes.length > 0 && (
                   <p className="mt-3 text-xs text-gray-500">

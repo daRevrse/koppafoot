@@ -251,7 +251,7 @@ export default function CompetitionSchedulePage() {
 
     const byGroup = new Map<string, CompMatch[]>();
     for (const m of groupMatches) {
-      const key = m.group ?? ",";
+      const key = m.group ?? "–";
       const bucket = byGroup.get(key);
       if (bucket) bucket.push(m);
       else byGroup.set(key, [m]);

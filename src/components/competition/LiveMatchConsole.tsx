@@ -3392,7 +3392,7 @@ function EventTimeline({
               }`}
             >
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
-              {event.minute ? `${event.minute}'` : ","}
+              {event.minute ? `${event.minute}'` : "–"}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

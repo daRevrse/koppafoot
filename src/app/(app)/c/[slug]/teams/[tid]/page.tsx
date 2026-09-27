@@ -2,11 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
-import {
-  Loader2, SearchX, CalendarDays, MapPin, Clock, ChevronRight, History, Users,
-} from "lucide-react";
+import toast from "react-hot-toast";
+import { Loader2, SearchX, ChevronRight, Share2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale/fr";
 import {
@@ -16,6 +14,13 @@ import {
   computeStandings,
 } from "@/lib/competition-firestore";
 import RosterClaimList from "@/components/competition/RosterClaimList";
+import BandeauEquipe, { BOUTON_BANDEAU, FormeEnLettres } from "@/components/team/BandeauEquipe";
+import MatchsDuClub from "@/components/team/MatchsDuClub";
+import MiniEcusson from "@/components/match/MiniEcusson";
+import { lienAbsolu, partagerLien } from "@/lib/partage";
+import {
+  rangerLesMatchs, resultatDuMatch, statutPublicCompetition, type MatchDuClub,
+} from "@/lib/fiche-club";
 import type { Competition, CompMatch, CompTeam, CompMatchRound } from "@/types";
 
 // ============================================
@@ -51,30 +56,6 @@ function formatShortDate(date: string): string {
   } catch {
     return date;
   }
-}
-
-// Team crest: real logo when present, otherwise a first-letter avatar.
-function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
-  // Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG
-  // transparents, et la plaque se voyait au travers.
-  // `contain` plutôt que `cover` : sans plaque, un logo rogné n'a plus rien
-  // qui rattrape la coupe.
-  if (logo) {
-    return (
-      <Image
-        src={logo}
-        alt={name}
-        width={32}
-        height={32}
-        className="h-8 w-8 shrink-0 object-contain"
-      />
-    );
-  }
-  return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50 text-xs font-black text-gray-500">
-      <span>{name?.[0]?.toUpperCase() || "?"}</span>
-    </div>
-  );
 }
 
 // ============================================
@@ -165,40 +146,8 @@ export default function PublicTeamPage() {
       });
   }, [matches, team]);
 
-  // Next scheduled match (with a real date), ascending by date then time.
-  const nextMatch = useMemo(() => {
-    return teamMatches
-      .filter((x) => x.match.status === "scheduled" && x.match.date != null)
-      .sort((a, b) => {
-        const d = (a.match.date as string).localeCompare(b.match.date as string);
-        if (d !== 0) return d;
-        if (a.match.time == null && b.match.time == null) return 0;
-        if (a.match.time == null) return 1;
-        if (b.match.time == null) return -1;
-        return a.match.time.localeCompare(b.match.time);
-      })[0] ?? null;
-  }, [teamMatches]);
-
-  // Played matches (live + completed), most recent first (undated last).
-  const results = useMemo(() => {
-    return teamMatches
-      .filter((x) => x.match.status === "live" || x.match.status === "completed")
-      .sort((a, b) => {
-        // Live first, then by date desc; undated sorts last within each group.
-        if (a.match.status !== b.match.status) {
-          return a.match.status === "live" ? -1 : 1;
-        }
-        if (a.match.date == null && b.match.date == null) return 0;
-        if (a.match.date == null) return 1;
-        if (b.match.date == null) return -1;
-        const d = b.match.date.localeCompare(a.match.date);
-        if (d !== 0) return d;
-        if (a.match.time == null && b.match.time == null) return 0;
-        if (a.match.time == null) return 1;
-        if (b.match.time == null) return -1;
-        return b.match.time.localeCompare(a.match.time);
-      });
-  }, [teamMatches]);
+  // Le prochain match et les résultats se rangent désormais comme sur la
+  // fiche d'un club : voir `rangerLesMatchs`, plus bas.
 
   // Roster, sorted numeric-aware by dossard (NaN, blank/non-numeric, last).
   const roster = useMemo(() => {
@@ -273,268 +222,199 @@ export default function PublicTeamPage() {
     );
   }
 
+  /**
+   * LES MATCHS DE L'ÉQUIPE, VUS DE L'ÉQUIPE : la même liste que sur la fiche
+   * d'un club (voir MatchsDuClub), sans le nom de la compétition, qui est ici
+   * partout.
+   */
+  const matchsVus: MatchDuClub[] = teamMatches.flatMap(({ match: m, isHome, opponentName, opponentLogo, teamScore, oppScore }) => {
+    const statut = statutPublicCompetition(m.status);
+    if (!statut) return [];
+    return [{
+      id: m.id,
+      lien: `/c/${slug}/matches/${m.id}`,
+      competition: { nom: competition.name, lien: `/c/${slug}` },
+      etape: stageTag(m),
+      date: m.date,
+      heure: m.time,
+      statut,
+      domicile: isHome,
+      adversaire: { nom: opponentName, logo: opponentLogo },
+      pour: teamScore,
+      contre: oppScore,
+      lieu: m.venueName,
+    }];
+  });
+  const { aVenir, joues } = rangerLesMatchs(matchsVus);
+  const prochain = aVenir[0] ?? null;
+
+  // Le bilan dans CETTE compétition, et sa forme : du plus ancien au plus
+  // récent, comme sur le tableau d'un match.
+  const termines = joues.filter((m) => resultatDuMatch(m) !== null);
+  const bilan = {
+    joues: termines.length,
+    gagnes: termines.filter((m) => resultatDuMatch(m) === "V").length,
+    nuls: termines.filter((m) => resultatDuMatch(m) === "N").length,
+    perdus: termines.filter((m) => resultatDuMatch(m) === "D").length,
+    pour: termines.reduce((n, m) => n + (m.pour ?? 0), 0),
+    contre: termines.reduce((n, m) => n + (m.contre ?? 0), 0),
+  };
+  const forme = termines.slice(0, 5).map((m) => resultatDuMatch(m) as "V" | "N" | "D").reverse();
+
+  const partager = async () => {
+    const resultat = await partagerLien({
+      title: team.name,
+      text: `${team.name} · ${competition.name}`,
+      url: lienAbsolu(`/c/${slug}/teams/${tid}`),
+    });
+    if (resultat === "copie") toast.success("Lien de l'équipe copié !");
+    else if (resultat === "echec") toast.error("Le partage a échoué.");
+  };
+
   return (
-    <div className="mx-auto max-w-6xl pb-24">
-      {/* Fil d'ariane : ou l'on est, sans repeter le nom en dessous. */}
-      <nav
-        aria-label="Fil d'ariane"
-        className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
-      >
-        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <Link href={`/c/${slug}`} className="transition-colors hover:text-emerald-700">
-          {competition.name}
-        </Link>
-        <span aria-hidden className="text-gray-300">›</span>
-        <span className="truncate text-gray-600">{team.name}</span>
-      </nav>
-
-      {/* Meme hero que sur une competition : compact, colle sous le header. */}
-      <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-800 via-gray-900 to-black" />
-
-        <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-          <div className="flex items-center gap-4">
-            <div
-              className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-white/5 text-xl font-black text-white/70"
-              style={!team.logoUrl && team.color ? { backgroundColor: team.color, color: "#fff" } : undefined}
-            >
-              {team.logoUrl ? (
-                <Image src={team.logoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" />
-              ) : (
-                <span>{team.name?.[0]?.toUpperCase() || "?"}</span>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                {competition.name}
-              </p>
-              <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
-                {team.name}
-              </h1>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
+    <div className="pb-16">
+      {/* LE MÊME BANDEAU QUE LA FICHE D'UN CLUB (voir BandeauEquipe). Il
+          collait en haut de l'écran et prenait un quart du téléphone ; le fil
+          d'ariane, posé au-dessus, finissait caché dessous. La compétition
+          se rejoint par son nom, au-dessus de celui de l'équipe. */}
+      <BandeauEquipe
+        fil={[
+          { label: "Direct", href: "/" },
+          { label: competition.name, href: `/c/${slug}` },
+          { label: team.name },
+        ]}
+        nom={team.name}
+        logo={team.logoUrl}
+        couleur={team.color}
+        surtitre={
+          <Link href={`/c/${slug}`} className="transition-colors hover:text-white">
+            {competition.name}
+          </Link>
+        }
+        puces={
+          <>
             {team.group && <span>Groupe {team.group}</span>}
             {standing && (
               <span className="text-emerald-300">
                 {ordinal(standing.rank)} · {standing.points} pts
               </span>
             )}
+            <FormeEnLettres forme={forme} />
             <span>{roster.length} joueur{roster.length > 1 ? "s" : ""}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Prochain match */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <CalendarDays size={15} className="text-emerald-500" />
-          <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-            Prochain match
-          </h2>
-        </div>
-
-        {nextMatch ? (
-          <Link
-            href={`/c/${slug}/matches/${nextMatch.match.id}`}
-            className="group block overflow-hidden border border-gray-200/70 bg-white transition-all hover:border-emerald-200"
-          >
-            <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
-              <div className="flex min-w-0 items-center gap-2">
-                {stageTag(nextMatch.match) && (
-                  <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                    {stageTag(nextMatch.match)}
-                  </span>
-                )}
-                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                  {nextMatch.isHome ? "Domicile" : "Extérieur"}
-                </span>
-              </div>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">
-                À venir
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
-                <span className="truncate text-sm font-bold text-gray-900">{nextMatch.match.homeTeamName}</span>
-                <TeamBadge name={nextMatch.match.homeTeamName} logo={nextMatch.match.homeTeamLogo} />
-              </div>
-              <span className="shrink-0 px-1 text-sm font-black text-gray-300">VS</span>
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <TeamBadge name={nextMatch.match.awayTeamName} logo={nextMatch.match.awayTeamLogo} />
-                <span className="truncate text-sm font-bold text-gray-900">{nextMatch.match.awayTeamName}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 border-t border-gray-50 px-4 py-2.5">
-              <div className="flex min-w-0 items-center gap-3 text-[11px] font-bold text-gray-400">
-                {nextMatch.match.date && (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <CalendarDays size={12} />
-                    {formatShortDate(nextMatch.match.date)}
-                  </span>
-                )}
-                {nextMatch.match.time && (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <Clock size={12} />
-                    {nextMatch.match.time}
-                  </span>
-                )}
-                {nextMatch.match.venueName && (
-                  <span className="flex min-w-0 items-center gap-1">
-                    <MapPin size={12} className="shrink-0" />
-                    <span className="truncate">{nextMatch.match.venueName}</span>
-                  </span>
-                )}
-              </div>
-              <ChevronRight
-                size={16}
-                className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-500"
-              />
-            </div>
-          </Link>
-        ) : (
-          <div className=" border border-gray-200/70 bg-white px-5 py-8 text-center">
-            <p className="text-sm font-bold text-gray-400 italic">Aucun match à venir.</p>
-          </div>
-        )}
-      </section>
-
-      {/* Une seule carte, dont les onglets changent le contenu, la meme
-          structure que la page d'une competition. */}
-      <div className="mt-6 border border-gray-200/70 bg-white">
-        <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
-          {([
-            { id: "roster" as const, label: "Effectif" },
-            { id: "results" as const, label: "Résultats" },
-          ]).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                tab === t.id
-                  ? "border-gray-900 text-gray-900"
-                  : "border-transparent text-gray-400 hover:text-gray-700"
-              }`}
-            >
-              {t.label}
+          </>
+        }
+        actions={
+          <>
+            <button type="button" onClick={partager} aria-label="Partager cette équipe" className={BOUTON_BANDEAU}>
+              <Share2 size={14} />
             </button>
-          ))}
-        </div>
+            {/* LE CLUB DERRIÈRE L'ÉQUIPE. Une inscription revendiquée par un
+                club ne menait pas à sa fiche : deux pages sur la même équipe,
+                qui s'ignoraient. */}
+            {team.claimedByTeamId && (
+              <Link href={`/teams/${team.claimedByTeamId}`} className={BOUTON_BANDEAU}>
+                Fiche du club
+              </Link>
+            )}
+          </>
+        }
+      />
 
-        <div className="p-5">
-          {tab === "results" && (
-            <>
-      {/* Résultats */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <History size={15} className="text-emerald-500" />
-          <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-            Résultats
-          </h2>
-        </div>
-
-        {results.length === 0 ? (
-          <div className=" border border-gray-200/70 bg-white px-5 py-8 text-center">
-            <p className="text-sm font-bold text-gray-400 italic">Aucun match joué pour l&apos;instant.</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {results.map(({ match, opponentName, opponentLogo, teamScore, oppScore, outcome }) => {
-              const isLive = match.status === "live";
-              const tag = stageTag(match);
-              // Subtle accent strip on the left for the team's perspective.
-              const accent =
-                outcome === "win"
-                  ? "border-l-emerald-400"
-                  : outcome === "loss"
-                    ? "border-l-red-300"
-                    : outcome === "draw"
-                      ? "border-l-gray-300"
-                      : "border-l-transparent";
-              const outcomeBadge =
-                outcome === "win"
-                  ? { label: "Victoire", cls: "bg-emerald-50 text-emerald-700" }
-                  : outcome === "loss"
-                    ? { label: "Défaite", cls: "bg-red-50 text-red-600" }
-                    : outcome === "draw"
-                      ? { label: "Nul", cls: "bg-gray-100 text-gray-500" }
-                      : null;
-              return (
-                <Link
-                  key={match.id}
-                  href={`/c/${slug}/matches/${match.id}`}
-                  className={`group block overflow-hidden border border-l-4 bg-white transition-all ${
-                    isLive ? "border-red-100 hover:border-red-200" : "border-gray-200/70 hover:border-emerald-200"
-                  } ${accent}`}
-                >
-                  <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      {tag && (
-                        <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                          {tag}
-                        </span>
-                      )}
-                    </div>
-                    {isLive ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-red-600">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-                        En direct
-                      </span>
-                    ) : outcomeBadge ? (
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${outcomeBadge.cls}`}
-                      >
-                        {outcomeBadge.label}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    {/* Opponent on the right, this team's crest implied by the score. */}
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <TeamBadge name={opponentName} logo={opponentLogo} />
-                      <span className="truncate text-sm font-bold text-gray-900">{opponentName}</span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5 px-1">
-                      <span className="text-lg font-black tabular-nums text-gray-900">{teamScore ?? 0}</span>
-                      <span className="text-sm font-black text-gray-300">-</span>
-                      <span className="text-lg font-black tabular-nums text-gray-900">{oppScore ?? 0}</span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </section>
-            </>
+      <div className="mx-auto mt-4 grid max-w-6xl gap-4 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+        {/* À droite sur grand écran, en tête sur téléphone : le prochain
+            match — la seule chose de cette page qui périme — et le bilan. */}
+        <div className="space-y-4 lg:col-start-2 lg:row-start-1">
+          {prochain ? (
+            <Link
+              href={prochain.lien}
+              className="group flex items-center gap-3 border border-gray-200/70 bg-white px-4 py-3.5 transition-colors hover:border-emerald-200"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">
+                  {prochain.statut === "en_direct" ? "En direct" : "Prochain match"}
+                  {prochain.etape ? ` · ${prochain.etape}` : ""}
+                  {` · ${prochain.domicile ? "Domicile" : "Extérieur"}`}
+                </p>
+                <p className="mt-1 flex min-w-0 items-center gap-2 text-base font-black text-gray-900">
+                  <MiniEcusson nom={prochain.adversaire.nom} logo={prochain.adversaire.logo} taille={22} className="text-gray-400" />
+                  <span className="min-w-0 break-words">{prochain.adversaire.nom}</span>
+                </p>
+                {prochain.date && (
+                  <p className="mt-0.5 text-[11px] font-bold text-gray-500">
+                    {formatShortDate(prochain.date)}
+                    {prochain.heure ? ` · ${prochain.heure}` : ""}
+                    {prochain.lieu ? ` · ${prochain.lieu}` : ""}
+                  </p>
+                )}
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          ) : (
+            <p className="border border-gray-200/70 bg-white px-4 py-3.5 text-sm font-bold text-gray-400">
+              Aucun match à venir.
+            </p>
           )}
-          {tab === "roster" && (
-            <>
-      {/* Effectif */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Users size={15} className="text-emerald-500" />
-          <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-            Effectif
-          </h2>
+
+          {bilan.joues > 0 && (
+            <div className="border border-gray-200/70 bg-white px-4 py-4">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">Dans la compétition</p>
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {[
+                  { v: bilan.joues, l: "Joués", t: "text-gray-900" },
+                  { v: bilan.gagnes, l: "Gagnés", t: "text-emerald-700" },
+                  { v: bilan.nuls, l: "Nuls", t: "text-gray-900" },
+                  { v: bilan.perdus, l: "Perdus", t: "text-red-600" },
+                ].map((c) => (
+                  <div key={c.l}>
+                    <p className={`font-display text-2xl font-black leading-none tabular-nums ${c.t}`}>{c.v}</p>
+                    <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">{c.l}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] font-bold tabular-nums text-gray-500">
+                Buts {bilan.pour}–{bilan.contre}
+              </p>
+            </div>
+          )}
         </div>
 
-        {roster.length === 0 ? (
-          <div className=" border border-gray-200/70 bg-white px-5 py-8 text-center">
-            <p className="text-sm font-bold text-gray-400 italic">Effectif non communiqué.</p>
+        {/* Une seule carte, dont les onglets changent le contenu. Le titre
+            répétait sous l'onglet ce que l'onglet venait de dire. */}
+        <div className="min-w-0 border border-gray-200/70 bg-white lg:col-start-1 lg:row-start-1">
+          <div role="tablist" aria-label="Sections de l'équipe" className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+            {([
+              { id: "roster" as const, label: "Effectif", n: roster.length },
+              { id: "results" as const, label: "Matchs", n: matchsVus.length },
+            ]).map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
+                  tab === t.id
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+                {t.n > 0 && <span className="tabular-nums text-gray-400">{t.n}</span>}
+              </button>
+            ))}
           </div>
-        ) : (
-          <RosterClaimList cid={competition.id} teamId={tid} roster={roster} />
-        )}
-      </section>
-            </>
-          )}
+
+          <div className="p-4 sm:p-5">
+            {tab === "results" && <MatchsDuClub matchs={matchsVus} avecCompetition={false} />}
+            {tab === "roster" && (
+              roster.length === 0 ? (
+                <p className="border border-gray-200/70 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400">
+                  Effectif non communiqué.
+                </p>
+              ) : (
+                <RosterClaimList cid={competition.id} teamId={tid} roster={roster} />
+              )
+            )}
+          </div>
         </div>
       </div>
     </div>

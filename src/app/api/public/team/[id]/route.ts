@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { bilanCompletDuClub } from "@/lib/bilan-club-serveur";
+import { ficheDuClub } from "@/lib/fiche-club-serveur";
 
 /**
  * GET /api/public/team/[id], la fiche publique d'une équipe.
@@ -9,11 +9,18 @@ import { bilanCompletDuClub } from "@/lib/bilan-club-serveur";
  * dans firestore.rules. Plutôt que d'ouvrir la règle, on lit ici avec le SDK
  * admin et on ne renvoie qu'une projection en liste blanche.
  *
- * Ce qui n'en fait PAS partie : `member_ids` et `manager_id`. Un effectif est
- * une liste d'identifiants de comptes, et la publier permettrait de relier
- * des personnes entre elles sans qu'elles l'aient demandé. On publie ce qui
- * décrit l'équipe, pas qui la compose, le nombre de membres suffit à dire
- * si elle est complète.
+ * L'EFFECTIF EN FAIT PARTIE, DÉSORMAIS. Il en était sorti pour ne pas relier
+ * des personnes entre elles sans qu'elles l'aient demandé — mais les mêmes
+ * noms étaient déjà publics ailleurs, sur chaque composition de match et sur
+ * l'effectif d'une équipe en compétition. La fiche du club était la seule à
+ * les taire, et affichait « Effectif 14 » au-dessus de « Aucun joueur ». On
+ * publie ce que la feuille de match montre déjà : le nom, le numéro, le poste,
+ * la photo, et le lien vers la fiche publique de ceux qui ont un compte.
+ * Jamais `member_ids` en tant que tel, ni un email, ni un téléphone, ni la
+ * condition déclarée (blessé, suspendu), qui reste l'affaire du club.
+ *
+ * Le manager et son staff : leurs noms et leurs titres, comme la composition
+ * d'un match montre déjà le manager (voir ./manager).
  */
 
 export const revalidate = 300;
@@ -43,38 +50,39 @@ export async function GET(
     for (const key of PUBLIC_FIELDS) {
       if (data[key] !== undefined) out[key] = data[key];
     }
-    // Le nombre de membres est une information d'équipe ; la liste ne l'est pas.
+    // Le nombre de membres est une information d'équipe.
     out.member_count = Array.isArray(data.member_ids) ? data.member_ids.length : 0;
-    // L'effectif entier : les comptes ET les joueurs sans compte, saisis par
-    // le manager. Un nombre, jamais les noms — la sous-collection reste
-    // fermée aux visiteurs. Sans lui, un visiteur lisait « Effectif 0 ».
-    const fantomes = await snap.ref.collection("ghost_players").count().get();
-    out.squad_count = (out.member_count as number) + fantomes.data().count;
 
     /**
-     * LE BILAN SE CALCULE, IL NE SE LIT PLUS.
+     * LA FICHE SE CALCULE, ELLE NE SE LIT PLUS.
      *
-     * Cette route servait les quatre compteurs du document — `matches_played`,
+     * Le bilan servait les quatre compteurs du document — `matches_played`,
      * `wins`, `draws`, `losses` —, et ils mentent : rien ne les décrémente
      * quand un match est supprimé, rien ne les rejoue quand un score est
-     * corrigé après coup. Un club affichait ainsi 3 matchs joués et 1 victoire
-     * pour un seul match terminé, et c'est la page PUBLIQUE qui le racontait.
-     * Voir lib/bilan-club.
-     *
-     * Amicaux ET compétitions : voir lib/bilan-club-serveur. La route revalide
-     * toutes les cinq minutes, ces lectures ne se paient donc pas à chaque
-     * visiteur.
+     * corrigé après coup. Voir lib/bilan-club. L'effectif, les matchs et les
+     * meilleurs joueurs se lisent désormais au même endroit, amicaux ET
+     * compétitions (voir lib/fiche-club-serveur). La route revalide toutes
+     * les cinq minutes, ces lectures ne se paient donc pas à chaque visiteur.
      */
-    const bilan = await bilanCompletDuClub(id);
-    out.matches_played = bilan.joues;
-    out.wins = bilan.gagnes;
-    out.draws = bilan.nuls;
-    out.losses = bilan.perdus;
-    out.goals_for = bilan.butsPour;
-    out.goals_against = bilan.butsContre;
-    out.clean_sheets = bilan.sansEncaisser;
-    out.form = bilan.forme;
-
+    // Un adversaire hors plateforme n'a pas de fiche : la page le renvoie
+    // ailleurs, inutile de tout lire pour lui.
+    if (data.is_ghost === true) return NextResponse.json({ team: out });
+    const fiche = await ficheDuClub(id, data);
+    out.squad_count = fiche.effectif.length;
+    out.matches_played = fiche.bilan.joues;
+    out.wins = fiche.bilan.gagnes;
+    out.draws = fiche.bilan.nuls;
+    out.losses = fiche.bilan.perdus;
+    out.goals_for = fiche.bilan.butsPour;
+    out.goals_against = fiche.bilan.butsContre;
+    out.clean_sheets = fiche.bilan.sansEncaisser;
+    out.form = fiche.forme;
+    out.effectif = fiche.effectif;
+    out.manager = fiche.manager;
+    out.staff = fiche.staff;
+    out.matchs = fiche.matchs;
+    out.competitions = fiche.competitions;
+    out.meneurs = fiche.meneurs;
     return NextResponse.json({ team: out });
   } catch (err) {
     console.error("GET public team failed:", err);

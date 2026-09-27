@@ -12,7 +12,7 @@ const BANC = ["Mawuena Doe", "Folly Akue", "Komlan Tepe"];
 
 let { ctx, page } = await open("edem");
 await go(page, teamUrl);
-await page.getByRole("button", { name: /^Compositions/ }).first().click();
+await page.getByRole("tab", { name: /^Compositions/ }).first().click();
 await settle(page, 1500);
 const libres = () => page.locator('[aria-label^="Emplacement libre"]');
 const selecteur = () => page.locator(".modal-layer").last();
@@ -63,7 +63,7 @@ await enregistrer.click();
 await settle(page, 1500);
 
 // Le créneau de chaque semaine
-await page.getByRole("button", { name: /^Paramètres/ }).first().click();
+await page.getByRole("tab", { name: /^Paramètres/ }).first().click();
 await settle(page, 1500);
 const planning = page.getByText("Planning d'entraînement", { exact: true }).locator("xpath=ancestor::div[contains(@class,'border')][1]");
 await planning.locator("select").selectOption({ label: "Mercredi" });
@@ -82,7 +82,7 @@ await planning.getByRole("button", { name: /Ajouter/ }).click();
 await settle(page, 1500);
 
 // Une séance ponctuelle
-await page.getByRole("button", { name: /^Entraînements/ }).first().click();
+await page.getByRole("tab", { name: /^Entraînements/ }).first().click();
 await settle(page, 1200);
 await page.getByRole("button", { name: /Créer un entraînement/ }).click();
 await settle(page, 800);
@@ -108,7 +108,7 @@ await ctx.close();
 ({ ctx, page } = await open("kafui", PHONE));
 await go(page, teamUrl);
 await settle(page, 1500);
-await page.getByRole("button", { name: /^Entraînements/ }).first().click();
+await page.getByRole("tab", { name: /^Entraînements/ }).first().click();
 await settle(page, 1500);
 const present = page.getByRole("button", { name: /Présent/ }).first();
 await present.scrollIntoViewIfNeeded();
@@ -120,7 +120,7 @@ await ctx.close();
 
 ({ ctx, page } = await open("edem"));
 await go(page, teamUrl);
-await page.getByRole("button", { name: /^Entraînements/ }).first().click();
+await page.getByRole("tab", { name: /^Entraînements/ }).first().click();
 await settle(page, 2000);
 await region(page, "31-seances", corps(page), {
   maxHeight: 1400,

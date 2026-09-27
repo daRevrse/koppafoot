@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CompPlayer, RosterClaim } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
+import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
 
 // ============================================
 // Public roster, with a superadmin repair action.
@@ -87,56 +88,48 @@ export default function RosterClaimList({
   // queue for organizers. Superadmins keep it to fix rosters typed by hand.
   const canRepair = isSuperAdmin(user);
 
-  return (
-    <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">
-      {roster.map((player) => {
-        const isMe = !!player.user_id && player.user_id === user?.uid;
-        const myPending = myClaims.some(
-          (c) => c.playerId === player.id && c.teamId === teamId && c.status === "pending",
-        );
-        const canClaim =
-          canRepair && !player.user_id && !linkedHere && !pendingHere;
+  // RANGÉ PAR POSTE, avec le lien vers la fiche de ceux qui ont un compte
+  // (voir EffectifParPoste) : c'est la même liste que celle d'un club. Les
+  // postes s'affichaient tels que stockés, en anglais (« GOALKEEPER »), et
+  // aucun nom ne menait nulle part.
+  const lignes: LigneDEffectif[] = roster.map((player) => {
+    const isMe = !!player.user_id && player.user_id === user?.uid;
+    const myPending = myClaims.some(
+      (c) => c.playerId === player.id && c.teamId === teamId && c.status === "pending",
+    );
+    const canClaim = canRepair && !player.user_id && !linkedHere && !pendingHere;
+    return {
+      cle: player.id,
+      nom: player.name,
+      numero: player.number,
+      poste: player.position ?? null,
+      lien: player.user_id ? `/profile/${player.user_id}` : null,
+      apres: isMe ? (
+        <span className="inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-600">
+          <BadgeCheck size={10} /> Toi
+        </span>
+      ) : null,
+      action: myPending ? (
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600">
+          <Clock3 size={10} /> En attente
+        </span>
+      ) : canClaim ? (
+        <button
+          type="button"
+          onClick={() => claim(player.id)}
+          disabled={submitting !== null}
+          className="flex shrink-0 items-center gap-1 border border-emerald-200 px-2.5 py-1 text-[11px] font-black text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+        >
+          {submitting === player.id ? (
+            <Loader2 size={11} className="animate-spin" />
+          ) : (
+            <UserCheck size={11} />
+          )}
+          Rattacher
+        </button>
+      ) : null,
+    };
+  });
 
-        return (
-          <div key={player.id} className="flex items-center gap-3 px-4 py-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-              {player.number || ","}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">
-              {player.name}
-              {isMe && (
-                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 align-middle text-[10px] font-black uppercase tracking-wide text-emerald-600">
-                  <BadgeCheck size={10} /> Toi
-                </span>
-              )}
-            </span>
-            {player.position && (
-              <span className="hidden shrink-0 bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400 sm:inline">
-                {player.position}
-              </span>
-            )}
-            {myPending ? (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600">
-                <Clock3 size={10} /> En attente
-              </span>
-            ) : canClaim ? (
-              <button
-                type="button"
-                onClick={() => claim(player.id)}
-                disabled={submitting !== null}
-                className="flex shrink-0 items-center gap-1 border border-emerald-200 px-2.5 py-1 text-[11px] font-black text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
-              >
-                {submitting === player.id ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : (
-                  <UserCheck size={11} />
-                )}
-                Rattacher
-              </button>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <EffectifParPoste joueurs={lignes} />;
 }

@@ -8,7 +8,7 @@ import {
   Shield, MapPin, Users, Star, ChevronLeft, Trash2, UserMinus, UserPlus, Edit3, X, Check,
   Loader2, Trophy, Calendar, Image, Dumbbell, Medal,
   ToggleLeft, ToggleRight, AlertTriangle, ClipboardList,
-  Plus, Camera, UserCheck, BarChart2, ShieldCheck, HeartPulse,
+  Plus, Camera, UserCheck, BarChart2, ShieldCheck, HeartPulse, Share2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,11 +33,36 @@ import { TITRES_STAFF, estProprietaireEquipe, peutGererEquipe } from "@/lib/team
 import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/storage";
 import { avatarColor } from "@/components/feed/PostCard";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
-import CarteMatch from "@/components/team/CarteMatch";
+import BandeauEquipe, { BOUTON_BANDEAU, FormeEnLettres } from "@/components/team/BandeauEquipe";
+import CarteDuClub from "@/components/team/CarteDuClub";
+import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
+import MatchsDuClub from "@/components/team/MatchsDuClub";
+import { BadgeForme } from "@/components/forme/badges";
+import { useAuthModal } from "@/components/auth/AuthModal";
+import { lienAbsolu, partagerLien } from "@/lib/partage";
+import { versHex } from "@/lib/couleurs-equipe";
+import {
+  rangerLesMatchs, type CompetitionDuClub, type JoueurDuClub, type MatchDuClub,
+  type MembreDuStaff, type Meneur,
+} from "@/lib/fiche-club";
 import type { BilanClub } from "@/lib/bilan-club";
 
 /** Le bilan de la route publique, forme comprise (voir lib/bilan-club-serveur). */
 type BilanPublic = BilanClub & { forme: ("V" | "N" | "D")[] };
+
+/**
+ * La fiche publique du club, telle que la calcule la route (voir
+ * lib/fiche-club-serveur) : la même pour tous les lecteurs, visiteur compris.
+ */
+interface FichePublique {
+  bilan: BilanPublic;
+  effectif: JoueurDuClub[];
+  manager: { uid: string; nom: string; photo: string | null } | null;
+  staff: MembreDuStaff[];
+  matchs: MatchDuClub[];
+  competitions: CompetitionDuClub[];
+  meneurs: { buteurs: Meneur[]; passeurs: Meneur[] } | null;
+}
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
@@ -78,7 +103,7 @@ const POSITION_COLORS: Record<string, string> = {
   midfielder: "bg-emerald-100 text-emerald-700", forward: "bg-amber-100 text-amber-700",
 };
 
-type ActiveTab = "apropos" | "roster" | "compositions" | "matches" | "stats" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
+type ActiveTab = "roster" | "compositions" | "matches" | "settings" | "candidatures" | "palmares" | "gallery" | "trainings";
 
 // ============================================
 // Edit Team Modal
@@ -844,7 +869,7 @@ function ConditionFantomeModal({
  * Ni `memberIds` ni `managerId` n'en font partie : ils restent vides ici, ce
  * qui fait tomber d'elles-memes les vues reservees au manager.
  */
-async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanPublic } | null> {
+async function fetchPublicTeam(id: string): Promise<{ team: Team; fiche: FichePublique } | null> {
   try {
     const res = await fetch(`/api/public/team/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
@@ -863,7 +888,16 @@ async function fetchPublicTeam(id: string): Promise<{ team: Team; bilan: BilanPu
       sansEncaisser: team.clean_sheets ?? 0,
       forme: Array.isArray(team.form) ? team.form : [],
     };
-    return { bilan, team: {
+    const fiche: FichePublique = {
+      bilan,
+      effectif: Array.isArray(team.effectif) ? team.effectif : [],
+      manager: team.manager ?? null,
+      staff: Array.isArray(team.staff) ? team.staff : [],
+      matchs: Array.isArray(team.matchs) ? team.matchs : [],
+      competitions: Array.isArray(team.competitions) ? team.competitions : [],
+      meneurs: team.meneurs ?? null,
+    };
+    return { fiche, team: {
       id: team.id,
       name: team.name ?? "",
       city: team.city ?? null,
@@ -907,8 +941,10 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  /** Le bilan de la route publique, le même pour tous les lecteurs. */
-  const [bilanServeur, setBilanServeur] = useState<BilanPublic | null>(null);
+  /** La fiche de la route publique, la même pour tous les lecteurs. */
+  const [fiche, setFiche] = useState<FichePublique | null>(null);
+  const bilanServeur = fiche?.bilan ?? null;
+  const { open: ouvrirConnexion } = useAuthModal();
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("roster");
@@ -993,14 +1029,14 @@ export default function TeamDetailPage() {
       const data = base && pub
         ? {
             ...base,
-            matchesPlayed: pub.bilan.joues,
-            wins: pub.bilan.gagnes,
-            draws: pub.bilan.nuls,
-            losses: pub.bilan.perdus,
+            matchesPlayed: pub.fiche.bilan.joues,
+            wins: pub.fiche.bilan.gagnes,
+            draws: pub.fiche.bilan.nuls,
+            losses: pub.fiche.bilan.perdus,
           }
         : base;
       setTeam(data);
-      setBilanServeur(pub?.bilan ?? null);
+      setFiche(pub?.fiche ?? null);
       if (data && user) {
         // Fetch members
         const memberProfiles = await getUsersByIds(data.memberIds);
@@ -1066,6 +1102,8 @@ export default function TeamDetailPage() {
   const { formes } = useFormes([
     ...members.map((m) => cleFormeCompte(m.uid)),
     ...ghostPlayers.map((g) => cleFormeLigne(teamId, g.id)),
+    // L'effectif de la fiche publique : celui que lit tout le monde.
+    ...(fiche?.effectif ?? []).map((j) => (j.uid ? cleFormeCompte(j.uid) : cleFormeLigne(teamId, j.id))),
   ]);
   const [conditionCible, setConditionCible] = useState<GhostPlayer | null>(null);
 
@@ -1091,7 +1129,13 @@ export default function TeamDetailPage() {
   }, [teamId, isTeamManager, team?.managerId]);
 
   const handleFollowToggle = async () => {
-    if (!user || !team) return;
+    // Un visiteur touchait « Suivre » sans que rien ne se passe : on lui dit
+    // ce qu'il faut pour suivre un club.
+    if (!user) {
+      ouvrirConnexion("Crée ton compte pour suivre ce club.");
+      return;
+    }
+    if (!team) return;
     setFollowLoading(true);
     try {
       if (isFollowing) {
@@ -1388,37 +1432,14 @@ export default function TeamDetailPage() {
     : [{ href: "/", label: "Direct" }];
 
   const colors = COLOR_MAP[team.color] ?? COLOR_MAP.emerald;
+  // Le résumé des paramètres du manager, seul endroit où il se lit encore.
   const winRate = team.matchesPlayed > 0 ? Math.round((team.wins / team.matchesPlayed) * 100) : 0;
-  // « live » et « delayed » comptent parmi les matchs à venir : un match en
-  // cours disparaissait de la fiche de son équipe, qui est justement l'endroit
-  // où on va le chercher ce jour-là.
-  /**
-   * L'ORDRE EST CELUI DU CALENDRIER, ET NON CELUI DE LA SAISIE.
-   *
-   * `getMatchesByTeamIds` rend les matchs par date de CREATION : la liste
-   * affichait donc « sam. 19 sept. » avant « Demain », et les matchs joues du
-   * plus vieux au plus recent. On ne consulte pas le calendrier d'un club pour
-   * savoir dans quel ordre son manager a saisi ses rencontres.
-   *
-   * Les deux listes ne vont pas dans le meme sens, et c'est normal : ce qui
-   * arrive en premier est le prochain match, ce qui compte en premier parmi
-   * les matchs joues est le dernier. On cherche le suivant d'un cote, le
-   * resultat de la veille de l'autre.
-   */
-  const quand = (m: Match) => `${m.date} ${m.time ?? ""}`;
-  const upcomingMatches = matches
-    .filter((m) => m.status === "upcoming" || m.status === "live" || m.status === "delayed")
-    .sort((a, b) => quand(a).localeCompare(quand(b)));
-  const completedMatches = matches
-    .filter((m) => m.status === "completed")
-    .sort((a, b) => quand(b).localeCompare(quand(a)));
-  // Ce que la fiche montre, et rien de plus : un défi pas encore accepté, un
-  // brouillon, un match en attente de quota ou annulé ne regardent que le
-  // manager — ils vivent dans l'onglet Matchs, pas sur la vitrine publique de
-  // l'équipe. Sert au badge de l'onglet et à l'état vide, qui comptaient tous
-  // les statuts et pouvaient annoncer des matchs qu'on ne voyait ensuite
-  // jamais.
-  const visibleMatchCount = upcomingMatches.length + completedMatches.length;
+  // Les amicaux à venir que la page a lus elle-même (comptes connectés) : ils
+  // ne servent plus qu'aux présences, que seuls les membres voient. La liste
+  // des matchs vient de la fiche publique, voir plus bas.
+  const upcomingMatches = matches.filter(
+    (m) => m.status === "upcoming" || m.status === "live" || m.status === "delayed",
+  );
   /**
    * LES DOSSARDS DES COMPTES L'EMPORTENT SUR CEUX DES JOUEURS SANS COMPTE.
    *
@@ -1448,133 +1469,144 @@ export default function TeamDetailPage() {
   ).length;
 
   // ------------------------------------------------------------------
-  // Le bilan détaillé, calculé depuis les matchs plutôt que stocké.
-  //
-  // `teams` ne porte que victoires/nuls/défaites. Tout le reste — les buts, la
-  // forme, les matchs sans encaisser — se lit sur les rencontres terminées, que
-  // cette page charge déjà. Ajouter des compteurs en base aurait signifié les
-  // tenir à jour à chaque clôture, à chaque correction de score et à chaque
-  // suppression de match : trois occasions de dériver pour une addition.
-  const matchsTermines = matches
-    .filter((m) => m.status === "completed")
-    .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
-
-  const bilanLocal = matchsTermines.reduce(
-    (acc, m) => {
-      const nous = m.homeTeamId === teamId ? m.scoreHome : m.scoreAway;
-      const eux = m.homeTeamId === teamId ? m.scoreAway : m.scoreHome;
-      if (nous == null || eux == null) return acc;
-      acc.pour += nous;
-      acc.contre += eux;
-      if (eux === 0) acc.sansEncaisser += 1;
-      acc.comptes += 1;
-      return acc;
-    },
-    { pour: 0, contre: 0, sansEncaisser: 0, comptes: 0 },
-  );
-  // Celui de la route d'abord : il compte aussi les compétitions, et un
-  // visiteur, qui ne charge aucun match, n'aurait sinon rien à lire.
-  const bilan = bilanServeur
-    ? {
-        pour: bilanServeur.butsPour,
-        contre: bilanServeur.butsContre,
-        sansEncaisser: bilanServeur.sansEncaisser,
-        comptes: bilanServeur.joues,
-      }
-    : bilanLocal;
+  // CE QUE TOUT LE MONDE LIT, depuis la fiche publique (voir
+  // lib/fiche-club-serveur) : le bilan, la forme, les meilleurs joueurs,
+  // l'effectif et les matchs — amicaux et compétitions. Ils se calculaient ici
+  // sur les seuls amicaux, et seulement pour un compte connecté : un visiteur
+  // lisait « Effectif 14 » au-dessus de « Aucun joueur », et le meilleur
+  // buteur sortait de compteurs de profil qu'un match ne crédite qu'une fois
+  // validé.
+  const estMembre = isTeamManager || isTeamMember;
+  const matchsPublics = fiche?.matchs ?? [];
+  const prochainMatch = rangerLesMatchs(matchsPublics).aVenir[0] ?? null;
+  // Du plus ancien au plus récent, comme partout ailleurs (la route les rend
+  // dans l'autre sens).
+  const formeChrono = [...(bilanServeur?.forme ?? [])].reverse();
 
   /**
-   * Les cinq derniers résultats, du plus récent au plus ancien. Ceux de la
-   * route d'abord, pour la même raison que le bilan : ils comptent aussi les
-   * compétitions.
+   * L'EFFECTIF PUBLIC : celui de la fiche, rangé par poste. Faute de fiche
+   * (route injoignable), un compte connecté retombe sur ce que la page a lu
+   * elle-même.
    */
-  const formeLocale = matchsTermines.slice(0, 5).map((m) => {
-    const nous = m.homeTeamId === teamId ? m.scoreHome : m.scoreAway;
-    const eux = m.homeTeamId === teamId ? m.scoreAway : m.scoreHome;
-    if (nous == null || eux == null) return "?" as const;
-    return nous > eux ? ("V" as const) : nous < eux ? ("D" as const) : ("N" as const);
-  });
-  const forme: ("V" | "N" | "D" | "?")[] = bilanServeur ? bilanServeur.forme : formeLocale;
-
-  /**
-   * Le classement interne, comptes ET joueurs sans compte confondus.
-   *
-   * Les seconds ne sont pas des sous-joueurs : ils tiennent la même carrière,
-   * sur `ghost_players` faute de document `users`. Les séparer en deux
-   * classements aurait fait deux moitiés d'équipe.
-   */
-  const classementInterne = [
-    ...members.map((m) => ({
+  const effectifLu: JoueurDuClub[] = fiche?.effectif ?? [
+    ...members.filter((m) => m.uid !== team.managerId).map((m) => ({
       id: m.uid,
       nom: `${m.firstName} ${m.lastName}`.trim(),
-      buts: m.goals ?? 0,
-      passes: m.assists ?? 0,
-      sansCompte: false,
+      numero: teamSquadNumbers[m.uid]?.trim() || null,
+      poste: normaliserPoste(m.position),
+      photo: m.profilePictureUrl ?? null,
+      uid: m.uid,
     })),
     ...ghostPlayers.map((g) => ({
       id: g.id,
       nom: `${g.firstName} ${g.lastName}`.trim(),
-      buts: g.goals,
-      passes: g.assists,
-      sansCompte: true,
+      numero: g.squadNumber?.trim() && !dossardsDesComptes.has(g.squadNumber.trim()) ? g.squadNumber.trim() : null,
+      poste: normaliserPoste(g.position),
+      photo: null,
+      uid: null,
     })),
   ];
-  const meilleurButeur = [...classementInterne].sort((a, b) => b.buts - a.buts)[0];
-  const meilleurPasseur = [...classementInterne].sort((a, b) => b.passes - a.passes)[0];
+  const lignesEffectif: LigneDEffectif[] = effectifLu.map((j) => ({
+    cle: j.id,
+    nom: j.nom,
+    numero: j.numero,
+    poste: j.poste,
+    photo: j.photo,
+    lien: j.uid ? `/profile/${j.uid}` : null,
+    apres: (
+      <>
+        {j.uid && j.uid === user?.uid && (
+          <span className="bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">Toi</span>
+        )}
+        <BadgeForme forme={formes[j.uid ? cleFormeCompte(j.uid) : cleFormeLigne(teamId, j.id)]} court />
+      </>
+    ),
+  }));
+  const tailleEffectif = isTeamManager ? squadCount : effectifLu.length || squadCount;
+
+  /**
+   * Qui a confirmé sa présence, sur un amical à venir : une information de
+   * vestiaire, pour les membres seulement. N'importe quel compte la lisait.
+   */
+  const presences: Record<string, React.ReactNode> = estMembre
+    ? Object.fromEntries(
+        upcomingMatches
+          .filter((m) => m.playersTotal > 0)
+          .map((m) => [
+            m.id,
+            <span key={m.id} className="shrink-0 border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+              {m.playersConfirmed ?? 0}/{m.playersTotal} présents
+            </span>,
+          ]),
+      )
+    : {};
+
+  const partagerLeClub = async () => {
+    const resultat = await partagerLien({
+      title: team.name,
+      text: `${team.name}${team.city ? ` (${team.city})` : ""} sur KoppaFoot`,
+      url: lienAbsolu(`/teams/${team.id}`),
+    });
+    if (resultat === "copie") toast.success("Lien du club copié !");
+    else if (resultat === "echec") toast.error("Le partage a échoué.");
+  };
+
+  /**
+   * LES ONGLETS : ceux qui ont quelque chose à montrer à CE lecteur.
+   *
+   * « À propos » et « Stats » sont devenus la carte du club (voir
+   * CarteDuClub). Les entraînements sont l'affaire des membres : un visiteur
+   * ouvrait un onglet toujours vide, un compte étranger lisait le programme et
+   * les présences du club. Palmarès et galerie ne s'ouvrent que s'ils ont
+   * quelque chose, sauf pour le manager, qui doit pouvoir les remplir.
+   */
+  const onglets: { id: ActiveTab; label: string; count: number; isBadge?: boolean }[] = [
+    { id: "roster", label: "Effectif", count: tailleEffectif },
+    { id: "matches", label: "Matchs", count: matchsPublics.length },
+    ...(isTeamManager ? [{ id: "compositions" as const, label: "Compositions", count: nombreDeCompositions }] : []),
+    ...(estMembre ? [{ id: "trainings" as const, label: "Entraînements", count: trainings.length }] : []),
+    ...((team.achievements ?? []).length > 0 || isTeamManager
+      ? [{ id: "palmares" as const, label: "Palmarès", count: (team.achievements ?? []).length }] : []),
+    ...((team.galleryUrls ?? []).length > 0 || isTeamManager
+      ? [{ id: "gallery" as const, label: "Galerie", count: (team.galleryUrls ?? []).length }] : []),
+    ...(isTeamManager ? [{ id: "candidatures" as const, label: "Candidatures", count: pendingCount, isBadge: true }] : []),
+    ...(isTeamManager ? [{ id: "settings" as const, label: "Paramètres", count: 0 }] : []),
+  ];
+  // Un onglet qui disparaît (le dernier trophée retiré) ne laisse pas la page sur un panneau vide.
+  const ongletOuvert: ActiveTab = onglets.some((o) => o.id === activeTab) ? activeTab : "roster";
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Fil d'ariane : ou l'on est, sans supposer d'ou l'on vient. */}
-      <nav
-        aria-label="Fil d'ariane"
-        className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
-      >
-        {trail.map((step) => (
-          <span key={step.href} className="flex items-center gap-2">
-            <Link href={step.href} className="transition-colors hover:text-emerald-700">
-              {step.label}
-            </Link>
-            <span aria-hidden className="text-gray-300">›</span>
-          </span>
-        ))}
-        <span className="truncate text-gray-600">{team.name}</span>
-      </nav>
-
-      {/* Team header card */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="group relative overflow-hidden border border-gray-200/70 bg-white"
-      >
-        {/* Banner with gradient overlay */}
-        <div className="relative h-40 w-full overflow-hidden sm:h-72">
-          {team.bannerUrl ? (
-            <img src={team.bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-          ) : (
-            <div className={`h-full w-full ${colors.bg} opacity-50`} />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-          
-          {/* LES DEUX BOUTONS DU COIN, REMIS D'APLOMB.
-              Ils étaient ronds, floutés et peints en `bg-white/90` — une
-              opacité que la refonte sombre ne remappe pas, alors que le
-              `text-gray-900` posé dessus, lui, l'est : en thème sombre le
-              libellé passait clair sur fond blanc, donc invisible. Ils sont
-              maintenant carrés et pleins, dans le vocabulaire du reste, et le
-              bouton « Suivre » montre enfin qu'il travaille. */}
-          <div className="absolute right-4 top-4 flex gap-2">
+    <div className="pb-16">
+      {/* LE BANDEAU, le même que celui d'une équipe en compétition (voir
+          BandeauEquipe). La ville, le niveau et la devise y reviennent :
+          ils disent d'où vient le club, en une ligne. */}
+      <BandeauEquipe
+        fil={[...trail, { label: team.name }]}
+        nom={team.name}
+        logo={team.logoUrl ?? null}
+        couleur={versHex(team.color)}
+        surtitre={[team.city, LEVEL_LABELS[team.level] ?? null].filter(Boolean).join(" · ") || null}
+        devise={team.slogan || null}
+        banniere={team.bannerUrl ?? null}
+        puces={
+          <>
+            <FormeEnLettres forme={formeChrono} />
+            <span>{tailleEffectif} joueur{tailleEffectif > 1 ? "s" : ""}</span>
+            {team.isRecruiting && <span className="text-emerald-300">Recrute</span>}
+          </>
+        }
+        actions={
+          <>
+            <button type="button" onClick={partagerLeClub} aria-label="Partager ce club" className={BOUTON_BANDEAU}>
+              <Share2 size={14} />
+            </button>
             {!isTeamManager && (
               <button
                 type="button"
                 onClick={handleFollowToggle}
                 disabled={followLoading}
                 aria-pressed={isFollowing}
-                className={`flex items-center gap-2 border px-3.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition-colors disabled:opacity-60 ${
-                  isFollowing
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-900 bg-white text-gray-900 hover:bg-gray-900 hover:text-white"
-                }`}
+                className={`${BOUTON_BANDEAU} ${isFollowing ? "border-white bg-white text-black hover:text-black" : ""}`}
               >
                 {followLoading
                   ? <Loader2 size={14} className="animate-spin" />
@@ -1583,175 +1615,73 @@ export default function TeamDetailPage() {
               </button>
             )}
             {isTeamManager && (
-              <button
-                type="button"
-                onClick={() => setShowEditModal(true)}
-                aria-label="Modifier l'équipe"
-                className="flex h-9 w-9 items-center justify-center border border-gray-900 bg-white text-gray-900 transition-colors hover:bg-gray-900 hover:text-white"
-              >
-                <Edit3 size={16} />
+              <button type="button" onClick={() => setShowEditModal(true)} aria-label="Modifier l'équipe" className={BOUTON_BANDEAU}>
+                <Edit3 size={14} />
               </button>
             )}
-          </div>
+          </>
+        }
+      />
 
-          {/* Bas de bannière : l'écusson, le nom, la devise. Rien d'autre. */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-            <div className="flex items-end gap-5">
-              <div className="relative shrink-0">
-                {/* Pas de fond derrière un vrai écusson : beaucoup de logos sont des PNG transparents, et la plaque se voyait au travers. Le liseré blanc reste : il
-                    détache l'écusson de la bannière, quelle qu'elle soit. */}
-                <div className={`flex h-16 w-16 items-center justify-center overflow-hidden border-4 border-white sm:h-24 sm:w-24 ${team.logoUrl ? "bg-white" : colors.bg}`}>
-                  {team.logoUrl
-                    ? <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
-                    : <Shield size={40} className={colors.icon} />}
-                </div>
-                {/* PLUS DE PASTILLE « + » SUR L'ÉCUSSON. Elle disait que
-                    l'équipe recrute, mais un rond vert marqué d'un plus, collé
-                    au logo et posé juste sous un bouton « Suivre », se lit
-                    comme un second bouton d'abonnement — et cette page n'offre
-                    aucun formulaire de candidature pour le démentir. Le
-                    recrutement se dit maintenant en toutes lettres, dans
-                    l'onglet À propos. */}
-              </div>
-              <div className="mb-1 flex-1 text-white">
-                <h1 className="font-display text-lg font-black uppercase tracking-tight sm:text-3xl">{team.name}</h1>
-                {team.slogan && <p className="mt-1 text-sm font-medium italic opacity-90">&laquo;&nbsp;{team.slogan}&nbsp;&raquo;</p>}
-                {/* VILLE, NIVEAU ET ABONNÉS SONT DESCENDUS DANS L'ONGLET.
-                    Ils se lisaient en blanc sur une photo qu'on ne choisit
-                    pas : d'une bannière à l'autre, la ligne passait du lisible
-                    à l'illisible, et un niveau qui compte mérite mieux qu'une
-                    pastille posée sur un ciel clair.
-
-                    L'EFFECTIF, LUI, NE REVIENT NULLE PART : « 12/25 joueurs »
-                    est déjà compté sur l'onglet du même nom, à trois
-                    centimètres de là. */}
-              </div>
-            </div>
-          </div>
+      {/* DEUX COLONNES SUR GRAND ÉCRAN : l'onglet ouvert à gauche, la carte du
+          club à droite, qui reste en vue. Sur téléphone, la carte passe entre
+          le bandeau et les onglets. */}
+      <div className="mx-auto mt-4 grid max-w-6xl gap-4 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+        <div className="lg:sticky lg:top-[calc(var(--header-h,72px)+1rem)] lg:col-start-2 lg:row-start-1">
+          <CarteDuClub
+            ville={team.city || null}
+            niveau={LEVEL_LABELS[team.level] ?? null}
+            recrute={!!team.isRecruiting}
+            abonnes={team.followersCount ?? 0}
+            bilan={bilanServeur}
+            forme={formeChrono}
+            meneurs={fiche?.meneurs ?? null}
+            prochain={prochainMatch}
+            competitions={fiche?.competitions ?? []}
+            presentation={team.description || null}
+          />
         </div>
 
-        {/* LE « À PROPOS » A SUIVI LES CHIFFRES DANS UN ONGLET.
-            Il occupait le bas de la carte d'identité pour une phrase qu'on lit
-            une fois — celle du jour où l'on découvre le club — et qu'on
-            traverse à chaque visite ensuite. La carte n'a plus de pied : la
-            bannière reprend la hauteur ainsi libérée. */}
-      </motion.div>
-
-      {/* Tabs */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="flex overflow-x-auto border-b border-gray-200/70 scrollbar-hide"
-      >
-        {/* DES TITRES, SANS ICÔNE. Une horloge à côté de « Entraînements » ou
-            une coupe à côté de « Palmarès » ne disent rien que le mot ne dise
-            déjà, et prennent la place qui manque à une rangée qui défile —
-            huit onglets sur 375 pixels.
-
-            « À propos » ouvre la liste : il porte l'identité du club, qui
-            vivait jusqu'ici en haut de page. L'onglet ouvert par défaut reste
-            l'effectif, qui est ce qu'on vient voir. */}
-        {[
-          { id: "apropos", label: "À propos", count: 0 },
-          // Le même nombre que la liste qu'il ouvre, qui montre aussi les
-          // joueurs sans compte : l'onglet disait 5 sur une liste de 18.
-          { id: "roster", label: "Effectif", count: squadCount },
-          ...(isTeamManager
-            ? [{ id: "compositions", label: "Compositions", count: nombreDeCompositions }]
-            : []),
-          { id: "matches", label: "Matchs", count: visibleMatchCount },
-          { id: "stats", label: "Stats", count: 0 },
-          { id: "trainings", label: "Entraînements", count: 0 },
-          { id: "palmares", label: "Palmarès", count: (team.achievements ?? []).length },
-          { id: "gallery", label: "Galerie", count: (team.galleryUrls ?? []).length },
-          ...(isTeamManager ? [{ id: "candidatures", label: "Candidatures", count: pendingCount, isBadge: true }] : []),
-          ...(isTeamManager ? [{ id: "settings", label: "Paramètres", count: 0 }] : []),
-        ].map((tab) => (
+        <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1">
+      {/* Les onglets : des mots, sans icône, dans le vocabulaire des autres
+          fiches (capitales serrées, soulignage du courant). */}
+      <div role="tablist" aria-label="Sections du club" className="flex gap-6 overflow-x-auto border-b border-gray-200/70 scrollbar-hide">
+        {onglets.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as ActiveTab)}
-            className={`relative flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-3 text-xs sm:text-sm sm:gap-2 sm:pr-6 sm:px-0 font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id ? "border-gray-900 text-emerald-700" : "border-transparent text-gray-400 hover:text-gray-600"
+            role="tab"
+            aria-selected={ongletOuvert === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-3 pt-1 text-[11px] font-black uppercase tracking-[0.12em] transition-colors ${
+              ongletOuvert === tab.id ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
             }`}
           >
             {tab.label}
             {tab.count > 0 && (
-              <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                "isBadge" in tab && tab.isBadge
-                  ? "bg-red-100 text-red-600"
-                  : activeTab === tab.id
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-gray-100 text-gray-500"
-              }`}>
+              <span className={`tabular-nums ${tab.isBadge ? "bg-red-100 px-1.5 text-red-600" : "text-gray-400"}`}>
                 {tab.count}
               </span>
             )}
           </button>
         ))}
-      </motion.div>
-
-      {/* ===================== ONGLET : À PROPOS ===================== */}
-      {activeTab === "apropos" && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mt-5 space-y-5"
-        >
-          {/* LA CARTE D'IDENTITÉ, RECUEILLIE DE LA BANNIÈRE.
-              En liste et non en grille : « Intermédiaire » ne tient pas dans
-              un tiers de 375 pixels, et une grille de trois cases laisse une
-              case grise vide dès qu'elle repasse sur deux colonnes.
-
-              Le recrutement n'apparaît que s'il est ouvert. Écrire « fermé »
-              à toutes les autres équipes serait bavard : l'absence de la ligne
-              dit déjà la même chose. */}
-          <dl className="divide-y divide-gray-200/70 border border-gray-200/70 bg-white">
-            {[
-              { cle: "ville", Icone: MapPin, label: "Ville", valeur: team.city || "Non renseignée", ton: team.city ? "text-gray-900" : "text-gray-400" },
-              { cle: "niveau", Icone: BarChart2, label: "Niveau", valeur: LEVEL_LABELS[team.level] ?? team.level, ton: "text-gray-900" },
-              { cle: "abonnes", Icone: UserCheck, label: "Abonnés", valeur: String(team.followersCount ?? 0), ton: "text-gray-900" },
-              ...(team.isRecruiting
-                ? [{ cle: "recrutement", Icone: UserPlus, label: "Recrutement", valeur: "Ouvert", ton: "text-emerald-700" }]
-                : []),
-            ].map(({ cle, Icone, label, valeur, ton }) => (
-              <div key={cle} className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <dt className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
-                  <Icone size={14} className="text-gray-300" />
-                  {label}
-                </dt>
-                <dd className={`text-sm font-semibold tabular-nums ${ton}`}>{valeur}</dd>
-              </div>
-            ))}
-          </dl>
-
-          {/* Le bloc s'appelle « Présentation » et non « À propos » : l'onglet
-              porte déjà ce nom, et il y a maintenant deux blocs dessous —
-              chacun a besoin du sien. */}
-          <div className="border border-gray-200/70 bg-white p-5 sm:p-6">
-            {team.description ? (
-              <>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
-                  Présentation
-                </h3>
-                <p className="mt-3 text-sm italic leading-relaxed text-gray-600">
-                  &ldquo;{team.description}&rdquo;
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-gray-400">
-                {isTeamManager
-                  ? "Cette équipe n'a pas encore de présentation. Ajoutez-en une dans les paramètres."
-                  : "Cette équipe n'a pas encore de présentation."}
-              </p>
-            )}
-          </div>
-        </motion.div>
-      )}
+      </div>
 
       {/* ===================== TAB: ROSTER ===================== */}
-      {activeTab === "roster" && (
+      {/* L'EFFECTIF PUBLIC, pour tous ceux qui ne le gèrent pas : par poste,
+          une ligne par joueur, le manager et le staff en tête. Voir
+          EffectifParPoste. Le manager garde sa liste à lui, plus bas, avec
+          ses dossards à saisir et ses boutons. */}
+      {ongletOuvert === "roster" && !isTeamManager && (
+        <EffectifParPoste
+          joueurs={lignesEffectif}
+          manager={fiche?.manager
+            ? { nom: fiche.manager.nom, photo: fiche.manager.photo, lien: `/profile/${fiche.manager.uid}` }
+            : null}
+          staff={fiche?.staff ?? (team.staff ?? []).map((m) => ({ nom: m.name, titre: m.title }))}
+          vide="L'effectif n'est pas encore renseigné."
+        />
+      )}
+      {ongletOuvert === "roster" && isTeamManager && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
           {/* Manager block */}
           {(() => {
@@ -1944,7 +1874,7 @@ export default function TeamDetailPage() {
                               className="h-8 w-11 border border-gray-200/70 bg-gray-50/50 text-center text-sm font-black text-gray-900 focus:border-gray-900 focus:bg-white focus:ring-0 transition-all sm:h-9 sm:w-12"
                               value={teamSquadNumbers[member.uid] || ""}
                               onChange={(e) => handleSquadNumberChange(member.uid, e.target.value)}
-                              placeholder=","
+                              placeholder="–"
                             />
                           </div>
                           <button onClick={() => handleRemoveMember(member.uid)} disabled={removingMember === member.uid}
@@ -2075,66 +2005,20 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: MATCHES ===================== */}
-      {activeTab === "matches" && (
+      {/* Les matchs du club, amicaux ET compétitions, vus du club : voir
+          MatchsDuClub. Les membres y lisent en plus qui a confirmé. */}
+      {ongletOuvert === "matches" && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           className="space-y-4"
         >
-          {/* LES DEUX LISTES POSENT LA MEME AFFICHE, et c'est ce qui change
-              ici : elles portaient chacune sa mise en page, a quelques mots
-              pres, et elles divergeaient deja. Voir CarteMatch. */}
-          {upcomingMatches.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">À venir</h3>
-              {upcomingMatches.map((match, i) => (
-                <motion.div key={match.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.05 }}
-                >
-                  <CarteMatch match={match} />
-                </motion.div>
-              ))}
-            </div>
-          )}
-
-          {completedMatches.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Terminés</h3>
-              {completedMatches.map((match, i) => (
-                <motion.div key={match.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.05 }}
-                >
-                  <CarteMatch match={match} />
-                </motion.div>
-              ))}
-            </div>
-          )}
-
-          {visibleMatchCount === 0 && (
-            <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
-              <Trophy size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucun match programmé</p>
-              {/* Ce bouton est resté « bientôt » et grisé alors que le parcours
-                  de création existe : le manager arrivait sur l'onglet Matchs de
-                  sa propre équipe et n'avait aucun moyen d'en programmer un. */}
-              {isTeamManager && (
-                <Link
-                  href="/matches"
-                  className="mt-4 inline-flex items-center gap-2 bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-                >
-                  <Calendar size={14} /> Programmer un match
-                </Link>
-              )}
-            </div>
-          )}
-
-          {/* CTA for manager */}
-          {isTeamManager && visibleMatchCount > 0 && (
+          <MatchsDuClub matchs={matchsPublics} presence={presences} />
+          {/* Ce bouton est resté « bientôt » et grisé alors que le parcours
+              de création existe : le manager arrivait sur l'onglet Matchs de
+              sa propre équipe et n'avait aucun moyen d'en programmer un. */}
+          {isTeamManager && (
             <Link
               href="/matches"
               className="flex items-center justify-center gap-2 border border-gray-200/70 bg-white py-4 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
@@ -2146,140 +2030,7 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: PALMARES ===================== */}
-      {activeTab === "stats" && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          {/* Le bilan, en toutes lettres. « Win Rate » est devenu « Ratio de
-              victoires » : le tableau de bord d'un club de Lome n'a pas de
-              raison de parler anglais. */}
-          <div className="grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-4">
-            {[
-              { label: "Effectif", value: squadCount, tone: "text-gray-900" },
-              { label: "Victoires", value: team.wins, tone: "text-emerald-700" },
-              { label: "Nuls", value: team.draws, tone: "text-gray-900" },
-              { label: "Défaites", value: team.losses, tone: "text-red-600" },
-            ].map((s) => (
-              <div key={s.label} className="bg-white p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{s.label}</p>
-                <p className={`mt-2 font-display text-3xl font-black tabular-nums ${s.tone}`}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
-            <div className="bg-white p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Matchs joués</p>
-              <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">{team.matchesPlayed}</p>
-            </div>
-            <div className="bg-white p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Ratio de victoires</p>
-              <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">
-                {team.matchesPlayed > 0 ? `${winRate}%` : ","}
-              </p>
-            </div>
-          </div>
-
-          {/* Buts, forme et clean sheets : tout se lit sur les matchs terminés
-              dont on connaît le score. Un match clôturé sans score ne compte
-              nulle part plutôt que de compter pour zéro. */}
-          {bilan.comptes > 0 && (
-            <>
-              <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
-                <div className="bg-white p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Buts marqués</p>
-                  <p className="mt-2 font-display text-3xl font-black tabular-nums text-emerald-700">{bilan.pour}</p>
-                </div>
-                <div className="bg-white p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Encaissés</p>
-                  <p className="mt-2 font-display text-3xl font-black tabular-nums text-red-600">{bilan.contre}</p>
-                </div>
-                <div className="bg-white p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Différence</p>
-                  <p className={`mt-2 font-display text-3xl font-black tabular-nums ${
-                    bilan.pour - bilan.contre > 0 ? "text-emerald-700"
-                    : bilan.pour - bilan.contre < 0 ? "text-red-600" : "text-gray-900"
-                  }`}>
-                    {bilan.pour - bilan.contre > 0 ? "+" : ""}{bilan.pour - bilan.contre}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
-                <div className="bg-white p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Forme récente</p>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    {forme.map((r, i) => (
-                      <span
-                        key={i}
-                        title={r === "V" ? "Victoire" : r === "D" ? "Défaite" : r === "N" ? "Nul" : "Score inconnu"}
-                        className={`flex h-8 w-8 items-center justify-center font-display text-sm font-black ${
-                          r === "V" ? "bg-emerald-100 text-emerald-700"
-                          : r === "D" ? "bg-red-100 text-red-600"
-                          : r === "N" ? "bg-gray-100 text-gray-600"
-                          : "bg-gray-50 text-gray-300"
-                        }`}
-                      >
-                        {r}
-                      </span>
-                    ))}
-                    <span className="ml-1 text-[11px] font-bold text-gray-400">
-                      du plus récent
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-white p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Matchs sans encaisser</p>
-                  <p className="mt-2 font-display text-3xl font-black tabular-nums text-gray-900">
-                    {bilan.sansEncaisser}
-                    <span className="ml-2 text-base font-bold text-gray-400">
-                      / {bilan.comptes} · {Math.round((bilan.sansEncaisser / bilan.comptes) * 100)}%
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Le classement interne. Les joueurs sans compte y figurent comme les
-              autres : ils tiennent la même carrière, ailleurs. */}
-          {(meilleurButeur?.buts > 0 || meilleurPasseur?.passes > 0) && (
-            <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2">
-              {[
-                { label: "Meilleur buteur", j: meilleurButeur, valeur: meilleurButeur?.buts ?? 0, unite: "but" },
-                { label: "Meilleur passeur", j: meilleurPasseur, valeur: meilleurPasseur?.passes ?? 0, unite: "passe" },
-              ].map((bloc) => (
-                <div key={bloc.label} className="bg-white p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{bloc.label}</p>
-                  {bloc.valeur > 0 ? (
-                    <>
-                      <p className="mt-2 truncate font-display text-xl font-black text-gray-900">{bloc.j.nom}</p>
-                      <p className="mt-0.5 text-sm font-bold text-gray-500">
-                        {bloc.valeur} {bloc.unite}{bloc.valeur > 1 ? "s" : ""}
-                        {bloc.j.sansCompte && (
-                          <span className="ml-2 text-[10px] font-black uppercase tracking-wide text-gray-400">
-                            sans compte
-                          </span>
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-sm font-bold text-gray-300 italic">Personne encore</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Un ratio calcule sur zero match affiche 0% et se lit comme une
-              equipe qui perd tout. Mieux vaut le dire. */}
-          {team.matchesPlayed === 0 && (
-            <p className="border border-gray-200/70 bg-white px-6 py-12 text-center text-base font-bold text-gray-400">
-              Aucun match joué pour l&apos;instant, le bilan viendra avec.
-            </p>
-          )}
-        </motion.div>
-      )}
-
-      {activeTab === "palmares" && (
+      {ongletOuvert === "palmares" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
           {(team.achievements ?? []).length > 0 ? (
             (team.achievements ?? []).map((ach, i) => {
@@ -2320,7 +2071,7 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: GALLERY ===================== */}
-      {activeTab === "gallery" && (
+      {ongletOuvert === "gallery" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-4">
           {(team.galleryUrls ?? []).length > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -2352,7 +2103,7 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: TRAININGS ===================== */}
-      {activeTab === "trainings" && (
+      {ongletOuvert === "trainings" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
           {trainings.length > 0 ? trainings.map((training, i) => {
             const myAttendee = training.attendees.find((a) => a.player_id === user?.uid);
@@ -2415,7 +2166,7 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: CANDIDATURES (Manager only) ===================== */}
-      {activeTab === "candidatures" && isTeamManager && (
+      {ongletOuvert === "candidatures" && isTeamManager && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2441,17 +2192,17 @@ export default function TeamDetailPage() {
                     <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-gray-900">{request.playerName}</span>
-                      <span className="text-gray-400">,</span>
+                      <span className="text-gray-400">·</span>
                       <span className="text-sm text-gray-600">{request.playerCity}</span>
                       {request.playerPosition && (
                         <>
-                          <span className="text-gray-400">,</span>
+                          <span className="text-gray-400">·</span>
                           <span className="text-sm text-gray-600">{request.playerPosition}</span>
                         </>
                       )}
                       {request.playerLevel && (
                         <>
-                          <span className="text-gray-400">,</span>
+                          <span className="text-gray-400">·</span>
                           <span className="text-sm text-gray-600">{LEVEL_LABELS[request.playerLevel] ?? request.playerLevel}</span>
                         </>
                       )}
@@ -2525,7 +2276,7 @@ export default function TeamDetailPage() {
           À côté de l'effectif, parce qu'il en découle : on choisit ici, parmi
           les joueurs de la liste d'à côté, ceux qui composent le onze de
           chaque format. Voir components/team/CompositionsTypes. */}
-      {activeTab === "compositions" && isTeamManager && (
+      {ongletOuvert === "compositions" && isTeamManager && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2543,7 +2294,7 @@ export default function TeamDetailPage() {
       )}
 
       {/* ===================== TAB: SETTINGS (Manager only) ===================== */}
-      {activeTab === "settings" && isTeamManager && (
+      {ongletOuvert === "settings" && isTeamManager && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2708,6 +2459,9 @@ export default function TeamDetailPage() {
           )}
         </motion.div>
       )}
+
+        </div>
+      </div>
 
       {/* Modals */}
       <AnimatePresence>

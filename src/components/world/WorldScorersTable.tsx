@@ -42,10 +42,10 @@ export default function WorldScorersTable({ scorers }: { scorers: WorldScorer[] 
                   </div>
                 </td>
                 <td className="px-2 py-3 text-center font-bold text-gray-500">
-                  {scorer.playedMatches ?? ","}
+                  {scorer.playedMatches ?? "–"}
                 </td>
                 <td className="px-2 py-3 text-center font-bold text-gray-500">
-                  {scorer.assists ?? ","}
+                  {scorer.assists ?? "–"}
                 </td>
                 <td className="px-3 py-3 text-center text-base font-black text-gray-900">
                   {scorer.goals}
