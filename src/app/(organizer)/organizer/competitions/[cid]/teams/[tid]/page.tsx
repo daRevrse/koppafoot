@@ -399,7 +399,7 @@ export default function CompetitionRosterPage() {
                     value={form.position}
                     onChange={(e) => update("position", e.target.value)}
                   >
-                    <option value="">,</option>
+                    <option value="">–</option>
                     {POSTES.map((pos) => (
                       <option key={pos} value={pos}>
                         {LIBELLE_POSTE[pos]}

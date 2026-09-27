@@ -36,6 +36,10 @@ export function routeOwnsItsRail(pathname: string): boolean {
   return /^\/c\/[^/]+$/.test(pathname)
     || /^\/c\/[^/]+\/matches\/[^/]+$/.test(pathname)
     || /^\/c\/[^/]+\/teams\/[^/]+$/.test(pathname)
+    // La fiche d'un club pose sa carte à droite de l'effectif : bilan, forme,
+    // prochain match. Le rail « dernières performances » la doublait, et le
+    // montrait à un visiteur à côté d'un onglet Matchs qui se disait vide.
+    || /^\/teams\/[^/]+$/.test(pathname)
     // Une competition mondiale n'a pas de rail du tout : sans cette ligne le
     // shell lui reservait quand meme 320px, et cette colonne blanche vide
     // etait le seul « rail » qu'on y voyait.
@@ -62,12 +66,10 @@ export default function RightRail() {
   // La page Actus : ce qui se joue pendant qu'on lit.
   if (pathname === "/actus") return <TodayMatchesRail />;
 
-  // Les fiches publiques : ce que cette equipe, ce joueur, a fait recemment.
-  // L'identifiant se lit dans le chemin, le rail est monte par le shell, il
-  // n'a pas acces aux donnees de la page.
-  const team = pathname.match(/^\/teams\/([^/]+)$/);
-  if (team) return <PerformanceRail team={team[1]} />;
-
+  // La fiche publique d'un joueur : ce qu'il a fait recemment. L'identifiant
+  // se lit dans le chemin, le rail est monte par le shell, il n'a pas acces
+  // aux donnees de la page. Celle d'un club porte sa propre colonne (voir
+  // routeOwnsItsRail).
   const player = pathname.match(/^\/profile\/([^/]+)$/);
   if (player) return <PerformanceRail player={player[1]} />;
 

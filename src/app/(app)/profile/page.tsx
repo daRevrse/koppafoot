@@ -540,7 +540,7 @@ export default function ProfilePage() {
                       Pied fort
                     </p>
                     <p className="mt-0.5 text-sm font-semibold text-gray-900">
-                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : ","}
+                      {user.strongFoot ? FOOT_LABELS[user.strongFoot] : "–"}
                     </p>
                   </div>
                   <div className="border border-gray-200/70 bg-gray-50 p-2.5">
@@ -549,7 +549,7 @@ export default function ProfilePage() {
                       Taille
                     </p>
                     <p className="mt-0.5 text-sm font-semibold text-gray-900">
-                      {user.height ? `${user.height} cm` : ","}
+                      {user.height ? `${user.height} cm` : "–"}
                     </p>
                   </div>
                   <div className="border border-gray-200/70 bg-gray-50 p-2.5">
@@ -558,7 +558,7 @@ export default function ProfilePage() {
                       Poids
                     </p>
                     <p className="mt-0.5 text-sm font-semibold text-gray-900">
-                      {user.weight ? `${user.weight} kg` : ","}
+                      {user.weight ? `${user.weight} kg` : "–"}
                     </p>
                   </div>
                   <div className="border border-gray-200/70 bg-gray-50 p-2.5">
@@ -567,7 +567,7 @@ export default function ProfilePage() {
                       Âge
                     </p>
                     <p className="mt-0.5 text-sm font-semibold text-gray-900">
-                      {age !== null ? `${age} ans` : ","}
+                      {age !== null ? `${age} ans` : "–"}
                     </p>
                   </div>
                 </div>

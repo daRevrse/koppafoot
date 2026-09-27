@@ -94,7 +94,7 @@ export default function TodayMatchesRail() {
                 <div className="flex items-center gap-2">
                   <Side name={m.home} logo={m.homeLogo} />
                   <span className="shrink-0 font-display text-sm font-black tabular-nums text-gray-900">
-                    {played ? `${m.scoreHome} – ${m.scoreAway}` : (m.time ?? ",")}
+                    {played ? `${m.scoreHome} – ${m.scoreAway}` : (m.time ?? "–")}
                   </span>
                   <Side name={m.away} logo={m.awayLogo} />
                 </div>

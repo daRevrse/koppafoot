@@ -303,7 +303,7 @@ function MatchRow({
         ) : (
           <>
             <p className="text-xs font-black tabular-nums text-gray-900">
-              {match.time ?? ","}
+              {match.time ?? "–"}
             </p>
             {!match.date && (
               <p className="text-[10px] font-bold text-gray-300">à programmer</p>

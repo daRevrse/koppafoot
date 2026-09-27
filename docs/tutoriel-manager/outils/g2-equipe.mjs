@@ -57,10 +57,10 @@ await page.waitForTimeout(4000);
 await page.setViewportSize({ width: 1280, height: 800 });
 await go(page, `/teams/${teamId}`);
 await settle(page, 2500);
-const onglets = page.getByRole("button", { name: /^À propos/ }).first();
+const onglets = page.getByRole("tablist").first();
 await shot(page, "10-page-equipe", {
   marks: [
-    { loc: onglets, union: page.getByRole("button", { name: /^Paramètres/ }).first(), n: 1, pad: 6 },
+    { loc: onglets, n: 1, pad: 6 },
     { loc: page.getByRole("button", { name: "Modifier l'équipe" }), n: 2, badge: "top" },
   ],
 });

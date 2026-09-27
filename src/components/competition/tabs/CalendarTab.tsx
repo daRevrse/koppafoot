@@ -274,7 +274,7 @@ return (
                               {match.time}
                             </span>
                           ) : (
-                            <span className="text-sm font-black text-gray-300">,</span>
+                            <span className="text-sm font-black text-gray-300">–</span>
                           )}
                         </div>
 

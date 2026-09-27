@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
                 `Nouvelle candidature organisateur, ${applicantName}`,
                 organizerApplicationAdminHtml(
                   applicantName,
-                  u.email ?? ",",
+                  u.email ?? "–",
                   city?.trim() || u.location_city || "",
                   motivation.trim(),
                   organizer,

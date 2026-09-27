@@ -36,14 +36,13 @@ await region(page, "46-resultat-valide", corps(page), {
   marks: [{ loc: statut, n: 1 }],
 });
 
-// Le bilan du club
+// Le bilan du club : la carte de la page d'équipe (voir CarteDuClub).
 await go(page, teamUrl);
-await page.getByRole("button", { name: /^Stats/ }).first().click();
-await settle(page, 2000);
-await region(page, "47-stats-equipe", corps(page), { maxHeight: 2400, margin: 14 });
+await settle(page, 2500);
+await region(page, "47-stats-equipe", page.locator("aside").first(), { maxHeight: 2400, margin: 14 });
 
 // Les statistiques vont aux joueurs
-await page.getByRole("button", { name: /^Effectif/ }).first().click();
+await page.getByRole("tab", { name: /^Effectif/ }).first().click();
 await settle(page, 1200);
 const ekoue = page.locator("div", { has: page.getByText("Ekoué Bawa", { exact: true }) })
   .filter({ has: page.getByRole("button", { name: /Stats/ }) }).last();

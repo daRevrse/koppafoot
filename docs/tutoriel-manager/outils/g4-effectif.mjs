@@ -57,7 +57,7 @@ await region(page, "22-effectif-complet", corps(page), {
 });
 
 // Le staff : un adjoint avec les droits du manager
-await page.getByRole("button", { name: /^Paramètres/ }).first().click();
+await page.getByRole("tab", { name: /^Paramètres/ }).first().click();
 await settle(page, 1500);
 const staff = page.getByText("Staff de l'équipe", { exact: true }).locator("xpath=ancestor::div[contains(@class,'border')][1]");
 await staff.locator("select").selectOption({ label: "Selom Adjo" });

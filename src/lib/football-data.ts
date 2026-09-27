@@ -193,8 +193,8 @@ function toMatch(m: ApiMatch): FootballMatch {
     utcDate: m.utcDate,
     status: m.status,
     competition: { name: m.competition?.name ?? "", emblem: m.competition?.emblem ?? null, code: m.competition?.code ?? null },
-    home: { name: m.homeTeam?.shortName || m.homeTeam?.name || ",", crest: m.homeTeam?.crest ?? null },
-    away: { name: m.awayTeam?.shortName || m.awayTeam?.name || ",", crest: m.awayTeam?.crest ?? null },
+    home: { name: m.homeTeam?.shortName || m.homeTeam?.name || "–", crest: m.homeTeam?.crest ?? null },
+    away: { name: m.awayTeam?.shortName || m.awayTeam?.name || "–", crest: m.awayTeam?.crest ?? null },
     scoreHome: m.score?.fullTime?.home ?? null,
     scoreAway: m.score?.fullTime?.away ?? null,
   };
@@ -413,7 +413,7 @@ export async function getWorldCompetitionSummary(
         position: r.position ?? 0,
         team: {
           id: r.team?.id ?? 0,
-          name: r.team?.shortName || r.team?.name || ",",
+          name: r.team?.shortName || r.team?.name || "–",
           crest: r.team?.crest ?? null,
         },
         played: r.playedGames ?? 0,
@@ -437,10 +437,10 @@ export async function getWorldCompetitionSummary(
     .filter((s) => (s.goals ?? 0) > 0)
     .map((s) => ({
       playerId: s.player?.id ?? 0,
-      playerName: s.player?.name ?? ",",
+      playerName: s.player?.name ?? "–",
       nationality: s.player?.nationality ?? null,
       team: {
-        name: s.team?.shortName || s.team?.name || ",",
+        name: s.team?.shortName || s.team?.name || "–",
         crest: s.team?.crest ?? null,
       },
       goals: s.goals ?? 0,
