@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { estSuperadmin, superadminsDeLaPlateforme } from "@/lib/admin-api-auth";
 import {
   sendNotificationEmail,
   organizerApplicationReceivedHtml,
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
     }
     const u = userSnap.data()!;
-    if (u.user_type === "organizer" || estSuperadmin(u)) {
+    if (u.is_organizer === true || estSuperadmin(u)) {
       return NextResponse.json({ error: "Tu es déjà organisateur." }, { status: 409 });
     }
 
@@ -111,13 +111,12 @@ export async function POST(req: NextRequest) {
         : Promise.resolve(),
 
       (async () => {
-        const admins = await adminDb
-          .collection("users")
-          .where("user_type", "==", "superadmin")
-          .get();
+        // Les administrateurs sur leurs deux signaux : la requête sur
+        // `user_type` seul ne trouvait plus personne depuis le drapeau.
+        const admins = await superadminsDeLaPlateforme();
         await Promise.allSettled(
-          admins.docs
-            .map((d) => d.data()?.email)
+          admins
+            .map((a) => a.data.email)
             .filter(Boolean)
             .map((email: string) =>
               sendNotificationEmail(
@@ -172,6 +171,7 @@ export async function GET(req: NextRequest) {
         motivation: x.motivation ?? "",
         competitionName: x.competition_name ?? null,
         status: x.status ?? "pending",
+        rejectionReason: x.rejection_reason ?? null,
         createdAt: x.created_at?.toDate?.()?.toISOString() ?? null,
         reviewedAt: x.reviewed_at?.toDate?.()?.toISOString() ?? null,
       };

@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendPushToUser } from "@/lib/fcm-server";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { ciblesDeCampagne, type Campagne } from "@/lib/admin-segments";
 import {
   sendNotificationEmail,
   campaignManagerNoTeamHtml,
@@ -27,19 +28,13 @@ async function verifySuperadmin(req: NextRequest): Promise<string | null> {
 
 // ── Campaign definitions ────────────────────────────────────
 
-export type CampaignType =
-  | "manager_no_team"
-  | "player_no_team"
-  | "manager_welcome"
-  /**
-   * Les comptes qui n'ouvrent AUCUN espace.
-   *
-   * Ni rôle choisi, ni casquette : ils ne peuvent ni jouer, ni gérer, ni
-   * arbitrer, ni organiser. C'est la population la plus grande et la plus
-   * muette du produit — elle ne voit qu'un tableau de scores, et rien dans le
-   * produit ne vient la chercher. Il faut donc aller la chercher.
-   */
-  | "sans_espace";
+/**
+ * Les campagnes (voir `Campagne`, lib/admin-segments). « sans_espace » vise
+ * les comptes qui n'ouvrent AUCUN espace : ni rôle choisi, ni casquette.
+ * C'est la population la plus grande et la plus muette du produit — elle ne
+ * voit qu'un tableau de scores, et rien dans le produit ne vient la chercher.
+ */
+type CampaignType = Campagne;
 
 const CAMPAIGN_DEFAULTS: Record<
   CampaignType,
@@ -67,79 +62,22 @@ const CAMPAIGN_DEFAULTS: Record<
   },
 };
 
-// ── Targeting queries ───────────────────────────────────────
+// ── Targeting ───────────────────────────────────────────────
 
+/** Voir `ciblesDeCampagne` (lib/admin-segments) : le rôle effectif, pas `user_type`. */
 async function getTargetIds(type: CampaignType): Promise<string[]> {
-  if (type === "manager_no_team") {
-    const managersSnap = await adminDb
-      .collection("users")
-      .where("user_type", "==", "manager")
-      .get();
-    const managerIds = managersSnap.docs.map((d) => d.id);
-    if (!managerIds.length) return [];
-
-    const teamsSnap = await adminDb.collection("teams").get();
-    const managersWithTeam = new Set(
-      teamsSnap.docs.map((d) => d.data().manager_id as string).filter(Boolean)
-    );
-    return managerIds.filter((id) => !managersWithTeam.has(id));
-  }
-
-  if (type === "player_no_team") {
-    const playersSnap = await adminDb
-      .collection("users")
-      .where("user_type", "==", "player")
-      .get();
-    const playerIds = playersSnap.docs.map((d) => d.id);
-    if (!playerIds.length) return [];
-
-    const jrSnap = await adminDb.collection("join_requests").get();
-    const playersWithRequest = new Set(
-      jrSnap.docs.map((d) => d.data().player_id as string).filter(Boolean)
-    );
-    return playerIds.filter((id) => !playersWithRequest.has(id));
-  }
-
-  if (type === "sans_espace") {
-    // Firestore ne sait pas demander « ce champ est absent » : un compte
-    // d'avant l'onboarding Évolution n'a pas la clé du tout, un autre l'a à
-    // null. Les deux comptent, donc le tri se fait en mémoire — comme les
-    // autres campagnes de ce fichier, qui parcourent déjà la collection.
-    //
-    // Les mêmes exclusions que la colonne « Espaces ouverts » de
-    // l'administration : une casquette ouvre déjà un espace, et proposer de
-    // choisir un rôle à un organisateur ne voudrait rien dire. Les modérateurs
-    // ne sont pas exclus ici — leur accès vient d'une compétition précise, et
-    // il s'éteint avec elle.
-    const snap = await adminDb.collection("users").get();
-    return snap.docs
-      .filter((d) => {
-        const data = d.data();
-        if (estSuperadmin(data) || data.user_type === "organizer") return false;
-        if (data.user_type === "venue_owner") return false;
-        if (data.is_organizer === true || data.is_venue_owner === true) return false;
-        if (data.is_active === false) return false;
-        return !data.evolution_role;
-      })
-      .map((d) => d.id);
-  }
-
-  if (type === "manager_welcome") {
-    const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    const snap = await adminDb
-      .collection("users")
-      .where("user_type", "==", "manager")
-      .get();
-    return snap.docs
-      .filter((d) => {
-        const ca = d.data().created_at;
-        const date = typeof ca === "string" ? ca : ca?.toDate?.()?.toISOString?.() ?? "";
-        return date >= cutoff;
-      })
-      .map((d) => d.id);
-  }
-
-  return [];
+  const [comptes, equipes, demandes] = await Promise.all([
+    adminDb.collection("users").get(),
+    adminDb.collection("teams").select("manager_id", "member_ids", "is_ghost").get(),
+    adminDb.collection("join_requests").where("status", "==", "pending").select("player_id").get(),
+  ]);
+  return ciblesDeCampagne(
+    type,
+    comptes.docs.map((d) => ({ uid: d.id, data: d.data() })),
+    equipes.docs.map((d) => d.data()),
+    new Set(demandes.docs.map((d) => String(d.data().player_id ?? ""))),
+    new Date(),
+  );
 }
 
 // ── GET, stats ─────────────────────────────────────────────

@@ -16,6 +16,8 @@ import { useAuthModal } from "@/components/auth/AuthModal";
 interface MyApplication {
   id: string;
   status: "pending" | "approved" | "rejected";
+  /** Ce que l'équipe a répondu, quand elle a refusé en le disant. */
+  rejectionReason?: string | null;
   createdAt: string | null;
 }
 
@@ -211,6 +213,11 @@ export default function BecomeOrganizerPage() {
           <p className="text-xs leading-relaxed text-gray-500">
             Ta précédente candidature n&apos;a pas été retenue. Tu peux repostuler
             en détaillant davantage ton projet.
+            {existing.rejectionReason && (
+              <span className="mt-1.5 block text-gray-700">
+                <strong className="font-black text-gray-900">Motif :</strong> {existing.rejectionReason}
+              </span>
+            )}
           </p>
         </div>
       )}

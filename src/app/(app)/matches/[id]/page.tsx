@@ -554,7 +554,9 @@ export default function MatchDetailPage() {
   // La validation du match, pour les deux camps seulement, et seulement une
   // fois le match terminé : avant, il n'y a rien à valider. Un compte d'aucun
   // des deux camps ne l'écoute même pas — les règles la lui refuseraient.
-  const matchTermine = match?.status === "completed";
+  // Annulé aussi : un match contesté que l'équipe KoppaFoot a annulé garde sa
+  // validation, qui porte le motif de l'arbitrage.
+  const matchTermine = match?.status === "completed" || match?.status === "cancelled";
   useEffect(() => {
     if (!isManager || !matchTermine) { setValidationDuMatch(null); return; }
     return onMatchValidation(id, setValidationDuMatch);
@@ -855,7 +857,10 @@ export default function MatchDetailPage() {
 
   // L'onglet ouvert suit le match tant qu'on n'en a choisi aucun : Infos avant
   // le coup d'envoi, le fil dès qu'il y a un fil. Voir la fiche compétition.
-  const ongletDemande = choixOnglet ?? (isLive || match.status === "completed" || match.mvpPlayerName ? "feed" : "infos");
+  // Un arbitrage ouvre le fil, où il se lit : le manager qui arrive de la
+  // notification d'un match annulé tombait sur Infos, sans le motif.
+  const ongletDemande = choixOnglet
+    ?? (isLive || match.status === "completed" || match.mvpPlayerName || validationDuMatch?.arbitrage ? "feed" : "infos");
 
   // Ce que le match a fait de chacun : le terrain et l'homme du match le
   // portent. Voir lib/recit-du-match.
@@ -1080,7 +1085,42 @@ export default function MatchDetailPage() {
                   bandeau vert annonçait « validé par les deux managers » à
                   n'importe quel visiteur. C'est une affaire entre les deux
                   équipes : il n'apparaît plus qu'à ceux qui la règlent. */}
-              {isManager && match.status === "completed" && !estAmical && validationDuMatch && (() => {
+              {/* UN ARBITRAGE SE LIT ICI AUSSI. Quand les deux camps ne
+                  s'accordent pas, l'équipe KoppaFoot tranche (voir
+                  /api/admin/contestations), et son motif doit arriver à ceux
+                  qu'il concerne — y compris sur un match qu'elle a annulé,
+                  qui n'est plus « terminé ». */}
+              {isManager && (match.status === "completed" || validationDuMatch?.arbitrage) && !estAmical && validationDuMatch && (() => {
+                const arbitrage = validationDuMatch.arbitrage;
+                if (arbitrage) {
+                  const annule = arbitrage.decision === "annule";
+                  return (
+                    <div className="border border-gray-200/70 bg-white px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={`inline-flex items-center gap-1.5 border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${
+                          annule ? "border-gray-200/70 bg-gray-100 text-gray-600" : "border-emerald-100 bg-emerald-50 text-emerald-700"
+                        }`}>
+                          <Info size={11} />
+                          {annule ? "Annulé" : "Validé"}
+                        </span>
+                        <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                          <EyeOff size={11} />
+                          Managers et staff
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm font-bold text-gray-700">
+                        {annule
+                          ? "Contesté, puis annulé par l'équipe KoppaFoot : le match ne compte plus."
+                          : "Contesté, puis validé par l'équipe KoppaFoot : le score compte."}
+                      </p>
+                      {arbitrage.motif && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          <span className="font-bold text-gray-700">Motif :</span> {arbitrage.motif}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
                 const statut = validationDuMatch.status;
                 const rendu = {
                   validated: {

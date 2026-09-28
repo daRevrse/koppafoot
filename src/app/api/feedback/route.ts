@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { superadminsDeLaPlateforme } from "@/lib/admin-api-auth";
 
 // ============================================
 // Les retours du terrain.
@@ -93,21 +94,22 @@ export async function POST(req: NextRequest) {
 
   // Et tout de suite sous les yeux de l'équipe.
   try {
-    const admins = await adminDb
-      .collection("users")
-      .where("user_type", "==", "superadmin")
-      .get();
+    // Les deux signaux : la requête sur `user_type` seul ne trouvait plus
+    // aucun administrateur depuis le drapeau, et ces retours n'avertissaient
+    // personne.
+    const admins = await superadminsDeLaPlateforme();
 
-    if (!admins.empty) {
+    if (admins.length > 0) {
       const lot = adminDb.batch();
       const apercu = message.length > 240 ? `${message.slice(0, 240)}…` : message;
-      admins.docs.forEach((a) => {
+      admins.forEach((a) => {
         lot.set(adminDb.collection("notifications").doc(), {
-          user_id: a.id,
+          user_id: a.uid,
           type: "admin_message",
           title: nom ? `Retour de ${nom}` : "Retour d'un visiteur",
           body: apercu,
-          link: null,
+          // Là où ils se lisent désormais.
+          link: "/admin/retours",
           read: false,
           created_at: FieldValue.serverTimestamp(),
         });

@@ -843,6 +843,17 @@ export interface FirestoreMatchValidation {
   auto_validate_at?: unknown;
   /** Posé par le cron quand la validation est tacite. */
   auto_validated?: boolean;
+  /**
+   * La décision de l'administration sur un match contesté : quand deux camps
+   * ne s'accordent pas, quelqu'un doit trancher. Le motif est lu par les deux
+   * managers. Voir /api/admin/contestations.
+   */
+  arbitrage?: {
+    decision: "valide" | "annule";
+    motif: string;
+    by: string;
+    at: string;
+  };
   created_at?: unknown;
   updated_at?: unknown;
 }
@@ -859,6 +870,8 @@ export interface MatchValidation {
   }>>;
   contestedEvents: Record<string, { by: string; side: CampDuMatch; reason: string; at: string }>;
   autoValidated: boolean;
+  /** Voir `FirestoreMatchValidation.arbitrage`. */
+  arbitrage: { decision: "valide" | "annule"; motif: string; at: string } | null;
 }
 
 export interface Match {

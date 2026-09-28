@@ -1,520 +1,181 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import { ChevronRight, RefreshCw } from "lucide-react";
+import { useAdminApi } from "@/hooks/useAdminApi";
+import { useATraiter } from "@/components/admin/ATraiterContext";
+import LigneMatch from "@/components/admin/LigneMatch";
 import {
-  Users, Shield, Trophy, MapPin, TrendingUp, Activity,
-  UserPlus, Calendar, MessageCircle, Award, RefreshCw,
-  ArrowUpRight, ChevronRight, Zap, Eye, Clock,
-} from "lucide-react";
-import {
-  getPlatformCounts,
-  getRecentUsers,
-  getRecentMatches,
-  type PlatformCounts,
-} from "@/lib/admin-firestore";
-import type { UserProfile, Match, UserRole } from "@/types";
+  BOUTON_CONTOUR, Carte, Chargement, Chiffre, EnTete, Erreur, Pastille, Titre, ilYA,
+} from "@/components/admin/ui";
+import { PlayerAvatar } from "@/components/ui/EntityAvatar";
+import { totalATraiter, type ATraiter } from "@/lib/admin-tableau";
+import type { TableauDeBord } from "@/lib/admin-types";
 
 // ============================================
-// Badge helpers
+// Le tableau de bord : ce qui attend, puis ce qui existe.
+//
+// IL MONTRAIT DES RÉPARTITIONS ET PAS DE TRAVAIL. Trois candidatures, un
+// signalement et deux retours attendaient ; l'écran d'accueil affichait une
+// barre de « rôles » à zéro partout et un bandeau « tous les systèmes
+// fonctionnent normalement » que rien ne vérifiait. On ouvre maintenant sur
+// ce qui demande une décision, chaque ligne menant à la page qui la prend ;
+// les chiffres viennent après, comptés comme le produit compte (rôle effectif,
+// matchs terminés, amicaux et compétitions ensemble).
 // ============================================
 
-const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  player: { label: "Joueur", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
-  manager: { label: "Manager", color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
-  referee: { label: "Arbitre", color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
-  venue_owner: { label: "Propriétaire", color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
-  superadmin: { label: "Admin", color: "text-red-700", bg: "bg-red-50 border-red-200" },
-};
+const A_TRAITER: { cle: keyof ATraiter; label: string; href: string; detail: string }[] = [
+  { cle: "organisateurs", label: "Candidatures organisateur", href: "/admin/organizers", detail: "Ouvrir un espace organisateur" },
+  { cle: "scoreurs", label: "Candidatures scoreur", href: "/admin/scorers", detail: "Couvrir les amicaux en direct" },
+  { cle: "terrains", label: "Terrains proposés", href: "/admin/terrains", detail: "Publier une fiche de terrain" },
+  { cle: "contestations", label: "Amicaux contestés", href: "/admin/contestations", detail: "Deux camps en désaccord" },
+  { cle: "signalements", label: "Signalements", href: "/admin/signalements", detail: "Publications de la Tribune" },
+  { cle: "retours", label: "Retours d'utilisateurs", href: "/admin/retours", detail: "Non traités" },
+  { cle: "competitions", label: "Compétitions à rendre publiques", href: "/admin/competitions", detail: "Publiées par leur organisateur" },
+];
 
-const STATUS_CONFIG: Record<string, { label: string; dot: string; bg: string }> = {
-  challenge: { label: "Défi", dot: "bg-yellow-400", bg: "bg-yellow-50 text-yellow-700" },
-  pending: { label: "En attente", dot: "bg-amber-400", bg: "bg-amber-50 text-amber-700" },
-  upcoming: { label: "À venir", dot: "bg-blue-400", bg: "bg-blue-50 text-blue-700" },
-  completed: { label: "Terminé", dot: "bg-emerald-400", bg: "bg-emerald-50 text-emerald-700" },
-  cancelled: { label: "Annulé", dot: "bg-red-400", bg: "bg-red-50 text-red-700" },
-};
-
-function timeAgo(dateInput: any): string {
-  if (!dateInput) return "";
-  const date = dateInput && typeof dateInput.toDate === "function" 
-    ? dateInput.toDate() 
-    : new Date(dateInput);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diff < 60) return "à l'instant";
-  if (diff < 3600) return `il y a ${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
-  return `il y a ${Math.floor(diff / 86400)}j`;
-}
-
-// ============================================
-// StatCard
-// ============================================
-
-function AdminStatCard({
-  icon: Icon,
-  value,
-  label,
-  color,
-  accent,
-  delay = 0,
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  value: number | string;
-  label: string;
-  color: string;
-  accent: string;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.4, delay, type: "spring", stiffness: 100 }}
-      whileHover={{ y: -3, boxShadow: "0 8px 30px rgba(0,0,0,0.08)" }}
-      className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all"
-    >
-      {/* Accent bar */}
-      <div className={`absolute left-0 top-0 h-full w-1 ${accent}`} />
-      {/* Subtle glow on hover */}
-      <div className={`absolute -right-8 -top-8 h-20 w-20 rounded-full ${color} opacity-0 blur-2xl transition-opacity group-hover:opacity-30`} />
-      <div className="flex items-start justify-between">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${color}`}>
-          <Icon size={22} className="text-white" />
-        </div>
-        <ArrowUpRight size={16} className="text-gray-300 transition-colors group-hover:text-gray-500" />
-      </div>
-      <p className="mt-3 text-3xl font-extrabold text-gray-900 font-display tracking-tight">{value}</p>
-      <p className="mt-0.5 text-sm font-medium text-gray-500">{label}</p>
-    </motion.div>
-  );
-}
-
-// ============================================
-// Role distribution mini chart
-// ============================================
-
-function RoleDistribution({ counts }: { counts: PlatformCounts }) {
-  const total = counts.users || 1;
-  const roles = [
-    { role: "player", count: counts.players, color: "bg-emerald-500", label: "Joueurs" },
-    { role: "manager", count: counts.managers, color: "bg-blue-500", label: "Managers" },
-    { role: "referee", count: counts.referees, color: "bg-purple-500", label: "Arbitres" },
-    { role: "venue_owner", count: counts.venueOwners, color: "bg-orange-500", label: "Propriétaires" },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-    >
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-base font-bold text-gray-900 font-display">Répartition par rôle</h3>
-        <Users size={18} className="text-gray-400" />
-      </div>
-      {/* Bar */}
-      <div className="flex h-3 overflow-hidden rounded-full bg-gray-100 mb-4">
-        {roles.map((r) => (
-          <motion.div
-            key={r.role}
-            initial={{ width: 0 }}
-            animate={{ width: `${(r.count / total) * 100}%` }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className={`${r.color} first:rounded-l-full last:rounded-r-full`}
-          />
-        ))}
-      </div>
-      {/* Legend */}
-      <div className="grid grid-cols-2 gap-2">
-        {roles.map((r) => (
-          <div key={r.role} className="flex items-center gap-2">
-            <div className={`h-2.5 w-2.5 rounded-full ${r.color}`} />
-            <span className="text-xs text-gray-600">
-              {r.label}
-              <span className="ml-1 font-semibold text-gray-900">{r.count}</span>
-              <span className="ml-1 text-gray-400">({total > 0 ? Math.round((r.count / total) * 100) : 0}%)</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-// ============================================
-// Match Status Chart
-// ============================================
-
-function MatchStatusChart({ counts }: { counts: PlatformCounts }) {
-  const statuses = [
-    { label: "En attente", count: counts.matchesPending, color: "bg-amber-400" },
-    { label: "À venir", count: counts.matchesUpcoming, color: "bg-blue-400" },
-    { label: "Terminés", count: counts.matchesCompleted, color: "bg-emerald-400" },
-  ];
-  const total = counts.matches || 1;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.35 }}
-      className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-    >
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-base font-bold text-gray-900 font-display">Statut des matchs</h3>
-        <Trophy size={18} className="text-gray-400" />
-      </div>
-      <div className="space-y-3">
-        {statuses.map((s) => {
-          const pct = Math.round((s.count / total) * 100);
-          return (
-            <div key={s.label}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-600">{s.label}</span>
-                <span className="text-sm font-bold text-gray-900">{s.count}</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.6, delay: 0.5 }}
-                  className={`h-full rounded-full ${s.color}`}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </motion.div>
-  );
-}
-
-// ============================================
-// Activity Feed
-// ============================================
-
-function ActivityItem({
-  icon: Icon,
-  title,
-  subtitle,
-  time,
-  iconColor,
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  title: string;
-  subtitle: string;
-  time: string;
-  iconColor: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
-      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
-        <Icon size={15} className="text-white" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">{title}</p>
-        <p className="text-xs text-gray-500 truncate">{subtitle}</p>
-      </div>
-      <span className="shrink-0 text-xs text-gray-400 mt-0.5">{time}</span>
-    </div>
-  );
-}
-
-// ============================================
-// Main Dashboard
-// ============================================
+const ROLES = { player: "Joueur", manager: "Manager", referee: "Arbitre" } as const;
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
-  const [counts, setCounts] = useState<PlatformCounts | null>(null);
-  const [recentUsers, setRecentUsers] = useState<UserProfile[]>([]);
-  const [recentMatches, setRecentMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = async () => {
-    try {
-      const [c, u, m] = await Promise.all([
-        getPlatformCounts(),
-        getRecentUsers(8),
-        getRecentMatches(8),
-      ]);
-      setCounts(c);
-      setRecentUsers(u);
-      setRecentMatches(m);
-    } catch (err) {
-      console.error("Admin dashboard fetch error:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
-
-  if (!user) return null;
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        {/* Skeleton */}
-        <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 rounded-2xl bg-gray-100 animate-pulse" />
-          ))}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="h-64 rounded-2xl bg-gray-100 animate-pulse lg:col-span-2" />
-          <div className="h-64 rounded-2xl bg-gray-100 animate-pulse" />
-        </div>
-      </div>
-    );
-  }
+  const { data, erreur, chargement, recharger } = useAdminApi<TableauDeBord>("/api/admin/tableau");
+  const { aTraiter: compteurs, charge, rafraichir } = useATraiter();
+  // Le compte du menu est relu à chaque page : il fait foi dès qu'il est lu.
+  const aTraiter = charge ? compteurs : data?.aTraiter ?? compteurs;
+  const total = totalATraiter(aTraiter);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <motion.h1
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-2xl font-extrabold text-gray-900 font-display"
-          >
-            Centre de contrôle
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-sm text-gray-500 mt-0.5"
-          >
-            Surveillance globale de la plateforme KOPPAFOOT
-          </motion.p>
-        </div>
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-          Actualiser
-        </motion.button>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-8">
+      <EnTete
+        titre="Tableau de bord"
+        sousTitre={data ? `Compté ${ilYA(data.calculeLe)}.` : "Ce qui attend une décision, puis l'état de la plateforme."}
+        actions={
+          <button onClick={() => { recharger(); rafraichir(); }} className={BOUTON_CONTOUR}>
+            <RefreshCw size={13} /> Recompter
+          </button>
+        }
+      />
 
-      {/* Quick stats */}
-      {counts && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminStatCard
-            icon={Users}
-            value={counts.users}
-            label="Utilisateurs inscrits"
-            color="bg-gradient-to-br from-blue-500 to-blue-600"
-            accent="bg-blue-500"
-            delay={0}
-          />
-          <AdminStatCard
-            icon={Shield}
-            value={counts.teams}
-            label="Équipes créées"
-            color="bg-gradient-to-br from-emerald-500 to-emerald-600"
-            accent="bg-emerald-500"
-            delay={0.05}
-          />
-          <AdminStatCard
-            icon={Trophy}
-            value={counts.matches}
-            label="Matchs joués"
-            color="bg-gradient-to-br from-amber-500 to-orange-500"
-            accent="bg-amber-500"
-            delay={0.1}
-          />
-          <AdminStatCard
-            icon={MapPin}
-            value={counts.venues}
-            label="Terrains enregistrés"
-            color="bg-gradient-to-br from-purple-500 to-purple-600"
-            accent="bg-purple-500"
-            delay={0.15}
-          />
-        </div>
-      )}
+      <section>
+        <Titre compte={total}>À traiter</Titre>
+        {total === 0 ? (
+          <Carte className="px-4 py-5 text-sm font-semibold text-gray-500">
+            Rien n&apos;attend de décision. Les candidatures, signalements, retours et contestations s&apos;afficheront ici.
+          </Carte>
+        ) : (
+          <Carte className="divide-y divide-gray-200/70">
+            {A_TRAITER.filter((a) => aTraiter[a.cle] > 0).map((a) => (
+              <Link key={a.cle} href={a.href} className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50">
+                <span className="w-10 shrink-0 font-display text-2xl font-black tabular-nums text-amber-600">{aTraiter[a.cle]}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black text-gray-900">{a.label}</span>
+                  <span className="block text-xs text-gray-500">{a.detail}</span>
+                </span>
+                <ChevronRight size={16} className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ))}
+          </Carte>
+        )}
+      </section>
 
-      {/* Secondary stats */}
-      {counts && (
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {[
-            { icon: Zap, label: "Joueurs", value: counts.players, color: "text-emerald-600 bg-emerald-50" },
-            { icon: Award, label: "Managers", value: counts.managers, color: "text-blue-600 bg-blue-50" },
-            { icon: Eye, label: "Arbitres", value: counts.referees, color: "text-purple-600 bg-purple-50" },
-            { icon: MapPin, label: "Propriétaires", value: counts.venueOwners, color: "text-orange-600 bg-orange-50" },
-            { icon: MessageCircle, label: "Posts", value: counts.posts, color: "text-pink-600 bg-pink-50" },
-            { icon: Calendar, label: "Matchs à venir", value: counts.matchesUpcoming, color: "text-sky-600 bg-sky-50" },
-          ].map((s, i) => (
-            <motion.div
-              key={s.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + i * 0.03 }}
-              className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
-            >
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${s.color}`}>
-                <s.icon size={18} />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-gray-900 font-display leading-none">{s.value}</p>
-                <p className="text-[11px] text-gray-500 mt-0.5">{s.label}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+      {erreur && <Erreur message={erreur} onReessayer={recharger} />}
+      {chargement ? (
+        <Chargement />
+      ) : data && (
+        <>
+          <section>
+            <Titre>La plateforme</Titre>
+            <div className="grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-3 lg:grid-cols-6">
+              <Chiffre
+                valeur={data.comptes.total}
+                libelle="Comptes"
+                detail={`+${data.comptes.nouveaux7j} en 7 jours`}
+                href="/admin/users"
+              />
+              <Chiffre valeur={data.equipes} libelle="Équipes" href="/admin/teams" />
+              <Chiffre
+                valeur={data.matchs.joues}
+                libelle="Matchs joués"
+                detail={`${data.matchs.joues7j} cette semaine`}
+                href="/admin/matches"
+              />
+              <Chiffre
+                valeur={data.matchs.aVenir}
+                libelle="À venir"
+                detail={data.matchs.enDirect > 0 ? `${data.matchs.enDirect} en direct` : undefined}
+                href="/admin/matches"
+              />
+              <Chiffre
+                valeur={data.competitions.total}
+                libelle="Compétitions"
+                detail={`${data.competitions.enCours} en cours`}
+                href="/admin/competitions"
+              />
+              <Chiffre valeur={data.terrains} libelle="Terrains" href="/admin/venues" />
+            </div>
+          </section>
 
-      {/* Charts section */}
-      {counts && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <RoleDistribution counts={counts} />
-          <MatchStatusChart counts={counts} />
-        </div>
-      )}
-
-      {/* Recent activity grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Users */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-900 font-display flex items-center gap-2">
-              <UserPlus size={18} className="text-blue-500" />
-              Dernières inscriptions
-            </h3>
-            <a href="/admin/users" className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
-              Voir tout <ChevronRight size={14} />
-            </a>
-          </div>
-          <div className="space-y-0">
-            {recentUsers.length === 0 ? (
-              <p className="text-sm text-gray-400 py-8 text-center">Aucun utilisateur</p>
-            ) : (
-              recentUsers.map((u) => {
-                const roleConf = ROLE_CONFIG[u.userType] ?? ROLE_CONFIG.player;
-                return (
-                  <div key={u.uid} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 font-bold text-gray-600 text-xs uppercase">
-                      {u.firstName?.[0]}{u.lastName?.[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {u.firstName} {u.lastName}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{u.locationCity || u.email}</p>
-                    </div>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${roleConf.bg} ${roleConf.color}`}>
-                      {roleConf.label}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-gray-400">{timeAgo(u.createdAt)}</span>
-                  </div>
-                );
-              })
+          <section>
+            <Titre>Les comptes</Titre>
+            <Carte className="grid gap-x-6 gap-y-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: "Joueurs", n: data.comptes.joueurs },
+                { label: "Managers", n: data.comptes.managers },
+                { label: "Arbitres", n: data.comptes.arbitres },
+                { label: "Sans rôle", n: data.comptes.sansRole, note: "Ne voient que les scores" },
+                { label: "Organisateurs", n: data.comptes.organisateurs },
+                { label: "Scoreurs", n: data.comptes.scoreurs },
+                { label: "Propriétaires de terrain", n: data.comptes.proprietaires },
+                { label: "Suspendus", n: data.comptes.suspendus },
+              ].map((l) => (
+                <div key={l.label} className="flex items-baseline justify-between gap-3 border-b border-gray-100 pb-2">
+                  <span className="text-sm font-semibold text-gray-600">
+                    {l.label}
+                    {l.note && <span className="block text-[11px] font-medium text-gray-400">{l.note}</span>}
+                  </span>
+                  <span className="font-display text-lg font-black tabular-nums text-gray-900">{l.n}</span>
+                </div>
+              ))}
+            </Carte>
+            {data.comptes.rolesHerites > 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                {`Dont ${data.comptes.rolesHerites} au rôle déclaré à l'inscription mais jamais activé : le produit ne leur ouvre pas leur espace.`}
+              </p>
             )}
-          </div>
-        </motion.div>
+          </section>
 
-        {/* Recent Matches */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-900 font-display flex items-center gap-2">
-              <Activity size={18} className="text-amber-500" />
-              Derniers matchs
-            </h3>
-            <a href="/admin/matches" className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors">
-              Voir tout <ChevronRight size={14} />
-            </a>
-          </div>
-          <div className="space-y-0">
-            {recentMatches.length === 0 ? (
-              <p className="text-sm text-gray-400 py-8 text-center">Aucun match</p>
-            ) : (
-              recentMatches.map((m) => {
-                const statusConf = STATUS_CONFIG[m.status] ?? STATUS_CONFIG.pending;
-                return (
-                  <div key={m.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-50 to-orange-50">
-                      <Trophy size={16} className="text-amber-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {m.homeTeamName} vs {m.awayTeamName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {m.date} • {m.time} • {m.venueName}
-                      </p>
-                    </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusConf.bg}`}>
-                      {statusConf.label}
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <section className="min-w-0">
+              <Titre action={<Link href="/admin/matches" className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-gray-900">Tous</Link>}>
+                Aujourd&apos;hui et derniers joués
+              </Titre>
+              {data.derniersMatchs.length === 0 ? (
+                <Carte className="px-4 py-5 text-sm text-gray-500">Aucun match joué pour l&apos;instant.</Carte>
+              ) : (
+                <Carte>{data.derniersMatchs.map((m) => <LigneMatch key={m.cle} m={m} />)}</Carte>
+              )}
+            </section>
+
+            <section className="min-w-0">
+              <Titre action={<Link href="/admin/users" className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-gray-900">Tous</Link>}>
+                Dernières inscriptions
+              </Titre>
+              <Carte className="divide-y divide-gray-200/70">
+                {data.derniersComptes.map((c) => (
+                  <Link key={c.uid} href={`/admin/users/${c.uid}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-gray-50">
+                    <PlayerAvatar name={c.nom} photo={c.photo} size={32} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold text-gray-900">{c.nom}</span>
+                      <span className="block truncate text-xs text-gray-500">{c.ville ?? "Ville non renseignée"}</span>
                     </span>
-                  </div>
-                );
-              })
-            )}
+                    {c.role ? <Pastille ton="vert">{ROLES[c.role]}</Pastille> : <Pastille>Sans rôle</Pastille>}
+                    <span className="w-16 shrink-0 text-right text-[11px] text-gray-400">{ilYA(c.creeLe)}</span>
+                  </Link>
+                ))}
+              </Carte>
+            </section>
           </div>
-        </motion.div>
-      </div>
-
-      {/* Platform health bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="rounded-2xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 p-6 shadow-lg"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20">
-              <Zap size={20} className="text-emerald-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Plateforme opérationnelle</h3>
-              <p className="text-xs text-gray-400">Tous les systèmes fonctionnent normalement</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-400 font-medium">En ligne</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Clock size={14} />
-              {new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-            </div>
-          </div>
-        </div>
-      </motion.div>
+        </>
+      )}
     </div>
   );
 }

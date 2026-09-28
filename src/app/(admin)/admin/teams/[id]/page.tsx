@@ -1,331 +1,163 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  ChevronLeft, Loader2, MapPin, Users, Trophy, Calendar, Shield,
-  Crown, UserX, Ghost, Palette, Clock,
-} from "lucide-react";
-import { getAdminTeamDetail, type AdminTeamDetail } from "@/lib/admin-firestore";
-import TirsAuBut from "@/components/match/TirsAuBut";
+import { useParams } from "next/navigation";
+import { ArrowLeft, ExternalLink, Mail, Phone } from "lucide-react";
+import { useAdminApi } from "@/hooks/useAdminApi";
+import RecordActions from "@/components/admin/RecordActions";
+import EffectifParPoste from "@/components/team/EffectifParPoste";
+import MatchsDuClub from "@/components/team/MatchsDuClub";
+import MiniEcusson from "@/components/match/MiniEcusson";
+import { BOUTON_CONTOUR, Carte, Chargement, Chiffre, Erreur, Pastille, Titre, ilYA } from "@/components/admin/ui";
+import type { FicheDuClub } from "@/lib/fiche-club-serveur";
 
 // ============================================
-// La fiche d'une équipe, vue de l'administration.
+// Une équipe, telle que l'administration doit la voir.
 //
-// La liste ne donnait que nom, ville, niveau et un compte de membres. Pour
-// répondre à « qui dirige cette équipe », « qui en fait partie », « qu'a-t-elle
-// joué », il fallait ouvrir la console Firebase. Cette page rassemble ce que
-// les documents contiennent réellement, y compris ce que le produit ne montre
-// nulle part : les identifiants, le staff délégué, les joueurs sans compte.
+// La page plantait à l'ouverture (une date de création qui n'était pas une
+// chaîne), et quand elle s'ouvrait, elle comptait autrement que la fiche
+// publique. Elle lit maintenant LA MÊME FICHE que le public — effectif par
+// poste, bilan, matchs amicaux et de compétition — et ajoute ce que seule
+// l'administration doit voir : comment joindre le manager, et le compte
+// derrière chaque joueur.
 // ============================================
 
 const NIVEAUX: Record<string, string> = {
-  beginner: "Débutant",
-  amateur: "Amateur",
-  intermediate: "Intermédiaire",
-  advanced: "Avancé",
+  beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Avancé",
 };
 
-function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{titre}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Ligne({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-gray-50 py-2 last:border-0">
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="text-right text-sm font-semibold text-gray-900">{children}</dd>
-    </div>
-  );
+interface Reponse {
+  equipe: {
+    id: string; nom: string; ville: string; niveau: string; logo: string | null; couleur: string | null;
+    recrute: boolean; fantome: boolean; description: string; slogan: string; maxMembres: number; creeLe: string | null;
+  };
+  manager: { uid: string; nom: string; email: string | null; telephone: string | null } | null;
+  fiche: FicheDuClub;
 }
 
 export default function AdminTeamDetailPage() {
-  const { id } = useParams() as { id: string };
-  const [detail, setDetail] = useState<AdminTeamDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [introuvable, setIntrouvable] = useState(false);
+  const { id } = useParams<{ id: string }>();
+  const { data, erreur, chargement, recharger } = useAdminApi<Reponse>(`/api/admin/equipes/${id}`);
 
-  useEffect(() => {
-    if (!id) return;
-    getAdminTeamDetail(id)
-      .then((d) => { if (d) setDetail(d); else setIntrouvable(true); })
-      .catch(() => setIntrouvable(true))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 size={28} className="animate-spin text-gray-300" />
-      </div>
-    );
-  }
-
-  if (introuvable || !detail) {
-    return (
-      <div className="space-y-4">
-        <Link href="/admin/teams" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900">
-          <ChevronLeft size={16} /> Équipes
-        </Link>
-        <p className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-500">
-          Cette équipe n&apos;existe plus.
-        </p>
-      </div>
-    );
-  }
-
-  const { team, manager, members, ghostPlayers, matches } = detail;
-  const termines = matches.filter((m) => m.status === "completed");
-  const effectif = members.length + ghostPlayers.length;
+  if (chargement) return <Chargement />;
+  if (erreur || !data) return <Erreur message={erreur ?? "Équipe introuvable"} onReessayer={recharger} />;
+  const { equipe: e, manager, fiche } = data;
+  const b = fiche.bilan;
+  const comptes = fiche.effectif.filter((j) => j.uid).length;
 
   return (
-    <div className="space-y-5">
-      <Link href="/admin/teams" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900">
-        <ChevronLeft size={16} /> Équipes
+    <div className="mx-auto max-w-5xl space-y-6">
+      <Link href="/admin/teams" className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-gray-900">
+        <ArrowLeft size={13} /> Équipes
       </Link>
 
-      {/* En-tête */}
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
-          style={{ backgroundColor: team.color || "#059669" }}
-        >
-          {team.name.substring(0, 2).toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-xl font-extrabold text-gray-900">{team.name}</h1>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><MapPin size={11} /> {team.city || "Ville inconnue"}</span>
-            <span className="flex items-center gap-1"><Shield size={11} /> {NIVEAUX[team.level] ?? team.level}</span>
-            <span className="flex items-center gap-1"><Users size={11} /> {effectif} joueur{effectif > 1 ? "s" : ""}</span>
-          </p>
-        </div>
-        {team.isGhost && (
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-            Hors plateforme
-          </span>
-        )}
-        {team.isRecruiting && (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-600">
-            Recrute
-          </span>
-        )}
-      </div>
-
-      {/* Bilan */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: "Matchs joués", valeur: team.matchesPlayed, ton: "text-gray-900" },
-          { label: "Victoires", valeur: team.wins, ton: "text-emerald-600" },
-          { label: "Nuls", valeur: team.draws, ton: "text-gray-900" },
-          { label: "Défaites", valeur: team.losses, ton: "text-red-600" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">{s.label}</p>
-            <p className={`mt-1 font-display text-2xl font-black tabular-nums ${s.ton}`}>{s.valeur}</p>
+      <Carte className="p-5">
+        <div className="flex flex-wrap items-start gap-4">
+          <MiniEcusson nom={e.nom} logo={e.logo} taille={64} className="text-gray-400" />
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-2xl font-black uppercase leading-tight tracking-tight text-gray-900">{e.nom}</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {[e.ville, NIVEAUX[e.niveau], `créée ${ilYA(e.creeLe)}`].filter(Boolean).join(" · ")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {e.recrute && <Pastille ton="vert">Recrute</Pastille>}
+              {e.fantome && <Pastille ton="ambre">Adversaire hors plateforme</Pastille>}
+            </div>
+            {e.slogan && <p className="mt-2 text-sm italic text-gray-500">« {e.slogan} »</p>}
           </div>
-        ))}
-      </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+          <Link href={`/teams/${e.id}`} className={BOUTON_CONTOUR}><ExternalLink size={13} /> Fiche publique</Link>
+          <RecordActions
+            variante="boutons"
+            resource="team"
+            id={e.id}
+            label={e.nom}
+            onDone={recharger}
+            champs={[
+              { cle: "name", label: "Nom" },
+              { cle: "city", label: "Ville" },
+              { cle: "slogan", label: "Slogan" },
+              { cle: "description", label: "Description" },
+              { cle: "max_members", label: "Effectif maximum", type: "nombre" },
+              { cle: "level", label: "Niveau", type: "liste", options: Object.entries(NIVEAUX).map(([valeur, label]) => ({ valeur, label })) },
+              { cle: "is_recruiting", label: "En recrutement", type: "booleen" },
+            ]}
+            valeurs={{
+              name: e.nom, city: e.ville, slogan: e.slogan, description: e.description,
+              max_members: e.maxMembres, level: e.niveau, is_recruiting: e.recrute,
+            }}
+          />
+        </div>
+      </Carte>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Identité */}
-        <Bloc titre="Identité du document">
-          <dl>
-            <Ligne label="Identifiant"><code className="text-xs text-gray-500">{team.id}</code></Ligne>
-            <Ligne label="Manager">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-6">
+          <section>
+            <Titre compte={fiche.effectif.length}>Effectif</Titre>
+            <p className="mb-2 text-xs text-gray-500">
+              {comptes} avec un compte, {fiche.effectif.length - comptes} sans compte. Un nom mène à la fiche du compte.
+            </p>
+            <EffectifParPoste
+              joueurs={fiche.effectif.map((j) => ({
+                cle: j.id, nom: j.nom, numero: j.numero, poste: j.poste, photo: j.photo,
+                lien: j.uid ? `/admin/users/${j.uid}` : null,
+                apres: j.uid ? null : <Pastille>Sans compte</Pastille>,
+              }))}
+              staff={fiche.staff}
+              vide="Aucun joueur dans l'effectif."
+            />
+          </section>
+          <section>
+            <Titre compte={fiche.matchs.length}>Matchs</Titre>
+            <MatchsDuClub matchs={fiche.matchs} />
+          </section>
+        </div>
+
+        <aside className="space-y-6">
+          <section>
+            <Titre>Manager</Titre>
+            <Carte className="px-4 py-3">
               {manager ? (
-                <Link href={`/admin/users?q=${encodeURIComponent(manager.email ?? "")}`} className="hover:underline">
-                  {`${manager.firstName} ${manager.lastName}`.trim() || manager.email || manager.uid}
-                </Link>
+                <>
+                  <Link href={`/admin/users/${manager.uid}`} className="text-sm font-black text-gray-900 hover:text-emerald-700">{manager.nom}</Link>
+                  {manager.email && <a href={`mailto:${manager.email}`} className="mt-1 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"><Mail size={13} /> {manager.email}</a>}
+                  {manager.telephone && <a href={`tel:${manager.telephone}`} className="mt-1 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"><Phone size={13} /> {manager.telephone}</a>}
+                </>
               ) : (
-                <span className="text-amber-600">compte introuvable</span>
+                <p className="text-sm text-gray-500">Aucun manager : le compte a été supprimé.</p>
               )}
-            </Ligne>
-            <Ligne label="Identifiant manager"><code className="text-xs text-gray-500">{team.managerId}</code></Ligne>
-            <Ligne label="Effectif maximum">{team.maxMembers || "non défini"}</Ligne>
-            <Ligne label="Couleur">
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-sm border border-gray-200" style={{ backgroundColor: team.color }} />
-                <code className="text-xs text-gray-500">{team.color}</code>
-              </span>
-            </Ligne>
-            <Ligne label="Abonnés">{team.followersCount ?? 0}</Ligne>
-            <Ligne label="Créée le">{team.createdAt?.slice(0, 10) || "–"}</Ligne>
-            <Ligne label="Modifiée le">{team.updatedAt?.slice(0, 10) || "–"}</Ligne>
-          </dl>
-          {team.slogan && (
-            <p className="mt-3 border-l-2 border-gray-100 pl-3 text-sm italic text-gray-500">«&nbsp;{team.slogan}&nbsp;»</p>
-          )}
-          {team.description && (
-            <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-gray-600">{team.description}</p>
-          )}
-        </Bloc>
-
-        {/* Staff */}
-        <Bloc titre="Staff">
-          {(team.staff ?? []).length === 0 ? (
-            <p className="text-sm text-gray-400 italic">Aucun staff nommé.</p>
-          ) : (
-            <ul className="space-y-2">
-              {(team.staff ?? []).map((m) => (
-                <li key={m.uid} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{m.name}</p>
-                    <p className="text-[11px] text-gray-500">{m.title}</p>
-                  </div>
-                  {m.delegated && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600">
-                      <Crown size={10} /> Droits manager
+            </Carte>
+          </section>
+          <section>
+            <Titre>Bilan</Titre>
+            <div className="grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70">
+              <Chiffre valeur={b.joues} libelle="Joués" />
+              <Chiffre valeur={b.gagnes} libelle="Gagnés" ton="text-emerald-700" />
+              <Chiffre valeur={b.nuls} libelle="Nuls" />
+              <Chiffre valeur={b.perdus} libelle="Perdus" ton="text-red-600" />
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Buts {b.butsPour}–{b.butsContre}, amicaux et compétitions ensemble, comme sur la fiche publique.
+            </p>
+          </section>
+          {fiche.competitions.length > 0 && (
+            <section>
+              <Titre compte={fiche.competitions.length}>Compétitions</Titre>
+              <Carte className="divide-y divide-gray-200/70">
+                {fiche.competitions.map((c) => (
+                  <Link key={c.lienEquipe} href={c.lienEquipe} className="block px-4 py-2.5 hover:bg-gray-50">
+                    <span className="block truncate text-sm font-bold text-gray-900">{c.nom}</span>
+                    <span className="text-xs text-gray-500">
+                      {[c.groupe ? `Groupe ${c.groupe}` : null, c.rang ? `${c.rang === 1 ? "1er" : `${c.rang}e`}` : null, c.points != null ? `${c.points} pts` : null].filter(Boolean).join(" · ")}
                     </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {/* Les droits que lisent les règles Firestore, et non l'affichage :
-              les deux doivent coïncider, et c'est ici qu'on le vérifie. */}
-          <p className="mt-3 text-[11px] text-gray-400">
-            Droits délégués en base : {(team.staffManagerIds ?? []).length === 0
-              ? "aucun"
-              : (team.staffManagerIds ?? []).join(", ")}
-          </p>
-        </Bloc>
-
-        {/* Effectif avec compte */}
-        <Bloc titre={`Effectif avec compte (${members.length})`}>
-          {members.length === 0 ? (
-            <p className="text-sm text-gray-400 italic">Aucun compte dans l&apos;effectif.</p>
-          ) : (
-            <ul className="space-y-2">
-              {members.map((m) => (
-                <li key={m.uid} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">
-                      {`${m.firstName} ${m.lastName}`.trim() || m.email || m.uid}
-                    </p>
-                    <p className="truncate text-[11px] text-gray-500">
-                      {m.position ?? "poste inconnu"}
-                      {team.squadNumbers?.[m.uid] ? ` · N°${team.squadNumbers[m.uid]}` : ""}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-xs font-bold text-gray-900">{m.goals ?? 0} b · {m.assists ?? 0} p</p>
-                    {m.isActive === false && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-red-500">
-                        <UserX size={10} /> suspendu
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Bloc>
-
-        {/* Joueurs sans compte */}
-        <Bloc titre={`Joueurs sans compte (${ghostPlayers.length})`}>
-          {ghostPlayers.length === 0 ? (
-            <p className="text-sm text-gray-400 italic">Aucun joueur sans compte.</p>
-          ) : (
-            <ul className="space-y-2">
-              {ghostPlayers.map((g) => (
-                <li key={g.id} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">
-                      <Ghost size={11} className="mr-1 inline text-gray-400" />
-                      {g.firstName} {g.lastName}
-                    </p>
-                    <p className="text-[11px] text-gray-500">
-                      {g.position}{g.squadNumber ? ` · N°${g.squadNumber}` : ""}
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-xs font-bold text-gray-900">
-                    {g.matchesPlayed} m · {g.goals} b · {g.assists} p
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Bloc>
-      </div>
-
-      {/* Matchs */}
-      <Bloc titre={`Matchs (${matches.length}, dont ${termines.length} terminés)`}>
-        {matches.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">Cette équipe n&apos;a aucun match.</p>
-        ) : (
-          <ul className="divide-y divide-gray-50">
-            {matches.slice(0, 40).map((m) => (
-              <li key={m.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
-                <div className="min-w-0">
-                  <Link href={`/matches/${m.id}`} className="text-sm font-semibold text-gray-900 hover:underline">
-                    {m.homeTeamName} <span className="text-gray-300">vs</span> {m.awayTeamName}
                   </Link>
-                  <p className="flex flex-wrap items-center gap-x-3 text-[11px] text-gray-500">
-                    <span className="flex items-center gap-1"><Calendar size={10} /> {m.date} {m.time}</span>
-                    {m.venueName && <span className="flex items-center gap-1"><MapPin size={10} /> {m.venueName}</span>}
-                    {!m.awayManagerId && <span className="text-gray-400">amical hors plateforme</span>}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  {m.status === "completed" ? (
-                    <>
-                      <span className="font-display text-sm font-black tabular-nums text-gray-900">
-                        {m.scoreHome ?? "?"} – {m.scoreAway ?? "?"}
-                      </span>
-                      <TirsAuBut home={m.penaltyHome} away={m.penaltyAway} />
-                    </>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[11px] font-bold uppercase text-gray-400">
-                      <Clock size={10} /> {m.status}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        {matches.length > 40 && (
-          <p className="mt-3 text-[11px] text-gray-400">
-            Les 40 plus récents sur {matches.length}.
-          </p>
-        )}
-      </Bloc>
-
-      {(team.achievements ?? []).length > 0 && (
-        <Bloc titre="Palmarès">
-          <ul className="space-y-2">
-            {(team.achievements ?? []).map((a, i) => (
-              <li key={i} className="flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2">
-                <Trophy size={14} className="shrink-0 text-amber-500" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-gray-900">{a.title}</p>
-                  <p className="text-[11px] text-gray-500">{a.date}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Bloc>
-      )}
-
-      {(team.trainingSchedule ?? []).length > 0 && (
-        <Bloc titre="Créneaux d'entraînement">
-          <ul className="space-y-1.5">
-            {(team.trainingSchedule ?? []).map((c, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                <Palette size={12} className="text-violet-400" />
-                jour {c.day} · {c.time} · {c.location}{c.label ? ` · ${c.label}` : ""}
-              </li>
-            ))}
-          </ul>
-        </Bloc>
-      )}
+                ))}
+              </Carte>
+            </section>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

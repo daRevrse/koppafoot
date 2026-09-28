@@ -2,18 +2,22 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Megaphone, Flag, Loader2, Send, Pin, Trash2, Check, ExternalLink,
+  Megaphone, Loader2, Send, Pin, Trash2, Check, ExternalLink,
   BadgeCheck, Pencil,
 } from "lucide-react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { EnTete } from "@/components/admin/ui";
 
 // ============================================
-// Admin, the official account's voice, and the moderation queue.
+// Admin, the official account's voice.
 //
 // Publishing as KoppaFoot is impossible from a browser by design (the rules
-// require a post's author_id to match the caller), so both halves of this
-// screen go through admin-SDK routes.
+// require a post's author_id to match the caller), so this screen goes
+// through admin-SDK routes. The moderation queue that lived at the bottom of
+// this page has its own page now (Signalements), next to everything else that
+// waits for a decision.
 // ============================================
 
 interface OfficialPost {
@@ -24,18 +28,6 @@ interface OfficialPost {
   pinned: boolean;
   likes: number;
   commentCount: number;
-  createdAt: string | null;
-}
-
-interface Report {
-  id: string;
-  postId: string;
-  postContent: string;
-  postAuthorId: string;
-  postAuthorName: string;
-  reporterName: string;
-  reason: string;
-  status: string;
   createdAt: string | null;
 }
 
@@ -57,8 +49,6 @@ export default function AdminTribunePage() {
   const [pinned, setPinned] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loadingReports, setLoadingReports] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
 
   // Identity of the official account, and its own posts.
@@ -178,27 +168,9 @@ export default function AdminTribunePage() {
     }
   };
 
-  const loadReports = useCallback(async () => {
-    if (!firebaseUser) return;
-    try {
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch("/api/tribune/reports", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setReports(data.reports ?? []);
-    } catch {
-      toast.error("Impossible de charger les signalements.");
-    } finally {
-      setLoadingReports(false);
-    }
-  }, [firebaseUser]);
-
   useEffect(() => {
-    loadReports();
     loadOfficial();
-  }, [loadReports, loadOfficial]);
+  }, [loadOfficial]);
 
   const publish = async () => {
     if (!firebaseUser || !content.trim()) return;
@@ -227,43 +199,15 @@ export default function AdminTribunePage() {
     }
   };
 
-  const moderate = async (report: Report, action: "delete" | "dismiss") => {
-    if (!firebaseUser) return;
-    setActing(report.id);
-    try {
-      const token = await firebaseUser.getIdToken();
-      if (action === "delete") {
-        const res = await fetch("/api/admin/tribune", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ id: report.postId }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          toast.error(data.error ?? "Suppression impossible.");
-          return;
-        }
-      }
-      // Either way the report leaves the queue.
-      await fetch("/api/tribune/reports", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id: report.id, action: "dismiss" }),
-      });
-      toast.success(action === "delete" ? "Publication supprimée." : "Signalement ignoré.");
-      setReports((prev) => prev.filter((r) => r.id !== report.id));
-    } catch {
-      toast.error("Une erreur est survenue.");
-    } finally {
-      setActing(null);
-    }
-  };
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <EnTete
+        titre="Tribune"
+        sousTitre={<>La voix officielle de KoppaFoot. Les signalements se traitent dans <Link href="/admin/signalements" className="font-bold text-gray-900 underline">Signalements</Link>.</>}
+      />
       {/* Identity of the official account */}
-      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
+      <section className="border border-gray-200/70 bg-white p-5">
+        <h2 className="flex items-center gap-2 font-display text-lg font-black uppercase tracking-tight text-gray-900">
           <BadgeCheck size={18} className="text-emerald-500" />
           Compte officiel
         </h2>
@@ -286,7 +230,7 @@ export default function AdminTribunePage() {
               value={identityName}
               onChange={(e) => setIdentityName(e.target.value)}
               placeholder="KoppaFoot"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
             <input
               type="file"
@@ -304,14 +248,14 @@ export default function AdminTribunePage() {
                   return URL.createObjectURL(f);
                 });
               }}
-              className="block w-full text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-gray-700"
+              className="block w-full text-xs text-gray-500 file:mr-3 file:file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-gray-700"
             />
           </div>
           <button
             type="button"
             onClick={saveIdentity}
             disabled={savingIdentity}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
           >
             {savingIdentity ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
             Enregistrer
@@ -320,8 +264,8 @@ export default function AdminTribunePage() {
       </section>
 
       {/* Composer */}
-      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
+      <section className="border border-gray-200/70 bg-white p-5">
+        <h2 className="flex items-center gap-2 font-display text-lg font-black uppercase tracking-tight text-gray-900">
           <Megaphone size={18} className="text-emerald-600" />
           Publier au nom de KoppaFoot
         </h2>
@@ -334,7 +278,7 @@ export default function AdminTribunePage() {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Votre annonce…"
-          className="mt-4 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-emerald-400 focus:bg-white focus:outline-none"
+          className="mt-4 w-full resize-none border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-emerald-400 focus:bg-white focus:outline-none"
         />
 
         <label className="mt-3 mb-1 block text-xs font-bold text-gray-600">
@@ -345,7 +289,7 @@ export default function AdminTribunePage() {
           value={link}
           onChange={(e) => setLink(e.target.value)}
           placeholder="/c/miabe-can-2026"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-emerald-400 focus:bg-white focus:outline-none"
+          className="w-full border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-emerald-400 focus:bg-white focus:outline-none"
         />
 
         <div className="mt-4 flex items-center justify-between gap-3">
@@ -364,7 +308,7 @@ export default function AdminTribunePage() {
             type="button"
             onClick={publish}
             disabled={publishing || !content.trim()}
-            className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+            className="flex items-center gap-2 bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
           >
             {publishing ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             Publier
@@ -373,8 +317,8 @@ export default function AdminTribunePage() {
       </section>
 
       {/* The official account's own posts */}
-      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
+      <section className="border border-gray-200/70 bg-white p-5">
+        <h2 className="flex items-center gap-2 font-display text-lg font-black uppercase tracking-tight text-gray-900">
           <Megaphone size={18} className="text-emerald-500" />
           Publications officielles
           {official.length > 0 && (
@@ -395,14 +339,14 @@ export default function AdminTribunePage() {
         ) : (
           <div className="mt-3 space-y-2">
             {official.map((p) => (
-              <div key={p.id} className="rounded-xl border border-gray-100 p-3">
+              <div key={p.id} className="border border-gray-100 p-3">
                 {editingId === p.id ? (
                   <div className="space-y-2">
                     <textarea
                       rows={3}
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      className="w-full resize-none border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                       autoFocus
                     />
                     <div className="flex gap-2">
@@ -410,7 +354,7 @@ export default function AdminTribunePage() {
                         type="button"
                         onClick={() => patchOfficial(p.id, { content: editContent }, "Publication modifiée.")}
                         disabled={acting === p.id || !editContent.trim()}
-                        className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                        className="flex items-center gap-1.5 bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                       >
                         {acting === p.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                         Enregistrer
@@ -418,7 +362,7 @@ export default function AdminTribunePage() {
                       <button
                         type="button"
                         onClick={() => setEditingId(null)}
-                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        className="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                       >
                         Annuler
                       </button>
@@ -449,7 +393,7 @@ export default function AdminTribunePage() {
                           type="button"
                           onClick={() => { setEditingId(p.id); setEditContent(p.content); }}
                           title="Modifier"
-                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
+                          className="p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600"
                         >
                           <Pencil size={14} />
                         </button>
@@ -458,7 +402,7 @@ export default function AdminTribunePage() {
                           onClick={() => patchOfficial(p.id, { pinned: !p.pinned }, p.pinned ? "Désépinglée." : "Épinglée en haut de la Tribune.")}
                           disabled={acting === p.id}
                           title={p.pinned ? "Désépingler" : "Épingler"}
-                          className={`rounded-lg p-1.5 transition-colors hover:bg-amber-50 disabled:opacity-50 ${
+                          className={`p-1.5 transition-colors hover:bg-amber-50 disabled:opacity-50 ${
                             p.pinned ? "text-amber-600" : "text-gray-400 hover:text-amber-600"
                           }`}
                         >
@@ -469,7 +413,7 @@ export default function AdminTribunePage() {
                           onClick={() => deleteOfficial(p.id)}
                           disabled={acting === p.id}
                           title="Supprimer"
-                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          className="p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -483,82 +427,6 @@ export default function AdminTribunePage() {
         )}
       </section>
 
-      {/* Reports */}
-      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-gray-900">
-          <Flag size={18} className="text-red-500" />
-          Signalements
-          {reports.length > 0 && (
-            <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
-              {reports.length}
-            </span>
-          )}
-        </h2>
-
-        {loadingReports ? (
-          <div className="flex justify-center py-10">
-            <Loader2 size={22} className="animate-spin text-gray-300" />
-          </div>
-        ) : reports.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-400">
-            Rien à modérer.
-          </p>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {reports.map((r) => (
-              <div key={r.id} className="rounded-xl border border-gray-100 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900">{r.postAuthorName}</p>
-                    <p className="text-xs font-semibold text-gray-400">
-                      signalé par {r.reporterName}
-                    </p>
-                  </div>
-                  <a
-                    href={`/feed?post=${r.postId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex shrink-0 items-center gap-1 text-xs font-bold text-gray-400 hover:text-gray-600"
-                  >
-                    Voir <ExternalLink size={11} />
-                  </a>
-                </div>
-                {/* Snapshot taken when reported, the live post may have
-                    been edited since, or deleted outright. */}
-                <p className="mt-2 border-l-2 border-gray-100 pl-3 text-xs italic leading-relaxed text-gray-600">
-                  {r.postContent || "(sans texte)"}
-                </p>
-                {r.reason && (
-                  <p className="mt-1.5 text-xs text-gray-500">Motif : {r.reason}</p>
-                )}
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => moderate(r, "dismiss")}
-                    disabled={acting === r.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <Check size={13} /> Ignorer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moderate(r, "delete")}
-                    disabled={acting === r.id}
-                    className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 disabled:opacity-50"
-                  >
-                    {acting === r.id ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={13} />
-                    )}
-                    Supprimer le post
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

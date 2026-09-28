@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { estSuperadmin } from "@/lib/admin-api-auth";
 import { FieldValue } from "firebase-admin/firestore";
 import { importClubRoster } from "@/lib/club-import-server";
 import { announceCompetitionEvent } from "@/lib/tribune-server";
@@ -254,7 +255,7 @@ export async function GET(req: NextRequest) {
     const competition = compSnap.data() as FirestoreCompetition;
     if (!(competition.organizer_ids ?? []).includes(callerUid)) {
       const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      if (callerDoc.data()?.user_type !== "superadmin") {
+      if (!estSuperadmin(callerDoc.data())) {
         return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
       }
     }
@@ -331,7 +332,7 @@ export async function PATCH(req: NextRequest) {
     const competition = compSnap.data() as FirestoreCompetition;
     if (!(competition.organizer_ids ?? []).includes(callerUid)) {
       const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      if (callerDoc.data()?.user_type !== "superadmin") {
+      if (!estSuperadmin(callerDoc.data())) {
         return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
       }
     }

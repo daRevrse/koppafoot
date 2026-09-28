@@ -22,6 +22,8 @@ import { useAuthModal } from "@/components/auth/AuthModal";
 
 interface MaCandidature {
   id: string;
+  /** Ce que l'équipe a répondu, quand elle a refusé en le disant. */
+  rejectionReason?: string | null;
   status: "pending" | "approved" | "rejected";
   createdAt: string | null;
 }
@@ -198,6 +200,11 @@ export default function CandidatureScoreurPage() {
           <p className="text-[13px] leading-relaxed text-gray-600">
             Ta précédente candidature n&apos;a pas été retenue. Tu peux en
             déposer une nouvelle.
+            {existante.rejectionReason && (
+              <span className="mt-1.5 block text-gray-700">
+                <strong className="font-black text-gray-900">Motif :</strong> {existante.rejectionReason}
+              </span>
+            )}
           </p>
         </div>
       )}

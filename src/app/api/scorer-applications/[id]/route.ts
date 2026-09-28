@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { exigerSuperadmin } from "@/lib/admin-api-auth";
+import { sendPushToUser } from "@/lib/fcm-server";
 
 /**
  * PATCH /api/scorer-applications/[id], approuver ou refuser.
@@ -19,10 +20,12 @@ export async function PATCH(
   if (appelant instanceof NextResponse) return appelant;
 
   try {
-    const { action } = (await req.json()) as { action?: "approve" | "reject" };
+    const { action, motif: motifBrut } = (await req.json()) as { action?: "approve" | "reject"; motif?: unknown };
     if (action !== "approve" && action !== "reject") {
       return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
     }
+    // Un refus dit pourquoi, comme pour un terrain ou un organisateur.
+    const motif = action === "reject" && typeof motifBrut === "string" ? motifBrut.trim().slice(0, 500) : "";
 
     const { id } = await params;
     const ref = adminDb.collection("scorer_applications").doc(id);
@@ -38,6 +41,7 @@ export async function PATCH(
     const approuve = action === "approve";
     await ref.update({
       status: approuve ? "approved" : "rejected",
+      rejection_reason: motif || null,
       reviewed_by: appelant.uid,
       reviewed_at: FieldValue.serverTimestamp(),
     });
@@ -54,7 +58,34 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json({ ok: true });
+    // ON PRÉVIENT LE CANDIDAT. La décision tombait en silence : un scoreur
+    // accepté ne savait pas qu'il pouvait couvrir un match, un refusé
+    // attendait une réponse qui ne viendrait pas. Au mieux, et attendu : une
+    // instance sans serveur gèle dès la réponse rendue.
+    const lien = approuve ? "/live-ops" : "/scoreurs/candidature";
+    await Promise.allSettled([
+      adminDb.collection("notifications").add({
+        user_id: candidature.uid,
+        type: "admin_message",
+        title: approuve ? "Tu es scoreur" : "Candidature scoreur",
+        body: approuve
+          ? "Tu peux maintenant tenir le score en direct des amicaux."
+          : `Ta candidature n'a pas été retenue.${motif ? ` Motif : ${motif}` : ""}`,
+        link: lien,
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      }),
+      sendPushToUser(candidature.uid, {
+        title: approuve ? "Tu es scoreur" : "Candidature scoreur",
+        body: approuve
+          ? "Tu peux maintenant tenir le score en direct des amicaux."
+          : motif ? `Ta candidature n'a pas été retenue : ${motif}` : "Ta candidature n'a pas été retenue pour le moment.",
+        link: lien,
+        category: "perso",
+      }),
+    ]);
+
+    return NextResponse.json({ ok: true, status: approuve ? "approved" : "rejected" });
   } catch (err) {
     console.error("[scorer-applications PATCH]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

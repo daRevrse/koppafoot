@@ -1,34 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Menu } from "lucide-react";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import { ROLE_REDIRECTS } from "@/types";
-import AdminSidebar from "@/components/layout/AdminSidebar";
+import AdminSidebar, { titreDeLaPage } from "@/components/layout/AdminSidebar";
+import { ATraiterProvider } from "@/components/admin/ATraiterContext";
+import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { isSuperAdmin } from "@/lib/hats";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/admin": "Centre de contrôle",
-  "/admin/scorers": "Scoreurs",
-  "/admin/users": "Utilisateurs",
-  "/admin/teams": "Équipes",
-  "/admin/matches": "Matchs",
-  "/admin/competitions": "Compétitions",
-  "/admin/venues": "Terrains",
-  "/admin/tribune": "Tribune",
-  "/admin/stats": "Statistiques",
-  "/admin/settings": "Paramètres",
-  "/admin/messages": "Messages",
-  "/admin/campaigns": "Campagnes",
-  "/admin/profile": "Mon profil",
-};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [menuOuvert, setMenuOuvert] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -42,39 +30,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 size={32} className="animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500">Chargement...</p>
-        </div>
+        <Loader2 size={28} className="animate-spin text-gray-300" />
       </div>
     );
   }
 
   if (!user || !isSuperAdmin(user)) return null;
 
-  const pageTitle = PAGE_TITLES[pathname] ?? "Administration";
-
   return (
-    <div className="flex min-h-screen bg-[#F8F9FB]">
-      <AdminSidebar />
-      <div className="flex flex-1 flex-col">
-        {/* Premium header */}
-        <header className="pt-safe sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-gray-200/60 bg-white/80 backdrop-blur-xl px-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-base font-bold text-gray-900 font-display">{pageTitle}</h2>
-          </div>
-          <div className="flex items-center gap-3">
+    <ATraiterProvider>
+      <div className="flex min-h-screen bg-gray-50">
+        <AdminSidebar ouvert={menuOuvert} onFermer={() => setMenuOuvert(false)} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="pt-safe sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-gray-200/70 bg-white px-4 sm:px-6">
+            {/* Le bouton du menu vit DANS l'en-tête : posé en position fixe par
+                -dessus, il recouvrait le titre de la page sur téléphone. */}
+            <button
+              onClick={() => setMenuOuvert(true)}
+              className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center text-gray-700 hover:bg-gray-100 lg:hidden"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu size={20} />
+            </button>
+            <p className="min-w-0 flex-1 truncate text-[11px] font-black uppercase tracking-[0.16em] text-gray-500">
+              {titreDeLaPage(pathname)}
+            </p>
             <NotificationDropdown />
-            <div className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-gray-700 to-gray-900 text-[10px] font-bold text-white uppercase">
-                {user.firstName?.[0]}{user.lastName?.[0]}
-              </div>
-              <span className="text-sm font-medium text-gray-700 hidden sm:inline">{user.firstName}</span>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 p-6 lg:p-8">{children}</main>
+            <Link href="/admin/profile" className="flex items-center gap-2 text-sm font-bold text-gray-700" aria-label="Mon profil">
+              <PlayerAvatar name={`${user.firstName} ${user.lastName}`} photo={user.profilePictureUrl} size={30} />
+              <span className="hidden sm:inline">{user.firstName}</span>
+            </Link>
+          </header>
+          <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>
+        </div>
       </div>
-    </div>
+    </ATraiterProvider>
   );
 }

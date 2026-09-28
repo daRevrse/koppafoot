@@ -1,29 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify the caller is a superadmin via session cookie or auth header
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
-
-    const token = authHeader.split("Bearer ")[1];
-    let callerUid: string;
-    try {
-      const decoded = await adminAuth.verifyIdToken(token);
-      callerUid = decoded.uid;
-    } catch {
-      return NextResponse.json({ error: "Token invalide" }, { status: 401 });
-    }
-
-    // Verify caller is superadmin
-    const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-    if (!callerDoc.exists || callerDoc.data()?.user_type !== "superadmin") {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-    }
+    // Le contrôle commun, qui lit le drapeau. Cette route comparait
+    // `user_type` à « superadmin » : l'administrateur d'aujourd'hui porte un
+    // drapeau et un rôle ordinaire, elle lui répondait donc « Accès refusé »
+    // — y compris pour donner une casquette, la seule chose qu'elle fait.
+    const appelant = await exigerSuperadmin(req);
+    if (appelant instanceof NextResponse) return appelant;
+    const callerUid = appelant.uid;
 
     const body = await req.json();
     const { uid, email, action, role = "superadmin" } = body;
@@ -38,8 +26,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Action invalide (promote|revoke)" }, { status: 400 });
     }
 
-    if (!["superadmin", "organizer"].includes(role)) {
-      return NextResponse.json({ error: "Rôle invalide (superadmin|organizer)" }, { status: 400 });
+    if (!["superadmin", "organizer", "scorer"].includes(role)) {
+      return NextResponse.json({ error: "Casquette invalide (superadmin|organizer|scorer)" }, { status: 400 });
     }
 
     // Find the target account, by uid when the caller has it, else by email
@@ -73,13 +61,21 @@ export async function POST(req: NextRequest) {
     // reposait en « player » — y compris quelqu'un qui n'avait jamais joué,
     // faute d'une valeur neutre. Les deux symptômes disparaissent avec le
     // drapeau : le rôle n'est jamais touché, ni dans un sens ni dans l'autre.
-    const DRAPEAU: Record<string, "is_superadmin" | "is_organizer"> = {
+    //
+    // Le scoreur s'accorde d'ici aussi : sa candidature a sa page, mais un
+    // scoreur qu'on connaît, ou dont il faut retirer la casquette après un
+    // abus, n'avait aucun autre chemin que la console Firebase.
+    const DRAPEAU: Record<string, "is_superadmin" | "is_organizer" | "is_scorer"> = {
       superadmin: "is_superadmin",
       organizer: "is_organizer",
+      scorer: "is_scorer",
     };
     const donnees = userDoc.data() ?? {};
     const drapeau = DRAPEAU[role as string];
-    const dejaPose = donnees[drapeau] === true;
+    // Un administrateur d'avant la bascule ne porte que l'ancien type : il
+    // l'est tout autant, et le retirer doit aussi effacer cette trace-là.
+    const heritage = drapeau === "is_superadmin" && donnees.user_type === "superadmin";
+    const dejaPose = donnees[drapeau] === true || heritage;
 
     if (action === "promote") {
       if (dejaPose) {
@@ -107,6 +103,7 @@ export async function POST(req: NextRequest) {
       // reste joueur, un organisateur qui ne jouait pas reste « user ».
       await adminDb.collection("users").doc(userRecord.uid).update({
         [drapeau]: false,
+        ...(heritage ? { user_type: "user" } : {}),
         updated_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({ message: `${label} rétrogradé`, hat: drapeau });
