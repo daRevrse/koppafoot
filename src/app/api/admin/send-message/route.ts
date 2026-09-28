@@ -3,70 +3,97 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendPushToUser } from "@/lib/fcm-server";
 import { sendNotificationEmail, adminMessageEmailHtml } from "@/lib/email";
+import { exigerSuperadmin } from "@/lib/admin-api-auth";
+import { dansLeSegment, estUnSegment, type Segment } from "@/lib/admin-segments";
 
-const VALID_ROLES = ["player", "manager", "referee", "venue_owner"];
+/**
+ * POST /api/admin/send-message, un message de l'équipe à un segment ou à un
+ * compte : notification dans l'application, push et e-mail.
+ *
+ * Corps : { title, body, segment } ou { title, body, uid | email }.
+ * `apercu: true` n'envoie rien et répond qui recevrait le message : l'écran
+ * le montre AVANT l'envoi. Un envoi à tous part en push et par e-mail sur
+ * tous les téléphones et toutes les boîtes, et ne se rattrape pas.
+ *
+ * Voir lib/admin-segments pour ce qu'est un segment : les rôles et les
+ * casquettes du modèle actuel, plus `user_type`.
+ */
+
+/** L'ancien vocabulaire de l'écran, le temps que tous les clients l'oublient. */
+const ANCIENNES_CIBLES: Record<string, Segment> = {
+  all: "tous", player: "joueurs", manager: "managers",
+  referee: "arbitres", venue_owner: "proprietaires",
+};
+
+type Destinataire = { uid: string; email: string | null; nom: string };
+
+function destinataire(d: FirebaseFirestore.DocumentSnapshot): Destinataire {
+  const x = d.data() ?? {};
+  return {
+    uid: d.id,
+    email: typeof x.email === "string" && x.email ? x.email : null,
+    nom: `${x.first_name ?? ""} ${x.last_name ?? ""}`.trim() || "Compte sans nom",
+  };
+}
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
-  const token = authHeader.split("Bearer ")[1];
-  try {
-    const decoded = await adminAuth.verifyIdToken(token);
-    const callerDoc = await adminDb.collection("users").doc(decoded.uid).get();
-    if (callerDoc.data()?.user_type !== "superadmin") {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-    }
-  } catch {
-    return NextResponse.json({ error: "Token invalide" }, { status: 401 });
-  }
+  const appelant = await exigerSuperadmin(req);
+  if (appelant instanceof NextResponse) return appelant;
 
-  const { title, body, target } = await req.json();
-  if (!title || !body || !target) {
-    return NextResponse.json({ error: "title, body et target requis" }, { status: 400 });
+  const corps = (await req.json().catch(() => ({}))) as {
+    title?: string; body?: string; segment?: string; target?: string;
+    uid?: string; email?: string; apercu?: boolean;
+  };
+  const title = (corps.title ?? "").trim();
+  const body = (corps.body ?? "").trim();
+  const apercu = corps.apercu === true;
+  if (!apercu && (!title || !body)) {
+    return NextResponse.json({ error: "Un titre et un message sont requis" }, { status: 400 });
   }
 
-  // Resolve recipient user IDs and emails
-  const userIds: string[] = [];
-  const emails: Record<string, string> = {};
+  // La cible : un compte précis, ou un segment.
+  let destinataires: Destinataire[] = [];
+  const ancienne = corps.target && ANCIENNES_CIBLES[corps.target];
+  const segment = estUnSegment(corps.segment) ? corps.segment : ancienne || null;
+  const email = corps.email ?? (corps.target && !ancienne && corps.target.includes("@") ? corps.target : undefined);
 
-  if (target === "all") {
-    const snap = await adminDb.collection("users").select("email").get();
-    snap.docs.forEach((d) => {
-      userIds.push(d.id);
-      const email = d.data().email;
-      if (email) emails[d.id] = email;
-    });
-  } else if (VALID_ROLES.includes(target)) {
-    const snap = await adminDb.collection("users").where("user_type", "==", target).select("email").get();
-    snap.docs.forEach((d) => {
-      userIds.push(d.id);
-      const email = d.data().email;
-      if (email) emails[d.id] = email;
-    });
-  } else {
-    // treat target as email address
-    const snap = await adminDb.collection("users").where("email", "==", target).limit(1).get();
+  if (corps.uid) {
+    const d = await adminDb.collection("users").doc(corps.uid).get();
+    if (!d.exists) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+    destinataires = [destinataire(d)];
+  } else if (email) {
+    const snap = await adminDb.collection("users").where("email", "==", email.trim()).limit(1).get();
     if (snap.empty) {
-      return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+      // Un compte créé par téléphone n'a pas d'e-mail en profil, mais
+      // l'authentification peut en connaître un.
+      const compte = await adminAuth.getUserByEmail(email.trim()).catch(() => null);
+      const d = compte ? await adminDb.collection("users").doc(compte.uid).get() : null;
+      if (!d?.exists) return NextResponse.json({ error: "Aucun compte pour cet e-mail" }, { status: 404 });
+      destinataires = [destinataire(d)];
+    } else {
+      destinataires = [destinataire(snap.docs[0])];
     }
-    const d = snap.docs[0];
-    userIds.push(d.id);
-    const email = d.data().email;
-    if (email) emails[d.id] = email;
+  } else if (segment) {
+    const snap = await adminDb.collection("users").get();
+    destinataires = snap.docs.filter((d) => dansLeSegment(d.data(), segment)).map(destinataire);
+  } else {
+    return NextResponse.json({ error: "Choisis un segment ou un compte" }, { status: 400 });
   }
 
-  // Write notifications in Firestore batches (max 500 per batch)
-  const chunks: string[][] = [];
-  for (let i = 0; i < userIds.length; i += 500) chunks.push(userIds.slice(i, i + 500));
+  if (apercu) {
+    return NextResponse.json({
+      count: destinataires.length,
+      avecEmail: destinataires.filter((d) => d.email).length,
+      exemples: destinataires.slice(0, 5).map((d) => d.nom),
+    });
+  }
 
-  for (const chunk of chunks) {
-    const batch = adminDb.batch();
-    for (const uid of chunk) {
-      const ref = adminDb.collection("notifications").doc();
-      batch.set(ref, {
-        user_id: uid,
+  // Les notifications, par lots (Firestore plafonne un lot à 500 écritures).
+  for (let i = 0; i < destinataires.length; i += 400) {
+    const lot = adminDb.batch();
+    for (const d of destinataires.slice(i, i + 400)) {
+      lot.set(adminDb.collection("notifications").doc(), {
+        user_id: d.uid,
         type: "admin_message",
         title,
         body,
@@ -75,20 +102,18 @@ export async function POST(req: NextRequest) {
         created_at: FieldValue.serverTimestamp(),
       });
     }
-    await batch.commit();
+    await lot.commit();
   }
 
-  // Push + email, best effort, parallel
+  // Push et e-mail, au mieux, en parallèle : un téléphone éteint ou une boîte
+  // pleine ne doit pas faire échouer l'envoi aux autres.
   const html = adminMessageEmailHtml(title, body);
   await Promise.allSettled(
-    userIds.map(async (uid) => {
-      await sendPushToUser(uid, { title, body, link: "/dashboard", category: "annonces" }).catch(() => {});
-      const email = emails[uid];
-      if (email) {
-        await sendNotificationEmail(email, title, html).catch(() => {});
-      }
-    })
+    destinataires.map(async (d) => {
+      await sendPushToUser(d.uid, { title, body, link: "/dashboard", category: "annonces" }).catch(() => {});
+      if (d.email) await sendNotificationEmail(d.email, title, html).catch(() => {});
+    }),
   );
 
-  return NextResponse.json({ ok: true, count: userIds.length });
+  return NextResponse.json({ ok: true, count: destinataires.length });
 }

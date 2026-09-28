@@ -55,3 +55,25 @@ export async function exigerSuperadmin(
 
   return { uid };
 }
+
+/**
+ * Les comptes administrateurs, lus sur LES DEUX signaux.
+ *
+ * Pour les prévenir : une candidature, un retour d'utilisateur. Ces envois
+ * cherchaient `user_type == "superadmin"` et ne trouvaient donc plus
+ * personne depuis que l'administrateur porte un drapeau — ils partaient dans
+ * le vide sans que rien ne le signale. Deux requêtes plutôt qu'une : Firestore
+ * ne sait pas faire un « ou » entre deux champs, et un compte qui porterait
+ * les deux ne doit être compté qu'une fois.
+ */
+export async function superadminsDeLaPlateforme(): Promise<
+  { uid: string; data: FirebaseFirestore.DocumentData }[]
+> {
+  const [drapeau, herite] = await Promise.all([
+    adminDb.collection("users").where("is_superadmin", "==", true).get(),
+    adminDb.collection("users").where("user_type", "==", "superadmin").get(),
+  ]);
+  const vus = new Map<string, FirebaseFirestore.DocumentData>();
+  for (const d of [...drapeau.docs, ...herite.docs]) vus.set(d.id, d.data());
+  return [...vus].map(([uid, data]) => ({ uid, data }));
+}

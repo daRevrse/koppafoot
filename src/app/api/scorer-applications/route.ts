@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
         city: x.city ?? null,
         motivation: x.motivation ?? "",
         status: x.status ?? "pending",
+        rejectionReason: x.rejection_reason ?? null,
         createdAt: x.created_at?.toDate?.()?.toISOString() ?? null,
         reviewedAt: x.reviewed_at?.toDate?.()?.toISOString() ?? null,
       };

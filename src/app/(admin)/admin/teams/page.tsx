@@ -1,245 +1,125 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
-import { motion } from "motion/react";
-import {
-  Shield, Search, Users, MapPin, Trophy, TrendingUp,
-  Loader2, ChevronRight, Star,
-} from "lucide-react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { getAllTeams } from "@/lib/admin-firestore";
-import RecordActions from "@/components/admin/RecordActions";
+import { useAdminApi } from "@/hooks/useAdminApi";
 import Pagination, { usePagination } from "@/components/admin/Pagination";
-import type { Team } from "@/types";
+import RecordActions from "@/components/admin/RecordActions";
+import MiniEcusson from "@/components/match/MiniEcusson";
+import {
+  Carte, Chargement, EnTete, Erreur, Filtres, Pastille, Recherche, Vide,
+} from "@/components/admin/ui";
+import type { EquipeAdmin } from "@/lib/admin-types";
 
-const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  beginner: { label: "Débutant", color: "text-green-700", bg: "bg-green-50" },
-  amateur: { label: "Amateur", color: "text-blue-700", bg: "bg-blue-50" },
-  intermediate: { label: "Intermédiaire", color: "text-amber-700", bg: "bg-amber-50" },
-  advanced: { label: "Avancé", color: "text-red-700", bg: "bg-red-50" },
+// ============================================
+// Les équipes.
+//
+// LE BILAN DE LA FICHE PUBLIQUE, PAS CELUI DU DOCUMENT. La liste lisait les
+// compteurs `wins`/`losses` de l'équipe, que rien ne tient à jour et qui
+// ignorent les compétitions : « 2 V, 100 % » ici pour « 4 joués, 3 G, 1 N »
+// sur la fiche du club. Et « 4 joueurs » pour un effectif de quatorze : elle
+// ne comptait que les comptes, pas les joueurs sans compte. Les deux viennent
+// maintenant du serveur, calculés comme la fiche les calcule.
+// ============================================
+
+const NIVEAUX: Record<string, string> = {
+  beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Avancé",
 };
 
+type Filtre = "toutes" | "recrutent" | "sans_match" | "sans_manager";
+
 export default function AdminTeamsPage() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [levelFilter, setLevelFilter] = useState<string>("all");
+  const { data, erreur, chargement, recharger } = useAdminApi<{ equipes: EquipeAdmin[] }>("/api/admin/equipes");
+  const [recherche, setRecherche] = useState("");
+  const [filtre, setFiltre] = useState<Filtre>("toutes");
+  const equipes = useMemo(() => data?.equipes ?? [], [data]);
 
-  // Pas de `setLoading(true)` ici : l'état de départ est déjà « en
-  // chargement », et le poser depuis l'effet déclencherait un rendu en
-  // cascade. Un rechargement après correction remplace la liste sans clignoter.
-  const charger = useCallback(() => {
-    getAllTeams(300)
-      .then(setTeams)
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { charger(); }, [charger]);
-
-  const filtered = useMemo(() => {
-    return teams.filter((t) => {
-      if (levelFilter !== "all" && t.level !== levelFilter) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        return t.name.toLowerCase().includes(s) || t.city.toLowerCase().includes(s);
-      }
+  const filtrees = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    return equipes.filter((e) => {
+      if (filtre === "recrutent" && !e.recrute) return false;
+      if (filtre === "sans_match" && e.bilan.joues > 0) return false;
+      if (filtre === "sans_manager" && e.manager && e.manager.nom !== "Compte supprimé") return false;
+      if (q) return `${e.nom} ${e.ville} ${e.manager?.nom ?? ""}`.toLowerCase().includes(q);
       return true;
     });
-  }, [teams, search, levelFilter]);
-
-  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtered, 24);
-
-  const avgMembers = teams.length > 0
-    ? Math.round(teams.reduce((a, t) => a + t.memberIds.length, 0) / teams.length)
-    : 0;
+  }, [equipes, recherche, filtre]);
+  const { page, setPage, pages, tranche, total, parPage } = usePagination(filtrees, 30);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <motion.h1
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="text-2xl font-extrabold text-gray-900 font-display"
-        >
-          Gestion des équipes
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.05 }}
-          className="text-sm text-gray-500 mt-0.5"
-        >
-          {teams.length} équipe{teams.length > 1 ? "s" : ""} enregistrée{teams.length > 1 ? "s" : ""}
-        </motion.p>
-      </div>
-
-      {/* Quick stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { icon: Shield, label: "Total équipes", value: teams.length, color: "bg-emerald-50 text-emerald-600" },
-          { icon: Users, label: "Joueurs moyens/équipe", value: avgMembers, color: "bg-blue-50 text-blue-600" },
-          { icon: Star, label: "En recrutement", value: teams.filter((t) => t.isRecruiting).length, color: "bg-amber-50 text-amber-600" },
-        ].map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.05 }}
-            className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
-          >
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${s.color}`}>
-              <s.icon size={20} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 font-display">{s.value}</p>
-              <p className="text-xs text-gray-500">{s.label}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Search + filter */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher par nom ou ville..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-        <select
-          value={levelFilter}
-          onChange={(e) => setLevelFilter(e.target.value)}
-          className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-        >
-          <option value="all">Tous niveaux</option>
-          <option value="beginner">Débutant</option>
-          <option value="amateur">Amateur</option>
-          <option value="intermediate">Intermédiaire</option>
-          <option value="advanced">Avancé</option>
-        </select>
-      </div>
-
-      {/* Teams grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={28} className="animate-spin text-gray-400" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <Shield size={40} className="mb-3 opacity-40" />
-          <p className="text-sm font-medium">Aucune équipe trouvée</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tranche.map((team, i) => {
-            const lvl = LEVEL_CONFIG[team.level] ?? LEVEL_CONFIG.beginner;
-            const winRate = team.matchesPlayed > 0 ? Math.round((team.wins / team.matchesPlayed) * 100) : 0;
-            return (
-              <motion.div
-                key={team.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
-                whileHover={{ y: -2 }}
-                className="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-xl text-white font-bold text-sm"
-                      style={{ backgroundColor: team.color || "#059669" }}
-                    >
-                      {team.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      {/* Le nom mène au détail : l'administration ne voyait
-                          qu'une ligne de tableau, sans moyen de savoir qui
-                          compose l'équipe ni ce qu'elle a joué. */}
-                      <Link
-                        href={`/admin/teams/${team.id}`}
-                        className="text-sm font-bold text-gray-900 hover:text-emerald-700 hover:underline"
-                      >
-                        {team.name}
-                      </Link>
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        <MapPin size={11} /> {team.city}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${lvl.bg} ${lvl.color}`}>
-                    {lvl.label}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mt-3">
-                  <div className="rounded-lg bg-gray-50 p-2 text-center">
-                    <p className="text-lg font-bold text-gray-900 font-display">{team.memberIds.length}</p>
-                    <p className="text-[10px] text-gray-500">Joueurs</p>
-                  </div>
-                  <div className="rounded-lg bg-gray-50 p-2 text-center">
-                    <p className="text-lg font-bold text-gray-900 font-display">{team.matchesPlayed}</p>
-                    <p className="text-[10px] text-gray-500">Matchs</p>
-                  </div>
-                  <div className="rounded-lg bg-gray-50 p-2 text-center">
-                    <p className="text-lg font-bold text-emerald-600 font-display">{winRate}%</p>
-                    <p className="text-[10px] text-gray-500">Victoires</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Trophy size={12} className="text-emerald-500" /> {team.wins}V
-                    </span>
-                    <span>{team.draws}N</span>
-                    <span>{team.losses}D</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {team.isRecruiting && (
-                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
-                        Recrute
-                      </span>
-                    )}
-                    <RecordActions
-                      resource="team"
-                      id={team.id}
-                      label={team.name}
-                      onDone={charger}
-                      champs={[
-                        { cle: "name", label: "Nom" },
-                        { cle: "city", label: "Ville" },
-                        { cle: "slogan", label: "Slogan" },
-                        { cle: "description", label: "Description" },
-                        { cle: "max_members", label: "Effectif maximum", type: "nombre" },
-                        { cle: "level", label: "Niveau", type: "liste", options: [
-                          { valeur: "beginner", label: "Débutant" },
-                          { valeur: "amateur", label: "Amateur" },
-                          { valeur: "intermediate", label: "Intermédiaire" },
-                          { valeur: "advanced", label: "Avancé" },
-                        ] },
-                        { cle: "is_recruiting", label: "En recrutement", type: "booleen" },
-                      ]}
-                      valeurs={{
-                        name: team.name, city: team.city, slogan: team.slogan ?? "",
-                        description: team.description, max_members: team.maxMembers,
-                        level: team.level, is_recruiting: team.isRecruiting,
-                      }}
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-      <Pagination
-        page={page} pages={pages} total={total} parPage={parPage}
-        onPage={setPage} nom="équipe"
+    <div className="mx-auto max-w-6xl space-y-5">
+      <EnTete
+        titre="Équipes"
+        sousTitre={data ? `${equipes.length} clubs, ${equipes.filter((e) => e.recrute).length} qui recrutent.` : "Lecture…"}
       />
+      <Filtres<Filtre>
+        valeur={filtre}
+        onChange={setFiltre}
+        options={[
+          { valeur: "toutes", label: "Toutes", compte: equipes.length },
+          { valeur: "recrutent", label: "Recrutent", compte: equipes.filter((e) => e.recrute).length },
+          { valeur: "sans_match", label: "Jamais joué", compte: equipes.filter((e) => e.bilan.joues === 0).length },
+          { valeur: "sans_manager", label: "Sans manager", compte: equipes.filter((e) => !e.manager || e.manager.nom === "Compte supprimé").length },
+        ]}
+      />
+      <Recherche valeur={recherche} onChange={setRecherche} placeholder="Nom du club, ville, manager…" />
+
+      {erreur && <Erreur message={erreur} onReessayer={recharger} />}
+      {chargement ? (
+        <Chargement />
+      ) : filtrees.length === 0 ? (
+        <Vide titre="Aucune équipe" />
+      ) : (
+        <Carte>
+          <ul className="divide-y divide-gray-200/70">
+            {tranche.map((e) => (
+              <li key={e.id} className="flex items-center gap-2 pr-2">
+                <Link href={`/admin/teams/${e.id}`} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors hover:bg-gray-50 sm:flex-nowrap">
+                  <span className="flex min-w-0 flex-1 items-center gap-3">
+                    <MiniEcusson nom={e.nom} logo={e.logo} taille={32} className="text-gray-400" />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-sm font-black text-gray-900">{e.nom}</span>
+                        {e.recrute && <Pastille ton="vert">Recrute</Pastille>}
+                      </span>
+                      <span className="block truncate text-xs text-gray-500">
+                        {[e.ville, NIVEAUX[e.niveau], e.manager ? `Manager : ${e.manager.nom}` : "Sans manager"].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-baseline gap-4 text-xs text-gray-500">
+                    <span><strong className="font-display text-base font-black tabular-nums text-gray-900">{e.effectif}</strong> joueurs</span>
+                    <span className="tabular-nums">
+                      <strong className="font-display text-base font-black text-gray-900">{e.bilan.joues}</strong> joués
+                      {e.bilan.joues > 0 && <span className="ml-1.5">{e.bilan.gagnes}G {e.bilan.nuls}N {e.bilan.perdus}P</span>}
+                    </span>
+                  </span>
+                </Link>
+                <RecordActions
+                  resource="team"
+                  id={e.id}
+                  label={e.nom}
+                  onDone={recharger}
+                  champs={[
+                    { cle: "name", label: "Nom" },
+                    { cle: "city", label: "Ville" },
+                    { cle: "slogan", label: "Slogan" },
+                    { cle: "description", label: "Description" },
+                    { cle: "max_members", label: "Effectif maximum", type: "nombre" },
+                    { cle: "level", label: "Niveau", type: "liste", options: Object.entries(NIVEAUX).map(([valeur, label]) => ({ valeur, label })) },
+                    { cle: "is_recruiting", label: "En recrutement", type: "booleen" },
+                  ]}
+                  valeurs={{
+                    name: e.nom, city: e.ville, slogan: e.slogan, description: e.description,
+                    max_members: e.maxMembres, level: e.niveau, is_recruiting: e.recrute,
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+          <Pagination page={page} pages={pages} total={total} parPage={parPage} onPage={setPage} nom="équipe" />
+        </Carte>
+      )}
     </div>
   );
 }

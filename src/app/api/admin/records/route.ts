@@ -3,6 +3,10 @@ import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import { obstaclesDuCompte, purgerCompte } from "@/lib/account-purge";
+import { recalculerLeClassement } from "@/lib/admin-serveur";
+import { crediter, type Buteur } from "@/lib/match-renseigne-server";
+import { refValidation } from "@/lib/validation-server";
+import type { FirestoreMatch } from "@/types";
 
 /**
  * L'administration des enregistrements : corriger, ou effacer.
@@ -112,6 +116,18 @@ async function supprimerEquipe(id: string): Promise<Record<string, number>> {
 async function supprimerMatch(id: string): Promise<Record<string, number>> {
   const ref = adminDb.collection("matches").doc(id);
   const bilan: Record<string, number> = {};
+  // CE QU'UN SCORE RENSEIGNÉ A CRÉDITÉ EST REPRIS, comme quand son manager le
+  // supprime (voir /api/matches/record) : effacer le match sans reprendre
+  // laissait aux joueurs des matchs qui n'existent plus.
+  await adminDb.runTransaction(async (tx) => {
+    const frais = await tx.get(ref);
+    const d = frais.data() as (FirestoreMatch & { recorded_scorers?: Buteur[]; stats_credited_at?: unknown }) | undefined;
+    if (d?.recorded_at && d.stats_credited_at) {
+      crediter(tx, d, id, d.recorded_scorers ?? [], d.is_home ? d.home_team_id : d.away_team_id, -1);
+      bilan.creditsRepris = 1;
+    }
+  });
+  await refValidation(id).delete().catch(() => {});
 
   // Ici, au contraire d'une équipe, la feuille de match n'a plus de match à
   // décrire : elle part avec lui, sinon elle survivrait comme une ligne de
@@ -162,6 +178,9 @@ export async function POST(req: NextRequest) {
     }
     propre.updated_at = FieldValue.serverTimestamp();
     await ref.update(propre);
+    // Un score ou un statut corrigé change le classement : on le refait
+    // tout de suite plutôt qu'au prochain coup de sifflet.
+    if (resource === "match") await recalculerLeClassement();
     return NextResponse.json({ ok: true, champs: Object.keys(propre).length - 1 });
   }
 
@@ -193,6 +212,7 @@ export async function POST(req: NextRequest) {
     }
 
     const bilan = resource === "team" ? await supprimerEquipe(id) : await supprimerMatch(id);
+    if (resource === "match") await recalculerLeClassement();
     return NextResponse.json({ ok: true, bilan });
   } catch (err) {
     console.error(`[admin/records] suppression ${resource}/${id} echouee :`, err);

@@ -1671,6 +1671,9 @@ export function toMatchValidation(id: string, d: FirestoreMatchValidation): Matc
     feedback,
     contestedEvents: d.contested_events ?? {},
     autoValidated: d.auto_validated === true,
+    arbitrage: d.arbitrage
+      ? { decision: d.arbitrage.decision, motif: d.arbitrage.motif, at: d.arbitrage.at }
+      : null,
   };
 }
 

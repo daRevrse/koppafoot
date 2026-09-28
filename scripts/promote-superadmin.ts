@@ -4,8 +4,13 @@
  * Usage:
  *   npx tsx scripts/promote-superadmin.ts <email>
  *
- * This script uses firebase-admin to find a user by email
- * and sets their user_type to "superadmin" in Firestore.
+ * This script uses firebase-admin to find a user by email and gives them
+ * the administrator hat: `is_superadmin: true`.
+ *
+ * LE DRAPEAU, PAS LE TYPE. Ce script écrivait `user_type: "superadmin"`,
+ * c'est-à-dire dans le champ du RÔLE : il effaçait ce que la personne était
+ * sur le terrain, et posait un signal que le modèle actuel n'écrit plus (voir
+ * lib/hats et scripts/migrate-user-type.ts). Le rôle n'est plus touché.
  */
 
 import { initializeApp, cert } from "firebase-admin/app";
@@ -58,17 +63,17 @@ async function main() {
     process.exit(1);
   }
 
-  const currentType = userDoc.data()?.user_type;
-  if (currentType === "superadmin") {
+  const data = userDoc.data() ?? {};
+  if (data.is_superadmin === true) {
     console.log(`ℹ️  L'utilisateur est déjà superadmin. Rien à faire.`);
     process.exit(0);
   }
 
-  console.log(`📋 Rôle actuel: ${currentType}`);
+  console.log(`📋 Rôle actuel: ${data.evolution_role ?? data.user_type ?? "aucun"} (inchangé)`);
 
-  // 3. Promote to superadmin
+  // 3. Promote to superadmin: the hat, the role stays what it is.
   await db.collection("users").doc(userRecord.uid).update({
-    user_type: "superadmin",
+    is_superadmin: true,
     updated_at: FieldValue.serverTimestamp(),
   });
 

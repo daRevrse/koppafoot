@@ -58,48 +58,6 @@ export const ROLE_GROUPED_NAV: Partial<Record<UserRole, NavEntry[]>> = {
 // Admin, Grouped
 // ============================================
 
-export const ADMIN_GROUPED_NAV: NavEntry[] = [
-  { path: "/admin", icon: "LayoutDashboard", label: "Dashboard", exact: true },
-  {
-    key: "utilisateurs",
-    label: "Utilisateurs",
-    icon: "Users",
-    items: [
-      { path: "/admin/users", icon: "Users", label: "Utilisateurs" },
-      { path: "/admin/organizers", icon: "ClipboardList", label: "Organisateurs" },
-      { path: "/admin/scorers", icon: "Radio", label: "Scoreurs" },
-      // « Terrains » tout court désignait CETTE page — la relecture des
-      // candidatures — alors que /admin/venues, qui liste les terrains
-      // publiés, n'était dans aucun menu. Deux pages voisines, un seul nom, et
-      // celle qu'on cherchait était l'invisible.
-      { path: "/admin/terrains", icon: "MapPin", label: "Candidatures terrain" },
-    ],
-  },
-  {
-    key: "contenu",
-    label: "Contenu",
-    icon: "Shield",
-    items: [
-      { path: "/admin/tribune", icon: "Megaphone", label: "Tribune" },
-      { path: "/admin/teams", icon: "Shield", label: "Équipes" },
-      { path: "/admin/venues", icon: "MapPin", label: "Terrains référencés" },
-      { path: "/admin/matches", icon: "Trophy", label: "Matchs" },
-      { path: "/admin/competitions", icon: "Trophy", label: "Compétitions" },
-    ],
-  },
-  {
-    key: "systeme",
-    label: "Système",
-    icon: "Settings",
-    items: [
-      { path: "/admin/stats", icon: "TrendingUp", label: "Statistiques" },
-      { path: "/admin/messages", icon: "MessageSquare", label: "Messages" },
-      { path: "/admin/campaigns", icon: "Megaphone", label: "Campagnes" },
-      { path: "/admin/settings", icon: "Settings", label: "Paramètres" },
-    ],
-  },
-];
-
 // ============================================
 // Role display config
 // ============================================

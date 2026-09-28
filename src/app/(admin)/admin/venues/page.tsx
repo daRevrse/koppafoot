@@ -157,14 +157,23 @@ export default function AdminVenuesPage() {
                   </p>
                 )}
 
-                <Link
-                  href={`/terrains/${v.id}`}
-                  target="_blank"
-                  className="mt-auto inline-flex w-fit items-center gap-1.5 pt-4 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500 transition-colors hover:text-emerald-700"
-                >
-                  Voir la fiche publique
-                  <ExternalLink size={12} />
-                </Link>
+                <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-4 text-[10px] font-black uppercase tracking-[0.12em] text-gray-500">
+                  <Link
+                    href={`/terrains/${v.id}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 transition-colors hover:text-emerald-700"
+                  >
+                    Fiche publique
+                    <ExternalLink size={12} />
+                  </Link>
+                  {/* Celui qui gère le terrain : c'est lui qu'on relance pour
+                      une fiche incomplète. */}
+                  {v.ownerId && (
+                    <Link href={`/admin/users/${v.ownerId}`} className="transition-colors hover:text-emerald-700">
+                      Son gestionnaire
+                    </Link>
+                  )}
+                </div>
               </div>
             </article>
           ))}

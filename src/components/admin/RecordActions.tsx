@@ -7,6 +7,7 @@ import {
   modifierEnregistrement, supprimerEnregistrement,
   ObstaclesError, type RessourceAdmin,
 } from "@/lib/admin-records";
+import { BOUTON_CONTOUR, BOUTON_DANGER, BOUTON_PLEIN } from "@/components/admin/ui";
 
 // ============================================
 // Corriger ou effacer un enregistrement, depuis l'administration.
@@ -35,7 +36,7 @@ export interface ChampAdmin {
 }
 
 export default function RecordActions({
-  resource, id, label, champs, valeurs, onDone,
+  resource, id, label, champs, valeurs, onDone, variante = "icones", avertissement,
 }: {
   resource: RessourceAdmin;
   id: string;
@@ -44,6 +45,10 @@ export default function RecordActions({
   champs: ChampAdmin[];
   valeurs: Record<string, unknown>;
   onDone: () => void;
+  /** « boutons » sur une fiche, où le geste se nomme ; « icones » dans une liste. */
+  variante?: "icones" | "boutons";
+  /** Ce qu'il faut savoir avant de corriger : un score joué, par exemple. */
+  avertissement?: string;
 }) {
   const [mode, setMode] = useState<"ferme" | "edition" | "suppression">("ferme");
   const [form, setForm] = useState<Record<string, unknown>>({});
@@ -96,30 +101,41 @@ export default function RecordActions({
 
   return (
     <>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={ouvrirEdition}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-          aria-label={`Modifier ${label}`}
-        >
-          <Pencil size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("suppression")}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          aria-label={`Supprimer ${label}`}
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
+      {variante === "boutons" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={ouvrirEdition} className={BOUTON_CONTOUR}>
+            <Pencil size={13} /> Corriger
+          </button>
+          <button type="button" onClick={() => setMode("suppression")} className={BOUTON_DANGER}>
+            <Trash2 size={13} /> Supprimer
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={ouvrirEdition}
+            className="p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            aria-label={`Modifier ${label}`}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("suppression")}
+            className="p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            aria-label={`Supprimer ${label}`}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )}
 
       {mode !== "ferme" && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+          <div className="w-full max-w-md bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-3">
-              <h3 className="text-base font-bold text-gray-900">
+              <h3 className="font-display text-lg font-black uppercase leading-tight tracking-tight text-gray-900">
                 {mode === "edition" ? "Modifier" : "Supprimer"} — {label}
               </h3>
               <button onClick={fermer} className="text-gray-300 hover:text-gray-600" aria-label="Fermer">
@@ -129,13 +145,19 @@ export default function RecordActions({
 
             {mode === "edition" ? (
               <>
+                {avertissement && (
+                  <p className="mb-3 flex gap-2 border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                    <AlertTriangle size={15} className="shrink-0" />
+                    {avertissement}
+                  </p>
+                )}
                 <div className="space-y-3">
                   {champs.map((c) => (
                     <div key={c.cle}>
                       <label className="mb-1 block text-xs font-semibold text-gray-500">{c.label}</label>
                       {c.type === "liste" ? (
                         <select
-                          className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                          className="w-full border border-gray-200/70 px-2.5 py-2 text-sm outline-none focus:border-gray-900"
                           value={String(form[c.cle] ?? "")}
                           onChange={(e) => setForm({ ...form, [c.cle]: e.target.value })}
                         >
@@ -155,7 +177,7 @@ export default function RecordActions({
                       ) : (
                         <input
                           type={c.type === "nombre" ? "number" : "text"}
-                          className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                          className="w-full border border-gray-200/70 px-2.5 py-2 text-sm outline-none focus:border-gray-900"
                           value={String(form[c.cle] ?? "")}
                           onChange={(e) =>
                             setForm({
@@ -171,7 +193,7 @@ export default function RecordActions({
                 <button
                   onClick={enregistrer}
                   disabled={occupe}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                  className={`${BOUTON_PLEIN} mt-5 w-full py-2.5`}
                 >
                   {occupe && <Loader2 size={14} className="animate-spin" />}
                   Enregistrer
@@ -179,7 +201,7 @@ export default function RecordActions({
               </>
             ) : (
               <>
-                <div className="flex gap-3 rounded-lg bg-red-50 p-3">
+                <div className="flex gap-3 bg-red-50 p-3">
                   <AlertTriangle size={18} className="shrink-0 text-red-500" />
                   <p className="text-xs leading-relaxed text-red-800">
                     Définitif. Ce qui décrit cet enregistrement disparaît ; les feuilles
@@ -189,7 +211,7 @@ export default function RecordActions({
                 </div>
 
                 {obstacles.length > 0 && (
-                  <div className="mt-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="mt-3 space-y-2 border border-amber-200 bg-amber-50 p-3">
                     <p className="text-xs font-bold text-amber-900">
                       Ce compte tient encore quelque chose :
                     </p>
@@ -210,7 +232,7 @@ export default function RecordActions({
                   Tapez SUPPRIMER pour confirmer
                 </label>
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                  className="mt-1 w-full border border-gray-200/70 px-2.5 py-2 text-sm outline-none focus:border-gray-900"
                   value={mot}
                   onChange={(e) => setMot(e.target.value)}
                   placeholder="SUPPRIMER"
@@ -218,7 +240,7 @@ export default function RecordActions({
                 <button
                   onClick={() => supprimer(false)}
                   disabled={occupe || mot.trim().toUpperCase() !== "SUPPRIMER"}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40"
+                  className="mt-4 flex w-full items-center justify-center gap-2 bg-red-600 py-2.5 text-[11px] font-black uppercase tracking-[0.12em] text-white hover:bg-red-700 disabled:opacity-40"
                 >
                   {occupe ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                   Supprimer définitivement

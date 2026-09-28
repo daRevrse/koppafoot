@@ -228,6 +228,7 @@ export function organizerApplicationAdminHtml(
 export function organizerApplicationDecisionHtml(
   firstName: string,
   approved: boolean,
+  motif: string | null = null,
 ): string {
   return approved
     ? emailLayout(`
@@ -252,6 +253,7 @@ export function organizerApplicationDecisionHtml(
         candidature pour le moment. Tu peux repostuler plus tard avec plus de détails
         sur ton projet de compétition.
       </p>
+      ${motif ? `<p style="margin:0 0 16px;padding:12px 16px;background:#f8fafc;border-left:3px solid #94a3b8;"><strong>Motif&nbsp;:</strong> ${echapper(motif)}</p>` : ""}
       ${ctaButton("Ouvrir KoppaFoot", APP_URL, "#1e293b")}
     `);
 }
