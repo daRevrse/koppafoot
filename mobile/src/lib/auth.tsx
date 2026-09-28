@@ -2,8 +2,10 @@ import {
   createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification,
   sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword, signOut, type User,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Alert } from "react-native";
+import { MESSAGE_COMPTE_SUSPENDU } from "@/lib/auth-errors";
 import { buildFirestoreUser, firestoreToProfile, providersDepuisFirebase } from "@/lib/profil";
 import type { FirestoreUser, SignupData, UserProfile } from "@/types";
 import { suivreCompetition } from "~/lib/direct-firestore";
@@ -78,6 +80,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { profil, manquant } = await lireProfil(u);
     setEtat((e) => ({ ...e, utilisateur: u, profil, profilManquant: manquant }));
   }, []);
+
+  // Un compte suspendu sort aussitôt, comme sur le site : la suspension le
+  // désactive dans Firebase Auth, mais le jeton déjà délivré vaut encore
+  // jusqu'à une heure. On écoute `is_active` sur le compte ouvert.
+  const connecte = etat.utilisateur?.uid;
+  useEffect(() => {
+    if (!connecte) return;
+    let sorti = false;
+    return onSnapshot(
+      doc(db, "users", connecte),
+      (snap) => {
+        // Seul le serveur fait foi : un cache garderait l'ancien `false` d'un compte réactivé.
+        if (sorti || snap.metadata.fromCache || snap.data()?.is_active !== false) return;
+        sorti = true;
+        Alert.alert("Compte suspendu", MESSAGE_COMPTE_SUSPENDU);
+        moduleGoogle()?.GoogleSignin.signOut().catch(() => {});
+        signOut(auth).catch(() => {});
+      },
+      () => {},
+    );
+  }, [connecte]);
 
   // L'étoile touchée sans compte : suivie dès que le profil existe.
   const uid = etat.profil?.uid;

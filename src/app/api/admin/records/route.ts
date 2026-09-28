@@ -42,10 +42,12 @@ const CHAMPS_MODIFIABLES: Record<Ressource, string[]> = {
     "max_members", "slogan", "color",
   ],
   // Ni `user_type`, ni `is_superadmin`, ni les casquettes : voir plus haut.
-  // `is_active` reste, c'est la suspension, et elle n'accorde rien.
+  // Ni `is_active` : la suspension bloque aussi la connexion dans Firebase
+  // Auth, elle passe par sa route (/api/admin/comptes/[uid]/suspension). L'écrire
+  // ici marquerait suspendu un compte qui se connecte encore.
   user: [
     "first_name", "last_name", "location_city", "bio",
-    "position", "skill_level", "is_active",
+    "position", "skill_level",
   ],
   match: [
     "date", "time", "venue_name", "venue_city", "status",

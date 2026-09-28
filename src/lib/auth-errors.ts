@@ -1,3 +1,12 @@
+/**
+ * Un compte suspendu par l'administration est désactivé dans Firebase Auth
+ * (lib/suspension-serveur) : toute tentative de connexion rend
+ * `auth/user-disabled`. La page Aide se lit sans compte et porte le
+ * formulaire de retour, seul chemin qui lui reste pour écrire.
+ */
+export const MESSAGE_COMPTE_SUSPENDU =
+  "Ce compte est suspendu. Si vous pensez qu'il s'agit d'une erreur, écrivez-nous depuis la page Aide.";
+
 // Firebase Auth error codes → user-friendly French messages
 const AUTH_ERRORS: Record<string, string> = {
   "auth/email-already-in-use": "Cet email est déjà utilisé.",
@@ -27,7 +36,7 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/missing-app-credential": "Vérification anti-robot manquante. Rechargez la page et réessayez.",
   "auth/unauthorized-domain": "Ce domaine n'est pas autorisé pour la connexion. Contactez l'administrateur.",
   "auth/billing-not-enabled": "L'envoi de SMS n'est pas activé sur ce projet. Contactez l'administrateur.",
-  "auth/user-disabled": "Ce compte a été désactivé.",
+  "auth/user-disabled": MESSAGE_COMPTE_SUSPENDU,
   "auth/network-request-failed": "Connexion impossible. Vérifiez votre réseau et réessayez.",
   "auth/requires-recent-login": "Reconnectez-vous pour effectuer cette action.",
   // Backend refusal from the SMS layer (503). The SDK passes the numeric

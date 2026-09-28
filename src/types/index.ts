@@ -182,6 +182,10 @@ export interface FirestoreUser {
   cover_photo_url: string | null;
   company_name?: string;
   is_active: boolean;
+  /** Posés par l'administration à la suspension (lib/suspension-serveur), effacés à la réactivation. */
+  suspension_reason?: string | null;
+  suspended_by?: string;
+  suspended_at?: unknown;
   auth_providers: AuthProvider[];
   // Player fields
   position?: string;

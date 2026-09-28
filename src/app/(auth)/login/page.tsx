@@ -274,6 +274,17 @@ export default function LoginPage() {
     >
       <EnTeteAuth titre={contexte.titreConnexion} phrase={contexte.phraseConnexion} />
 
+      {/* Une session fermée par une suspension atterrit ici (contexts/AuthContext). */}
+      {searchParams.get("suspendu") && (
+        <div role="alert" className="mb-6 border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-gray-700">
+          <p className="font-black text-gray-900">Compte suspendu</p>
+          <p className="mt-0.5">
+            Ce compte ne peut plus se connecter. Si vous pensez qu&apos;il s&apos;agit d&apos;une erreur, écrivez-nous depuis
+            la <Link href="/aide" className="font-bold underline">page Aide</Link>.
+          </p>
+        </div>
+      )}
+
       {/* Google en tête : c'est le chemin le plus court (un tap, pas de mot de
           passe à retrouver), donc il passe avant le formulaire email. */}
       <BoutonGoogle onClick={handleGoogle} disabled={submitting}>

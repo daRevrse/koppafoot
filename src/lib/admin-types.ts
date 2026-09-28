@@ -137,6 +137,10 @@ export interface FicheCompteAdmin {
   bio: string | null;
   photo: string | null;
   actif: boolean;
+  /** Présente quand le compte est suspendu. `par` est nul si l'auteur n'existe plus. */
+  suspension: { motif: string | null; le: string | null; par: { uid: string; nom: string } | null } | null;
+  /** Selon Firebase Auth. `null` : le compte n'a pas d'identifiant de connexion. */
+  connexionBloquee: boolean | null;
   creeLe: string | null;
   fournisseurs: string[];
   role: "player" | "manager" | "referee" | null;

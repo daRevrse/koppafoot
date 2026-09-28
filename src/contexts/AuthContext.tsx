@@ -29,6 +29,7 @@ import {
 import {
   doc,
   getDoc,
+  onSnapshot,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -161,6 +162,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return unsubscribe;
   }, []);
+
+  // Un compte suspendu sort aussitôt. La suspension le désactive dans Firebase
+  // Auth (lib/suspension-serveur) : plus de connexion, plus de renouvellement
+  // de jeton. Mais le jeton déjà délivré vaut encore jusqu'à une heure, et la
+  // session resterait ouverte d'ici là : on écoute `is_active` sur le compte.
+  const uid = firebaseUser?.uid;
+  useEffect(() => {
+    if (!uid) return;
+    return onSnapshot(
+      doc(db, "users", uid),
+      (snap) => {
+        // Le cache local (persistant, lib/firebase) peut garder un ancien
+        // `false` : un compte réactivé serait renvoyé à chaque connexion. On
+        // ne croit que le serveur.
+        if (snap.metadata.fromCache || snap.data()?.is_active !== false) return;
+        // Le cookie d'abord : /login renvoie à l'accueil tant qu'il existe.
+        document.cookie = "__session=; path=/; max-age=0";
+        signOut(auth).finally(() => window.location.assign("/login?suspendu=1"));
+      },
+      // Lecture refusée ou réseau : rien à conclure, la session suit son cours.
+      () => {},
+    );
+  }, [uid]);
 
   // --- Email Auth ---
 

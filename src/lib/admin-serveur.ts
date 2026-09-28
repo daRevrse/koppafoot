@@ -9,6 +9,7 @@ import { matchsDeLaPlateforme, recalculerClassements } from "@/lib/classement-ad
 import { publierFormes } from "@/lib/formes-admin";
 import { crediter, type Buteur } from "@/lib/match-renseigne-server";
 import { refValidation } from "@/lib/validation-server";
+import { connexionBloquee } from "@/lib/suspension-serveur";
 import { sendPushToUser } from "@/lib/fcm-server";
 import type {
   ArbitrageAdmin, CandidatureDuCompte, CompteResume, ContestationAdmin, EquipeAdmin,
@@ -613,6 +614,11 @@ export async function ficheCompteAdmin(uid: string): Promise<FicheCompteAdmin | 
 
   const scores = notes.docs.map((n) => nombre(n.data().score) ?? 0).filter((n) => n > 0);
   const role = roleEffectifBrut(d);
+  const actif = d.is_active !== false;
+  const [bloquee, auteur] = await Promise.all([
+    connexionBloquee(uid),
+    !actif && typeof d.suspended_by === "string" ? adminDb.collection("users").doc(d.suspended_by).get() : null,
+  ]);
   const reelle = (t: FirebaseFirestore.QueryDocumentSnapshot) => t.data().is_ghost !== true;
 
   return {
@@ -624,7 +630,15 @@ export async function ficheCompteAdmin(uid: string): Promise<FicheCompteAdmin | 
     ville: texte(d.location_city),
     bio: texte(d.bio),
     photo: texte(d.profile_picture_url),
-    actif: d.is_active !== false,
+    actif,
+    suspension: actif ? null : {
+      motif: texte(d.suspension_reason),
+      le: iso(d.suspended_at),
+      par: auteur?.exists
+        ? { uid: auteur.id, nom: `${auteur.data()?.first_name ?? ""} ${auteur.data()?.last_name ?? ""}`.trim() || "Un administrateur" }
+        : null,
+    },
+    connexionBloquee: bloquee,
     creeLe: iso(d.created_at),
     fournisseurs: Array.isArray(d.auth_providers) ? d.auth_providers.map(String) : [],
     role,

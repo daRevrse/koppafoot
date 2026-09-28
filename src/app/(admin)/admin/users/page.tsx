@@ -4,7 +4,9 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { getAllUsers, getModeratorIds, toggleUserActive } from "@/lib/admin-firestore";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAllUsers, getModeratorIds } from "@/lib/admin-firestore";
+import ModaleSuspension from "@/components/admin/ModaleSuspension";
 import Pagination, { usePagination } from "@/components/admin/Pagination";
 import {
   Carte, Chargement, EnTete, Filtres, MenuActions, Pastille, Recherche, Selecteur, Vide, ilYA,
@@ -38,12 +40,14 @@ function fold(s: string): string {
 function PageComptes() {
   const params = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [comptes, setComptes] = useState<UserProfile[]>([]);
   const [moderateurs, setModerateurs] = useState<Set<string>>(new Set());
   const [chargement, setChargement] = useState(true);
   const [recherche, setRecherche] = useState(() => params.get("q") ?? "");
   const [filtre, setFiltre] = useState<Filtre>("tous");
   const [espace, setEspace] = useState<"tous" | "aucun" | EspaceAcces>("tous");
+  const [aBasculer, setABasculer] = useState<UserProfile | null>(null);
 
   const charger = useCallback(() => {
     Promise.all([getAllUsers(), getModeratorIds().catch(() => new Set<string>())])
@@ -87,20 +91,6 @@ function PageComptes() {
     () => comptes.filter((u) => espacesDuCompte(u, moderateurs).length === 0).length,
     [comptes, moderateurs],
   );
-
-  const basculer = async (u: UserProfile) => {
-    const suspendre = u.isActive !== false;
-    if (suspendre && !window.confirm(
-      `Suspendre ${u.firstName} ${u.lastName} ?\n\nLe compte disparaît de la recherche de joueurs, des invitations de scoreurs et des envois groupés. Il peut encore se connecter. Rien n'est effacé : il se réactive d'ici.`,
-    )) return;
-    try {
-      await toggleUserActive(u.uid, !suspendre);
-      setComptes((prev) => prev.map((x) => (x.uid === u.uid ? { ...x, isActive: !suspendre } : x)));
-      toast.success(suspendre ? "Compte suspendu" : "Compte réactivé");
-    } catch {
-      toast.error("La modification a échoué");
-    }
-  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -181,9 +171,11 @@ function PageComptes() {
                     label={`Actions pour ${nom}`}
                     actions={[
                       { label: "Ouvrir la fiche", onClick: () => router.push(`/admin/users/${u.uid}`) },
-                      u.isActive === false
-                        ? { label: "Réactiver le compte", onClick: () => basculer(u) }
-                        : { label: "Suspendre le compte", onClick: () => basculer(u), danger: true },
+                      ...(u.uid === user?.uid ? [] : [
+                        u.isActive === false
+                          ? { label: "Réactiver le compte", onClick: () => setABasculer(u) }
+                          : { label: "Suspendre le compte", onClick: () => setABasculer(u), danger: true },
+                      ]),
                     ]}
                   />
                 </li>
@@ -192,6 +184,16 @@ function PageComptes() {
           </ul>
           <Pagination page={page} pages={pages} total={total} parPage={parPage} onPage={setPage} nom="compte" />
         </Carte>
+      )}
+
+      {aBasculer && (
+        <ModaleSuspension
+          uid={aBasculer.uid}
+          nom={`${aBasculer.firstName} ${aBasculer.lastName}`.trim() || "ce compte"}
+          suspendre={aBasculer.isActive !== false}
+          onFermer={() => setABasculer(null)}
+          onFait={(actif) => setComptes((prev) => prev.map((x) => (x.uid === aBasculer.uid ? { ...x, isActive: actif } : x)))}
+        />
       )}
     </div>
   );

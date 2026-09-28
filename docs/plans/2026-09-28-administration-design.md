@@ -1,7 +1,7 @@
 # Design : Une administration qui marche, et qui dit quoi faire
 
 **Date :** 2026-09-28
-**Statut :** Livré. Aucune règle Firestore à déployer, aucune migration.
+**Statut :** Livré. Aucune migration. Suspension (voir plus bas) : `firestore.rules` à déployer.
 
 ## Le problème
 
@@ -41,17 +41,29 @@ L'administration a été relue écran par écran sur les émulateurs, connectée
 
 - **Fiche d'un compte** (`/admin/users/[uid]`) : identité, rôle, casquettes à accorder ou retirer une à une, activité, équipes, compétitions, candidatures ; corriger, suspendre, supprimer. La liste des comptes n'a plus qu'une ligne par compte et un menu « … ». `?q=` préremplit la recherche.
 - **Matchs** : amicaux et compétitions, dates en toutes lettres, lien vers chaque match, statut « non clos » pour un amical passé jamais terminé, filtre des contestés.
-- **Garde-fous** : un message ou une relance se relit avant l'envoi, nombre de destinataires affiché pendant la saisie ; corriger ou supprimer un match recalcule le classement, et supprimer un score renseigné reprend ce qu'il avait crédité ; la suspension dit ce qu'elle fait vraiment (elle retire de la recherche et des envois, elle ne bloque pas la connexion).
+- **Garde-fous** : un message ou une relance se relit avant l'envoi, nombre de destinataires affiché pendant la saisie ; corriger ou supprimer un match recalcule le classement, et supprimer un score renseigné reprend ce qu'il avait crédité ; la suspension bloque la connexion (voir « Suspendre pour de bon »).
 - **Messages et Campagnes réunis** en deux onglets.
 - **Le style du produit** : noir et blanc, angles nets, capitales, briques communes (`components/admin/ui`). Le profil de l'administrateur perd ses boutons sans effet.
 - **Téléphone** : le menu s'ouvre depuis l'en-tête, les listes remplacent les tableaux.
 
+### Suspendre pour de bon
+
+La suspension n'écrivait que `is_active: false` : le compte sortait de la recherche et des envois, et se connectait comme avant. Pire, l'écriture partait du navigateur, et les règles ne laissent un compte modifier que son propre document : le bouton était refusé. Décision produit : la suspension bloque vraiment la connexion.
+
+- **Une route serveur** (`POST /api/admin/comptes/[uid]/suspension`, `lib/suspension-serveur`) : le compte est désactivé dans Firebase Auth (plus de connexion par e-mail, Google ou téléphone, site et application) et ses jetons de renouvellement sont révoqués ; puis le document reçoit `is_active`, le motif, l'auteur et la date. La réactivation rend la connexion et efface la trace.
+- **Garde-fous** : motif exigé (5 caractères), pas de suspension de soi-même ni d'un administrateur (on retire d'abord l'accès). La route des enregistrements n'écrit plus `is_active`, qui marquerait suspendu un compte qui se connecte encore.
+- **Une session ouverte se ferme aussitôt** : le jeton déjà délivré vaudrait encore jusqu'à une heure. Le site et l'application écoutent `is_active` sur le compte connecté et déconnectent, en ne croyant que le serveur (le cache local persistant garderait l'ancien `false` d'un compte réactivé). Sur le site, `/login?suspendu=1` dit pourquoi ; une tentative de connexion reçoit le même message, qui renvoie à la page Aide (lisible sans compte, avec le formulaire de retour).
+- **Plus de notifications** sur le téléphone d'un compte suspendu.
+- **La fiche** dit qui a suspendu, quand, pourquoi, et si la connexion est bien bloquée. Un compte suspendu avant ce changement le signale (« peut encore se connecter ») avec un bouton « Bloquer la connexion ».
+- **Règles** : `suspension_reason`, `suspended_by`, `suspended_at` rejoignent les champs qu'un compte ne s'écrit pas.
+
 ## Ce qui reste ouvert
 
-- La suspension ne bloque pas la connexion (`is_active` n'est lu que par la recherche et les envois). La rendre effective demanderait de désactiver le compte dans Firebase Auth : décision produit.
+- Un jeton déjà délivré reste accepté par les routes serveur et les règles jusqu'à son expiration (une heure au plus) : le site et l'application se déconnectent d'eux-mêmes, un client modifié pourrait s'en servir d'ici là. Le fermer tout à fait demanderait `verifyIdToken(jeton, true)` sur chaque route (un appel à Firebase Auth par requête).
 - Annuler un match couvert en direct ne retire pas les compteurs historiques du profil (`users.goals`, `matches_played`), que les statistiques calculées ne lisent plus.
 
 ## Vérifications
 
 - `mobile/src/__tests__/admin-tableau.test.ts` : rôle effectif, segments, relances, comptes, matchs.
+- Émulateurs, suspension : garde-fous de la route, règles, compte désactivé et jetons révoqués dans Auth, session d'un joueur ouverte dans un second navigateur fermée en une seconde, reconnexion refusée avec le message, ancien suspendu renvoyé puis bloqué depuis sa fiche, réactivation depuis la liste au téléphone et reconnexion malgré le cache.
 - Émulateurs : tutoriel manager rejoué, puis une administratrice au drapeau accepte un organisateur, refuse un scoreur avec motif, accorde une casquette, tranche deux contestations, marque un retour, prépare un message ; chaque écran relu sur ordinateur et téléphone.
