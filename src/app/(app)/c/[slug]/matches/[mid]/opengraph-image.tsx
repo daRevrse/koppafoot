@@ -1,6 +1,5 @@
-import { ImageResponse } from "next/og";
 import { getCompMatchPublic } from "@/lib/match-public";
-import { AfficheBanniere, AfficheDeMarque, AfficheDeMatch, etatDuMatch, TAILLE_OG } from "@/lib/og";
+import { imageDuMatch, TAILLE_OG } from "@/lib/og";
 
 // ============================================
 // L'affiche d'un match de compétition.
@@ -9,8 +8,9 @@ import { AfficheBanniere, AfficheDeMarque, AfficheDeMatch, etatDuMatch, TAILLE_O
 // les rencontres qui existent aujourd'hui sont celles des compétitions, et
 // c'est ce lien-là qu'on colle dans un groupe WhatsApp avant un match.
 //
-// Le surtitre porte le NOM DE LA COMPÉTITION en plus de l'état : hors de
-// l'appli, « EN DIRECT » tout seul ne dit pas de quel tournoi il s'agit.
+// L'affiche porte la COMPÉTITION en plus de l'état — son logo, ou son nom
+// quand elle n'en a pas : hors de l'appli, « EN DIRECT » tout seul ne dit
+// pas de quel tournoi il s'agit.
 // ============================================
 
 export const size = TAILLE_OG;
@@ -23,26 +23,7 @@ export default async function Image({
   params: Promise<{ slug: string; mid: string }>;
 }) {
   const { slug, mid } = await params;
-  const match = await getCompMatchPublic(slug, mid);
-  if (!match) return new ImageResponse(<AfficheDeMarque />, size);
-
-  // LA BANNIÈRE PASSE DEVANT. Quand l'organisateur en a posé une sur cette
-  // rencontre, elle EST l'affiche : il n'y a plus rien à dessiner.
-  if (match.bannerUrl) return new ImageResponse(<AfficheBanniere url={match.bannerUrl} />, size);
-
-  const { texte, couleur } = etatDuMatch(match.status, match.date, match.time);
-  const joue = match.status === "live" || match.status === "completed";
-  const surtitre = match.competition ? `${match.competition} · ${texte}` : texte;
-
-  return new ImageResponse(
-    <AfficheDeMatch
-      surtitre={surtitre}
-      couleurSurtitre={couleur}
-      home={match.homeTeamName || "À déterminer"}
-      away={match.awayTeamName || "À déterminer"}
-      score={joue ? `${match.scoreHome ?? 0} - ${match.scoreAway ?? 0}` : null}
-      lieu={[match.venueName, match.venueCity].filter(Boolean).join(", ")}
-    />,
-    size,
-  );
+  // LA BANNIÈRE PASSE DEVANT : quand l'organisateur en a posé une sur cette
+  // rencontre, elle EST l'affiche. Voir lib/og.
+  return imageDuMatch(await getCompMatchPublic(slug, mid));
 }

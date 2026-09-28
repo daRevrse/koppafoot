@@ -24,6 +24,8 @@ export async function sendPushToUser(
   const userSnap = await adminDb.collection("users").doc(userId).get();
   const data = userSnap.data();
 
+  // Un compte suspendu ne se connecte plus : son téléphone n'a plus à sonner.
+  if (data?.is_active === false) return;
   if (!pushAutorise(data?.push_prefs as PushPrefs | undefined, notification.category)) return;
 
   const tokens: string[] = data?.fcm_tokens ?? [];

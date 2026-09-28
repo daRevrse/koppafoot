@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, Loader2, Mail, Phone, Send } from "lucide-react";
+import { ArrowLeft, Ban, ExternalLink, Loader2, Mail, Phone, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminAction, useAdminApi } from "@/hooks/useAdminApi";
-import { toggleUserActive } from "@/lib/admin-firestore";
+import ModaleSuspension from "@/components/admin/ModaleSuspension";
 import RecordActions from "@/components/admin/RecordActions";
 import {
   BOUTON_CONTOUR, BOUTON_DANGER, Carte, Chargement, Erreur, Pastille, Titre, ilYA,
@@ -51,9 +51,11 @@ function Ligne({ label, children }: { label: string; children: React.ReactNode }
 export default function FicheCompteAdminPage() {
   const { uid } = useParams<{ uid: string }>();
   const { user } = useAuth();
-  const { data: c, erreur, chargement, recharger, setData } = useAdminApi<FicheCompteAdmin>(`/api/admin/comptes/${uid}`);
+  const { data: c, erreur, chargement, recharger } = useAdminApi<FicheCompteAdmin>(`/api/admin/comptes/${uid}`);
   const agir = useAdminAction();
   const [enCours, setEnCours] = useState<string | null>(null);
+  // Vrai : suspendre (ou bloquer la connexion d'un compte déjà suspendu) ; faux : réactiver.
+  const [suspension, setSuspension] = useState<boolean | null>(null);
 
   if (chargement) return <Chargement />;
   if (erreur || !c) return <Erreur message={erreur ?? "Compte introuvable"} onReessayer={recharger} />;
@@ -73,23 +75,6 @@ export default function FicheCompteAdminPage() {
       recharger();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "L'opération a échoué");
-    } finally {
-      setEnCours(null);
-    }
-  };
-
-  const suspension = async () => {
-    const suspendre = c.actif;
-    if (suspendre && !window.confirm(
-      `Suspendre ${nom} ?\n\nLe compte disparaît de la recherche de joueurs, des invitations de scoreurs et des envois groupés. Il peut encore se connecter. Rien n'est effacé.`,
-    )) return;
-    setEnCours("actif");
-    try {
-      await toggleUserActive(c.uid, !suspendre);
-      setData({ ...c, actif: !suspendre });
-      toast.success(suspendre ? "Compte suspendu" : "Compte réactivé");
-    } catch {
-      toast.error("La modification a échoué");
     } finally {
       setEnCours(null);
     }
@@ -156,13 +141,51 @@ export default function FicheCompteAdminPage() {
             valeurs={{ first_name: c.prenom, last_name: c.nom, location_city: c.ville ?? "", bio: c.bio ?? "" }}
           />
           {!moi && (
-            <button onClick={suspension} disabled={enCours === "actif"} className={c.actif ? BOUTON_DANGER : BOUTON_CONTOUR}>
-              {enCours === "actif" && <Loader2 size={13} className="animate-spin" />}
+            <button
+              onClick={() => setSuspension(c.actif)}
+              disabled={c.actif && c.casquettes.admin}
+              title={c.actif && c.casquettes.admin ? "Retirez d'abord l'accès à l'administration" : undefined}
+              className={c.actif ? BOUTON_DANGER : BOUTON_CONTOUR}
+            >
               {c.actif ? "Suspendre" : "Réactiver"}
             </button>
           )}
         </div>
       </Carte>
+
+      {!c.actif && (
+        <Carte className="border-l-4 border-l-red-600 p-4">
+          <div className="flex items-start gap-3">
+            <Ban size={18} className="mt-0.5 shrink-0 text-red-600" />
+            <div className="min-w-0 flex-1 space-y-1 text-sm">
+              <p className="font-black text-gray-900">
+                Compte suspendu
+                {c.suspension?.le && <span className="font-semibold text-gray-500">{` ${ilYA(c.suspension.le)}`}</span>}
+                {c.suspension?.par && <span className="font-semibold text-gray-500">{` par ${c.suspension.par.nom}`}</span>}
+              </p>
+              {c.suspension?.motif && <p className="text-gray-600">Motif : {c.suspension.motif}</p>}
+              <p className="text-gray-500">
+                {c.connexionBloquee === true && "La connexion est bloquée, sur le site comme sur l'application."}
+                {c.connexionBloquee === null && "Ce compte n'a pas d'identifiant de connexion."}
+                {c.connexionBloquee === false && "Suspendu avant que la suspension ne bloque la connexion : ce compte peut encore se connecter."}
+              </p>
+              {c.connexionBloquee === false && (
+                <button onClick={() => setSuspension(true)} className={`${BOUTON_DANGER} mt-2`}>Bloquer la connexion</button>
+              )}
+            </div>
+          </div>
+        </Carte>
+      )}
+
+      {suspension !== null && (
+        <ModaleSuspension
+          uid={c.uid}
+          nom={nom}
+          suspendre={suspension}
+          onFermer={() => setSuspension(null)}
+          onFait={recharger}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section>

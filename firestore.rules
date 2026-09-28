@@ -253,7 +253,10 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny([
           'email', 'user_type', 'is_active', 'created_at',
-          'is_superadmin', 'is_organizer', 'is_venue_owner', 'is_scorer'
+          'is_superadmin', 'is_organizer', 'is_venue_owner', 'is_scorer',
+          // La trace d'une suspension (motif, auteur, date), écrite par le
+          // SDK admin : un compte suspendu ne réécrit pas pourquoi il l'est.
+          'suspension_reason', 'suspended_by', 'suspended_at'
         ]);
     }
 

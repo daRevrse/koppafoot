@@ -1,8 +1,10 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { chasseAnton } from "@/lib/anton";
 import type { ButeursDuMatch, Buteur } from "@/lib/buteurs";
 import type { CompMatchPublic, MatchPublic } from "@/lib/match-public";
+import {
+  Camp, chargerRessources, EMERAUDE, Espace, FondEclats, GRIS, NUIT, Pied, quand, TitreFendu,
+} from "@/lib/og-da";
 
 // ============================================
 // Les flyers d'un match : « MATCHDAY » avant, « SCORE FINAL » après.
@@ -27,140 +29,44 @@ import type { CompMatchPublic, MatchPublic } from "@/lib/match-public";
 // et le bouton Partager envoie le lien seul, qui porte, lui, le score du
 // moment.
 //
+// L'ALLURE — cadre, polices, titre fendu, écussons — vit dans lib/og-da, que
+// les aperçus de lien (lib/og) partagent : un flyer et le lien qui l'annonce
+// doivent se reconnaître au premier coup d'œil.
+//
 // SATORI, PAS UN NAVIGATEUR : flexbox seulement, et tout élément à plusieurs
 // enfants doit déclarer `display: flex`.
 // ============================================
 
 export const TAILLE_FLYER = { width: 1080, height: 1350 };
 
-const NUIT = "#080d0b";
-const EMERAUDE = "#34d399";
-const GRIS = "#9ba6a1";
-
 /** L'épaisseur du cadre d'éclats autour de la carte. */
 const CADRE = 60;
-
-// ─── Ressources ─────────────────────────────────────────────
-
-let ressources: Promise<{ fonts: Fonte[]; logo: string }> | null = null;
-
-interface Fonte {
-  name: string;
-  data: Buffer;
-  weight: 400 | 500 | 700 | 900;
-  style: "normal";
-}
-
-/**
- * Les polices et le logo, lus une fois par instance.
- *
- * ANTON pour le titre : l'affiche de référence tient sur une capitale très
- * condensée, et c'est elle qui fait l'affiche. OUTFIT pour le reste, la
- * police d'affichage du produit, pour que le flyer parle comme l'appli.
- */
-function chargerRessources() {
-  ressources ??= (async () => {
-    // CHAQUE CHEMIN ÉCRIT EN ENTIER. Un `join(process.cwd(), variable)` fait
-    // tracer tout le projet dans la fonction serveur : Turbopack ne peut pas
-    // savoir quel fichier la variable désignera, il les embarque tous.
-    const [anton, medium, bold, black, logo] = await Promise.all([
-      readFile(join(process.cwd(), "assets/fonts/Anton-Regular.ttf")),
-      readFile(join(process.cwd(), "assets/fonts/Outfit-Medium.ttf")),
-      readFile(join(process.cwd(), "assets/fonts/Outfit-Bold.ttf")),
-      readFile(join(process.cwd(), "assets/fonts/Outfit-Black.ttf")),
-      readFile(join(process.cwd(), "public/branding/logo_full_name.png")),
-    ]);
-    return {
-      fonts: [
-        { name: "Anton", data: anton, weight: 400, style: "normal" },
-        { name: "Outfit", data: medium, weight: 500, style: "normal" },
-        { name: "Outfit", data: bold, weight: 700, style: "normal" },
-        { name: "Outfit", data: black, weight: 900, style: "normal" },
-      ] satisfies Fonte[],
-      logo: `data:image/png;base64,${logo.toString("base64")}`,
-    };
-  })();
-  return ressources;
-}
-
 
 // ─── Le cadre ───────────────────────────────────────────────
 
 /**
- * Des éclats en trois verts, à la place du motif rouge et bleu de la
- * référence. Tirés d'une graine fixe : deux flyers du même produit portent
- * le même cadre, comme deux affiches d'une même saison.
+ * Le cadre d'éclats (lib/og-da), et en tête de carte le logo : celui de la
+ * compétition quand elle en a un, sinon celui de Koppafoot.
  */
-function motifCadre(): string {
-  const { width: w, height: h } = TAILLE_FLYER;
-  let graine = 11;
-  const hasard = () => (graine = (graine * 16807) % 2147483647) / 2147483647;
-  const couleurs = ["#10b981", "#10b981", "#34d399", "#047857", "#022c22"];
-  const angles = [-60, -30, 30, 60, 120, 150];
-  const formes: string[] = [];
-
-  for (let y = -60; y < h + 60; y += 58) {
-    for (let x = -60; x < w + 60; x += 58) {
-      // Seule la bande du cadre se voit, la carte couvre le reste.
-      const dansLaBande = x < CADRE + 40 || x > w - CADRE - 40 || y < CADRE + 40 || y > h - CADRE - 40;
-      if (!dansLaBande || hasard() < 0.25) continue;
-      const long = 110 + hasard() * 120;
-      const large = 34 + hasard() * 34;
-      const angle = angles[Math.floor(hasard() * angles.length)];
-      const couleur = couleurs[Math.floor(hasard() * couleurs.length)];
-      // Une pointe de flèche : large à l'arrière, effilée devant, encochée.
-      const p = `0,0 ${long},${large / 2} 0,${large} ${long * 0.28},${large / 2}`;
-      formes.push(
-        `<polygon points="${p}" fill="${couleur}" transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${angle})"/>`,
-      );
-    }
-  }
-
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-    `<rect width="${w}" height="${h}" fill="#064e3b"/>${formes.join("")}</svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-}
-
-let motif: string | null = null;
-
 function Cadre({ logo, logoCompetition, children }: {
   logo: string;
   logoCompetition: string | null;
   children: React.ReactNode;
 }) {
-  motif ??= motifCadre();
   return (
-    <div style={{ position: "relative", display: "flex", width: "100%", height: "100%", backgroundColor: "#064e3b" }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={motif} alt="" width={TAILLE_FLYER.width} height={TAILLE_FLYER.height} style={{ position: "absolute", top: 0, left: 0 }} />
-      <div
-        style={{
-          position: "absolute",
-          top: CADRE,
-          left: CADRE,
-          right: CADRE,
-          bottom: CADRE,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          backgroundColor: NUIT,
-          padding: "48px 56px 40px",
-        }}
-      >
-        {logoCompetition ? (
-          // Posé dans une boîte, pas à sa taille : les logos de compétition
-          // n'ont pas de format, un écusson haut côtoie un bandeau large.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoCompetition} alt="" width={320} height={150} style={{ objectFit: "contain" }} />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt="KoppaFoot" width={236} height={118} />
-        )}
-        {children}
-        <Pied />
-      </div>
-    </div>
+    <FondEclats largeur={TAILLE_FLYER.width} hauteur={TAILLE_FLYER.height} cadre={CADRE} padding="48px 56px 40px">
+      {logoCompetition ? (
+        // Posé dans une boîte, pas à sa taille : les logos de compétition
+        // n'ont pas de format, un écusson haut côtoie un bandeau large.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoCompetition} alt="" width={320} height={150} style={{ objectFit: "contain" }} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="KoppaFoot" width={236} height={118} />
+      )}
+      {children}
+      <Pied />
+    </FondEclats>
   );
 }
 
@@ -170,81 +76,16 @@ function Cadre({ logo, logoCompetition, children }: {
 const LARGEUR_UTILE = TAILLE_FLYER.width - 2 * CADRE - 2 * 56;
 
 /**
- * La chasse des deux titres en Anton, en em, mesurée sur la police : Satori
- * ne dit pas combien un texte mesure, et un titre trop large passe à la
- * ligne — « SCORE » d'un côté, « FINAL » de l'autre — au lieu de rétrécir.
+ * Le titre, fendu en diagonale comme sur la référence, à la plus grande taille
+ * qui tient : mesuré sur la police (lib/anton), parce qu'un titre trop large
+ * passe à la ligne — « SCORE » d'un côté, « FINAL » de l'autre — au lieu de
+ * rétrécir.
  */
-const CHASSE = { MATCHDAY: 4.025, "SCORE FINAL": 4.551 } as const;
-
-/**
- * Le titre, fendu en diagonale comme sur la référence.
- *
- * Deux fois le même mot, chacun rogné d'un côté de la coupe, le second
- * légèrement décalé : c'est le décalage qui fait lire une entaille, pas un
- * trait posé dessus.
- *
- * LA COUPE EST EN PIXELS. Satori rapporte les pourcentages horizontaux d'un
- * `clipPath` à la HAUTEUR de la boîte : « 100% » s'arrêtait au premier tiers
- * du mot. La boîte a donc des dimensions explicites, et la coupe s'y écrit en
- * coordonnées.
- */
-function TitreFendu({ texte }: { texte: keyof typeof CHASSE }) {
+function Titre({ texte }: { texte: "MATCHDAY" | "SCORE FINAL" }) {
+  const chasse = chasseAnton(texte);
   // 24 px de marge : le second morceau est decale et ne doit pas toucher le bord.
-  const taille = Math.min(204, Math.floor((LARGEUR_UTILE - 24) / CHASSE[texte]));
-  const w = Math.ceil(CHASSE[texte] * taille);
-  const h = taille;
-  // La coupe monte de gauche à droite, et laisse un jour de 6 px.
-  const [gauche, droite, jour] = [h * 0.84, h * 0.12, 3];
-  const lettres = {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    display: "flex",
-    width: w,
-    height: h,
-    fontFamily: "Anton",
-    fontSize: taille,
-    lineHeight: 1,
-    color: "#ffffff",
-    whiteSpace: "nowrap",
-  } as const;
-  return (
-    <div style={{ position: "relative", display: "flex", width: w, height: h, marginTop: 10 }}>
-      <div style={{ ...lettres, clipPath: `polygon(0px 0px, ${w}px 0px, ${w}px ${droite - jour}px, 0px ${gauche - jour}px)` }}>
-        {texte}
-      </div>
-      <div
-        style={{
-          ...lettres,
-          top: 5,
-          left: 6,
-          clipPath: `polygon(0px ${gauche + jour}px, ${w}px ${droite + jour}px, ${w}px ${h}px, 0px ${h}px)`,
-        }}
-      >
-        {texte}
-      </div>
-    </div>
-  );
-}
-
-/** « M A T C H   A M I C A L », sous le titre. */
-function Espace({ texte }: { texte: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        marginTop: 18,
-        fontFamily: "Outfit",
-        fontWeight: 700,
-        fontSize: 28,
-        letterSpacing: 16,
-        color: "#ffffff",
-        textTransform: "uppercase",
-      }}
-    >
-      {texte}
-    </div>
-  );
+  const taille = Math.min(204, Math.floor((LARGEUR_UTILE - 24) / chasse));
+  return <TitreFendu texte={texte} chasse={chasse} taille={taille} />;
 }
 
 /** Le petit surtitre au-dessus du titre, en vert : la journée, le tour. */
@@ -266,80 +107,6 @@ function Surtitre({ texte }: { texte: string }) {
       }}
     >
       {texte}
-    </div>
-  );
-}
-
-/** L'écusson tel quel, ou l'initiale du club quand il n'en a pas. */
-function Ecusson({ nom, logo, taille }: { nom: string; logo: string | null; taille: number }) {
-  if (logo) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logo} alt="" width={taille} height={taille} style={{ objectFit: "contain" }} />;
-  }
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: taille,
-        height: taille,
-        borderRadius: taille / 2,
-        border: `6px solid ${EMERAUDE}`,
-        fontFamily: "Anton",
-        fontSize: taille * 0.46,
-        color: "#ffffff",
-      }}
-    >
-      {(nom.trim()[0] ?? "?").toUpperCase()}
-    </div>
-  );
-}
-
-function Camp({ nom, logo, taille, children }: {
-  nom: string;
-  logo: string | null;
-  taille: number;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 290 }}>
-      <Ecusson nom={nom} logo={logo} taille={taille} />
-      <div
-        style={{
-          display: "flex",
-          marginTop: 22,
-          fontFamily: "Outfit",
-          fontWeight: 900,
-          fontSize: nom.length > 18 ? 26 : 30,
-          lineHeight: 1.15,
-          color: "#ffffff",
-          textAlign: "center",
-          textTransform: "uppercase",
-        }}
-      >
-        {nom}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** Le pied de carte : l'adresse, et rien d'autre. */
-function Pied() {
-  return (
-    <div
-      style={{
-        display: "flex",
-        marginTop: 34,
-        fontFamily: "Outfit",
-        fontWeight: 700,
-        fontSize: 26,
-        letterSpacing: 3,
-        color: EMERAUDE,
-      }}
-    >
-      www.koppafoot.com
     </div>
   );
 }
@@ -430,7 +197,7 @@ function MatchDay({ m, logo }: { m: FlyerMatch; logo: string }) {
   return (
     <Cadre logo={logo} logoCompetition={m.logoCompetition}>
       {m.surtitre ? <Surtitre texte={m.surtitre} /> : <div style={{ display: "flex", height: 30 }} />}
-      <TitreFendu texte="MATCHDAY" />
+      <Titre texte="MATCHDAY" />
       {m.amical && <Espace texte="Match amical" />}
 
       {/* Au milieu de la place qui reste, pas colles au titre : le bloc des
@@ -482,7 +249,7 @@ function ScoreFinal({ m, logo }: { m: FlyerResultat; logo: string }) {
   return (
     <Cadre logo={logo} logoCompetition={m.logoCompetition}>
       {m.surtitre ? <Surtitre texte={m.surtitre} /> : <div style={{ display: "flex", height: 30 }} />}
-      <TitreFendu texte="SCORE FINAL" />
+      <Titre texte="SCORE FINAL" />
       {m.amical && <Espace texte="Match amical" />}
 
       <div style={{ display: "flex", flex: 1, alignItems: "center" }}>
@@ -609,16 +376,4 @@ function Ballon() {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`} alt="" width={24} height={24} />
   );
-}
-
-/**
- * « DIMANCHE 12 OCTOBRE 2026 » et « 15H00 », sur deux lignes comme sur la
- * référence : sur une affiche, le jour et l'heure se cherchent séparément.
- */
-function quand(date: string, time: string): { jour: string; heure: string } {
-  const d = new Date(`${date}T${time || "00:00"}`);
-  const heure = time ? time.replace(":", "H") : "";
-  if (!date || Number.isNaN(d.getTime())) return { jour: date, heure };
-  const jour = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  return { jour, heure };
 }

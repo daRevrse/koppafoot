@@ -76,14 +76,6 @@ export async function getAllVenues(max = 500): Promise<Venue[]> {
   return snap.docs.map((d) => toVenue(d.id, d.data() as FirestoreVenue));
 }
 
-/** Suspendre ou réactiver un compte. La suspension n'accorde rien et ne retire que l'accès. */
-export async function toggleUserActive(uid: string, active: boolean): Promise<void> {
-  await updateDoc(doc(db, "users", uid), {
-    is_active: active,
-    updated_at: serverTimestamp(),
-  });
-}
-
 // ============================================
 // Qui modère quelque chose.
 //
