@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { adminDb } from "@/lib/firebase-admin";
 import { buteursDuMatch, buteursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
+import { imageSure } from "@/lib/image-sure";
 import type { CompMatchRound, FirestoreMatch, FirestoreRecordedScorer } from "@/types";
 
 // ============================================
@@ -129,42 +130,19 @@ const TOURS: Record<CompMatchRound, string> = {
 };
 
 /**
+ * Les bannières et logos de compétition, filtrés ICI, à la lecture, et pas
+ * chez chaque appelant : c'est le seul endroit par où ces champs entrent dans
+ * le produit. Voir lib/image-sure.
+ */
+const banniereSure = imageSure;
+
+/**
  * Le match, par son id, ou null s'il n'existe pas.
  *
  * `cache` parce que le même document sert deux fois dans le même rendu — le
  * titre puis la description — et qu'une lecture Firestore par balise serait
  * payée sur chaque partage.
  */
-/**
- * Les seuls hôtes d'où l'on accepte une bannière.
- *
- * MÊME RAISON QUE LE JOKER RETIRÉ DE next.config.ts. `banner_url` est un
- * champ de document, et deux surfaces du serveur vont le CHERCHER : Satori,
- * qui télécharge le `<img src>` de l'affiche d'aperçu, et la route qui sert
- * l'image à partager. Une adresse arbitraire dans ce champ ferait donc
- * émettre à notre serveur une requête vers où l'on veut — un service interne,
- * une adresse de métadonnées d'instance — et nous rendrait le corps de la
- * réponse. Les deux hôtes ci-dessous sont ceux du Storage du projet, les
- * seuls que `uploadMatchBanner` puisse produire.
- *
- * Filtré ICI, à la lecture, et pas chez chaque appelant : c'est le seul
- * endroit par où le champ entre dans le produit.
- */
-const HOTES_BANNIERE = new Set([
-  "firebasestorage.googleapis.com",
-  "koppafoot.firebasestorage.app",
-]);
-
-function banniereSure(valeur: unknown): string | null {
-  if (typeof valeur !== "string" || !valeur) return null;
-  try {
-    const u = new URL(valeur);
-    return u.protocol === "https:" && HOTES_BANNIERE.has(u.hostname) ? valeur : null;
-  } catch {
-    return null;
-  }
-}
-
 export const getMatchPublic = cache(async (id: string): Promise<MatchPublic | null> => {
   try {
     const snap = await adminDb.collection("matches").doc(id).get();

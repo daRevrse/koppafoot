@@ -1,5 +1,4 @@
-import { ImageResponse } from "next/og";
-import { AfficheDeMarque, TAILLE_OG } from "@/lib/og";
+import { imageDeMarque, TAILLE_OG } from "@/lib/og";
 
 // ============================================
 // L'aperçu par défaut, celui de tous les liens du produit.
@@ -18,8 +17,8 @@ import { AfficheDeMarque, TAILLE_OG } from "@/lib/og";
 
 export const size = TAILLE_OG;
 export const contentType = "image/png";
-export const alt = "KoppaFoot, le football local en direct";
+export const alt = "Koppafoot, le football d'ici, en direct";
 
 export default function Image() {
-  return new ImageResponse(<AfficheDeMarque />, size);
+  return imageDeMarque();
 }
