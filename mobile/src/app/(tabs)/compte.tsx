@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bouton } from "~/components/Bouton";
+import { ReglagePush } from "~/components/ReglagePush";
 import { useAuth } from "~/lib/auth";
 import { couleurs, polices } from "~/theme";
 
@@ -42,6 +43,7 @@ export default function EcranCompte() {
         ) : (
           <Text style={styles.texte}>Profil indisponible pour l&apos;instant. Vérifie ta connexion.</Text>
         )}
+        <ReglagePush uid={utilisateur.uid} />
         <Bouton titre="Se déconnecter" variante="contour" onPress={seDeconnecter} />
       </View>
     </SafeAreaView>

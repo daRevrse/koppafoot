@@ -27,7 +27,6 @@ import {
   finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
   setCompPenaltyOutcome, retirerCompEvenements,
 } from "@/lib/competition-firestore";
-import { notifyCompetitionFollowers } from "@/lib/competition-notify";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
   DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
@@ -324,13 +323,11 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     poserIssuePenalty: (id, issue, t) => setCompPenaltyOutcome(cid, mid, id, issue, t),
     poserVar: (id, s) => setCompGoalVarStatus(cid, mid, id, s),
 
-    // DEUX PUBLICS, PAS UN. Suivre la competition, c'est recevoir ses quarante
-    // matchs ; suivre CE match, c'est n'en recevoir qu'un. Les deux listes sont
-    // distinctes et se recoupent a peine.
-    notifier: (n, competition) => {
-      notifyCompetitionFollowers({ cid, title: n.title, body: n.body, link: lien(competition) });
-      notifierAbonnesDuMatch({ mid, cid, title: n.title, body: n.body, link: lien(competition) });
-    },
+    // DEUX PUBLICS, UN SEUL ENVOI. Suivre la competition, c'est recevoir ses
+    // quarante matchs ; suivre CE match, c'est n'en recevoir qu'un. La route
+    // reunit les deux listes et n'ecrit qu'une fois a qui figure sur les deux.
+    notifier: (n, competition) =>
+      notifierAbonnesDuMatch({ mid, cid, title: n.title, body: n.body, link: lien(competition) }),
     lien: (competition) => lien(competition),
 
     autoriseAQuitter: (uid, competition) =>

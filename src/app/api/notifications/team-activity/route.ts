@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { notifyTeamActivity, type TeamActivityEvent } from "@/lib/activity-notify-server";
+import { convoquerAEntrainement, notifyTeamActivity, type TeamActivityEvent } from "@/lib/activity-notify-server";
 
 /**
  * POST /api/notifications/team-activity
@@ -9,6 +9,8 @@ import { notifyTeamActivity, type TeamActivityEvent } from "@/lib/activity-notif
  * la concernant : arrivée, départ, inscription en compétition.
  *
  * Body: { teamId, event, playerId?, playerName?, competitionName?, link? }
+ *     ou { teamId, event: "training_scheduled", trainingId } : la convocation
+ *     à un entraînement, par le manager ou un délégué de l'équipe.
  *
  * Autorisation : le jeton porte l'auteur, jamais le corps de la requête.
  * Selon l'événement, l'auteur doit être le manager de l'équipe ou le joueur
@@ -39,14 +41,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Token invalide" }, { status: 401 });
   }
 
-  const { teamId, event, playerId, competitionName, link } =
+  const { teamId, event, playerId, competitionName, link, trainingId } =
     (await req.json().catch(() => ({}))) as {
       teamId?: string;
-      event?: TeamActivityEvent;
+      event?: TeamActivityEvent | "training_scheduled";
       playerId?: string;
       competitionName?: string;
       link?: string;
+      trainingId?: string;
     };
+
+  // La convocation à un entraînement : l'entraînement doit être de cette
+  // équipe, et l'appelant la diriger (manager ou délégué).
+  if (event === "training_scheduled") {
+    if (!teamId || !trainingId) {
+      return NextResponse.json({ error: "teamId et trainingId requis" }, { status: 400 });
+    }
+    const [teamSnap, trainingSnap] = await Promise.all([
+      adminDb.collection("teams").doc(teamId).get(),
+      adminDb.collection("trainings").doc(trainingId).get(),
+    ]);
+    const team = teamSnap.data();
+    const dirige = !!team && (team.manager_id === callerUid || ((team.staff_manager_ids ?? []) as string[]).includes(callerUid));
+    if (!dirige || trainingSnap.data()?.team_id !== teamId) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+    const prevenus = await convoquerAEntrainement(trainingId, callerUid);
+    return NextResponse.json({ ok: true, sent: prevenus });
+  }
 
   if (!teamId || !event || !EVENTS.includes(event)) {
     return NextResponse.json({ error: "Requête invalide" }, { status: 400 });

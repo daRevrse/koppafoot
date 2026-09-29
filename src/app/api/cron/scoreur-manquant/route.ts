@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
+import { rappelerLesMatchsDuJour } from "@/lib/rappels-serveur";
 import type { FirestoreMatch } from "@/types";
 
 export const maxDuration = 60;
@@ -28,6 +29,10 @@ export const dynamic = "force-dynamic";
  * lui, une exécution rejouée — Vercel réessaie une tâche en échec — enverrait
  * la même alerte deux fois, et c'est exactement le genre de détail qui fait
  * couper les notifications.
+ *
+ * LA MÊME TÂCHE RAPPELLE LES MATCHS DU JOUR aux convoqués (lib/rappels-
+ * serveur) : six heures du matin est aussi la bonne heure pour « tu joues
+ * aujourd'hui », et une tâche de plus ne dirait rien que celle-ci ne dise.
  */
 export async function GET(request: Request) {
   const entete = request.headers.get("authorization");
@@ -74,12 +79,15 @@ export async function GET(request: Request) {
       relances += 1;
     }
 
+    const rappels = await rappelerLesMatchsDuJour();
+
     return NextResponse.json({
       success: true,
       jour,
       examines: snap.size,
       relances,
       dejaRelances: ignores.length,
+      rappels,
     });
   } catch (err) {
     console.error("[cron/scoreur-manquant]", err);

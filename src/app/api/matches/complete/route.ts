@@ -5,6 +5,7 @@ import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch, FirestoreParticipation } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { DELAI_VALIDATION_TACITE_MS, refValidation, validationInitiale } from "@/lib/validation-server";
+import { notifierComptes } from "@/lib/notifier-serveur";
 
 /**
  * End-of-match stats rollup.
@@ -266,6 +267,27 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("match rollup failed:", err);
     return NextResponse.json({ error: "Le rollup a échoué" }, { status: 500 });
+  }
+
+  // LE DÉLAI COURT : on le dit à ceux qui peuvent contester. Douze heures pour
+  // valider ou contester, et l'autre camp ne l'apprenait qu'en rouvrant la
+  // fiche du match — souvent après l'échéance. Celui qui vient de siffler la
+  // fin sait déjà que le match est terminé.
+  if (!isGhostMatch) {
+    const echeance = new Date(Date.now() + DELAI_VALIDATION_TACITE_MS);
+    const jourALome = (d: Date) => d.toLocaleDateString("fr-FR", { timeZone: "Africa/Lome" });
+    const heure = `${jourALome(echeance) === jourALome(new Date()) ? "" : "demain "}${echeance
+      .toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lome" })
+      .replace(":", "h")}`;
+    await notifierComptes(
+      [match.manager_id, match.away_manager_id].filter((uid): uid is string => !!uid && uid !== callerUid),
+      {
+        type: "match_update",
+        title: "Match terminé : à valider",
+        body: `${match.home_team_name} ${scoreHome} – ${scoreAway} ${match.away_team_name}. Valide ou conteste le score avant ${heure}, sinon il comptera tel quel.`,
+        link: `/matches/${matchId}`,
+      },
+    );
   }
 
   return NextResponse.json({ ok: true, result: homeResult });

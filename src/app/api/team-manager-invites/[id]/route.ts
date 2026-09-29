@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * Invitee side of the team-manager invitation.
@@ -133,14 +134,11 @@ export async function POST(
     // left in flight when the response returns is dropped when the instance
     // freezes. Caught so a failed notification can't undo an accepted invite.
     try {
-      await adminDb.collection("notifications").add({
-        user_id: invite.invited_by,
+      await notifierCompte(invite.invited_by, {
         type: "invitation",
         title: "Invitation acceptée",
         body: `${managerName || callerEmail} gère désormais « ${invite.team_name} » (${invite.competition_name})`,
         link: `/organizer/competitions/${invite.competition_id}/teams`,
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
     } catch (e) {
       console.warn("[team-manager-invites/[id]] notification failed:", e);

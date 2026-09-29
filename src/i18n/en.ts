@@ -90,6 +90,18 @@ export const en: Partial<Record<CleTraduction, string>> = {
     "Available once the app is installed on your home screen, see just above.",
   "notifs.refuse":
     "Blocked in your browser settings. Allow notifications for this site, then come back here.",
+  "notifs.categories": "What I receive",
+  "notifs.categoriesNote": "For the whole account, on all your devices.",
+  "notifs.cat.perso": "For me",
+  "notifs.cat.perso.detail": "Invitations, call-ups, challenges, results to confirm",
+  "notifs.cat.equipe": "My teams",
+  "notifs.cat.equipe.detail": "Arrivals, departures, fitness, entries",
+  "notifs.cat.suivis": "What I follow",
+  "notifs.cat.suivis.detail": "Teams and players you follow",
+  "notifs.cat.competitions": "Live",
+  "notifs.cat.competitions.detail": "Kick-off, goals, red cards, final score",
+  "notifs.cat.annonces": "Announcements",
+  "notifs.cat.annonces.detail": "Messages from the KoppaFoot team",
 
   // ---- Help page ----
   "aide.fil": "Help",

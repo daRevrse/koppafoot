@@ -94,6 +94,18 @@ export const fr = {
     "Disponible une fois l'application installée sur l'écran d'accueil, voir juste au-dessus.",
   "notifs.refuse":
     "Bloquées dans les réglages du navigateur. Autorisez les notifications pour ce site, puis revenez ici.",
+  "notifs.categories": "Ce que je reçois",
+  "notifs.categoriesNote": "Pour tout le compte, sur tous vos appareils.",
+  "notifs.cat.perso": "Pour moi",
+  "notifs.cat.perso.detail": "Invitations, convocations, défis, résultats à valider",
+  "notifs.cat.equipe": "Mes équipes",
+  "notifs.cat.equipe.detail": "Arrivées, départs, état de forme, inscriptions",
+  "notifs.cat.suivis": "Ce que je suis",
+  "notifs.cat.suivis.detail": "Équipes et joueurs que vous suivez",
+  "notifs.cat.competitions": "Direct",
+  "notifs.cat.competitions.detail": "Coup d'envoi, buts, exclusions, score final",
+  "notifs.cat.annonces": "Annonces",
+  "notifs.cat.annonces.detail": "Messages de l'équipe KoppaFoot",
 
   // ---- Page d'aide ----
   "aide.fil": "Aide",

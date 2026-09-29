@@ -697,6 +697,8 @@ export interface FirestoreMatch {
    * notifications.
    */
   scoreur_relance_le?: string | null;
+  /** Quand les convoqués ont reçu le rappel du matin (voir lib/rappels-serveur). */
+  rappel_du_jour_le?: string | null;
   /**
    * Ceux qui peuvent tenir la console de CE match, en plus des managers.
    *

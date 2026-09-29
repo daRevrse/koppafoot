@@ -31,7 +31,7 @@ import {
 } from "@/lib/possession";
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { lignesStats } from "@/lib/stats-match";
-import { DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
+import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
 import {
   ajouterRetouche, appliquerRetouches, estHorsLigne, lireFile, sansLesEvenements,
   type Retouche,
@@ -879,15 +879,10 @@ export default function LiveMatchConsole({
   const handleResume = () => {
     suivre(pilote.demarrerChrono(), "Le chronomètre n'a pas été relancé");
     suivre(pilote.changerPeriode(3), "La reprise n'a pas été enregistrée");
-    {
-      if (match) {
-        pilote.notifier(
-          { title: "▶️ Reprise du match", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}, 2e mi-temps` },
-          competition,
-        );
-      }
-      toast.success("Reprise du jeu");
-    }
+    // PAS DE PUSH À LA REPRISE. La mi-temps en envoie un, le prochain but
+    // aussi : entre les deux, « le match reprend » ne disait rien que
+    // l'abonné ait besoin de savoir, pour chacun des matchs qu'il suit.
+    toast.success("Reprise du jeu");
   };
 
   // ----- Match-sheet builder -----
@@ -1033,12 +1028,12 @@ export default function LiveMatchConsole({
     setVarPendingId(event.id);
     try {
       await pilote.poserVar?.(event.id, status);
+      // UN SEUL PUSH SUR TROIS : le but refusé. L'abonné a reçu « BUT ! » ; il
+      // doit apprendre qu'il ne compte plus. « VAR en cours » puis « But
+      // accordé » lui faisaient sonner deux fois le téléphone pour lui
+      // confirmer ce qu'il savait déjà.
       if (status === "checking") {
         toast("But en cours de vérification");
-        pilote.notifier(
-          { title: "📺 VAR en cours", body: `Le but de ${who} est en cours de vérification` },
-          competition,
-        );
       } else if (status === "cancelled") {
         toast.success("But refusé");
         pilote.notifier(
@@ -1047,10 +1042,6 @@ export default function LiveMatchConsole({
         );
       } else {
         toast.success("But accordé");
-        pilote.notifier(
-          { title: "✅ But accordé", body: `Le but de ${who} est validé` },
-          competition,
-        );
       }
     } catch (err) {
       console.error("VAR verdict error:", err);
@@ -1170,6 +1161,18 @@ export default function LiveMatchConsole({
     const ids = r.plan.ids;
     majRetouches((f) => sansLesEvenements(f, ids));
     suivre(pilote.retirer(r.plan), "Le retrait n'a pas été enregistré");
+    // Un but ou une exclusion déjà poussés aux abonnés : on les dément. Pendant
+    // le match seulement : après le coup de sifflet, le score final est parti,
+    // et une retouche d'historique ne mérite pas de réveiller qui que ce soit.
+    const annonce = m.status === "live"
+      ? annonceDuRetrait(r.plan, m.liveState.events, {
+          homeTeamId: m.homeTeamId,
+          homeTeamName: m.homeTeamName,
+          awayTeamName: m.awayTeamName,
+          score: { home: m.scoreHome ?? 0, away: m.scoreAway ?? 0 },
+        })
+      : null;
+    if (annonce) pilote.notifier(annonce, competition);
     // Les questions qui portaient sur lui n'ont plus d'objet.
     setAssistPicker((a) => (a && ids.includes(a.eventId) ? null : a));
     setVictime((v) => (v && ids.includes(v.eventId) ? null : v));
@@ -1280,10 +1283,9 @@ export default function LiveMatchConsole({
         );
         proposerAnnulation(`🟥 2e jaune : ${entry.name} exclu`, jauneId);
       } else {
-        pilote.notifier(
-          { title: `🟨 Carton jaune (${minute}')`, body: `${entry.name} (${teamName})` },
-          competition,
-        );
+        // UN JAUNE NE SONNE PAS. Pour qui suit une compétition de quarante
+        // matchs, c'était un téléphone qui vibre à chaque faute un peu
+        // appuyée. L'exclusion, elle, change le match : elle part.
         proposerAnnulation(`🟨 Carton jaune, ${entry.name}`, jauneId);
       }
     } else if (type === "red_card") {

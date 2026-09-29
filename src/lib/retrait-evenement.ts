@@ -124,3 +124,40 @@ export function libelleDuRetrait(plan: PlanDeRetrait, events: Evenement[]): stri
   if (autres.some((e) => e.type === "yellow_card")) return "le second jaune qui l'avait provoquée part avec elle";
   return null;
 }
+
+/**
+ * Le push qui corrige un retrait, ou `null` quand il n'y a rien à corriger.
+ *
+ * Les abonnés ont reçu « ⚽ BUT ! » ou « 🟥 Carton rouge » à la seconde de la
+ * saisie. Retiré ensuite — « Annuler », ou la corbeille de l'historique —, le
+ * but disparaissait du tableau mais restait sur leur écran verrouillé, sans
+ * démenti. On ne corrige que ce qui a été annoncé : un but (sauf un but déjà
+ * refusé par la VAR, dont le refus est parti à ce moment-là) et une exclusion.
+ * Un jaune seul ne sonne plus, son retrait non plus.
+ *
+ * `score` est le score AVANT le retrait, tel que la console l'affiche.
+ */
+export function annonceDuRetrait(
+  plan: PlanDeRetrait,
+  events: Evenement[],
+  match: { homeTeamId: string | null; homeTeamName: string; awayTeamName: string; score: { home: number; away: number } },
+): { title: string; body: string } | null {
+  const partis = events.filter((e) => plan.ids.includes(e.id));
+  const nom = (e: Evenement) => e.playerName || (e.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName);
+
+  const but = partis.find((e) => e.type === "goal" && e.varStatus !== "cancelled");
+  if (but) {
+    const home = match.score.home + plan.score.home;
+    const away = match.score.away + plan.score.away;
+    return {
+      title: "↩️ But annulé",
+      body: `Le but de ${nom(but)} ne compte pas. ${match.homeTeamName} ${home} – ${away} ${match.awayTeamName}`,
+    };
+  }
+
+  const rouge = partis.find((e) => e.type === "red_card");
+  if (rouge) {
+    return { title: "↩️ Exclusion annulée", body: `${nom(rouge)} n'est pas exclu.` };
+  }
+  return null;
+}

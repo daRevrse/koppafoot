@@ -170,15 +170,20 @@ export function joinRequestEmailHtml(
   `);
 }
 
-export function adminMessageEmailHtml(title: string, body: string): string {
+/**
+ * Un message court, titre et texte. ÉCHAPPÉS : le texte n'est pas du HTML, et
+ * un titre qui en contiendrait ne doit pas pouvoir dessiner un faux bouton
+ * dans un e-mail signé KoppaFoot. Les sauts de ligne sont gardés.
+ */
+export function adminMessageEmailHtml(title: string, body: string, lien = "/dashboard"): string {
   return emailLayout(`
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e293b;">
-      ${title}
+      ${echapper(title)}
     </h2>
     <p style="margin:0;color:#475569;">
-      ${body}
+      ${echapper(body).replace(/\n/g, "<br>")}
     </p>
-    ${ctaButton("Ouvrir KoppaFoot", `${APP_URL}/dashboard`, "#1e293b")}
+    ${ctaButton("Ouvrir KoppaFoot", `${APP_URL}${lien}`, "#1e293b")}
   `);
 }
 

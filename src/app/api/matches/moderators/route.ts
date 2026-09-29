@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * Les modérateurs d'UN match — ceux qui tiendront sa console live.
@@ -135,14 +136,11 @@ export async function POST(req: NextRequest) {
     const affiche = `${match.home_team_name} vs ${match.away_team_name}`;
     // Au mieux : sa perte ne doit pas faire échouer l'ajout, qui a abouti.
     try {
-      await adminDb.collection("notifications").add({
-        user_id: uid,
-        type: "admin_message",
+      await notifierCompte(uid, {
+        type: "match_update",
         title: "Tu couvres un match",
         body: `${affiche}, le ${match.date} à ${match.time}. La console live t'attend.`,
         link: "/live-ops",
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
     } catch (notifErr) {
       console.error("Notification modérateur de match:", notifErr);

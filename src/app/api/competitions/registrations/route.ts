@@ -6,6 +6,7 @@ import { importClubRoster } from "@/lib/club-import-server";
 import { announceCompetitionEvent } from "@/lib/tribune-server";
 import { notifyTeamActivity } from "@/lib/activity-notify-server";
 import type { FirestoreCompetition } from "@/types";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * Competition registrations, a manager enters their club in a competition
@@ -178,14 +179,11 @@ export async function POST(req: NextRequest) {
     // flight when the response returns is dropped when the instance freezes.
     await Promise.allSettled(
       (competition.organizer_ids ?? []).map((uid) =>
-        adminDb.collection("notifications").add({
-          user_id: uid,
+        notifierCompte(uid, {
           type: "join_request",
           title: "Nouvelle inscription",
           body: `${managerName} inscrit « ${club.name} » à ${competition.name}`,
           link: `/organizer/competitions/${cid}/teams`,
-          read: false,
-          created_at: FieldValue.serverTimestamp(),
         }),
       ),
     );
@@ -344,14 +342,11 @@ export async function PATCH(req: NextRequest) {
         removed_by: callerUid,
         removed_at: FieldValue.serverTimestamp(),
       });
-      await adminDb.collection("notifications").add({
-        user_id: reg.manager_id,
+      await notifierCompte(reg.manager_id, {
         type: "join_request",
         title: "Équipe retirée",
         body: `« ${reg.club_name} » ne participe plus à ${reg.competition_name}.`,
         link: "/mon-equipe",
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({ ok: true, released: true });
     }
@@ -368,14 +363,11 @@ export async function PATCH(req: NextRequest) {
 
     if (action === "reject") {
       await regRef.update({ status: "rejected", decided_by: callerUid });
-      await adminDb.collection("notifications").add({
-        user_id: reg.manager_id,
+      await notifierCompte(reg.manager_id, {
         type: "join_request",
         title: "Inscription refusée",
         body: `L'inscription de « ${reg.club_name} » à ${reg.competition_name} n'a pas été retenue.`,
         link: "/mon-equipe",
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({ ok: true });
     }
@@ -423,14 +415,11 @@ export async function PATCH(req: NextRequest) {
       }).catch((e) => console.error("[registrations] announce failed", e));
     }
 
-    await adminDb.collection("notifications").add({
-      user_id: reg.manager_id,
+    await notifierCompte(reg.manager_id, {
       type: "join_request",
       title: "Inscription acceptée",
       body: `« ${reg.club_name} » participe à ${reg.competition_name}. Ton effectif a été repris.`,
       link: `/mon-equipe/${reg.competition_id}/${teamRef.id}`,
-      read: false,
-      created_at: FieldValue.serverTimestamp(),
     });
 
     // Le manager savait qu'il avait candidaté ; son effectif, lui, découvrait

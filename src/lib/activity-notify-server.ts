@@ -1,8 +1,9 @@
 import { adminDb } from "@/lib/firebase-admin";
-import { sendPushToUser } from "@/lib/fcm-server";
+import { lienInterne, sendPushToUser } from "@/lib/fcm-server";
 import { FieldValue } from "firebase-admin/firestore";
-import type { NotificationType } from "@/types";
+import type { FirestoreTraining, NotificationType } from "@/types";
 import { categorieDuType } from "@/lib/push-categories";
+import { notifierComptes } from "@/lib/notifier-serveur";
 
 // ============================================
 // activity-notify-server, la vie d'une équipe, poussée à ceux qu'elle
@@ -154,7 +155,8 @@ export async function notifyTeamActivity(input: {
 
   if (recipients.size === 0) return 0;
 
-  const link = input.link ?? `/teams/${input.teamId}`;
+  // Le lien vient du navigateur de l'appelant : il reste dans le produit.
+  const link = lienInterne(input.link ?? `/teams/${input.teamId}`);
   // Un batch Firestore plafonne à 500 écritures ; effectif + deux listes
   // d'abonnés peuvent dépasser, d'où le découpage.
   const all = [...recipients.values()];
@@ -191,4 +193,38 @@ export async function notifyTeamActivity(input: {
   );
 
   return recipients.size;
+}
+
+/**
+ * La convocation à un entraînement.
+ *
+ * Créer un entraînement ne prévenait personne : il apparaissait dans l'onglet
+ * de l'équipe, que chacun devait penser à rouvrir pour découvrir qu'on
+ * l'attendait jeudi à 18 h, et y répondre. Seuls les convoqués (`attendees`)
+ * sont prévenus, pas les abonnés : un entraînement n'est pas une nouvelle,
+ * c'est une question posée à chacun.
+ *
+ * @returns le nombre de convoqués prévenus.
+ */
+export async function convoquerAEntrainement(trainingId: string, actorId: string): Promise<number> {
+  const snap = await adminDb.collection("trainings").doc(trainingId).get();
+  if (!snap.exists) return 0;
+  const t = snap.data() as FirestoreTraining;
+  const team = (await adminDb.collection("teams").doc(t.team_id).get()).data();
+  const nomEquipe = (team?.name as string | undefined) ?? "Ton équipe";
+
+  const d = new Date(`${t.date}T00:00:00Z`);
+  const jour = Number.isNaN(d.getTime())
+    ? t.date
+    : d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const quand = `${jour}${t.time ? ` à ${t.time.replace(":", "h")}` : ""}`;
+
+  const convoques = (t.attendees ?? []).map((a) => a.player_id).filter((uid) => uid && uid !== actorId);
+  await notifierComptes(convoques, {
+    type: "participation_request",
+    title: "Entraînement",
+    body: `${nomEquipe} : ${t.title || "entraînement"}, ${quand}${t.location ? `, ${t.location}` : ""}. Confirme ta présence.`,
+    link: `/teams/${t.team_id}`,
+  });
+  return new Set(convoques).size;
 }

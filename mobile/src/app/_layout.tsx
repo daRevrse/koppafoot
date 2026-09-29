@@ -1,11 +1,16 @@
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
+import { useLastNotificationResponse } from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import * as WebBrowser from "expo-web-browser";
+import { useEffect, useRef } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
+import { urlDuSite } from "~/lib/config";
+import { lienDeLaNotification, suivreLeJeton } from "~/lib/push";
+import { couleurs } from "~/theme";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -58,6 +63,24 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
     }, 0);
     return () => clearTimeout(t);
   }, [vu, suite, oublierSuite, router]);
+
+  // Le jeton de push de ce téléphone suit le compte connecté (voir lib/push).
+  const uid = utilisateur?.uid;
+  useEffect(() => (uid ? suivreLeJeton(uid) : undefined), [uid]);
+
+  // UN TOUCHER SUR UNE NOTIFICATION ouvre la page qu'elle annonce, dans le
+  // navigateur intégré, comme les fiches du Direct — y compris quand c'est ce
+  // toucher qui a lancé l'application. Une réponse n'est ouverte qu'une fois.
+  const reponse = useLastNotificationResponse();
+  const dejaOuverte = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pret || !reponse) return;
+    const id = reponse.notification.request.identifier;
+    const lien = lienDeLaNotification(reponse);
+    if (!lien || dejaOuverte.current === id) return;
+    dejaOuverte.current = id;
+    void WebBrowser.openBrowserAsync(urlDuSite(lien), { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
+  }, [pret, reponse]);
 
   if (!pret) return null;
 
