@@ -41,10 +41,13 @@ export default function RosterClaimList({
   cid,
   teamId,
   roster,
+  feminin = false,
 }: {
   cid: string;
   teamId: string;
   roster: CompPlayer[];
+  /** Compétition féminine : l'effectif s'accorde (voir EffectifParPoste). */
+  feminin?: boolean;
 }) {
   const { user, firebaseUser } = useAuth();
   const t = useTextes(T);
@@ -151,5 +154,5 @@ export default function RosterClaimList({
     };
   });
 
-  return <EffectifParPoste joueurs={lignes} />;
+  return <EffectifParPoste joueurs={lignes} feminin={feminin} />;
 }

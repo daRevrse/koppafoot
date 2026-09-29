@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
     const u = userSnap.data()!;
     if (u.is_scorer === true || estSuperadmin(u)) {
-      return NextResponse.json({ error: "Tu es déjà scoreur." }, { status: 409 });
+      return NextResponse.json({ error: "Tu as déjà la casquette de scoreur." }, { status: 409 });
     }
 
     // Une candidature en attente à la fois : sans ça, un formulaire renvoyé

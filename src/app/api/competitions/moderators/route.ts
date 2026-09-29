@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { FirestoreCompetition } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { accorder, lireGenre } from "@/lib/genre";
 
 /**
  * Shared auth + authorization for both handlers.
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
     try {
       await notifierCompte(uid, {
         type: "invitation",
-        title: "Tu es modérateur",
+        title: accorder(lireGenre(userData?.gender), "Tu es modérateur", "Tu es modératrice"),
         body: `Tu peux gérer les matchs en direct de « ${competition.name} »`,
         link: "/live-ops",
       });

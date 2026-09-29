@@ -135,6 +135,8 @@ export interface FicheCompteAdmin {
   telephone: string | null;
   ville: string | null;
   bio: string | null;
+  /** Homme, femme, ou non déclaré (voir lib/genre). */
+  genre: "male" | "female" | null;
   photo: string | null;
   actif: boolean;
   /** Présente quand le compte est suspendu. `par` est nul si l'auteur n'existe plus. */

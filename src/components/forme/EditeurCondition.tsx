@@ -112,7 +112,7 @@ export default function EditeurCondition({
           htmlFor="condition-retour"
           aide={pourUnAutre
             ? "Ce jour-là, la déclaration s'efface d'elle-même."
-            : "Ce jour-là, la déclaration s'efface d'elle-même : pas besoin de revenir dire que tu es rétabli."}
+            : "Ce jour-là, la déclaration s'efface d'elle-même : pas besoin de revenir annoncer ton retour."}
         >
           <input
             id="condition-retour"

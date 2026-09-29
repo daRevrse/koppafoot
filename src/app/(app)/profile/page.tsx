@@ -27,6 +27,8 @@ import { useT } from "@/i18n";
 import type { Post } from "@/types";
 import ProfileBanner from "@/components/profile/ProfileBanner";
 import MonEtatDeForme from "@/components/forme/MonEtatDeForme";
+import { genreRequis, lireGenre } from "@/lib/genre";
+import { POSTES, nomDuPoste } from "@/lib/postes";
 
 // ============================================
 // Schema
@@ -38,6 +40,8 @@ const schema = yup.object({
   phone: telephoneOptionnel,
   locationCity: villeOptionnelle,
   bio: yup.string().max(500, "Max. 500 caractères").optional(),
+  // Homme / femme : requis dès qu'on a un rôle (vérifié à l'envoi, voir lib/genre).
+  gender: yup.string().optional(),
   // Player
   position: yup.string().optional(),
   skillLevel: yup.string().optional(),
@@ -156,6 +160,7 @@ export default function ProfilePage() {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<FormData>({
@@ -167,6 +172,7 @@ export default function ProfilePage() {
           phone: user.phone ?? "",
           locationCity: user.locationCity ?? "",
           bio: user.bio ?? "",
+          gender: user.gender ?? "",
           strongFoot: user.strongFoot ?? "",
           height: user.height ?? null,
           weight: user.weight ?? null,
@@ -324,6 +330,13 @@ export default function ProfilePage() {
 
   // Save profile
   const onSubmit = async (data: FormData) => {
+    const genre = lireGenre(data.gender);
+    // Un compte à rôle ne peut pas retirer son genre : ses titres et le
+    // mercato en dépendent. Un spectateur, si.
+    if (!genre && genreRequis({ ...user, gender: null })) {
+      setError("gender", { message: "Requis pour ton rôle" });
+      return;
+    }
     setSaving(true);
     try {
       await updateProfile({
@@ -332,6 +345,7 @@ export default function ProfilePage() {
         phone: data.phone || null,
         location_city: data.locationCity || "",
         bio: ouEfface(data.bio),
+        gender: ouEfface(genre),
         // Physical
         ...(showPhysical && {
           strong_foot: ouEfface(data.strongFoot as "left" | "right" | "both" | ""),
@@ -643,6 +657,15 @@ export default function ProfilePage() {
                 <input {...register("locationCity")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
                 {errors.locationCity && <p className="mt-1 text-xs text-red-600">{errors.locationCity.message}</p>}
               </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Tu es</label>
+                <select {...register("gender")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
+                  <option value="">Non précisé</option>
+                  <option value="male">Un homme</option>
+                  <option value="female">Une femme</option>
+                </select>
+                {errors.gender && <p className="mt-1 text-xs text-red-600">{errors.gender.message}</p>}
+              </div>
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Bio</label>
                 <textarea {...register("bio")} rows={3} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600" />
@@ -690,10 +713,9 @@ export default function ProfilePage() {
                     <label className="mb-1 block text-sm font-medium text-gray-700">Poste</label>
                     <select {...register("position")} className="w-full border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-600 focus:outline-none">
                       <option value="">Non spécifié</option>
-                      <option value="goalkeeper">Gardien</option>
-                      <option value="defender">Défenseur</option>
-                      <option value="midfielder">Milieu</option>
-                      <option value="forward">Attaquant</option>
+                      {POSTES.map((poste) => (
+                        <option key={poste} value={poste}>{nomDuPoste(poste, "fr", user.gender)}</option>
+                      ))}
                       <option value="any">Polyvalent</option>
                     </select>
                   </div>

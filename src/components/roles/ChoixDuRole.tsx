@@ -9,6 +9,9 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleDepuisURL } from "@/lib/onboarding";
 import type { EvolutionRole, FirestoreUser } from "@/types";
+import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
+import { accorder, type Genre } from "@/lib/genre";
+import { POSTES as POSTES_CANON, nomDuPoste } from "@/lib/postes";
 
 // ============================================
 // CHOISIR SON RÔLE, SUR LA VITRINE.
@@ -31,7 +34,8 @@ import type { EvolutionRole, FirestoreUser } from "@/types";
 
 const ROLES: {
   role: EvolutionRole;
-  titre: string;
+  /** Le titre au masculin, au féminin. Sans genre connu, les deux (voir `nomDuRole`). */
+  titre: [string, string];
   Icone: typeof User;
   phrase: string;
   /** Le nom de l'espace, tel qu'on l'annonce en l'activant. */
@@ -41,7 +45,7 @@ const ROLES: {
 }[] = [
   {
     role: "player",
-    titre: "Joueur",
+    titre: ["Joueur", "Joueuse"],
     Icone: User,
     phrase: "Tu joues dans une équipe, ou tu veux en rejoindre une.",
     espace: "Espace joueur",
@@ -49,7 +53,7 @@ const ROLES: {
   },
   {
     role: "manager",
-    titre: "Manager",
+    titre: ["Manager", "Manager"],
     Icone: Briefcase,
     phrase: "Tu diriges une équipe et son effectif.",
     espace: "Espace manager",
@@ -57,7 +61,7 @@ const ROLES: {
   },
   {
     role: "referee",
-    titre: "Arbitre",
+    titre: ["Arbitre", "Arbitre"],
     Icone: Flag,
     phrase: "Tu tiens le sifflet.",
     espace: "Espace arbitre",
@@ -65,12 +69,9 @@ const ROLES: {
   },
 ];
 
-const POSTES = [
-  { value: "goalkeeper", label: "Gardien" },
-  { value: "defender", label: "Défenseur" },
-  { value: "midfielder", label: "Milieu" },
-  { value: "forward", label: "Attaquant" },
-];
+/** Les postes, accordés à qui les choisit : « Gardienne », « Attaquante ». */
+const postes = (genre: Genre | null) =>
+  POSTES_CANON.map((p) => ({ value: p, label: nomDuPoste(p, "fr", genre) }));
 
 const PIEDS = [
   { value: "right", label: "Droit" },
@@ -86,6 +87,16 @@ const LICENCES = [
   { value: "national", label: "National" },
   { value: "international", label: "International" },
 ];
+
+/**
+ * Le nom du rôle pour ce compte : « Joueuse » pour une joueuse, et « Joueur,
+ * joueuse » tant qu'on ne sait pas — une femme qui découvre les rôles ne
+ * doit pas lire qu'ils sont écrits pour quelqu'un d'autre.
+ */
+function nomDuRole([m, f]: [string, string], genre: Genre | null | undefined): string {
+  if (genre) return accorder(genre, m, f);
+  return m === f ? m : `${m}, ${f.toLowerCase()}`;
+}
 
 const classeChamp =
   "w-full border border-gray-200/70 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-900";
@@ -141,6 +152,9 @@ export default function ChoixDuRole() {
   const [niveauLicence, setNiveauLicence] = useState<string | null>(null);
   const [numeroLicence, setNumeroLicence] = useState<string | null>(null);
   const [ville, setVille] = useState<string | null>(null);
+  const [genre, setGenre] = useState<Genre | null>(null);
+  /** On a voulu activer sans dire son genre : les deux pastilles passent au rouge. */
+  const [genreManquant, setGenreManquant] = useState(false);
 
   const vPoste = poste ?? user?.position ?? "";
   const vPied = pied ?? user?.strongFoot ?? "";
@@ -148,6 +162,7 @@ export default function ChoixDuRole() {
   const vNiveauLicence = niveauLicence ?? user?.licenseLevel ?? "";
   const vNumeroLicence = numeroLicence ?? user?.licenseNumber ?? "";
   const vVille = ville ?? user?.locationCity ?? "";
+  const vGenre = genre ?? user?.gender ?? null;
 
   /**
    * Le rôle repris de l'adresse, quand on arrive en `?role=`.
@@ -181,11 +196,18 @@ export default function ChoixDuRole() {
   const meta = choisi ? ROLES.find((r) => r.role === choisi) ?? null : null;
 
   const activer = async (role: EvolutionRole) => {
+    // UN RÔLE DIT SON GENRE : le titre, le poste et les messages s'accordent,
+    // et un manager d'équipe féminine cherche des joueuses (lib/genre).
+    if (!vGenre) {
+      setGenreManquant(true);
+      return;
+    }
     setEnvoi(true);
     try {
       const patch: Partial<FirestoreUser> = {
         evolution_role: role,
         location_city: vVille.trim() || user?.locationCity || "",
+        gender: vGenre,
       };
       // LE TYPE SUIT TOUJOURS LE RÔLE ACTIVÉ, sans exception. Les casquettes
       // vivent dans des drapeaux à côté, donc activer un rôle ne peut plus
@@ -239,11 +261,11 @@ export default function ChoixDuRole() {
           >
             <Icone size={24} className="text-emerald-600" />
             <p className="mt-5 font-display text-2xl font-black uppercase tracking-tight text-gray-900">
-              {titre}
+              {nomDuRole(titre, null)}
             </p>
             <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-600">{phrase}</p>
             <span className="mt-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-emerald-700">
-              Devenir {titre.toLowerCase()}
+              Choisir ce rôle
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
             </span>
           </Link>
@@ -294,13 +316,32 @@ export default function ChoixDuRole() {
                 activer(choisi);
               }}
             >
+              <div>
+                <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
+                  Tu es
+                </label>
+                <ChoixDuGenre
+                  valeur={vGenre}
+                  onChange={(g) => {
+                    setGenre(g);
+                    setGenreManquant(false);
+                  }}
+                  erreur={genreManquant}
+                />
+                {genreManquant && (
+                  <p className="mt-1.5 text-[11px] font-bold text-red-600">
+                    Dis-nous si tu es un homme ou une femme : ton titre et tes messages s&apos;accordent.
+                  </p>
+                )}
+              </div>
+
               {choisi === "player" ? (
                 <>
                   <div>
                     <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
                       Ton poste
                     </label>
-                    <Pastilles options={POSTES} valeur={vPoste} onChange={setPoste} />
+                    <Pastilles options={postes(vGenre)} valeur={vPoste} onChange={setPoste} />
                   </div>
                   <div>
                     <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
@@ -402,7 +443,7 @@ export default function ChoixDuRole() {
             )}
           </div>
           <p className="mt-5 font-display text-2xl font-black uppercase tracking-tight text-gray-900">
-            {titre}
+            {nomDuRole(titre, user.gender)}
           </p>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-600">{phrase}</p>
           <span className="mt-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-emerald-700">

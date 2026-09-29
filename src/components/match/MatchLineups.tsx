@@ -18,7 +18,8 @@ const T = textes(
     but: "But",
     rouge: "Carton rouge",
     jaune: "Carton jaune",
-    hommeDuMatch: "Homme du match",
+    // Une infobulle sur l'étoile, sans le genre du joueur sous la main : neutre.
+    hommeDuMatch: "MVP du match",
     compoAVenir: "Composition à venir",
     pasDeCompo: "Pas de composition",
     managerPublie: "Le manager la publie avant le coup d'envoi.",

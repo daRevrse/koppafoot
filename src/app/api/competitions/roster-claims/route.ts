@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     // double-count the player's stats.
     if (players.some((p) => p.user_id === callerUid)) {
       return NextResponse.json(
-        { error: "Tu es déjà rattaché à un joueur de cette équipe." },
+        { error: "Ton compte est déjà rattaché à une ligne de cette équipe." },
         { status: 409 },
       );
     }

@@ -42,16 +42,18 @@ export interface LigneDEffectif {
 }
 
 export default function EffectifParPoste({
-  joueurs, manager, staff, vide,
+  joueurs, manager, staff, vide, feminin = false,
 }: {
   joueurs: LigneDEffectif[];
+  /** Équipe féminine : « Gardiennes », « Attaquantes » (lib/genre). */
+  feminin?: boolean;
   manager?: { nom: string; photo: string | null; lien: string | null } | null;
   staff?: { nom: string; titre: string }[];
   vide?: string;
 }) {
   const { langue } = useLangue();
   const t = useTextes(T);
-  const groupes = effectifParPoste(joueurs, langue);
+  const groupes = effectifParPoste(joueurs, langue, feminin);
 
   return (
     <div className="space-y-4">

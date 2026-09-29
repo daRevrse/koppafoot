@@ -6,15 +6,17 @@ import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { PastilleNote } from "@/components/classement/LigneDeClassement";
 import { useLocale, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import { accorder, type Genre } from "@/lib/genre";
 
 const T = textes(
   {
-    hommeDuMatch: "Homme du match",
+    /** « Joueuse du match » quand c'est une joueuse (lib/genre). */
+    hommeDuMatch: (genre: Genre | null) => accorder(genre, "Homme du match", "Joueuse du match"),
     note: (valeur: string, faits: number) => `Note du match ${valeur}, sur ${faits} fait${faits > 1 ? "s" : ""}`,
     faits: (n: number) => `${n} fait${n > 1 ? "s" : ""}`,
   },
   {
-    hommeDuMatch: "Player of the match",
+    hommeDuMatch: () => "Player of the match",
     note: (valeur: string, faits: number) => `Match rating ${valeur}, from ${faits} action${faits === 1 ? "" : "s"}`,
     faits: (n: number) => `${n} action${n === 1 ? "" : "s"}`,
   },
@@ -48,6 +50,7 @@ export default function MvpDuMatch({
   motif,
   note,
   href,
+  genre = null,
 }: {
   name: string | null | undefined;
   teamName: string | null | undefined;
@@ -64,6 +67,8 @@ export default function MvpDuMatch({
   note?: { valeur: number | null; faits: number } | null;
   /** Sa fiche, quand il a un compte. */
   href?: string | null;
+  /** Son genre, ou celui de son équipe (voir `genreDuJoueur`) : accorde le libellé. */
+  genre?: Genre | null;
 }) {
   const t = useTextes(T);
   const locale = useLocale();
@@ -89,7 +94,7 @@ export default function MvpDuMatch({
       )}
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-black uppercase tracking-[0.15em] text-amber-600">
-          {label ?? t.hommeDuMatch}
+          {label ?? t.hommeDuMatch(genre)}
         </p>
         {href ? (
           <Link href={href} className="mt-0.5 block min-w-0 hover:[&>span]:text-emerald-700">

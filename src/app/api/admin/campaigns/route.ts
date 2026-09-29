@@ -11,6 +11,7 @@ import {
   campaignWelcomeManagerHtml,
   campaignSansEspaceHtml,
 } from "@/lib/email";
+import { lireGenre } from "@/lib/genre";
 
 // ── Auth guard ──────────────────────────────────────────────
 
@@ -46,7 +47,8 @@ const CAMPAIGN_DEFAULTS: Record<
     link: "/teams",
   },
   player_no_team: {
-    title: "Des équipes cherchent un joueur comme toi ⚽",
+    // Sans accord : la même annonce part à des joueurs et à des joueuses.
+    title: "Des équipes recrutent près de chez toi ⚽",
     body: "Des équipes actives près de chez toi cherchent des joueurs. Candidate maintenant.",
     link: "/mercato",
   },
@@ -159,7 +161,7 @@ export async function POST(req: NextRequest) {
 
       if (email) {
         let html = "";
-        if (campaignType === "manager_no_team") html = campaignManagerNoTeamHtml(firstName);
+        if (campaignType === "manager_no_team") html = campaignManagerNoTeamHtml(firstName, lireGenre(data.gender));
         if (campaignType === "player_no_team") html = campaignPlayerNoTeamHtml(firstName);
         if (campaignType === "manager_welcome") html = campaignWelcomeManagerHtml(firstName);
         if (campaignType === "sans_espace") html = campaignSansEspaceHtml(firstName);

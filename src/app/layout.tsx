@@ -10,6 +10,7 @@ import { langueServeur } from "@/i18n/serveur";
 import { APP_URL } from "@/lib/partage";
 import { AuthModalProvider } from "@/components/auth/AuthModal";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import RappelDuGenre from "@/components/genre/RappelDuGenre";
 import TopLoadingBar from "@/components/ui/TopLoadingBar";
 import "./globals.css";
 import { IOS_LAUNCH_DEVICES, cheminSplash } from "@/config/ios-launch";
@@ -160,6 +161,7 @@ export default async function RootLayout({
               <TopLoadingBar />
             </Suspense>
             {children}
+            <RappelDuGenre />
           </AuthModalProvider>
           <Toaster
             // `containerClassName` : le seul moyen de designer le conteneur

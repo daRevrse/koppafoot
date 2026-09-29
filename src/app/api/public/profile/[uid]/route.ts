@@ -36,6 +36,9 @@ const PUBLIC_FIELDS = [
   // de l'inviter. La fiche savait les afficher mais ne les recevait pas, faute
   // d'être dans cette liste. Le numéro de licence sort masqué, plus bas.
   "license_level", "experience_years",
+  // Le genre : il accorde ce que la fiche dit de la personne (« Joueuse »,
+  // « Attaquante »), qui le dirait de toute façon.
+  "gender",
 ] as const;
 
 export async function GET(

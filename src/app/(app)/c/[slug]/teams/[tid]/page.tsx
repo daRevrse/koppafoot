@@ -43,7 +43,8 @@ const T = textes(
     lienCopie: "Lien de l'équipe copié !",
     partageEchoue: "Le partage a échoué.",
     direct: "Direct",
-    joueurs: (n: number) => `${n} joueur${n > 1 ? "s" : ""}`,
+    /** Une compétition féminine compte des joueuses. */
+    joueurs: (n: number, feminin?: boolean) => `${n} ${feminin ? "joueuse" : "joueur"}${n > 1 ? "s" : ""}`,
     partager: "Partager cette équipe",
     ficheDuClub: "Fiche du club",
     domicile: "Domicile",
@@ -343,6 +344,7 @@ export default function PublicTeamPage() {
         nom={team.name}
         logo={team.logoUrl}
         couleur={team.color}
+        categorie={competition.category}
         surtitre={
           <Link href={`/c/${slug}`} className="transition-colors hover:text-white">
             {competition.name}
@@ -357,7 +359,7 @@ export default function PublicTeamPage() {
               </span>
             )}
             <FormeEnLettres forme={forme} />
-            <span>{t.joueurs(roster.length)}</span>
+            <span>{t.joueurs(roster.length, competition.category === "women")}</span>
           </>
         }
         actions={
@@ -468,7 +470,7 @@ export default function PublicTeamPage() {
                   {t.effectifNonCommunique}
                 </p>
               ) : (
-                <RosterClaimList cid={competition.id} teamId={tid} roster={roster} />
+                <RosterClaimList cid={competition.id} teamId={tid} roster={roster} feminin={competition.category === "women"} />
               )
             )}
           </div>

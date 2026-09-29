@@ -10,6 +10,7 @@ import CompetitionDirectoryCard from "./CompetitionDirectoryCard";
 import WorldCompetitionCard from "../world/WorldCompetitionCard";
 import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import { LIBELLES_CATEGORIE } from "@/lib/genre";
 
 // Accent- and case-insensitive folding, shared by both filters.
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -85,7 +86,11 @@ export default function CompetitionDirectorySearch({
   const filteredLocal = useMemo(() => {
     const q = fold(query.trim());
     if (!q) return competitions;
-    return competitions.filter((c) => fold(`${c.name} ${c.venueCity ?? ""}`).includes(q));
+    // La catégorie se cherche aussi : « féminin » ou « women » trouve les
+    // compétitions féminines, qui ne le disent pas toujours dans leur nom.
+    return competitions.filter((c) =>
+      fold(`${c.name} ${c.venueCity ?? ""} ${c.category ? `${LIBELLES_CATEGORIE.fr[c.category]} ${LIBELLES_CATEGORIE.en[c.category]}` : ""}`).includes(q),
+    );
   }, [query, competitions]);
 
   // Same query drives the world game, searching "espagne" or "ligue 1" has to

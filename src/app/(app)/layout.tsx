@@ -44,6 +44,9 @@ function isPublicPath(pathname: string): boolean {
     // L'aide se lit sans compte : la moitie des questions qu'on s'y pose sont
     // justement celles qu'on se pose AVANT d'en creer un.
     pathname === "/aide" ||
+    // Les tutoriels aussi : on les lit souvent AVANT d'avoir un compte, et
+    // le lien d'un tutoriel se partage.
+    pathname.startsWith("/aide/tutoriels") ||
     // LES REGLAGES NON PLUS. Le theme, la langue et les notifications valent
     // pour l'APPAREIL, pas pour le compte : un visiteur qui lit un match en
     // pleine nuit a le meme besoin de passer en sombre que quelqu'un

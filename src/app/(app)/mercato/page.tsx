@@ -24,6 +24,9 @@ import {
 import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
 import MercatoPublic from "@/components/mercato/MercatoPublic";
 import type { UserProfile, ShortlistEntry, JoinRequest, Invitation, Team } from "@/types";
+import BadgeCategorie from "@/components/genre/BadgeCategorie";
+import { libellePoste } from "@/lib/postes";
+import { accorder, LIBELLES_CATEGORIE, type Categorie, type Genre } from "@/lib/genre";
 
 // ============================================
 // Constants & Helpers
@@ -261,7 +264,19 @@ export default function MercatoPage() {
   const isPlayer = role === "player";
 
   // ---- Tabs ----
-  const [mainTab, setMainTab] = useState<string>(isManager ? "players" : "teams");
+  const [ongletChoisi, setMainTab] = useState<string | null>(null);
+  /**
+   * L'ONGLET AFFICHÉ SE DÉDUIT DU RÔLE, il ne se fige pas au premier rendu.
+   * Il se fixait avant que le profil n'arrive : un manager qui ouvrait
+   * /mercato directement (lien d'une notification, rechargement) partait sur
+   * « Équipes », un onglet de joueur, et la page restait vide.
+   */
+  const ongletsPermis = isManager
+    ? ["players", "shortlist", "applications", "invitations"]
+    : ["teams", "applications", "invitations"];
+  const mainTab = ongletChoisi && ongletsPermis.includes(ongletChoisi)
+    ? ongletChoisi
+    : isManager ? "players" : "teams";
 
   // Deep link (« Recruter » depuis la page équipe → /mercato?tab=players).
   // Lu sur window plutôt que via useSearchParams, comme /feed?post= : pas de
@@ -278,6 +293,14 @@ export default function MercatoPage() {
   const [loading, setLoading] = useState(true);
   const [cityFilter, setCityFilter] = useState("Toutes");
   const [levelFilter, setLevelFilter] = useState("Tous");
+  /**
+   * Joueurs ou joueuses, pour un manager ; la catégorie d'équipe, pour un
+   * joueur. `null` = personne n'y a touché : le filtre des joueurs part alors
+   * de l'équipe du manager (une équipe féminine cherche des joueuses), celui
+   * des équipes de « toutes ».
+   */
+  const [genreFiltre, setGenreFiltre] = useState<Genre | "tous" | null>(null);
+  const [categorieFiltre, setCategorieFiltre] = useState<Categorie | "toutes">("toutes");
   const [nameQuery, setNameQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -557,6 +580,17 @@ export default function MercatoPage() {
     );
   }
 
+  // LE FILTRE DES JOUEURS PART DE L'ÉQUIPE DU MANAGER : toutes féminines, on
+  // lui montre des joueuses. Un joueur qui n'a pas déclaré son genre sort
+  // d'un filtre posé — on ne devine pas.
+  const genreRetenu: Genre | "tous" = genreFiltre
+    ?? (myTeams.length > 0 && myTeams.every((t) => t.category === "women") ? "female" : "tous");
+  const joueursAffiches = genreRetenu === "tous" ? players : players.filter((p) => p.gender === genreRetenu);
+  // Une équipe d'avant la catégorie était masculine : elle répond à « Masculin ».
+  const equipesAffichees = categorieFiltre === "toutes"
+    ? teams
+    : teams.filter((t) => (t.category ?? "men") === categorieFiltre);
+
   const pendingAppsCount = joinRequests.filter(r => r.status === "pending").length;
   const pendingInvsCount = invitations.filter(i => i.status === "pending").length;
   // Un manager attend des reponses des deux cotes ; un joueur ne repond qu'aux
@@ -635,15 +669,31 @@ export default function MercatoPage() {
                     {LEVELS.map(l => <option key={l} value={l}>{l === "Tous" ? "Tous" : LEVEL_LABELS[l]}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Joueurs ou joueuses</label>
+                  <select value={genreRetenu} onChange={(e) => setGenreFiltre(e.target.value as Genre | "tous")} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
+                    <option value="tous">Tous</option>
+                    <option value="male">Joueurs</option>
+                    <option value="female">Joueuses</option>
+                  </select>
+                </div>
               </motion.div>
+            )}
+            {genreRetenu === "female" && !showFilters && (
+              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-pink-700">
+                Joueuses seulement ·{" "}
+                <button type="button" onClick={() => setGenreFiltre("tous")} className="underline underline-offset-2 hover:text-gray-900">
+                  voir tout le monde
+                </button>
+              </p>
             )}
             {loading ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map(i => <div key={i} className="h-52 animate-pulse border border-gray-200/70 bg-gray-100" />)}
               </div>
-            ) : players.length > 0 ? (
+            ) : joueursAffiches.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {players.map(p => {
+                {joueursAffiches.map(p => {
                   const shortlisted = shortlistedIds.has(p.uid);
                   const age = playerAge(p.dateOfBirth);
                   return (
@@ -669,7 +719,7 @@ export default function MercatoPage() {
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {p.position && (
                         <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${POSITION_COLORS[p.position] || "bg-gray-100 text-gray-600"}`}>
-                          {POSITION_LABELS[p.position] || p.position}
+                          {libellePoste(p.position, "fr", p.gender) ?? POSITION_LABELS[p.position] ?? p.position}
                         </span>
                       )}
                       {p.skillLevel && (
@@ -710,7 +760,9 @@ export default function MercatoPage() {
             ) : (
               <div className="border border-gray-200/70 bg-white px-6 py-16 text-center">
                 <Users size={30} strokeWidth={1.4} className="mx-auto text-gray-300" />
-                <p className="mt-3 text-base font-bold text-gray-400">Aucun joueur ne correspond à tes filtres</p>
+                <p className="mt-3 text-base font-bold text-gray-400">
+                  {accorder(genreRetenu === "female" ? "female" : null, "Aucun joueur ne correspond à tes filtres", "Aucune joueuse ne correspond à tes filtres")}
+                </p>
               </div>
             )}
           </motion.div>
@@ -748,15 +800,24 @@ export default function MercatoPage() {
                     {LEVELS.map(l => <option key={l} value={l}>{l === "Tous" ? "Tous" : LEVEL_LABELS[l]}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Catégorie</label>
+                  <select value={categorieFiltre} onChange={(e) => setCategorieFiltre(e.target.value as Categorie | "toutes")} className="border border-gray-200/70 bg-white px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none">
+                    <option value="toutes">Toutes</option>
+                    {(["men", "women", "mixed"] as const).map((c) => (
+                      <option key={c} value={c}>{LIBELLES_CATEGORIE.fr[c]}</option>
+                    ))}
+                  </select>
+                </div>
               </motion.div>
             )}
             {loading ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map(i => <div key={i} className="h-52 animate-pulse border border-gray-200/70 bg-gray-100" />)}
               </div>
-            ) : teams.length > 0 ? (
+            ) : equipesAffichees.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {teams.map(t => {
+                {equipesAffichees.map(t => {
                    const hasSent = sentRequestIds.has(t.id);
                    const colors = COLOR_MAP[t.color] || COLOR_MAP.emerald;
                    const full = t.memberIds.length >= t.maxMembers;
@@ -786,7 +847,10 @@ export default function MercatoPage() {
                          </div>
                       </div>
 
-                      <h4 className="mt-4 truncate font-display text-lg font-black tracking-tight text-gray-900">{t.name}</h4>
+                      <h4 className="mt-4 flex min-w-0 items-center gap-2 font-display text-lg font-black tracking-tight text-gray-900">
+                        <span className="truncate">{t.name}</span>
+                        <BadgeCategorie categorie={t.category} />
+                      </h4>
                       <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
                         <MapPin size={10} className="shrink-0" /> {t.city || "Ville non précisée"}
                       </p>

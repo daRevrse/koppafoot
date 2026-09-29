@@ -9,6 +9,7 @@ import { getWorldCompetitions } from "@/lib/football-data";
 // Same canonical origin the transactional links use, declaree une seule fois
 // dans lib/partage.
 import { APP_URL } from "@/lib/partage";
+import { TUTORIELS } from "@/lib/tutoriels";
 
 // Tabs every public competition has. /bracket is added only for the ones
 
@@ -32,6 +33,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    // Les tutoriels : on les partage, et on les cherche avant de s'inscrire.
+    { url: `${APP_URL}/aide/tutoriels`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    ...TUTORIELS.map((t) => ({
+      url: `${APP_URL}/aide/tutoriels/${t.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.4,
+    })),
   ];
 
   const competitionRoutes: MetadataRoute.Sitemap = competitions.flatMap((c) => {

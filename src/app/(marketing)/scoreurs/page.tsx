@@ -101,7 +101,7 @@ const QUESTIONS = [
   },
   {
     q: "J'organise déjà une compétition.",
-    a: "Alors tu es déjà scoreur sur tes propres matchs, sans rien demander. Cette candidature ne sert qu'à couvrir les amicaux, qui n'appartiennent à personne.",
+    a: "Alors tu tiens déjà la console de tes propres matchs, sans rien demander. Cette candidature ne sert qu'à couvrir les amicaux, qui n'appartiennent à personne.",
   },
 ];
 

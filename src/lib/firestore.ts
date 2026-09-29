@@ -50,6 +50,7 @@ import type {
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
+import { lireCategorie, lireGenre, type Categorie } from "@/lib/genre";
 import { nouvelIdEvenement, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
@@ -123,6 +124,7 @@ export function toTeam(id: string, d: FirestoreTeam): Team {
     staff: d.staff ?? [],
     staffManagerIds: d.staff_manager_ids ?? [],
     isGhost: d.is_ghost ?? false,
+    category: lireCategorie(d.category),
     createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
   };
 }
@@ -311,6 +313,7 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.license_level !== undefined && { licenseLevel: data.license_level }),
     ...(data.experience_years !== undefined && { experienceYears: data.experience_years }),
     ...(data.strong_foot !== undefined && { strongFoot: data.strong_foot }),
+    gender: lireGenre(data.gender),
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
@@ -529,6 +532,8 @@ export async function getTeamById(teamId: string): Promise<Team | null> {
 export async function createTeam(data: {
   name: string; managerId: string; city: string; description: string;
   level: string; maxMembers: number; color: string;
+  /** Masculine, féminine ou mixte ; rien = non précisée. */
+  category?: Categorie | null;
 }): Promise<string> {
   const ref = await addDoc(collection(db, "teams"), {
     name: data.name, manager_id: data.managerId, city: data.city,
@@ -537,6 +542,7 @@ export async function createTeam(data: {
     max_members: data.maxMembers, color: data.color,
     wins: 0, losses: 0, draws: 0, matches_played: 0,
     is_recruiting: true,
+    ...(data.category ? { category: data.category } : {}),
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
   return ref.id;
@@ -593,7 +599,7 @@ export function quotaMinimum(format: string | undefined): number {
  * Les identifiants de joueurs sont locaux au match, ce qui suffit : ils ne
  * servent qu'à rattacher un but ou un carton à une ligne de cette feuille-là.
  */
-export function ghostOpponentLineup(format: string): LineupEntry[] {
+export function ghostOpponentLineup(format: string, feminin = false): LineupEntry[] {
   const taille = tailleEffectif(format);
   const lignes: LineupEntry[] = [];
   for (let i = 1; i <= taille; i++) {
@@ -602,7 +608,7 @@ export function ghostOpponentLineup(format: string): LineupEntry[] {
       // Suffixe aléatoire : deux matchs du même jour ne doivent pas partager
       // un identifiant de joueur, la timeline les confondrait.
       playerId: `ext-${Math.random().toString(36).slice(2, 8)}-${numero}`,
-      name: `Joueur ${numero}`,
+      name: `${feminin ? "Joueuse" : "Joueur"} ${numero}`,
       number: numero,
       role: "starter",
     });
@@ -2005,7 +2011,8 @@ export async function invitePlayerToMatch(
       userId: playerId,
       type: "participation_request",
       title: "Convocation à un match",
-      body: `Tu es convoqué pour ${matchLabel} le ${matchDate}`,
+      // Tournure sans accord : le genre du joueur n'est pas lu ici.
+      body: `Ton équipe te convoque pour ${matchLabel} le ${matchDate}`,
       link: "/participations",
     });
   }

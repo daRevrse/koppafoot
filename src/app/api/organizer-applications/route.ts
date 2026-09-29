@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
     const u = userSnap.data()!;
     if (u.is_organizer === true || estSuperadmin(u)) {
-      return NextResponse.json({ error: "Tu es déjà organisateur." }, { status: 409 });
+      return NextResponse.json({ error: "Tu as déjà la casquette d'organisateur." }, { status: 409 });
     }
 
     // One pending application at a time.

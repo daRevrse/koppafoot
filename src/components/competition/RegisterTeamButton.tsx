@@ -6,7 +6,8 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTeamsByManager } from "@/lib/firestore";
 import type { Competition, CompetitionRegistration, Team } from "@/types";
-import { useLocale, useTextes } from "@/i18n";
+import { useLangue, useLocale, useTextes } from "@/i18n";
+import { LIBELLES_CATEGORIE } from "@/lib/genre";
 import { textes } from "@/i18n/textes";
 
 const T = textes(
@@ -24,6 +25,8 @@ const T = textes(
     optionnel: "(optionnel)",
     placeholder: "Un mot pour l'organisateur…",
     frais: (montant: string) => `Frais d'inscription : ${montant}`,
+    categorieDifferente: (equipe: string, competition: string) =>
+      `Ton équipe est en catégorie ${equipe.toLowerCase()}, la compétition en catégorie ${competition.toLowerCase()}. Tu peux t'inscrire : l'organisateur décidera.`,
     aRegler: "À régler directement auprès de l'organisateur. KoppaFoot n'encaisse rien.",
     reglement: "Règlement",
     lireDocument: "Lire le document complet",
@@ -47,6 +50,8 @@ const T = textes(
     optionnel: "(optional)",
     placeholder: "A word for the organiser…",
     frais: (montant: string) => `Entry fee: ${montant}`,
+    categorieDifferente: (equipe: string, competition: string) =>
+      `Your team's category is ${equipe}, this competition's is ${competition}. You can still enter: the organiser will decide.`,
     aRegler: "Paid directly to the organiser. KoppaFoot collects nothing.",
     reglement: "Rules",
     lireDocument: "Read the full document",
@@ -89,6 +94,7 @@ export default function RegisterTeamButton({
   const [busy, setBusy] = useState(false);
   const t = useTextes(T);
   const locale = useLocale();
+  const { langue } = useLangue();
 
   const hasRules = Boolean(competition.rulesText || competition.rulesUrl);
   const hasFee = competition.entryFee != null && competition.entryFee > 0;
@@ -220,6 +226,19 @@ export default function RegisterTeamButton({
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+
+            {/* UN AVERTISSEMENT, PAS UN REFUS : l'organisateur reste juge, et une
+                équipe d'avant la catégorie n'en a pas (lib/genre). */}
+            {(() => {
+              const club = clubs.find((c) => c.id === clubId);
+              const cc = competition.category;
+              if (!club?.category || !cc || cc === "mixed" || club.category === cc) return null;
+              return (
+                <p className="mt-2 border border-amber-100 bg-amber-50/70 px-3 py-2 text-xs font-semibold text-amber-900">
+                  {t.categorieDifferente(LIBELLES_CATEGORIE[langue][club.category], LIBELLES_CATEGORIE[langue][cc])}
+                </p>
+              );
+            })()}
 
             <label className="mb-1.5 mt-4 block text-xs font-bold text-gray-600">
               {t.message} <span className="font-semibold text-gray-300">{t.optionnel}</span>

@@ -2664,6 +2664,7 @@ export default function LiveMatchConsole({
             homeTeamId={match.homeTeamId}
             homeTeamName={match.homeTeamName}
             awayTeamName={match.awayTeamName}
+            feminine={competition?.category === "women"}
             isSubmitting={isSubmitting}
             onChoisir={(c) => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, c); }}
             onPasser={() => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, null); }}
@@ -3212,12 +3213,14 @@ function PlayerPickerModal({
  * est un cas normal — rien ici ne doit retenir un coup de sifflet.
  */
 function ModaleMVP({
-  candidats, homeTeamId, homeTeamName, awayTeamName, isSubmitting, onChoisir, onPasser,
+  candidats, homeTeamId, homeTeamName, awayTeamName, isSubmitting, onChoisir, onPasser, feminine = false,
 }: {
   candidats: CandidatMVP[];
   homeTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
+  /** Compétition féminine : on élit la joueuse du match (lib/genre). */
+  feminine?: boolean;
   isSubmitting: boolean;
   onChoisir: (c: CandidatMVP) => void;
   onPasser: () => void;
@@ -3244,7 +3247,7 @@ function ModaleMVP({
             <Trophy size={20} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-lg font-black text-gray-900">Homme du match</h2>
+            <h2 className="text-lg font-black text-gray-900">{feminine ? "Joueuse du match" : "Homme du match"}</h2>
             <p className="text-xs font-bold uppercase tracking-tight text-gray-400 italic">
               Les deux équipes sont éligibles
             </p>

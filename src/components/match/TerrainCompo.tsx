@@ -19,7 +19,8 @@ const T = textes(
     jaune: "Carton jaune",
     sortiA: (minute: number) => `Sorti à la ${minute}e minute`,
     sorti: "Sorti en cours de match",
-    hommeDuMatch: "Homme du match",
+    // Une infobulle sur l'étoile, sans le genre du joueur sous la main : neutre.
+    hommeDuMatch: "MVP du match",
     changerOuRetirer: (nom: string, place: string) => `${nom}, ${place}. Changer ou retirer`,
     emplacementLibre: (place: string) => `Emplacement libre, ${place}. Choisir un joueur`,
     compoSurTerrain: "Composition sur le terrain",

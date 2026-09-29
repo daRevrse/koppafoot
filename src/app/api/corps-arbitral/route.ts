@@ -141,7 +141,7 @@ export async function POST(req: Request) {
         case "inviter": {
           if (!estChef) throw new Refus("Seul le chef invite dans son corps arbitral.", 403);
           const t = cible!;
-          if (t.uid === c.chef_id) throw new Refus("Tu es déjà le chef de ce corps arbitral.");
+          if (t.uid === c.chef_id) throw new Refus("Tu diriges déjà ce corps arbitral.");
           if (c.membres?.[t.uid]) throw new Refus(`${t.nom} fait déjà partie de ton corps arbitral.`);
           if (c.invitations?.[t.uid]) throw new Refus(`${t.nom} est déjà invité.`);
           if (Object.keys(c.membres ?? {}).length + Object.keys(c.invitations ?? {}).length >= MEMBRES_MAX) {

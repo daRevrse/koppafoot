@@ -16,6 +16,7 @@ import {
 } from "@/lib/firestore";
 import { gesteCorps, NIVEAUX_LICENCE, ROLE_DANS_LE_CORPS, type GesteCorps } from "@/lib/arbitrage-client";
 import type { CorpsArbitral, RoleDansLeCorps, UserProfile } from "@/types";
+import { accorder } from "@/lib/genre";
 
 // ============================================
 // Le corps arbitral : l'équipe permanente d'un arbitre.
@@ -327,7 +328,7 @@ export default function CorpsArbitralPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200/70 bg-gray-50 px-5 py-4 sm:px-6">
             <p className="text-xs leading-relaxed text-gray-500">
-              Pour chaque match où tu es désigné, choisis qui t&apos;accompagne depuis{" "}
+              Pour chaque match où tu es {accorder(user?.gender, "désigné", "désignée")}, choisis qui t&apos;accompagne depuis{" "}
               <Link href="/designations" className="font-bold text-gray-900 underline decoration-dotted underline-offset-2">
                 Mes désignations
               </Link>.

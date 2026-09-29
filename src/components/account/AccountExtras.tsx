@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
-  Share2, Check, Megaphone, HelpCircle, MessageSquare, ChevronRight,
+  Share2, Check, Megaphone, HelpCircle, MessageSquare, ChevronRight, BookOpen,
   Sun, Moon, Languages, Bell, BellOff, Download, Share,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -147,7 +147,7 @@ export function InviteCard({ firstName }: { firstName?: string }) {
   );
 }
 
-/** Aide et retours. Deux portes vers la même page, pas un centre d'assistance. */
+/** Tutoriels, aide et retours. Les tutoriels en premier : « par où commencer » est la question des nouveaux. */
 export function SupportBlock({ sombre, onNavigate }: {
   sombre?: boolean;
   onNavigate?: () => void;
@@ -159,6 +159,7 @@ export function SupportBlock({ sombre, onNavigate }: {
       <p className={`px-4 pb-2 pt-3 text-[10px] font-black uppercase tracking-[0.15em] ${ton_.titre}`}>
         {t("support.titre")}
       </p>
+      <Ligne t={ton_} href="/aide/tutoriels" onClick={onNavigate} Icon={BookOpen} label={t("support.tutoriels")} />
       <Ligne t={ton_} href="/aide" onClick={onNavigate} Icon={HelpCircle} label={t("support.faq")} />
       <Ligne t={ton_} href="/aide#retour" onClick={onNavigate} Icon={MessageSquare} label={t("support.retour")} />
     </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import CommentFaire from "@/components/aide/CommentFaire";
+import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
@@ -144,6 +146,9 @@ export default function OrganizerHomePage() {
 
   return (
     <div className="space-y-6">
+      {/* Par où commencer, tant que la première compétition n'a pas joué. */}
+      <GuideDeDemarrage profils={["organizer"]} />
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -198,6 +203,7 @@ export default function OrganizerHomePage() {
             <Plus size={16} />
             Nouvelle compétition
           </Link>
+          <CommentFaire tutoriel="organisateur" className="mt-5" />
         </motion.div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">

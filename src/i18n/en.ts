@@ -46,6 +46,7 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "espace.mesDesignations": "My appointments",
   "espace.role.user": "Member space",
   "espace.role.player": "Player space",
+  "espace.role.playerF": "Player space",
   "espace.role.manager": "Manager space",
   "espace.role.referee": "Referee space",
 
@@ -75,6 +76,7 @@ export const en: Partial<Record<CleTraduction, string>> = {
 
   // ---- Support and preferences ----
   "support.titre": "Support",
+  "support.tutoriels": "Guides",
   "support.faq": "Frequently asked questions",
   "support.retour": "Send us feedback",
   "prefs.titre": "Preferences",

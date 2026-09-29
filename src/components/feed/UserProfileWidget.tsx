@@ -3,7 +3,7 @@
 import { isOrganizer, isVenueOwner as ownsVenue } from "@/lib/hats";
 import Link from "next/link";
 import { MapPin, Users } from "lucide-react";
-import { ROLE_LABELS } from "@/types";
+import { titre } from "@/lib/genre";
 import { avatarColor } from "./PostCard";
 import type { UserProfile } from "@/types";
 
@@ -20,13 +20,13 @@ export function UserProfileWidget({ user }: UserProfileWidgetProps) {
   // affichait « Organisateur » ou « Propriétaire de terrain » en pastille de
   // role. Sans role choisi, il n'y a pas de role a annoncer, et les
   // casquettes se disent en toutes lettres juste en dessous.
-  const roleLabel = user.evolutionRole ? ROLE_LABELS[user.evolutionRole] : null;
+  const roleLabel = user.evolutionRole ? titre(user.evolutionRole, user.gender) : null;
 
   // Les casquettes se disent en toutes lettres, sous le nom : ce sont des
   // fonctions cumulables, pas une identite unique qu'une pastille pourrait
   // porter. Un compte peut avoir les deux.
   const casquettes = [
-    isOrganizer(user) ? "Organisateur de compétition" : null,
+    isOrganizer(user) ? `${titre("organizer", user.gender)} de compétition` : null,
     ownsVenue(user) ? "Propriétaire de terrain" : null,
   ].filter(Boolean) as string[];
 

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { HelpCircle, MessageSquare, Plus, Minus, Loader2, Check } from "lucide-react";
+import { BookOpen, HelpCircle, MessageSquare, Plus, Minus, Loader2, Check } from "lucide-react";
 import toast from "react-hot-toast";
 import { auth } from "@/lib/firebase";
-import { useT, type Traduire } from "@/i18n";
+import { useT, useTextes, type Traduire } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import CartesTutoriels from "@/components/aide/CartesTutoriels";
 
 // ============================================
 // L'aide, et le retour qu'on veut nous faire.
@@ -146,8 +148,14 @@ function FormulaireRetour() {
   );
 }
 
+const TT = textes(
+  { tutoriels: "Tutoriels : par où commencer", tous: "Tout voir" },
+  { tutoriels: "Guides: where to start", tous: "See all" },
+);
+
 export default function AidePage() {
   const t = useT();
+  const tt = useTextes(TT);
   return (
     <div className="mx-auto max-w-3xl pb-24">
       <nav
@@ -174,7 +182,17 @@ export default function AidePage() {
         </div>
       </section>
 
+      {/* LES TUTORIELS D'ABORD : « par où commencer » est la première question
+          qu'on vient poser ici, bien avant celles de la foire aux questions. */}
       <section className="mt-6">
+        <h2 className="flex items-center justify-between gap-2 border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+          <span className="flex items-center gap-2"><BookOpen size={14} /> {tt.tutoriels}</span>
+          <Link href="/aide/tutoriels" className="text-emerald-700 hover:text-gray-900">{tt.tous}</Link>
+        </h2>
+        <CartesTutoriels />
+      </section>
+
+      <section className="mt-10">
         <h2 className="flex items-center gap-2 border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
           <HelpCircle size={14} /> {t("aide.faqTitre")}
         </h2>

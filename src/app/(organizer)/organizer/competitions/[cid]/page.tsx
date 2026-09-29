@@ -22,6 +22,8 @@ import CompetitionFormatFields from "@/components/competition/CompetitionFormatF
 import CompetitionShareCard from "@/components/competition/CompetitionShareCard";
 import OrganizerProgress from "@/components/competition/OrganizerProgress";
 import toast from "react-hot-toast";
+import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
+import type { Categorie } from "@/lib/genre";
 import type {
   Competition, CompetitionFormat, CompetitionStatus, CompTeam, CompMatch,
 } from "@/types";
@@ -52,6 +54,7 @@ export default function CompetitionDashboardPage() {
   const [saving, setSaving] = useState(false);
   const [fName, setFName] = useState("");
   const [fDesc, setFDesc] = useState("");
+  const [fCategorie, setFCategorie] = useState<Categorie | null>(null);
   const [fLogoUrl, setFLogoUrl] = useState("");
   const [fLogoFile, setFLogoFile] = useState<File | null>(null);
   const [fBannerUrl, setFBannerUrl] = useState("");
@@ -103,6 +106,7 @@ export default function CompetitionDashboardPage() {
     if (!competition) return;
     setFName(competition.name);
     setFDesc(competition.description ?? "");
+    setFCategorie(competition.category ?? null);
     setFLogoUrl(competition.logoUrl ?? "");
     setFLogoFile(null);
     setFBannerUrl(competition.bannerUrl ?? "");
@@ -131,6 +135,7 @@ export default function CompetitionDashboardPage() {
       const patch: Record<string, unknown> = {
         name: fName.trim(),
         description: fDesc.trim() || null,
+        ...(fCategorie ? { category: fCategorie } : {}),
         logo_url: fLogoUrl.trim() || null,
         banner_url: fBannerUrl.trim() || null,
         ...(fFormat ? { format: fFormat } : {}),
@@ -332,6 +337,7 @@ export default function CompetitionDashboardPage() {
         <MVPCompetitionCard
           candidats={classerCandidatsMVPCompetition(matches, matchDuration(competition.format))}
           actuel={competition.mvpPlayerName}
+          feminine={competition.category === "women"}
           onDesigner={async (c) => {
             if (!user) return;
             setMvpSaving(true);
@@ -468,6 +474,10 @@ export default function CompetitionDashboardPage() {
                     onChange={(e) => setFName(e.target.value)}
                     className="w-full border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Catégorie</label>
+                  <ChoixDeCategorie valeur={fCategorie} onChange={setFCategorie} />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -633,10 +643,12 @@ export default function CompetitionDashboardPage() {
  * aussi bien choisir hors des cinq premiers ou ne désigner personne.
  */
 function MVPCompetitionCard({
-  candidats, actuel, onDesigner, saving,
+  candidats, actuel, onDesigner, saving, feminine = false,
 }: {
   candidats: CandidatMVPCompetition[];
   actuel: string | null | undefined;
+  /** Compétition féminine : « meilleure joueuse », « joueuse du match ». */
+  feminine?: boolean;
   onDesigner: (c: CandidatMVPCompetition | null) => void;
   saving: boolean;
 }) {
@@ -645,16 +657,20 @@ function MVPCompetitionCard({
 
   return (
     <div className=" border border-gray-200/70 bg-white p-5">
-      <p className="text-sm font-bold text-gray-900">Meilleur joueur du tournoi</p>
+      <p className="text-sm font-bold text-gray-900">
+        {feminine ? "Meilleure joueuse du tournoi" : "Meilleur joueur du tournoi"}
+      </p>
       <p className="mt-0.5 text-xs text-gray-500">
         {actuel
-          ? `Désigné : ${actuel}.`
-          : "Classé par nombre d\u2019homme du match, puis par buts. À toi de trancher."}
+          ? `${feminine ? "Désignée" : "Désigné"} : ${actuel}.`
+          : `Classé par nombre de fois ${feminine ? "joueuse" : "homme"} du match, puis par buts. À toi de trancher.`}
       </p>
 
       {candidats.length === 0 ? (
         <p className="mt-3 text-xs font-semibold text-gray-400">
-          Aucun homme du match n&apos;a été désigné sur les rencontres de cette compétition.
+          {feminine
+            ? "Aucune joueuse du match n'a été désignée sur les rencontres de cette compétition."
+            : "Aucun homme du match n'a été désigné sur les rencontres de cette compétition."}
         </p>
       ) : (
         <>
@@ -672,7 +688,7 @@ function MVPCompetitionCard({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-black text-gray-900">{c.name}</p>
                   <p className="truncate text-[11px] font-semibold text-gray-400">
-                    {c.hommeDuMatch} fois homme du match · {c.buts} but{c.buts !== 1 ? "s" : ""} · {c.minutes}&apos;
+                    {c.hommeDuMatch} fois {feminine ? "joueuse" : "homme"} du match · {c.buts} but{c.buts !== 1 ? "s" : ""} · {c.minutes}&apos;
                   </p>
                 </div>
               </button>

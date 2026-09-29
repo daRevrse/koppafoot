@@ -10,6 +10,7 @@ import { publierFormes } from "@/lib/formes-admin";
 import { crediter, type Buteur } from "@/lib/match-renseigne-server";
 import { refValidation } from "@/lib/validation-server";
 import { connexionBloquee } from "@/lib/suspension-serveur";
+import { lireGenre } from "@/lib/genre";
 import { sendPushToUser } from "@/lib/fcm-server";
 import type {
   ArbitrageAdmin, CandidatureDuCompte, CompteResume, ContestationAdmin, EquipeAdmin,
@@ -629,6 +630,7 @@ export async function ficheCompteAdmin(uid: string): Promise<FicheCompteAdmin | 
     telephone: texte(d.phone),
     ville: texte(d.location_city),
     bio: texte(d.bio),
+    genre: lireGenre(d.gender),
     photo: texte(d.profile_picture_url),
     actif,
     suspension: actif ? null : {

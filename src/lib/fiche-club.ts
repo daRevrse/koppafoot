@@ -232,6 +232,14 @@ export const POSTES_AU_PLURIEL: Record<Poste, string> = {
   forward: "Attaquants",
 };
 
+/** Une équipe féminine : ses joueuses (lib/genre). */
+const POSTES_AU_PLURIEL_FEMININ: Record<Poste, string> = {
+  goalkeeper: "Gardiennes",
+  defender: "Défenseures",
+  midfielder: "Milieux",
+  forward: "Attaquantes",
+};
+
 const POSTES_AU_PLURIEL_EN: Record<Poste, string> = {
   goalkeeper: "Goalkeepers",
   defender: "Defenders",
@@ -256,8 +264,9 @@ function rangDuNumero(numero: string | null | undefined): number {
 export function effectifParPoste<T extends { nom: string; numero?: string | null; poste?: string | null }>(
   joueurs: T[],
   langue: "fr" | "en" = "fr",
+  feminin = false,
 ): { poste: Poste | null; titre: string; joueurs: T[] }[] {
-  const pluriels = langue === "en" ? POSTES_AU_PLURIEL_EN : POSTES_AU_PLURIEL;
+  const pluriels = langue === "en" ? POSTES_AU_PLURIEL_EN : feminin ? POSTES_AU_PLURIEL_FEMININ : POSTES_AU_PLURIEL;
   const groupes = new Map<Poste | null, T[]>();
   for (const j of joueurs) {
     const poste = normaliserPoste(j.poste);

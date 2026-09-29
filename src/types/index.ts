@@ -1,4 +1,5 @@
 import type { PushPrefs } from "@/lib/push-categories";
+import type { Categorie, Genre } from "@/lib/genre";
 import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
 import type { Possession, PossessionStockee } from "@/lib/possession";
@@ -76,6 +77,8 @@ export interface UserProfile {
   assists?: number;
   // Physical info
   strongFoot?: "left" | "right" | "both";
+  /** Homme ou femme ; requis dès qu'on a un rôle ou une casquette. Voir lib/genre. */
+  gender?: Genre | null;
   height?: number; // cm
   weight?: number; // kg
   dateOfBirth?: string; // ISO date
@@ -158,6 +161,8 @@ export interface SignupData {
    * un compte sans role et devait refaire le choix qu'il venait de faire.
    */
   evolutionRole?: EvolutionRole;
+  /** Demandé avec le rôle : un compte à rôle dit son genre (lib/genre). */
+  gender?: Genre;
   // Player-specific
   position?: "goalkeeper" | "defender" | "midfielder" | "forward" | "any";
   skillLevel?: "beginner" | "amateur" | "intermediate" | "advanced";
@@ -198,6 +203,8 @@ export interface FirestoreUser {
   experience_years?: number;
   // Physical info
   strong_foot?: "left" | "right" | "both";
+  /** Voir `UserProfile.gender`. */
+  gender?: Genre | null;
   height?: number;
   weight?: number;
   date_of_birth?: string;
@@ -347,6 +354,8 @@ export interface FirestoreTeam {
   // compte ni membres : son effectif vit dans la sous-collection ghost_players,
   // et son manager_id est celui qui l'a créée.
   is_ghost?: boolean;
+  /** Masculine, féminine ou mixte. Absent pour une équipe d'avant : voir lib/genre. */
+  category?: Categorie | null;
   created_at: string;
   updated_at: string;
 }
@@ -381,6 +390,8 @@ export interface Team {
   staff?: TeamStaffMember[];
   staffManagerIds?: string[];
   isGhost?: boolean;
+  /** Voir `FirestoreTeam.category`. */
+  category?: Categorie | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1727,6 +1738,8 @@ export interface FirestoreCompetition {
   name: string;
   slug: string;
   description?: string;
+  /** Masculine, féminine ou mixte : qui y joue. Voir lib/genre. */
+  category?: Categorie | null;
   logo_url: string | null;
   banner_url: string | null;
   organizer_ids: string[];
@@ -1802,6 +1815,8 @@ export interface Competition {
   name: string;
   slug: string;
   description?: string;
+  /** Voir `FirestoreCompetition.category`. */
+  category?: Categorie | null;
   logoUrl: string | null;
   bannerUrl: string | null;
   organizerIds: string[];

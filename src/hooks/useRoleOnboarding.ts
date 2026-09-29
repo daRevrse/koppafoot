@@ -2,98 +2,165 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTeamsByManager, getGhostPlayersByTeam, getMatchesByReferee, getMesCorpsArbitraux } from "@/lib/firestore";
-import { listCompTeamsByManager } from "@/lib/competition-firestore";
+import { useLangue } from "@/i18n";
 import {
-  managerOnboarding,
-  playerOnboarding,
-  refereeOnboarding,
-  type OnboardingProgress,
+  getTeamsByManager, getGhostPlayersByTeam, getMatchesByReferee, getMesCorpsArbitraux,
+  getMatchesIModerate, getVenuesByOwner, onBookingsByOwner,
+} from "@/lib/firestore";
+import {
+  listCompTeamsByManager, listCompetitionsByOrganizer, listCompTeams, listCompMatches,
+  listModeratedCompetitions,
+} from "@/lib/competition-firestore";
+import {
+  managerOnboarding, playerOnboarding, refereeOnboarding, spectatorOnboarding,
+  organizerOnboarding, venueOwnerOnboarding, scorerOnboarding, profilsDuCompte,
+  type OnboardingProgress, type ProfilGuide,
 } from "@/lib/onboarding";
+import type { Booking, UserProfile } from "@/types";
+import type { Langue } from "@/i18n/config";
 
 // ============================================
-// Loads whatever the activated role's onboarding needs, then derives the
-// progress. Returns null while loading (or when no role is activated) so
-// callers can skip rendering rather than flash an empty checklist.
+// Loads whatever each profile's guide needs, then derives the progress.
+// Returns null while loading so callers can skip rendering rather than flash
+// an empty checklist.
 //
-// CHAQUE RÔLE EST NOMMÉ, il n'y a plus de branche « tout le reste ». Elle
+// CHAQUE PROFIL EST NOMMÉ, il n'y a plus de branche « tout le reste ». Elle
 // menait au manager, si bien qu'un arbitre ouvrait son espace sur « Créer
 // ton équipe » — étape bloquante, donc un guide arrêté net sur une consigne
 // qui ne le concernait pas.
+//
+// UN COMPTE A PLUSIEURS GUIDES : un rôle et des casquettes se cumulent (une
+// arbitre peut organiser un tournoi). On les charge tous, en parallèle ; un
+// guide qui échoue à se charger tombe sur ses données vides plutôt que de
+// faire tomber les autres.
 // ============================================
 
-export function useRoleOnboarding(): OnboardingProgress | null {
+/** L'application ouverte depuis l'écran d'accueil, et non un onglet. */
+function appInstallee(): boolean {
+  if (typeof window === "undefined") return false;
+  const ios = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return ios || window.matchMedia?.("(display-mode: standalone)").matches === true;
+}
+
+function notificationsAutorisees(): boolean {
+  return typeof Notification !== "undefined" && Notification.permission === "granted";
+}
+
+/** Les demandes reçues, lues une fois : le guide n'a pas à suivre le direct. */
+function demandesRecues(uid: string): Promise<Booking[]> {
+  return new Promise((resolve) => {
+    let fini = false;
+    // `stop` n'existe qu'au retour de `onBookingsByOwner` : un premier appel
+    // synchrone (réponse en cache) le trouverait encore vide, d'où le relais.
+    let stop: (() => void) | null = null;
+    stop = onBookingsByOwner(uid, (demandes) => {
+      if (fini) return;
+      fini = true;
+      resolve(demandes);
+      queueMicrotask(() => stop?.());
+    });
+  });
+}
+
+async function construire(user: UserProfile, profil: ProfilGuide, langue: Langue): Promise<OnboardingProgress> {
+  switch (profil) {
+    case "spectator":
+      return spectatorOnboarding(user, { installe: appInstallee(), notifications: notificationsAutorisees() }, langue);
+
+    case "player":
+      // Everything the player checklist needs already lives on the profile.
+      return playerOnboarding(user, { linkedCount: user.linkedCompPlayers?.length ?? 0 }, langue);
+
+    case "referee": {
+      // « A-t-il déjà un match ? », quel qu'en soit le statut : une
+      // candidature en attente compte, le geste est fait.
+      const [designations, corps] = await Promise.all([
+        getMatchesByReferee(user.uid).catch(() => []),
+        getMesCorpsArbitraux(user.uid).catch(() => []),
+      ]);
+      return refereeOnboarding(user, { designationCount: designations.length, corpsCount: corps.length }, langue);
+    }
+
+    case "manager": {
+      const [teams, compTeams] = await Promise.all([
+        getTeamsByManager(user.uid).catch(() => []),
+        listCompTeamsByManager(user.uid).catch(() => []),
+      ]);
+      // Ghost players live in a subcollection, a squad made only of
+      // players without smartphones still counts as a squad.
+      const ghostCounts = await Promise.all(
+        teams.map((t) => getGhostPlayersByTeam(t.id).then((g) => g.length).catch(() => 0)),
+      );
+      const rosterCount =
+        teams.reduce((n, t) => n + t.memberIds.length, 0) + ghostCounts.reduce((n, c) => n + c, 0);
+      return managerOnboarding(user, { teams, compTeams, rosterCount }, langue);
+    }
+
+    case "organizer": {
+      const competitions = await listCompetitionsByOrganizer(user.uid).catch(() => []);
+      // La plus récente : c'est celle qu'on est en train de monter.
+      const competition = [...competitions].sort((a, b) =>
+        String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")))[0] ?? null;
+      if (!competition) {
+        return organizerOnboarding(user, { competition: null, equipes: 0, matchsDates: 0, matchsJoues: 0 }, langue);
+      }
+      const [equipes, matchs] = await Promise.all([
+        listCompTeams(competition.id).catch(() => []),
+        listCompMatches(competition.id).catch(() => []),
+      ]);
+      return organizerOnboarding(user, {
+        competition,
+        equipes: equipes.length,
+        matchsDates: matchs.filter((m) => m.date != null).length,
+        matchsJoues: matchs.filter((m) => m.status === "live" || m.status === "completed").length,
+      }, langue);
+    }
+
+    case "venue_owner": {
+      const [terrains, demandes] = await Promise.all([
+        getVenuesByOwner(user.uid).catch(() => []),
+        demandesRecues(user.uid).catch(() => [] as Booking[]),
+      ]);
+      return venueOwnerOnboarding(user, {
+        terrains,
+        demandesTraitees: demandes.filter((d) => d.status !== "pending").length,
+      }, langue);
+    }
+
+    case "scorer": {
+      const [corps, matchs, competitions] = await Promise.all([
+        getMesCorpsArbitraux(user.uid).catch(() => []),
+        getMatchesIModerate(user.uid).catch(() => []),
+        listModeratedCompetitions(user.uid).catch(() => []),
+      ]);
+      return scorerOnboarding(user, { corps: corps.length, matchs: matchs.length + competitions.length }, langue);
+    }
+  }
+}
+
+/**
+ * Les guides des profils demandés (par défaut, tous ceux du compte), dans
+ * leur ordre. `null` pendant le chargement, ou sans compte.
+ */
+export function useGuidesDeDemarrage(profils?: ProfilGuide[]): OnboardingProgress[] | null {
   const { user } = useAuth();
-  const [progress, setProgress] = useState<OnboardingProgress | null>(null);
-  const role = user?.evolutionRole ?? null;
+  const { langue } = useLangue();
+  const [guides, setGuides] = useState<{ cle: string; liste: OnboardingProgress[] } | null>(null);
+
+  const voulus = (profils ?? profilsDuCompte(user)).filter((p) => profilsDuCompte(user).includes(p));
+  const cle = user ? `${user.uid}|${langue}|${voulus.join(",")}` : "";
 
   useEffect(() => {
-    if (!user || !role) return;
-    let cancelled = false;
+    if (!user || !cle) return;
+    let annule = false;
+    const liste = cle.split("|")[2].split(",").filter(Boolean) as ProfilGuide[];
+    Promise.all(liste.map((p) => construire(user, p, langue)))
+      .then((resultats) => { if (!annule) setGuides({ cle, liste: resultats }); })
+      .catch((err) => console.error("useGuidesDeDemarrage :", err));
+    return () => { annule = true; };
+  }, [user, cle, langue]);
 
-    (async () => {
-      if (role === "player") {
-        // Everything the player checklist needs already lives on the profile.
-        if (!cancelled) {
-          setProgress(
-            playerOnboarding(user, { linkedCount: user.linkedCompPlayers?.length ?? 0 }),
-          );
-        }
-        return;
-      }
-
-      if (role === "referee") {
-        // Une seule lecture : « a-t-il déjà un match ? », quel qu'en soit le
-        // statut. Une candidature en attente compte, le geste est fait.
-        try {
-          const [designations, corps] = await Promise.all([
-            getMatchesByReferee(user.uid),
-            getMesCorpsArbitraux(user.uid).catch(() => []),
-          ]);
-          if (!cancelled) {
-            setProgress(refereeOnboarding(user, {
-              designationCount: designations.length,
-              corpsCount: corps.length,
-            }));
-          }
-        } catch (err) {
-          console.error("useRoleOnboarding: failed to load referee context", err);
-          if (!cancelled) setProgress(refereeOnboarding(user, { designationCount: 0, corpsCount: 0 }));
-        }
-        return;
-      }
-
-      try {
-        const [teams, compTeams] = await Promise.all([
-          getTeamsByManager(user.uid),
-          listCompTeamsByManager(user.uid),
-        ]);
-        // Ghost players live in a subcollection, a squad made only of
-        // players without smartphones still counts as a squad.
-        const ghostCounts = await Promise.all(
-          teams.map((t) => getGhostPlayersByTeam(t.id).then((g) => g.length).catch(() => 0)),
-        );
-        const rosterCount =
-          teams.reduce((n, t) => n + t.memberIds.length, 0) +
-          ghostCounts.reduce((n, c) => n + c, 0);
-
-        if (!cancelled) {
-          setProgress(managerOnboarding(user, { teams, compTeams, rosterCount }));
-        }
-      } catch (err) {
-        console.error("useRoleOnboarding: failed to load manager context", err);
-        if (!cancelled) {
-          setProgress(managerOnboarding(user, { teams: [], compTeams: [], rosterCount: 0 }));
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, role]);
-
-  // Derived, not stored: a user who logs out or drops their role must not
-  // keep a stale checklist from the previous one.
-  return role ? progress : null;
+  // Dérivé, pas stocké : un compte qui change (déconnexion, nouveau rôle) ne
+  // garde pas les guides du précédent.
+  return user && guides?.cle === cle ? guides.liste : null;
 }

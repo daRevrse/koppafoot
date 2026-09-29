@@ -1,5 +1,7 @@
 "use client";
 
+import CommentFaire from "@/components/aide/CommentFaire";
+import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
@@ -10,6 +12,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { getTeamsIManage, getTeamsByPlayer, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
 import type { Team } from "@/types";
+import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
+import type { Categorie, Genre } from "@/lib/genre";
 
 // ============================================
 // Color helpers
@@ -37,10 +41,12 @@ const TEAM_COLORS = [
 // Create Team Modal
 // ============================================
 
-function CreateTeamModal({ onClose, onCreated, managerId }: {
+function CreateTeamModal({ onClose, onCreated, managerId, genreDuManager }: {
   onClose: () => void;
   onCreated: () => void;
   managerId: string;
+  /** Pour proposer une catégorie par défaut : on la voit, on la change d'un geste. */
+  genreDuManager?: Genre | null;
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -49,6 +55,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
     level: "amateur",
     maxMembers: 14,
     color: "emerald",
+    category: (genreDuManager === "female" ? "women" : "men") as Categorie,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,6 +72,7 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
         level: form.level,
         maxMembers: form.maxMembers,
         color: form.color,
+        category: form.category,
       });
       onCreated();
       onClose();
@@ -125,6 +133,13 @@ function CreateTeamModal({ onClose, onCreated, managerId }: {
               placeholder="Décris ton équipe..."
               className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 resize-none"
             />
+          </div>
+
+          {/* Catégorie : qui joue dans l'équipe. Le mercato et les
+              compétitions la lisent (voir lib/genre). */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Catégorie</label>
+            <ChoixDeCategorie valeur={form.category} onChange={(c) => setForm({ ...form, category: c })} />
           </div>
 
           {/* Level + Max members */}
@@ -281,6 +296,9 @@ export default function TeamsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Le guide du rôle : créer l'équipe, l'effectif, la compétition. */}
+      <GuideDeDemarrage profils={["manager", "player"]} />
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <motion.div
@@ -444,6 +462,7 @@ export default function TeamsPage() {
               <Search size={16} /> Trouver une équipe au mercato
             </Link>
           )}
+          <CommentFaire tutoriel={isManager ? "manager" : "joueur"} className="mt-5" />
         </motion.div>
       )}
 
@@ -460,6 +479,7 @@ export default function TeamsPage() {
             onClose={() => setShowCreateModal(false)}
             onCreated={fetchTeams}
             managerId={user.uid}
+            genreDuManager={user.gender}
           />
         )}
       </AnimatePresence>

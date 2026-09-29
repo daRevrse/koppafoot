@@ -494,7 +494,7 @@ export default function MatchResultModal({
                 n'était pas au stade n'a aucune raison de trancher. */}
             <div className="mt-6">
               <label htmlFor="mvp" className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
-                Homme du match
+                {competition?.category === "women" ? "Joueuse du match" : "Homme du match"}
               </label>
               <select
                 id="mvp"

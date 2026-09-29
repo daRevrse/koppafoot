@@ -11,6 +11,7 @@ import { isVenueOwner } from "@/lib/hats";
 import type { UserProfile } from "@/types";
 import { useLocale, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import { accorder, type Genre } from "@/lib/genre";
 
 // ============================================
 // La fiche publique en une carte.
@@ -84,7 +85,8 @@ const T = textes(
     experience: (n: number) => (n > 1 ? "Ans d'expérience" : "An d'expérience"),
     ans: (n: number) => `${n} ans`,
     corps: (chef: boolean, nom: string) => `${chef ? "Dirige" : "Membre de"} « ${nom} »`,
-    joueurSecond: (n: number) => `Joueur · ${n} match${n > 1 ? "s" : ""}`,
+    joueurSecond: (n: number, genre: Genre | null | undefined) =>
+      `${accorder(genre, "Joueur", "Joueuse")} · ${n} match${n > 1 ? "s" : ""}`,
     managerSecond: (pct: number, n: number) => `Manager · ${pct} % de victoires sur ${n} match${n > 1 ? "s" : ""}`,
     manager: "Manager",
     arbitreSecond: (n: number) => `Arbitre · ${n} match${n > 1 ? "s" : ""} arbitré${n > 1 ? "s" : ""}`,
@@ -355,7 +357,7 @@ export default function BilanDuProfil({
   // Le rôle second, résumé : il n'a pas sa carte, il a sa ligne.
   for (const r of roles.slice(1)) {
     if (r === "player") {
-      attributs.push({ Icone: Shirt, texte: t.joueurSecond(profile.matchesPlayed ?? 0) });
+      attributs.push({ Icone: Shirt, texte: t.joueurSecond(profile.matchesPlayed ?? 0, profile.gender) });
     } else if (r === "manager" && matchsDiriges > 0) {
       attributs.push({ Icone: Users, texte: t.managerSecond(pourcent, matchsDiriges) });
     } else if (r === "manager") {

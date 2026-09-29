@@ -48,3 +48,6 @@ next-env.d.ts
 
 # dossier de travail hors produit
 /business
+
+# tutoriels PDF, copiés depuis docs/ à chaque dev et build (scripts/tutoriels.mjs)
+/public/tutoriels/
