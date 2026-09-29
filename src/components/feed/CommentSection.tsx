@@ -6,6 +6,13 @@ import { Send } from "lucide-react";
 import { getComments, addComment } from "@/lib/firestore";
 import { avatarColor, timeAgo } from "./PostCard";
 import type { Comment } from "@/types";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  { ecrire: "Écrire un commentaire...", aucun: "Aucun commentaire. Sois le premier !" },
+  { ecrire: "Write a comment...", aucun: "No comments yet. Be the first!" },
+);
 
 interface CommentSectionProps {
   postId: string;
@@ -18,6 +25,8 @@ interface CommentSectionProps {
 }
 
 export function CommentSection({ postId, currentUser }: CommentSectionProps) {
+  const { langue } = useLangue();
+  const t = useTextes(T);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState("");
@@ -65,7 +74,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-            placeholder="Écrire un commentaire..."
+            placeholder={t.ecrire}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
           />
           <button
@@ -93,7 +102,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
           ))}
         </div>
       ) : comments.length === 0 ? (
-        <p className="text-center text-xs text-gray-400 py-2">Aucun commentaire. Soyez le premier !</p>
+        <p className="text-center text-xs text-gray-400 py-2">{t.aucun}</p>
       ) : (
         <AnimatePresence initial={false}>
           {comments.map((c) => (
@@ -113,7 +122,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
                   <p className="text-xs font-semibold text-gray-900">{c.authorName}</p>
                   <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{c.content}</p>
                 </div>
-                <p className="mt-0.5 ml-2 text-[10px] text-gray-400">{timeAgo(c.createdAt)}</p>
+                <p className="mt-0.5 ml-2 text-[10px] text-gray-400">{timeAgo(c.createdAt, langue)}</p>
               </div>
             </motion.div>
           ))}

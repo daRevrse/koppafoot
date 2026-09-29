@@ -17,4 +17,9 @@ const firebaseConfig = {
 
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
+
+// Les e-mails de Firebase (vérification, mot de passe oublié) en français :
+// sans cette ligne, ils partent dans la langue des modèles de la console,
+// l'anglais par défaut. L'application n'existe qu'en français.
+auth.languageCode = "fr";
 export const db = getFirestore(app);

@@ -7,6 +7,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { CompPlayer, RosterClaim } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    erreur: "Une erreur est survenue",
+    envoyee: "Demande envoyée, en attente de validation",
+    toi: "Toi",
+    enAttente: "En attente",
+    rattacher: "Rattacher",
+  },
+  {
+    erreur: "Something went wrong",
+    envoyee: "Request sent, waiting for approval",
+    toi: "You",
+    enAttente: "Pending",
+    rattacher: "Link",
+  },
+);
 
 // ============================================
 // Public roster, with a superadmin repair action.
@@ -28,6 +47,7 @@ export default function RosterClaimList({
   roster: CompPlayer[];
 }) {
   const { user, firebaseUser } = useAuth();
+  const t = useTextes(T);
   const [myClaims, setMyClaims] = useState<RosterClaim[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
 
@@ -64,13 +84,13 @@ export default function RosterClaimList({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Une erreur est survenue");
+        toast.error(data.error ?? t.erreur);
         return;
       }
-      toast.success("Demande envoyée, en attente de validation");
+      toast.success(t.envoyee);
       await loadClaims();
     } catch {
-      toast.error("Une erreur est survenue");
+      toast.error(t.erreur);
     } finally {
       setSubmitting(null);
     }
@@ -106,12 +126,12 @@ export default function RosterClaimList({
       lien: player.user_id ? `/profile/${player.user_id}` : null,
       apres: isMe ? (
         <span className="inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-600">
-          <BadgeCheck size={10} /> Toi
+          <BadgeCheck size={10} /> {t.toi}
         </span>
       ) : null,
       action: myPending ? (
         <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600">
-          <Clock3 size={10} /> En attente
+          <Clock3 size={10} /> {t.enAttente}
         </span>
       ) : canClaim ? (
         <button
@@ -125,7 +145,7 @@ export default function RosterClaimList({
           ) : (
             <UserCheck size={11} />
           )}
-          Rattacher
+          {t.rattacher}
         </button>
       ) : null,
     };

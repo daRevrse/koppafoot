@@ -8,6 +8,39 @@ import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { useMedia } from "@/hooks/useMedia";
 import type { MarquesJoueur } from "@/lib/recit-du-match";
 import type { LineupEntry } from "@/types";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    entre: "Entré",
+    buts: (n: number) => `${n} but${n > 1 ? "s" : ""}`,
+    but: "But",
+    rouge: "Carton rouge",
+    jaune: "Carton jaune",
+    hommeDuMatch: "Homme du match",
+    compoAVenir: "Composition à venir",
+    pasDeCompo: "Pas de composition",
+    managerPublie: "Le manager la publie avant le coup d'envoi.",
+    personne: "Personne ne l'a saisie pour ce match.",
+    banc: "Banc",
+    manager: "Manager",
+  },
+  {
+    entre: "Came on",
+    buts: (n: number) => `${n} goal${n === 1 ? "" : "s"}`,
+    but: "Goal",
+    rouge: "Red card",
+    jaune: "Yellow card",
+    hommeDuMatch: "Player of the match",
+    compoAVenir: "Line-up to come",
+    pasDeCompo: "No line-up",
+    managerPublie: "The manager publishes it before kick-off.",
+    personne: "Nobody entered it for this match.",
+    banc: "Bench",
+    manager: "Manager",
+  },
+);
 
 // ============================================
 // La composition, sur un terrain.
@@ -76,29 +109,30 @@ function managerDuClub(clubId: string): Promise<ManagerPublic | null> {
  * pastilles ; le banc n'a qu'une ligne de texte, elles s'y écrivent.
  */
 function MarquesDuBanc({ m, homme }: { m: MarquesJoueur | undefined; homme: boolean }) {
+  const t = useTextes(T);
   if (!m && !homme) return null;
   return (
     <span className="ml-1 inline-flex items-center gap-1 align-middle">
       {m?.entreeA != null && (
         <span className="inline-flex items-center text-[10px] font-black tabular-nums text-emerald-600">
-          <ArrowUp size={10} strokeWidth={3} aria-label="Entré" />
+          <ArrowUp size={10} strokeWidth={3} aria-label={t.entre} />
           {m.entreeA > 0 && `${m.entreeA}'`}
         </span>
       )}
       {m && m.buts > 0 && (
-        <span className="inline-flex items-center text-[10px] font-black text-gray-700" title={`${m.buts} but${m.buts > 1 ? "s" : ""}`}>
-          <Goal size={10} aria-label="But" />
+        <span className="inline-flex items-center text-[10px] font-black text-gray-700" title={t.buts(m.buts)}>
+          <Goal size={10} aria-label={t.but} />
           {m.buts > 1 && `×${m.buts}`}
         </span>
       )}
       {m && (m.rouge || m.jaunes > 0) && (
         <span
           role="img"
-          aria-label={m.rouge ? "Carton rouge" : "Carton jaune"}
+          aria-label={m.rouge ? t.rouge : t.jaune}
           className={`inline-block h-2.5 w-[7px] ${m.rouge ? "bg-red-500" : "bg-amber-400"}`}
         />
       )}
-      {homme && <Star size={10} className="fill-amber-400 text-amber-400" aria-label="Homme du match" />}
+      {homme && <Star size={10} className="fill-amber-400 text-amber-400" aria-label={t.hommeDuMatch} />}
     </span>
   );
 }
@@ -129,6 +163,7 @@ function Compo({ equipe, manager, photos, marques, homme, aVenir, avecTitre, ave
   // Tous les titulaires, sans plafond a onze : une competition se joue en NvN
   // (voir lib/terrain), et couper a onze aurait fait disparaitre des joueurs
   // d'un match a quatorze autant qu'il inventait des trous dans un 5v5.
+  const t = useTextes(T);
   const titulaires = equipe.entries.filter((e) => e.role === "starter");
   const remplacants = equipe.entries.filter((e) => e.role === "substitute");
   const cadre = avecCadre ? "border border-t-0 border-gray-200/70" : "border border-gray-200/70";
@@ -149,12 +184,10 @@ function Compo({ equipe, manager, photos, marques, homme, aVenir, avecTitre, ave
         // elle vient : c'est le manager qui la publie.
         <div className={`${cadre} bg-gray-50/50 px-4 py-10 text-center`}>
           <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-            {aVenir ? "Composition à venir" : "Pas de composition"}
+            {aVenir ? t.compoAVenir : t.pasDeCompo}
           </p>
           <p className="mt-1.5 text-[12px] font-semibold text-gray-400">
-            {aVenir
-              ? "Le manager la publie avant le coup d'envoi."
-              : "Personne ne l'a saisie pour ce match."}
+            {aVenir ? t.managerPublie : t.personne}
           </p>
         </div>
       ) : (
@@ -181,7 +214,7 @@ function Compo({ equipe, manager, photos, marques, homme, aVenir, avecTitre, ave
           {remplacants.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <span className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-                Banc
+                {t.banc}
               </span>
               {remplacants.map((r) => (
                 <span key={r.playerId} className="text-[11px] font-bold text-gray-600">
@@ -198,7 +231,7 @@ function Compo({ equipe, manager, photos, marques, homme, aVenir, avecTitre, ave
       {manager && (
         <div className="mt-3 flex min-w-0 items-center gap-2.5">
           <span className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-            Manager
+            {t.manager}
           </span>
           <Link
             href={`/profile/${manager.uid}`}

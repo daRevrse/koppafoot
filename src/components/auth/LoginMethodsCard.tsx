@@ -324,7 +324,7 @@ export default function LoginMethodsCard() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="votre@email.com"
+              placeholder="ton@email.com"
               className={inputClass}
             />
             <div className="flex flex-col gap-2 sm:flex-row">

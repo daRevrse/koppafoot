@@ -62,7 +62,7 @@ export default function AdminContestationsPage() {
     <div className="mx-auto max-w-4xl space-y-5">
       <EnTete
         titre="Contestations"
-        sousTitre="Les amicaux sur lesquels les deux camps ne s'accordent pas. Votre décision part aux deux managers avec son motif."
+        sousTitre="Les amicaux sur lesquels les deux camps ne s'accordent pas. Ta décision part aux deux managers avec son motif."
       />
       <Filtres
         valeur={filtre}

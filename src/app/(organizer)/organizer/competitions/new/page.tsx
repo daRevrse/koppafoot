@@ -120,7 +120,7 @@ export default function NewCompetitionPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-gray-900">Nouvelle compétition</h1>
           <p className="text-sm text-gray-500">
-            Définissez le format de votre tournoi. Vous pourrez ajouter les équipes ensuite.
+            Définis le format de ton tournoi. Tu pourras ajouter les équipes ensuite.
           </p>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function NewCompetitionPage() {
             </label>
             <textarea
               rows={3}
-              placeholder="Présentez votre compétition en quelques mots…"
+              placeholder="Présente ta compétition en quelques mots…"
               className="w-full resize-none border border-gray-200/70 px-4 py-2 focus:border-primary-500 focus:outline-none"
               value={form.description}
               onChange={(e) => update("description", e.target.value)}

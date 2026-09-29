@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
   // propre requête.
   if (resource === "user" && id === appelant.uid) {
     return NextResponse.json(
-      { error: "Utilisez la suppression de compte depuis votre profil." },
+      { error: "Utilise la suppression de compte depuis ton profil." },
       { status: 400 },
     );
   }

@@ -58,6 +58,15 @@ export interface ConditionJoueur {
   declareeLe: string;
 }
 
+/** Les statuts en anglais, pour les pages traduites (voir components/forme). */
+export const LIBELLE_CONDITION_EN: Record<StatutCondition, string> = {
+  apte: "Fit",
+  incertain: "Doubtful",
+  blesse: "Injured",
+  suspendu: "Suspended",
+  indisponible: "Unavailable",
+};
+
 export const LIBELLE_CONDITION: Record<StatutCondition, string> = {
   apte: "Apte",
   incertain: "Incertain",
@@ -195,6 +204,13 @@ export const JOURS_SANS_MATCH = 30;
 export type NiveauForme = "excellente" | "bonne" | "moyenne" | "faible";
 export type Tendance = "hausse" | "stable" | "baisse";
 export type Resultat = "V" | "N" | "D";
+
+export const LIBELLE_FORME_EN: Record<NiveauForme, string> = {
+  excellente: "In top form",
+  bonne: "In form",
+  moyenne: "Average form",
+  faible: "Out of form",
+};
 
 export const LIBELLE_FORME: Record<NiveauForme, string> = {
   excellente: "En pleine forme",

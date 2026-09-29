@@ -21,7 +21,10 @@ import toast from "react-hot-toast";
 import type { LigneJoueurPubliee, TriClassement } from "@/lib/classement";
 import LigneDeClassement from "@/components/classement/LigneDeClassement";
 import { stageLabel } from "@/lib/competition-format";
-import { cleDuJour, decalerDeJours, libelleDuJour } from "@/lib/dates";
+import { cleDuJour, decalerDeJours, estJourProche, libelleDuJour } from "@/lib/dates";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
 import {
   competitionHref, competitionSubtitle, entryKey, kickoff, liveMinute, matchHref,
   ordreDesCompetitions, type CompetitionFeed, type Entry,
@@ -30,7 +33,7 @@ import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/l
 import { onLiveFriendlies } from "@/lib/firestore";
 import { isWorldComp } from "@/lib/world-board-shared";
 import type { FootballCompetition } from "@/lib/football-data";
-import type { Competition, CompMatch, CompMatchRound, CompTeam } from "@/types";
+import type { Competition, CompMatch, CompTeam } from "@/types";
 import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 
 // ============================================
@@ -52,19 +55,117 @@ type ListTab = "all" | "favs" | "comps";
 type StatusChip = "live" | "finished" | "upcoming";
 type Pick = "home" | "draw" | "away";
 
-const LIST_TABS: { key: ListTab; label: string }[] = [
-  { key: "all", label: "Tous" },
-  { key: "favs", label: "Favoris" },
-  { key: "comps", label: "Compétitions" },
-];
+const LIST_TABS: ListTab[] = ["all", "favs", "comps"];
 
-const ROUND_LABELS: Record<CompMatchRound, string> = {
-  round_of_16: "8es de finale",
-  quarter: "Quart de finale",
-  semi: "Demi-finale",
-  final: "Finale",
-  third_place: "Petite finale",
-};
+const T = textes(
+  {
+    onglet: (k: ListTab) => ({ all: "Tous", favs: "Favoris", comps: "Compétitions" })[k],
+    majImpossible: "Impossible de mettre à jour. Réessaie.",
+    competitionSuivie: "Compétition suivie, tu recevras les buts en direct.",
+    competitionRetiree: "Compétition retirée.",
+    pronosticCompte: "Crée ton compte pour donner ton pronostic.",
+    aucuneCompetitionPublique: "Aucune compétition publique pour le moment.",
+    mesCompetitions: "Mes compétitions",
+    aSuivre: "À suivre",
+    nePlusSuivre: "Ne plus suivre",
+    suivreCompetition: "Suivre cette compétition",
+    toutesCompetitions: "Toutes les compétitions",
+    ailleurs: "Ailleurs",
+    footballMondial: "Le football mondial",
+    coupe: "Coupe",
+    championnat: "Championnat",
+    retirerFavoris: "Retirer des favoris",
+    suivreMatch: "Suivre ce match",
+    replier: "Replier",
+    deplier: "Déplier",
+    voirCompetition: "Voir la compétition",
+    quiVaGagner: "Qui va gagner ?",
+    matchJoue: "Le match est joué",
+    donneTonPronostic: "Donne ton pronostic",
+    pronosticValide: "Pronostic validé",
+    pronosticManque: "Pronostic manqué",
+    precedent: "Précédent",
+    suivant: "Suivant",
+    affiche: (i: number) => `Affiche ${i}`,
+    topPerformances: "Top performances",
+    cinqDerniers: "5 derniers matchs",
+    classementVide: "Le classement se remplit à la fin de chaque match.",
+    personneEncore: "Personne n'y figure encore.",
+    classementComplet: "Classement complet",
+    aucuneCompetitionEnCours: "Aucune compétition en cours",
+    prochainesCompetitions: "Les prochaines compétitions apparaîtront ici.",
+    toutLeDirect: "Tout le direct",
+    competitions: "Compétitions",
+    jourPrecedent: "Jour précédent",
+    jourSuivant: "Jour suivant",
+    enDirect: (n: number) => (n > 0 ? `En direct (${n})` : "En direct"),
+    termines: "Terminés",
+    aVenir: "À venir",
+    masquerScores: "Masquer les scores",
+    aucunMatchSuivi: "Aucun match suivi pour le moment.",
+    // « Aucun match aujourd'hui », mais « aucun match LE lun. 29 sept. ».
+    aucunMatchLe: (jour: string, proche: boolean) =>
+      `Aucun match ${proche ? "" : "le "}${jour.toLowerCase()}.`,
+    toucheEtoile: "Touche l'étoile d'une compétition ou d'un match pour le retrouver ici.",
+    voirLeJour: (jour: string, proche: boolean) => `Voir ${proche ? "" : "le "}${jour.toLowerCase()}`,
+  },
+  {
+    onglet: (k: ListTab) => ({ all: "All", favs: "Favourites", comps: "Competitions" })[k],
+    majImpossible: "Couldn't update. Try again.",
+    competitionSuivie: "Competition followed: you'll get its goals live.",
+    competitionRetiree: "Competition removed.",
+    pronosticCompte: "Create your account to make your prediction.",
+    aucuneCompetitionPublique: "No public competitions yet.",
+    mesCompetitions: "My competitions",
+    aSuivre: "Worth following",
+    nePlusSuivre: "Unfollow",
+    suivreCompetition: "Follow this competition",
+    toutesCompetitions: "All competitions",
+    ailleurs: "Elsewhere",
+    footballMondial: "World football",
+    coupe: "Cup",
+    championnat: "League",
+    retirerFavoris: "Remove from favourites",
+    suivreMatch: "Follow this match",
+    replier: "Collapse",
+    deplier: "Expand",
+    voirCompetition: "View the competition",
+    quiVaGagner: "Who will win?",
+    matchJoue: "The match has been played",
+    donneTonPronostic: "Make your prediction",
+    pronosticValide: "Prediction correct",
+    pronosticManque: "Prediction missed",
+    precedent: "Previous",
+    suivant: "Next",
+    affiche: (i: number) => `Featured match ${i}`,
+    topPerformances: "Top performances",
+    cinqDerniers: "Last 5 matches",
+    classementVide: "The rankings fill up at the end of each match.",
+    personneEncore: "Nobody is in them yet.",
+    classementComplet: "Full rankings",
+    aucuneCompetitionEnCours: "No competitions under way",
+    prochainesCompetitions: "Upcoming competitions will appear here.",
+    toutLeDirect: "All matches",
+    competitions: "Competitions",
+    jourPrecedent: "Previous day",
+    jourSuivant: "Next day",
+    enDirect: (n: number) => (n > 0 ? `Live (${n})` : "Live"),
+    termines: "Finished",
+    aVenir: "Upcoming",
+    masquerScores: "Hide scores",
+    aucunMatchSuivi: "No followed matches yet.",
+    aucunMatchLe: (jour: string, proche: boolean) =>
+      proche ? `No matches ${jour.toLowerCase()}.` : `No matches on ${jour}.`,
+    toucheEtoile: "Tap the star on a competition or a match to find it here.",
+    voirLeJour: (jour: string, proche: boolean) => `Go to ${proche ? jour.toLowerCase() : jour}`,
+  },
+);
+
+/** Le nom d'une compétition, sauf le fanion des amicaux, qui se traduit. */
+function useNomCompetition() {
+  const f = useTextes(FOOT);
+  return (c: Competition) => (c.id === FRIENDLY_COMP_ID ? f.amicaux : c.name);
+}
 
 // Local-only preferences: a favourite and a pronostic are a device thing,
 // not account data, no rules, no writes, and they work signed out.
@@ -87,7 +188,6 @@ const AFFICHES_MAX = 5;
 
 const dayKey = cleDuJour;
 const addDays = decalerDeJours;
-const dayLabel = libelleDuJour;
 
 // La minute en direct, les liens, la clé de tri et l'ordre des compétitions
 // vivent dans lib/direct-shared : l'application mobile les applique aussi.
@@ -293,6 +393,7 @@ function useSuiviCompetitions() {
     compFavStore.subscribe, compFavStore.get, compFavStore.getServer,
   );
   const { user, refreshUser } = useAuth();
+  const t = useTextes(T);
   const duCompte = user?.followedCompetitionIds;
   // Ce qu'on vient de demander, en attendant la relecture du profil :
   // l'étoile change tout de suite, et revient si l'écriture échoue.
@@ -327,11 +428,11 @@ function useSuiviCompetitions() {
       await setCompetitionFollow(user.uid, id, suivre);
     } catch {
       oublier();
-      toast.error("Impossible de mettre à jour. Réessaie.");
+      toast.error(t.majImpossible);
       return;
     }
     if (!suivre) basculerCompetitionLocale(id, false);
-    toast.success(suivre ? "Compétition suivie, tu recevras les buts en direct." : "Compétition retirée.");
+    toast.success(suivre ? t.competitionSuivie : t.competitionRetiree);
 
     // La demande ne se lâche qu'une fois le profil relu : sans ça, l'étoile
     // repasserait un instant par l'ancien état. Si la relecture échoue, on la
@@ -342,7 +443,7 @@ function useSuiviCompetitions() {
     } catch {
       /* l'étoile reste sur la demande jusqu'au prochain chargement */
     }
-  }, [user, suivies, refreshUser]);
+  }, [user, suivies, refreshUser, t]);
 
   return [suivies, basculer] as const;
 }
@@ -369,11 +470,12 @@ function usePicks() {
   const picks = useSyncExternalStore(pickStore.subscribe, pickStore.get, pickStore.getServer);
   const { user } = useAuth();
   const { open } = useAuthModal();
+  const t = useTextes(T);
 
   const choose = useCallback(
     async (id: string, pick: Pick) => {
       if (!user) {
-        open("Crée ton compte pour donner ton pronostic.");
+        open(t.pronosticCompte);
         return;
       }
       // L'écriture d'abord, la trace locale ensuite : c'est le changement de
@@ -382,7 +484,7 @@ function usePicks() {
       await castPrediction(id, user.uid, pick).catch(() => {});
       pickStore.set({ ...pickStore.get(), [id]: pick });
     },
-    [user, open],
+    [user, open, t],
   );
 
   return [picks, choose] as const;
@@ -425,6 +527,8 @@ function CompetitionsDirectory({
   onStar: (id: string) => void;
 }) {
   const [openCities, setOpenCities] = useState<Set<string>>(new Set());
+  const { langue } = useLangue();
+  const t = useTextes(T);
 
   const starred = competitions.filter((c) => compFavs.has(c.id));
 
@@ -432,13 +536,13 @@ function CompetitionsDirectory({
   const byCity = useMemo(() => {
     const map = new Map<string, Competition[]>();
     for (const c of competitions) {
-      const city = c.venueCity ?? "Ailleurs";
+      const city = c.venueCity ?? t.ailleurs;
       const list = map.get(city) ?? [];
       list.push(c);
       map.set(city, list);
     }
     return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
-  }, [competitions]);
+  }, [competitions, t]);
 
   const toggleCity = (city: string) => {
     setOpenCities((prev) => {
@@ -456,7 +560,7 @@ function CompetitionsDirectory({
       <div className="px-4 py-10 text-center">
         <Trophy size={24} className="mx-auto text-gray-300" />
         <p className="mt-2 text-[13px] font-bold text-gray-500">
-          Aucune compétition publique pour le moment.
+          {t.aucuneCompetitionPublique}
         </p>
       </div>
     );
@@ -467,7 +571,7 @@ function CompetitionsDirectory({
       {/* ---- Tiles: what you follow, or what is on if you follow nothing ---- */}
       <div className="px-3 pb-3 pt-1">
         <p className="px-0.5 pb-2 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-          {starred.length > 0 ? "Mes compétitions" : "À suivre"}
+          {starred.length > 0 ? t.mesCompetitions : t.aSuivre}
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {(starred.length > 0 ? starred : competitions.slice(0, 6)).map((c) => {
@@ -480,7 +584,7 @@ function CompetitionsDirectory({
                 <button
                   type="button"
                   onClick={() => onStar(c.id)}
-                  aria-label={isFav ? "Ne plus suivre" : "Suivre cette compétition"}
+                  aria-label={isFav ? t.nePlusSuivre : t.suivreCompetition}
                   aria-pressed={isFav}
                   className="absolute right-1.5 top-1.5 z-10 p-1 transition-colors"
                 >
@@ -506,7 +610,7 @@ function CompetitionsDirectory({
 
       {/* ---- Everything, by city ---- */}
       <p className="border-t border-gray-200/70 px-3.5 pb-1.5 pt-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-        Toutes les compétitions
+        {t.toutesCompetitions}
       </p>
       {byCity.map(([city, comps]) => {
         const open = openCities.has(city);
@@ -547,7 +651,7 @@ function CompetitionsDirectory({
                   <button
                     type="button"
                     onClick={() => onStar(c.id)}
-                    aria-label={isFav ? "Ne plus suivre" : "Suivre cette compétition"}
+                    aria-label={isFav ? t.nePlusSuivre : t.suivreCompetition}
                     aria-pressed={isFav}
                     className="shrink-0 p-2"
                   >
@@ -571,7 +675,7 @@ function CompetitionsDirectory({
       {worldCompetitions.length > 0 && (
         <>
           <p className="border-t border-gray-200/70 px-3.5 pb-1.5 pt-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-            Le football mondial
+            {t.footballMondial}
           </p>
           {worldCompetitions.map((c) => (
             <Link
@@ -590,7 +694,7 @@ function CompetitionsDirectory({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-bold text-gray-900">{c.name}</span>
                 <span className="block truncate text-[11px] font-bold text-gray-400">
-                  {[c.area, c.type === "CUP" ? "Coupe" : c.type === "LEAGUE" ? "Championnat" : null]
+                  {[langue === "en" ? (c.areaEn ?? c.area) : c.area, c.type === "CUP" ? t.coupe : c.type === "LEAGUE" ? t.championnat : null]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
@@ -641,6 +745,8 @@ function MatchRow({
   hideScores: boolean;
 }) {
   const { match } = entry;
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
   const isLive = match.status === "live";
   const finished = match.status === "completed";
   const scored = (isLive || finished) && !hideScores;
@@ -667,7 +773,7 @@ function MatchRow({
           ) : (
             <>
               <span className="text-[11px] font-black tabular-nums text-gray-500">
-                {finished ? "Fin" : (match.time ?? "–")}
+                {finished ? f.fin : (match.time ?? "–")}
               </span>
               {!finished && <span className="text-[10px] font-bold text-gray-300">-</span>}
             </>
@@ -720,7 +826,7 @@ function MatchRow({
         type="button"
         onClick={onStar}
         aria-pressed={starred}
-        aria-label={starred ? "Retirer des favoris" : "Suivre ce match"}
+        aria-label={starred ? t.retirerFavoris : t.suivreMatch}
         className="flex w-7 shrink-0 items-center justify-center"
       >
         <Star
@@ -744,7 +850,11 @@ function CompetitionGroup({
   hideScores: boolean;
 }) {
   const [open, setOpen] = useState(true);
-  const stage = stageLabel(competition.competitionType, competition.status);
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
+  const nomCompetition = useNomCompetition();
+  const stage = stageLabel(competition.competitionType, competition.status, langue);
   // A knockout day reads better by round than by the competition's running
   // stage, "Quart de finale" beats "Phase finale" when the two agree.
   const firstRound = entries[0]?.match.round;
@@ -753,7 +863,7 @@ function CompetitionGroup({
   // d'étape qui ne veut rien dire.
   const heading = competition.id === FRIENDLY_COMP_ID
     ? null
-    : firstRound ? ROUND_LABELS[firstRound] : stage;
+    : firstRound ? f.tour(firstRound) : stage;
 
   return (
     <div className="border-b border-gray-200/70 last:border-0">
@@ -762,7 +872,7 @@ function CompetitionGroup({
           <CompCrest competition={competition} size={26} />
           <span className="min-w-0">
             <span className="block truncate text-[13px] font-black text-gray-900">
-              {competition.name}
+              {nomCompetition(competition)}
               {heading ? `, ${heading}` : ""}
             </span>
             <span className="flex items-center gap-1 truncate text-[11px] font-bold text-gray-400">
@@ -778,7 +888,7 @@ function CompetitionGroup({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-label={open ? "Replier" : "Déplier"}
+          aria-label={open ? t.replier : t.deplier}
           className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-400 transition-colors hover:bg-white hover:text-gray-700"
         >
           <ChevronDown size={16} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
@@ -881,6 +991,10 @@ function Spotlight({
   // precedent se seraient poses une seconde sur les blasons du suivant.
   const [counts, setCounts] = useState<{ matchId: string; valeurs: PredictionCounts } | null>(null);
   const { user: utilisateur } = useAuth();
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
+  const nomCompetition = useNomCompetition();
 
   const count = entries.length;
 
@@ -978,14 +1092,14 @@ function Spotlight({
       <div className="flex items-center gap-2.5 px-4 py-3">
         <CompCrest competition={competition} size={28} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-black text-gray-900">{competition.name}</span>
+          <span className="block truncate text-[13px] font-black text-gray-900">{nomCompetition(competition)}</span>
           <span className="block truncate text-[11px] font-bold text-gray-400">
-            {stageTagLabel(match) ?? competitionSubtitle(competition)}
+            {stageTagLabel(match, f) ?? competitionSubtitle(competition)}
           </span>
         </span>
         <Link
           href={competitionHref(competition)}
-          aria-label="Voir la compétition"
+          aria-label={t.voirCompetition}
           className="shrink-0 text-gray-300 transition-colors hover:text-gray-600"
         >
           <ChevronRight size={18} />
@@ -1027,7 +1141,7 @@ function Spotlight({
                         isLive ? "text-red-500" : "text-gray-400"
                       }`}
                     >
-                      {isLive ? `${liveMinute(match)}′` : "Terminé"}
+                      {isLive ? `${liveMinute(match)}′` : f.termine}
                     </span>
                     <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="mt-0.5" />
                   </>
@@ -1037,7 +1151,7 @@ function Spotlight({
                       {match.time ?? "–"}
                     </span>
                     <span className="mt-0.5 block text-[11px] font-black text-gray-400">
-                      {match.date ? dayLabel(match.date) : "À programmer"}
+                      {match.date ? libelleDuJour(match.date, langue) : f.aProgrammer}
                     </span>
                   </>
                 )}
@@ -1063,15 +1177,15 @@ function Spotlight({
           (voir usePicks). */}
       <div className="px-4 pb-3 pt-3">
         <div className="min-w-0">
-          <p className="text-[13px] font-black text-gray-900">Qui va gagner ?</p>
+          <p className="text-[13px] font-black text-gray-900">{t.quiVaGagner}</p>
           <p className="text-[11px] font-bold text-gray-400">
-            {finished ? "Le match est joué" : "Donne ton pronostic"}
+            {finished ? t.matchJoue : t.donneTonPronostic}
           </p>
         </div>
 
         <div className="mt-2.5 grid grid-cols-3 gap-2">
           <PickButton
-            label={`Victoire ${match.homeTeamName}`}
+            label={f.victoire(match.homeTeamName)}
             selected={pick === "home"}
             correct={finished && outcome === "home"}
             missed={finished && pick === "home" && outcome !== "home"}
@@ -1086,7 +1200,7 @@ function Spotlight({
             />
           </PickButton>
           <PickButton
-            label="Match nul"
+            label={f.nul}
             selected={pick === "draw"}
             correct={finished && outcome === "draw"}
             missed={finished && pick === "draw" && outcome !== "draw"}
@@ -1097,7 +1211,7 @@ function Spotlight({
             <span className="text-[13px] font-black text-gray-500">X</span>
           </PickButton>
           <PickButton
-            label={`Victoire ${match.awayTeamName}`}
+            label={f.victoire(match.awayTeamName)}
             selected={pick === "away"}
             correct={finished && outcome === "away"}
             missed={finished && pick === "away" && outcome !== "away"}
@@ -1115,7 +1229,7 @@ function Spotlight({
 
         {pick && finished && (
           <p className="mt-2 text-center text-[10px] font-bold text-gray-300">
-            {pick === outcome ? "Pronostic validé" : "Pronostic manqué"}
+            {pick === outcome ? t.pronosticValide : t.pronosticManque}
           </p>
         )}
       </div>
@@ -1129,14 +1243,14 @@ function Spotlight({
             className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
           >
             <ChevronLeft size={14} />
-            Précédent
+            {t.precedent}
           </button>
           <div className="flex gap-1.5">
             {entries.map((e, i) => (
               <button
                 key={entryKey(e)}
                 type="button"
-                aria-label={`Affiche ${i + 1}`}
+                aria-label={t.affiche(i + 1)}
                 onClick={() => go(i)}
                 className={`h-1.5 rounded-full transition-all ${
                   i === safe ? "w-4 bg-emerald-500" : "w-1.5 bg-gray-200 hover:bg-gray-300"
@@ -1149,7 +1263,7 @@ function Spotlight({
             onClick={() => go(safe + 1)}
             className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
           >
-            Suivant
+            {t.suivant}
             <ChevronRight size={14} />
           </button>
         </div>
@@ -1159,9 +1273,9 @@ function Spotlight({
 }
 
 /** "Groupe A" for group matches, the round label for knockout. */
-function stageTagLabel(match: CompMatch): string | null {
-  if (match.group) return `Groupe ${match.group}`;
-  if (match.round) return ROUND_LABELS[match.round];
+function stageTagLabel(match: CompMatch, f: (typeof FOOT)["fr"]): string | null {
+  if (match.group) return f.groupe(match.group);
+  if (match.round) return f.tour(match.round);
   return null;
 }
 
@@ -1181,15 +1295,16 @@ function stageTagLabel(match: CompMatch): string | null {
  * montre les meilleurs contributeurs plutôt qu'un vide ; l'appelant choisit.
  */
 function TopPerformancesCard({ top }: { top: { tri: TriClassement; lignes: LigneJoueurPubliee[] } }) {
+  const t = useTextes(T);
   return (
     <div className="border border-gray-200/70 bg-white">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <p className="flex items-center gap-1.5 font-display text-sm font-black text-gray-900">
           <Flame size={15} className="text-amber-500" />
-          Top performances
+          {t.topPerformances}
         </p>
         <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-600">
-          5 derniers matchs
+          {t.cinqDerniers}
         </span>
       </div>
 
@@ -1198,9 +1313,9 @@ function TopPerformancesCard({ top }: { top: { tri: TriClassement; lignes: Ligne
            ne sont pas saisies, il n'a personne à montrer. Mieux vaut le dire
            que d'afficher une carte vide, qui se lit comme une panne. */
         <p className="border-t border-gray-200/70 px-4 py-8 text-center text-[11px] font-bold leading-relaxed text-gray-400">
-          Le classement se remplit à la fin de chaque match.
+          {t.classementVide}
           <br />
-          Personne n&apos;y figure encore.
+          {t.personneEncore}
         </p>
       ) : (
         <div className="border-t border-gray-200/70">
@@ -1214,7 +1329,7 @@ function TopPerformancesCard({ top }: { top: { tri: TriClassement; lignes: Ligne
         href="/top-players"
         className="flex items-center justify-center gap-1 border-t border-gray-200/70 py-2.5 text-[10px] font-black uppercase tracking-wide text-emerald-500 transition-colors hover:bg-gray-50 hover:text-emerald-600"
       >
-        Classement complet
+        {t.classementComplet}
         <ChevronRight size={12} />
       </Link>
     </div>
@@ -1250,6 +1365,9 @@ export default function DirectHomeV2({
   const [favs, toggleFav] = useFavourites();
   const [compFavs, toggleCompFav] = useSuiviCompetitions();
   const [picks, choosePick] = usePicks();
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const dayLabel = (cle: string) => libelleDuJour(cle, langue);
 
   // L'annuaire ne montre que de vraies competitions : celle des amicaux est
   // un fanion de regroupement, pas un tournoi qu'on peut ouvrir ou suivre.
@@ -1483,10 +1601,10 @@ export default function DirectHomeV2({
         <div className="flex flex-col items-center border border-gray-200/70 bg-white py-16">
           <Trophy size={32} className="text-gray-300" />
           <h3 className="mt-4 font-display text-lg font-black text-gray-900">
-            Aucune compétition en cours
+            {t.aucuneCompetitionEnCours}
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            Les prochaines compétitions apparaîtront ici.
+            {t.prochainesCompetitions}
           </p>
         </div>
       </div>
@@ -1513,7 +1631,7 @@ export default function DirectHomeV2({
             }`}
           >
             <Flame size={13} className={compFilter === null ? "text-amber-300" : "text-gray-300"} />
-            Tout le direct
+            {t.toutLeDirect}
           </button>
 
           {/* Le classement, en raccourci — et SEULEMENT la ou sa carte n'est
@@ -1529,7 +1647,7 @@ export default function DirectHomeV2({
             className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[12px] font-black text-amber-700 transition-colors hover:bg-amber-100 lg:hidden"
           >
             <Flame size={13} className="text-amber-500" />
-            Top performances
+            {t.topPerformances}
             <ChevronRight size={13} className="text-amber-400" />
           </Link>
 
@@ -1553,7 +1671,7 @@ export default function DirectHomeV2({
           href="/competitions"
           className="hidden shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide text-emerald-500 hover:text-emerald-600 lg:flex"
         >
-          Compétitions
+          {t.competitions}
           <ChevronRight size={13} />
         </Link>
       </div>
@@ -1593,17 +1711,17 @@ export default function DirectHomeV2({
           {/* Tabs + day pager */}
           <div className="flex items-center justify-between gap-2 border-b border-gray-200/70 px-3">
             <div className="flex min-w-0 gap-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {LIST_TABS.map((t) => (
+              {LIST_TABS.map((k) => (
                 <button
-                  key={t.key}
+                  key={k}
                   type="button"
-                  onClick={() => setTab(t.key)}
+                  onClick={() => setTab(k)}
                   className={`relative shrink-0 py-2.5 text-[13px] font-bold transition-colors ${
-                    tab === t.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                    tab === k ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  {t.label}
-                  {tab === t.key && (
+                  {t.onglet(k)}
+                  {tab === k && (
                     <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-emerald-500" />
                   )}
                 </button>
@@ -1615,7 +1733,7 @@ export default function DirectHomeV2({
               <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-gray-200/70 p-0.5">
                 <button
                   type="button"
-                  aria-label="Jour précédent"
+                  aria-label={t.jourPrecedent}
                   onClick={() => setDay((d) => addDays(d, -1))}
                   className="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
                 >
@@ -1630,7 +1748,7 @@ export default function DirectHomeV2({
                 </button>
                 <button
                   type="button"
-                  aria-label="Jour suivant"
+                  aria-label={t.jourSuivant}
                   onClick={() => setDay((d) => addDays(d, 1))}
                   className="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
                 >
@@ -1659,7 +1777,7 @@ export default function DirectHomeV2({
                       liveCount > 0 ? "animate-pulse bg-red-500" : "bg-gray-300"
                     }`}
                   />
-                  En direct{liveCount > 0 ? ` (${liveCount})` : ""}
+                  {t.enDirect(liveCount)}
                 </button>
                 <button
                   type="button"
@@ -1670,7 +1788,7 @@ export default function DirectHomeV2({
                       : "bg-gray-50 text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  Terminés
+                  {t.termines}
                 </button>
                 <button
                   type="button"
@@ -1681,13 +1799,13 @@ export default function DirectHomeV2({
                       : "bg-gray-50 text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  À venir
+                  {t.aVenir}
                 </button>
               </div>
 
               {/* The model puts an odds toggle here; the useful equivalent for a
                   score board is watching a replay without being spoiled. */}
-              <Switch on={hideScores} onChange={setHideScores} label="Masquer les scores" />
+              <Switch on={hideScores} onChange={setHideScores} label={t.masquerScores} />
             </div>
           )}
 
@@ -1704,13 +1822,12 @@ export default function DirectHomeV2({
               <CalendarDays size={24} className="mx-auto text-gray-300" />
               <p className="mt-2 text-[13px] font-bold text-gray-500">
                 {tab === "favs"
-                  ? "Aucun match suivi pour le moment."
-                  : `Aucun match ${dayLabel(day).toLowerCase()}.`}
+                  ? t.aucunMatchSuivi
+                  : t.aucunMatchLe(dayLabel(day), estJourProche(day))}
               </p>
               {tab === "favs" ? (
                 <p className="mt-1 text-[11px] font-bold text-gray-400">
-                  Touche l&apos;étoile d&apos;une compétition ou d&apos;un match
-                  pour le retrouver ici.
+                  {t.toucheEtoile}
                 </p>
               ) : (
                 nearestDay && nearestDay !== day && (
@@ -1719,7 +1836,7 @@ export default function DirectHomeV2({
                     onClick={() => setDay(nearestDay)}
                     className="mt-3 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-600 transition-colors hover:bg-emerald-100"
                   >
-                    Aller au {dayLabel(nearestDay).toLowerCase()}
+                    {t.voirLeJour(dayLabel(nearestDay), estJourProche(nearestDay))}
                   </button>
                 )
               )}

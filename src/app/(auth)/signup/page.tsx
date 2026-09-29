@@ -104,7 +104,7 @@ export default function SignupPage() {
         // renvoyer vers un ecran qui repose la meme question.
         ...(roleChoisi ? { evolutionRole: roleChoisi } : {}),
       });
-      toast.success("Compte créé ! Vérifiez votre email.");
+      toast.success("Compte créé ! Vérifie ton email.");
     } catch (err) {
       toast.error(getAuthErrorMessage(err));
     } finally {
@@ -203,7 +203,7 @@ export default function SignupPage() {
                   autoComplete="email"
                   {...essentialsForm.register("email")}
                   className={inputClass}
-                  placeholder="votre@email.com"
+                  placeholder="ton@email.com"
                 />
               </div>
               {essentialsForm.formState.errors.email && (

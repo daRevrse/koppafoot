@@ -2,7 +2,24 @@
 
 import Link from "next/link";
 import MiniEcusson from "@/components/match/MiniEcusson";
-import { MOT_RESULTAT, type Resultat, type ResultatDeForme } from "@/lib/forme";
+import { RESULTATS, type Resultat, type ResultatDeForme } from "@/lib/forme";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    aucun: "Aucun match joué",
+    titre: "Derniers résultats",
+    detail: (mot: string, score: string, adversaire: string) => `${mot} ${score} contre ${adversaire}`,
+    plusRecent: ", le plus récent",
+  },
+  {
+    aucun: "No matches played",
+    titre: "Recent results",
+    detail: (mot: string, score: string, adversaire: string) => `${mot} ${score} against ${adversaire}`,
+    plusRecent: ", the most recent",
+  },
+);
 
 // ============================================
 // Les derniers résultats des deux équipes, dans l'onglet Infos.
@@ -43,11 +60,14 @@ function Colonne({ equipe, lien, className }: {
   lien: (matchId: string) => string;
   className: string;
 }) {
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const { mot, lettre } = RESULTATS[langue];
   return (
     <div className={`min-w-0 ${className}`}>
       <p className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">{equipe.nom}</p>
       {equipe.resultats.length === 0 ? (
-        <p className="mt-3 text-[11px] font-bold text-gray-400">Aucun match joué</p>
+        <p className="mt-3 text-[11px] font-bold text-gray-400">{t.aucun}</p>
       ) : (
         <ol className="mt-3 flex justify-end gap-1">
           {equipe.resultats.map((r, i) => {
@@ -56,15 +76,15 @@ function Colonne({ equipe, lien, className }: {
               <li key={r.matchId}>
                 <Link
                   href={lien(r.matchId)}
-                  title={`${MOT_RESULTAT[r.resultat]} ${r.score} contre ${r.adversaire.nom}`}
-                  aria-label={`${MOT_RESULTAT[r.resultat]} ${r.score} contre ${r.adversaire.nom}${dernier ? ", le plus récent" : ""}`}
+                  title={t.detail(mot[r.resultat], r.score, r.adversaire.nom)}
+                  aria-label={`${t.detail(mot[r.resultat], r.score, r.adversaire.nom)}${dernier ? t.plusRecent : ""}`}
                   className="flex flex-col items-center gap-1.5 text-gray-400 transition-opacity hover:opacity-80"
                 >
                   <MiniEcusson nom={r.adversaire.nom} logo={r.adversaire.logo} taille={20} className="sm:h-6! sm:w-6!" />
                   <span
                     className={`flex h-5 w-5 items-center justify-center text-[10px] font-black sm:h-6 sm:w-6 sm:text-[11px] ${PASTILLE[r.resultat]}`}
                   >
-                    {r.resultat}
+                    {lettre[r.resultat]}
                   </span>
                   <span aria-hidden className={`h-0.5 w-5 sm:w-6 ${dernier ? SOULIGNE[r.resultat] : "bg-transparent"}`} />
                 </Link>
@@ -84,11 +104,12 @@ export default function MatchForme({ home, away, lien }: {
   lien: (matchId: string) => string;
 }) {
   // Avant la première journée, il n'y a rien à montrer : la carte disparaît.
+  const t = useTextes(T);
   if (home.resultats.length === 0 && away.resultats.length === 0) return null;
 
   return (
     <section className="border border-gray-200/70 bg-white p-4 sm:p-5">
-      <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Derniers résultats</h2>
+      <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{t.titre}</h2>
       <div className="mt-3 grid grid-cols-2 divide-x divide-gray-200/70">
         <Colonne equipe={home} lien={lien} className="pr-3 sm:pr-5" />
         <Colonne equipe={away} lien={lien} className="pl-3 sm:pl-5" />

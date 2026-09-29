@@ -37,8 +37,11 @@ export async function GET(req: Request) {
       // buteurs, d'où son absence côté joueur, juste en dessous.
       const friendlies = await getPublicFriendlies();
       const games = [
-        ...feed.flatMap((f) => f.matches.map((m) => ({ m, competition: f.competition.name }))),
-        ...friendlies.map((m) => ({ m, competition: "Match amical" })),
+        ...feed.flatMap((f) => f.matches.map((m) => ({ m, competition: f.competition.name, amical: false }))),
+        // `amical` plutôt qu'un libellé : la réponse est mise en cache pour
+        // tous les lecteurs, et c'est la page qui sait dans quelle langue
+        // l'écrire.
+        ...friendlies.map((m) => ({ m, competition: "Match amical", amical: true })),
       ]
         .filter(({ m }) =>
           (m.homeTeamId === team || m.awayTeamId === team)
@@ -46,7 +49,7 @@ export async function GET(req: Request) {
           && m.scoreHome !== null && m.scoreAway !== null && m.date)
         .sort((a, b) => (b.m.date ?? "").localeCompare(a.m.date ?? ""))
         .slice(0, 5)
-        .map(({ m, competition }) => {
+        .map(({ m, competition, amical }) => {
           const home = m.homeTeamId === team;
           const own = (home ? m.scoreHome : m.scoreAway) ?? 0;
           const other = (home ? m.scoreAway : m.scoreHome) ?? 0;
@@ -54,6 +57,7 @@ export async function GET(req: Request) {
             id: m.id,
             date: m.date,
             competition,
+            amical,
             opponent: home ? m.awayTeamName : m.homeTeamName,
             scored: own,
             conceded: other,

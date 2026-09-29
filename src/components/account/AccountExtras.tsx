@@ -339,9 +339,9 @@ export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
 /**
  * Thème et langue.
  *
- * Le thème est branché : le choix s'applique tout de suite et se garde sur
- * l'appareil. La langue ne l'est pas encore, et le dit, une bascule muette
- * qui prétend fonctionner étant pire qu'une bascule qui annonce son état.
+ * Les deux s'appliquent tout de suite et se gardent sur l'appareil : le thème
+ * dans le navigateur, la langue dans un cookie, que le serveur lit pour
+ * rendre la page suivante dans la bonne langue.
  */
 export function PreferencesBlock({ sombre }: { sombre?: boolean }) {
   const { theme, setTheme } = useTheme();

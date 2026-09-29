@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import MiniEcusson from "@/components/match/MiniEcusson";
+import { RESULTATS } from "@/lib/forme";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // Le bandeau d'une équipe : LE MÊME pour la fiche d'un club et pour celle
@@ -30,6 +33,17 @@ import MiniEcusson from "@/components/match/MiniEcusson";
 // un nom qu'on a déjà lu.
 // ============================================
 
+const T = textes(
+  {
+    revenir: "Revenir à l'écran précédent",
+    forme: (mots: string) => `Forme, du plus ancien au plus récent : ${mots}`,
+  },
+  {
+    revenir: "Back to the previous screen",
+    forme: (mots: string) => `Form, oldest to most recent: ${mots}`,
+  },
+);
+
 export interface EtapeDuFil {
   label: string;
   href?: string | null;
@@ -54,6 +68,7 @@ export default function BandeauEquipe({
   actions?: React.ReactNode;
 }) {
   const router = useRouter();
+  const t = useTextes(T);
   const retour = [...fil].reverse().find((f) => f.href);
   const revenir = () => {
     // `history.length > 1` distingue une navigation interne d'une arrivée
@@ -74,7 +89,7 @@ export default function BandeauEquipe({
 
       <div className="relative mx-auto max-w-6xl px-4 pb-5 pt-3 sm:px-6 sm:pb-7">
         <div className="flex min-h-9 items-center justify-between gap-3">
-          <button type="button" onClick={revenir} aria-label="Revenir à l'écran précédent" className={BOUTON_BANDEAU}>
+          <button type="button" onClick={revenir} aria-label={t.revenir} className={BOUTON_BANDEAU}>
             <ArrowLeft size={15} />
           </button>
           {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
@@ -129,21 +144,23 @@ export const BOUTON_BANDEAU =
  * récent à droite et souligné.
  */
 export function FormeEnLettres({ forme, sombre = true }: { forme: ("V" | "N" | "D")[]; sombre?: boolean }) {
+  const { langue } = useLangue();
+  const t = useTextes(T);
   if (forme.length === 0) return null;
   const fond: Record<"V" | "N" | "D", string> = sombre
     ? { V: "bg-emerald-400 text-black", N: "bg-white/25 text-white", D: "bg-red-500 text-white" }
     : { V: "bg-emerald-600 text-white", N: "bg-gray-200 text-gray-600", D: "bg-red-500 text-white" };
-  const mot = { V: "victoire", N: "nul", D: "défaite" } as const;
+  const { mot, lettre } = RESULTATS[langue];
   return (
     <span
       role="img"
-      aria-label={`Forme, du plus ancien au plus récent : ${forme.map((r) => mot[r]).join(", ")}`}
+      aria-label={t.forme(forme.map((r) => mot[r].toLowerCase()).join(", "))}
       className="inline-flex items-end gap-0.5"
     >
       {forme.map((r, i) => (
         <span key={i} aria-hidden className="flex flex-col items-center gap-0.5">
           <span className={`flex h-5 w-5 items-center justify-center text-[10px] font-black leading-none ${fond[r]}`}>
-            {r}
+            {lettre[r]}
           </span>
           <span className={`h-0.5 w-5 ${i === forme.length - 1 ? fond[r].split(" ")[0] : "bg-transparent"}`} />
         </span>

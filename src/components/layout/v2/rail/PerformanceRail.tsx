@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
 
 // ============================================
 // Les dernières performances d'un joueur ou d'une équipe, dans le rail de sa
@@ -28,6 +31,8 @@ interface TeamGame {
   id: string;
   date: string | null;
   competition: string;
+  /** Un amical : son libellé s'écrit ici, dans la langue du lecteur. */
+  amical?: boolean;
   opponent: string;
   scored: number;
   conceded: number;
@@ -40,12 +45,27 @@ const RESULT_STYLE: Record<TeamGame["result"], string> = {
   L: "bg-red-500 text-white",
 };
 
+const T = textes(
+  {
+    titre: "Dernières performances",
+    amical: "Match amical",
+    resultat: (r: TeamGame["result"]) => ({ W: "Victoire", D: "Nul", L: "Défaite" })[r],
+    lettre: (r: TeamGame["result"]) => ({ W: "V", D: "N", L: "D" })[r],
+  },
+  {
+    titre: "Recent form",
+    amical: "Friendly",
+    resultat: (r: TeamGame["result"]) => ({ W: "Win", D: "Draw", L: "Loss" })[r],
+    lettre: (r: TeamGame["result"]) => r,
+  },
+);
+
 /** « 16 août », la date d'un match, sans l'année qui n'apprend rien ici. */
-function shortDate(iso: string | null): string {
+function shortDate(iso: string | null, locale: string): string {
   if (!iso) return "";
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(locale, { day: "numeric", month: "short" });
 }
 
 export default function PerformanceRail({ player, team }: {
@@ -53,6 +73,9 @@ export default function PerformanceRail({ player, team }: {
   team?: string;
 }) {
   const [games, setGames] = useState<(PlayerGame | TeamGame)[] | null>(null);
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
+  const locale = useLocale();
 
   useEffect(() => {
     const q = player ? `player=${encodeURIComponent(player)}` : team ? `team=${encodeURIComponent(team)}` : null;
@@ -79,15 +102,15 @@ export default function PerformanceRail({ player, team }: {
         id="rail-performances"
         className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400"
       >
-        Dernières performances
+        {t.titre}
       </h2>
 
       <ul className="divide-y divide-gray-200/70">
           {games.map((g) => (
             <li key={g.id} className="py-3">
               <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-                {g.competition}
-                {g.date && <span className="text-gray-300"> · {shortDate(g.date)}</span>}
+                {"amical" in g && g.amical ? t.amical : g.competition}
+                {g.date && <span className="text-gray-300"> · {shortDate(g.date, locale)}</span>}
               </p>
 
               <div className="mt-1 flex items-center gap-2">
@@ -101,19 +124,19 @@ export default function PerformanceRail({ player, team }: {
                       {g.scored} – {g.conceded}
                     </span>
                     <span
-                      title={g.result === "W" ? "Victoire" : g.result === "D" ? "Nul" : "Défaite"}
+                      title={t.resultat(g.result)}
                       className={`flex h-5 w-5 shrink-0 items-center justify-center text-[10px] font-black ${RESULT_STYLE[g.result]}`}
                     >
-                      {g.result === "W" ? "V" : g.result === "D" ? "N" : "D"}
+                      {t.lettre(g.result)}
                     </span>
                   </span>
                 ) : (
                   <span className="flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
                     {g.goals > 0 && (
-                      <span className="text-emerald-700">{g.goals} but{g.goals > 1 ? "s" : ""}</span>
+                      <span className="text-emerald-700">{f.buts(g.goals)}</span>
                     )}
                     {g.assists > 0 && (
-                      <span className="text-gray-500">{g.assists} passe{g.assists > 1 ? "s" : ""}</span>
+                      <span className="text-gray-500">{f.passes(g.assists)}</span>
                     )}
                   </span>
                 )}

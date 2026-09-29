@@ -6,6 +6,8 @@ import { worldCompetitionMetadata } from "@/lib/world-competition-meta";
 import WorldStandingsTable from "@/components/world/WorldStandingsTable";
 import WorldMatchList from "@/components/world/WorldMatchList";
 import WorldScorersTable from "@/components/world/WorldScorersTable";
+import { textes } from "@/i18n/textes";
+import { langueServeur } from "@/i18n/serveur";
 
 // ============================================
 // Une compétition du football mondial, sur la même structure qu'une
@@ -25,19 +27,69 @@ import WorldScorersTable from "@/components/world/WorldScorersTable";
 export const revalidate = 600;
 
 const TABS = [
-  { id: "classement", label: "Classement" },
-  { id: "calendrier", label: "Calendrier" },
-  { id: "buteurs", label: "Buteurs" },
+  { id: "classement" },
+  { id: "calendrier" },
+  { id: "buteurs" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
+const T = textes(
+  {
+    onglet: (id: TabId) => ({ classement: "Classement", calendrier: "Calendrier", buteurs: "Buteurs" })[id],
+    metaLabel: "classement, résultats et calendrier",
+    metaDescription: (nom: string) =>
+      `Classement, derniers résultats, prochains matchs et meilleurs buteurs de ${nom}, en direct sur Koppafoot.`,
+    introuvable: "Compétition introuvable, Koppafoot",
+    indisponibles: "Données momentanément indisponibles",
+    fournisseur: "Le fournisseur de résultats ne répond pas. Réessaie dans un instant.",
+    coupe: "Coupe",
+    championnat: "Championnat",
+    journee: (n: number) => `Journée ${n}`,
+    buteursClasses: (n: number) => `${n} buteur${n > 1 ? "s" : ""} classé${n > 1 ? "s" : ""}`,
+    buteursAVenir: "Buteurs à venir",
+    tableaux: (n: number) => `${n} tableau${n > 1 ? "x" : ""}`,
+    classementAVenir: "Classement à venir",
+    prochainsMatchs: "Prochains matchs",
+    aucunProgramme: "Aucun match programmé.",
+    derniersResultats: "Derniers résultats",
+    aucunRecent: "Aucun résultat récent.",
+    donneesPar: "Données fournies par",
+    filDAriane: "Fil d'ariane",
+    direct: "Direct",
+  },
+  {
+    onglet: (id: TabId) => ({ classement: "Standings", calendrier: "Fixtures", buteurs: "Top scorers" })[id],
+    metaLabel: "standings, results and fixtures",
+    metaDescription: (nom: string) =>
+      `Standings, latest results, upcoming fixtures and top scorers of ${nom}, live on Koppafoot.`,
+    introuvable: "Competition not found, Koppafoot",
+    indisponibles: "Data temporarily unavailable",
+    fournisseur: "The results provider is not responding. Try again in a moment.",
+    coupe: "Cup",
+    championnat: "League",
+    journee: (n: number) => `Matchday ${n}`,
+    buteursClasses: (n: number) => `${n} ranked scorer${n === 1 ? "" : "s"}`,
+    buteursAVenir: "Top scorers to come",
+    tableaux: (n: number) => `${n} table${n === 1 ? "" : "s"}`,
+    classementAVenir: "Standings to come",
+    prochainsMatchs: "Upcoming fixtures",
+    aucunProgramme: "No fixtures scheduled.",
+    derniersResultats: "Latest results",
+    aucunRecent: "No recent results.",
+    donneesPar: "Data provided by",
+    filDAriane: "Breadcrumb",
+    direct: "Live",
+  },
+);
+
 export async function generateMetadata({ params }: PageProps<"/competitions/monde/[code]">) {
   const { code } = await params;
+  const t = T[await langueServeur()];
   return worldCompetitionMetadata(code, {
-    label: "classement, résultats et calendrier",
-    describe: (name) =>
-      `Classement, derniers résultats, prochains matchs et meilleurs buteurs de ${name}, en direct sur Koppafoot.`,
+    label: t.metaLabel,
+    describe: t.metaDescription,
+    introuvable: t.introuvable,
   });
 }
 
@@ -48,21 +100,22 @@ export default async function WorldCompetitionPage({
   const { code } = await params;
   if (!isWorldCode(code)) notFound();
 
-  const summary = await getWorldCompetitionSummary(code);
+  const [summary, langue] = await Promise.all([getWorldCompetitionSummary(code), langueServeur()]);
+  const t = T[langue];
 
   // Le fournisseur est injoignable, hors quota, ou le jeton manque. Un 404
   // serait faux, la compétition existe, donc on dit ce qui se passe.
   if (!summary) {
     return (
       <div className="mx-auto max-w-6xl pb-20">
-        <Breadcrumb name={code} />
+        <Breadcrumb name={code} t={t} />
         <div className="border border-gray-200/70 bg-white py-16 text-center">
           <Globe2 size={28} className="mx-auto text-gray-300" />
           <p className="mt-3 font-display text-lg font-black text-gray-900">
-            Données momentanément indisponibles
+            {t.indisponibles}
           </p>
           <p className="mt-1 text-sm font-bold text-gray-400">
-            Le fournisseur de résultats ne répond pas. Réessaie dans un instant.
+            {t.fournisseur}
           </p>
         </div>
       </div>
@@ -83,11 +136,12 @@ export default async function WorldCompetitionPage({
   const tab: TabId = (available.find((t) => t.id === wanted)?.id ?? available[0]?.id ?? "classement");
 
   const base = `/competitions/monde/${competition.code}`;
+  const pays = langue === "en" ? (competition.areaEn ?? competition.area) : competition.area;
 
 
   return (
     <div className="mx-auto max-w-6xl pb-20">
-      <Breadcrumb name={competition.name} area={competition.area} />
+      <Breadcrumb name={competition.name} area={pays} t={t} />
 
       {/* Hero collant, comme sur une compétition Koppafoot. */}
       <section className="sticky top-[var(--header-h,72px)] z-30 -mx-3 -mt-3 overflow-hidden bg-gray-900 text-white lg:-mx-5 lg:-mt-5">
@@ -106,8 +160,8 @@ export default async function WorldCompetitionPage({
 
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                {competition.type === "CUP" ? "Coupe" : "Championnat"}
-                {competition.area && <span className="text-white/40"> · {competition.area}</span>}
+                {competition.type === "CUP" ? t.coupe : t.championnat}
+                {pays && <span className="text-white/40"> · {pays}</span>}
               </p>
               <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
                 {competition.name}
@@ -121,9 +175,9 @@ export default async function WorldCompetitionPage({
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
-            {competition.currentMatchday != null && <span>Journée {competition.currentMatchday}</span>}
-            <span>{scorers.length > 0 ? `${scorers.length} buteurs classés` : "Buteurs à venir"}</span>
-            <span>{standings.length > 0 ? `${standings.length} tableau${standings.length > 1 ? "x" : ""}` : "Classement à venir"}</span>
+            {competition.currentMatchday != null && <span>{t.journee(competition.currentMatchday)}</span>}
+            <span>{scorers.length > 0 ? t.buteursClasses(scorers.length) : t.buteursAVenir}</span>
+            <span>{standings.length > 0 ? t.tableaux(standings.length) : t.classementAVenir}</span>
           </div>
         </div>
       </section>
@@ -133,48 +187,48 @@ export default async function WorldCompetitionPage({
         <div className="min-w-0 border border-gray-200/70 bg-white">
           {available.length > 1 && (
             <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
-              {available.map((t) => (
+              {available.map((o) => (
                 <Link
-                  key={t.id}
-                  href={t.id === available[0].id ? base : `${base}?tab=${t.id}`}
+                  key={o.id}
+                  href={o.id === available[0].id ? base : `${base}?tab=${o.id}`}
                   scroll={false}
                   className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                    tab === t.id
+                    tab === o.id
                       ? "border-gray-900 text-gray-900"
                       : "border-transparent text-gray-400 hover:text-gray-700"
                   }`}
                 >
-                  {t.label}
+                  {t.onglet(o.id)}
                 </Link>
               ))}
             </div>
           )}
 
           <div className="p-5">
-            {tab === "classement" && <WorldStandingsTable groups={standings} />}
+            {tab === "classement" && <WorldStandingsTable groups={standings} langue={langue} />}
 
             {tab === "calendrier" && (
               <div className="space-y-8">
                 {upcoming.length > 0 && (
                   <section className="space-y-3">
                     <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                      Prochains matchs
+                      {t.prochainsMatchs}
                     </h2>
-                    <WorldMatchList matches={upcoming} emptyLabel="Aucun match programmé." />
+                    <WorldMatchList matches={upcoming} emptyLabel={t.aucunProgramme} langue={langue} />
                   </section>
                 )}
                 {recent.length > 0 && (
                   <section className="space-y-3">
                     <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                      Derniers résultats
+                      {t.derniersResultats}
                     </h2>
-                    <WorldMatchList matches={recent} emptyLabel="Aucun résultat récent." />
+                    <WorldMatchList matches={recent} emptyLabel={t.aucunRecent} langue={langue} />
                   </section>
                 )}
               </div>
             )}
 
-            {tab === "buteurs" && <WorldScorersTable scorers={scorers} />}
+            {tab === "buteurs" && <WorldScorersTable scorers={scorers} langue={langue} />}
           </div>
         </div>
       </div>
@@ -182,7 +236,7 @@ export default async function WorldCompetitionPage({
       {/* Attribution : condition du plan gratuit de football-data.org. Elle
           vivait dans le rail ; celui-ci parti, elle prend sa place ici. */}
       <p className="mt-4 text-[11px] font-bold text-gray-400">
-        Données fournies par{" "}
+        {t.donneesPar}{" "}
         <a
           href="https://www.football-data.org"
           target="_blank"
@@ -196,13 +250,13 @@ export default async function WorldCompetitionPage({
   );
 }
 
-function Breadcrumb({ name, area }: { name: string; area?: string | null }) {
+function Breadcrumb({ name, area, t }: { name: string; area?: string | null; t: (typeof T)["fr"] }) {
   return (
     <nav
-      aria-label="Fil d'ariane"
+      aria-label={t.filDAriane}
       className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
     >
-      <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+      <Link href="/" className="transition-colors hover:text-emerald-700">{t.direct}</Link>
       <span aria-hidden className="text-gray-300">›</span>
       {area && (
         <>

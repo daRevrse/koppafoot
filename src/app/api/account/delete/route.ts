@@ -54,16 +54,18 @@ export async function POST(req: NextRequest) {
       {
         error: "reauth",
         message:
-          "Par sécurité, reconnectez-vous avant de supprimer votre compte.",
+          "Par sécurité, reconnecte-toi avant de supprimer ton compte.",
       },
       { status: 401 },
     );
   }
 
   // Le mot tapé côté interface revient ici : l'interface peut être contournée,
-  // pas l'API.
+  // pas l'API. Dans l'une ou l'autre langue de l'interface (voir `suppr.mot`
+  // dans i18n) : « DELETE » pour qui lit l'anglais.
   const corps = (await req.json().catch(() => ({}))) as { confirmation?: string };
-  if ((corps.confirmation ?? "").trim().toUpperCase() !== "SUPPRIMER") {
+  const mot = (corps.confirmation ?? "").trim().toUpperCase();
+  if (mot !== "SUPPRIMER" && mot !== "DELETE") {
     return NextResponse.json({ error: "Confirmation manquante" }, { status: 400 });
   }
 
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
     bilan = await purgerCompte(uid);
   } catch {
     return NextResponse.json(
-      { error: "La suppression a échoué, votre compte est intact." },
+      { error: "La suppression a échoué, ton compte est intact." },
       { status: 500 },
     );
   }

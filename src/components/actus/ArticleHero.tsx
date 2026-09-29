@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import type { Article } from "@/lib/news-rss";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    precedent: "Article précédent",
+    suivant: "Article suivant",
+    position: (k: number, n: number) => `Article ${k} sur ${n}`,
+    lireChez: (source: string) => `Lire chez ${source}`,
+  },
+  {
+    precedent: "Previous article",
+    suivant: "Next article",
+    position: (k: number, n: number) => `Article ${k} of ${n}`,
+    lireChez: (source: string) => `Read on ${source}`,
+  },
+);
 
 // ============================================
 // Le hero du jour, un article à la fois, en grand.
@@ -17,6 +34,7 @@ import type { Article } from "@/lib/news-rss";
 
 export default function ArticleHero({ articles }: { articles: Article[] }) {
   const [i, setI] = useState(0);
+  const t = useTextes(T);
   const count = articles.length;
 
   const go = useCallback(
@@ -73,7 +91,7 @@ export default function ArticleHero({ articles }: { articles: Article[] }) {
             {a.title}
           </h2>
           <span className="mt-4 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-white/70">
-            Lire chez {a.source} <ExternalLink size={13} />
+            {t.lireChez(a.source)} <ExternalLink size={13} />
           </span>
         </a>
 
@@ -82,7 +100,7 @@ export default function ArticleHero({ articles }: { articles: Article[] }) {
             <button
               type="button"
               onClick={() => go(-1)}
-              aria-label="Article précédent"
+              aria-label={t.precedent}
               className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 p-2.5 text-white transition-colors hover:bg-black/70"
             >
               <ChevronLeft size={20} />
@@ -90,7 +108,7 @@ export default function ArticleHero({ articles }: { articles: Article[] }) {
             <button
               type="button"
               onClick={() => go(1)}
-              aria-label="Article suivant"
+              aria-label={t.suivant}
               className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 p-2.5 text-white transition-colors hover:bg-black/70"
             >
               <ChevronRight size={20} />
@@ -106,7 +124,7 @@ export default function ArticleHero({ articles }: { articles: Article[] }) {
               key={x.id}
               type="button"
               onClick={() => setI(k)}
-              aria-label={`Article ${k + 1} sur ${count}`}
+              aria-label={t.position(k + 1, count)}
               aria-current={k === i ? "true" : undefined}
               className={`h-1 flex-1 transition-colors ${k === i ? "bg-gray-900" : "bg-gray-200 hover:bg-gray-400"}`}
             />

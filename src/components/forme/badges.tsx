@@ -6,12 +6,53 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  JOURS_SANS_MATCH, LIBELLE_CONDITION, LIBELLE_FORME,
+  JOURS_SANS_MATCH, LIBELLE_CONDITION, LIBELLE_CONDITION_EN, LIBELLE_FORME, LIBELLE_FORME_EN,
   conditionASignaler, conditionEnVigueur, joursDepuis,
   type ConditionJoueur, type FormeJoueur, type MatchDeForme, type NiveauForme,
   type StatutCondition, type Tendance,
 } from "@/lib/etat-de-forme";
 import { formaterNote, tonNote } from "@/lib/notes";
+import { useLangue, useTextes } from "@/i18n";
+import { LOCALE, type Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+
+/**
+ * Les mots de la forme, dans les deux langues. Les libellés de statut et de
+ * niveau vivent dans lib/etat-de-forme (le serveur s'en sert pour les
+ * notifications) ; ils sont repris ici pour que `t.condition(s)` suffise.
+ */
+export const T_FORME = textes(
+  {
+    condition: (s: StatutCondition) => LIBELLE_CONDITION[s],
+    forme: (n: NiveauForme) => LIBELLE_FORME[n],
+    tendance: (t: Tendance) => ({ hausse: "en progrès", stable: "stable", baisse: "en baisse" })[t],
+    retourPrevu: (jour: string) => `retour prévu le ${jour}`,
+    declareLe: (jour: string) => `déclaré le ${jour}`,
+    moyenne: (niveau: string, note: string, n: number) => `${niveau} : ${note} de moyenne sur ${n} match${n > 1 ? "s" : ""}`,
+    dernierMatch: (jours: number) => `dernier match il y a ${jours} jour${jours > 1 ? "s" : ""}`,
+    resultat: (r: "V" | "N" | "D", score: string, adversaire: string) =>
+      `${({ V: "Victoire", N: "Nul", D: "Défaite" })[r]} ${score} contre ${adversaire}`,
+    pasNote: "pas assez joué pour être noté",
+    note: (n: string) => `note ${n}`,
+    buts: (n: number) => `${n} but${n > 1 ? "s" : ""}`,
+    passes: (n: number) => `${n} passe${n > 1 ? "s" : ""} déc.`,
+  },
+  {
+    condition: (s: StatutCondition) => LIBELLE_CONDITION_EN[s],
+    forme: (n: NiveauForme) => LIBELLE_FORME_EN[n],
+    tendance: (t: Tendance) => ({ hausse: "improving", stable: "steady", baisse: "declining" })[t],
+    retourPrevu: (jour: string) => `expected back ${jour}`,
+    declareLe: (jour: string) => `reported ${jour}`,
+    moyenne: (niveau: string, note: string, n: number) => `${niveau}: ${note} average over ${n} match${n === 1 ? "" : "es"}`,
+    dernierMatch: (jours: number) => `last match ${jours} day${jours === 1 ? "" : "s"} ago`,
+    resultat: (r: "V" | "N" | "D", score: string, adversaire: string) =>
+      `${({ V: "Win", N: "Draw", D: "Loss" })[r]} ${score} against ${adversaire}`,
+    pasNote: "didn't play enough to be rated",
+    note: (n: string) => `rating ${n}`,
+    buts: (n: number) => `${n} goal${n === 1 ? "" : "s"}`,
+    passes: (n: number) => `${n} assist${n === 1 ? "" : "s"}`,
+  },
+);
 
 // ============================================
 // Les pastilles de l'état de forme : la condition déclarée, la forme
@@ -67,21 +108,22 @@ export const MOT_TENDANCE: Record<Tendance, string> = {
 };
 
 /** « 12 oct. » */
-export function jourCourt(jour: string): string {
+export function jourCourt(jour: string, langue: Langue = "fr"): string {
   try {
-    return new Date(`${jour}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    return new Date(`${jour}T00:00:00`).toLocaleDateString(LOCALE[langue], { day: "numeric", month: "short" });
   } catch {
     return jour;
   }
 }
 
 /** Ce que la pastille dit au survol : tout ce qu'elle n'a pas la place d'écrire. */
-export function resumeCondition(c: ConditionJoueur): string {
+export function resumeCondition(c: ConditionJoueur, langue: Langue = "fr"): string {
+  const t = T_FORME[langue];
   return [
-    LIBELLE_CONDITION[c.statut],
-    c.retourPrevu ? `retour prévu le ${jourCourt(c.retourPrevu)}` : null,
+    t.condition(c.statut),
+    c.retourPrevu ? t.retourPrevu(jourCourt(c.retourPrevu, langue)) : null,
     c.note ? `« ${c.note} »` : null,
-    c.declareeLe ? `déclaré le ${jourCourt(c.declareeLe.slice(0, 10))}` : null,
+    c.declareeLe ? t.declareLe(jourCourt(c.declareeLe.slice(0, 10), langue)) : null,
   ].filter(Boolean).join(" · ");
 }
 
@@ -106,17 +148,19 @@ export function BadgeCondition({
   date?: boolean;
   className?: string;
 }) {
+  const { langue } = useLangue();
+  const t = useTextes(T_FORME);
   const c = apte ? conditionEnVigueur(condition) : conditionASignaler(condition);
   if (!c) return null;
   const Icon = ICONE_CONDITION[c.statut];
   return (
     <span
-      title={resumeCondition(c)}
+      title={resumeCondition(c, langue)}
       className={`inline-flex shrink-0 items-center gap-1 border px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${TON_CONDITION[c.statut][sombre ? "sombre" : "clair"]} ${className}`}
     >
       <Icon size={11} className="shrink-0" />
-      {LIBELLE_CONDITION[c.statut]}
-      {date && c.retourPrevu && <span className="font-bold normal-case tracking-normal">· {jourCourt(c.retourPrevu)}</span>}
+      {t.condition(c.statut)}
+      {date && c.retourPrevu && <span className="font-bold normal-case tracking-normal">· {jourCourt(c.retourPrevu, langue)}</span>}
     </span>
   );
 }
@@ -146,14 +190,16 @@ export function BadgeForme({
   pente?: boolean;
   className?: string;
 }) {
+  const { langue } = useLangue();
+  const t = useTextes(T_FORME);
   if (!forme?.niveau || forme.indice === null) return null;
   const jours = joursDepuis(forme.dernierMatch);
   const ancienne = jours !== null && jours > JOURS_SANS_MATCH;
   const Pente = pente && forme.tendance ? ICONE_TENDANCE[forme.tendance] : null;
   const titre = [
-    `${LIBELLE_FORME[forme.niveau]} : ${formaterNote(forme.indice)} de moyenne sur ${forme.matchs.length} match${forme.matchs.length > 1 ? "s" : ""}`,
-    forme.tendance ? MOT_TENDANCE[forme.tendance] : null,
-    jours !== null ? `dernier match il y a ${jours} jour${jours > 1 ? "s" : ""}` : null,
+    t.moyenne(t.forme(forme.niveau), formaterNote(forme.indice, langue), forme.matchs.length),
+    forme.tendance ? t.tendance(forme.tendance) : null,
+    jours !== null ? t.dernierMatch(jours) : null,
   ].filter(Boolean).join(" · ");
 
   return (
@@ -162,9 +208,9 @@ export function BadgeForme({
       className={`inline-flex shrink-0 items-center gap-1 border px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${TON_FORME[forme.niveau][sombre ? "sombre" : "clair"]} ${ancienne ? "opacity-50" : ""} ${className}`}
     >
       {forme.niveau === "excellente" && <Flame size={11} className="shrink-0" />}
-      {!court && LIBELLE_FORME[forme.niveau]}
-      <span className="tabular-nums">{formaterNote(forme.indice)}</span>
-      {Pente && <Pente size={11} className="shrink-0" aria-label={forme.tendance ? MOT_TENDANCE[forme.tendance] : undefined} />}
+      {!court && t.forme(forme.niveau)}
+      <span className="tabular-nums">{formaterNote(forme.indice, langue)}</span>
+      {Pente && <Pente size={11} className="shrink-0" aria-label={forme.tendance ? t.tendance(forme.tendance) : undefined} />}
     </span>
   );
 }
@@ -175,6 +221,8 @@ export function BadgeForme({
  * au match qu'elle résume.
  */
 export function FriseDesNotes({ matchs, className = "" }: { matchs: MatchDeForme[]; className?: string }) {
+  const { langue } = useLangue();
+  const t = useTextes(T_FORME);
   if (matchs.length === 0) return null;
   const ordre = [...matchs].reverse();
   return (
@@ -182,19 +230,19 @@ export function FriseDesNotes({ matchs, className = "" }: { matchs: MatchDeForme
       {ordre.map((m, i) => {
         const dernier = i === ordre.length - 1;
         const titre = [
-          m.date ? jourCourt(m.date) : null,
-          `${m.resultat === "V" ? "Victoire" : m.resultat === "D" ? "Défaite" : "Nul"} ${m.score} contre ${m.adversaire}`,
-          m.note === null ? "pas assez joué pour être noté" : `note ${formaterNote(m.note)}`,
+          m.date ? jourCourt(m.date, langue) : null,
+          t.resultat(m.resultat, m.score, m.adversaire),
+          m.note === null ? t.pasNote : t.note(formaterNote(m.note, langue)),
           m.minutes > 0 ? `${m.minutes}'` : null,
-          m.buts > 0 ? `${m.buts} but${m.buts > 1 ? "s" : ""}` : null,
-          m.passes > 0 ? `${m.passes} passe${m.passes > 1 ? "s" : ""} déc.` : null,
+          m.buts > 0 ? t.buts(m.buts) : null,
+          m.passes > 0 ? t.passes(m.passes) : null,
         ].filter(Boolean).join(" · ");
         const pastille = (
           <span className="flex flex-col items-center gap-1">
             <span
               className={`flex h-7 w-9 items-center justify-center text-[11px] font-black tabular-nums ${FOND_NOTE[tonNote(m.note)]}`}
             >
-              {formaterNote(m.note)}
+              {formaterNote(m.note, langue)}
             </span>
             <span aria-hidden className={`h-0.5 w-9 ${dernier ? "bg-gray-900" : "bg-transparent"}`} />
           </span>

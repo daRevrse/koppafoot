@@ -5,6 +5,45 @@ import { CalendarDays, Flag, MapPin, Radio, Swords, Trophy } from "lucide-react"
 import { Sifflet } from "@/components/ui/icones-foot";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import MiniEcusson from "@/components/match/MiniEcusson";
+import { useLangue, useTextes } from "@/i18n";
+import type { Langue } from "@/i18n/config";
+import { dateAvecJourLong } from "@/lib/dates";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    aujourdhui: "Aujourd'hui",
+    demain: "Demain",
+    hier: "Hier",
+    coupDEnvoi: "Coup d'envoi",
+    lieu: "Lieu",
+    competition: "Compétition",
+    arbitre: "Arbitre",
+    designe: "Désigné",
+    enAttente: "En attente",
+    assistants: (n: number) => (n > 1 ? "Assistants" : "Assistant"),
+    scoreur: "Scoreur",
+    tientLaConsole: "Tient la console",
+    format: "Format",
+    details: "Détails",
+  },
+  {
+    aujourdhui: "Today",
+    demain: "Tomorrow",
+    hier: "Yesterday",
+    coupDEnvoi: "Kick-off",
+    lieu: "Venue",
+    competition: "Competition",
+    arbitre: "Referee",
+    designe: "Appointed",
+    enAttente: "Pending",
+    assistants: (n: number) => (n === 1 ? "Assistant" : "Assistants"),
+    scoreur: "Scorer",
+    tientLaConsole: "Runs the console",
+    format: "Format",
+    details: "Details",
+  },
+);
 
 // ============================================
 // Les détails du match, dans l'onglet Infos.
@@ -66,21 +105,19 @@ function jour(iso: string): Date | null {
 }
 
 /** « samedi 12 septembre 2026 ». */
-function dateLongue(iso: string): string | null {
+function dateLongue(iso: string, langue: Langue): string | null {
   const d = jour(iso);
-  return d
-    ? d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-    : null;
+  return d ? dateAvecJourLong(d, langue, { annee: true }) : null;
 }
 
 /** « Aujourd'hui », « Demain », « Hier » — rien au-delà, la date suffit. */
-function jourProche(iso: string): string | null {
+function jourProche(iso: string, t: (typeof T)["fr"]): string | null {
   const d = jour(iso);
   if (!d) return null;
   const aujourdhui = new Date();
   aujourdhui.setHours(0, 0, 0, 0);
   const ecart = Math.round((d.getTime() - aujourdhui.getTime()) / 86_400_000);
-  return ecart === 0 ? "Aujourd'hui" : ecart === 1 ? "Demain" : ecart === -1 ? "Hier" : null;
+  return ecart === 0 ? t.aujourdhui : ecart === 1 ? t.demain : ecart === -1 ? t.hier : null;
 }
 
 function Ligne({ visuel, label, valeur, note, href, action }: {
@@ -121,18 +158,20 @@ export default function MatchInfoList({
   className?: string;
 }) {
   const lignes: React.ReactNode[] = [];
+  const t = useTextes(T);
+  const { langue } = useLangue();
 
   const coup = info.coupDEnvoi;
   if (coup && (coup.date || coup.time)) {
-    const valeur = [coup.date ? dateLongue(coup.date) : null, coup.time].filter(Boolean).join(" · ");
+    const valeur = [coup.date ? dateLongue(coup.date, langue) : null, coup.time].filter(Boolean).join(" · ");
     if (valeur) {
       lignes.push(
         <Ligne
           key="coup"
           visuel={<CalendarDays {...ICONE} />}
-          label="Coup d'envoi"
+          label={t.coupDEnvoi}
           valeur={valeur}
-          note={coup.date ? jourProche(coup.date) : null}
+          note={coup.date ? jourProche(coup.date, t) : null}
         />,
       );
     }
@@ -144,7 +183,7 @@ export default function MatchInfoList({
       <Ligne
         key="lieu"
         visuel={<MapPin {...ICONE} />}
-        label="Lieu"
+        label={t.lieu}
         valeur={(lieu.nom || lieu.ville) as string}
         note={lieu.nom ? lieu.ville : null}
       />,
@@ -157,7 +196,7 @@ export default function MatchInfoList({
       <Ligne
         key="comp"
         visuel={c.logo ? <MiniEcusson nom={c.name} logo={c.logo} taille={24} /> : <Trophy {...ICONE} />}
-        label="Compétition"
+        label={t.competition}
         valeur={c.name}
         note={c.sub}
         href={c.href}
@@ -176,10 +215,10 @@ export default function MatchInfoList({
       <Ligne
         key="ref"
         visuel={<Sifflet {...ICONE} />}
-        label="Arbitre"
+        label={t.arbitre}
         valeur={info.referee.name}
         href={info.referee.href}
-        note={info.referee.note ?? (info.referee.confirmed ? "Désigné" : "En attente")}
+        note={info.referee.note ?? (info.referee.confirmed ? t.designe : t.enAttente)}
       />,
     );
   }
@@ -189,7 +228,7 @@ export default function MatchInfoList({
       <Ligne
         key="assist"
         visuel={<Flag {...ICONE} />}
-        label={info.equipeArbitrale.assistants.length > 1 ? "Assistants" : "Assistant"}
+        label={t.assistants(info.equipeArbitrale.assistants.length)}
         valeur={info.equipeArbitrale.assistants.join(", ")}
         note={info.equipeArbitrale.corps ? `« ${info.equipeArbitrale.corps} »` : null}
       />,
@@ -200,15 +239,15 @@ export default function MatchInfoList({
       <Ligne
         key="scoreur"
         visuel={<Radio {...ICONE} />}
-        label="Scoreur"
+        label={t.scoreur}
         valeur={info.equipeArbitrale.scoreur}
-        note="Tient la console"
+        note={t.tientLaConsole}
       />,
     );
   }
 
   if (info.format) {
-    lignes.push(<Ligne key="fmt" visuel={<Swords {...ICONE} />} label="Format" valeur={info.format} />);
+    lignes.push(<Ligne key="fmt" visuel={<Swords {...ICONE} />} label={t.format} valeur={info.format} />);
   }
 
   if (lignes.length === 0) return null;
@@ -216,7 +255,7 @@ export default function MatchInfoList({
   return (
     <section className={`border border-gray-200/70 bg-white ${className}`}>
       <h2 className="px-4 pt-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 sm:px-5">
-        Détails
+        {t.details}
       </h2>
       <ul className="mt-1 divide-y divide-gray-200/70">{lignes}</ul>
     </section>

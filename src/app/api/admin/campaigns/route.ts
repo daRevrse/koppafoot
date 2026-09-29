@@ -41,23 +41,23 @@ const CAMPAIGN_DEFAULTS: Record<
   { title: string; body: string; link: string }
 > = {
   manager_no_team: {
-    title: "Votre équipe vous attend 👋",
-    body: "Créez votre équipe en 2 minutes et commencez à recruter vos joueurs.",
+    title: "Ton équipe t'attend 👋",
+    body: "Crée ton équipe en 2 minutes et commence à recruter tes joueurs.",
     link: "/teams",
   },
   player_no_team: {
-    title: "Des équipes cherchent un joueur comme vous ⚽",
-    body: "Des équipes actives près de chez vous cherchent des joueurs. Candidatez maintenant.",
+    title: "Des équipes cherchent un joueur comme toi ⚽",
+    body: "Des équipes actives près de chez toi cherchent des joueurs. Candidate maintenant.",
     link: "/mercato",
   },
   manager_welcome: {
     title: "Bienvenue sur KoppaFoot ! 🎉",
-    body: "Votre compte manager est prêt. Créez votre équipe et défiez vos premiers adversaires.",
+    body: "Ton compte manager est prêt. Crée ton équipe et défie tes premiers adversaires.",
     link: "/teams",
   },
   sans_espace: {
-    title: "Vous jouez, vous coachez, vous arbitrez ? ⚽",
-    body: "Choisissez votre rôle pour ouvrir votre espace : effectif, feuilles de match, convocations.",
+    title: "Tu joues, tu coaches, tu arbitres ? ⚽",
+    body: "Choisis ton rôle pour ouvrir ton espace : effectif, feuilles de match, convocations.",
     link: "/roles#choisir",
   },
 };

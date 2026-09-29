@@ -3,6 +3,13 @@
 import { useCallback, useEffect } from "react";
 import { motion } from "motion/react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  { grand: "Photo en grand", fermer: "Fermer", precedente: "Photo précédente", suivante: "Photo suivante" },
+  { grand: "Full-size photo", fermer: "Close", precedente: "Previous photo", suivante: "Next photo" },
+);
 
 // ============================================
 // LA PHOTO EN GRAND, QUAND ON LA TOUCHE.
@@ -36,6 +43,7 @@ export default function VisionneuseMedia({
   onIndex: (i: number) => void;
   onClose: () => void;
 }) {
+  const t = useTextes(T);
   const plusieurs = urls.length > 1;
 
   // `useCallback` : les deux entrent dans les dépendances de l'effet clavier.
@@ -78,7 +86,7 @@ export default function VisionneuseMedia({
       className="fixed inset-0 modal-layer flex items-center justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Photo en grand"
+      aria-label={t.grand}
     >
       <motion.div
         initial={{ opacity: 0 }}
@@ -90,7 +98,7 @@ export default function VisionneuseMedia({
 
       <button
         onClick={onClose}
-        aria-label="Fermer"
+        aria-label={t.fermer}
         className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center bg-white/10 text-white transition-colors hover:bg-white/20"
         style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))" }}
       >
@@ -101,14 +109,14 @@ export default function VisionneuseMedia({
         <>
           <button
             onClick={precedent}
-            aria-label="Photo précédente"
+            aria-label={t.precedente}
             className="absolute left-2 z-10 flex h-11 w-11 items-center justify-center bg-white/10 text-white transition-colors hover:bg-white/20"
           >
             <ChevronLeft size={22} />
           </button>
           <button
             onClick={suivant}
-            aria-label="Photo suivante"
+            aria-label={t.suivante}
             className="absolute right-2 z-10 flex h-11 w-11 items-center justify-center bg-white/10 text-white transition-colors hover:bg-white/20"
           >
             <ChevronRight size={22} />

@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Trophy, CalendarDays, MapPin } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale/fr";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { LOCALE_DATE_FNS } from "@/i18n/dates";
 import FollowCompetitionButton from "./FollowCompetitionButton";
 import type { Competition, CompetitionStatus } from "@/types";
 import Image from "next/image";
@@ -13,29 +17,52 @@ import Image from "next/image";
 // Status → directory badge. Three public buckets only (draft never reaches the
 // public directory). Mirrors the emerald/blue/gray accent language of the
 // public competition pages.
-const STATUS_BADGE: Record<
-  CompetitionStatus,
-  { label: string; dot: string; color: string; bg: string }
-> = {
-  draft: { label: "Brouillon", dot: "bg-gray-400", color: "text-gray-600", bg: "bg-gray-100" },
-  registration: { label: "À venir", dot: "bg-blue-500", color: "text-blue-700", bg: "bg-blue-50" },
-  group_stage: { label: "En cours", dot: "bg-emerald-500", color: "text-emerald-700", bg: "bg-emerald-50" },
-  knockout: { label: "En cours", dot: "bg-emerald-500", color: "text-emerald-700", bg: "bg-emerald-50" },
-  completed: { label: "Terminée", dot: "bg-gray-400", color: "text-gray-500", bg: "bg-gray-100" },
+const STATUS_BADGE: Record<CompetitionStatus, { dot: string; color: string; bg: string }> = {
+  draft: { dot: "bg-gray-400", color: "text-gray-600", bg: "bg-gray-100" },
+  registration: { dot: "bg-blue-500", color: "text-blue-700", bg: "bg-blue-50" },
+  group_stage: { dot: "bg-emerald-500", color: "text-emerald-700", bg: "bg-emerald-50" },
+  knockout: { dot: "bg-emerald-500", color: "text-emerald-700", bg: "bg-emerald-50" },
+  completed: { dot: "bg-gray-400", color: "text-gray-500", bg: "bg-gray-100" },
 };
 
+const T = textes(
+  {
+    statut: (s: CompetitionStatus) => ({
+      draft: "Brouillon", registration: "À venir", group_stage: "En cours",
+      knockout: "En cours", completed: "Terminée",
+    })[s],
+    aPartirDu: (d: string) => `À partir du ${d}`,
+    jusquau: (d: string) => `Jusqu'au ${d}`,
+    par: (nom: string) => `Par ${nom}`,
+  },
+  {
+    statut: (s: CompetitionStatus) => ({
+      draft: "Draft", registration: "Upcoming", group_stage: "Under way",
+      knockout: "Under way", completed: "Finished",
+    })[s],
+    aPartirDu: (d: string) => `From ${d}`,
+    jusquau: (d: string) => `Until ${d}`,
+    par: (nom: string) => `By ${nom}`,
+  },
+);
+
 // Human date range. Both / start-only / end-only / none, guarding invalid ISO.
-function formatDateRange(start: string | null, end: string | null): string | null {
+function formatDateRange(
+  start: string | null,
+  end: string | null,
+  locale: (typeof LOCALE_DATE_FNS)["fr"],
+  t: (typeof T)["fr"],
+): string | null {
   const fmt = (d: string) => {
     try {
-      return format(parseISO(d), "d MMM yyyy", { locale: fr });
+      return format(parseISO(d), "d MMM yyyy", { locale });
     } catch {
       return d;
     }
   };
   if (start && end) return `${fmt(start)}, ${fmt(end)}`;
-  if (start) return `À partir du ${fmt(start)}`;
-  if (end) return `Jusqu'au ${fmt(end)}`;
+  if (start) return t.aPartirDu(fmt(start));
+  if (end) return t.jusquau(fmt(end));
   return null;
 }
 
@@ -52,8 +79,10 @@ function formatDateRange(start: string | null, end: string | null): string | nul
 // collage d'URL a disparu (voir ImageUploadField), tout vient de Firebase
 // Storage, l'optimiseur peut faire son travail.
 export default function CompetitionDirectoryCard({ competition }: { competition: Competition }) {
+  const { langue } = useLangue();
+  const t = useTextes(T);
   const badge = STATUS_BADGE[competition.status];
-  const dateRange = formatDateRange(competition.startDate, competition.endDate);
+  const dateRange = formatDateRange(competition.startDate, competition.endDate, LOCALE_DATE_FNS[langue], t);
   const cover = competition.bannerUrl ?? competition.logoUrl;
 
   return (
@@ -83,7 +112,7 @@ export default function CompetitionDirectoryCard({ competition }: { competition:
             className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${badge.bg} ${badge.color}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
-            {badge.label}
+            {t.statut(competition.status)}
           </span>
         </div>
 
@@ -94,7 +123,7 @@ export default function CompetitionDirectoryCard({ competition }: { competition:
           </h3>
           {competition.organizerName && (
             <p className="-mt-1 truncate text-[11px] font-bold text-gray-400">
-              Par {competition.organizerName}
+              {t.par(competition.organizerName)}
             </p>
           )}
           <div className="mt-auto flex flex-col gap-1 text-[11px] font-bold text-gray-400">

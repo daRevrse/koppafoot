@@ -1,3 +1,8 @@
+"use client";
+
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
 // ============================================
 // La mention « décidé aux tirs au but ».
 //
@@ -10,6 +15,19 @@
 // même chose partout, et c'est justement de ne pas être partout qu'elle
 // souffrait.
 // ============================================
+
+const T = textes(
+  {
+    long: (h: number, a: number) => `Tirs au but ${h} – ${a}`,
+    court: (h: number, a: number) => `t.a.b. ${h}–${a}`,
+    titre: (h: number, a: number) => `Décidé aux tirs au but : ${h} – ${a}`,
+  },
+  {
+    long: (h: number, a: number) => `Penalties ${h} – ${a}`,
+    court: (h: number, a: number) => `pens ${h}–${a}`,
+    titre: (h: number, a: number) => `Decided on penalties: ${h} – ${a}`,
+  },
+);
 
 interface Props {
   home: number | null | undefined;
@@ -31,14 +49,15 @@ export function decideAuxTirsAuBut(
 }
 
 export default function TirsAuBut({ home, away, taille = "court", className = "" }: Props) {
-  if (!decideAuxTirsAuBut(home, away)) return null;
+  const t = useTextes(T);
+  if (home == null || away == null) return null;
 
   if (taille === "long") {
     return (
       <span
         className={`inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 ${className}`}
       >
-        Tirs au but {home} – {away}
+        {t.long(home, away)}
       </span>
     );
   }
@@ -46,9 +65,9 @@ export default function TirsAuBut({ home, away, taille = "court", className = ""
   return (
     <span
       className={`inline-flex items-center whitespace-nowrap rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700 ${className}`}
-      title={`Décidé aux tirs au but : ${home} – ${away}`}
+      title={t.titre(home, away)}
     >
-      t.a.b. {home}–{away}
+      {t.court(home, away)}
     </span>
   );
 }

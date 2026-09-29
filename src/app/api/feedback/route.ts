@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       .catch(() => null);
     if (recents && recents.data().count >= PAR_HEURE_MAX) {
       return NextResponse.json(
-        { error: "Vous avez déjà envoyé plusieurs retours cette heure-ci. Merci, on les lit." },
+        { error: "Tu as déjà envoyé plusieurs retours cette heure-ci. Merci, on les lit." },
         { status: 429 },
       );
     }

@@ -411,7 +411,7 @@ export default function CompetitionTeamsPage() {
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucune équipe</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Ajoutez la première équipe pour commencer à composer les poules et le calendrier.
+            Ajoute la première équipe pour commencer à composer les poules et le calendrier.
           </p>
           <button
             type="button"

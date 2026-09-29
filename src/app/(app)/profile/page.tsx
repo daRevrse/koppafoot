@@ -793,7 +793,7 @@ export default function ProfilePage() {
               <div className=" border border-gray-200/70 bg-white py-12 text-center">
                 <Trophy size={32} className="mx-auto text-gray-300" />
                 <p className="mt-3 text-sm font-medium text-gray-500">Aucun trophée pour le moment</p>
-                <p className="mt-1 text-xs text-gray-400">Ajoutez vos accomplissements sportifs ci-dessus</p>
+                <p className="mt-1 text-xs text-gray-400">Ajoute tes accomplissements sportifs ci-dessus</p>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -881,7 +881,7 @@ export default function ProfilePage() {
               <div className=" border border-gray-200/70 bg-white py-12 text-center">
                 <ImageIcon size={32} className="mx-auto text-gray-300" />
                 <p className="mt-3 text-sm font-medium text-gray-500">Aucune photo dans la galerie</p>
-                <p className="mt-1 text-xs text-gray-400">Ajoutez des photos pour enrichir votre profil public</p>
+                <p className="mt-1 text-xs text-gray-400">Ajoute des photos pour enrichir ton profil public</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -974,10 +974,10 @@ export default function ProfilePage() {
 // vraiment partir.
 // ============================================
 
-const MOT_DE_CONFIRMATION = "SUPPRIMER";
 
 function SuppressionDeCompte() {
   const t = useT();
+  const motDeConfirmation = t("suppr.mot");
   const { firebaseUser, logout } = useAuth();
   const router = useRouter();
   const [ouvert, setOuvert] = useState(false);
@@ -986,7 +986,7 @@ function SuppressionDeCompte() {
   const [obstacles, setObstacles] = useState<string[] | null>(null);
   const [reconnexion, setReconnexion] = useState(false);
 
-  const arme = saisie.trim().toUpperCase() === MOT_DE_CONFIRMATION;
+  const arme = saisie.trim().toUpperCase() === motDeConfirmation;
 
   const supprimer = async () => {
     if (!arme || !firebaseUser) return;
@@ -1055,7 +1055,7 @@ function SuppressionDeCompte() {
         ) : (
           <div className="mt-5 border border-red-200 bg-white p-4 sm:p-5">
             <label htmlFor="confirmation-suppression" className="block text-[11px] font-black uppercase tracking-[0.12em] text-gray-500">
-              {t("suppr.tapez", { mot: MOT_DE_CONFIRMATION })}
+              {t("suppr.tapez", { mot: motDeConfirmation })}
             </label>
             <input
               id="confirmation-suppression"
@@ -1063,7 +1063,7 @@ function SuppressionDeCompte() {
               value={saisie}
               onChange={(e) => setSaisie(e.target.value)}
               autoComplete="off"
-              placeholder={MOT_DE_CONFIRMATION}
+              placeholder={motDeConfirmation}
               className="mt-2 w-full max-w-xs border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm font-bold uppercase tracking-[0.1em] text-gray-900 outline-none transition-colors placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-300 focus:border-red-500 focus:bg-white"
             />
 

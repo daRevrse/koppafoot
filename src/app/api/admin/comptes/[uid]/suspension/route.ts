@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   }
   const motif = typeof corps.motif === "string" ? corps.motif.trim().slice(0, 500) : "";
   if (corps.suspendre && motif.length < 5) {
-    return NextResponse.json({ error: "Dites pourquoi ce compte est suspendu" }, { status: 400 });
+    return NextResponse.json({ error: "Dis pourquoi ce compte est suspendu" }, { status: 400 });
   }
 
   try {

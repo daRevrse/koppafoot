@@ -39,7 +39,13 @@ export interface FootballCompetition {
   code: string;
   name: string;
   emblem: string | null;
+  /** Le pays ou la région, en français (voir AREA_FR). */
   area: string | null;
+  /**
+   * Le même, tel que le fournisseur l'écrit : en anglais. Absent des réponses
+   * mises en cache avant qu'il existe, d'où le repli sur `area` à la lecture.
+   */
+  areaEn?: string | null;
   /** LEAGUE or CUP, drives the "Championnat"/"Coupe" badge. */
   type: string | null;
   areaFlag: string | null;
@@ -224,6 +230,7 @@ function toCompetition(c: ApiCompetition): FootballCompetition {
     name: c.name ?? "",
     emblem: c.emblem ?? null,
     area: area ? (AREA_FR[area] ?? area) : null,
+    areaEn: area,
     type: c.type ?? null,
     areaFlag: c.area?.flag ?? null,
     seasonStart: c.currentSeason?.startDate ?? null,

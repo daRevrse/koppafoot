@@ -478,7 +478,7 @@ export default function MercatoPage() {
             ?? myTeams.find((t) => t.id === req.teamId)?.logoUrl ?? null,
           receiverCity: req.playerCity, receiverPosition: req.playerPosition,
           receiverLevel: req.playerLevel, teamId: req.teamId, teamName: req.teamName,
-          message: "Suite à votre candidature, nous vous invitons à rejoindre l'équipe.",
+          message: "Suite à ta candidature, on t'invite à rejoindre l'équipe.",
         });
       }
     } finally {

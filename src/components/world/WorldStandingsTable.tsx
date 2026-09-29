@@ -1,5 +1,13 @@
 import { ListOrdered, Trophy } from "lucide-react";
 import type { WorldStandingsGroup } from "@/lib/football-data";
+import type { Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+import { COLONNES_CLASSEMENT } from "@/i18n/foot";
+
+const T = textes(
+  { vide: "Pas encore de classement pour cette saison." },
+  { vide: "No standings for this season yet." },
+);
 
 // ============================================
 // WorldStandingsTable
@@ -15,7 +23,14 @@ import type { WorldStandingsGroup } from "@/lib/football-data";
 
 const formatDiff = (diff: number) => (diff > 0 ? `+${diff}` : `${diff}`);
 
-export default function WorldStandingsTable({ groups }: { groups: WorldStandingsGroup[] }) {
+export default function WorldStandingsTable({
+  groups,
+  langue = "fr",
+}: {
+  groups: WorldStandingsGroup[];
+  langue?: Langue;
+}) {
+  const t = { ...T[langue], ...COLONNES_CLASSEMENT[langue] };
   if (groups.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -23,7 +38,7 @@ export default function WorldStandingsTable({ groups }: { groups: WorldStandings
           <ListOrdered size={32} />
         </div>
         <p className="text-sm font-bold text-gray-400 italic">
-          Pas encore de classement pour cette saison.
+          {t.vide}
         </p>
       </div>
     );
@@ -51,15 +66,15 @@ export default function WorldStandingsTable({ groups }: { groups: WorldStandings
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   <th className="px-3 py-3 text-center">#</th>
-                  <th className="px-3 py-3 text-left">Équipe</th>
-                  <th className="px-2 py-3 text-center" title="Joués">J</th>
-                  <th className="px-2 py-3 text-center" title="Gagnés">G</th>
-                  <th className="px-2 py-3 text-center" title="Nuls">N</th>
-                  <th className="px-2 py-3 text-center" title="Perdus">P</th>
-                  <th className="px-2 py-3 text-center" title="Buts pour">BP</th>
-                  <th className="px-2 py-3 text-center" title="Buts contre">BC</th>
-                  <th className="px-2 py-3 text-center" title="Différence de buts">Diff</th>
-                  <th className="px-3 py-3 text-center" title="Points">Pts</th>
+                  <th className="px-3 py-3 text-left">{t.equipe}</th>
+                  <th className="px-2 py-3 text-center" title={t.jTitre}>{t.j}</th>
+                  <th className="px-2 py-3 text-center" title={t.gTitre}>{t.g}</th>
+                  <th className="px-2 py-3 text-center" title={t.nTitre}>{t.n}</th>
+                  <th className="px-2 py-3 text-center" title={t.pTitre}>{t.p}</th>
+                  <th className="px-2 py-3 text-center" title={t.bpTitre}>{t.bp}</th>
+                  <th className="px-2 py-3 text-center" title={t.bcTitre}>{t.bc}</th>
+                  <th className="px-2 py-3 text-center" title={t.diffTitre}>{t.diff}</th>
+                  <th className="px-3 py-3 text-center" title={t.ptsTitre}>{t.pts}</th>
                 </tr>
               </thead>
               <tbody>

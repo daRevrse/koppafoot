@@ -144,7 +144,7 @@ export default function FicheCompteAdminPage() {
             <button
               onClick={() => setSuspension(c.actif)}
               disabled={c.actif && c.casquettes.admin}
-              title={c.actif && c.casquettes.admin ? "Retirez d'abord l'accès à l'administration" : undefined}
+              title={c.actif && c.casquettes.admin ? "Retire d'abord l'accès à l'administration" : undefined}
               className={c.actif ? BOUTON_DANGER : BOUTON_CONTOUR}
             >
               {c.actif ? "Suspendre" : "Réactiver"}
@@ -197,7 +197,7 @@ export default function FicheCompteAdminPage() {
                 <div key={k.role} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-black text-gray-900">{k.label}</p>
-                    <p className="text-xs text-gray-500">{verrou ? "Vous ne pouvez pas retirer vos propres droits." : k.detail}</p>
+                    <p className="text-xs text-gray-500">{verrou ? "Tu ne peux pas retirer tes propres droits." : k.detail}</p>
                   </div>
                   <button
                     onClick={() => casquette(k.role, !k.pose)}

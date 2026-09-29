@@ -6,7 +6,10 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, SearchX, ChevronRight, Share2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale/fr";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
+import { LOCALE_DATE_FNS } from "@/i18n/dates";
 import {
   getCompetitionBySlug,
   onCompMatches,
@@ -21,37 +24,88 @@ import { lienAbsolu, partagerLien } from "@/lib/partage";
 import {
   rangerLesMatchs, resultatDuMatch, statutPublicCompetition, type MatchDuClub,
 } from "@/lib/fiche-club";
-import type { Competition, CompMatch, CompTeam, CompMatchRound } from "@/types";
+import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
 // Helpers
 // ============================================
 
-// Knockout round → French label, for the per-match tag when `round` is set.
-const ROUND_LABELS: Record<CompMatchRound, string> = {
-  round_of_16: "8es de finale",
-  quarter: "Quart de finale",
-  semi: "Demi-finale",
-  final: "Finale",
-  third_place: "Petite finale",
-};
+const T = textes(
+  {
+    rang: (n: number) => (n === 1 ? "1ᵉʳ" : `${n}ᵉ`),
+    points: (n: number) => `${n} pts`,
+    chargement: "Chargement de l'équipe...",
+    compIntrouvable: "Compétition introuvable",
+    compIntrouvableTexte: "Cette compétition n'existe pas ou n'est plus disponible.",
+    equipeIntrouvable: "Équipe introuvable",
+    equipeIntrouvableTexte: "Cette équipe n'existe pas dans cette compétition.",
+    retourCompetition: "Retour à la compétition",
+    lienCopie: "Lien de l'équipe copié !",
+    partageEchoue: "Le partage a échoué.",
+    direct: "Direct",
+    joueurs: (n: number) => `${n} joueur${n > 1 ? "s" : ""}`,
+    partager: "Partager cette équipe",
+    ficheDuClub: "Fiche du club",
+    domicile: "Domicile",
+    exterieur: "Extérieur",
+    aucunAVenir: "Aucun match à venir.",
+    dansLaCompetition: "Dans la compétition",
+    joues: "Joués",
+    gagnes: "Gagnés",
+    nuls: "Nuls",
+    perdus: "Perdus",
+    buts: (pour: number, contre: number) => `Buts ${pour}–${contre}`,
+    sections: "Sections de l'équipe",
+    effectif: "Effectif",
+    matchs: "Matchs",
+    effectifNonCommunique: "Effectif non communiqué.",
+  },
+  {
+    rang: (n: number) => {
+      const dizaine = n % 100;
+      const suffixe = dizaine >= 11 && dizaine <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+      return `${n}${suffixe}`;
+    },
+    points: (n: number) => `${n} pts`,
+    chargement: "Loading the team...",
+    compIntrouvable: "Competition not found",
+    compIntrouvableTexte: "This competition doesn't exist or is no longer available.",
+    equipeIntrouvable: "Team not found",
+    equipeIntrouvableTexte: "This team isn't part of this competition.",
+    retourCompetition: "Back to the competition",
+    lienCopie: "Team link copied!",
+    partageEchoue: "Sharing failed.",
+    direct: "Live",
+    joueurs: (n: number) => `${n} player${n === 1 ? "" : "s"}`,
+    partager: "Share this team",
+    ficheDuClub: "Club page",
+    domicile: "Home",
+    exterieur: "Away",
+    aucunAVenir: "No upcoming matches.",
+    dansLaCompetition: "In the competition",
+    joues: "Played",
+    gagnes: "Won",
+    nuls: "Drawn",
+    perdus: "Lost",
+    buts: (pour: number, contre: number) => `Goals ${pour}–${contre}`,
+    sections: "Team sections",
+    effectif: "Squad",
+    matchs: "Matches",
+    effectifNonCommunique: "Squad not provided.",
+  },
+);
 
 // Small stage tag: "Groupe A" for group matches, the round label for knockout.
-function stageTag(match: CompMatch): string | null {
-  if (match.group) return `Groupe ${match.group}`;
-  if (match.round) return ROUND_LABELS[match.round];
+function stageTag(match: CompMatch, f: (typeof FOOT)["fr"]): string | null {
+  if (match.group) return f.groupe(match.group);
+  if (match.round) return f.tour(match.round);
   return null;
 }
 
-// French ordinal for a 1-based rank: 1ᵉʳ, 2ᵉ, 3ᵉ, …
-function ordinal(rank: number): string {
-  return rank === 1 ? "1ᵉʳ" : `${rank}ᵉ`;
-}
-
 // Format a single ISO date, e.g. "samedi 18 juil." (fr). Falls back to raw.
-function formatShortDate(date: string): string {
+function formatShortDate(date: string, locale: (typeof LOCALE_DATE_FNS)["fr"]): string {
   try {
-    const label = format(parseISO(date), "EEE d MMM", { locale: fr });
+    const label = format(parseISO(date), "EEE d MMM", { locale });
     return label.charAt(0).toUpperCase() + label.slice(1);
   } catch {
     return date;
@@ -67,6 +121,9 @@ export default function PublicTeamPage() {
   // prochain match reste hors carte, au-dessus, c'est la seule chose de
   // cette page qui perime.
   const [tab, setTab] = useState<"roster" | "results">("roster");
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
 
   const { slug, tid } = useParams() as { slug: string; tid: string };
   const [competition, setCompetition] = useState<Competition | null>(null);
@@ -95,9 +152,9 @@ export default function PublicTeamPage() {
       }
       setCompetition(comp);
       setLoading(false);
-      unsubTeams = onCompTeams(comp.id, (t) => {
+      unsubTeams = onCompTeams(comp.id, (liste) => {
         if (cancelled) return;
-        setTeams(t);
+        setTeams(liste);
         setTeamsLoaded(true);
       });
       unsubMatches = onCompMatches(comp.id, (m) => {
@@ -112,7 +169,7 @@ export default function PublicTeamPage() {
     };
   }, [slug]);
 
-  const team = useMemo(() => teams.find((t) => t.id === tid) ?? null, [teams, tid]);
+  const team = useMemo(() => teams.find((e) => e.id === tid) ?? null, [teams, tid]);
 
   // The team's group rank + points, derived from the shared standings helper
   // (never recomputed inline). Null until the team is in a group with a table.
@@ -168,7 +225,7 @@ export default function PublicTeamPage() {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Chargement de l&apos;équipe...</p>
+        <p className="font-bold text-gray-500 italic">{t.chargement}</p>
       </div>
     );
   }
@@ -180,9 +237,9 @@ export default function PublicTeamPage() {
           <SearchX size={32} />
         </div>
         <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
+          <h1 className="font-display text-xl font-black text-gray-900">{t.compIntrouvable}</h1>
           <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
+            {t.compIntrouvableTexte}
           </p>
         </div>
       </div>
@@ -197,15 +254,15 @@ export default function PublicTeamPage() {
           <SearchX size={32} />
         </div>
         <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Équipe introuvable</h1>
+          <h1 className="font-display text-xl font-black text-gray-900">{t.equipeIntrouvable}</h1>
           <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Cette équipe n&apos;existe pas dans cette compétition.
+            {t.equipeIntrouvableTexte}
           </p>
           <Link
             href={`/c/${slug}`}
             className="mt-4 inline-block text-xs font-black uppercase tracking-wider text-emerald-600 hover:text-emerald-700"
           >
-            Retour à la compétition
+            {t.retourCompetition}
           </Link>
         </div>
       </div>
@@ -217,7 +274,7 @@ export default function PublicTeamPage() {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Chargement de l&apos;équipe...</p>
+        <p className="font-bold text-gray-500 italic">{t.chargement}</p>
       </div>
     );
   }
@@ -234,7 +291,7 @@ export default function PublicTeamPage() {
       id: m.id,
       lien: `/c/${slug}/matches/${m.id}`,
       competition: { nom: competition.name, lien: `/c/${slug}` },
-      etape: stageTag(m),
+      etape: stageTag(m, f),
       date: m.date,
       heure: m.time,
       statut,
@@ -267,8 +324,8 @@ export default function PublicTeamPage() {
       text: `${team.name} · ${competition.name}`,
       url: lienAbsolu(`/c/${slug}/teams/${tid}`),
     });
-    if (resultat === "copie") toast.success("Lien de l'équipe copié !");
-    else if (resultat === "echec") toast.error("Le partage a échoué.");
+    if (resultat === "copie") toast.success(t.lienCopie);
+    else if (resultat === "echec") toast.error(t.partageEchoue);
   };
 
   return (
@@ -279,7 +336,7 @@ export default function PublicTeamPage() {
           se rejoint par son nom, au-dessus de celui de l'équipe. */}
       <BandeauEquipe
         fil={[
-          { label: "Direct", href: "/" },
+          { label: t.direct, href: "/" },
           { label: competition.name, href: `/c/${slug}` },
           { label: team.name },
         ]}
@@ -293,19 +350,19 @@ export default function PublicTeamPage() {
         }
         puces={
           <>
-            {team.group && <span>Groupe {team.group}</span>}
+            {team.group && <span>{f.groupe(team.group)}</span>}
             {standing && (
               <span className="text-emerald-300">
-                {ordinal(standing.rank)} · {standing.points} pts
+                {t.rang(standing.rank)} · {t.points(standing.points)}
               </span>
             )}
             <FormeEnLettres forme={forme} />
-            <span>{roster.length} joueur{roster.length > 1 ? "s" : ""}</span>
+            <span>{t.joueurs(roster.length)}</span>
           </>
         }
         actions={
           <>
-            <button type="button" onClick={partager} aria-label="Partager cette équipe" className={BOUTON_BANDEAU}>
+            <button type="button" onClick={partager} aria-label={t.partager} className={BOUTON_BANDEAU}>
               <Share2 size={14} />
             </button>
             {/* LE CLUB DERRIÈRE L'ÉQUIPE. Une inscription revendiquée par un
@@ -313,7 +370,7 @@ export default function PublicTeamPage() {
                 qui s'ignoraient. */}
             {team.claimedByTeamId && (
               <Link href={`/teams/${team.claimedByTeamId}`} className={BOUTON_BANDEAU}>
-                Fiche du club
+                {t.ficheDuClub}
               </Link>
             )}
           </>
@@ -331,9 +388,9 @@ export default function PublicTeamPage() {
             >
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">
-                  {prochain.statut === "en_direct" ? "En direct" : "Prochain match"}
+                  {prochain.statut === "en_direct" ? f.enDirect : f.prochainMatch}
                   {prochain.etape ? ` · ${prochain.etape}` : ""}
-                  {` · ${prochain.domicile ? "Domicile" : "Extérieur"}`}
+                  {` · ${prochain.domicile ? t.domicile : t.exterieur}`}
                 </p>
                 <p className="mt-1 flex min-w-0 items-center gap-2 text-base font-black text-gray-900">
                   <MiniEcusson nom={prochain.adversaire.nom} logo={prochain.adversaire.logo} taille={22} className="text-gray-400" />
@@ -341,7 +398,7 @@ export default function PublicTeamPage() {
                 </p>
                 {prochain.date && (
                   <p className="mt-0.5 text-[11px] font-bold text-gray-500">
-                    {formatShortDate(prochain.date)}
+                    {formatShortDate(prochain.date, LOCALE_DATE_FNS[langue])}
                     {prochain.heure ? ` · ${prochain.heure}` : ""}
                     {prochain.lieu ? ` · ${prochain.lieu}` : ""}
                   </p>
@@ -351,28 +408,28 @@ export default function PublicTeamPage() {
             </Link>
           ) : (
             <p className="border border-gray-200/70 bg-white px-4 py-3.5 text-sm font-bold text-gray-400">
-              Aucun match à venir.
+              {t.aucunAVenir}
             </p>
           )}
 
           {bilan.joues > 0 && (
             <div className="border border-gray-200/70 bg-white px-4 py-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">Dans la compétition</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">{t.dansLaCompetition}</p>
               <div className="mt-2 grid grid-cols-4 gap-2">
                 {[
-                  { v: bilan.joues, l: "Joués", t: "text-gray-900" },
-                  { v: bilan.gagnes, l: "Gagnés", t: "text-emerald-700" },
-                  { v: bilan.nuls, l: "Nuls", t: "text-gray-900" },
-                  { v: bilan.perdus, l: "Perdus", t: "text-red-600" },
+                  { v: bilan.joues, l: t.joues, ton: "text-gray-900" },
+                  { v: bilan.gagnes, l: t.gagnes, ton: "text-emerald-700" },
+                  { v: bilan.nuls, l: t.nuls, ton: "text-gray-900" },
+                  { v: bilan.perdus, l: t.perdus, ton: "text-red-600" },
                 ].map((c) => (
                   <div key={c.l}>
-                    <p className={`font-display text-2xl font-black leading-none tabular-nums ${c.t}`}>{c.v}</p>
+                    <p className={`font-display text-2xl font-black leading-none tabular-nums ${c.ton}`}>{c.v}</p>
                     <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">{c.l}</p>
                   </div>
                 ))}
               </div>
               <p className="mt-3 text-[11px] font-bold tabular-nums text-gray-500">
-                Buts {bilan.pour}–{bilan.contre}
+                {t.buts(bilan.pour, bilan.contre)}
               </p>
             </div>
           )}
@@ -381,24 +438,24 @@ export default function PublicTeamPage() {
         {/* Une seule carte, dont les onglets changent le contenu. Le titre
             répétait sous l'onglet ce que l'onglet venait de dire. */}
         <div className="min-w-0 border border-gray-200/70 bg-white lg:col-start-1 lg:row-start-1">
-          <div role="tablist" aria-label="Sections de l'équipe" className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+          <div role="tablist" aria-label={t.sections} className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
             {([
-              { id: "roster" as const, label: "Effectif", n: roster.length },
-              { id: "results" as const, label: "Matchs", n: matchsVus.length },
-            ]).map((t) => (
+              { id: "roster" as const, label: t.effectif, n: roster.length },
+              { id: "results" as const, label: t.matchs, n: matchsVus.length },
+            ]).map((o) => (
               <button
-                key={t.id}
+                key={o.id}
                 role="tab"
-                aria-selected={tab === t.id}
-                onClick={() => setTab(t.id)}
+                aria-selected={tab === o.id}
+                onClick={() => setTab(o.id)}
                 className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                  tab === t.id
+                  tab === o.id
                     ? "border-gray-900 text-gray-900"
                     : "border-transparent text-gray-400 hover:text-gray-700"
                 }`}
               >
-                {t.label}
-                {t.n > 0 && <span className="tabular-nums text-gray-400">{t.n}</span>}
+                {o.label}
+                {o.n > 0 && <span className="tabular-nums text-gray-400">{o.n}</span>}
               </button>
             ))}
           </div>
@@ -408,7 +465,7 @@ export default function PublicTeamPage() {
             {tab === "roster" && (
               roster.length === 0 ? (
                 <p className="border border-gray-200/70 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400">
-                  Effectif non communiqué.
+                  {t.effectifNonCommunique}
                 </p>
               ) : (
                 <RosterClaimList cid={competition.id} teamId={tid} roster={roster} />

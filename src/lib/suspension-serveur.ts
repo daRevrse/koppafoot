@@ -50,7 +50,7 @@ export async function suspendreCompte(
   motif: string | null,
   par: string,
 ): Promise<{ connexionBloquee: boolean | null }> {
-  if (uid === par) throw new SuspensionImpossible("Vous ne pouvez pas suspendre votre propre compte.");
+  if (uid === par) throw new SuspensionImpossible("Tu ne peux pas suspendre ton propre compte.");
 
   const ref = adminDb.collection("users").doc(uid);
   const snap = await ref.get();
@@ -58,7 +58,7 @@ export async function suspendreCompte(
   // Un administrateur suspendu garderait ses droits sur tout le reste de la
   // base dès qu'il retrouverait une session : on retire d'abord le droit.
   if (suspendre && estSuperadmin(snap.data())) {
-    throw new SuspensionImpossible("Retirez d'abord à ce compte l'accès à l'administration.");
+    throw new SuspensionImpossible("Retire d'abord à ce compte l'accès à l'administration.");
   }
 
   let connexionBloquee: boolean | null = suspendre;

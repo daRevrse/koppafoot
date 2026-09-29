@@ -4,6 +4,8 @@ import { Trophy, ArrowRight } from "lucide-react";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import { getWorldCompetitions } from "@/lib/football-data";
 import CompetitionDirectorySearch from "@/components/competition/CompetitionDirectorySearch";
+import { textes } from "@/i18n/textes";
+import { textesServeur } from "@/i18n/serveur";
 
 // Public, login-free directory of all visible competitions, rendered inside
 // the general app shell (the (app) layout treats /competitions as public).
@@ -16,16 +18,37 @@ import CompetitionDirectorySearch from "@/components/competition/CompetitionDire
 // worth opening on a day when no local competition is running.
 export const revalidate = 60;
 
-export const metadata = {
-  title: "Compétitions, Koppafoot",
-  description:
-    "Suis les compétitions de football amateur et les grands championnats du monde : classements, résultats et calendriers en direct sur Koppafoot.",
-};
+const T = textes(
+  {
+    titreMeta: "Compétitions, Koppafoot",
+    description:
+      "Suis les compétitions de football amateur et les grands championnats du monde : classements, résultats et calendriers en direct sur Koppafoot.",
+    titre: "Compétitions",
+    aucune: "Aucune compétition pour le moment.",
+    reviens: "Reviens bientôt, ou crée la tienne sur Koppafoot.",
+    rejoindre: "Rejoindre Koppafoot",
+  },
+  {
+    titreMeta: "Competitions, Koppafoot",
+    description:
+      "Follow grassroots football competitions and the world's top leagues: standings, results and fixtures live on Koppafoot.",
+    titre: "Competitions",
+    aucune: "No competitions yet.",
+    reviens: "Come back soon, or create your own on Koppafoot.",
+    rejoindre: "Join Koppafoot",
+  },
+);
+
+export async function generateMetadata() {
+  const t = await textesServeur(T);
+  return { title: t.titreMeta, description: t.description };
+}
 
 export default async function CompetitionsPage() {
-  const [competitions, worldCompetitions] = await Promise.all([
+  const [competitions, worldCompetitions, t] = await Promise.all([
     getPublicCompetitions(),
     getWorldCompetitions(),
+    textesServeur(T),
   ]);
 
   return (
@@ -34,7 +57,7 @@ export default async function CompetitionsPage() {
             déjà ce que la page contient, et leurs compteurs le chiffrent. */}
         <div className="mb-8">
           <h1 className="font-display text-3xl font-black tracking-tight text-gray-900">
-            Compétitions
+            {t.titre}
           </h1>
         </div>
 
@@ -45,17 +68,17 @@ export default async function CompetitionsPage() {
             </div>
             <div>
               <p className="font-display text-lg font-black text-gray-900">
-                Aucune compétition pour le moment.
+                {t.aucune}
               </p>
               <p className="mt-1 text-sm font-bold text-gray-400 italic">
-                Reviens bientôt, ou crée la tienne sur Koppafoot.
+                {t.reviens}
               </p>
             </div>
             <Link
               href="/signup"
               className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-emerald-600"
             >
-              Rejoindre Koppafoot
+              {t.rejoindre}
               <ArrowRight size={16} />
             </Link>
           </div>

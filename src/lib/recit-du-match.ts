@@ -103,9 +103,14 @@ export function marquesDesJoueurs(faits: readonly FaitRaconte[]): Record<string,
 }
 
 /** « 2 buts · 1 passe », ou `null` quand il n'y a rien à dire. */
-export function motifDesMarques(m: MarquesJoueur | null | undefined): string | null {
+export function motifDesMarques(m: MarquesJoueur | null | undefined, langue: "fr" | "en" = "fr"): string | null {
   if (!m) return null;
   const morceaux: string[] = [];
+  if (langue === "en") {
+    if (m.buts > 0) morceaux.push(`${m.buts} goal${m.buts === 1 ? "" : "s"}`);
+    if (m.passes > 0) morceaux.push(`${m.passes} assist${m.passes === 1 ? "" : "s"}`);
+    return morceaux.length > 0 ? morceaux.join(" · ") : null;
+  }
   if (m.buts > 0) morceaux.push(`${m.buts} but${m.buts > 1 ? "s" : ""}`);
   if (m.passes > 0) morceaux.push(`${m.passes} passe${m.passes > 1 ? "s" : ""}`);
   return morceaux.length > 0 ? morceaux.join(" · ") : null;

@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 import { Outfit, DM_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
@@ -7,7 +6,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LangueProvider } from "@/i18n";
-import { CLE_LANGUE, langueDepuisCookie } from "@/i18n/config";
+import { langueServeur } from "@/i18n/serveur";
 import { APP_URL } from "@/lib/partage";
 import { AuthModalProvider } from "@/components/auth/AuthModal";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
@@ -122,9 +121,9 @@ export default async function RootLayout({
 }>) {
   // La langue est lue ICI, sur le serveur, et pas dans le navigateur. Le
   // texte rendu doit etre le meme des deux cotes, sinon chaque phrase de la
-  // page clignote au chargement le temps que React corrige l'ecart.
-  const cookiesStore = await cookies();
-  const langue = langueDepuisCookie(cookiesStore.get(CLE_LANGUE)?.value);
+  // page clignote au chargement le temps que React corrige l'ecart. Le choix
+  // enregistre d'abord, sinon celui du navigateur (voir i18n/config).
+  const langue = await langueServeur();
 
   return (
     <html

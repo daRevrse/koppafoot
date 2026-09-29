@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { libellePoste } from "@/lib/postes";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // Public search, one server-side query for every kind.
@@ -33,9 +35,31 @@ const n = (v: unknown): number => (typeof v === "number" ? v : 0);
 const fold = (x: string): string =>
   x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-const POSITION_FR: Record<string, string> = {
-  goalkeeper: "Gardien", defender: "Défenseur", midfielder: "Milieu", forward: "Attaquant",
-};
+// LA LANGUE ARRIVE DANS L'ADRESSE (`?lang=en`), et pas par le cookie : la
+// réponse est mise en cache par le CDN sur son adresse seule. Lue au cookie,
+// la première langue servie l'aurait été à tout le monde pendant deux minutes.
+const T = textes(
+  {
+    abonnes: (n: number) => `${n} abonné${n > 1 ? "s" : ""}`,
+    recrute: "Recrute",
+    ferme: "Fermé",
+    licence: (niveau: string) => `Licence ${niveau}`,
+    joueur: "Joueur",
+    competition: "Compétition",
+    equipe: "Équipe",
+    terrain: "Terrain",
+  },
+  {
+    abonnes: (n: number) => `${n} follower${n === 1 ? "" : "s"}`,
+    recrute: "Recruiting",
+    ferme: "Closed",
+    licence: (niveau: string) => `Licence ${niveau}`,
+    joueur: "Player",
+    competition: "Competition",
+    equipe: "Team",
+    terrain: "Pitch",
+  },
+);
 
 export interface SearchHit {
   id: string;
@@ -63,11 +87,14 @@ interface Ranked {
   haystack: string;
 }
 
-const fullName = (x: Row): string =>
-  `${s(x.first_name)} ${s(x.last_name)}`.trim() || "Joueur";
+const fullName = (x: Row, repli: string): string =>
+  `${s(x.first_name)} ${s(x.last_name)}`.trim() || repli;
 
 export async function GET(req: Request) {
-  const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
+  const params = new URL(req.url).searchParams;
+  const q = params.get("q")?.trim() ?? "";
+  const langue = params.get("lang") === "en" ? "en" : "fr";
+  const t = T[langue];
   const needle = fold(q);
   const searching = needle.length >= 2;
 
@@ -105,11 +132,11 @@ export async function GET(req: Request) {
       return {
         hit: {
           id: d.id,
-          title: s(x.name) || "Compétition",
+          title: s(x.name) || t.competition,
           subtitle: s(x.venue_city) || s(x.organizer_name) || "",
           href: `/c/${s(x.slug) || d.id}`,
           image: s(x.logo_url) || null,
-          badge: followers > 0 ? `${followers} abonné${followers > 1 ? "s" : ""}` : undefined,
+          badge: followers > 0 ? t.abonnes(followers) : undefined,
         },
         rank: followers,
         haystack: fold(`${s(x.name)} ${s(x.venue_city)} ${s(x.organizer_name)}`),
@@ -123,11 +150,11 @@ export async function GET(req: Request) {
       return {
         hit: {
           id: d.id,
-          title: s(x.name) || "Équipe",
+          title: s(x.name) || t.equipe,
           subtitle: s(x.city) || "",
           href: `/teams/${d.id}`,
           image: s(x.logo_url) || null,
-          badge: x.is_recruiting === true ? "Recrute" : undefined,
+          badge: x.is_recruiting === true ? t.recrute : undefined,
         },
         // Followers first, then squad size, a club with people in it is a
         // better suggestion than an empty shell created five minutes ago.
@@ -151,11 +178,11 @@ export async function GET(req: Request) {
       return {
         hit: {
           id: d.id,
-          title: s(x.name) || "Terrain",
+          title: s(x.name) || t.terrain,
           subtitle: [s(x.address), city].filter(Boolean).join(", ") || "",
           href: `/terrains/${d.id}`,
           image: s(x.photo_url) || null,
-          badge: x.available === false ? "Fermé" : undefined,
+          badge: x.available === false ? t.ferme : undefined,
         },
         // Un terrain ouvert passe devant un terrain ferme.
         rank: x.available === false ? 0 : 1,
@@ -182,7 +209,7 @@ export async function GET(req: Request) {
       // pas de role active mais portent deja `manager` ou `referee`. Il ne
       // porte plus AUCUNE casquette : celles-ci sont des drapeaux.
       const type = s(x.evolution_role) || s(x.user_type);
-      const name = fullName(x);
+      const name = fullName(x, t.joueur);
       const city = s(x.location_city);
       const photo = s(x.profile_picture_url) || null;
       const followers = n(x.followers_count);
@@ -196,7 +223,7 @@ export async function GET(req: Request) {
             subtitle: city || "",
             href: `/profile/${d.id}`,
             image: photo,
-            badge: level ? `Licence ${level}` : undefined,
+            badge: level ? t.licence(level) : undefined,
           },
           rank: followers,
           haystack: fold(`${name} ${city} ${level}`),
@@ -210,7 +237,10 @@ export async function GET(req: Request) {
       // la recherche de fiches vides.
       if (type === "user") return;
 
-      const pos = POSITION_FR[s(x.position)] ?? s(x.position);
+      const pos = libellePoste(s(x.position), langue) ?? "";
+      // Les deux langues dans la botte de foin : « gardien » trouve un
+      // goalkeeper, que la recherche soit en anglais ou non.
+      const posAutre = libellePoste(s(x.position), langue === "en" ? "fr" : "en") ?? "";
       players.push({
         hit: {
           id: d.id,
@@ -218,10 +248,10 @@ export async function GET(req: Request) {
           subtitle: [pos, city].filter(Boolean).join(" · ") || "",
           href: `/profile/${d.id}`,
           image: photo,
-          badge: followers > 0 ? `${followers} abonné${followers > 1 ? "s" : ""}` : undefined,
+          badge: followers > 0 ? t.abonnes(followers) : undefined,
         },
         rank: followers * 100 + n(x.goals),
-        haystack: fold(`${name} ${city} ${pos}`),
+        haystack: fold(`${name} ${city} ${pos} ${posAutre}`),
       });
     });
 

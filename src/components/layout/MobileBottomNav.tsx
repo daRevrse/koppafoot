@@ -10,7 +10,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
 import { ROLE_BOTTOM_NAV, MEMBER_BOTTOM, type BottomNavItem } from "@/config/navigation";
-import { ROLE_LABELS } from "@/types";
 
 // ─── Icon map ────────────────────────────────────────────────
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -35,6 +34,7 @@ function SpacesSheet({
   espaces: Espaces | null;
 }) {
   const { user } = useAuth();
+  const t = useT();
 
   if (!open || !user || !espaces) return null;
 
@@ -56,12 +56,10 @@ function SpacesSheet({
   // deux sections leve exactement cette objection.
   const groupes = [
     {
-      titre: user.evolutionRole
-        ? `Espace ${(ROLE_LABELS[user.evolutionRole] ?? "").toLowerCase()}`
-        : espaces.label,
+      titre: user.evolutionRole ? t(`espace.role.${user.evolutionRole}`) : espaces.label,
       items: espaces.roleItems,
     },
-    { titre: "Mes casquettes", items: espaces.hatItems },
+    { titre: t("espace.mesCasquettes"), items: espaces.hatItems },
   ].filter((g) => g.items.length > 0);
 
   return (
@@ -86,7 +84,7 @@ function SpacesSheet({
               <LayoutGrid size={20} className="text-emerald-300" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-white">Mes espaces</p>
+              <p className="truncate text-sm font-bold text-white">{t("espace.mesEspaces")}</p>
               <p className="truncate text-xs text-emerald-400/70">
                 Change de casquette sans quitter l&apos;app
               </p>

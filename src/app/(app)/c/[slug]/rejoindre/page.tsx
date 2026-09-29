@@ -4,8 +4,11 @@ import {
   Trophy, CalendarDays, MapPin, Users, Radio, ArrowRight, CheckCircle2,
 } from "lucide-react";
 import { getCompetitionLanding } from "@/lib/competition-admin";
-import { COMPETITION_TYPE_LABELS } from "@/lib/competition-format";
+import { COMPETITION_TYPE_LABELS_PAR_LANGUE } from "@/lib/competition-format";
 import CompetitionJoinCta from "@/components/competition/CompetitionJoinCta";
+import { LOCALE, type Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+import { langueServeur } from "@/i18n/serveur";
 
 // ============================================
 // The join page, the link an organizer sends to fill a competition.
@@ -23,35 +26,94 @@ import CompetitionJoinCta from "@/components/competition/CompetitionJoinCta";
 
 export const revalidate = 300;
 
-function dateRange(start: string | null, end: string | null): string | null {
+const T = textes(
+  {
+    duAu: (debut: string, fin: string) => `du ${debut} au ${fin}`,
+    aPartirDu: (debut: string) => `à partir du ${debut}`,
+    introuvable: "Compétition introuvable",
+    descriptionOuverte: (ville: string | null, n: number) =>
+      `Les inscriptions sont ouvertes${ville ? ` à ${ville}` : ""}. ${n} équipe${n > 1 ? "s" : ""} déjà engagée${n > 1 ? "s" : ""}, inscris la tienne sur KoppaFoot.`,
+    descriptionSuivre: (nom: string, ville: string | null) =>
+      `Suis ${nom}${ville ? ` à ${ville}` : ""} en direct sur KoppaFoot : calendrier, scores et classements.`,
+    titre: (nom: string) => `${nom}, rejoindre la compétition`,
+    inscriptionsOuvertes: "Inscriptions ouvertes",
+    equipes: (n: number) => `${n} équipe${n > 1 ? "s" : ""}`,
+    organisePar: (nom: string) => `Organisé par ${nom}`,
+    ceQueCaChange: "Ce que ça change pour ton équipe",
+    directTitre: "Tes matchs en direct",
+    directTexte: "Score minute par minute, buteurs et cartons, suivis par tes supporters depuis leur téléphone.",
+    classementsTitre: "Classements tenus pour toi",
+    classementsTexte: "Poules, tableau final, meilleurs buteurs et passeurs : calculés tout seuls, plus de feuille de calcul.",
+    pageTitre: "Une page publique pour ton club",
+    pageTexte: "Effectif, calendrier, résultats, une adresse à partager, pas une capture d'écran.",
+    dossier: "Dossier d'inscription",
+    frais: (montant: string) => `Frais d'engagement : ${montant}`,
+    lireReglement: "Lire le règlement",
+    dejaEngagees: "Déjà engagées",
+    voirCompetition: "Voir la compétition",
+    calendrierScores: (n: number) =>
+      n > 0 ? `Calendrier, scores et classements, ${n} rencontre${n > 1 ? "s" : ""}` : "Calendrier, scores et classements",
+  },
+  {
+    duAu: (debut: string, fin: string) => `from ${debut} to ${fin}`,
+    aPartirDu: (debut: string) => `from ${debut}`,
+    introuvable: "Competition not found",
+    descriptionOuverte: (ville: string | null, n: number) =>
+      `Registration is open${ville ? ` in ${ville}` : ""}. ${n} team${n === 1 ? "" : "s"} already in, register yours on KoppaFoot.`,
+    descriptionSuivre: (nom: string, ville: string | null) =>
+      `Follow ${nom}${ville ? ` in ${ville}` : ""} live on KoppaFoot: fixtures, scores and standings.`,
+    titre: (nom: string) => `${nom}, join the competition`,
+    inscriptionsOuvertes: "Registration open",
+    equipes: (n: number) => `${n} team${n === 1 ? "" : "s"}`,
+    organisePar: (nom: string) => `Organised by ${nom}`,
+    ceQueCaChange: "What it changes for your team",
+    directTitre: "Your matches, live",
+    directTexte: "Minute-by-minute score, scorers and cards, followed by your supporters on their phones.",
+    classementsTitre: "Standings kept for you",
+    classementsTexte: "Groups, bracket, top scorers and assists: worked out automatically, no more spreadsheets.",
+    pageTitre: "A public page for your club",
+    pageTexte: "Squad, fixtures, results: an address to share, not a screenshot.",
+    dossier: "Registration pack",
+    frais: (montant: string) => `Entry fee: ${montant}`,
+    lireReglement: "Read the rules",
+    dejaEngagees: "Already in",
+    voirCompetition: "View the competition",
+    calendrierScores: (n: number) =>
+      n > 0 ? `Fixtures, scores and standings, ${n} match${n === 1 ? "" : "es"}` : "Fixtures, scores and standings",
+  },
+);
+
+function dateRange(start: string | null, end: string | null, langue: Langue): string | null {
+  const t = T[langue];
   const fmt = (iso: string) => {
     try {
-      return new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", {
+      return new Date(`${iso}T00:00:00`).toLocaleDateString(LOCALE[langue], {
         day: "numeric", month: "long",
       });
     } catch {
       return iso;
     }
   };
-  if (start && end) return `du ${fmt(start)} au ${fmt(end)}`;
-  if (start) return `à partir du ${fmt(start)}`;
+  if (start && end) return t.duAu(fmt(start), fmt(end));
+  if (start) return t.aPartirDu(fmt(start));
   return null;
 }
 
 export async function generateMetadata({ params }: PageProps<"/c/[slug]/rejoindre">) {
   const { slug } = await params;
-  const landing = await getCompetitionLanding(slug);
-  if (!landing) return { title: "Compétition introuvable" };
+  const [landing, langue] = await Promise.all([getCompetitionLanding(slug), langueServeur()]);
+  const t = T[langue];
+  if (!landing) return { title: t.introuvable };
 
   const { competition, teams } = landing;
-  const where = competition.venueCity ? ` à ${competition.venueCity}` : "";
+  const ville = competition.venueCity ?? null;
   const description =
     competition.status === "registration"
-      ? `Les inscriptions sont ouvertes${where}. ${teams.length} équipe${teams.length > 1 ? "s" : ""} déjà engagée${teams.length > 1 ? "s" : ""}, inscris la tienne sur KoppaFoot.`
-      : `Suis ${competition.name}${where} en direct sur KoppaFoot : calendrier, scores et classements.`;
+      ? t.descriptionOuverte(ville, teams.length)
+      : t.descriptionSuivre(competition.name, ville);
 
   return {
-    title: `${competition.name}, rejoindre la compétition`,
+    title: t.titre(competition.name),
     description,
     openGraph: {
       title: competition.name,
@@ -69,12 +131,13 @@ export async function generateMetadata({ params }: PageProps<"/c/[slug]/rejoindr
 
 export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slug]/rejoindre">) {
   const { slug } = await params;
-  const landing = await getCompetitionLanding(slug);
+  const [landing, langue] = await Promise.all([getCompetitionLanding(slug), langueServeur()]);
   if (!landing) notFound();
+  const t = T[langue];
 
   const { competition, teams, matchCount } = landing;
   const open = competition.status === "registration";
-  const period = dateRange(competition.startDate, competition.endDate);
+  const period = dateRange(competition.startDate, competition.endDate, langue);
   const fee = competition.entryFee;
 
   return (
@@ -92,7 +155,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
         <div className="relative flex flex-col gap-3 p-5 sm:p-7">
           <span className="flex w-fit items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-950">
             <Trophy size={12} />
-            {open ? "Inscriptions ouvertes" : COMPETITION_TYPE_LABELS[competition.competitionType]}
+            {open ? t.inscriptionsOuvertes : COMPETITION_TYPE_LABELS_PAR_LANGUE[langue][competition.competitionType]}
           </span>
 
           <h1 className="font-display text-2xl font-black leading-tight text-white sm:text-4xl">
@@ -114,13 +177,13 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
             )}
             <span className="flex items-center gap-1.5">
               <Users size={14} />
-              {teams.length} équipe{teams.length > 1 ? "s" : ""}
+              {t.equipes(teams.length)}
             </span>
           </div>
 
           {competition.organizerName && (
             <p className="text-xs font-bold text-emerald-200/70">
-              Organisé par {competition.organizerName}
+              {t.organisePar(competition.organizerName)}
             </p>
           )}
         </div>
@@ -132,24 +195,24 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
       {/* ---- What being in it gets you ---- */}
       <div className=" border border-gray-200/70 bg-white p-5">
         <p className="font-display text-base font-black text-gray-900">
-          Ce que ça change pour ton équipe
+          {t.ceQueCaChange}
         </p>
         <ul className="mt-3 space-y-2.5">
           {[
             {
               Icon: Radio,
-              title: "Tes matchs en direct",
-              body: "Score minute par minute, buteurs et cartons, suivis par tes supporters depuis leur téléphone.",
+              title: t.directTitre,
+              body: t.directTexte,
             },
             {
               Icon: Trophy,
-              title: "Classements tenus pour toi",
-              body: "Poules, tableau final, meilleurs buteurs et passeurs : calculés tout seuls, plus de feuille de calcul.",
+              title: t.classementsTitre,
+              body: t.classementsTexte,
             },
             {
               Icon: Users,
-              title: "Une page publique pour ton club",
-              body: "Effectif, calendrier, résultats, une adresse à partager, pas une capture d'écran.",
+              title: t.pageTitre,
+              body: t.pageTexte,
             },
           ].map(({ Icon, title, body }) => (
             <li key={title} className="flex gap-3">
@@ -168,11 +231,11 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
       {/* ---- Entry file: only what the organizer actually filled in ---- */}
       {(fee != null || competition.rulesText || competition.rulesUrl) && (
         <div className=" border border-gray-200/70 bg-white p-5">
-          <p className="font-display text-base font-black text-gray-900">Dossier d&apos;inscription</p>
+          <p className="font-display text-base font-black text-gray-900">{t.dossier}</p>
           {fee != null && (
             <p className="mt-2 flex items-center gap-2 text-sm font-bold text-gray-700">
               <CheckCircle2 size={15} className="shrink-0 text-emerald-500" />
-              Frais d&apos;engagement : {fee.toLocaleString("fr-FR")} {competition.entryFeeCurrency}
+              {t.frais(`${fee.toLocaleString(LOCALE[langue])} ${competition.entryFeeCurrency ?? ""}`.trim())}
             </p>
           )}
           {competition.rulesText && (
@@ -187,7 +250,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
               rel="noopener noreferrer"
               className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 hover:text-emerald-700"
             >
-              Lire le règlement
+              {t.lireReglement}
               <ArrowRight size={13} />
             </a>
           )}
@@ -197,7 +260,7 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
       {/* ---- Social proof: who is already in ---- */}
       {teams.length > 0 && (
         <div className=" border border-gray-200/70 bg-white p-5">
-          <p className="font-display text-base font-black text-gray-900">Déjà engagées</p>
+          <p className="font-display text-base font-black text-gray-900">{t.dejaEngagees}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {teams.map((team) => (
               <span
@@ -225,11 +288,9 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
         className="flex items-center justify-between gap-3 border border-gray-200/70 bg-white p-4 transition-colors hover:border-gray-200/70"
       >
         <span className="min-w-0">
-          <span className="block text-sm font-bold text-gray-900">Voir la compétition</span>
+          <span className="block text-sm font-bold text-gray-900">{t.voirCompetition}</span>
           <span className="block text-xs text-gray-500">
-            {matchCount > 0
-              ? `Calendrier, scores et classements, ${matchCount} rencontre${matchCount > 1 ? "s" : ""}`
-              : "Calendrier, scores et classements"}
+            {t.calendrierScores(matchCount)}
           </span>
         </span>
         <ArrowRight size={18} className="shrink-0 text-emerald-500" />

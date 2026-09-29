@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
               Mot de passe oublié
             </h1>
             <p className="mb-8 text-sm text-gray-400">
-              Entrez votre email pour recevoir un lien de réinitialisation.
+              Entre ton email pour recevoir un lien de réinitialisation.
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
                     type="email"
                     {...register("email")}
                     className={classeChampAuth}
-                    placeholder="votre@email.com"
+                    placeholder="ton@email.com"
                   />
                 </div>
                 {errors.email && (
@@ -115,8 +115,8 @@ export default function ForgotPasswordPage() {
             </motion.div>
             <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Email envoyé</h1>
             <p className="mb-6 text-sm text-gray-400">
-              Si un compte existe avec cette adresse, vous recevrez un email avec un lien de
-              réinitialisation. Pensez à vérifier vos spams.
+              Si un compte existe avec cette adresse, tu recevras un email avec un lien de
+              réinitialisation. Pense à vérifier tes spams.
             </p>
           </motion.div>
         )}

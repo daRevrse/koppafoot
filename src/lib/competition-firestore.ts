@@ -2297,8 +2297,23 @@ function ordinalFr(n: number): string {
   return n === 1 ? "1er" : `${n}e`;
 }
 
-/** Human label for a slot source, e.g. "1er poule A" or "2e meilleur 3e". */
-export function describeBracketSlotSource(source: BracketSlotSource): string {
+/** « 1st », « 2nd », « 3rd », « 11th ». */
+function ordinalEn(n: number): string {
+  const dizaine = n % 100;
+  if (dizaine >= 11 && dizaine <= 13) return `${n}th`;
+  return `${n}${({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
+}
+
+/**
+ * Human label for a slot source, e.g. "1er poule A" or "2e meilleur 3e"
+ * ("1st Group A", "2nd best 3rd" in English).
+ */
+export function describeBracketSlotSource(source: BracketSlotSource, langue: "fr" | "en" = "fr"): string {
+  if (langue === "en") {
+    return source.kind === "group_rank"
+      ? `${ordinalEn(source.rank)} Group ${source.group}`
+      : `${ordinalEn(source.index)} best ${ordinalEn(source.rank)}`;
+  }
   return source.kind === "group_rank"
     ? `${ordinalFr(source.rank)} poule ${source.group}`
     : `${ordinalFr(source.index)} meilleur ${ordinalFr(source.rank)}`;
@@ -2434,7 +2449,7 @@ export async function createKnockoutBracket(
   const matchesCol = collection(db, "competitions", cid, "comp_matches");
   const existing = await getDocs(query(matchesCol, where("stage", "==", "knockout")));
   if (!existing.empty) {
-    throw new Error("Un tableau existe déjà, supprimez-le avant d'en dessiner un autre");
+    throw new Error("Un tableau existe déjà, supprime-le avant d'en dessiner un autre");
   }
 
   // Pre-mint a ref per match so a round can point at the next one before write.

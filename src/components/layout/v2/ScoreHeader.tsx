@@ -10,8 +10,9 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
 import AvatarBottomSheet from "@/components/layout/AvatarBottomSheet";
-import { useT } from "@/i18n";
+import { useT, useTextes } from "@/i18n";
 import type { CleTraduction } from "@/i18n/fr";
+import { textes } from "@/i18n/textes";
 import {
   InviteCard, SupportBlock, InstallBlock,
 } from "@/components/account/AccountExtras";
@@ -57,8 +58,8 @@ interface NavEntry {
    * pas perdre son ecran pour aller lire une presentation.
    */
   newTab?: boolean;
-  /** Ce qu'on trouve derriere, pour le megamenu. */
-  blurb?: string;
+  /** Ce qu'on trouve derriere, pour le megamenu (une cle de T). */
+  blurb?: "blurbOrganize" | "blurbScore" | "blurbFields";
   /** La cle de traduction, quand l'entree en a une. Sinon, `label`. */
   cle?: CleTraduction;
 }
@@ -82,7 +83,7 @@ const PRIMARY: NavEntry[] = [
 const ENTRIES: NavEntry[] = [
   {
     href: "/organisateurs", label: "Koppafoot Organize", Icon: Trophy, newTab: true,
-    blurb: "Monter une compétition, tenir son calendrier et la diffuser en direct.",
+    blurb: "blurbOrganize",
   },
   // KOPPAFOOT EVOLUTION N'EST PLUS ICI. Son lien vit derriere le bouton jaune
   // « Evolution » (plus bas), et c'est tout l'interet : ce bouton s'efface des
@@ -91,13 +92,30 @@ const ENTRIES: NavEntry[] = [
   // qu'il a prise.
   {
     href: "/scoreurs", label: "Koppafoot Score", Icon: Radio, newTab: true,
-    blurb: "Tenir la console d'un match, et faire vivre le direct pour ceux qui n'y sont pas.",
+    blurb: "blurbScore",
   },
   {
     href: "/terrains", label: "MyFields", Icon: MapPin, newTab: true,
-    blurb: "Référencer un terrain et se rendre trouvable par les équipes.",
+    blurb: "blurbFields",
   },
 ];
+
+const T = textes(
+  {
+    blurbOrganize: "Monter une compétition, tenir son calendrier et la diffuser en direct.",
+    blurbScore: "Tenir la console d'un match, et faire vivre le direct pour ceux qui n'y sont pas.",
+    blurbFields: "Référencer un terrain et se rendre trouvable par les équipes.",
+    fermer: "Fermer",
+    rechercher: "Rechercher",
+  },
+  {
+    blurbOrganize: "Set up a competition, run its fixtures and stream it live.",
+    blurbScore: "Run a match console, and bring the game to life for those who can't be there.",
+    blurbFields: "List a pitch and make it easy for teams to find.",
+    fermer: "Close",
+    rechercher: "Search",
+  },
+);
 
 
 /**
@@ -106,7 +124,7 @@ const ENTRIES: NavEntry[] = [
  * door onto an empty room, and the rail behind it spent every page load
  * failing to read authors. Signed in, it takes its place in the menu.
  */
-const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", Icon: MessageCircle };
+const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", cle: "nav.tribune", Icon: MessageCircle };
 
 // The sidebar's role destinations, now reached from the avatar menu.
 
@@ -195,6 +213,7 @@ function EspaceMenu({
   hatItems: NavEntry[];
 }) {
   const { open, setOpen, boxRef } = useDropdown();
+  const t = useT();
 
   if (roleItems.length === 0 && hatItems.length === 0) return null;
 
@@ -221,7 +240,7 @@ function EspaceMenu({
               donnent. Le libelle dit pourquoi elles ne se melangent pas. */}
           {roleItems.length > 0 && hatItems.length > 0 && (
             <p className="border-y border-gray-200/70 bg-gray-50 px-4 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-              Mes casquettes
+              {t("espace.mesCasquettes")}
             </p>
           )}
 
@@ -247,6 +266,7 @@ function EspaceMenu({
  */
 function KoppaLinksMenu() {
   const { open, setOpen, boxRef } = useDropdown();
+  const tx = useTextes(T);
 
   return (
     <div ref={boxRef} className="relative shrink-0">
@@ -287,7 +307,7 @@ function KoppaLinksMenu() {
                   {item.label}
                 </span>
                 <span className="mt-1.5 block text-[13px] font-medium leading-relaxed text-gray-500">
-                  {item.blurb}
+                  {item.blurb && tx[item.blurb]}
                 </span>
               </span>
               <ArrowUpRight
@@ -313,6 +333,7 @@ function KoppaLinksMenu() {
  * un panneau ancre en haut a droite deborde ou se colle au bord.
  */
 function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const tx = useTextes(T);
   if (!open) return null;
 
   return (
@@ -332,7 +353,7 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={tx.fermer}
             className="p-1 text-gray-400 transition-colors hover:text-gray-900"
           >
             <X size={18} />
@@ -354,7 +375,7 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
                 {item.label}
               </span>
               <span className="mt-1 block text-[13px] font-medium leading-relaxed text-gray-500">
-                {item.blurb}
+                {item.blurb && tx[item.blurb]}
               </span>
             </span>
             <ArrowUpRight size={16} className="mt-1 shrink-0 text-gray-300" />
@@ -574,6 +595,7 @@ export default function ScoreHeader({
   masqueSurMobile?: boolean;
 } = {}) {
   const t = useT();
+  const tx = useTextes(T);
   const headerRef = useHeaderHeight();
   const { user } = useAuth();
   const pathname = usePathname();
@@ -712,7 +734,7 @@ export default function ScoreHeader({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            aria-label="Rechercher"
+            aria-label={tx.rechercher}
             className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 2xl:hidden"
           >
             <Search size={22} />
@@ -730,7 +752,7 @@ export default function ScoreHeader({
           <button
             type="button"
             onClick={() => setCompteOpen(true)}
-            aria-label={user ? "Mon compte" : "Se connecter"}
+            aria-label={user ? t("compte.monCompte") : t("compte.seConnecter")}
             className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-gray-100 lg:hidden"
           >
             <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-[1.5px] transition-all ${compteOpen ? "bg-emerald-50 ring-emerald-500" : "bg-gray-100 ring-gray-200"}`}>

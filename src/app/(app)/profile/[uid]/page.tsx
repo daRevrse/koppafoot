@@ -43,6 +43,9 @@ import { useFormes } from "@/hooks/useFormes";
 import BilanDuProfil, { type BilanArbitre, type EquipePubliee } from "@/components/profile/BilanDuProfil";
 import { cleFormeCompte } from "@/lib/etat-de-forme";
 import toast from "react-hot-toast";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { LIBELLES_POSTE, normaliserPoste } from "@/lib/postes";
 
 // ============================================
 // Constants
@@ -57,6 +60,61 @@ const POSITION_LABELS: Record<string, string> = {
 };
 
 type PublicTab = "posts" | "galerie" | "palmares";
+
+const T = textes(
+  {
+    polyvalent: "Polyvalent",
+    role: (r: string) => ({ user: "Membre", player: "Joueur", manager: "Manager", referee: "Arbitre" } as Record<string, string>)[r] ?? null,
+    lienCopie: "Lien de la fiche copié",
+    copieImpossible: "Impossible de copier le lien",
+    plusDActions: "Plus d'actions",
+    copierLien: "Copier le lien",
+    retirerSelection: "Retirer de ma sélection",
+    ajouterMercato: "Ajouter au mercato",
+    erreurChargement: "Une erreur est survenue lors du chargement du profil.",
+    ceMembre: "Ce membre",
+    pasDeFiche:
+      "Ce compte n'a pas encore de fiche publique : aucun rôle activé, aucune équipe. Il en aura une dès qu'il rejoindra un effectif ou choisira son rôle.",
+    choisirRole: "Choisir mon rôle",
+    retour: "Retour",
+    introuvable: "Profil introuvable",
+    onglet: (k: PublicTab) => ({ palmares: "Palmarès", posts: "Posts", galerie: "Galerie" })[k],
+    revenir: "Revenir à l'écran précédent",
+    seDesabonner: "Se désabonner",
+    suivre: "Suivre",
+    abonne: "Abonné",
+    abonnes: (n: number) => `${n} abonné${n > 1 ? "s" : ""}`,
+    aucunTrophee: "Aucun trophée",
+    aucunPost: "Aucun post publié",
+    aucunePhoto: "Aucune photo dans la galerie",
+  },
+  {
+    polyvalent: "Utility player",
+    role: (r: string) => ({ user: "Member", player: "Player", manager: "Manager", referee: "Referee" } as Record<string, string>)[r] ?? null,
+    lienCopie: "Profile link copied",
+    copieImpossible: "Couldn't copy the link",
+    plusDActions: "More actions",
+    copierLien: "Copy the link",
+    retirerSelection: "Remove from my shortlist",
+    ajouterMercato: "Add to the transfer market",
+    erreurChargement: "Something went wrong while loading the profile.",
+    ceMembre: "This member",
+    pasDeFiche:
+      "This account has no public profile yet: no role activated, no team. It will get one as soon as it joins a squad or picks a role.",
+    choisirRole: "Pick my role",
+    retour: "Back",
+    introuvable: "Profile not found",
+    onglet: (k: PublicTab) => ({ palmares: "Honours", posts: "Posts", galerie: "Gallery" })[k],
+    revenir: "Back to the previous screen",
+    seDesabonner: "Unfollow",
+    suivre: "Follow",
+    abonne: "Following",
+    abonnes: (n: number) => `${n} follower${n === 1 ? "" : "s"}`,
+    aucunTrophee: "No trophies",
+    aucunPost: "No posts yet",
+    aucunePhoto: "No photos in the gallery",
+  },
+);
 
 /**
  * MÊME RÈGLE QUE SUR SON PROPRE PROFIL : pas de palmarès sans rôle. Une
@@ -110,6 +168,7 @@ function MenuFiche({
 }) {
   const [ouvert, setOuvert] = useState(false);
   const boite = useRef<HTMLDivElement>(null);
+  const t = useTextes(T);
 
   useEffect(() => {
     if (!ouvert) return;
@@ -123,11 +182,11 @@ function MenuFiche({
   const copier = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Lien de la fiche copié");
+      toast.success(t.lienCopie);
     } catch {
       // Presse-papiers refuse hors contexte securise : on ne fait pas
       // semblant d'avoir copie.
-      toast.error("Impossible de copier le lien");
+      toast.error(t.copieImpossible);
     }
     setOuvert(false);
   };
@@ -139,7 +198,7 @@ function MenuFiche({
         onClick={() => setOuvert((v) => !v)}
         aria-expanded={ouvert}
         aria-haspopup="true"
-        aria-label="Plus d'actions"
+        aria-label={t.plusDActions}
         className={surAffiche ? PASTILLE_AFFICHE : PASTILLE_BARRE}
       >
         <MoreHorizontal size={16} />
@@ -153,7 +212,7 @@ function MenuFiche({
             className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
           >
             <LinkIcon size={15} className="text-gray-400" />
-            Copier le lien
+            {t.copierLien}
           </button>
           {surMercato && (
             <button
@@ -169,7 +228,7 @@ function MenuFiche({
               ) : (
                 <Plus size={15} className="text-gray-400" />
               )}
-              {dansLaSelection ? "Retirer de ma sélection" : "Ajouter au mercato"}
+              {dansLaSelection ? t.retirerSelection : t.ajouterMercato}
             </button>
           )}
         </div>
@@ -265,6 +324,8 @@ export default function PublicProfilePage() {
   const { uid } = useParams<{ uid: string }>();
   const router = useRouter();
   const { user: currentUser, loading: authLoading } = useAuth();
+  const { langue } = useLangue();
+  const t = useTextes(T);
 
   /** Meme repli que le tableau d'affichage, voir MatchHero. */
   const revenir = () => {
@@ -290,7 +351,8 @@ export default function PublicProfilePage() {
   const [teams, setTeams] = useState<EquipePubliee[]>([]);
   const [arbitrage, setArbitrage] = useState<BilanArbitre | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Un drapeau, pas la phrase : elle suit la langue affichée, pas celle du chargement.
+  const [error, setError] = useState(false);
   const [shortlistEntryId, setShortlistEntryId] = useState<string | null>(null);
   const [shortlistLoading, setShortlistLoading] = useState(false);
 
@@ -333,7 +395,7 @@ export default function PublicProfilePage() {
 
     async function load() {
       setLoading(true);
-      setError(null);
+      setError(false);
       try {
         // Connecte : lecture directe. Visiteur : `users` lui est ferme par les
         // regles (le document porte email et telephone), donc on passe par la
@@ -404,7 +466,7 @@ export default function PublicProfilePage() {
         setTeams(pub?.teams ?? []);
         setArbitrage(pub?.arbitrage ?? null);
       } catch {
-        setError("Une erreur est survenue lors du chargement du profil.");
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -553,12 +615,10 @@ export default function PublicProfilePage() {
           )}
 
           <h1 className="mt-5 font-display text-xl font-black uppercase tracking-tight text-gray-900">
-            {apercu.nom || "Ce membre"}
+            {apercu.nom || t.ceMembre}
           </h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-gray-500">
-            Ce compte n&apos;a pas encore de fiche publique : aucun rôle activé,
-            aucune équipe. Il en aura une dès qu&apos;il rejoindra un effectif ou
-            choisira son rôle.
+            {t.pasDeFiche}
           </p>
 
           {isOwnProfile ? (
@@ -566,14 +626,14 @@ export default function PublicProfilePage() {
               href="/roles#choisir"
               className="mt-7 inline-flex items-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
             >
-              Choisir mon rôle
+              {t.choisirRole}
             </Link>
           ) : (
             <button
               onClick={() => router.back()}
               className="mt-7 inline-flex items-center gap-2 border border-gray-200/70 px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
             >
-              <ArrowLeft size={14} /> Retour
+              <ArrowLeft size={14} /> {t.retour}
             </button>
           )}
         </div>
@@ -584,12 +644,12 @@ export default function PublicProfilePage() {
   if (!profile) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-semibold text-gray-700">Profil introuvable</p>
+        <p className="text-lg font-semibold text-gray-700">{t.introuvable}</p>
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
-          <ArrowLeft size={14} /> Retour
+          <ArrowLeft size={14} /> {t.retour}
         </button>
       </div>
     );
@@ -598,12 +658,12 @@ export default function PublicProfilePage() {
   if (error) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-red-600">{t.erreurChargement}</p>
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
-          <ArrowLeft size={14} /> Retour
+          <ArrowLeft size={14} /> {t.retour}
         </button>
       </div>
     );
@@ -617,19 +677,22 @@ export default function PublicProfilePage() {
   // bilan, sous l'affiche (voir BilanDuProfil). Il ne reste ici que ce qui
   // se parcourt.
   const publicTabs: { key: PublicTab; label: string }[] = [
-    ...(sansRoleSportif(profile) ? [] : [{ key: "palmares" as PublicTab, label: "Palmarès" }]),
-    { key: "posts", label: "Posts" },
-    { key: "galerie", label: "Galerie" },
+    ...(sansRoleSportif(profile) ? [] : [{ key: "palmares" as PublicTab, label: t.onglet("palmares") }]),
+    { key: "posts", label: t.onglet("posts") },
+    { key: "galerie", label: t.onglet("galerie") },
   ];
 
   // Sous le nom : LE POSTE, ET RIEN D'AUTRE. Le club y figurait aussi, et
   // c'etait une redite — les ecussons de la carte de bilan le disent juste en
   // dessous, avec les autres. Un joueur a un poste, il peut avoir plusieurs
   // maillots.
+  const posteNormalise = normaliserPoste(profile.position);
   const posteLisible = profile.position
-    ? POSITION_LABELS[profile.position] ?? profile.position
+    ? profile.position === "any"
+      ? t.polyvalent
+      : posteNormalise ? LIBELLES_POSTE[langue][posteNormalise] : POSITION_LABELS[profile.position] ?? profile.position
     : null;
-  const surtitre = posteLisible ?? ROLE_LABELS[roleDuProfil] ?? profile.locationCity;
+  const surtitre = posteLisible ?? t.role(roleDuProfil) ?? ROLE_LABELS[roleDuProfil] ?? profile.locationCity;
 
   return (
     <div className="mx-auto max-w-6xl pb-24">
@@ -659,7 +722,7 @@ export default function PublicProfilePage() {
           <button
             type="button"
             onClick={revenir}
-            aria-label="Revenir à l'écran précédent"
+            aria-label={t.revenir}
             className={replie ? PASTILLE_BARRE : PASTILLE_AFFICHE}
           >
             <ArrowLeft size={16} />
@@ -682,7 +745,7 @@ export default function PublicProfilePage() {
               type="button"
               onClick={handleFollow}
               disabled={followLoading}
-              aria-label={following ? "Se désabonner" : "Suivre"}
+              aria-label={following ? t.seDesabonner : t.suivre}
               className={`${replie ? PASTILLE_BARRE : PASTILLE_AFFICHE} ${following ? "border-emerald-300 text-emerald-300" : ""}`}
             >
               {followLoading ? (
@@ -723,7 +786,7 @@ export default function PublicProfilePage() {
                juste en dessous, et l'onglet « Apercu » les nomme. Trois fois
                la meme information sur un ecran de telephone. */
             <span className="text-emerald-300">
-              {followerCount} abonné{followerCount > 1 ? "s" : ""}
+              {t.abonnes(followerCount)}
             </span>
           }
           actions={
@@ -752,7 +815,7 @@ export default function PublicProfilePage() {
                 ) : (
                   <UserPlus size={13} />
                 )}
-                {following ? "Abonné" : "Suivre"}
+                {following ? t.abonne : t.suivre}
               </button>
             ) : null
           }
@@ -773,17 +836,17 @@ export default function PublicProfilePage() {
         {/* Une seule carte, dont les onglets changent le contenu. */}
         <div className="mt-6 border border-gray-200/70 bg-white">
           <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
-            {publicTabs.map((t) => (
+            {publicTabs.map((o) => (
               <button
-                key={t.key}
-                onClick={() => setChoixOnglet(t.key)}
+                key={o.key}
+                onClick={() => setChoixOnglet(o.key)}
                 className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                  activeTab === t.key
+                  activeTab === o.key
                     ? "border-gray-900 text-gray-900"
                     : "border-transparent text-gray-400 hover:text-gray-700"
                 }`}
               >
-                {t.label}
+                {o.label}
               </button>
             ))}
           </div>
@@ -795,7 +858,7 @@ export default function PublicProfilePage() {
               {(profile.trophies ?? []).length === 0 ? (
                 <div className="border border-gray-200/70 bg-white py-12 text-center">
                   <Trophy size={32} className="mx-auto text-gray-300" />
-                  <p className="mt-3 text-sm font-medium text-gray-500">Aucun trophée</p>
+                  <p className="mt-3 text-sm font-medium text-gray-500">{t.aucunTrophee}</p>
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -828,7 +891,7 @@ export default function PublicProfilePage() {
               ) : posts.length === 0 ? (
                 <div className="border border-gray-200/70 bg-white py-12 text-center">
                   <FileText size={32} className="mx-auto text-gray-300" />
-                  <p className="mt-3 text-sm font-medium text-gray-500">Aucun post publié</p>
+                  <p className="mt-3 text-sm font-medium text-gray-500">{t.aucunPost}</p>
                 </div>
               ) : (
                 posts.map((post) => (
@@ -853,7 +916,7 @@ export default function PublicProfilePage() {
               {(profile.galleryPhotos ?? []).length === 0 ? (
                 <div className="border border-gray-200/70 bg-white py-12 text-center">
                   <ImageIcon size={32} className="mx-auto text-gray-300" />
-                  <p className="mt-3 text-sm font-medium text-gray-500">Aucune photo dans la galerie</p>
+                  <p className="mt-3 text-sm font-medium text-gray-500">{t.aucunePhoto}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">

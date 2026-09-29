@@ -90,6 +90,8 @@ function vuDuClub(
     lien,
     competition,
     etape: competition ? (m.group ? `Groupe ${m.group}` : m.round ? TOURS[m.round] : null) : null,
+    groupe: competition ? (m.group ?? null) : null,
+    tour: competition && !m.group ? (m.round ?? null) : null,
     date: m.date,
     heure: m.time,
     statut,

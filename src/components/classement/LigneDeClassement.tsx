@@ -1,9 +1,41 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Footprints, Goal, Hand, ShieldCheck } from "lucide-react";
 import { FOND_NOTE } from "@/components/forme/badges";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { formaterNote, tonNote } from "@/lib/notes";
 import type { LigneJoueurPubliee, TriClassement } from "@/lib/classement";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    gardienDeBut: "Gardien de but",
+    gardien: "Gardien",
+    initialeGardien: "G",
+    arrets: "Arrêts",
+    cleanSheets: "Matchs sans but encaissé",
+    buts: "Buts",
+    passes: "Passes décisives",
+    matchsRetenus: "Matchs retenus",
+    matchsCourt: (n: number) => `${n} m`,
+    frise: "Notes des derniers matchs",
+  },
+  {
+    gardienDeBut: "Goalkeeper",
+    gardien: "Keeper",
+    initialeGardien: "GK",
+    arrets: "Saves",
+    cleanSheets: "Clean sheets",
+    buts: "Goals",
+    passes: "Assists",
+    matchsRetenus: "Matches counted",
+    // « 5 m » se lirait minutes ; « apps », comme les fiches de joueurs anglaises.
+    matchsCourt: (n: number) => `${n} app${n === 1 ? "" : "s"}`,
+    frise: "Ratings in recent matches",
+  },
+);
 
 // ============================================
 // Une ligne du classement des joueurs — la même sur l'accueil et sur la page
@@ -55,13 +87,14 @@ export function MouvementBadge({ mouvement }: { mouvement: number | null }) {
 
 /** La note, dans la couleur de la console : une note se lit pareil partout. */
 export function PastilleNote({ note, petite = false }: { note: number | null; petite?: boolean }) {
+  const { langue } = useLangue();
   return (
     <span
       className={`flex shrink-0 items-center justify-center font-black tabular-nums ${
         petite ? "h-5 w-7 text-[10px]" : "h-7 w-10 text-[13px]"
       } ${FOND_NOTE[tonNote(note)]}`}
     >
-      {formaterNote(note)}
+      {formaterNote(note, langue)}
     </span>
   );
 }
@@ -76,6 +109,7 @@ export default function LigneDeClassement({
   /** Sur l'accueil : sans la frise des notes ni le club, qui n'y ont pas la place. */
   compacte?: boolean;
 }) {
+  const t = useTextes(T);
   const rang = (tri === "note" ? ligne.rangNote : ligne.rangContribution) ?? 0;
   const mouvement = tri === "note" ? ligne.mouvementNote : ligne.mouvementContribution;
   // Du plus ancien au plus récent : le sens d'une frise, le dernier à droite.
@@ -104,39 +138,39 @@ export default function LigneDeClassement({
               du gardien, qui est ce qu'on vient lire. */}
           {ligne.gardien && (
             <span
-              title="Gardien de but"
+              title={t.gardienDeBut}
               className="shrink-0 border border-sky-200 bg-sky-50 px-1 py-px text-[9px] font-black uppercase tracking-wide text-sky-700"
             >
-              <span className="sm:hidden">G</span>
-              <span className="hidden sm:inline">Gardien</span>
+              <span className="sm:hidden">{t.initialeGardien}</span>
+              <span className="hidden sm:inline">{t.gardien}</span>
             </span>
           )}
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-2.5 text-[11px] font-black tabular-nums text-gray-500">
           {ligne.gardien ? (
             <>
-              <span className="flex shrink-0 items-center gap-1" title="Arrêts">
+              <span className="flex shrink-0 items-center gap-1" title={t.arrets}>
                 {ligne.arrets}
                 <Hand size={12} className="text-emerald-600" />
               </span>
-              <span className="flex shrink-0 items-center gap-1" title="Matchs sans but encaissé">
+              <span className="flex shrink-0 items-center gap-1" title={t.cleanSheets}>
                 {ligne.cleanSheets}
                 <ShieldCheck size={12} className="text-sky-500" />
               </span>
             </>
           ) : (
             <>
-              <span className="flex shrink-0 items-center gap-1" title="Buts">
+              <span className="flex shrink-0 items-center gap-1" title={t.buts}>
                 {ligne.buts}
                 <Goal size={12} className="text-emerald-600" />
               </span>
-              <span className="flex shrink-0 items-center gap-1" title="Passes décisives">
+              <span className="flex shrink-0 items-center gap-1" title={t.passes}>
                 {ligne.passes}
                 <Footprints size={12} className="text-orange-500" />
               </span>
             </>
           )}
-          <span className="shrink-0 font-bold text-gray-300" title="Matchs retenus">{ligne.matchs} m</span>
+          <span className="shrink-0 font-bold text-gray-300" title={t.matchsRetenus}>{t.matchsCourt(ligne.matchs)}</span>
           {/* Le club, là où il tient : sur un téléphone ou dans la colonne de
               l'accueil, il n'en restait que quatre lettres. */}
           {ligne.equipe && !compacte && (
@@ -149,7 +183,7 @@ export default function LigneDeClassement({
           large pour la tenir. Elle dit si la note tient ou si un seul match
           la porte. */}
       {!compacte && (
-        <span className="hidden shrink-0 items-center gap-0.5 sm:flex" aria-label="Notes des derniers matchs">
+        <span className="hidden shrink-0 items-center gap-0.5 sm:flex" aria-label={t.frise}>
           {frise.map((n, i) => (
             <PastilleNote key={i} note={n} petite />
           ))}

@@ -2,6 +2,11 @@
 
 import MiniEcusson from "@/components/match/MiniEcusson";
 import type { GroupStanding } from "@/lib/competition-firestore";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { COLONNES_CLASSEMENT } from "@/i18n/foot";
+
+const T = textes({ poule: (g: string) => `Poule ${g}` }, { poule: (g: string) => `Group ${g}` });
 
 // ============================================
 // Le classement, réduit à la poule des deux équipes qui jouent.
@@ -56,10 +61,12 @@ export default function MatchStandings({
   compact?: boolean;
 }) {
   const detail = compact ? "hidden" : "hidden sm:table-cell";
+  const t = useTextes(T);
+  const c = useTextes(COLONNES_CLASSEMENT);
   return (
     <div>
       <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">
-        Poule {groupe.group}
+        {t.poule(groupe.group)}
       </h3>
       {/* G, N et P disparaissent sous `sm`. Les sept colonnes forçaient un
           défilement horizontal sur un téléphone, et la colonne qui sortait de
@@ -73,13 +80,13 @@ export default function MatchStandings({
       <table className={`w-full table-fixed ${compact ? "text-[13px]" : "text-sm"}`}>
         <thead>
           <tr className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-400">
-            <th className="py-1.5 pr-2 text-left font-black">Équipe</th>
-            <th className="w-8 px-1 py-1.5 text-right font-black">J</th>
-            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`}>G</th>
-            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`}>N</th>
-            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`}>P</th>
-            <th className="w-12 px-1 py-1.5 text-right font-black">Diff</th>
-            <th className="w-10 py-1.5 pl-1 text-right font-black">Pts</th>
+            <th className="py-1.5 pr-2 text-left font-black">{c.equipe}</th>
+            <th className="w-8 px-1 py-1.5 text-right font-black" title={c.jTitre}>{c.j}</th>
+            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`} title={c.gTitre}>{c.g}</th>
+            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`} title={c.nTitre}>{c.n}</th>
+            <th className={`${detail} w-8 px-1 py-1.5 text-right font-black`} title={c.pTitre}>{c.p}</th>
+            <th className="w-12 px-1 py-1.5 text-right font-black" title={c.diffTitre}>{c.diff}</th>
+            <th className="w-10 py-1.5 pl-1 text-right font-black" title={c.ptsTitre}>{c.pts}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200/70">

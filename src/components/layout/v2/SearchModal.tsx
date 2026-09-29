@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Search, X, Loader2, Trophy, User, Shield, MapPin, Flag } from "lucide-react";
 import type { SearchHit, SearchPayload } from "@/app/api/search/route";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // SearchModal, one search surface for the whole app.
@@ -25,14 +27,40 @@ import type { SearchHit, SearchPayload } from "@/app/api/search/route";
 
 type Filter = "all" | "competitions" | "teams" | "players" | "terrains" | "arbitres";
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "Tout" },
-  { key: "competitions", label: "Compétitions" },
-  { key: "teams", label: "Équipes" },
-  { key: "players", label: "Joueurs" },
-  { key: "terrains", label: "Terrains" },
-  { key: "arbitres", label: "Arbitres" },
-];
+const FILTERS: Filter[] = ["all", "competitions", "teams", "players", "terrains", "arbitres"];
+
+const T = textes(
+  {
+    filtre: (f: Filter) => ({
+      all: "Tout", competitions: "Compétitions", teams: "Équipes",
+      players: "Joueurs", terrains: "Terrains", arbitres: "Arbitres",
+    })[f],
+    fermerRecherche: "Fermer la recherche",
+    placeholder: "Compétition, équipe, joueur, terrain, arbitre…",
+    rechercher: "Rechercher",
+    fermer: "Fermer",
+    competitionsPopulaires: "Compétitions populaires",
+    equipesEnVue: "Équipes en vue",
+    joueursSuivis: "Joueurs suivis",
+    rienPour: (terme: string) => `Rien pour «\u00a0${terme}\u00a0».`,
+    rienASuggerer: "Rien à suggérer pour l'instant.",
+  },
+  {
+    filtre: (f: Filter) => ({
+      all: "All", competitions: "Competitions", teams: "Teams",
+      players: "Players", terrains: "Pitches", arbitres: "Referees",
+    })[f],
+    fermerRecherche: "Close search",
+    placeholder: "Competition, team, player, pitch, referee…",
+    rechercher: "Search",
+    fermer: "Close",
+    competitionsPopulaires: "Popular competitions",
+    equipesEnVue: "Teams to watch",
+    joueursSuivis: "Most followed players",
+    rienPour: (terme: string) => `Nothing for “${terme}”.`,
+    rienASuggerer: "Nothing to suggest yet.",
+  },
+);
 
 const DEBOUNCE_MS = 250;
 const MIN_CHARS = 2;
@@ -48,6 +76,8 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<SearchPayload>(EMPTY);
   const [loading, setLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { langue } = useLangue();
+  const t = useTextes(T);
 
   const trimmed = term.trim();
 
@@ -66,8 +96,8 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
 
   // Debounced: one request per pause, not per keystroke.
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS);
-    return () => clearTimeout(t);
+    const minuterie = setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS);
+    return () => clearTimeout(minuterie);
   }, [trimmed]);
 
   // A query shorter than MIN_CHARS is treated as no query at all, which is
@@ -77,13 +107,13 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
     let cancelled = false;
     setLoading(true);
 
-    fetch(`/api/search?q=${encodeURIComponent(q)}`)
+    fetch(`/api/search?q=${encodeURIComponent(q)}&lang=${langue}`)
       .then((r) => (r.ok ? r.json() : EMPTY))
       .then((d: SearchPayload) => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch(() => { if (!cancelled) { setData(EMPTY); setLoading(false); } });
 
     return () => { cancelled = true; };
-  }, [debounced]);
+  }, [debounced, langue]);
 
   const show = (kind: Filter) => filter === "all" || filter === kind;
 
@@ -108,7 +138,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-[100] flex items-start justify-center p-3 pt-safe sm:p-6">
       <button
         type="button"
-        aria-label="Fermer la recherche"
+        aria-label={t.fermerRecherche}
         onClick={onClose}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
@@ -121,15 +151,15 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
             ref={inputRef}
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Compétition, équipe, joueur, terrain, arbitre…"
-            aria-label="Rechercher"
+            placeholder={t.placeholder}
+            aria-label={t.rechercher}
             className="min-w-0 flex-1 bg-transparent text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:outline-none"
           />
           {loading && <Loader2 size={16} className="shrink-0 animate-spin text-emerald-500" />}
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t.fermer}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >
             <X size={16} />
@@ -143,17 +173,17 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200/70 px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((f) => (
             <button
-              key={f.key}
+              key={f}
               type="button"
-              onClick={() => setFilter(f.key)}
-              aria-pressed={filter === f.key}
+              onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${
-                filter === f.key
+                filter === f
                   ? "bg-gray-900 text-white"
                   : "bg-gray-50 text-gray-500 hover:bg-gray-100"
               }`}
             >
-              {f.label}
+              {t.filtre(f)}
             </button>
           ))}
         </div>
@@ -161,7 +191,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
         {/* ---- Results ---- */}
         <div className="min-h-0 flex-1 overflow-y-auto">
           {show("competitions") && (
-            <Section title={suggesting ? "Compétitions populaires" : "Compétitions"} count={data.competitions.length}>
+            <Section title={suggesting ? t.competitionsPopulaires : t.filtre("competitions")} count={data.competitions.length}>
               {data.competitions.map((h) => (
                 <Row key={h.id} hit={h} onNavigate={onClose} fallback={<Trophy size={15} className="text-amber-500" />} tone="bg-amber-50" rounded="rounded-lg" />
               ))}
@@ -169,7 +199,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
           )}
 
           {show("teams") && (
-            <Section title={suggesting ? "Équipes en vue" : "Équipes"} count={data.teams.length}>
+            <Section title={suggesting ? t.equipesEnVue : t.filtre("teams")} count={data.teams.length}>
               {data.teams.map((h) => (
                 <Row key={h.id} hit={h} onNavigate={onClose} fallback={<Shield size={15} className="text-emerald-500" />} tone="bg-emerald-50" rounded="rounded-lg" />
               ))}
@@ -177,7 +207,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
           )}
 
           {show("players") && (
-            <Section title={suggesting ? "Joueurs suivis" : "Joueurs"} count={data.players.length}>
+            <Section title={suggesting ? t.joueursSuivis : t.filtre("players")} count={data.players.length}>
               {data.players.map((h) => (
                 <Row key={h.id} hit={h} onNavigate={onClose} fallback={<User size={15} className="text-gray-400" />} tone="bg-gray-100" rounded="rounded-full" />
               ))}
@@ -185,7 +215,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
           )}
 
           {show("terrains") && (
-            <Section title="Terrains" count={data.terrains.length}>
+            <Section title={t.filtre("terrains")} count={data.terrains.length}>
               {data.terrains.map((h) => (
                 <Row key={h.id} hit={h} onNavigate={onClose} fallback={<MapPin size={15} className="text-sky-500" />} tone="bg-sky-50" rounded="rounded-lg" />
               ))}
@@ -193,7 +223,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
           )}
 
           {show("arbitres") && (
-            <Section title="Arbitres" count={data.arbitres.length}>
+            <Section title={t.filtre("arbitres")} count={data.arbitres.length}>
               {data.arbitres.map((h) => (
                 <Row key={h.id} hit={h} onNavigate={onClose} fallback={<Flag size={15} className="text-violet-500" />} tone="bg-violet-50" rounded="rounded-full" />
               ))}
@@ -202,9 +232,7 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
 
           {!loading && total === 0 && (
             <p className="px-4 py-12 text-center text-sm font-bold text-gray-300">
-              {trimmed.length >= MIN_CHARS
-                ? <>Rien pour «&nbsp;{trimmed}&nbsp;».</>
-                : "Rien à suggérer pour l'instant."}
+              {trimmed.length >= MIN_CHARS ? t.rienPour(trimmed) : t.rienASuggerer}
             </p>
           )}
         </div>

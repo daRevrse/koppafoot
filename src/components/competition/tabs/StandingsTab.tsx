@@ -10,6 +10,24 @@ import {
   type StandingRow,
 } from "@/lib/competition-firestore";
 import type { Competition, CompMatch, CompTeam } from "@/types";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { COLONNES_CLASSEMENT, FOOT } from "@/i18n/foot";
+
+const T = textes(
+  {
+    vide: "Classement vide, aucun groupe ou résultat pour l'instant.",
+    poule: (g: string) => `Poule ${g}`,
+    qualifies: (n: number) => (n === 1 ? "Qualifié" : `${n} premiers qualifiés`),
+    disqualifie: "DQ",
+  },
+  {
+    vide: "No standings yet: no groups or results so far.",
+    poule: (g: string) => `Group ${g}`,
+    qualifies: (n: number) => (n === 1 ? "Qualifies" : `Top ${n} qualify`),
+    disqualifie: "DQ",
+  },
+);
 
 // ============================================
 // Helpers
@@ -66,6 +84,9 @@ export default function StandingsTab({ competition, matches, teams }: {
   // une page a faire defiler ou l'on perdait de vue celle qu'on lisait ;
   // et sur telephone la deuxieme poule commencait deja hors de l'ecran.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const t = useTextes(T);
+  const c = useTextes(COLONNES_CLASSEMENT);
+  const f = useTextes(FOOT);
   const active = groups.find((g) => g.group === openGroup) ?? groups[0] ?? null;
 
   return (
@@ -76,7 +97,7 @@ export default function StandingsTab({ competition, matches, teams }: {
             <ListOrdered size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
-            Classement vide, aucun groupe ou résultat pour l&apos;instant.
+            {t.vide}
           </p>
         </div>
       ) : (
@@ -95,7 +116,7 @@ export default function StandingsTab({ competition, matches, teams }: {
                       : "border-gray-200/70 text-gray-500 hover:border-gray-900 hover:text-gray-900"
                   }`}
                 >
-                  Poule {g.group}
+                  {t.poule(g.group)}
                 </button>
               ))}
             </div>
@@ -106,7 +127,7 @@ export default function StandingsTab({ competition, matches, teams }: {
               <div className="flex items-center gap-2 border-b border-gray-50 px-5 py-4">
                 <Trophy size={16} className="text-emerald-500" />
                 <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-                  Groupe {active.group}
+                  {f.groupe(active.group)}
                 </h2>
               </div>
 
@@ -116,15 +137,15 @@ export default function StandingsTab({ competition, matches, teams }: {
                   <thead>
                     <tr className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                       <th className="px-3 py-3 text-center">#</th>
-                      <th className="px-3 py-3 text-left">Équipe</th>
-                      <th className="px-2 py-3 text-center" title="Joués">J</th>
-                      <th className="px-2 py-3 text-center" title="Gagnés">G</th>
-                      <th className="px-2 py-3 text-center" title="Nuls">N</th>
-                      <th className="px-2 py-3 text-center" title="Perdus">P</th>
-                      <th className="px-2 py-3 text-center" title="Buts pour">BP</th>
-                      <th className="px-2 py-3 text-center" title="Buts contre">BC</th>
-                      <th className="px-2 py-3 text-center" title="Différence de buts">Diff</th>
-                      <th className="px-3 py-3 text-center" title="Points">Pts</th>
+                      <th className="px-3 py-3 text-left">{c.equipe}</th>
+                      <th className="px-2 py-3 text-center" title={c.jTitre}>{c.j}</th>
+                      <th className="px-2 py-3 text-center" title={c.gTitre}>{c.g}</th>
+                      <th className="px-2 py-3 text-center" title={c.nTitre}>{c.n}</th>
+                      <th className="px-2 py-3 text-center" title={c.pTitre}>{c.p}</th>
+                      <th className="px-2 py-3 text-center" title={c.bpTitre}>{c.bp}</th>
+                      <th className="px-2 py-3 text-center" title={c.bcTitre}>{c.bc}</th>
+                      <th className="px-2 py-3 text-center" title={c.diffTitre}>{c.diff}</th>
+                      <th className="px-3 py-3 text-center" title={c.ptsTitre}>{c.pts}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -163,7 +184,7 @@ export default function StandingsTab({ competition, matches, teams }: {
                               </span>
                               {row.team.disqualified && (
                                 <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide bg-red-50 text-red-600">
-                                  DQ
+                                  {t.disqualifie}
                                 </span>
                               )}
                             </div>
@@ -188,7 +209,7 @@ export default function StandingsTab({ competition, matches, teams }: {
                 <div className="flex items-center gap-2 border-t border-gray-50 px-5 py-3">
                   <span className="h-3 w-3 rounded-full bg-emerald-500" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    {qualifiers === 1 ? "Qualifié" : `${qualifiers} premiers qualifiés`}
+                    {t.qualifies(qualifiers)}
                   </span>
                 </div>
               )}

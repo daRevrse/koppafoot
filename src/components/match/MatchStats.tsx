@@ -21,6 +21,28 @@
 // ============================================
 
 import type { LigneStat } from "@/lib/stats-match";
+import { useLangue } from "@/i18n";
+
+/**
+ * Les libellés anglais des lignes, par leur clé (voir lib/stats-match, qui
+ * porte le français). Une clé inconnue garde son libellé d'origine.
+ */
+const LIBELLES_EN: Record<string, string> = {
+  buts: "Goals",
+  possession: "Possession",
+  tirs: "Shots",
+  cadres: "Shots on target",
+  arrets: "Saves",
+  corners: "Corners",
+  penaltys: "Penalties won",
+  coups_francs: "Free kicks",
+  touches: "Throw-ins",
+  fautes: "Fouls",
+  hors_jeu: "Offsides",
+  jaunes: "Yellow cards",
+  rouges: "Red cards",
+  changements: "Substitutions",
+};
 
 export default function MatchStats({
   lignes, homeTeamName, awayTeamName, compact = false, sombre = false, couleurs,
@@ -42,7 +64,9 @@ export default function MatchStats({
    */
   couleurs?: { home: string; away: string } | null;
 }) {
+  const { langue } = useLangue();
   if (lignes.length === 0) return null;
+  const nomDeLigne = (row: LigneStat) => (langue === "en" ? (LIBELLES_EN[row.cle] ?? row.label) : row.label);
   const chiffre = sombre ? "text-white" : "text-gray-900";
   const libelle = sombre ? "text-white/45" : "text-gray-400";
   const legende = sombre ? "text-white/55" : "text-gray-500";
@@ -75,7 +99,7 @@ export default function MatchStats({
                 {valeur(row.home)}
               </span>
               <span className={`truncate text-[11px] font-black uppercase tracking-wide ${libelle}`}>
-                {row.label}
+                {nomDeLigne(row)}
               </span>
               <span className={`text-right font-black tabular-nums ${chiffre} ${compact ? "w-10 text-sm" : "w-12 text-base"}`}>
                 {valeur(row.away)}

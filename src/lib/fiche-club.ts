@@ -39,6 +39,13 @@ export interface MatchDuClub {
   competition: { nom: string; lien: string } | null;
   /** « Groupe A », « Demi-finale » : où ce match se place dans sa compétition. */
   etape: string | null;
+  /**
+   * La même chose, en données : la page l'écrit dans la langue du lecteur.
+   * `etape` reste le repli français — les fiches servies depuis le cache
+   * d'avant n'ont pas ces deux champs.
+   */
+  groupe?: string | null;
+  tour?: "round_of_16" | "quarter" | "semi" | "final" | "third_place" | null;
   date: string | null;
   heure: string | null;
   statut: StatutPublic;
@@ -225,6 +232,13 @@ export const POSTES_AU_PLURIEL: Record<Poste, string> = {
   forward: "Attaquants",
 };
 
+const POSTES_AU_PLURIEL_EN: Record<Poste, string> = {
+  goalkeeper: "Goalkeepers",
+  defender: "Defenders",
+  midfielder: "Midfielders",
+  forward: "Forwards",
+};
+
 /** Le numéro, pour trier : « 9 » avant « 10 », et les sans-numéro à la fin. */
 function rangDuNumero(numero: string | null | undefined): number {
   const n = Number.parseInt(String(numero ?? "").trim(), 10);
@@ -241,7 +255,9 @@ function rangDuNumero(numero: string | null | undefined): number {
  */
 export function effectifParPoste<T extends { nom: string; numero?: string | null; poste?: string | null }>(
   joueurs: T[],
+  langue: "fr" | "en" = "fr",
 ): { poste: Poste | null; titre: string; joueurs: T[] }[] {
+  const pluriels = langue === "en" ? POSTES_AU_PLURIEL_EN : POSTES_AU_PLURIEL;
   const groupes = new Map<Poste | null, T[]>();
   for (const j of joueurs) {
     const poste = normaliserPoste(j.poste);
@@ -252,7 +268,7 @@ export function effectifParPoste<T extends { nom: string; numero?: string | null
     .filter((p) => (groupes.get(p) ?? []).length > 0)
     .map((poste) => ({
       poste,
-      titre: poste ? POSTES_AU_PLURIEL[poste] : "Poste non renseigné",
+      titre: poste ? pluriels[poste] : langue === "en" ? "Position not given" : "Poste non renseigné",
       joueurs: [...(groupes.get(poste) ?? [])].sort((a, b) =>
         rangDuNumero(a.numero) - rangDuNumero(b.numero) || a.nom.localeCompare(b.nom)),
     }));

@@ -7,6 +7,35 @@ import { useAuthModal } from "@/components/auth/AuthModal";
 import BarreRepartition, { type SegmentRepartition } from "@/components/match/BarreRepartition";
 import MiniEcusson from "@/components/match/MiniEcusson";
 import { castPrediction, fetchCounts, getMyPrediction, EMPTY_COUNTS, type Pick, type PredictionCounts, pourcentages } from "@/lib/predictions";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    creeUnCompte: "Crée ton compte pour donner ton pronostic.",
+    victoireDe: (equipe: string) => `Victoire de ${equipe}`,
+    nul: "Nul",
+    matchNul: "Match nul",
+    clos: "Clos au coup d'envoi",
+    modifiable: "Modifiable jusqu'au coup d'envoi",
+    touche: "Touche ton pronostic",
+    pronostics: "Pronostics",
+    quiGagne: "Qui gagne ?",
+    pronosticsDuMatch: "Pronostics du match",
+  },
+  {
+    creeUnCompte: "Create your account to make your prediction.",
+    victoireDe: (equipe: string) => `${equipe} win`,
+    nul: "Draw",
+    matchNul: "Draw",
+    clos: "Closed at kick-off",
+    modifiable: "You can change it until kick-off",
+    touche: "Tap your prediction",
+    pronostics: "Predictions",
+    quiGagne: "Who wins?",
+    pronosticsDuMatch: "Match predictions",
+  },
+);
 
 // ============================================
 // « Qui gagne ? », le pronostic de la fiche match.
@@ -55,6 +84,7 @@ export default function PredictionPoll({
   const { user } = useAuth();
   const { open } = useAuthModal();
   const titreId = useId();
+  const t = useTextes(T);
 
   const [counts, setCounts] = useState<PredictionCounts | null>(null);
   const [mine, setMine] = useState<Pick | null>(null);
@@ -85,7 +115,7 @@ export default function PredictionPoll({
   const vote = async (pick: Pick) => {
     if (closed || sending || pick === mine) return;
     if (!user) {
-      open("Crée ton compte pour donner ton pronostic.");
+      open(t.creeUnCompte);
       return;
     }
     setSending(pick);
@@ -111,9 +141,9 @@ export default function PredictionPoll({
 
   const parts = pourcentages(counts ?? EMPTY_COUNTS);
   const issues: { cle: Pick; nom: string; affiche: string; logo: string | null; pct: number; libelle: string }[] = [
-    { cle: "home", nom: home.label, affiche: home.court || home.label, logo: home.logo, pct: parts.home, libelle: `Victoire de ${home.label}` },
-    { cle: "draw", nom: "Nul", affiche: "Nul", logo: null, pct: parts.draw, libelle: "Match nul" },
-    { cle: "away", nom: away.label, affiche: away.court || away.label, logo: away.logo, pct: parts.away, libelle: `Victoire de ${away.label}` },
+    { cle: "home", nom: home.label, affiche: home.court || home.label, logo: home.logo, pct: parts.home, libelle: t.victoireDe(home.label) },
+    { cle: "draw", nom: t.nul, affiche: t.nul, logo: null, pct: parts.draw, libelle: t.matchNul },
+    { cle: "away", nom: away.label, affiche: away.court || away.label, logo: away.logo, pct: parts.away, libelle: t.victoireDe(away.label) },
   ];
 
   // L'issue en tête, si elle est seule : deux issues à égalité ne dominent pas.
@@ -147,16 +177,16 @@ export default function PredictionPoll({
   }));
 
   const consigne = closed
-    ? "Clos au coup d'envoi"
+    ? t.clos
     : mine
-      ? "Modifiable jusqu'au coup d'envoi"
-      : "Touche ton pronostic";
+      ? t.modifiable
+      : t.touche;
 
   return (
     <section aria-labelledby={titreId} className="border border-gray-200/70 bg-white p-4 sm:p-5">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 id={titreId} className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-          {closed ? "Pronostics" : "Qui gagne ?"}
+          {closed ? t.pronostics : t.quiGagne}
         </h2>
         <p className="truncate text-[11px] font-bold text-gray-400">{consigne}</p>
       </div>
@@ -167,7 +197,7 @@ export default function PredictionPoll({
         </div>
       ) : (
         <BarreRepartition
-          libelle="Pronostics du match"
+          libelle={t.pronosticsDuMatch}
           segments={segments}
           enAvant={enAvant}
           choisi={mine}

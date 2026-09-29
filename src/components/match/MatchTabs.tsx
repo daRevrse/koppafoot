@@ -38,6 +38,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { VARIABLE_HAUTEUR_BARRE } from "./MatchHero";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes({ sections: "Sections du match" }, { sections: "Match sections" });
 
 export interface MatchTab {
   id: string;
@@ -54,6 +58,7 @@ export default function MatchTabs({
   onChange: (id: string) => void;
 }) {
   const rangee = useRef<HTMLDivElement>(null);
+  const t = useTextes(T);
 
   /**
    * CE QUI DÉPASSE SE DIT. La rangée défile quand elle est plus large que
@@ -108,7 +113,7 @@ export default function MatchTabs({
       <div
         ref={rangee}
         role="tablist"
-        aria-label="Sections du match"
+        aria-label={t.sections}
         style={{ maskImage: masque, WebkitMaskImage: masque }}
         className="mx-auto flex max-w-4xl gap-6 overflow-x-auto px-4 [scrollbar-width:none] sm:gap-7 sm:px-6 [&::-webkit-scrollbar]:hidden"
       >

@@ -23,6 +23,8 @@
 // TSV continuera d'écrire de travers.
 // ============================================
 
+import type { Langue } from "@/i18n/config";
+
 export type Poste = "goalkeeper" | "defender" | "midfielder" | "forward";
 
 /** Du but vers l'attaque, l'ordre dans lequel une feuille de match se lit. */
@@ -30,19 +32,42 @@ export const POSTES: readonly Poste[] = [
   "goalkeeper", "defender", "midfielder", "forward",
 ] as const;
 
-export const LIBELLE_POSTE: Record<Poste, string> = {
-  goalkeeper: "Gardien",
-  defender: "Défenseur",
-  midfielder: "Milieu",
-  forward: "Attaquant",
+export const LIBELLES_POSTE: Record<Langue, Record<Poste, string>> = {
+  fr: {
+    goalkeeper: "Gardien",
+    defender: "Défenseur",
+    midfielder: "Milieu",
+    forward: "Attaquant",
+  },
+  en: {
+    goalkeeper: "Goalkeeper",
+    defender: "Defender",
+    midfielder: "Midfielder",
+    forward: "Forward",
+  },
 };
 
-/** L'initiale portée par le maillot sur le terrain : G, D, M, A. */
+/** Le français, pour les écrans qui ne parlent encore que lui. */
+export const LIBELLE_POSTE = LIBELLES_POSTE.fr;
+
+/**
+ * L'initiale portée par le maillot sur le terrain : G, D, M, A.
+ *
+ * ELLE NE SE TRADUIT PAS. C'est aussi une clé : la composition type la relit
+ * sur le terrain pour retrouver le poste (voir CompositionsTypes). Pour un
+ * lecteur anglais, `INITIALES_POSTE` ci-dessous.
+ */
 export const INITIALE_POSTE: Record<Poste, string> = {
   goalkeeper: "G",
   defender: "D",
   midfielder: "M",
   forward: "A",
+};
+
+/** L'initiale à AFFICHER : G, D, M, A en français ; GK, DF, MF, FW en anglais. */
+export const INITIALES_POSTE: Record<Langue, Record<Poste, string>> = {
+  fr: INITIALE_POSTE,
+  en: { goalkeeper: "GK", defender: "DF", midfielder: "MF", forward: "FW" },
 };
 
 /**
@@ -99,10 +124,10 @@ export function estGardien(brut: string | null | undefined): boolean {
   return normaliserPoste(brut) === "goalkeeper";
 }
 
-/** Le libellé français à afficher, ou la saisie d'origine si elle est illisible. */
-export function libellePoste(brut: string | null | undefined): string | null {
+/** Le libellé à afficher, ou la saisie d'origine si elle est illisible. */
+export function libellePoste(brut: string | null | undefined, langue: Langue = "fr"): string | null {
   const poste = normaliserPoste(brut);
-  if (poste) return LIBELLE_POSTE[poste];
+  if (poste) return LIBELLES_POSTE[langue][poste];
   const reste = brut?.trim();
   return reste ? reste : null;
 }

@@ -679,7 +679,7 @@ export default function CompetitionSchedulePage() {
             )}
             {past && (
               <span
-                title="Date dépassée, ajoutez un score ou reportez le match"
+                title="Date dépassée, ajoute un score ou reporte le match"
                 className="inline-flex items-center gap-1 bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
               >
                 <Clock size={11} />
@@ -1011,7 +1011,7 @@ export default function CompetitionSchedulePage() {
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucun match</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Importez votre calendrier de matchs, ou générez automatiquement un round-robin de poule.
+            Importe ton calendrier de matchs, ou génère automatiquement un round-robin de poule.
             Les matchs de phase finale apparaîtront ici dès que le tableau sera dessiné.
           </p>
           <Link
@@ -1353,7 +1353,7 @@ export default function CompetitionSchedulePage() {
                 {addForm.stage === "knockout" && (
                   <p className=" border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
                     Ce match est ajouté au tableau sans y être relié : le vainqueur ne remonte pas
-                    automatiquement. Pour un arbre complet, passez par{" "}
+                    automatiquement. Pour un arbre complet, passe par{" "}
                     <Link href={`/organizer/competitions/${cid}/knockout`} className="font-bold underline">
                       Phase finale
                     </Link>
@@ -1493,7 +1493,7 @@ export default function CompetitionSchedulePage() {
                 </button>
               </div>
               <p className="mb-1 text-sm text-gray-500">
-                Choisissez une nouvelle date et heure pour ce match.
+                Choisis une nouvelle date et heure pour ce match.
               </p>
               <p className="mb-5 text-xs text-gray-400">
                 {postponeMatch.stage === "knockout" && postponeMatch.round

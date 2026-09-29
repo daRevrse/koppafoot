@@ -81,7 +81,7 @@ export default function AdminSettingsPage() {
                 <div className="min-w-0 flex-1">
                   <Link href={`/admin/users/${a.uid}`} className="flex items-center gap-2 text-sm font-black text-gray-900 hover:text-emerald-700">
                     <span className="truncate">{a.nom}</span>
-                    {a.moi && <Pastille ton="noir">Vous</Pastille>}
+                    {a.moi && <Pastille ton="noir">Toi</Pastille>}
                     {a.herite && <Pastille ton="ambre" title="Ancien modèle : user_type « superadmin » sans le drapeau">Ancien modèle</Pastille>}
                   </Link>
                   <p className="truncate text-xs text-gray-500">{a.email ?? a.telephone ?? "Sans contact"}</p>

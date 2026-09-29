@@ -21,6 +21,8 @@
 // ce qui n'est pas un repere de periode, et les y laisser noierait les buts.
 // ============================================
 
+import type { Langue } from "@/i18n/config";
+
 export type TypeEvenement =
   // Les majeurs, ceux qui changent le tableau d'affichage ou le nombre de
   // joueurs sur le terrain. Ils partent en notification.
@@ -95,23 +97,46 @@ export function estStatistique(type: TypeEvenement): boolean {
   return COMPTABLES.has(type);
 }
 
-export const LIBELLE_EVENEMENT: Record<TypeEvenement, string> = {
-  goal: "But",
-  yellow_card: "Carton jaune",
-  red_card: "Carton rouge",
-  substitution: "Remplacement",
-  period_start: "Début de période",
-  period_end: "Fin de période",
-  save: "Arrêt",
-  foul: "Faute",
-  offside: "Hors-jeu",
-  penalty: "Penalty obtenu",
-  shot: "Tir",
-  shot_on_target: "Tir cadré",
-  corner: "Corner",
-  throw_in: "Touche",
-  free_kick: "Coup franc",
+/** Dans les deux langues : le fil public d'un match se lit aussi en anglais. */
+export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> = {
+  fr: {
+    goal: "But",
+    yellow_card: "Carton jaune",
+    red_card: "Carton rouge",
+    substitution: "Remplacement",
+    period_start: "Début de période",
+    period_end: "Fin de période",
+    save: "Arrêt",
+    foul: "Faute",
+    offside: "Hors-jeu",
+    penalty: "Penalty obtenu",
+    shot: "Tir",
+    shot_on_target: "Tir cadré",
+    corner: "Corner",
+    throw_in: "Touche",
+    free_kick: "Coup franc",
+  },
+  en: {
+    goal: "Goal",
+    yellow_card: "Yellow card",
+    red_card: "Red card",
+    substitution: "Substitution",
+    period_start: "Start of period",
+    period_end: "End of period",
+    save: "Save",
+    foul: "Foul",
+    offside: "Offside",
+    penalty: "Penalty won",
+    shot: "Shot",
+    shot_on_target: "Shot on target",
+    corner: "Corner",
+    throw_in: "Throw-in",
+    free_kick: "Free kick",
+  },
 };
+
+/** Le français, pour les écrans qui ne parlent encore que lui (la console). */
+export const LIBELLE_EVENEMENT = LIBELLES_EVENEMENT.fr;
 
 /**
  * L'emoji de l'historique. Pas d'icone composant ici : ce module est lu par
@@ -204,12 +229,22 @@ export const LIBELLE_ISSUE_PENALTY: Record<IssuePenalty, string> = {
  * video-assistance. C'est la console, qui sait de quel match il s'agit, qui
  * nomme la VAR quand elle existe.
  */
-export const RECIT_ISSUE_PENALTY: Record<IssuePenalty, string> = {
-  marque: "Penalty marqué",
-  rate: "Penalty raté",
-  arrete: "Penalty arrêté",
-  retire: "Penalty retiré",
+export const RECITS_ISSUE_PENALTY: Record<Langue, Record<IssuePenalty, string>> = {
+  fr: {
+    marque: "Penalty marqué",
+    rate: "Penalty raté",
+    arrete: "Penalty arrêté",
+    retire: "Penalty retiré",
+  },
+  en: {
+    marque: "Penalty scored",
+    rate: "Penalty missed",
+    arrete: "Penalty saved",
+    retire: "Penalty overturned",
+  },
 };
+
+export const RECIT_ISSUE_PENALTY = RECITS_ISSUE_PENALTY.fr;
 
 /** L'issue portee par un `detail`, ou `null` tant qu'il n'y en a pas. */
 export function issuePenalty(detail: string | null | undefined): IssuePenalty | null {
