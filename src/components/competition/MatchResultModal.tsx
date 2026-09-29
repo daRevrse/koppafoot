@@ -10,7 +10,7 @@ import {
   OWN_GOAL_DETAIL,
   type ResultGoal,
 } from "@/lib/competition-firestore";
-import { notifyCompetitionFollowers } from "@/lib/competition-notify";
+import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import { classerCandidatsMVPSaisie, type CandidatMVPSaisie } from "@/lib/mvp";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Competition, CompMatch, CompPlayer, CompTeam } from "@/types";
@@ -300,13 +300,15 @@ export default function MatchResultModal({
         user?.uid,
       );
 
-      // Announce the result to the competition's followers, this is the match
-      // the live console never ran, so nobody has heard about it yet. Only on
-      // the first save: reopening to fix a typo or add a scorer must not ring
-      // every phone again. A sandbox competition is filtered server-side.
+      // Announce the result to the competition's and the match's followers,
+      // this is the match the live console never ran, so nobody has heard
+      // about it yet. Only on the first save: reopening to fix a typo or add a
+      // scorer must not ring every phone again. A sandbox competition is
+      // filtered server-side.
       if (!wasCompleted) {
         const scoreLine = `${match.homeTeamName} ${h} – ${a} ${match.awayTeamName}`;
-        notifyCompetitionFollowers({
+        notifierAbonnesDuMatch({
+          mid: match.id,
           cid,
           title: "🏁 Score final",
           body:

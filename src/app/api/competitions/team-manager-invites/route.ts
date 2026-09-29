@@ -5,6 +5,7 @@ import { sendNotificationEmail, teamManagerInviteHtml } from "@/lib/email";
 import { APP_URL } from "@/lib/partage";
 import type { FirestoreCompetition } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 
 
@@ -198,14 +199,11 @@ export async function POST(req: NextRequest) {
         }
         await Promise.all(
           uids.map((uid) =>
-            adminDb.collection("notifications").add({
-              user_id: uid,
+            notifierCompte(uid, {
               type: "invitation",
               title: "On te confie une équipe",
               body: `${inviterName} t'invite à gérer « ${team.name} » (${competition.name})`,
               link: `/invitations/equipe/${ref.id}`,
-              read: false,
-              created_at: FieldValue.serverTimestamp(),
             }),
           ),
         );

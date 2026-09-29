@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { FirestoreCompetition } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * Shared auth + authorization for both handlers.
@@ -103,14 +104,11 @@ export async function POST(req: NextRequest) {
 
     // Best-effort notification: never let its failure fail the invite.
     try {
-      await adminDb.collection("notifications").add({
-        user_id: uid,
-        type: "admin_message",
+      await notifierCompte(uid, {
+        type: "invitation",
         title: "Tu es modérateur",
         body: `Tu peux gérer les matchs en direct de « ${competition.name} »`,
         link: "/live-ops",
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
     } catch (notifErr) {
       console.error("Moderator notification failed:", notifErr);

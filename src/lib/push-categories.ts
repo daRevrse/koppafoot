@@ -90,3 +90,17 @@ export function pushAutorise(prefs: PushPrefs | undefined, categorie?: PushCateg
   if (!categorie || !prefs) return true;
   return prefs[categorie] !== false;
 }
+
+/**
+ * Un lien de notification, seulement s'il reste dans le produit.
+ *
+ * Le lien d'un push s'ouvre d'un toucher, depuis l'écran verrouillé, sous le
+ * nom de Koppafoot : une adresse externe y serait un hameçon tout trouvé. Un
+ * chemin interne (« /matches/abc ») passe ; le reste (« https://… »,
+ * « //ailleurs », « javascript: ») est remplacé par la cloche.
+ */
+export function lienInterne(link: unknown): string {
+  if (typeof link !== "string") return "/notifications";
+  const l = link.trim();
+  return l.startsWith("/") && !l.startsWith("//") && !l.includes("\\") ? l.slice(0, 300) : "/notifications";
+}

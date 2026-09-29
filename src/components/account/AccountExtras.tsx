@@ -11,6 +11,7 @@ import { shareInviteLink } from "@/lib/invite-link";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLangue, useT } from "@/i18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { CATEGORIES_PUSH } from "@/lib/push-categories";
 import {
   etatInstallation, etatInstallationServeur, installer, souscrireInstallation,
 } from "@/lib/pwa-install";
@@ -232,14 +233,14 @@ export function InstallBlock({ sombre }: { sombre?: boolean }) {
  * dans l'application ajoutée à l'écran d'accueil, et là encore une bascule
  * muette vaudrait moins que la phrase qui explique.
  *
- * LE TRI PAR CATÉGORIE existe côté serveur (voir lib/push-categories) mais ne
- * s'affiche pas ici : cinq lignes de plus pour un arbitrage que personne n'a
- * encore demandé alourdissaient un menu dont c'est le cinquième bloc. Le
- * jour où « trop de notifications » remonte du terrain, le filtre est déjà
- * écrit, il ne manquera que les bascules.
+ * LE TRI PAR CATÉGORIE s'affiche quand le push est actif sur l'appareil : le
+ * filtre existait côté serveur (voir lib/push-categories) sans bascule pour
+ * le régler, et la seule réponse à « trop de notifications du direct » était
+ * de tout couper, convocations comprises. Les catégories valent pour le
+ * COMPTE, l'interrupteur du dessus pour CET APPAREIL : la note le dit.
  */
 export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
-  const { etat, occupe, activer, desactiver } = usePushNotifications();
+  const { etat, prefs, occupe, activer, desactiver, basculer } = usePushNotifications();
   const trad = useT();
   const t = ton(sombre);
 
@@ -303,6 +304,34 @@ export function NotificationsBlock({ sombre }: { sombre?: boolean }) {
       {etat === "refuse" && <p className={note}>{trad("notifs.refuse")}</p>}
       {etat === "ios-hors-app" && <p className={note}>{trad("notifs.ios")}</p>}
 
+      {actif && (
+        <div className="px-4 pb-2">
+          <p className={`pb-1 pt-2 text-[10px] font-black uppercase tracking-[0.15em] ${t.titre}`}>
+            {trad("notifs.categories")}
+          </p>
+          {CATEGORIES_PUSH.map((c) => (
+            <div key={c} className="flex items-center justify-between gap-3 py-1.5">
+              <span className="min-w-0">
+                <span className={`block text-[13px] font-bold ${t.libelle}`}>{trad(`notifs.cat.${c}`)}</span>
+                <span className={`block text-[11px] leading-snug ${sombre ? "text-white/40" : "text-gray-500"}`}>
+                  {trad(`notifs.cat.${c}.detail`)}
+                </span>
+              </span>
+              <span className={cadre}>
+                <button type="button" disabled={occupe} onClick={() => (prefs[c] ? undefined : basculer(c))} className={bascule(prefs[c])}>
+                  {trad("notifs.oui")}
+                </button>
+                <button type="button" disabled={occupe} onClick={() => (prefs[c] ? basculer(c) : undefined)} className={bascule(!prefs[c])}>
+                  {trad("notifs.non")}
+                </button>
+              </span>
+            </div>
+          ))}
+          <p className={`pt-1 text-[11px] font-semibold leading-relaxed ${sombre ? "text-white/40" : "text-gray-500"}`}>
+            {trad("notifs.categoriesNote")}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * Roster claims, a player says "this line of the roster is me", and the
@@ -157,14 +158,11 @@ export async function POST(req: NextRequest) {
       : (competition.organizer_ids ?? []);
     await Promise.all(
       validators.map((uid) =>
-        adminDb.collection("notifications").add({
-          user_id: uid,
+        notifierCompte(uid, {
           type: "participation_request",
           title: "Demande de rattachement",
           body: `${userName} déclare être « ${player.name} » (${team.name})`,
           link: `/organizer/competitions/${cid}/teams/${teamId}`,
-          read: false,
-          created_at: FieldValue.serverTimestamp(),
         }),
       ),
     );
@@ -240,14 +238,11 @@ export async function PATCH(req: NextRequest) {
 
     if (action === "reject") {
       await claimRef.update({ status: "rejected", decided_by: callerUid });
-      await adminDb.collection("notifications").add({
-        user_id: claim.user_id,
+      await notifierCompte(claim.user_id, {
         type: "participation_request",
         title: "Demande refusée",
         body: `Ta demande de rattachement à « ${claim.player_name} » (${claim.team_name}) a été refusée.`,
         link: `/c/${claim.competition_slug}/teams/${claim.team_id}`,
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
       return NextResponse.json({ ok: true });
     }
@@ -297,14 +292,11 @@ export async function PATCH(req: NextRequest) {
       .get();
     await Promise.all(others.docs.map((d) => d.ref.update({ status: "rejected" })));
 
-    await adminDb.collection("notifications").add({
-      user_id: claim.user_id,
+    await notifierCompte(claim.user_id, {
       type: "participation_request",
       title: "Rattachement validé",
       body: `Tu es maintenant « ${claim.player_name} » de ${claim.team_name}. Tes stats sont en ligne.`,
       link: "/stats",
-      read: false,
-      created_at: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({ ok: true });

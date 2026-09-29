@@ -6,6 +6,7 @@ import {
 } from "@/lib/tribune-server";
 import { SYSTEM_AUTHOR_ID } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * The superadmin's own voice in the Tribune.
@@ -204,14 +205,12 @@ export async function DELETE(req: NextRequest) {
     // Warn the author their post went, unless it was ours to begin with.
     const authorId = snap.data()?.author_id;
     if (authorId && authorId !== SYSTEM_AUTHOR_ID) {
-      await adminDb.collection("notifications").add({
-        user_id: authorId,
+      await notifierCompte(authorId, {
         type: "system",
+        categorie: "perso",
         title: "Publication retirée",
         body: "Une de tes publications a été retirée de la Tribune par la modération.",
         link: "/feed",
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
     }
     await ref.delete();

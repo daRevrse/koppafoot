@@ -11,6 +11,7 @@ import type { FirestoreUser, SignupData, UserProfile } from "@/types";
 import { suivreCompetition } from "~/lib/direct-firestore";
 import { auth, db } from "~/lib/firebase";
 import { moduleGoogle } from "~/lib/google";
+import { desactiverPushMobile } from "~/lib/push";
 import { appliquerSuiviEnAttente } from "~/lib/suivi-en-attente";
 
 export interface ChampsProfil {
@@ -162,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const deconnexion = useCallback(async () => {
+    // Ce téléphone ne doit plus recevoir les notifications du compte qui s'en va.
+    const u = auth.currentUser;
+    if (u) await desactiverPushMobile(u.uid).catch(() => {});
     // Sans ça, le compte Google resterait choisi d'office à la connexion suivante.
     await moduleGoogle()?.GoogleSignin.signOut().catch(() => {});
     await signOut(auth);

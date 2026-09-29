@@ -6,6 +6,7 @@ import type { FirestoreMatch, FirestoreMatchValidation } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { refValidation, validationInitiale } from "@/lib/validation-server";
 import { crediter, type Buteur } from "@/lib/match-renseigne-server";
+import { notifierCompte } from "@/lib/notifier-serveur";
 
 /**
  * Renseigner un match DÉJÀ JOUÉ.
@@ -210,14 +211,11 @@ export async function POST(req: NextRequest) {
 
   if (contreUnCompte) {
     try {
-      await adminDb.collection("notifications").add({
-        user_id: opponentManagerId,
+      await notifierCompte(opponentManagerId, {
         type: "match_update",
         title: "Un résultat à confirmer",
         body: `${doc.home_team_name} ${doc.score_home} – ${doc.score_away} ${doc.away_team_name}, le ${date}. Confirme ou conteste ce score.`,
         link: `/matches/${ref.id}`,
-        read: false,
-        created_at: FieldValue.serverTimestamp(),
       });
     } catch (e) {
       console.error("Notification de contresignature :", e);
@@ -319,15 +317,12 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    await adminDb.collection("notifications").add({
-      user_id: m.manager_id,
+    await notifierCompte(m.manager_id, {
       type: "match_update",
       title: accepte ? "Résultat confirmé" : "Résultat contesté",
       body: `${m.home_team_name} ${m.score_home} – ${m.score_away} ${m.away_team_name}` +
         (accepte ? " : le score est validé et compte." : " : l'adversaire conteste ce score."),
       link: `/matches/${matchId}`,
-      read: false,
-      created_at: FieldValue.serverTimestamp(),
     });
   } catch (e) {
     console.error("Notification de contresignature :", e);

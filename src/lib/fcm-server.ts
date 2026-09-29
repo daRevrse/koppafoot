@@ -4,6 +4,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import adminApp from "@/lib/firebase-admin";
 import { pushAutorise, type PushCategory, type PushPrefs } from "@/lib/push-categories";
 
+export { lienInterne } from "@/lib/push-categories";
+
 // ============================================
 // L'envoi, et le filtre qui le précède.
 //
@@ -35,9 +37,15 @@ export async function sendPushToUser(
   const response = await messaging.sendEachForMulticast({
     tokens,
     notification: { title: notification.title, body: notification.body },
+    // Le lien voyage aussi en données : c'est là que l'application le lit au
+    // toucher (mobile/src/lib/push). Le site, lui, le prend dans `fcmOptions`.
+    data: notification.link ? { link: notification.link } : undefined,
     webpush: notification.link
       ? { fcmOptions: { link: notification.link } }
       : undefined,
+    // L'application Android crée ce canal ; sans lui, une notification tombe
+    // dans le canal « Divers » du système, silencieux par défaut.
+    android: { priority: "high", notification: { channelId: "koppafoot" } },
   });
 
   const invalidTokens = response.responses
@@ -49,4 +57,20 @@ export async function sendPushToUser(
       fcm_tokens: FieldValue.arrayRemove(...invalidTokens),
     });
   }
+}
+
+/**
+ * Le même push à plusieurs comptes, chacun UNE fois.
+ *
+ * Les listes d'abonnés se recoupent : quelqu'un qui suit la compétition ET le
+ * match était sur les deux, et recevait chaque but deux fois. On dédoublonne
+ * ici, pas chez l'appelant.
+ */
+export async function sendPushToUsers(
+  userIds: Iterable<string>,
+  notification: { title: string; body: string; link?: string; category?: PushCategory },
+): Promise<{ destinataires: number; envoyes: number }> {
+  const uniques = [...new Set([...userIds].filter(Boolean))];
+  const sorts = await Promise.allSettled(uniques.map((uid) => sendPushToUser(uid, notification)));
+  return { destinataires: uniques.length, envoyes: sorts.filter((s) => s.status === "fulfilled").length };
 }

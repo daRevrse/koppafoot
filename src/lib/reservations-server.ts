@@ -1,7 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { sendPushToUser } from "@/lib/fcm-server";
-import { categorieDuType } from "@/lib/push-categories";
+import { notifierCompte } from "@/lib/notifier-serveur";
 import { bookingRequestHtml, bookingRequestsDigestHtml, sendNotificationEmail } from "@/lib/email";
 import { planTerrain, type MatchPourTerrain, type ReservationLiee } from "@/lib/reservations";
 import { dateLongue, dureeEnCompetition } from "@/lib/terrains";
@@ -70,18 +69,7 @@ export async function notifier(
   n: { type: NotificationType; title: string; body: string; link: string },
   email?: { sujet: string; html: string },
 ): Promise<void> {
-  const envois: Promise<unknown>[] = [
-    adminDb.collection("notifications").add({
-      user_id: uid,
-      type: n.type,
-      title: n.title,
-      body: n.body,
-      link: n.link,
-      read: false,
-      created_at: FieldValue.serverTimestamp(),
-    }),
-    sendPushToUser(uid, { title: n.title, body: n.body, link: n.link, category: categorieDuType(n.type) }),
-  ];
+  const envois: Promise<unknown>[] = [notifierCompte(uid, n)];
   if (email) {
     envois.push(
       lireProfil(uid).then((p) => (p.email ? sendNotificationEmail(p.email, email.sujet, email.html) : undefined)),

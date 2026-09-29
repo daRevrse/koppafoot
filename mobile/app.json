@@ -37,7 +37,15 @@
           "backgroundColor": "#0d291b"
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#059669",
+          "defaultChannel": "koppafoot"
+        }
+      ]
     ],
     "scheme": "koppafoot",
     "experiments": {

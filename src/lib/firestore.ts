@@ -651,10 +651,12 @@ export async function deleteTeam(teamId: string): Promise<void> {
  */
 export function notifyTeamActivity(input: {
   teamId: string;
-  event: "member_joined" | "member_left" | "competition_entered";
+  event: "member_joined" | "member_left" | "competition_entered" | "training_scheduled";
   playerId?: string;
   competitionName?: string;
   link?: string;
+  /** training_scheduled : l'entraînement dont on convoque l'effectif. */
+  trainingId?: string;
 }): void {
   void (async () => {
     try {
@@ -943,6 +945,22 @@ export async function respondToJoinRequest(requestId: string, accepted: boolean,
 
   if (accepted && teamId && playerId) {
     notifyTeamActivity({ teamId, event: "member_joined", playerId });
+  }
+
+  // LE CANDIDAT, SURTOUT. L'arrivée est annoncée à l'effectif, mais lui en
+  // était exclu (il sait ce qu'il vient de faire… sauf que ce n'est pas lui
+  // qui l'a fait) ; et un refus ne prévenait personne : il attendait.
+  const demande = (await getDoc(reqRef).catch(() => null))?.data() as FirestoreJoinRequest | undefined;
+  if (demande?.player_id) {
+    void createNotification({
+      userId: demande.player_id,
+      type: "join_request",
+      title: accepted ? "Candidature acceptée" : "Candidature refusée",
+      body: accepted
+        ? `Bienvenue dans ${demande.team_name} !`
+        : `${demande.team_name} n'a pas retenu ta candidature.`,
+      link: accepted ? `/teams/${demande.team_id}` : "/mercato",
+    }).catch(() => {});
   }
 }
 
@@ -1797,9 +1815,25 @@ export async function respondToMatchChallenge(
   autoAccept: boolean = false,
 ): Promise<void> {
   const status = accepted ? (autoAccept ? "upcoming" : "pending") : "cancelled";
+  const avant = (await getDoc(doc(db, "matches", matchId))).data() as FirestoreMatch | undefined;
   await updateDoc(doc(db, "matches", matchId), {
     status, updated_at: serverTimestamp(),
   });
+
+  // Celui qui a lancé le défi attendait sa réponse sans que rien ne la lui
+  // apporte : il fallait rouvrir la liste des matchs pour la découvrir.
+  const lanceur = avant?.manager_id;
+  if (lanceur && lanceur !== auth.currentUser?.uid) {
+    void createNotification({
+      userId: lanceur,
+      type: "match_challenge",
+      title: accepted ? "Défi accepté" : "Défi refusé",
+      body: accepted
+        ? `${matchLabel}, le ${matchDate} à ${matchTime} : c'est parti.`
+        : `${matchLabel} : ton défi a été décliné.`,
+      link: `/matches/${matchId}`,
+    }).catch(() => {});
+  }
   if (accepted) {
     await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, homeTeamId, homeTeamMemberIds, homeTeamMemberNames, format, true, !!autoAccept);
     await createParticipationsForTeam(matchId, matchLabel, matchDate, matchTime, venueName, awayTeamId, awayTeamMemberIds, awayTeamMemberNames, format, false, !!autoAccept);
@@ -3378,6 +3412,8 @@ export async function createTraining(data: {
     attendees,
     created_at: serverTimestamp(), updated_at: serverTimestamp(),
   });
+  // Les convoqués l'apprennent sur leur téléphone, pas en rouvrant l'onglet.
+  notifyTeamActivity({ teamId: data.teamId, event: "training_scheduled", trainingId: ref.id });
   return ref.id;
 }
 
@@ -3772,36 +3808,33 @@ export async function createNotification(data: {
   body: string;
   link?: string;
 }): Promise<string> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Non connecté");
+  // SIGNÉE : les règles exigent que `from_uid` soit l'auteur, et la route de
+  // push relit la notification par son identifiant au lieu de croire ce que
+  // le navigateur lui dirait (voir /api/notifications/push).
   const ref = await addDoc(collection(db, "notifications"), {
     user_id: data.userId,
+    from_uid: currentUser.uid,
     type: data.type,
-    title: data.title,
-    body: data.body,
+    title: data.title.slice(0, 120),
+    body: data.body.slice(0, 300),
     link: data.link ?? null,
     read: false,
     created_at: serverTimestamp(),
   });
 
   // Best-effort push, fire and forget
-  const currentUser = auth.currentUser;
-  if (currentUser) {
-    currentUser.getIdToken().then((token) => {
-      fetch("/api/notifications/push", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          userId: data.userId,
-          title: data.title,
-          body: data.body,
-          link: data.link,
-          type: data.type,
-        }),
-      }).catch(() => {});
+  currentUser.getIdToken().then((token) => {
+    fetch("/api/notifications/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ notificationId: ref.id }),
     }).catch(() => {});
-  }
+  }).catch(() => {});
 
   return ref.id;
 }

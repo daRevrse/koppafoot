@@ -719,7 +719,30 @@ service cloud.firestore {
 
     match /notifications/{notificationId} {
       allow read, update: if isAuthenticated() && resource.data.user_id == request.auth.uid;
-      allow create: if isAuthenticated();
+      // N'importe quel compte pouvait écrire n'importe quoi dans la cloche de
+      // n'importe qui. Désormais : signée de son auteur, d'un des types qu'un
+      // compte écrit lui-même au geste (invitation, défi, convocation…, voir
+      // lib/notification-client — les deux listes bougent ensemble), non lue,
+      // pas encore poussée, et de taille raisonnable. Tout le reste naît sur
+      // le serveur, par le SDK admin, qui ignore ces règles.
+      allow create: if isAuthenticated()
+                    && request.resource.data.from_uid == request.auth.uid
+                    && request.resource.data.user_id is string
+                    && request.resource.data.type in [
+                         'invitation', 'join_request', 'match_challenge',
+                         'match_update', 'participation_request', 'arbitrage'
+                       ]
+                    && request.resource.data.read == false
+                    && !('pushed_at' in request.resource.data)
+                    // Un lien qui reste dans le produit : la cloche l'ouvre
+                    // d'un toucher, une adresse externe y serait un hameçon.
+                    && (request.resource.data.link == null
+                        || (request.resource.data.link is string
+                            && request.resource.data.link.matches('^/([^/\\\\].*)?$')))
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() <= 120
+                    && request.resource.data.body is string
+                    && request.resource.data.body.size() <= 300;
     }
 
     match /shortlists/{shortlistId} {
