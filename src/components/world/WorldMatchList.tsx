@@ -1,5 +1,7 @@
 import { CalendarDays } from "lucide-react";
 import type { FootballMatch } from "@/lib/football-data";
+import { LOCALE, type Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // WorldMatchList
@@ -13,7 +15,17 @@ import type { FootballMatch } from "@/lib/football-data";
 // ============================================
 
 const TZ = "Africa/Lome";
-const TZ_LABEL = "Heures en GMT";
+
+const T = textes(
+  {
+    fuseau: "Heures en GMT",
+    matchs: (n: number) => `${n} match${n > 1 ? "s" : ""}`,
+  },
+  {
+    fuseau: "Times in GMT",
+    matchs: (n: number) => `${n} match${n === 1 ? "" : "es"}`,
+  },
+);
 
 const dayKeyFmt = new Intl.DateTimeFormat("fr-CA", {
   timeZone: TZ,
@@ -21,17 +33,19 @@ const dayKeyFmt = new Intl.DateTimeFormat("fr-CA", {
   month: "2-digit",
   day: "2-digit",
 });
-const dayLabelFmt = new Intl.DateTimeFormat("fr-FR", {
-  timeZone: TZ,
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-const timeFmt = new Intl.DateTimeFormat("fr-FR", {
-  timeZone: TZ,
-  hour: "2-digit",
-  minute: "2-digit",
-});
+// Composant serveur : la langue arrive en propriété, et les formats se
+// construisent une fois par langue.
+const FORMATS: Record<Langue, { jour: Intl.DateTimeFormat; heure: Intl.DateTimeFormat }> = {
+  fr: formats("fr"),
+  en: formats("en"),
+};
+
+function formats(langue: Langue) {
+  return {
+    jour: new Intl.DateTimeFormat(LOCALE[langue], { timeZone: TZ, weekday: "long", day: "numeric", month: "long" }),
+    heure: new Intl.DateTimeFormat(LOCALE[langue], { timeZone: TZ, hour: "2-digit", minute: "2-digit" }),
+  };
+}
 
 /** fr-CA gives an ISO-shaped YYYY-MM-DD, which sorts and compares cleanly. */
 function dayKey(utcDate: string): string {
@@ -41,10 +55,14 @@ function dayKey(utcDate: string): string {
 export default function WorldMatchList({
   matches,
   emptyLabel,
+  langue = "fr",
 }: {
   matches: FootballMatch[];
   emptyLabel: string;
+  langue?: Langue;
 }) {
+  const t = T[langue];
+  const { jour: dayLabelFmt, heure: timeFmt } = FORMATS[langue];
   if (matches.length === 0) {
     return (
       <div className=" border border-gray-200/70 bg-white py-12 text-center">
@@ -75,7 +93,7 @@ export default function WorldMatchList({
               {dayLabelFmt.format(new Date(day.items[0].utcDate))}
             </p>
             <span className="text-[11px] font-bold text-gray-400">
-              {day.items.length} match{day.items.length > 1 ? "s" : ""}
+              {t.matchs(day.items.length)}
             </span>
           </div>
 
@@ -152,7 +170,7 @@ export default function WorldMatchList({
         </div>
       ))}
 
-      <p className="px-1 text-[11px] font-bold text-gray-300">{TZ_LABEL}</p>
+      <p className="px-1 text-[11px] font-bold text-gray-300">{t.fuseau}</p>
     </div>
   );
 }

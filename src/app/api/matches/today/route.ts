@@ -27,6 +27,8 @@ interface Row {
   scoreHome: number | null;
   scoreAway: number | null;
   competition: string;
+  /** Un amical : la page écrit son libellé dans la langue du lecteur (réponse en cache). */
+  amical?: boolean;
   href: string | null;
 }
 
@@ -68,6 +70,7 @@ export async function GET() {
         time: m.time, status: m.status,
         scoreHome: m.scoreHome, scoreAway: m.scoreAway,
         competition: "Match amical",
+        amical: true,
         href: `/matches/${m.id}`,
       });
     }

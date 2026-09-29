@@ -61,7 +61,7 @@ export default function PWAInstallPrompt() {
           <div className="min-w-0 flex-1">
             <h4 className="truncate text-sm font-bold">Installer KoppaFoot</h4>
             <p className="text-[10px] leading-tight text-black/40 sm:text-xs">
-              Ajoutez l&apos;app à votre écran d&apos;accueil pour un accès direct.
+              Ajoute l&apos;app à ton écran d&apos;accueil pour un accès direct.
             </p>
           </div>
 

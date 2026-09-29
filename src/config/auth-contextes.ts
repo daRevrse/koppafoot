@@ -53,7 +53,7 @@ export const CONTEXTES_AUTH: Record<string, ContexteAuth> = {
   // propriétaire au moment de créer son compte.
   creneau: {
     marque: "MyFields",
-    accroche: "Trouvez où jouer",
+    accroche: "Trouve où jouer",
     promesse:
       "Choisis un terrain, demande une date et une heure. Le propriétaire confirme ou refuse, et tu suis sa réponse dans ton espace.",
     titreConnexion: "Demander un créneau",
@@ -65,7 +65,7 @@ export const CONTEXTES_AUTH: Record<string, ContexteAuth> = {
 
   organisateur: {
     marque: "Koppafoot Organize",
-    accroche: "Votre compétition, tenue",
+    accroche: "Ta compétition, tenue",
     promesse:
       "Calendrier, classements, tableau final et diffusion en direct. Un compte d'abord, la candidature d'organisateur se dépose ensuite.",
     titreConnexion: "Organiser une compétition",
@@ -77,9 +77,9 @@ export const CONTEXTES_AUTH: Record<string, ContexteAuth> = {
 
   scoreur: {
     marque: "Koppafoot Score",
-    accroche: "Faites vivre le direct",
+    accroche: "Fais vivre le direct",
     promesse:
-      "Tenez la console d'un match et faites-le vivre pour ceux qui ne sont pas au bord du terrain.",
+      "Tiens la console d'un match et fais-le vivre pour ceux qui ne sont pas au bord du terrain.",
     titreConnexion: "Tenir la console",
     phraseConnexion: "Un compte d'abord, ta candidature de scoreur se dépose ensuite.",
     titreInscription: "Tenir la console",
@@ -92,7 +92,7 @@ export const CONTEXTE_AUTH_DEFAUT: ContexteAuth = {
   marque: "Koppafoot",
   accroche: "Le football d'ici, en direct",
   promesse:
-    "Les compétitions, les équipes et les matchs de votre ville, suivis minute par minute.",
+    "Les compétitions, les équipes et les matchs de ta ville, suivis minute par minute.",
   titreConnexion: "Connexion",
   phraseConnexion: "Connecte-toi pour accéder à ton espace.",
   titreInscription: "Créer un compte",

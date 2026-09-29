@@ -277,7 +277,7 @@ export default function AdminTribunePage() {
           rows={4}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Votre annonce…"
+          placeholder="Ton annonce…"
           className="mt-4 w-full resize-none border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-emerald-400 focus:bg-white focus:outline-none"
         />
 

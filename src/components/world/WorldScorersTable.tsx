@@ -1,10 +1,34 @@
 import type { WorldScorer } from "@/lib/football-data";
+import type { Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    joueur: "Joueur", club: "Club",
+    mj: "MJ", mjTitre: "Matchs joués",
+    pd: "PD", pdTitre: "Passes décisives",
+    buts: "Buts",
+  },
+  {
+    joueur: "Player", club: "Club",
+    mj: "MP", mjTitre: "Matches played",
+    pd: "A", pdTitre: "Assists",
+    buts: "Goals",
+  },
+);
 
 // The provider's scoring chart. Server-safe (no client hooks), like the
 // standings, this is indexable content and belongs in the initial HTML.
 // Assists and appearances are absent on some competitions, so both columns
 // fall back to a dash rather than a misleading zero.
-export default function WorldScorersTable({ scorers }: { scorers: WorldScorer[] }) {
+export default function WorldScorersTable({
+  scorers,
+  langue = "fr",
+}: {
+  scorers: WorldScorer[];
+  langue?: Langue;
+}) {
+  const t = T[langue];
   return (
     <section className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -12,11 +36,11 @@ export default function WorldScorersTable({ scorers }: { scorers: WorldScorer[] 
           <thead>
             <tr className="text-[10px] font-black uppercase tracking-wider text-gray-400">
               <th className="px-3 py-3 text-center">#</th>
-              <th className="px-3 py-3 text-left">Joueur</th>
-              <th className="px-3 py-3 text-left">Club</th>
-              <th className="px-2 py-3 text-center" title="Matchs joués">MJ</th>
-              <th className="px-2 py-3 text-center" title="Passes décisives">PD</th>
-              <th className="px-3 py-3 text-center" title="Buts">Buts</th>
+              <th className="px-3 py-3 text-left">{t.joueur}</th>
+              <th className="px-3 py-3 text-left">{t.club}</th>
+              <th className="px-2 py-3 text-center" title={t.mjTitre}>{t.mj}</th>
+              <th className="px-2 py-3 text-center" title={t.pdTitre}>{t.pd}</th>
+              <th className="px-3 py-3 text-center" title={t.buts}>{t.buts}</th>
             </tr>
           </thead>
           <tbody>

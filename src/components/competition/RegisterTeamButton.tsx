@@ -6,6 +6,57 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTeamsByManager } from "@/lib/firestore";
 import type { Competition, CompetitionRegistration, Team } from "@/types";
+import { useLocale, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    inscrireMonEquipe: "Inscrire mon équipe",
+    echec: "L'inscription a échoué",
+    envoyee: "Demande envoyée, en attente de l'organisateur",
+    erreur: "Une erreur est survenue",
+    inscrite: "Inscrite",
+    enAttente: "En attente",
+    inscrireUneEquipe: "Inscrire une équipe",
+    fermer: "Fermer",
+    equipe: "Équipe",
+    message: "Message",
+    optionnel: "(optionnel)",
+    placeholder: "Un mot pour l'organisateur…",
+    frais: (montant: string) => `Frais d'inscription : ${montant}`,
+    aRegler: "À régler directement auprès de l'organisateur. KoppaFoot n'encaisse rien.",
+    reglement: "Règlement",
+    lireDocument: "Lire le document complet",
+    accepte: "J'ai lu et j'accepte le règlement",
+    effectifRepris:
+      "Une fois validée par l'organisateur, ton effectif est repris automatiquement, tu n'as rien à ressaisir.",
+    annuler: "Annuler",
+    envoyer: "Envoyer",
+  },
+  {
+    inscrireMonEquipe: "Register my team",
+    echec: "Registration failed",
+    envoyee: "Request sent, waiting for the organiser",
+    erreur: "Something went wrong",
+    inscrite: "Registered",
+    enAttente: "Pending",
+    inscrireUneEquipe: "Register a team",
+    fermer: "Close",
+    equipe: "Team",
+    message: "Message",
+    optionnel: "(optional)",
+    placeholder: "A word for the organiser…",
+    frais: (montant: string) => `Entry fee: ${montant}`,
+    aRegler: "Paid directly to the organiser. KoppaFoot collects nothing.",
+    reglement: "Rules",
+    lireDocument: "Read the full document",
+    accepte: "I have read and accept the rules",
+    effectifRepris:
+      "Once the organiser approves it, your squad is carried over automatically: nothing to type again.",
+    annuler: "Cancel",
+    envoyer: "Send",
+  },
+);
 
 // ============================================
 // Register one club in ONE competition, modal included.
@@ -21,7 +72,7 @@ import type { Competition, CompetitionRegistration, Team } from "@/types";
 export default function RegisterTeamButton({
   competition,
   className,
-  label = "Inscrire mon équipe",
+  label,
 }: {
   competition: Competition;
   className?: string;
@@ -36,6 +87,8 @@ export default function RegisterTeamButton({
   const [message, setMessage] = useState("");
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
+  const t = useTextes(T);
+  const locale = useLocale();
 
   const hasRules = Boolean(competition.rulesText || competition.rulesUrl);
   const hasFee = competition.entryFee != null && competition.entryFee > 0;
@@ -85,16 +138,16 @@ export default function RegisterTeamButton({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "L'inscription a échoué");
+        toast.error(data.error ?? t.echec);
         return;
       }
-      toast.success("Demande envoyée, en attente de l'organisateur");
+      toast.success(t.envoyee);
       setOpen(false);
       setMessage("");
       setRulesAccepted(false);
       await loadMine();
     } catch {
-      toast.error("Une erreur est survenue");
+      toast.error(t.erreur);
     } finally {
       setBusy(false);
     }
@@ -114,11 +167,11 @@ export default function RegisterTeamButton({
   if (here) {
     return here.status === "accepted" ? (
       <span className="inline-flex shrink-0 items-center gap-1.5 bg-white px-3 py-2 text-xs font-black text-emerald-700">
-        <BadgeCheck size={14} /> Inscrite
+        <BadgeCheck size={14} /> {t.inscrite}
       </span>
     ) : (
       <span className="inline-flex shrink-0 items-center gap-1.5 bg-white px-3 py-2 text-xs font-black text-amber-600">
-        <Clock3 size={14} /> En attente
+        <Clock3 size={14} /> {t.enAttente}
       </span>
     );
   }
@@ -133,7 +186,7 @@ export default function RegisterTeamButton({
           "shrink-0 bg-emerald-500 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600"
         }
       >
-        {label}
+        {label ?? t.inscrireMonEquipe}
       </button>
 
       {open && (
@@ -142,7 +195,7 @@ export default function RegisterTeamButton({
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="font-display text-lg font-bold text-gray-900">
-                  Inscrire une équipe
+                  {t.inscrireUneEquipe}
                 </h2>
                 <p className="truncate text-xs font-semibold text-gray-400">
                   {competition.name}
@@ -150,13 +203,14 @@ export default function RegisterTeamButton({
               </div>
               <button
                 onClick={() => !busy && setOpen(false)}
+                aria-label={t.fermer}
                 className=" p-1.5 text-gray-400 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <label className="mb-1.5 block text-xs font-bold text-gray-600">Équipe</label>
+            <label className="mb-1.5 block text-xs font-bold text-gray-600">{t.equipe}</label>
             <select
               value={clubId}
               onChange={(e) => setClubId(e.target.value)}
@@ -168,13 +222,13 @@ export default function RegisterTeamButton({
             </select>
 
             <label className="mb-1.5 mt-4 block text-xs font-bold text-gray-600">
-              Message <span className="font-semibold text-gray-300">(optionnel)</span>
+              {t.message} <span className="font-semibold text-gray-300">{t.optionnel}</span>
             </label>
             <textarea
               rows={3}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Un mot pour l'organisateur…"
+              placeholder={t.placeholder}
               className="w-full resize-none border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none"
             />
 
@@ -182,19 +236,17 @@ export default function RegisterTeamButton({
               <div className="mt-4 border border-amber-100 bg-amber-50/70 px-4 py-3">
                 <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
                   <Receipt size={14} />
-                  Frais d&apos;inscription : {competition.entryFee?.toLocaleString("fr-FR")}{" "}
-                  {competition.entryFeeCurrency}
+                  {t.frais(`${competition.entryFee?.toLocaleString(locale)} ${competition.entryFeeCurrency ?? ""}`.trim())}
                 </p>
                 <p className="mt-0.5 text-xs font-medium text-amber-700">
-                  À régler directement auprès de l&apos;organisateur. KoppaFoot
-                  n&apos;encaisse rien.
+                  {t.aRegler}
                 </p>
               </div>
             )}
 
             {hasRules && (
               <div className="mt-4">
-                <p className="mb-1.5 text-xs font-bold text-gray-600">Règlement</p>
+                <p className="mb-1.5 text-xs font-bold text-gray-600">{t.reglement}</p>
                 {competition.rulesText && (
                   <div className="max-h-40 overflow-y-auto border border-gray-200/70 bg-gray-50 px-4 py-3 text-xs leading-relaxed whitespace-pre-line text-gray-600">
                     {competition.rulesText}
@@ -207,7 +259,7 @@ export default function RegisterTeamButton({
                     rel="noopener noreferrer"
                     className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700"
                   >
-                    <FileText size={13} /> Lire le document complet
+                    <FileText size={13} /> {t.lireDocument}
                   </a>
                 )}
                 <label className="mt-3 flex items-start gap-2.5 text-xs font-semibold text-gray-700">
@@ -218,7 +270,7 @@ export default function RegisterTeamButton({
                     className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-200/70"
                   />
                   <span>
-                    J&apos;ai lu et j&apos;accepte le règlement
+                    {t.accepte}
                     {competition.requireRulesAcceptance && (
                       <span className="text-red-500"> *</span>
                     )}
@@ -228,8 +280,7 @@ export default function RegisterTeamButton({
             )}
 
             <p className="mt-3 text-xs font-semibold leading-relaxed text-gray-400">
-              Une fois validée par l&apos;organisateur, ton effectif est repris
-              automatiquement, tu n&apos;as rien à ressaisir.
+              {t.effectifRepris}
             </p>
 
             <div className="mt-5 flex justify-end gap-3">
@@ -238,7 +289,7 @@ export default function RegisterTeamButton({
                 onClick={() => !busy && setOpen(false)}
                 className=" px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
               >
-                Annuler
+                {t.annuler}
               </button>
               <button
                 type="button"
@@ -247,7 +298,7 @@ export default function RegisterTeamButton({
                 className="flex items-center gap-2 bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
               >
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                Envoyer
+                {t.envoyer}
               </button>
             </div>
           </div>

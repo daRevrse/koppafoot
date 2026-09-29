@@ -1705,11 +1705,11 @@ export default function LiveMatchConsole({
     // pour « zéro tir au but marqué », et une séance oubliée d'un côté se
     // terminerait sur un 0 – 4 que personne n'a tiré.
     if (penaltyHome.trim() === "" || penaltyAway.trim() === "") {
-      toast.error("Saisissez les tirs au but des deux équipes");
+      toast.error("Saisis les tirs au but des deux équipes");
       return;
     }
     if (!Number.isInteger(ph) || !Number.isInteger(pa) || ph < 0 || pa < 0) {
-      toast.error("Saisissez des tirs au but valides");
+      toast.error("Saisis des tirs au but valides");
       return;
     }
     // UNE SÉANCE DE TIRS AU BUT DÉPARTAGE, SINON ELLE CONTINUE. À égalité,

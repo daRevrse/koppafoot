@@ -229,7 +229,7 @@ export default function RecordActions({
                 )}
 
                 <label className="mt-4 block text-xs font-semibold text-gray-500">
-                  Tapez SUPPRIMER pour confirmer
+                  Tape SUPPRIMER pour confirmer
                 </label>
                 <input
                   className="mt-1 w-full border border-gray-200/70 px-2.5 py-2 text-sm outline-none focus:border-gray-900"

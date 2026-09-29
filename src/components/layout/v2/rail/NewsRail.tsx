@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, ExternalLink } from "lucide-react";
 import type { Article } from "@/lib/news-rss";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes({ titre: "Les actus", toutVoir: "Tout voir" }, { titre: "News", toutVoir: "See all" });
 
 // ============================================
 // Les actus dans le rail du Direct.
@@ -19,6 +23,7 @@ const SHOWN = 5;
 
 export default function NewsRail() {
   const [articles, setArticles] = useState<Article[] | null>(null);
+  const t = useTextes(T);
 
   useEffect(() => {
     let alive = true;
@@ -39,13 +44,13 @@ export default function NewsRail() {
           id="rail-actus"
           className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400"
         >
-          Les actus
+          {t.titre}
         </h2>
         <Link
           href="/actus"
           className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-emerald-700"
         >
-          Tout voir
+          {t.toutVoir}
         </Link>
       </div>
 

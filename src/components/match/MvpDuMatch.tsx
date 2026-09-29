@@ -1,7 +1,24 @@
+"use client";
+
 import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { PastilleNote } from "@/components/classement/LigneDeClassement";
+import { useLocale, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    hommeDuMatch: "Homme du match",
+    note: (valeur: string, faits: number) => `Note du match ${valeur}, sur ${faits} fait${faits > 1 ? "s" : ""}`,
+    faits: (n: number) => `${n} fait${n > 1 ? "s" : ""}`,
+  },
+  {
+    hommeDuMatch: "Player of the match",
+    note: (valeur: string, faits: number) => `Match rating ${valeur}, from ${faits} action${faits === 1 ? "" : "s"}`,
+    faits: (n: number) => `${n} action${n === 1 ? "" : "s"}`,
+  },
+);
 
 /**
  * L'homme du match, quand le scoreur en a désigné un.
@@ -26,7 +43,7 @@ import { PastilleNote } from "@/components/classement/LigneDeClassement";
 export default function MvpDuMatch({
   name,
   teamName,
-  label = "Homme du match",
+  label,
   photo,
   motif,
   note,
@@ -48,6 +65,8 @@ export default function MvpDuMatch({
   /** Sa fiche, quand il a un compte. */
   href?: string | null;
 }) {
+  const t = useTextes(T);
+  const locale = useLocale();
   if (!name) return null;
 
   const visage = photo !== undefined;
@@ -70,7 +89,7 @@ export default function MvpDuMatch({
       )}
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-black uppercase tracking-[0.15em] text-amber-600">
-          {label}
+          {label ?? t.hommeDuMatch}
         </p>
         {href ? (
           <Link href={href} className="mt-0.5 block min-w-0 hover:[&>span]:text-emerald-700">
@@ -84,11 +103,11 @@ export default function MvpDuMatch({
       {note && note.valeur !== null && (
         <div
           className="flex shrink-0 flex-col items-center gap-1"
-          aria-label={`Note du match ${String(note.valeur).replace(".", ",")}, sur ${note.faits} fait${note.faits > 1 ? "s" : ""}`}
+          aria-label={t.note(note.valeur.toLocaleString(locale), note.faits)}
         >
           <PastilleNote note={note.valeur} />
           <span aria-hidden className="text-[9px] font-black uppercase tracking-wide text-gray-400">
-            {note.faits} fait{note.faits > 1 ? "s" : ""}
+            {t.faits(note.faits)}
           </span>
         </div>
       )}

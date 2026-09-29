@@ -4,7 +4,8 @@ import { createContext, useCallback, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { fr, type CleTraduction } from "./fr";
 import { en } from "./en";
-import { CLE_LANGUE, DUREE_COOKIE_LANGUE, type Langue } from "./config";
+import { CLE_LANGUE, DUREE_COOKIE_LANGUE, LOCALE, type Langue } from "./config";
+import type { Phrases, Textes, Traduction } from "./textes";
 
 // ============================================
 // La langue.
@@ -26,12 +27,19 @@ import { CLE_LANGUE, DUREE_COOKIE_LANGUE, type Langue } from "./config";
 //
 // Ce qui n'est pas traduit s'affiche en français. Une phrase manquante reste
 // lisible, une clé brute à l'écran ne l'est pas.
+//
+// DEUX RANGEMENTS. Ce dictionnaire (fr.ts, en.ts) pour ce qui sert sur toutes
+// les pages ; les phrases d'un écran dans son propre fichier, avec `textes`
+// et `useTextes` (voir ./textes).
 // ============================================
 
 // Le nom du cookie et sa durée vivent dans ./config, sans directive, pour que
 // le layout serveur puisse les lire (voir l'explication là-bas).
-export { CLE_LANGUE, langueDepuisCookie } from "./config";
+export { CLE_LANGUE, LOCALE } from "./config";
 export type { Langue } from "./config";
+// `textes` ne se réexporte PAS d'ici : ce module est client, et un composant
+// serveur qui l'y prendrait recevrait une référence au lieu de la fonction
+// (voir ./config). On l'importe toujours de "@/i18n/textes".
 
 const DICTIONNAIRES: Record<Langue, Partial<Record<CleTraduction, string>>> = {
   fr,
@@ -106,4 +114,14 @@ export function useLangue(): LangueValue {
 /** Raccourci pour le cas courant : on ne veut que traduire. */
 export function useT(): Traduire {
   return useContext(LangueCtx).t;
+}
+
+/** Les phrases d'un écran (déclarées avec `textes`), dans la langue choisie. */
+export function useTextes<F extends Phrases>(t: Textes<F>): Traduction<F> {
+  return t[useContext(LangueCtx).langue];
+}
+
+/** « fr-FR » ou « en-GB », pour `toLocaleDateString` et `Intl`. */
+export function useLocale(): string {
+  return LOCALE[useContext(LangueCtx).langue];
 }

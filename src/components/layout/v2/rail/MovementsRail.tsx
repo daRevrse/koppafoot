@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Shield } from "lucide-react";
 import type { Movement } from "@/lib/mercato-admin";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  { titre: "Mouvements confirmés", vide: "Aucune arrivée confirmée pour l'instant." },
+  { titre: "Confirmed transfers", vide: "No confirmed signings yet." },
+);
 
 // ============================================
 // Mouvements confirmés, module de rail.
@@ -25,6 +32,7 @@ import type { Movement } from "@/lib/mercato-admin";
 
 export default function MovementsRail({ max = 8 }: { max?: number }) {
   const [movements, setMovements] = useState<Movement[] | null>(null);
+  const t = useTextes(T);
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +53,7 @@ export default function MovementsRail({ max = 8 }: { max?: number }) {
         id="rail-mouvements"
         className="border-b border-gray-200/70 pb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400"
       >
-        Mouvements confirmés
+        {t.titre}
       </h2>
 
       {shown === null ? (
@@ -54,7 +62,7 @@ export default function MovementsRail({ max = 8 }: { max?: number }) {
         </div>
       ) : shown.length === 0 ? (
         <p className="py-8 text-sm font-bold leading-relaxed text-gray-400">
-          Aucune arrivée confirmée pour l&apos;instant.
+          {t.vide}
         </p>
       ) : (
         <ul className="divide-y divide-gray-200/70">

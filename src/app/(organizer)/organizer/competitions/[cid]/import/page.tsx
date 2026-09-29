@@ -310,7 +310,7 @@ export default function CompetitionImportPage() {
           transition={{ delay: 0.05 }}
           className="mt-0.5 text-sm text-gray-500"
         >
-          Collez depuis un tableur (Excel, Google Sheets) ou chargez un fichier CSV/TSV.
+          Colle depuis un tableur (Excel, Google Sheets) ou charge un fichier CSV/TSV.
         </motion.p>
       </div>
 
@@ -425,7 +425,7 @@ export default function CompetitionImportPage() {
             </label>
             {teams.length === 0 ? (
               <p className=" bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                Aucune équipe pour l&apos;instant. Importez d&apos;abord les équipes (onglet Équipes).
+                Aucune équipe pour l&apos;instant. Importe d&apos;abord les équipes (onglet Équipes).
               </p>
             ) : (
               <select
@@ -542,7 +542,7 @@ export default function CompetitionImportPage() {
           />
 
           <p className=" bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Les équipes doivent déjà exister dans la compétition (importez-les d&apos;abord). Les
+            Les équipes doivent déjà exister dans la compétition (importe-les d&apos;abord). Les
             rencontres dont une équipe est introuvable seront ignorées.
           </p>
           {venues.length > 0 && (

@@ -38,6 +38,19 @@ export const fr = {
   "espace.mesTerrains": "Mes terrains",
   "espace.reservationsRecues": "Réservations reçues",
   "espace.administration": "Administration",
+  "espace.mesCasquettes": "Mes casquettes",
+  "espace.mesEspaces": "Mes espaces",
+  "espace.mesEquipes": "Mes équipes",
+  "espace.monEquipe": "Mon équipe",
+  "espace.calendrier": "Calendrier",
+  "espace.mesStatistiques": "Mes statistiques",
+  "espace.matchsAmicaux": "Matchs amicaux",
+  "espace.mesCompetitions": "Mes compétitions",
+  "espace.mesDesignations": "Mes désignations",
+  "espace.role.user": "Espace membre",
+  "espace.role.player": "Espace joueur",
+  "espace.role.manager": "Espace manager",
+  "espace.role.referee": "Espace arbitre",
 
   // ---- Menu du compte ----
   "compte.monCompte": "Mon compte",
@@ -50,7 +63,7 @@ export const fr = {
   "compte.deconnexion": "Déconnexion",
   "compte.visiteur": "Visiteur",
   "compte.aucunCompte": "Aucun compte sur cet appareil",
-  "compte.faitesPlus": "Faites en plus avec KoppaFoot.",
+  "compte.faitesPlus": "Fais-en plus avec KoppaFoot.",
 
   // ---- Invitation ----
   "invite.titre": "Invite tes amis",
@@ -78,10 +91,10 @@ export const fr = {
   "install.titre": "Application",
   "install.action": "Installer KoppaFoot",
   "install.ios":
-    "Pour installer KoppaFoot sur iPhone : touchez Partager en bas de Safari, puis « Sur l'écran d'accueil ». C'est aussi ce qui débloque les notifications.",
-  "install.flottantTitre": "Mettez KoppaFoot sur l'écran d'accueil",
+    "Pour installer KoppaFoot sur iPhone : touche Partager en bas de Safari, puis « Sur l'écran d'accueil ». C'est aussi ce qui débloque les notifications.",
+  "install.flottantTitre": "Mets KoppaFoot sur l'écran d'accueil",
   "install.flottantTexte":
-    "Accès direct, plein écran, et les notifications de vos matchs.",
+    "Accès direct, plein écran, et les notifications de tes matchs.",
   "install.plusTard": "Plus tard",
 
   // ---- Notifications push ----
@@ -93,15 +106,15 @@ export const fr = {
   "notifs.ios":
     "Disponible une fois l'application installée sur l'écran d'accueil, voir juste au-dessus.",
   "notifs.refuse":
-    "Bloquées dans les réglages du navigateur. Autorisez les notifications pour ce site, puis revenez ici.",
+    "Bloquées dans les réglages du navigateur. Autorise les notifications pour ce site, puis reviens ici.",
   "notifs.categories": "Ce que je reçois",
-  "notifs.categoriesNote": "Pour tout le compte, sur tous vos appareils.",
+  "notifs.categoriesNote": "Pour tout le compte, sur tous tes appareils.",
   "notifs.cat.perso": "Pour moi",
   "notifs.cat.perso.detail": "Invitations, convocations, défis, résultats à valider",
   "notifs.cat.equipe": "Mes équipes",
   "notifs.cat.equipe.detail": "Arrivées, départs, état de forme, inscriptions",
   "notifs.cat.suivis": "Ce que je suis",
-  "notifs.cat.suivis.detail": "Équipes et joueurs que vous suivez",
+  "notifs.cat.suivis.detail": "Équipes et joueurs que tu suis",
   "notifs.cat.competitions": "Direct",
   "notifs.cat.competitions.detail": "Coup d'envoi, buts, exclusions, score final",
   "notifs.cat.annonces": "Annonces",
@@ -112,51 +125,54 @@ export const fr = {
   "aide.surtitre": "Support",
   "aide.titre": "Aide",
   "aide.chapeau":
-    "Les questions qui reviennent le plus souvent. Si la vôtre n'y est pas, dites-la nous en bas de page.",
+    "Les questions qui reviennent le plus souvent. Si la tienne n'y est pas, dis-la nous en bas de page.",
   "aide.faqTitre": "Questions fréquentes",
   "aide.retourTitre": "Nous faire un retour",
   "aide.retourTexte":
-    "Un bug, un score faux, une idée : écrivez-le ici. Ce sont les retours du terrain qui décident de ce qu'on construit ensuite.",
-  "aide.retourPlaceholder": "Ce que vous avez vu, et ce que vous attendiez…",
+    "Un bug, un score faux, une idée : écris-le ici. Ce sont les retours du terrain qui décident de ce qu'on construit ensuite.",
+  "aide.retourPlaceholder": "Ce que tu as vu, et ce que tu attendais…",
   "aide.envoyer": "Envoyer",
-  "aide.envoiTropCourt": "Dites-nous un peu plus",
+  "aide.envoiTropCourt": "Dis-nous en un peu plus",
   "aide.envoiEchoue": "L'envoi a échoué",
   "aide.merciTitre": "C'est parti",
   "aide.merciTexte":
-    "Votre message est arrivé. On ne répond pas toujours, mais on lit tout, et ce sont ces retours qui décident de la suite.",
+    "Ton message est arrivé. On ne répond pas toujours, mais on lit tout, et ce sont ces retours qui décident de la suite.",
   "aide.autreRetour": "Écrire un autre retour",
 
   "aide.q1": "Qu'est-ce qu'un rôle, et qu'est-ce qu'une casquette ?",
   "aide.r1":
-    "Le rôle dit ce que vous êtes sur le terrain : joueur, manager ou arbitre. Vous n'en avez qu'un, il se choisit dans Évolution. Les casquettes, organisateur de compétition et propriétaire de terrain, sont des fonctions qui s'ajoutent par-dessus : le même compte peut jouer, organiser un tournoi et louer son terrain.",
+    "Le rôle dit ce que tu es sur le terrain : joueur, manager ou arbitre. Tu n'en as qu'un, il se choisit dans Évolution. Les casquettes, organisateur de compétition et propriétaire de terrain, sont des fonctions qui s'ajoutent par-dessus : le même compte peut jouer, organiser un tournoi et louer son terrain.",
   "aide.q2": "Comment rejoindre une compétition ?",
   "aide.r2":
-    "Une compétition se rejoint par équipe, pas individuellement. Le manager de votre équipe inscrit celle-ci depuis la page de la compétition, l'organisateur valide ensuite l'inscription. Si vous jouez sans équipe, passez par le Mercato pour en trouver une.",
+    "Une compétition se rejoint par équipe, pas individuellement. Le manager de ton équipe inscrit celle-ci depuis la page de la compétition, l'organisateur valide ensuite l'inscription. Si tu joues sans équipe, passe par le Mercato pour en trouver une.",
   "aide.q3": "Mes statistiques ne sont pas à jour, pourquoi ?",
   "aide.r3":
-    "Les buts et passes viennent des feuilles de match saisies en direct par les scoreurs de la compétition. Elles apparaissent dès que le match est marqué terminé. Si un match est fini depuis longtemps et que rien ne bouge, la feuille n'a probablement pas été clôturée : signalez-le à l'organisateur.",
+    "Les buts et passes viennent des feuilles de match saisies en direct par les scoreurs de la compétition. Elles apparaissent dès que le match est marqué terminé. Si un match est fini depuis longtemps et que rien ne bouge, la feuille n'a probablement pas été clôturée : signale-le à l'organisateur.",
   "aide.q4": "Comment référencer mon terrain ?",
   "aide.r4":
-    "Depuis la page MyFields, en déposant une candidature. Vous gardez votre rôle de joueur ou de manager : référencer un terrain ajoute une casquette, cela ne remplace rien. Une fois validé, les demandes de créneau arrivent dans « Réservations reçues ».",
+    "Depuis la page MyFields, en déposant une candidature. Tu gardes ton rôle de joueur ou de manager : référencer un terrain ajoute une casquette, cela ne remplace rien. Une fois validé, les demandes de créneau arrivent dans « Réservations reçues ».",
   "aide.q5": "Pourquoi les compétitions internationales n'affichent-elles rien ?",
   "aide.r5":
     "Elles proviennent d'un service extérieur, football-data.org, interrogé toutes les quelques minutes. Une fenêtre vide veut dire qu'aucun match n'est programmé dans les jours affichés, ou que le service ne répond pas. Les compétitions locales, elles, ne dépendent de personne.",
   "aide.q6": "Puis-je supprimer mon compte ?",
   "aide.r6":
-    "Oui, depuis votre profil, tout en bas de la page. La suppression retire votre fiche, vos publications et vos demandes de réservation. Les feuilles de match déjà jouées gardent la trace des buts : ils appartiennent à l'histoire de la compétition, pas seulement à vous. Si vous gérez une équipe, organisez une compétition ou possédez un terrain, il faut d'abord passer la main : partir laisserait une équipe sans manager ou un terrain sans personne pour répondre.",
+    "Oui, depuis ton profil, tout en bas de la page. La suppression retire ta fiche, tes publications et tes demandes de réservation. Les feuilles de match déjà jouées gardent la trace des buts : ils appartiennent à l'histoire de la compétition, pas seulement à toi. Si tu gères une équipe, organises une compétition ou possèdes un terrain, il faut d'abord passer la main : partir laisserait une équipe sans manager ou un terrain sans personne pour répondre.",
 
   // ---- Suppression de compte ----
   "suppr.zone": "Zone sensible",
   "suppr.titre": "Supprimer mon compte",
   "suppr.texte":
-    "Votre fiche, vos photos, vos publications et vos demandes de réservation disparaissent. Les buts et passes déjà inscrits sur des feuilles de match restent : ils appartiennent à l'histoire des compétitions où vous avez joué, pas seulement à vous. Cette action est définitive.",
-  "suppr.tapez": "Tapez {mot} pour confirmer",
+    "Ta fiche, tes photos, tes publications et tes demandes de réservation disparaissent. Les buts et passes déjà inscrits sur des feuilles de match restent : ils appartiennent à l'histoire des compétitions où tu as joué, pas seulement à toi. Cette action est définitive.",
+  "suppr.tapez": "Tape {mot} pour confirmer",
+  // Le mot à taper, dans la langue du lecteur : on ne demande pas à quelqu'un
+  // qui lit l'anglais de taper un mot français pour détruire son compte.
+  "suppr.mot": "SUPPRIMER",
   "suppr.definitivement": "Supprimer définitivement",
   "suppr.annuler": "Annuler",
   "suppr.aFaire": "À faire avant de partir",
   "suppr.reconnexion":
-    "Par sécurité, une connexion récente est demandée pour supprimer un compte. Déconnectez-vous, reconnectez-vous, puis revenez ici.",
-  "suppr.faite": "Votre compte a été supprimé",
+    "Par sécurité, une connexion récente est demandée pour supprimer un compte. Déconnecte-toi, reconnecte-toi, puis reviens ici.",
+  "suppr.faite": "Ton compte a été supprimé",
   "suppr.echouee": "La suppression a échoué",
 } as const;
 

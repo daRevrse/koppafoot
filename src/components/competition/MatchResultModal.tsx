@@ -180,7 +180,7 @@ export default function MatchResultModal({
     const h = parseInt(scoreHome, 10);
     const a = parseInt(scoreAway, 10);
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
-      toast.error("Entrez un score valide (≥ 0)");
+      toast.error("Entre un score valide (≥ 0)");
       return;
     }
     if (h > MAX_GOAL_LINES || a > MAX_GOAL_LINES) {
@@ -194,7 +194,7 @@ export default function MatchResultModal({
     const pa = isShootout && penaltyAway.trim() ? parseInt(penaltyAway, 10) : null;
     if (isShootout) {
       if ((ph == null) !== (pa == null)) {
-        toast.error("Renseignez les tirs au but des deux équipes");
+        toast.error("Renseigne les tirs au but des deux équipes");
         return;
       }
       if (ph != null && pa != null) {
@@ -389,7 +389,7 @@ export default function MatchResultModal({
             </div>
             <p className="mb-1 text-sm text-gray-500">
               {completed ? (
-                <>Corrigez le score ou complétez les buteurs.</>
+                <>Corrige le score ou complète les buteurs.</>
               ) : (
                 <>Le match sera marqué comme <strong>terminé</strong>.</>
               )}
@@ -431,7 +431,7 @@ export default function MatchResultModal({
                 <p className="mb-2 text-xs font-bold text-amber-800">
                   Score de parité, tirs au but
                   <span className="ml-1 font-medium text-amber-600">
-                    (laissez vide si le match n&apos;a pas été départagé)
+                    (laisse vide si le match n&apos;a pas été départagé)
                   </span>
                 </p>
                 <div className="flex items-center justify-center gap-3">
@@ -522,7 +522,7 @@ export default function MatchResultModal({
               <p className="mt-2 text-[11px] text-gray-400">
                 Les buteurs remontent en tête de chaque équipe. Tout l&apos;effectif reste
                 proposé : cette saisie ne connaît ni les arrêts ni le temps de jeu, c&apos;est
-                donc à vous de juger.
+                donc à toi de juger.
               </p>
             </div>
 

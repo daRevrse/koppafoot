@@ -5,9 +5,12 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { CalendarDays, Loader2, SearchX, MapPin, Clock, ChevronRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale/fr";
 import { getCompetitionBySlug, onCompMatches } from "@/lib/competition-firestore";
-import type { Competition, CompMatch, CompMatchRound } from "@/types";
+import type { Competition, CompMatch } from "@/types";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
+import { LOCALE_DATE_FNS } from "@/i18n/dates";
 
 // ============================================
 // Helpers
@@ -17,21 +20,35 @@ import type { Competition, CompMatch, CompMatchRound } from "@/types";
 // no real ISO date string ever equals this token.
 const UNDATED = "__undated__";
 
-// Knockout round → French label, for the per-match tag when `round` is set.
-const ROUND_LABELS: Record<CompMatchRound, string> = {
-  round_of_16: "8es de finale",
-  quarter: "Quart de finale",
-  semi: "Demi-finale",
-  final: "Finale",
-  third_place: "Petite finale",
-};
+const T = textes(
+  {
+    dateADefinir: "Date à définir",
+    tous: "Tous",
+    poule: (g: string) => `Poule ${g}`,
+    phaseFinale: "Phase finale",
+    calendrierIndisponible: "Le calendrier n'est pas encore disponible.",
+    forfait: "Forfait",
+  },
+  {
+    dateADefinir: "Date to be set",
+    tous: "All",
+    poule: (g: string) => `Group ${g}`,
+    phaseFinale: "Knockout stage",
+    calendrierIndisponible: "The fixtures aren't available yet.",
+    forfait: "Forfeit",
+  },
+);
 
 // Nicely formatted day header, e.g. "Samedi 18 juillet" (fr locale). Falls back
 // to the raw ISO string if it can't be parsed, and to a fixed label for undated.
-function formatDayHeader(date: string): string {
-  if (date === UNDATED) return "Date à définir";
+function formatDayHeader(
+  date: string,
+  locale: (typeof LOCALE_DATE_FNS)["fr"],
+  t: (typeof T)["fr"],
+): string {
+  if (date === UNDATED) return t.dateADefinir;
   try {
-    const label = format(parseISO(date), "EEEE d MMMM", { locale: fr });
+    const label = format(parseISO(date), "EEEE d MMMM", { locale });
     return label.charAt(0).toUpperCase() + label.slice(1);
   } catch {
     return date;
@@ -65,39 +82,40 @@ function TeamBadge({ name, logo }: { name: string; logo: string | null }) {
 
 // Status pill: À venir / 🔴 EN DIRECT (with pulse) / Terminé.
 function StatusPill({ status }: { status: CompMatch["status"] }) {
+  const f = useTextes(FOOT);
   if (status === "live") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-red-600">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-        En direct
+        {f.enDirect}
       </span>
     );
   }
   if (status === "completed") {
     return (
       <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
-        Terminé
+        {f.termine}
       </span>
     );
   }
   if (status === "cancelled") {
     return (
       <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
-        Annulé
+        {f.annule}
       </span>
     );
   }
   return (
     <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">
-      À venir
+      {f.aVenir}
     </span>
   );
 }
 
 // Small stage tag: "Groupe A" for group matches, the round label for knockout.
-function stageTag(match: CompMatch): string | null {
-  if (match.group) return `Groupe ${match.group}`;
-  if (match.round) return ROUND_LABELS[match.round];
+function stageTag(match: CompMatch, f: (typeof FOOT)["fr"]): string | null {
+  if (match.group) return f.groupe(match.group);
+  if (match.round) return f.tour(match.round);
   return null;
 }
 
@@ -112,6 +130,9 @@ export default function CalendarTab({ competition, matches }: {
   const { slug } = useParams() as { slug: string };
   // Filtre de poule : etat d'interface propre a cet onglet, il reste ici.
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
   // Available poule filters: distinct group letters (sorted) + a knockout
   // bucket when any knockout match exists.
   const filters = useMemo(() => {
@@ -123,11 +144,11 @@ export default function CalendarTab({ competition, matches }: {
     }
     const sorted = [...groups].sort();
     return [
-      { key: "all", label: "Tous" },
-      ...sorted.map((g) => ({ key: `group:${g}`, label: `Poule ${g}` })),
-      ...(hasKnockout ? [{ key: "knockout", label: "Phase finale" }] : []),
+      { key: "all", label: t.tous },
+      ...sorted.map((g) => ({ key: `group:${g}`, label: t.poule(g) })),
+      ...(hasKnockout ? [{ key: "knockout", label: t.phaseFinale }] : []),
     ];
-  }, [matches]);
+  }, [matches, t]);
 
   const filteredMatches = useMemo(() => {
     if (groupFilter === "all") return matches;
@@ -174,17 +195,17 @@ return (
       {/* Poule filter */}
       {filters.length > 2 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:px-0">
-          {filters.map((f) => (
+          {filters.map((filtre) => (
             <button
-              key={f.key}
-              onClick={() => setGroupFilter(f.key)}
+              key={filtre.key}
+              onClick={() => setGroupFilter(filtre.key)}
               className={`shrink-0 border px-4 py-2 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                groupFilter === f.key
+                groupFilter === filtre.key
                   ? "border-gray-900 bg-gray-900 text-white"
                   : "border-gray-200/70 text-gray-500 hover:border-gray-900 hover:text-gray-900"
               }`}
             >
-              {f.label}
+              {filtre.label}
             </button>
           ))}
         </div>
@@ -196,7 +217,7 @@ return (
             <CalendarDays size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
-            Le calendrier n&apos;est pas encore disponible.
+            {t.calendrierIndisponible}
           </p>
         </div>
       ) : (
@@ -213,7 +234,7 @@ return (
               <div className="flex items-center gap-2 px-1">
                 <CalendarDays size={15} className="text-emerald-500" />
                 <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-                  {formatDayHeader(day.date)}
+                  {formatDayHeader(day.date, LOCALE_DATE_FNS[langue], t)}
                 </h2>
               </div>
 
@@ -224,7 +245,7 @@ return (
                 {day.matches.map((match) => {
                   const isLive = match.status === "live";
                   const hasScore = match.status === "live" || match.status === "completed";
-                  const tag = stageTag(match);
+                  const tag = stageTag(match, f);
                   return (
                     <Link
                       key={match.id}
@@ -265,7 +286,7 @@ return (
                               {/* An awarded score is not a played one, say so. */}
                               {match.forfeitByTeamId && (
                                 <span className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-red-500">
-                                  Forfait
+                                  {t.forfait}
                                 </span>
                               )}
                             </>

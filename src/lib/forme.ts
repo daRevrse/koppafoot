@@ -1,4 +1,5 @@
 import type { CompMatch } from "@/types";
+import type { Langue } from "@/i18n/config";
 
 // ============================================
 // La forme d'une équipe : ses derniers résultats, lus dans les matchs de la
@@ -29,6 +30,18 @@ export const MOT_RESULTAT: Record<Resultat, string> = {
   V: "Victoire",
   N: "Nul",
   D: "Défaite",
+};
+
+/**
+ * Le résultat dans les deux langues : le mot, et la lettre de la pastille.
+ *
+ * LA LETTRE CHANGE AVEC LA LANGUE. `Resultat` reste « V/N/D » — c'est une
+ * valeur, que le code compare —, mais un lecteur anglais lit W/D/L, et un
+ * « D » français (défaite) y voudrait dire… nul.
+ */
+export const RESULTATS: Record<Langue, { mot: Record<Resultat, string>; lettre: Record<Resultat, string> }> = {
+  fr: { mot: MOT_RESULTAT, lettre: { V: "V", N: "N", D: "D" } },
+  en: { mot: { V: "Win", N: "Draw", D: "Loss" }, lettre: { V: "W", N: "D", D: "L" } },
 };
 
 /** Un instant comparable en texte : « 2026-09-11T18:30 ». */

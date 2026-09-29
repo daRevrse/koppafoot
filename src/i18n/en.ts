@@ -35,6 +35,19 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "espace.mesTerrains": "My pitches",
   "espace.reservationsRecues": "Booking requests",
   "espace.administration": "Administration",
+  "espace.mesCasquettes": "My hats",
+  "espace.mesEspaces": "My spaces",
+  "espace.mesEquipes": "My teams",
+  "espace.monEquipe": "My team",
+  "espace.calendrier": "Calendar",
+  "espace.mesStatistiques": "My stats",
+  "espace.matchsAmicaux": "Friendlies",
+  "espace.mesCompetitions": "My competitions",
+  "espace.mesDesignations": "My appointments",
+  "espace.role.user": "Member space",
+  "espace.role.player": "Player space",
+  "espace.role.manager": "Manager space",
+  "espace.role.referee": "Referee space",
 
   // ---- Account menu ----
   "compte.monCompte": "My account",
@@ -147,6 +160,7 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "suppr.texte":
     "Your profile, your photos, your posts and your booking requests disappear. Goals and assists already recorded on match sheets stay: they belong to the history of the competitions you played in, not only to you. This cannot be undone.",
   "suppr.tapez": "Type {mot} to confirm",
+  "suppr.mot": "DELETE",
   "suppr.definitivement": "Delete permanently",
   "suppr.annuler": "Cancel",
   "suppr.aFaire": "To do before you go",

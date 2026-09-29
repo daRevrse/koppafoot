@@ -9,6 +9,49 @@ import { X, Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    connexionReussie: "Connexion réussie",
+    fermer: "Fermer",
+    connexion: "Connexion",
+    connecteToi: "Connecte-toi",
+    raisonParDefaut: "Un compte suffit pour suivre tes compétitions, ton équipe et tes matchs.",
+    continuerGoogle: "Continuer avec Google",
+    continuerEmail: "Continuer avec un email",
+    placeholderEmail: "ton@email.com",
+    email: "Email",
+    motDePasse: "Mot de passe",
+    masquerMdp: "Masquer le mot de passe",
+    afficherMdp: "Afficher le mot de passe",
+    seConnecter: "Se connecter",
+    mdpOublie: "Mot de passe oublié ?",
+    pasEncoreDeCompte: "Pas encore de compte ?",
+    creerUnCompte: "Créer un compte",
+    ouGoogle: "— ou Google en crée un pour toi.",
+  },
+  {
+    connexionReussie: "Signed in",
+    fermer: "Close",
+    connexion: "Sign in",
+    connecteToi: "Sign in",
+    raisonParDefaut: "One account is all it takes to follow your competitions, your team and your matches.",
+    continuerGoogle: "Continue with Google",
+    continuerEmail: "Continue with email",
+    placeholderEmail: "you@email.com",
+    email: "Email",
+    motDePasse: "Password",
+    masquerMdp: "Hide password",
+    afficherMdp: "Show password",
+    seConnecter: "Sign in",
+    mdpOublie: "Forgot your password?",
+    pasEncoreDeCompte: "No account yet?",
+    creerUnCompte: "Create one",
+    ouGoogle: "— or Google will create one for you.",
+  },
+);
 
 // ============================================
 // AuthModal, signing in without leaving the page.
@@ -80,6 +123,8 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const { langue } = useLangue();
+  const t = useTextes(T);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -95,10 +140,10 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
     setEnCours("email");
     try {
       await loginWithEmail(email.trim(), password);
-      toast.success("Connexion réussie");
+      toast.success(t.connexionReussie);
       onClose();
     } catch (err) {
-      toast.error(getAuthErrorMessage(err));
+      toast.error(getAuthErrorMessage(err, langue));
     } finally {
       setEnCours(null);
     }
@@ -114,10 +159,10 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
         router.push("/get-started");
         return;
       }
-      toast.success("Connexion réussie");
+      toast.success(t.connexionReussie);
       onClose();
     } catch (err) {
-      toast.error(getAuthErrorMessage(err));
+      toast.error(getAuthErrorMessage(err, langue));
     } finally {
       setEnCours(null);
     }
@@ -127,7 +172,7 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Fermer"
+        aria-label={t.fermer}
         onClick={onClose}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
@@ -135,13 +180,13 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Connexion"
+        aria-label={t.connexion}
         className="relative w-full max-w-md overflow-hidden border border-gray-200/70 bg-white p-8 sm:p-10"
       >
         <button
           type="button"
           onClick={onClose}
-          aria-label="Fermer"
+          aria-label={t.fermer}
           className="absolute right-5 top-5 text-gray-300 transition-colors hover:text-gray-900"
         >
           <X size={22} />
@@ -150,10 +195,10 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
         <Lock size={34} strokeWidth={1.2} className="text-gray-900" />
 
         <h2 className="mt-7 font-display text-3xl font-black leading-tight tracking-tight text-gray-900">
-          Connecte-toi
+          {t.connecteToi}
         </h2>
         <p className="mt-3 text-base leading-relaxed text-gray-500">
-          {reason ?? "Un compte suffit pour suivre tes compétitions, ton équipe et tes matchs."}
+          {reason ?? t.raisonParDefaut}
         </p>
 
         <button
@@ -172,7 +217,7 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
           )}
-          Continuer avec Google
+          {t.continuerGoogle}
         </button>
 
         {/* L'email, replie. Le lien tient sur une ligne, le formulaire
@@ -185,7 +230,7 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
             className="mt-3 flex w-full items-center justify-center gap-2 border border-gray-200/70 bg-white px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-gray-900 transition-colors hover:bg-gray-50"
           >
             <Mail size={18} />
-            Continuer avec un email
+            {t.continuerEmail}
           </button>
         ) : (
           <form onSubmit={handleEmail} className="mt-6 space-y-3">
@@ -197,8 +242,8 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="votre@email.com"
-                aria-label="Email"
+                placeholder={t.placeholderEmail}
+                aria-label={t.email}
                 className={inputClass}
               />
             </div>
@@ -209,14 +254,14 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mot de passe"
-                aria-label="Mot de passe"
+                placeholder={t.motDePasse}
+                aria-label={t.motDePasse}
                 className={`${inputClass} pr-11`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                aria-label={showPassword ? t.masquerMdp : t.afficherMdp}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-300 transition-colors hover:text-gray-500"
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -228,7 +273,7 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
               className="flex w-full items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
               {enCours === "email" && <Loader2 size={16} className="animate-spin" />}
-              Se connecter
+              {t.seConnecter}
             </button>
             {/* LES DEUX SORTIES SE FERMENT DERRIÈRE ELLES.
                 Le fournisseur vit dans le layout racine : naviguer ne le
@@ -242,18 +287,18 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
                 onClick={onClose}
                 className="text-xs font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
               >
-                Mot de passe oublié ?
+                {t.mdpOublie}
               </Link>
             </div>
           </form>
         )}
 
         <p className="mt-4 text-center text-xs text-gray-400">
-          Pas encore de compte ?{" "}
+          {t.pasEncoreDeCompte}{" "}
           <Link href="/signup" onClick={onClose} className="font-bold text-emerald-600 transition-colors hover:text-emerald-700">
-            Créer un compte
+            {t.creerUnCompte}
           </Link>{" "}
-          — ou Google en crée un pour toi.
+          {t.ouGoogle}
         </p>
       </div>
     </div>

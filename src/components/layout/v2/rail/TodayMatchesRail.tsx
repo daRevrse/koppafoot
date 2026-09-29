@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  { aujourdhui: "Aujourd'hui", leDirect: "Le direct", enDirect: "En direct", amical: "Match amical" },
+  { aujourdhui: "Today", leDirect: "Live scores", enDirect: "Live", amical: "Friendly" },
+);
 
 // ============================================
 // Les matchs du jour, dans le rail de la page Actus.
@@ -27,6 +34,7 @@ interface Row {
   scoreHome: number | null;
   scoreAway: number | null;
   competition: string;
+  amical?: boolean;
   href: string | null;
 }
 
@@ -48,6 +56,7 @@ function Side({ name, logo }: { name: string; logo: string | null }) {
 
 export default function TodayMatchesRail() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const t = useTextes(T);
 
   useEffect(() => {
     let alive = true;
@@ -68,13 +77,13 @@ export default function TodayMatchesRail() {
           id="rail-aujourdhui"
           className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400"
         >
-          Aujourd&apos;hui
+          {t.aujourdhui}
         </h2>
         <Link
           href="/"
           className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-emerald-700"
         >
-          Le direct
+          {t.leDirect}
         </Link>
       </div>
 
@@ -89,7 +98,7 @@ export default function TodayMatchesRail() {
             const body = (
               <>
                 <p className="mb-2 truncate text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
-                  {m.competition}
+                  {m.amical ? t.amical : m.competition}
                 </p>
                 <div className="flex items-center gap-2">
                   <Side name={m.home} logo={m.homeLogo} />
@@ -101,7 +110,7 @@ export default function TodayMatchesRail() {
                 {m.status === "live" && (
                   <p className="mt-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-red-500">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-                    En direct
+                    {t.enDirect}
                   </p>
                 )}
               </>

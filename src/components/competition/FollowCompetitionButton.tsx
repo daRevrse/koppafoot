@@ -6,6 +6,33 @@ import { Bell, BellRing, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { setCompetitionFollow } from "@/lib/competition-firestore";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    creeUnCompte: "Crée un compte pour recevoir les buts en direct.",
+    suivie: "Compétition suivie, tu recevras les buts en direct.",
+    retiree: "Compétition retirée.",
+    echec: "Impossible de mettre à jour. Réessaie.",
+    nePlusSuivre: "Ne plus suivre cette compétition",
+    suivreCompetition: "Suivre cette compétition",
+    suivieCourt: "Suivie",
+    suivi: "Suivi",
+    suivre: "Suivre",
+  },
+  {
+    creeUnCompte: "Create an account to get the goals live.",
+    suivie: "Competition followed: you'll get its goals live.",
+    retiree: "Competition removed.",
+    echec: "Couldn't update. Try again.",
+    nePlusSuivre: "Unfollow this competition",
+    suivreCompetition: "Follow this competition",
+    suivieCourt: "Following",
+    suivi: "Following",
+    suivre: "Follow",
+  },
+);
 
 // ============================================
 // FollowCompetitionButton, follow/unfollow a competition. Followers
@@ -37,6 +64,7 @@ export default function FollowCompetitionButton({
   const router = useRouter();
   const [following, setFollowing] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const t = useTextes(T);
 
   const isFollowing = following ?? user?.followedCompetitionIds?.includes(cid) ?? false;
 
@@ -45,7 +73,7 @@ export default function FollowCompetitionButton({
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      toast("Crée un compte pour recevoir les buts en direct.", { icon: "🔔" });
+      toast(t.creeUnCompte, { icon: "🔔" });
       router.push("/signup");
       return;
     }
@@ -59,10 +87,10 @@ export default function FollowCompetitionButton({
       // rafraîchissement, l'étoile du sidebar et les autres cartes gardent
       // l'ancienne liste jusqu'au prochain chargement.
       await refreshUser();
-      toast.success(next ? "Compétition suivie, tu recevras les buts en direct." : "Compétition retirée.");
+      toast.success(next ? t.suivie : t.retiree);
     } catch {
       setFollowing(!next);
-      toast.error("Impossible de mettre à jour. Réessaie.");
+      toast.error(t.echec);
     } finally {
       setBusy(false);
     }
@@ -75,9 +103,9 @@ export default function FollowCompetitionButton({
       <button
         onClick={toggle}
         disabled={busy}
-        aria-label={isFollowing ? "Ne plus suivre cette compétition" : "Suivre cette compétition"}
+        aria-label={isFollowing ? t.nePlusSuivre : t.suivreCompetition}
         aria-pressed={isFollowing}
-        title={isFollowing ? "Suivie" : "Suivre"}
+        title={isFollowing ? t.suivieCourt : t.suivre}
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-60 ${
           isFollowing
             ? "text-amber-400 hover:bg-amber-50"
@@ -94,8 +122,8 @@ export default function FollowCompetitionButton({
       <button
         onClick={toggle}
         disabled={busy}
-        aria-label={isFollowing ? "Ne plus suivre cette compétition" : "Suivre cette compétition"}
-        title={isFollowing ? "Suivie" : "Suivre"}
+        aria-label={isFollowing ? t.nePlusSuivre : t.suivreCompetition}
+        title={isFollowing ? t.suivieCourt : t.suivre}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full backdrop-blur transition-colors disabled:opacity-60 ${
           isFollowing
             ? "bg-emerald-500 text-white hover:bg-emerald-600"
@@ -118,7 +146,7 @@ export default function FollowCompetitionButton({
       }`}
     >
       <Icon size={13} />
-      {isFollowing ? "Suivi" : "Suivre"}
+      {isFollowing ? t.suivi : t.suivre}
     </button>
   );
 }

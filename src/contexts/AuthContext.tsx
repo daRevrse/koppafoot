@@ -34,6 +34,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { useLangue } from "@/i18n";
 import { buildFirestoreUser, firestoreToProfile, providersDepuisFirebase } from "@/lib/profil";
 import type { UserProfile, UserRole, SignupData, FirestoreUser, AuthProvider } from "@/types";
 
@@ -105,6 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const { langue } = useLangue();
+
+  // LA LANGUE DES E-MAILS DE FIREBASE : vérification de l'adresse, mot de
+  // passe oublié, et la fenêtre de connexion Google. Sans elle, Firebase
+  // écrit dans la langue réglée sur les modèles de la console, l'anglais par
+  // défaut : un joueur de Lomé recevait « Verify your email for KoppaFoot ».
+  useEffect(() => {
+    auth.languageCode = langue;
+  }, [langue]);
 
   // Consolidated Firebase auth observer
   useEffect(() => {

@@ -20,7 +20,7 @@ export default function VerifyEmailPage() {
       setResent(true);
       toast.success("Email de vérification envoyé !");
     } catch {
-      toast.error("Impossible d'envoyer l'email. Réessayez plus tard.");
+      toast.error("Impossible d'envoyer l'email. Réessaie plus tard.");
     } finally {
       setResending(false);
     }
@@ -44,7 +44,7 @@ export default function VerifyEmailPage() {
           <CheckCircle size={32} className="text-emerald-600" />
         </motion.div>
         <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Email vérifié</h1>
-        <p className="mb-6 text-sm text-gray-400">Votre adresse email est vérifiée.</p>
+        <p className="mb-6 text-sm text-gray-400">Ton adresse email est vérifiée.</p>
         <Link
           href="/"
           className={classeBoutonAuth}
@@ -71,13 +71,13 @@ export default function VerifyEmailPage() {
         <Mail size={32} className="text-emerald-600" />
       </motion.div>
 
-      <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Vérifiez votre email</h1>
+      <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Vérifie ton email</h1>
       <p className="mb-6 text-sm text-gray-400">
         {user?.email
           ? <>Un email de vérification a été envoyé à <span className="font-bold text-gray-600">{user.email}</span>.</>
-          : "Vérifiez votre boîte mail."}
+          : "Vérifie ta boîte mail."}
         <br />
-        Pensez à vérifier vos spams.
+        Pense à vérifier tes spams.
       </p>
 
       {!resent ? (

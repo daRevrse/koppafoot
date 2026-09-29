@@ -132,7 +132,7 @@ export default function OrganizerHomePage() {
       })
       .catch((err) => {
         console.error("Error loading competitions:", err);
-        toast.error("Impossible de charger vos compétitions");
+        toast.error("Impossible de charger tes compétitions");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -189,7 +189,7 @@ export default function OrganizerHomePage() {
           </div>
           <p className="mt-4 text-base font-bold text-gray-900">Aucune compétition</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Créez votre première compétition pour organiser un tournoi, gérer les équipes et le calendrier.
+            Crée ta première compétition pour organiser un tournoi, gérer les équipes et le calendrier.
           </p>
           <Link
             href="/organizer/competitions/new"

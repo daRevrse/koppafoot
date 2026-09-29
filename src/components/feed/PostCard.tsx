@@ -18,6 +18,87 @@ import { CommentSection } from "./CommentSection";
 import VisionneuseMedia from "./VisionneuseMedia";
 import { SYSTEM_AUTHOR_ID } from "@/types";
 import type { Post, PostType, UserProfile } from "@/types";
+import { useLangue, useTextes } from "@/i18n";
+import { LOCALE, type Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    type: (p: PostType) => ({
+      text: "", match_result: "Résultat", team_announcement: "Recrutement",
+      highlight: "Performance", competition_announcement: "Compétition",
+    })[p],
+    // `author_role` est rangé en français : c'est un libellé, on le traduit à l'affichage.
+    role: (r: string) => r,
+    epingle: "Épinglé",
+    compteOfficiel: "Compte officiel KoppaFoot",
+    modifier: "Modifier",
+    supprimer: "Supprimer",
+    signaler: "Signaler",
+    sauvegarder: "Sauvegarder",
+    annuler: "Annuler",
+    rechercheJoueurs: "Recherche de joueurs",
+    voirPhoto: (n: number) => `Voir la photo ${n} en grand`,
+    jaime: "J'aime",
+    commentaires: "Commentaires",
+    repartager: "Repartager dans la Tribune",
+    partager: "Partager",
+    partagerPoints: "Partager…",
+    copierLien: "Copier le lien",
+    ajouterCommentaire: "Ajouter un commentaire",
+    optionnel: "(optionnel)",
+    votreCommentaire: "Ton commentaire...",
+    erreurModification: "Erreur lors de la modification",
+    signalementEchoue: "Le signalement a échoué.",
+    dejaSignale: "Tu as déjà signalé cette publication.",
+    signalementEnvoye: "Signalement envoyé.",
+    confirmerSuppression: "Supprimer cette publication ?",
+    erreurSuppression: "Erreur lors de la suppression",
+    lienCopie: "Lien copié !",
+    copieImpossible: "Copie impossible sur ce navigateur.",
+    surKoppafoot: (nom: string) => `${nom} sur KoppaFoot`,
+    partageEchoue: "Le partage a échoué.",
+    publicationPartagee: "Publication partagée !",
+    erreurPartage: "Erreur lors du partage",
+  },
+  {
+    type: (p: PostType) => ({
+      text: "", match_result: "Result", team_announcement: "Recruiting",
+      highlight: "Performance", competition_announcement: "Competition",
+    })[p],
+    role: (r: string) => ({ Joueur: "Player", Manager: "Manager", Arbitre: "Referee" } as Record<string, string>)[r] ?? r,
+    epingle: "Pinned",
+    compteOfficiel: "Official KoppaFoot account",
+    modifier: "Edit",
+    supprimer: "Delete",
+    signaler: "Report",
+    sauvegarder: "Save",
+    annuler: "Cancel",
+    rechercheJoueurs: "Looking for players",
+    voirPhoto: (n: number) => `View photo ${n} full size`,
+    jaime: "Like",
+    commentaires: "Comments",
+    repartager: "Repost to the Stand",
+    partager: "Share",
+    partagerPoints: "Share…",
+    copierLien: "Copy the link",
+    ajouterCommentaire: "Add a comment",
+    optionnel: "(optional)",
+    votreCommentaire: "Your comment...",
+    erreurModification: "Couldn't save the change",
+    signalementEchoue: "The report failed.",
+    dejaSignale: "You've already reported this post.",
+    signalementEnvoye: "Report sent.",
+    confirmerSuppression: "Delete this post?",
+    erreurSuppression: "Couldn't delete it",
+    lienCopie: "Link copied!",
+    copieImpossible: "Copying isn't possible in this browser.",
+    surKoppafoot: (nom: string) => `${nom} on KoppaFoot`,
+    partageEchoue: "Sharing failed.",
+    publicationPartagee: "Post shared!",
+    erreurPartage: "Couldn't share it",
+  },
+);
 
 // ============================================
 // Constants (shared with page.tsx)
@@ -42,7 +123,7 @@ export function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-export function timeAgo(dateIn: any): string {
+export function timeAgo(dateIn: any, langue: Langue = "fr"): string {
   if (!dateIn) return "";
   let date: Date;
   if (typeof dateIn === "string") {
@@ -59,14 +140,15 @@ export function timeAgo(dateIn: any): string {
 
   const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "À l'instant";
-  if (mins < 60) return `Il y a ${mins}min`;
+  const en = langue === "en";
+  if (mins < 1) return en ? "Just now" : "À l'instant";
+  if (mins < 60) return en ? `${mins} min ago` : `Il y a ${mins}min`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `Il y a ${hours}h`;
+  if (hours < 24) return en ? `${hours}h ago` : `Il y a ${hours}h`;
   const days = Math.floor(hours / 24);
-  if (days === 1) return "Hier";
-  if (days < 7) return `Il y a ${days}j`;
-  return date.toLocaleDateString();
+  if (days === 1) return en ? "Yesterday" : "Hier";
+  if (days < 7) return en ? `${days}d ago` : `Il y a ${days}j`;
+  return date.toLocaleDateString(LOCALE[langue]);
 }
 
 // ============================================
@@ -108,6 +190,8 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const [reposting, setReposting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const { langue } = useLangue();
+  const t = useTextes(T);
 
   const shareDropdown = useDropdown();
   const optionsDropdown = useDropdown();
@@ -147,7 +231,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
       await updatePostContent(post.id, editContent.trim());
       setEditing(false);
     } catch {
-      toast.error("Erreur lors de la modification");
+      toast.error(t.erreurModification);
     } finally {
       setSavingEdit(false);
     }
@@ -166,27 +250,27 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Le signalement a échoué.");
+        toast.error(data.error ?? t.signalementEchoue);
         return;
       }
       toast.success(
-        data.duplicate ? "Tu as déjà signalé cette publication." : "Signalement envoyé.",
+        data.duplicate ? t.dejaSignale : t.signalementEnvoye,
       );
     } catch {
-      toast.error("Le signalement a échoué.");
+      toast.error(t.signalementEchoue);
     } finally {
       setReporting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Supprimer cette publication ?")) return;
+    if (!confirm(t.confirmerSuppression)) return;
     setDeleting(true);
     try {
       await deletePost(post.id);
       onDeleteAction(post.id);
     } catch {
-      toast.error("Erreur lors de la suppression");
+      toast.error(t.erreurSuppression);
       setDeleting(false);
     }
   };
@@ -200,8 +284,8 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   // mobiles ; le repli qui marche encore vit dans lib/partage.
   const handleCopyLink = async () => {
     shareDropdown.close();
-    if (await copierDansLePressePapier(postUrl())) toast.success("Lien copié !");
-    else toast.error("Copie impossible sur ce navigateur.");
+    if (await copierDansLePressePapier(postUrl())) toast.success(t.lienCopie);
+    else toast.error(t.copieImpossible);
   };
 
   // The share sheet people expect on a phone. Absent on desktop browsers,
@@ -211,12 +295,12 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const handleNativeShare = async () => {
     shareDropdown.close();
     const resultat = await partagerLien({
-      title: `${post.authorName} sur KoppaFoot`,
+      title: t.surKoppafoot(post.authorName),
       text: post.content.slice(0, 160),
       url: postUrl(),
     });
-    if (resultat === "copie") toast.success("Lien copié !");
-    else if (resultat === "echec") toast.error("Le partage a échoué.");
+    if (resultat === "copie") toast.success(t.lienCopie);
+    else if (resultat === "echec") toast.error(t.partageEchoue);
   };
 
   // Commenting is optional: a bare repost is a normal thing to want.
@@ -241,11 +325,11 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           },
         },
       });
-      toast.success("Publication partagée !");
+      toast.success(t.publicationPartagee);
       setShowRepost(false);
       setRepostText("");
     } catch {
-      toast.error("Erreur lors du partage");
+      toast.error(t.erreurPartage);
     } finally {
       setReposting(false);
     }
@@ -261,7 +345,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
     >
       {post.pinned && (
         <p className="flex items-center gap-1.5 rounded-t-xl bg-emerald-50 px-4 py-1.5 text-[11px] font-bold text-emerald-700">
-          <Pin size={11} /> Épinglé
+          <Pin size={11} /> {t.epingle}
         </p>
       )}
       {/* Header */}
@@ -307,7 +391,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
               )}
               {isSystem ? (
                 <span
-                  title="Compte officiel KoppaFoot"
+                  title={t.compteOfficiel}
                   className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
                 >
                   <BadgeCheck size={11} />
@@ -318,14 +402,14 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                    `author_role` : ce sont des casquettes, pas des roles, et on
                    ne les repeint pas en pastille. */
                 <span className="border border-gray-200/70 bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">
-                  {post.authorRole}
+                  {t.role(post.authorRole)}
                 </span>
               ) : null}
             </div>
             {/* SANS ICONE. Une horloge devant « Il y a 3min » ne dit rien
                 que la phrase ne dise deja, et elle prend la place ou le nom de
                 l'auteur respire. Ce qui se lit se lit. */}
-            <p className="text-xs text-gray-400">{timeAgo(post.createdAt)}</p>
+            <p className="text-xs text-gray-400">{timeAgo(post.createdAt, langue)}</p>
           </div>
         </div>
 
@@ -354,13 +438,13 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                         onClick={() => { setEditing(true); optionsDropdown.close(); }}
                         className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        <Pencil size={14} /> Modifier
+                        <Pencil size={14} /> {t.modifier}
                       </button>
                       <button
                         onClick={() => { optionsDropdown.close(); handleDelete(); }}
                         className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                       >
-                        <Trash2 size={14} /> Supprimer
+                        <Trash2 size={14} /> {t.supprimer}
                       </button>
                     </>
                   ) : (
@@ -369,7 +453,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                       disabled={reporting}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      <Flag size={14} /> Signaler
+                      <Flag size={14} /> {t.signaler}
                     </button>
                   )}
                 </motion.div>
@@ -383,7 +467,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
       {badge && BadgeIcon && (
         <div className="px-4 pt-3">
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.color}`}>
-            <BadgeIcon size={12} /> {badge.label}
+            <BadgeIcon size={12} /> {t.type(post.type)}
           </span>
         </div>
       )}
@@ -405,13 +489,13 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                 disabled={savingEdit}
                 className="flex items-center gap-1 bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
               >
-                <Check size={12} /> Sauvegarder
+                <Check size={12} /> {t.sauvegarder}
               </button>
               <button
                 onClick={() => { setEditing(false); setEditContent(post.content); }}
                 className="flex items-center gap-1 border border-gray-200/70 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
-                <X size={12} /> Annuler
+                <X size={12} /> {t.annuler}
               </button>
             </div>
           </div>
@@ -467,7 +551,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           </div>
           <div>
             <p className="text-sm font-bold text-gray-900">{post.metadata.teamName}</p>
-            <p className="text-xs text-blue-600">Recherche de joueurs</p>
+            <p className="text-xs text-blue-600">{t.rechercheJoueurs}</p>
           </div>
         </div>
       )}
@@ -490,7 +574,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
               key={idx}
               type="button"
               onClick={() => setMediaOuvert(idx)}
-              aria-label={`Voir la photo ${idx + 1} en grand`}
+              aria-label={t.voirPhoto(idx + 1)}
               className="group relative aspect-square w-full overflow-hidden bg-gray-100"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -524,7 +608,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           {/* Like */}
           <button
             onClick={() => onLikeAction(post.id, post.isLiked)}
-            aria-label="J'aime"
+            aria-label={t.jaime}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
               post.isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500"
             }`}
@@ -536,7 +620,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           {/* Comment */}
           <button
             onClick={() => setShowComments(!showComments)}
-            aria-label="Commentaires"
+            aria-label={t.commentaires}
             aria-expanded={showComments}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
               showComments ? "text-primary-600" : "text-gray-500 hover:text-primary-600"
@@ -549,7 +633,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
           {/* Repost */}
           <button
             onClick={() => setShowRepost(true)}
-            aria-label="Repartager dans la Tribune"
+            aria-label={t.repartager}
             className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-emerald-600"
           >
             <Repeat2 size={16} />
@@ -563,7 +647,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600"
           >
             <Share2 size={16} />
-            <span>Partager</span>
+            <span>{t.partager}</span>
           </button>
           <AnimatePresence>
             {shareDropdown.open && (
@@ -581,14 +665,14 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                       onClick={handleNativeShare}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <Share2 size={14} /> Partager…
+                      <Share2 size={14} /> {t.partagerPoints}
                     </button>
                   )}
                   <button
                     onClick={handleCopyLink}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
-                    <Copy size={14} /> Copier le lien
+                    <Copy size={14} /> {t.copierLien}
                   </button>
                 </motion.div>
               </>
@@ -619,7 +703,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             className="border-t border-gray-200/70 px-4 py-3 overflow-hidden"
           >
             <p className="text-xs text-gray-500 mb-2 font-medium">
-              Ajouter un commentaire <span className="text-gray-400">(optionnel)</span>
+              {t.ajouterCommentaire} <span className="text-gray-400">{t.optionnel}</span>
             </p>
             <div className=" border-l-4 border-primary-400 bg-gray-50 px-3 py-2 mb-2">
               <p className="text-xs font-semibold text-gray-500">{post.authorName}</p>
@@ -628,7 +712,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             <textarea
               value={repostText}
               onChange={(e) => setRepostText(e.target.value)}
-              placeholder="Votre commentaire..."
+              placeholder={t.votreCommentaire}
               rows={2}
               className="w-full resize-none border border-gray-200/70 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-primary-600 focus:outline-none"
               autoFocus
@@ -639,7 +723,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                 disabled={reposting}
                 className="flex items-center gap-1 bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
               >
-                <Repeat2 size={12} /> Partager
+                <Repeat2 size={12} /> {t.partager}
               </button>
               <button
                 onClick={() => { setShowRepost(false); setRepostText(""); }}

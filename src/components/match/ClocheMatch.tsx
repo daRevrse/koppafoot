@@ -5,6 +5,27 @@ import { Bell, BellRing, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { suitLeMatch, basculerSuiviMatch } from "@/lib/suivi-match";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    creeUnCompte: "Crée un compte pour recevoir le direct de ce match.",
+    tuSuis: "Tu suis ce match",
+    arrete: "Suivi arrêté",
+    echec: "Le suivi n'a pas pu être enregistré",
+    nePlusSuivre: "Ne plus suivre ce match",
+    suivre: "Suivre ce match",
+  },
+  {
+    creeUnCompte: "Create an account to get this match live.",
+    tuSuis: "You're following this match",
+    arrete: "Stopped following",
+    echec: "Couldn't save the follow",
+    nePlusSuivre: "Unfollow this match",
+    suivre: "Follow this match",
+  },
+);
 
 // ============================================
 // La cloche d'un match.
@@ -39,6 +60,7 @@ export function useSuiviMatch(
   cid?: string | null,
 ): SuiviMatch {
   const { user } = useAuth();
+  const t = useTextes(T);
   const [suivi, setSuivi] = useState(false);
   const [charge, setCharge] = useState(true);
   const [occupe, setOccupe] = useState(false);
@@ -54,7 +76,7 @@ export function useSuiviMatch(
 
   const basculer = async () => {
     if (!user) {
-      toast("Crée un compte pour recevoir le direct de ce match.", { icon: "🔔" });
+      toast(t.creeUnCompte, { icon: "🔔" });
       return;
     }
     setOccupe(true);
@@ -64,10 +86,10 @@ export function useSuiviMatch(
     setSuivi(vise);
     try {
       await basculerSuiviMatch(mid, user.uid, vise, cid);
-      toast.success(vise ? "Tu suis ce match" : "Suivi arrêté");
+      toast.success(vise ? t.tuSuis : t.arrete);
     } catch {
       setSuivi(!vise);
-      toast.error("Le suivi n'a pas pu être enregistré");
+      toast.error(t.echec);
     } finally {
       setOccupe(false);
     }
@@ -78,6 +100,7 @@ export function useSuiviMatch(
 
 /** La cloche, sur le fond sombre du tableau d'affichage. */
 export default function ClocheMatch({ etat }: { etat: SuiviMatch }) {
+  const t = useTextes(T);
   const Icone = etat.suivi ? BellRing : Bell;
   return (
     <button
@@ -85,7 +108,7 @@ export default function ClocheMatch({ etat }: { etat: SuiviMatch }) {
       onClick={etat.basculer}
       disabled={etat.occupe}
       aria-pressed={etat.suivi}
-      aria-label={etat.suivi ? "Ne plus suivre ce match" : "Suivre ce match"}
+      aria-label={etat.suivi ? t.nePlusSuivre : t.suivre}
       className={`flex h-8 w-8 shrink-0 items-center justify-center border transition-colors disabled:opacity-50 ${
         etat.suivi
           ? "border-emerald-400 text-emerald-300"

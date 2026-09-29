@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { computeTopScorers } from "@/lib/competition-firestore";
 import type { CompMatch, CompTeam } from "@/types";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // Le rail d'une page compétition : les performances.
@@ -98,6 +100,23 @@ const DOT: Record<Result, string> = {
   L: "bg-red-500 text-white",
 };
 
+const T = textes(
+  {
+    buteurs: "Meilleurs buteurs",
+    passeurs: "Meilleurs passeurs",
+    forme: "Forme des équipes",
+    resultat: (r: Result) => ({ W: "Victoire", D: "Nul", L: "Défaite" })[r],
+    lettre: (r: Result) => ({ W: "V", D: "N", L: "D" })[r],
+  },
+  {
+    buteurs: "Top scorers",
+    passeurs: "Top assists",
+    forme: "Team form",
+    resultat: (r: Result) => ({ W: "Win", D: "Draw", L: "Loss" })[r],
+    lettre: (r: Result) => r,
+  },
+);
+
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
@@ -132,9 +151,10 @@ export default function CompetitionRail({ matches, teams }: {
   matches: CompMatch[];
   teams: CompTeam[];
 }) {
+  const t = useTextes(T);
   const teamName = useMemo(() => {
     const map = new Map<string, string>();
-    for (const t of teams) map.set(t.id, t.name);
+    for (const equipe of teams) map.set(equipe.id, equipe.name);
     return map;
   }, [teams]);
 
@@ -149,7 +169,7 @@ export default function CompetitionRail({ matches, teams }: {
     <aside className="mt-6 border border-gray-200/70 bg-white p-5 lg:mt-0">
       <div className="space-y-8">
         {scorers.length > 0 && (
-          <Block title="Meilleurs buteurs">
+          <Block title={t.buteurs}>
             <ul className="divide-y divide-gray-200/70">
               {scorers.map((s, i) => (
                 <PlayerRow
@@ -165,7 +185,7 @@ export default function CompetitionRail({ matches, teams }: {
         )}
 
         {assisters.length > 0 && (
-          <Block title="Meilleurs passeurs">
+          <Block title={t.passeurs}>
             <ul className="divide-y divide-gray-200/70">
               {assisters.map((a, i) => (
                 <PlayerRow
@@ -181,7 +201,7 @@ export default function CompetitionRail({ matches, teams }: {
         )}
 
         {form.length > 0 && (
-          <Block title="Forme des équipes">
+          <Block title={t.forme}>
             <ul className="divide-y divide-gray-200/70">
               {form.map((f) => (
                 <li key={f.team.id} className="flex items-center gap-3 py-3">
@@ -192,10 +212,10 @@ export default function CompetitionRail({ matches, teams }: {
                     {f.results.map((r, i) => (
                       <span
                         key={i}
-                        title={r === "W" ? "Victoire" : r === "D" ? "Nul" : "Défaite"}
+                        title={t.resultat(r)}
                         className={`flex h-5 w-5 items-center justify-center text-[10px] font-black ${DOT[r]}`}
                       >
-                        {r === "W" ? "V" : r === "D" ? "N" : "D"}
+                        {t.lettre(r)}
                       </span>
                     ))}
                   </span>

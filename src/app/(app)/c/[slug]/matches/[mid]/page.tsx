@@ -32,7 +32,10 @@ import MatchStats from "@/components/match/MatchStats";
 import BarreRepartition from "@/components/match/BarreRepartition";
 import MiniEcusson from "@/components/match/MiniEcusson";
 import PredictionPoll from "@/components/match/PredictionPoll";
-import type { CompMatch, CompMatchRound, CompTeam, CompetitionFormat } from "@/types";
+import type { CompMatch, CompTeam, CompetitionFormat } from "@/types";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
 
 // ============================================
 // Helpers
@@ -46,21 +49,70 @@ const formatTime = (ms: number) => {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
 
-// Knockout round -> French label, for the context line under the status.
-const ROUND_LABELS: Record<CompMatchRound, string> = {
-  round_of_16: "8es de finale",
-  quarter: "Quart de finale",
-  semi: "Demi-finale",
-  final: "Finale",
-  third_place: "Petite finale",
-};
-
-const PERIODS = [
-  { id: 1, label: "1ère Mi-temps" },
-  { id: 2, label: "Mi-temps" },
-  { id: 3, label: "2ème Mi-temps" },
-  { id: 4, label: "Terminé" },
-];
+const T = textes(
+  {
+    periode: (id: number) => ({ 1: "1ère Mi-temps", 2: "Mi-temps", 3: "2ème Mi-temps", 4: "Terminé" } as Record<number, string>)[id] ?? null,
+    poule: (g: string) => `Poule ${g}`,
+    connexion: "Connexion au direct...",
+    introuvable: "Match introuvable",
+    introuvableTexte: "Ce match n'existe pas ou n'est plus disponible.",
+    partageDirect: (affiche: string, score: string, comp: string | null) =>
+      `${affiche}, ${score} en direct${comp ? ` — ${comp}` : ""}`,
+    partageFinal: (affiche: string, score: string, comp: string | null) =>
+      `${affiche}, score final ${score}${comp ? ` — ${comp}` : ""}`,
+    partageAVenir: (affiche: string, date: string | null, heure: string | null, comp: string | null) => {
+      const quand = [date, heure].filter(Boolean).join(" à ");
+      return `${affiche}${quand ? `, le ${quand}` : ""}${comp ? ` — ${comp}` : ""}`;
+    },
+    lienCopie: "Lien du match copié !",
+    partageEchoue: "Le partage a échoué.",
+    videTermine: "Aucun fait de jeu enregistré sur ce match",
+    videDirect: "En attente du premier fait de jeu",
+    videAVenir: "Le fil s'ouvre au coup d'envoi",
+    stats: "Stats",
+    direct: "Direct",
+    competition: "Compétition",
+    onglet: (id: "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h") => ({
+      feed: "Fil", infos: "Infos", lineups: "Compo", stats: "Stats", standings: "Classement", h2h: "H2H",
+    })[id],
+    faceAFace: (n: number) => `Face-à-face, ${n} rencontre${n > 1 ? "s" : ""}`,
+    victoiresDe: (n: number, equipe: string) => `${n} victoire${n > 1 ? "s" : ""} de ${equipe}`,
+    nuls: (n: number) => `${n} ${n > 1 ? "matchs nuls" : "match nul"}`,
+    lettreVictoire: "V",
+    lettreNul: "N",
+  },
+  {
+    periode: (id: number) => ({ 1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time" } as Record<number, string>)[id] ?? null,
+    poule: (g: string) => `Group ${g}`,
+    connexion: "Connecting to live...",
+    introuvable: "Match not found",
+    introuvableTexte: "This match doesn't exist or is no longer available.",
+    partageDirect: (affiche: string, score: string, comp: string | null) =>
+      `${affiche}, ${score} live${comp ? ` — ${comp}` : ""}`,
+    partageFinal: (affiche: string, score: string, comp: string | null) =>
+      `${affiche}, final score ${score}${comp ? ` — ${comp}` : ""}`,
+    partageAVenir: (affiche: string, date: string | null, heure: string | null, comp: string | null) => {
+      const quand = [date, heure].filter(Boolean).join(" at ");
+      return `${affiche}${quand ? `, on ${quand}` : ""}${comp ? ` — ${comp}` : ""}`;
+    },
+    lienCopie: "Match link copied!",
+    partageEchoue: "Sharing failed.",
+    videTermine: "No match events were recorded",
+    videDirect: "Waiting for the first match event",
+    videAVenir: "The feed opens at kick-off",
+    stats: "Stats",
+    direct: "Live",
+    competition: "Competition",
+    onglet: (id: "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h") => ({
+      feed: "Feed", infos: "Info", lineups: "Line-ups", stats: "Stats", standings: "Table", h2h: "H2H",
+    })[id],
+    faceAFace: (n: number) => `Head-to-head, ${n} meeting${n === 1 ? "" : "s"}`,
+    victoiresDe: (n: number, equipe: string) => `${n} win${n === 1 ? "" : "s"} for ${equipe}`,
+    nuls: (n: number) => `${n} draw${n === 1 ? "" : "s"}`,
+    lettreVictoire: "W",
+    lettreNul: "D",
+  },
+);
 
 type Onglet = "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h";
 
@@ -92,6 +144,9 @@ export default function PublicCompMatchView() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [displayTime, setDisplayTime] = useState(0);
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
 
   // Resolve competition by slug, then subscribe to the match doc in real time.
   // Anonymous reads work because Firestore rules allow read on competitions/**.
@@ -212,7 +267,7 @@ export default function PublicCompMatchView() {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-        <p className="font-bold text-gray-500 italic">Connexion au direct...</p>
+        <p className="font-bold text-gray-500 italic">{t.connexion}</p>
       </div>
     );
   }
@@ -224,9 +279,9 @@ export default function PublicCompMatchView() {
           <SearchX size={32} />
         </div>
         <div>
-          <h1 className="font-display text-xl font-black text-gray-900">Match introuvable</h1>
+          <h1 className="font-display text-xl font-black text-gray-900">{t.introuvable}</h1>
           <p className="mt-1 text-sm font-bold text-gray-400 italic">
-            Ce match n&apos;existe pas ou n&apos;est plus disponible.
+            {t.introuvableTexte}
           </p>
         </div>
       </div>
@@ -241,13 +296,13 @@ export default function PublicCompMatchView() {
   // jouée il y a trois jours, qui se lisait comme un match en cours.
   const periodLabel =
     match.status === "completed"
-      ? "Terminé"
-      : PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "À venir";
+      ? f.termine
+      : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
   // Competition name plus the round (or poule) this match belongs to.
   const roundLabel = match.round
-    ? ROUND_LABELS[match.round]
+    ? f.tour(match.round)
     : match.group
-      ? `Poule ${match.group}`
+      ? t.poule(match.group)
       : null;
 
   /**
@@ -262,13 +317,12 @@ export default function PublicCompMatchView() {
   const partagerLeMatch = async () => {
     const affiche = `${match.homeTeamName} — ${match.awayTeamName}`;
     const score = `${match.scoreHome ?? 0}-${match.scoreAway ?? 0}`;
-    const quand = [match.date, match.time].filter(Boolean).join(" à ");
     const texte =
       match.status === "live"
-        ? `${affiche}, ${score} en direct${compName ? ` — ${compName}` : ""}`
+        ? t.partageDirect(affiche, score, compName)
         : match.status === "completed"
-          ? `${affiche}, score final ${score}${compName ? ` — ${compName}` : ""}`
-          : `${affiche}${quand ? `, le ${quand}` : ""}${compName ? ` — ${compName}` : ""}`;
+          ? t.partageFinal(affiche, score, compName)
+          : t.partageAVenir(affiche, match.date, match.time, compName);
 
     const resultat = await partagerLien({
       title: affiche,
@@ -278,8 +332,8 @@ export default function PublicCompMatchView() {
       // l'activation utilisateur, donc le partage lui-même.
       fichier: afficheDuMatch.current,
     });
-    if (resultat === "copie") toast.success("Lien du match copié !");
-    else if (resultat === "echec") toast.error("Le partage a échoué.");
+    if (resultat === "copie") toast.success(t.lienCopie);
+    else if (resultat === "echec") toast.error(t.partageEchoue);
   };
   // While the clock runs, show the ticking value; otherwise the frozen offset.
   const shownTime =
@@ -327,7 +381,7 @@ export default function PublicCompMatchView() {
    * pour le classement : la relecture ne coûte rien.
    */
   const ecusson = (teamId: string | null, copieDuMatch: string | null): string | null =>
-    (teamId ? (compTeams.find((t) => t.id === teamId)?.logoUrl ?? null) : null) ?? copieDuMatch;
+    (teamId ? (compTeams.find((e) => e.id === teamId)?.logoUrl ?? null) : null) ?? copieDuMatch;
 
   /**
    * Le club KoppaFoot d'un camp, d'où la composition tire son manager. Null
@@ -335,7 +389,7 @@ export default function PublicCompMatchView() {
    * revendiquée : elle n'a pas de manager chez nous.
    */
   const clubDuCamp = (teamId: string | null): string | null =>
-    (teamId ? compTeams.find((t) => t.id === teamId)?.claimedByTeamId : null) ?? null;
+    (teamId ? compTeams.find((e) => e.id === teamId)?.claimedByTeamId : null) ?? null;
 
   const enPhaseFinale = match.stage !== "group";
   const standings = compFormat && !enPhaseFinale
@@ -385,7 +439,7 @@ export default function PublicCompMatchView() {
     return n ? { valeur: n.note, faits: n.faits } : null;
   })();
 
-  const equipeDe = (teamId: string | null) => (teamId ? compTeams.find((t) => t.id === teamId) : undefined);
+  const equipeDe = (teamId: string | null) => (teamId ? compTeams.find((e) => e.id === teamId) : undefined);
   // Chaque équipe dans sa couleur, sur les barres de stats. Voir couleursDesBarres.
   const couleursStats = couleursDesBarres(
     equipeDe(match.homeTeamId)?.color ?? null,
@@ -424,21 +478,21 @@ export default function PublicCompMatchView() {
   // l'écran, coupé en « CLA ».
   const ongletParDefaut: Onglet = isLive || hasStats || match.mvpPlayerName ? "feed" : "infos";
   const TABS = [
-    { id: "feed" as const, label: "Fil", on: deroule.commence || events.length > 0 },
-    { id: "infos" as const, label: "Infos", on: true },
+    { id: "feed" as const, label: t.onglet("feed"), on: deroule.commence || events.length > 0 },
+    { id: "infos" as const, label: t.onglet("infos"), on: true },
     // Toujours present, meme sans compo : l'onglet dit alors qu'elle est a
     // venir. Le faire disparaitre laissait croire que la fonction n'existe
     // pas.
-    { id: "lineups" as const, label: "Compo", on: true },
-    { id: "stats" as const, label: "Stats", on: hasStats },
-    { id: "standings" as const, label: "Classement", on: hasStandings },
-    { id: "h2h" as const, label: "H2H", on: hasH2H },
-  ].filter((t) => t.on);
+    { id: "lineups" as const, label: t.onglet("lineups"), on: true },
+    { id: "stats" as const, label: t.onglet("stats"), on: hasStats },
+    { id: "standings" as const, label: t.onglet("standings"), on: hasStandings },
+    { id: "h2h" as const, label: t.onglet("h2h"), on: hasH2H },
+  ].filter((o) => o.on);
 
   // Un onglet dont la donnee a disparu (compo retiree, classement vide) ne
   // doit pas laisser la page sur un panneau muet.
   const activeTab: Onglet =
-    choixOnglet && TABS.some((t) => t.id === choixOnglet) ? choixOnglet : ongletParDefaut;
+    choixOnglet && TABS.some((o) => o.id === choixOnglet) ? choixOnglet : ongletParDefaut;
 
   /**
    * LE FIL, ET L'HOMME DU MATCH EN TÊTE.
@@ -462,7 +516,7 @@ export default function PublicCompMatchView() {
               : null
           }
           photo={match.mvpUserId ? (photosParCompte[match.mvpUserId] ?? null) : null}
-          motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId]) : null}
+          motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
           note={noteDeLHomme}
           href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
         />
@@ -477,10 +531,10 @@ export default function PublicCompMatchView() {
             // s'affichait aussi sous un 3-0 joué la semaine d'avant.
             vide={
               match.status === "completed"
-                ? "Aucun fait de jeu enregistré sur ce match"
+                ? t.videTermine
                 : isLive
-                  ? "En attente du premier fait de jeu"
-                  : "Le fil s'ouvre au coup d'envoi"
+                  ? t.videDirect
+                  : t.videAVenir
             }
           />
         </div>
@@ -489,7 +543,7 @@ export default function PublicCompMatchView() {
         <aside className="min-w-0 space-y-4">
           {hasStats && (
             <section className="bg-white p-4">
-              <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">Stats</h2>
+              <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{t.stats}</h2>
               <MatchStats
                 lignes={statRows}
                 homeTeamName={match.homeTeamName}
@@ -521,7 +575,7 @@ export default function PublicCompMatchView() {
           à le porter. Voir MatchHero. */}
       <MatchHero
         fil={[
-          { label: "Direct", href: "/" },
+          { label: t.direct, href: "/" },
           ...(compSlug && compName ? [{ label: compName, href: `/c/${compSlug}` }] : []),
           { label: `${match.homeTeamName}, ${match.awayTeamName}` },
         ]}
@@ -531,7 +585,7 @@ export default function PublicCompMatchView() {
         // La compétition se suit depuis l'onglet Infos.
         suivi={{ mid, cid }}
         context={{
-          label: compName || "Compétition",
+          label: compName || t.competition,
           href: compSlug ? `/c/${compSlug}` : null,
           sub: roundLabel,
         }}
@@ -562,7 +616,7 @@ export default function PublicCompMatchView() {
           Elle prolonge le tableau, pleine largeur, et s'epingle sous sa barre
           repliee. */}
       <MatchTabs
-        tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
+        tabs={TABS.map((o) => ({ id: o.id, label: o.label }))}
         active={activeTab}
         onChange={(id) => setChoixOnglet(id as Onglet)}
       />
@@ -599,7 +653,7 @@ export default function PublicCompMatchView() {
                 competition: cid
                   ? {
                       id: cid,
-                      name: compName || "Compétition",
+                      name: compName || t.competition,
                       sub: roundLabel,
                       logo: compLogo,
                       href: compSlug ? `/c/${compSlug}` : null,
@@ -674,32 +728,31 @@ export default function PublicCompMatchView() {
                   const parts = repartirCent(bilan);
                   const max = Math.max(bilan.home, bilan.draw, bilan.away);
                   const enTete = (["home", "draw", "away"] as const).filter((k) => bilan[k] === max);
-                  const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
                   return (
                     <BarreRepartition
-                      libelle={`Face-à-face, ${pluriel(h2h.length, "rencontre")}`}
+                      libelle={t.faceAFace(h2h.length)}
                       enAvant={enTete.length === 1 ? enTete[0] : null}
                       segments={[
                         {
                           cle: "home",
                           pct: parts.home,
-                          haut: <><MiniEcusson nom={match.homeTeamName} logo={ecusson(match.homeTeamId, match.homeTeamLogo)} taille={14} />V · {parts.home}%</>,
+                          haut: <><MiniEcusson nom={match.homeTeamName} logo={ecusson(match.homeTeamId, match.homeTeamLogo)} taille={14} />{t.lettreVictoire} · {parts.home}%</>,
                           bas: bilan.home,
-                          libelle: `${pluriel(bilan.home, "victoire")} de ${match.homeTeamName}`,
+                          libelle: t.victoiresDe(bilan.home, match.homeTeamName),
                         },
                         {
                           cle: "draw",
                           pct: parts.draw,
-                          haut: <>N · {parts.draw}%</>,
+                          haut: <>{t.lettreNul} · {parts.draw}%</>,
                           bas: bilan.draw,
-                          libelle: `${bilan.draw} ${bilan.draw > 1 ? "matchs nuls" : "match nul"}`,
+                          libelle: t.nuls(bilan.draw),
                         },
                         {
                           cle: "away",
                           pct: parts.away,
-                          haut: <><MiniEcusson nom={match.awayTeamName} logo={ecusson(match.awayTeamId, match.awayTeamLogo)} taille={14} />V · {parts.away}%</>,
+                          haut: <><MiniEcusson nom={match.awayTeamName} logo={ecusson(match.awayTeamId, match.awayTeamLogo)} taille={14} />{t.lettreVictoire} · {parts.away}%</>,
                           bas: bilan.away,
-                          libelle: `${pluriel(bilan.away, "victoire")} de ${match.awayTeamName}`,
+                          libelle: t.victoiresDe(bilan.away, match.awayTeamName),
                         },
                       ]}
                     />

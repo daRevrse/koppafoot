@@ -33,6 +33,7 @@ import { OWN_GOAL_DETAIL, type TypeEvenement } from "@/lib/evenements";
 import { normaliserPoste } from "@/lib/postes";
 import { computeMinutesPlayed, type MatchJoue } from "@/lib/player-stats";
 import type { LineupEntry } from "@/types";
+import type { Langue } from "@/i18n/config";
 
 /** L'evenement tel que la console et la fiche publique le tiennent. */
 export interface FaitDeMatch {
@@ -228,9 +229,11 @@ export function moyennePonderee(notes: number[], fenetre = 5): number | null {
   return Math.round((somme / poids) * 10) / 10;
 }
 
-/** « 7.4 » s'ecrit « 7,4 » ici, et une note absente ne s'ecrit pas. */
-export function formaterNote(note: number | null): string {
-  return note === null ? "–" : note.toFixed(1).replace(".", ",");
+/** « 7,4 » en français, « 7.4 » en anglais ; une note absente ne s'écrit pas. */
+export function formaterNote(note: number | null, langue: Langue = "fr"): string {
+  if (note === null) return "–";
+  const texte = note.toFixed(1);
+  return langue === "fr" ? texte.replace(".", ",") : texte;
 }
 
 /**

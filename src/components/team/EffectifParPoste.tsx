@@ -1,6 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { effectifParPoste } from "@/lib/fiche-club";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  { vide: "Effectif non communiqué.", manager: "Manager", staff: "Staff" },
+  { vide: "Squad not provided.", manager: "Manager", staff: "Staff" },
+);
 
 // ============================================
 // Un effectif, rangé comme une feuille de match : par poste, du but vers
@@ -33,14 +42,16 @@ export interface LigneDEffectif {
 }
 
 export default function EffectifParPoste({
-  joueurs, manager, staff, vide = "Effectif non communiqué.",
+  joueurs, manager, staff, vide,
 }: {
   joueurs: LigneDEffectif[];
   manager?: { nom: string; photo: string | null; lien: string | null } | null;
   staff?: { nom: string; titre: string }[];
   vide?: string;
 }) {
-  const groupes = effectifParPoste(joueurs);
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const groupes = effectifParPoste(joueurs, langue);
 
   return (
     <div className="space-y-4">
@@ -50,7 +61,7 @@ export default function EffectifParPoste({
             <span className="flex min-w-0 items-center gap-2.5">
               <PlayerAvatar name={manager.nom} photo={manager.photo} size={28} />
               <span className="min-w-0">
-                <span className="block text-[9px] font-black uppercase tracking-[0.15em] text-gray-400">Manager</span>
+                <span className="block text-[9px] font-black uppercase tracking-[0.15em] text-gray-400">{t.manager}</span>
                 {manager.lien ? (
                   <Link href={manager.lien} className="block truncate text-sm font-black text-gray-900 hover:text-emerald-700">
                     {manager.nom}
@@ -63,7 +74,7 @@ export default function EffectifParPoste({
           )}
           {(staff ?? []).map((m) => (
             <span key={`${m.nom}-${m.titre}`} className="min-w-0">
-              <span className="block text-[9px] font-black uppercase tracking-[0.15em] text-gray-400">{m.titre || "Staff"}</span>
+              <span className="block text-[9px] font-black uppercase tracking-[0.15em] text-gray-400">{m.titre || t.staff}</span>
               <span className="block truncate text-sm font-bold text-gray-700">{m.nom}</span>
             </span>
           ))}
@@ -71,7 +82,7 @@ export default function EffectifParPoste({
       )}
 
       {groupes.length === 0 ? (
-        <p className="border border-gray-200/70 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400">{vide}</p>
+        <p className="border border-gray-200/70 bg-white px-5 py-8 text-center text-sm font-bold text-gray-400">{vide ?? t.vide}</p>
       ) : (
         groupes.map((g) => (
           <section key={g.titre}>

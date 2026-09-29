@@ -2169,7 +2169,7 @@ export default function MatchesPage() {
                         value={modReason}
                         onChange={(e) => setModReason(e.target.value)}
                         required
-                        placeholder="Expliquez pourquoi vous souhaitez modifier ce match..."
+                        placeholder="Explique pourquoi tu veux modifier ce match..."
                         className="w-full h-24 resize-none border border-gray-200/70 px-3 py-2 outline-none focus:border-primary-500 text-sm"
                       />
                     </div>

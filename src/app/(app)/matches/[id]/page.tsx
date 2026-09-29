@@ -50,6 +50,10 @@ import { useEcussons } from "@/hooks/useEcussons";
 import { useFormes } from "@/hooks/useFormes";
 import { JOUABLE, LIBELLE_CONDITION, cleFormeCompte, cleFormeLigne, conditionASignaler } from "@/lib/etat-de-forme";
 import { PastillesEtatDeForme } from "@/components/forme/badges";
+import { useLangue, useTextes } from "@/i18n";
+import { LOCALE } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
 
 // ============================================
 // Helpers
@@ -69,6 +73,65 @@ const PERIODS = [
   { id: 4, label: "Terminé" }
 ];
 
+// CE QUE LIT UN SPECTATEUR EST TRADUIT : le tableau, les onglets, le fil, les
+// infos, le partage. Ce que règlent les deux managers (feuille de match,
+// validation, contestation, attribution des statistiques) reste en français
+// pour l'instant, comme la console.
+const T = textes(
+  {
+    periode: (id: number) => PERIODS.find((p) => p.id === id)?.label,
+    chargement: "Chargement du terrain...",
+    introuvable: "Match non trouvé",
+    partageDirect: (affiche: string, score: string) => `${affiche}, ${score} en direct sur KoppaFoot`,
+    partageFinal: (affiche: string, score: string) => `${affiche}, score final ${score}`,
+    partageAVenir: (affiche: string, date: string | null, heure: string | null, ou: string) =>
+      `${affiche}${date ? `, le ${date}` : ""}${heure ? ` à ${heure}` : ""}${ou ? ` — ${ou}` : ""}`,
+    lienCopie: "Lien du match copié !",
+    partageEchoue: "Le partage a échoué.",
+    invite: "Invité, sans réponse",
+    arbitreLocal: "Arbitre local",
+    direct: "Direct",
+    amicaux: "Amicaux",
+    matchAmical: "Match amical",
+    defi: "Défi",
+    onglet: (id: "feed" | "infos" | "stats" | "squad") => ({ feed: "Fil", infos: "Infos", stats: "Stats", squad: "Compo" })[id],
+    matchAnnule: "Match annulé",
+    pasCommence: "Le match n'a pas encore commencé",
+    coupDEnvoi: (jour: string, heure: string | null, lieu: string | null) =>
+      `Coup d'envoi le ${jour}${heure ? ` à ${heure}` : ""}${lieu ? ` · ${lieu}` : ""}. Les buts, cartons et remplacements s'afficheront ici en direct.`,
+    ouvrirConsole: "Ouvrir la console live",
+    historique: "Historique",
+    videTermine: "Aucun fait de jeu enregistré sur ce match",
+    videDirect: "En attente du premier fait de jeu",
+  },
+  {
+    periode: (id: number) => ({ 1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time" } as Record<number, string>)[id],
+    chargement: "Loading the pitch...",
+    introuvable: "Match not found",
+    partageDirect: (affiche: string, score: string) => `${affiche}, ${score} live on KoppaFoot`,
+    partageFinal: (affiche: string, score: string) => `${affiche}, final score ${score}`,
+    partageAVenir: (affiche: string, date: string | null, heure: string | null, ou: string) =>
+      `${affiche}${date ? `, on ${date}` : ""}${heure ? ` at ${heure}` : ""}${ou ? ` — ${ou}` : ""}`,
+    lienCopie: "Match link copied!",
+    partageEchoue: "Sharing failed.",
+    invite: "Invited, no reply yet",
+    arbitreLocal: "Local referee",
+    direct: "Live",
+    amicaux: "Friendlies",
+    matchAmical: "Friendly",
+    defi: "Challenge",
+    onglet: (id: "feed" | "infos" | "stats" | "squad") => ({ feed: "Feed", infos: "Info", stats: "Stats", squad: "Line-ups" })[id],
+    matchAnnule: "Match cancelled",
+    pasCommence: "The match hasn't started yet",
+    coupDEnvoi: (jour: string, heure: string | null, lieu: string | null) =>
+      `Kick-off on ${jour}${heure ? ` at ${heure}` : ""}${lieu ? ` · ${lieu}` : ""}. Goals, cards and substitutions will show up here live.`,
+    ouvrirConsole: "Open the live console",
+    historique: "Match events",
+    videTermine: "No match events were recorded",
+    videDirect: "Waiting for the first match event",
+  },
+);
+
 // ============================================
 // Main Component
 // ============================================
@@ -77,6 +140,9 @@ export default function MatchDetailPage() {
   const { id } = useParams() as { id: string };
   const { user } = useAuth();
   const router = useRouter();
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
   
   const [match, setMatch] = useState<Match | null>(null);
   const [participations, setParticipations] = useState<Participation[]>([]);
@@ -732,10 +798,10 @@ export default function MatchDetailPage() {
 
     const text =
       match.status === "live"
-        ? `${affiche}, ${score} en direct sur KoppaFoot`
+        ? t.partageDirect(affiche, score)
         : match.status === "completed"
-          ? `${affiche}, score final ${score}`
-          : `${affiche}, le ${match.date}${match.time ? ` à ${match.time}` : ""}${ou ? ` — ${ou}` : ""}`;
+          ? t.partageFinal(affiche, score)
+          : t.partageAVenir(affiche, match.date, match.time, ou);
 
     const resultat = await partagerLien({
       title: affiche,
@@ -745,8 +811,8 @@ export default function MatchDetailPage() {
       // l'activation utilisateur, donc le partage lui-même.
       fichier: afficheDuMatch.current,
     });
-    if (resultat === "copie") toast.success("Lien du match copié !");
-    else if (resultat === "echec") toast.error("Le partage a échoué.");
+    if (resultat === "copie") toast.success(t.lienCopie);
+    else if (resultat === "echec") toast.error(t.partageEchoue);
   };
 
   /**
@@ -829,12 +895,12 @@ export default function MatchDetailPage() {
           <div className="absolute inset-2 rounded-full border-b-2 border-emerald-400/30 animate-spin-slow" />
           <Activity className="absolute inset-0 m-auto h-8 w-8 text-emerald-500 animate-pulse" />
         </div>
-        <p className="text-sm font-black uppercase tracking-widest text-emerald-600/50 italic animate-pulse">Chargement du terrain...</p>
+        <p className="text-sm font-black uppercase tracking-widest text-emerald-600/50 italic animate-pulse">{t.chargement}</p>
       </div>
     );
   }
 
-  if (!match) return <div className="p-8 text-center text-gray-500">Match non trouvé</div>;
+  if (!match) return <div className="p-8 text-center text-gray-500">{t.introuvable}</div>;
 
   const isLive = match.status === "live";
 
@@ -909,10 +975,10 @@ export default function MatchDetailPage() {
           name: match.refereeName,
           confirmed: match.refereeStatus === "confirmed",
           href: match.refereeId ? `/profile/${match.refereeId}` : null,
-          note: match.refereeStatus === "invited" ? "Invité, sans réponse" : null,
+          note: match.refereeStatus === "invited" ? t.invite : null,
         }
       : match.localRefereeName
-        ? { name: match.localRefereeName, confirmed: true, note: "Arbitre local" }
+        ? { name: match.localRefereeName, confirmed: true, note: t.arbitreLocal }
         : null,
     equipeArbitrale: match.equipeArbitrale && match.refereeStatus === "confirmed"
       ? {
@@ -929,8 +995,8 @@ export default function MatchDetailPage() {
           le contexte, le lieu et la date. */}
       <MatchHero
         fil={[
-          { label: "Direct", href: "/" },
-          { label: "Amicaux", href: "/matches" },
+          { label: t.direct, href: "/" },
+          { label: t.amicaux, href: "/matches" },
           { label: `${match.homeTeamName}, ${match.awayTeamName}` },
         ]}
         onShare={partagerLeMatch}
@@ -938,7 +1004,7 @@ export default function MatchDetailPage() {
         // cloche, faute d'abonnement a offrir. Le suivi par match lui en donne.
         suivi={{ mid: id }}
         context={{
-          label: estAmical ? "Match amical" : "Défi",
+          label: estAmical ? t.matchAmical : t.defi,
           sub: match.format,
         }}
         status={match.status as HeroStatus}
@@ -960,8 +1026,8 @@ export default function MatchDetailPage() {
         // encore en cours.
         periodLabel={
           match.status === "completed"
-            ? "Terminé"
-            : PERIODS.find(p => p.id === match.liveState?.currentPeriod)?.label
+            ? f.termine
+            : t.periode(match.liveState?.currentPeriod ?? 0)
         }
         clock={isLive && match.liveState ? formatTime(displayTime) : null}
         penaltyHome={match.penaltyHome}
@@ -980,14 +1046,14 @@ export default function MatchDetailPage() {
         onChange={(id) => setChoixOnglet(id as typeof activeTab)}
         tabs={[
           // Des libellés courts : la rangée doit tenir sur un téléphone.
-          { id: "feed", label: "Fil" },
-          { id: "infos", label: "Infos" },
+          { id: "feed", label: t.onglet("feed") },
+          { id: "infos", label: t.onglet("infos") },
           // Absent tant que rien n'a été saisi : un onglet qui n'affiche que
           // « Buts 0 – 0 » promet une lecture qu'il n'a pas.
-          ...(hasStats ? [{ id: "stats", label: "Stats" }] : []),
+          ...(hasStats ? [{ id: "stats", label: t.onglet("stats") }] : []),
           {
             id: "squad",
-            label: "Compo",
+            label: t.onglet("squad"),
             badge: isManager ? (() => {
               // isMyTeamReady, et non un recalcul : voir le commentaire du second
               // bloc, plus bas dans cet onglet.
@@ -1031,7 +1097,7 @@ export default function MatchDetailPage() {
                    </div>
                    <div className="flex-1">
                       <h4 className="text-lg font-black text-amber-900 leading-tight">Feuille de match non validée !</h4>
-                      <p className="text-sm text-amber-800/70 mb-4 font-bold">Vous devez confirmer votre effectif (numéros & rôles) avant que l&apos;arbitre ne puisse lancer le match.</p>
+                      <p className="text-sm text-amber-800/70 mb-4 font-bold">Tu dois confirmer ton effectif (numéros & rôles) avant que l&apos;arbitre ne puisse lancer le match.</p>
                       <button
                          onClick={() => setChoixOnglet("squad")}
                          className="px-6 py-2.5 bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-amber-600/20"
@@ -1075,7 +1141,7 @@ export default function MatchDetailPage() {
                     : null
                 }
                 photo={match.mvpUserId ? (photosParCompte[match.mvpUserId] ?? null) : null}
-                motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId]) : null}
+                motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
                 note={noteDeLHomme}
                 href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
               />
@@ -1215,7 +1281,7 @@ export default function MatchDetailPage() {
                       <CheckCircle2 size={20} />
                     </div>
                     <p className="text-sm font-bold text-gray-700">
-                      Statistiques attribuées aux joueurs de votre équipe. Le match reste
+                      Statistiques attribuées aux joueurs de ton équipe. Le match reste
                       marqué non vérifié : personne en face ne l&apos;a contresigné.
                     </p>
                   </div>
@@ -1233,7 +1299,7 @@ export default function MatchDetailPage() {
                           Ce match n&apos;a pas été suivi en direct, et l&apos;adversaire
                           n&apos;est pas sur KoppaFoot : personne n&apos;a pu contresigner la
                           feuille, donc les buts et passes ne comptent pas encore dans les
-                          fiches de vos joueurs. Vous pouvez les attribuer sous votre
+                          fiches de tes joueurs. Tu peux les attribuer sous ta
                           responsabilité — la feuille de match fait foi, et c&apos;est
                           définitif. L&apos;équipe adverse, elle, ne cumule rien.
                         </p>
@@ -1289,14 +1355,17 @@ export default function MatchDetailPage() {
                     <Clock size={30} className="text-gray-300" />
                   </div>
                   <h4 className="mt-5 text-lg font-black text-gray-900">
-                    {match.status === "cancelled" ? "Match annulé" : "Le match n'a pas encore commencé"}
+                    {match.status === "cancelled" ? t.matchAnnule : t.pasCommence}
                   </h4>
                   {match.status !== "cancelled" && (
                     <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500">
-                      Coup d&apos;envoi le <span className="font-bold text-gray-700">{match.date}</span> à{" "}
-                      <span className="font-bold text-gray-700">{match.time}</span>
-                      {match.venueName ? <> · {match.venueName}</> : null}.
-                      {" "}Les buts, cartons et remplacements s&apos;afficheront ici en direct.
+                      {t.coupDEnvoi(
+                        match.date
+                          ? new Date(`${match.date}T00:00:00`).toLocaleDateString(LOCALE[langue], { weekday: "long", day: "numeric", month: "long" })
+                          : "",
+                        match.time,
+                        match.venueName,
+                      )}
                     </p>
                   )}
                   {peutTenirLaConsole && match.status !== "cancelled" && (
@@ -1304,7 +1373,7 @@ export default function MatchDetailPage() {
                       onClick={() => router.push(`/matches/${id}/manage`)}
                       className="mt-6 inline-flex items-center gap-2 bg-gray-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
                     >
-                      <Activity size={14} /> Ouvrir la console live
+                      <Activity size={14} /> {t.ouvrirConsole}
                     </button>
                   )}
                 </div>
@@ -1319,7 +1388,7 @@ export default function MatchDetailPage() {
                   {/* Le score final n'est plus répété ici : le repère « Fin du
                       match » le porte, en tête du fil. */}
                   <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                    Historique
+                    {t.historique}
                   </h3>
 
                   <MatchTimeline
@@ -1337,7 +1406,7 @@ export default function MatchDetailPage() {
                         ? { home: match.penaltyHome, away: match.penaltyAway }
                         : null,
                     }}
-                    vide={match.status === "completed" ? "Aucun fait de jeu enregistré sur ce match" : "En attente du premier fait de jeu"}
+                    vide={match.status === "completed" ? t.videTermine : t.videDirect}
                     // Un amical contre une equipe hors plateforme n'a aucun nom
                     // de joueur en face : le nom de l'equipe tient lieu d'auteur.
                     auteur={(e) => auteurDeLEvenement(e.teamId, e.playerName)}
@@ -1462,8 +1531,8 @@ export default function MatchDetailPage() {
                           </h4>
                           <p className={`text-xs leading-relaxed mb-4 sm:mb-6 ${isReady ? 'text-emerald-700/70 italic' : 'text-amber-900/60'}`}>
                             {isReady 
-                              ? `Votre équipe est prête pour le coup d'envoi. Les numéros et rôles ont été transmis à l'arbitre.` 
-                              : `Avant le début du match, vous devez définir vos titulaires (${match?.format ? parseInt(match.format.split('v')[0]) : "?"}) et leurs numéros de maillot.`}
+                              ? `Ton équipe est prête pour le coup d'envoi. Les numéros et rôles ont été transmis à l'arbitre.` 
+                              : `Avant le début du match, tu dois définir tes titulaires (${match?.format ? parseInt(match.format.split('v')[0]) : "?"}) et leurs numéros de maillot.`}
                           </p>
                           
                           {!lineupMode && (
@@ -2192,7 +2261,7 @@ export default function MatchDetailPage() {
           <div className="mb-6 sm:mb-8">
              <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-200/70 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
              <p className="text-gray-500 text-xs sm:text-sm">
-               Le match est terminé. Veuillez valider le score final et les évènements
+               Le match est terminé. Valide le score final et les évènements
                {arbitreANoter ? <>, et noter l&apos;arbitre,</> : null} pour clore officiellement la rencontre.
              </p>
              <div className="mt-4 p-3 sm:p-4 bg-amber-50 border border-amber-100">
@@ -2280,14 +2349,14 @@ export default function MatchDetailPage() {
                    value={managerComments}
                    onChange={e => setManagerComments(e.target.value)}
                    className="w-full border-gray-200/70 text-sm p-4 focus:ring-emerald-500 focus:border-emerald-500"
-                   placeholder={validation === 'contested' ? "Expliquez la raison de votre contestation..." : "Un mot sur l'organisation ou l'arbitrage ?"}
+                   placeholder={validation === 'contested' ? "Explique la raison de ta contestation..." : "Un mot sur l'organisation ou l'arbitrage ?"}
                  />
                </div>
 
                <button
                  onClick={async () => {
                    if (validation === 'contested' && !managerComments.trim()) {
-                     toast.error("Veuillez expliquer votre contestation.");
+                     toast.error("Explique ta contestation.");
                      return;
                    }
                    if (!user) return;
@@ -2369,7 +2438,7 @@ export default function MatchDetailPage() {
 
               <h2 className="mb-2 text-2xl font-black text-gray-900 font-display">Contester l'événement</h2>
               <p className="mb-6 text-sm text-gray-500">
-                Veuillez expliquer pourquoi vous contestez cet événement. Cette information sera examinée.
+                Explique pourquoi tu contestes cet événement. Cette information sera examinée.
               </p>
 
               <form onSubmit={handleContestEvent} className="space-y-6">

@@ -2,6 +2,8 @@
 
 import { motion } from "motion/react";
 import { NotificationsBlock, PreferencesBlock } from "@/components/account/AccountExtras";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // LES RÉGLAGES, SORTIS DE LA FEUILLE DU COMPTE.
@@ -22,7 +24,20 @@ import { NotificationsBlock, PreferencesBlock } from "@/components/account/Accou
 // vert nuit, et une page d'application suit le thème comme le reste.
 // ============================================
 
+// La page où l'on choisit l'anglais : elle doit déjà le parler.
+const T = textes(
+  {
+    titre: "Paramètres",
+    sousTitre: "Les notifications de cet appareil, le thème et la langue.",
+  },
+  {
+    titre: "Settings",
+    sousTitre: "This device's notifications, theme and language.",
+  },
+);
+
 export default function ParametresPage() {
+  const t = useTextes(T);
   return (
     <div className="mx-auto max-w-2xl pb-24">
       <motion.h1
@@ -30,7 +45,7 @@ export default function ParametresPage() {
         animate={{ opacity: 1, x: 0 }}
         className="font-display text-2xl font-extrabold text-gray-900 sm:text-3xl"
       >
-        Paramètres
+        {t.titre}
       </motion.h1>
       <motion.p
         initial={{ opacity: 0 }}
@@ -38,7 +53,7 @@ export default function ParametresPage() {
         transition={{ delay: 0.05 }}
         className="mt-1 text-sm text-gray-500"
       >
-        Les notifications de cet appareil, le thème et la langue.
+        {t.sousTitre}
       </motion.p>
 
       <motion.div

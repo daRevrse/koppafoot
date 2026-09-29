@@ -132,19 +132,19 @@ export function invitationEmailHtml(
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${recipientFirstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Vous avez reçu une invitation&nbsp;⚽
+      Tu as reçu une invitation&nbsp;⚽
     </h2>
     <p style="margin:0 0 12px;">
-      <strong>${senderName}</strong> vous invite à rejoindre l'équipe
+      <strong>${senderName}</strong> t'invite à rejoindre l'équipe
       <strong style="color:#059669;">${teamName}</strong> sur KoppaFoot.
     </p>
     <p style="margin:0;color:#64748b;font-size:14px;">
-      Consultez l'invitation et décidez d'accepter ou de refuser.
+      Consulte l'invitation et décide d'accepter ou de refuser.
     </p>
     ${ctaButton("Voir l'invitation", `${APP_URL}/mercato`)}
     ${divider()}
     <p style="margin:0;font-size:12px;color:#94a3b8;">
-      Si vous ne souhaitez pas rejoindre cette équipe, ignorez simplement cet email.
+      Si tu ne veux pas rejoindre cette équipe, ignore simplement cet email.
     </p>
   `);
 }
@@ -160,11 +160,11 @@ export function joinRequestEmailHtml(
       Nouvelle demande d'adhésion&nbsp;📋
     </h2>
     <p style="margin:0 0 12px;">
-      <strong>${playerName}</strong> souhaite rejoindre votre équipe
+      <strong>${playerName}</strong> souhaite rejoindre ton équipe
       <strong style="color:#059669;">${teamName}</strong>.
     </p>
     <p style="margin:0;color:#64748b;font-size:14px;">
-      Consultez son profil et acceptez ou refusez sa candidature.
+      Consulte son profil et accepte ou refuse sa candidature.
     </p>
     ${ctaButton("Voir la demande", `${APP_URL}/teams`)}
   `);
@@ -307,19 +307,19 @@ export function campaignSansEspaceHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Vous suivez les matchs. Et si vous y jouiez&nbsp;?
+      Tu suis les matchs. Et si tu y jouais&nbsp;?
     </h2>
     <p style="margin:0 0 16px;">
-      Votre compte KoppaFoot suit les scores en direct, et c'est déjà bien. Mais
+      Ton compte KoppaFoot suit les scores en direct, et c'est déjà bien. Mais
       le produit fait beaucoup plus dès qu'on lui dit ce qu'on est sur le terrain.
     </p>
     <table cellpadding="0" cellspacing="0" style="margin-top:8px;margin-bottom:24px;">
       <tr>
         <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;">
           <p style="margin:0;font-size:13px;color:#166534;line-height:1.9;">
-            <strong>Joueur</strong> — votre fiche, vos convocations, vos buts.<br/>
-            <strong>Manager</strong> — votre équipe, son effectif, ses matchs.<br/>
-            <strong>Arbitre</strong> — vos désignations et vos feuilles de match.
+            <strong>Joueur</strong> — ta fiche, tes convocations, tes buts.<br/>
+            <strong>Manager</strong> — ton équipe, son effectif, ses matchs.<br/>
+            <strong>Arbitre</strong> — tes désignations et tes feuilles de match.
           </p>
         </td>
       </tr>
@@ -336,21 +336,21 @@ export function campaignManagerNoTeamHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut Coach ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Votre équipe vous attend&nbsp;👋
+      Ton équipe t'attend&nbsp;👋
     </h2>
     <p style="margin:0 0 16px;">
-      Vous êtes inscrit sur KoppaFoot en tant que manager, mais vous n'avez pas encore créé votre équipe.
+      Tu es inscrit sur KoppaFoot en tant que manager, mais tu n'as pas encore créé ton équipe.
     </p>
     <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
-      En 2 minutes, créez votre équipe, invitez vos joueurs et commencez à défier vos adversaires.
+      En 2 minutes, crée ton équipe, invite tes joueurs et commence à défier tes adversaires.
     </p>
     <table cellpadding="0" cellspacing="0" style="margin-top:8px;margin-bottom:24px;">
       <tr>
         <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;">
-          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#166534;">3 étapes pour lancer votre équipe :</p>
+          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#166534;">3 étapes pour lancer ton équipe :</p>
           <p style="margin:0;font-size:13px;color:#166534;line-height:1.8;">
             1. Créer l'équipe<br/>
-            2. Inviter vos joueurs<br/>
+            2. Inviter tes joueurs<br/>
             3. Défier un adversaire
           </p>
         </td>
@@ -364,18 +364,18 @@ export function campaignPlayerNoTeamHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Des équipes cherchent un joueur comme vous&nbsp;⚽
+      Des équipes cherchent un joueur comme toi&nbsp;⚽
     </h2>
     <p style="margin:0 0 16px;">
-      Des dizaines d'équipes actives recherchent des joueurs dans votre ville.
+      Des dizaines d'équipes actives recherchent des joueurs dans ta ville.
     </p>
     <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
-      Explorez les équipes disponibles, postulez et commencez à jouer dès cette semaine.
+      Explore les équipes disponibles, postule et commence à jouer dès cette semaine.
     </p>
     ${ctaButton("Trouver une équipe", `${APP_URL}/mercato`)}
     ${divider()}
     <p style="margin:0;font-size:13px;color:#94a3b8;">
-      Vous pouvez aussi attendre qu'une équipe vous contacte, mais les meilleurs joueurs vont chercher eux-mêmes.
+      Tu peux aussi attendre qu'une équipe te contacte, mais les meilleurs joueurs vont chercher eux-mêmes.
     </p>
   `);
 }
@@ -387,25 +387,25 @@ export function campaignWelcomeManagerHtml(firstName: string): string {
       Salut Coach ${firstName}&nbsp;🎉
     </h2>
     <p style="margin:0 0 16px;">
-      Votre compte manager est prêt. Voici comment bien démarrer :
+      Ton compte manager est prêt. Voici comment bien démarrer :
     </p>
     <table cellpadding="0" cellspacing="0" style="margin-bottom:24px;width:100%;">
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #f1f5f9;">
           <span style="font-weight:700;color:#059669;">01 &mdash;</span>
-          <span style="color:#1e293b;margin-left:8px;">Créez votre équipe (nom, ville, niveau)</span>
+          <span style="color:#1e293b;margin-left:8px;">Crée ton équipe (nom, ville, niveau)</span>
         </td>
       </tr>
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #f1f5f9;">
           <span style="font-weight:700;color:#059669;">02 &mdash;</span>
-          <span style="color:#1e293b;margin-left:8px;">Invitez vos joueurs ou acceptez les candidatures</span>
+          <span style="color:#1e293b;margin-left:8px;">Invite tes joueurs ou accepte les candidatures</span>
         </td>
       </tr>
       <tr>
         <td style="padding:12px 0;">
           <span style="font-weight:700;color:#059669;">03 &mdash;</span>
-          <span style="color:#1e293b;margin-left:8px;">Défiez une équipe adverse et planifiez votre premier match</span>
+          <span style="color:#1e293b;margin-left:8px;">Défie une équipe adverse et planifie ton premier match</span>
         </td>
       </tr>
     </table>
@@ -417,13 +417,13 @@ export function campaignPlayerInactiveHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Vous nous manquez&nbsp;⚽
+      Tu nous manques&nbsp;⚽
     </h2>
     <p style="margin:0 0 16px;">
-      Votre dernier match remonte à plus d'un mois. Des équipes cherchent encore des joueurs près de chez vous.
+      Ton dernier match remonte à plus d'un mois. Des équipes cherchent encore des joueurs près de chez toi.
     </p>
     <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
-      Revenez sur KoppaFoot, consultez les équipes disponibles et reprenez le jeu.
+      Reviens sur KoppaFoot, consulte les équipes disponibles et reprends le jeu.
     </p>
     ${ctaButton("Voir les équipes disponibles", `${APP_URL}/mercato`)}
   `);
@@ -535,7 +535,7 @@ export function bookingRequestsDigestHtml(
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${echapper(ownerFirstName)},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      ${demandes.length} demandes sur vos terrains
+      ${demandes.length} demandes sur tes terrains
     </h2>
     <p style="margin:0 0 16px;">
       ${demandeurs.length === 1 ? `<strong>${echapper(demandeurs[0])}</strong> demande` : "On te demande"}

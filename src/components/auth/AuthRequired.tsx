@@ -4,6 +4,23 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { Lock, ArrowLeft } from "lucide-react";
 import { useAuthModal } from "./AuthModal";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    parDefaut: "Cette page demande un compte KoppaFoot.",
+    connexionRequise: "Connexion requise",
+    seConnecter: "Se connecter",
+    retour: "Retour au direct",
+  },
+  {
+    parDefaut: "This page needs a KoppaFoot account.",
+    connexionRequise: "Sign-in required",
+    seConnecter: "Sign in",
+    retour: "Back to live scores",
+  },
+);
 
 // ============================================
 // AuthRequired, what a protected page shows instead of bouncing.
@@ -15,11 +32,13 @@ import { useAuthModal } from "./AuthModal";
 // ============================================
 
 export default function AuthRequired({
-  message = "Cette page demande un compte KoppaFoot.",
+  message: messageDonne,
 }: {
   message?: string;
 }) {
   const { open } = useAuthModal();
+  const t = useTextes(T);
+  const message = messageDonne ?? t.parDefaut;
 
   // Asked once, on arrival. Dismissing the dialog leaves the explanation and
   // its button behind, so nobody is stuck with a blank screen.
@@ -31,7 +50,7 @@ export default function AuthRequired({
     <div className="mx-auto flex max-w-md flex-col items-center justify-center border border-gray-200/70 bg-white px-8 py-20 text-center">
       <Lock size={34} strokeWidth={1.2} className="text-gray-900" />
       <p className="mt-7 font-display text-3xl font-black leading-tight tracking-tight text-gray-900">
-        Connexion requise
+        {t.connexionRequise}
       </p>
       <p className="mt-3 text-base leading-relaxed text-gray-500">{message}</p>
 
@@ -40,7 +59,7 @@ export default function AuthRequired({
         onClick={() => open(message)}
         className="mt-8 border border-gray-900 bg-gray-900 px-7 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-colors hover:border-emerald-700 hover:bg-emerald-700"
       >
-        Se connecter
+        {t.seConnecter}
       </button>
 
       <Link
@@ -48,7 +67,7 @@ export default function AuthRequired({
         className="mt-4 flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.1em] text-gray-400 transition-colors hover:text-gray-700"
       >
         <ArrowLeft size={13} />
-        Retour au direct
+        {t.retour}
       </Link>
     </div>
   );

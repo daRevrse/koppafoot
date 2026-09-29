@@ -3,11 +3,73 @@
 import { Goal, ArrowDown, ArrowRightLeft, ArrowUp, Flag, Hand, AlertTriangle, Target } from "lucide-react";
 import { OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
 import {
-  PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY, estStatistique, issuePenalty,
+  PENALTY_GOAL_DETAIL, RECITS_ISSUE_PENALTY, estStatistique, issuePenalty,
   penaltyDitParSonBut,
 } from "@/lib/evenements";
 import { joueursDuRemplacement } from "@/lib/recit-du-match";
 import type { Match } from "@/types";
+import { useLangue, useTextes } from "@/i18n";
+import type { Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    butCsc: "But contre son camp",
+    butPenalty: "But sur penalty",
+    but: "But",
+    jaune: "Carton jaune",
+    expulsion2eJaune: "Expulsion (2e jaune)",
+    rouge: "Carton rouge",
+    changement: "Changement",
+    arret: "Arrêt",
+    fauteSur: (victime: string) => `Faute sur ${victime}`,
+    faute: "Faute",
+    horsJeu: "Hors-jeu",
+    penalty: "Penalty",
+    evenement: "Événement",
+    changementSr: "Changement :",
+    entre: "Entre",
+    sort: "Sort",
+    passeDe: (nom: string) => `passe de ${nom}`,
+    retire: "Retiré",
+    refuse: "Refusé",
+    aTirer: "À tirer",
+    coupDEnvoi: (heure: string | null) => (heure ? `Coup d'envoi ${heure}` : "Coup d'envoi"),
+    miTemps: (score: string | null) => (score ? `Mi-temps ${score}` : "Mi-temps"),
+    aucunFait: "Aucun fait de jeu enregistré",
+    finDuMatch: (score: string, tab: string | null) => `Fin du match ${score}${tab ? ` (t.a.b. ${tab})` : ""}`,
+    pasCommence: "Le match n'a pas encore commencé",
+  },
+  {
+    butCsc: "Own goal",
+    butPenalty: "Penalty goal",
+    but: "Goal",
+    jaune: "Yellow card",
+    expulsion2eJaune: "Sent off (2nd yellow)",
+    rouge: "Red card",
+    changement: "Substitution",
+    arret: "Save",
+    fauteSur: (victime: string) => `Foul on ${victime}`,
+    faute: "Foul",
+    horsJeu: "Offside",
+    penalty: "Penalty",
+    evenement: "Event",
+    changementSr: "Substitution:",
+    entre: "On",
+    sort: "Off",
+    passeDe: (nom: string) => `assist by ${nom}`,
+    retire: "Overturned",
+    refuse: "Disallowed",
+    aTirer: "To be taken",
+    coupDEnvoi: (heure: string | null) => (heure ? `Kick-off ${heure}` : "Kick-off"),
+    miTemps: (score: string | null) => (score ? `Half-time ${score}` : "Half-time"),
+    aucunFait: "No match events recorded",
+    finDuMatch: (score: string, tab: string | null) => `Full time ${score}${tab ? ` (pens ${tab})` : ""}`,
+    pasCommence: "The match hasn't started yet",
+  },
+);
+
+type Textes = (typeof T)["fr"];
 
 // ============================================
 // L'historique du match, en deux camps.
@@ -60,38 +122,38 @@ function estRepere(e: Evt): boolean {
   return e.type === "period_start" || e.type === "period_end";
 }
 
-function libelle(e: Evt): string {
+function libelle(e: Evt, t: Textes, langue: Langue): string {
   switch (e.type) {
     case "goal":
-      if (e.detail === OWN_GOAL_DETAIL) return "But contre son camp";
+      if (e.detail === OWN_GOAL_DETAIL) return t.butCsc;
       // « Sur penalty » est la seule chose que la ligne du but ne pouvait pas
       // dire, et c'est ce qui la rend lisible seule : le penalty qui l'a
       // produit ne s'affiche plus, puisqu'il serait la même frappe deux fois.
-      return e.detail === PENALTY_GOAL_DETAIL ? "But sur penalty" : "But";
+      return e.detail === PENALTY_GOAL_DETAIL ? t.butPenalty : t.but;
     case "yellow_card":
-      return "Carton jaune";
+      return t.jaune;
     case "red_card":
-      return e.detail === "2e carton jaune" ? "Expulsion (2e jaune)" : "Carton rouge";
+      return e.detail === "2e carton jaune" ? t.expulsion2eJaune : t.rouge;
     case "substitution":
-      return "Changement";
+      return t.changement;
     case "save":
-      return "Arrêt";
+      return t.arret;
     case "foul":
       // La faute se lit avec sa victime : « Faute sur Mensah » raconte
       // l'action, « Faute » ne dit que la moitié de ce qui s'est passé.
-      return e.victimPlayerName ? `Faute sur ${e.victimPlayerName}` : "Faute";
+      return e.victimPlayerName ? t.fauteSur(e.victimPlayerName) : t.faute;
     case "offside":
-      return "Hors-jeu";
+      return t.horsJeu;
     case "penalty": {
       // Le seul des nouveaux qui reste dans le fil : un penalty accordé est
       // un moment du match, pas une ligne de compteur. Et ce qui intéresse
       // celui qui lit n'est pas qu'il ait été accordé, mais ce qu'il est
       // devenu — d'où l'issue, dès qu'elle est connue.
       const issue = issuePenalty(e.detail);
-      return issue ? RECIT_ISSUE_PENALTY[issue] : "Penalty";
+      return issue ? RECITS_ISSUE_PENALTY[langue][issue] : t.penalty;
     }
     default:
-      return "Événement";
+      return t.evenement;
   }
 }
 
@@ -129,6 +191,8 @@ function Ligne({ e, droite, auteur, action }: {
   auteur?: (e: Evt) => string;
   action?: (e: Evt) => React.ReactNode;
 }) {
+  const { langue } = useLangue();
+  const t = useTextes(T);
   // Un but que la VAR examine, ou qu'elle a refusé. Le refusé reste dans le
   // fil : le stade l'a vu, et c'est l'historique qui explique pourquoi le
   // score n'a pas bougé.
@@ -159,16 +223,16 @@ function Ligne({ e, droite, auteur, action }: {
       <div className={`min-w-0 ${cote}`}>
         {remplacement ? (
           <>
-            <p className="sr-only">Changement :</p>
+            <p className="sr-only">{t.changementSr}</p>
             {remplacement.entre && (
               <p className={`flex items-center gap-1 text-[13px] font-black leading-tight text-gray-900 ${rangee}`}>
-                <ArrowUp size={11} strokeWidth={3} aria-label="Entre" className="shrink-0 text-emerald-600" />
+                <ArrowUp size={11} strokeWidth={3} aria-label={t.entre} className="shrink-0 text-emerald-600" />
                 <span className="min-w-0 break-words">{remplacement.entre}</span>
               </p>
             )}
             {remplacement.sort && (
               <p className={`mt-0.5 flex items-center gap-1 text-[11px] font-bold leading-tight text-gray-500 ${rangee}`}>
-                <ArrowDown size={11} strokeWidth={3} aria-label="Sort" className="shrink-0 text-red-500" />
+                <ArrowDown size={11} strokeWidth={3} aria-label={t.sort} className="shrink-0 text-red-500" />
                 <span className="min-w-0 break-words">{remplacement.sort}</span>
               </p>
             )}
@@ -189,11 +253,11 @@ function Ligne({ e, droite, auteur, action }: {
                 annule ? "text-gray-400 line-through" : "text-gray-500"
               }`}
             >
-              {libelle(e)}
+              {libelle(e, t, langue)}
             </p>
             {passeur && (
               <p className="mt-0.5 break-words text-[11px] font-semibold leading-tight text-gray-500">
-                passe de {passeur}
+                {t.passeDe(passeur)}
               </p>
             )}
           </>
@@ -205,7 +269,7 @@ function Ligne({ e, droite, auteur, action }: {
             }`}
           >
             {(enCours || attente) && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />}
-            {annule ? (issue === "retire" ? "Retiré" : "Refusé") : attente ? "À tirer" : "VAR"}
+            {annule ? (issue === "retire" ? t.retire : t.refuse) : attente ? t.aTirer : "VAR"}
           </span>
         )}
         {commande && <div className="mt-1">{commande}</div>}
@@ -233,6 +297,7 @@ function composer(
   homeTeamId: string | null,
   d: Deroule | undefined,
   vide: string | undefined,
+  t: Textes,
 ): Element[] {
   // Les repères de période se posent tout seuls plus bas ; les comptables
   // (tir, corner, touche, coup franc) n'ont RIEN à faire ici. Ils existent
@@ -245,7 +310,7 @@ function composer(
   const elements: Element[] = [];
 
   if (d?.commence) {
-    elements.push({ genre: "repere", cle: "coup-d-envoi", texte: d.heure ? `Coup d'envoi ${d.heure}` : "Coup d'envoi" });
+    elements.push({ genre: "repere", cle: "coup-d-envoi", texte: t.coupDEnvoi(d.heure) });
   }
 
   const pauseAtteinte = !!d && (d.termine || d.periode >= 2);
@@ -259,7 +324,7 @@ function composer(
   const miTemps = (): Element => ({
     genre: "repere",
     cle: "mi-temps",
-    texte: scoreConnu ? `Mi-temps ${domicile}-${exterieur}` : "Mi-temps",
+    texte: t.miTemps(scoreConnu ? `${domicile}-${exterieur}` : null),
   });
 
   for (const e of faits) {
@@ -278,12 +343,12 @@ function composer(
   if (poserLaMiTemps && !posee) elements.push(miTemps());
 
   if (faits.length === 0 && d?.commence) {
-    elements.push({ genre: "note", texte: vide ?? "Aucun fait de jeu enregistré" });
+    elements.push({ genre: "note", texte: vide ?? t.aucunFait });
   }
 
   if (d?.termine && d.score) {
-    const tab = d.tab ? ` (t.a.b. ${d.tab.home}-${d.tab.away})` : "";
-    elements.push({ genre: "repere", cle: "fin", texte: `Fin du match ${d.score.home}-${d.score.away}${tab}` });
+    const tab = d.tab ? `${d.tab.home}-${d.tab.away}` : null;
+    elements.push({ genre: "repere", cle: "fin", texte: t.finDuMatch(`${d.score.home}-${d.score.away}`, tab) });
   }
   return elements;
 }
@@ -306,12 +371,13 @@ export default function MatchTimeline({
   /** L'état du match, d'où viennent coup d'envoi, mi-temps et fin. */
   deroule?: Deroule;
 }) {
-  const elements = composer(events, homeTeamId, deroule, vide);
+  const t = useTextes(T);
+  const elements = composer(events, homeTeamId, deroule, vide, t);
 
   if (elements.length === 0) {
     return (
       <p className="py-10 text-center text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-        {vide ?? "Le match n'a pas encore commencé"}
+        {vide ?? t.pasCommence}
       </p>
     );
   }

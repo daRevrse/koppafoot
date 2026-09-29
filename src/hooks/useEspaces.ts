@@ -76,7 +76,7 @@ export function useEspaces(): Espaces | null {
   // « Espace joueur ». Une ligne qui répète le titre de son propre menu
   // occupe une case et n'apprend rien.
   const roleItems: Espace[] = user.evolutionRole
-    ? [...(ROLE_DESTINATIONS[user.evolutionRole] ?? [])]
+    ? (ROLE_DESTINATIONS[user.evolutionRole] ?? []).map((d) => ({ href: d.href, label: t(d.cle), Icon: d.Icon }))
     : [];
 
   // LE MERCATO A REJOINT « MES EQUIPES ». Il ne s'agit pas d'un espace : on y

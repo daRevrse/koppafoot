@@ -1,6 +1,9 @@
 import { ExternalLink } from "lucide-react";
 import ArticleHero from "@/components/actus/ArticleHero";
 import { getSportsArticles, type Article } from "@/lib/news-rss";
+import { LOCALE, type Langue } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
+import { langueServeur } from "@/i18n/serveur";
 
 // ============================================
 // Actus, le fil d'articles de sport.
@@ -21,39 +24,63 @@ import { getSportsArticles, type Article } from "@/lib/news-rss";
 
 export const revalidate = 900;
 
-export const metadata = {
-  title: "Actus, KoppaFoot",
-  description:
-    "L'actualité du football : ce que la presse publie, rassemblé en un fil.",
-};
+// Les articles restent dans la langue de la presse qui les publie : on
+// traduit la page, pas les titres des autres.
+const T = textes(
+  {
+    titre: "Actus, KoppaFoot",
+    description: "L'actualité du football : ce que la presse publie, rassemblé en un fil.",
+    plusTot: "Plus tôt",
+    aujourdhui: "Aujourd'hui",
+    hier: "Hier",
+    articles: (n: number) => `${n} article${n > 1 ? "s" : ""}`,
+    injoignable: "Le fil d'actualité est injoignable pour le moment.",
+  },
+  {
+    titre: "News, KoppaFoot",
+    description: "Football news: what the press publishes, gathered in one feed.",
+    plusTot: "Earlier",
+    aujourdhui: "Today",
+    hier: "Yesterday",
+    articles: (n: number) => `${n} article${n === 1 ? "" : "s"}`,
+    injoignable: "The news feed can't be reached right now.",
+  },
+);
+
+type Textes = (typeof T)["fr"];
+
+export async function generateMetadata() {
+  const t = T[await langueServeur()];
+  return { title: t.titre, description: t.description };
+}
 
 /** Deux lignes de trois : au-dela, la grille defile sur elle-meme. */
 const GRID_FULL = 2 * 3;
 
 /** « aujourd'hui », « hier », sinon « samedi 16 août ». */
-function dayHeading(iso: string): string {
+function dayHeading(iso: string, langue: Langue, t: Textes): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Plus tôt";
+  if (Number.isNaN(d.getTime())) return t.plusTot;
 
   const midnight = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((midnight(new Date()) - midnight(d)) / 86_400_000);
-  if (days <= 0) return "Aujourd'hui";
-  if (days === 1) return "Hier";
+  if (days <= 0) return t.aujourdhui;
+  if (days === 1) return t.hier;
 
-  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  return d.toLocaleDateString(LOCALE[langue], { weekday: "long", day: "numeric", month: "long" });
 }
 
 /** « 14:05 », l'heure, dans la journée déjà annoncée par le titre. */
-function hour(iso: string): string {
+function hour(iso: string, langue: Langue): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(LOCALE[langue], { hour: "2-digit", minute: "2-digit" });
 }
 
-function byDay(articles: Article[]): { heading: string; items: Article[] }[] {
+function byDay(articles: Article[], langue: Langue, t: Textes): { heading: string; items: Article[] }[] {
   const groups: { heading: string; items: Article[] }[] = [];
   for (const a of articles) {
-    const heading = a.at ? dayHeading(a.at) : "Plus tôt";
+    const heading = a.at ? dayHeading(a.at, langue, t) : t.plusTot;
     const last = groups[groups.length - 1];
     if (last && last.heading === heading) last.items.push(a);
     else groups.push({ heading, items: [a] });
@@ -61,7 +88,7 @@ function byDay(articles: Article[]): { heading: string; items: Article[] }[] {
   return groups;
 }
 
-function ArticleCard({ article }: { article: Article }) {
+function ArticleCard({ article, langue }: { article: Article; langue: Langue }) {
   return (
     <a
       href={article.url}
@@ -85,7 +112,7 @@ function ArticleCard({ article }: { article: Article }) {
           {article.at && (
             <>
               <span className="text-gray-300">·</span>
-              {hour(article.at)}
+              {hour(article.at, langue)}
             </>
           )}
           <ExternalLink size={12} className="ml-auto shrink-0 text-gray-300" aria-hidden />
@@ -96,10 +123,11 @@ function ArticleCard({ article }: { article: Article }) {
 }
 
 export default async function ActusPage() {
-  const articles = await getSportsArticles();
+  const [articles, langue] = await Promise.all([getSportsArticles(), langueServeur()]);
+  const t = T[langue];
 
-  const days = byDay(articles);
-  const today = days[0]?.heading === "Aujourd'hui" ? days[0] : null;
+  const days = byDay(articles, langue, t);
+  const today = days[0]?.heading === t.aujourdhui ? days[0] : null;
 
   // Les cinq premiers du jour passent en grand, ceux qui ont une photo
   // d'abord : le hero est le seul endroit où elle se voit en entier. Il ne
@@ -119,7 +147,7 @@ export default async function ActusPage() {
     <div className="mx-auto max-w-6xl space-y-14 pb-24 pt-4">
       {days.length === 0 ? (
         <p className="border border-gray-200/70 bg-white px-6 py-16 text-center text-base font-bold text-gray-400">
-          Le fil d&apos;actualité est injoignable pour le moment.
+          {t.injoignable}
         </p>
       ) : (
         <>
@@ -132,7 +160,7 @@ export default async function ActusPage() {
                   {day.heading}
                 </h2>
                 <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                  {day.items.length} article{day.items.length > 1 ? "s" : ""}
+                  {t.articles(day.items.length)}
                 </span>
               </div>
 
@@ -149,7 +177,7 @@ export default async function ActusPage() {
                     construite par interpolation ne serait jamais generee. */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {day.items.map((a) => (
-                    <ArticleCard key={a.id} article={a} />
+                    <ArticleCard key={a.id} article={a} langue={langue} />
                   ))}
                 </div>
               </div>

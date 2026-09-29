@@ -8,6 +8,8 @@ import type { Competition } from "@/types";
 import type { FootballCompetition } from "@/lib/football-data";
 import CompetitionDirectoryCard from "./CompetitionDirectoryCard";
 import WorldCompetitionCard from "../world/WorldCompetitionCard";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // Accent- and case-insensitive folding, shared by both filters.
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -15,13 +17,38 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 // Three public buckets inside the local tab, rendered in this order. Each maps
 // to one or more competition statuses (draft is never public, so it has no
 // bucket).
-const SECTIONS: { title: string; statuses: Competition["status"][] }[] = [
-  { title: "En cours", statuses: ["group_stage", "knockout"] },
-  { title: "À venir", statuses: ["registration"] },
-  { title: "Terminées", statuses: ["completed"] },
+type Section = "enCours" | "aVenir" | "terminees";
+
+const SECTIONS: { cle: Section; statuses: Competition["status"][] }[] = [
+  { cle: "enCours", statuses: ["group_stage", "knockout"] },
+  { cle: "aVenir", statuses: ["registration"] },
+  { cle: "terminees", statuses: ["completed"] },
 ];
 
 type Tab = "local" | "world";
+
+const T = textes(
+  {
+    section: (s: Section) => ({ enCours: "En cours", aVenir: "À venir", terminees: "Terminées" })[s],
+    locales: "Compétitions locales",
+    top: "Top compétitions",
+    resultatsPour: (q: string) => `Résultats pour «\u00a0${q}\u00a0»`,
+    effacer: "Effacer",
+    aucunResultat: "Aucun résultat",
+    aucuneLocale: "Aucune compétition locale pour le moment.",
+    aucuneDisponible: "Aucune compétition disponible.",
+  },
+  {
+    section: (s: Section) => ({ enCours: "Under way", aVenir: "Upcoming", terminees: "Finished" })[s],
+    locales: "Local competitions",
+    top: "Top competitions",
+    resultatsPour: (q: string) => `Results for “${q}”`,
+    effacer: "Clear",
+    aucunResultat: "No results",
+    aucuneLocale: "No local competitions yet.",
+    aucuneDisponible: "No competitions available.",
+  },
+);
 
 // Client directory island. Receives already-fetched competitions as props so the
 // firebase-admin lib (competition-admin) stays out of the client bundle, and,
@@ -46,6 +73,7 @@ export default function CompetitionDirectorySearch({
   // that param (the header can push a new q while the page is already mounted).
   // Requires a <Suspense> boundary upstream.
   const query = useSearchParams().get("q") ?? "";
+  const tx = useTextes(T);
 
   // The chosen tab is remembered against the query it was chosen for. That way
   // an explicit click always wins, but changing the search starts fresh, no
@@ -66,7 +94,7 @@ export default function CompetitionDirectorySearch({
     const q = fold(query.trim());
     if (!q) return worldCompetitions;
     return worldCompetitions.filter((c) =>
-      fold(`${c.name} ${c.area ?? ""} ${c.code}`).includes(q),
+      fold(`${c.name} ${c.area ?? ""} ${c.areaEn ?? ""} ${c.code}`).includes(q),
     );
   }, [query, worldCompetitions]);
 
@@ -83,15 +111,15 @@ export default function CompetitionDirectorySearch({
   const sections = useMemo(
     () =>
       SECTIONS.map((section) => ({
-        title: section.title,
+        title: tx.section(section.cle),
         items: filteredLocal.filter((c) => section.statuses.includes(c.status)),
       })).filter((section) => section.items.length > 0),
-    [filteredLocal],
+    [filteredLocal, tx],
   );
 
   const TABS: { key: Tab; label: string; count: number; Icon: typeof Trophy }[] = [
-    { key: "local", label: "Compétitions locales", count: filteredLocal.length, Icon: Trophy },
-    { key: "world", label: "Top compétitions", count: filteredWorld.length, Icon: Globe2 },
+    { key: "local", label: tx.locales, count: filteredLocal.length, Icon: Trophy },
+    { key: "world", label: tx.top, count: filteredWorld.length, Icon: Globe2 },
   ];
 
   const activeCount = tab === "local" ? filteredLocal.length : filteredWorld.length;
@@ -104,13 +132,13 @@ export default function CompetitionDirectorySearch({
         <div className="flex items-center gap-2 border border-emerald-100 bg-emerald-50/60 px-4 py-2.5">
           <Search size={14} className="shrink-0 text-emerald-500" />
           <p className="min-w-0 flex-1 truncate text-xs font-bold text-emerald-800">
-            Résultats pour «&nbsp;{query.trim()}&nbsp;»
+            {tx.resultatsPour(query.trim())}
           </p>
           <Link
             href="/competitions"
             className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-emerald-600 transition-colors hover:bg-emerald-100"
           >
-            Effacer
+            {tx.effacer}
           </Link>
         </div>
       )}
@@ -148,10 +176,10 @@ export default function CompetitionDirectorySearch({
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
             {query.trim()
-              ? "Aucun résultat"
+              ? tx.aucunResultat
               : tab === "local"
-                ? "Aucune compétition locale pour le moment."
-                : "Aucune compétition disponible."}
+                ? tx.aucuneLocale
+                : tx.aucuneDisponible}
           </p>
         </div>
       ) : tab === "local" ? (

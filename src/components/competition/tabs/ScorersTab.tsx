@@ -9,6 +9,19 @@ import {
   computeTopScorers,
 } from "@/lib/competition-firestore";
 import type { Competition, CompMatch, CompTeam } from "@/types";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    vide: "Aucun buteur enregistré pour l'instant, les buts nommés apparaîtront ici.",
+    buts: (n: number) => (n > 1 ? "buts" : "but"),
+  },
+  {
+    vide: "No scorers recorded yet: named goals will appear here.",
+    buts: (n: number) => (n === 1 ? "goal" : "goals"),
+  },
+);
 
 // ============================================
 // Helpers
@@ -56,6 +69,7 @@ export default function ScorersTab({ competition, matches, teams }: {
   matches: CompMatch[];
   teams: CompTeam[];
 }) {
+  const t = useTextes(T);
   // Aggregate goals via the pure helper.
   const scorers = useMemo(() => computeTopScorers(matches), [matches]);
 
@@ -74,7 +88,7 @@ return (
             <Goal size={32} />
           </div>
           <p className="max-w-xs text-sm font-bold text-gray-400 italic">
-            Aucun buteur enregistré pour l&apos;instant, les buts nommés apparaîtront ici.
+            {t.vide}
           </p>
         </div>
       ) : (
@@ -114,7 +128,7 @@ return (
                     <Goal size={16} className="text-emerald-500" />
                     <span className="text-lg font-black text-gray-900">{s.goals}</span>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
-                      {s.goals > 1 ? "buts" : "but"}
+                      {t.buts(s.goals)}
                     </span>
                   </div>
                 </motion.li>

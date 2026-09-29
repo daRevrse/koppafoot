@@ -8,7 +8,9 @@ import { Loader2, SearchX, Trophy, ClipboardList, Share2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale/fr";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { LOCALE_DATE_FNS } from "@/i18n/dates";
 import { getCompetitionBySlug, onCompMatches, onCompTeams } from "@/lib/competition-firestore";
 import CompetitionRail from "@/components/competition/CompetitionRail";
 import CalendarTab from "@/components/competition/tabs/CalendarTab";
@@ -37,29 +39,87 @@ const TAB_IDS = ["calendar", "standings", "bracket", "scorers"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 // Status → label + accent, reusing the mapping style from the organizer landing.
-const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
-  draft: { label: "Brouillon", color: "text-gray-600", bg: "bg-gray-100" },
-  registration: { label: "Inscriptions", color: "text-blue-700", bg: "bg-blue-50" },
-  group_stage: { label: "Phase de groupes", color: "text-amber-700", bg: "bg-amber-50" },
-  knockout: { label: "Phase finale", color: "text-purple-700", bg: "bg-purple-50" },
-  completed: { label: "Terminée", color: "text-emerald-700", bg: "bg-emerald-50" },
-};
-
-
-// Format a single ISO date, e.g. "18 juil." (fr). Falls back to the raw string.
+const T = textes(
+  {
+    statut: (s: CompetitionStatus) => ({
+      draft: "Brouillon", registration: "Inscriptions", group_stage: "Phase de groupes",
+      knockout: "Phase finale", completed: "Terminée",
+    })[s],
+    aPartirDu: (d: string) => `À partir du ${d}`,
+    jusquau: (d: string) => `Jusqu'au ${d}`,
+    introuvable: "Compétition introuvable",
+    introuvableTexte: "Cette compétition n'existe pas ou n'est plus disponible.",
+    calendrier: "Calendrier",
+    classement: "Classement",
+    playOffs: "Play-offs",
+    tableau: "Tableau",
+    buteurs: "Buteurs",
+    partageInscriptions: (nom: string, ville: string | null) =>
+      `${nom}${ville ? ` à ${ville}` : ""} : les inscriptions sont ouvertes.`,
+    partageSuivre: (nom: string, ville: string | null) =>
+      `Suis ${nom}${ville ? ` à ${ville}` : ""} en direct sur KoppaFoot.`,
+    lienCopie: "Lien de la compétition copié !",
+    partageEchoue: "Le partage a échoué.",
+    filDAriane: "Fil d'ariane",
+    direct: "Direct",
+    partagerCompetition: "Partager la compétition",
+    partager: "Partager",
+    abonnes: (n: number) => `${n} abonné${n > 1 ? "s" : ""}`,
+    meilleurJoueur: "Meilleur joueur du tournoi",
+    inscriptionsOuvertes: "Inscriptions ouvertes",
+    tuDiriges: "Tu diriges une équipe ? Inscris-la à cette compétition.",
+    sInscrire: "S'inscrire",
+  },
+  {
+    statut: (s: CompetitionStatus) => ({
+      draft: "Draft", registration: "Registration", group_stage: "Group stage",
+      knockout: "Knockout stage", completed: "Finished",
+    })[s],
+    aPartirDu: (d: string) => `From ${d}`,
+    jusquau: (d: string) => `Until ${d}`,
+    introuvable: "Competition not found",
+    introuvableTexte: "This competition doesn't exist or is no longer available.",
+    calendrier: "Fixtures",
+    classement: "Standings",
+    playOffs: "Play-offs",
+    tableau: "Bracket",
+    buteurs: "Top scorers",
+    partageInscriptions: (nom: string, ville: string | null) =>
+      `${nom}${ville ? ` in ${ville}` : ""}: registration is open.`,
+    partageSuivre: (nom: string, ville: string | null) =>
+      `Follow ${nom}${ville ? ` in ${ville}` : ""} live on KoppaFoot.`,
+    lienCopie: "Competition link copied!",
+    partageEchoue: "Sharing failed.",
+    filDAriane: "Breadcrumb",
+    direct: "Live",
+    partagerCompetition: "Share the competition",
+    partager: "Share",
+    abonnes: (n: number) => `${n} follower${n === 1 ? "" : "s"}`,
+    meilleurJoueur: "Player of the tournament",
+    inscriptionsOuvertes: "Registration open",
+    tuDiriges: "Running a team? Register it for this competition.",
+    sInscrire: "Register",
+  },
+);
 
 // Human date range for the hero. Both / start-only / end-only / none.
-function formatDateRange(start: string | null, end: string | null): string | null {
+function formatDateRange(
+  start: string | null,
+  end: string | null,
+  locale: (typeof LOCALE_DATE_FNS)["fr"],
+  t: (typeof T)["fr"],
+): string | null {
   const fmt = (d: string) => {
     try {
-      return format(parseISO(d), "d MMMM yyyy", { locale: fr });
+      return format(parseISO(d), "d MMMM yyyy", { locale });
     } catch {
       return d;
     }
   };
-  if (start && end) return `${fmt(start)}, ${fmt(end)}`;
-  if (start) return `À partir du ${fmt(start)}`;
-  if (end) return `Jusqu'au ${fmt(end)}`;
+  // Un tiret de plage : la virgule lisait deux dates sans lien.
+  if (start && end) return `${fmt(start)} – ${fmt(end)}`;
+  if (start) return t.aPartirDu(fmt(start));
+  if (end) return t.jusquau(fmt(end));
   return null;
 }
 
@@ -81,6 +141,8 @@ export default function PublicCompetitionHome() {
   // ailleurs dans le projet, pour ne pas poser de frontiere Suspense.
   const [tab, setTab] = useState<TabId>("calendar");
   const [notFound, setNotFound] = useState(false);
+  const { langue } = useLangue();
+  const t = useTextes(T);
 
   // Resolve competition by slug, then subscribe to matches in real time.
   // Anonymous reads work because Firestore rules allow read on competitions/**.
@@ -111,8 +173,8 @@ export default function PublicCompetitionHome() {
       unsubMatches = onCompMatches(comp.id, (m) => {
         if (!cancelled) setMatches(m);
       });
-      unsubTeams = onCompTeams(comp.id, (t) => {
-        if (!cancelled) setTeams(t);
+      unsubTeams = onCompTeams(comp.id, (liste) => {
+        if (!cancelled) setTeams(liste);
       });
 
       // Le nombre d'abonnes : compte cote serveur, aucune competition ne le
@@ -143,27 +205,26 @@ export default function PublicCompetitionHome() {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center">
         <SearchX size={30} className="text-gray-300" />
-        <h1 className="font-display text-xl font-black text-gray-900">Compétition introuvable</h1>
+        <h1 className="font-display text-xl font-black text-gray-900">{t.introuvable}</h1>
         <p className="text-sm font-bold text-gray-400">
-          Cette compétition n&apos;existe pas ou n&apos;est plus disponible.
+          {t.introuvableTexte}
         </p>
       </div>
     );
   }
 
-  const statusCfg = STATUS_CONFIG[competition.status];
-  const dateRange = formatDateRange(competition.startDate, competition.endDate);
+  const dateRange = formatDateRange(competition.startDate, competition.endDate, LOCALE_DATE_FNS[langue], t);
 
   // Memes conditions que l'ancienne barre d'onglets : un classement n'a de
   // sens qu'avec une phase de groupes, un tableau qu'avec une phase finale.
   const type = competition.competitionType ?? null;
   const TABS: { id: TabId; label: string }[] = [
-    { id: "calendar", label: "Calendrier" },
-    ...(type === null || hasGroupStage(type) ? [{ id: "standings" as TabId, label: "Classement" }] : []),
+    { id: "calendar", label: t.calendrier },
+    ...(type === null || hasGroupStage(type) ? [{ id: "standings" as TabId, label: t.classement }] : []),
     ...(type === null || hasKnockout(type)
-      ? [{ id: "bracket" as TabId, label: type === "league_playoffs" ? "Play-offs" : "Tableau" }]
+      ? [{ id: "bracket" as TabId, label: type === "league_playoffs" ? t.playOffs : t.tableau }]
       : []),
-    { id: "scorers", label: "Buteurs" },
+    { id: "scorers", label: t.buteurs },
   ];
 
   /** Change d'onglet et met l'URL a jour sans recharger ni empiler d'entree. */
@@ -184,17 +245,17 @@ export default function PublicCompetitionHome() {
    * que ce qu'il cherche est exactement l'inverse.
    */
   const partagerLaCompetition = async () => {
-    const ou = competition.venueCity ? ` à ${competition.venueCity}` : "";
+    const ville = competition.venueCity ?? null;
     const resultat = await partagerLien({
       title: competition.name,
       text:
         competition.status === "registration"
-          ? `${competition.name}${ou} : les inscriptions sont ouvertes.`
-          : `Suis ${competition.name}${ou} en direct sur KoppaFoot.`,
+          ? t.partageInscriptions(competition.name, ville)
+          : t.partageSuivre(competition.name, ville),
       url: lienAbsolu(`/c/${competition.slug}`),
     });
-    if (resultat === "copie") toast.success("Lien de la compétition copié !");
-    else if (resultat === "echec") toast.error("Le partage a échoué.");
+    if (resultat === "copie") toast.success(t.lienCopie);
+    else if (resultat === "echec") toast.error(t.partageEchoue);
   };
 
   return (
@@ -202,10 +263,10 @@ export default function PublicCompetitionHome() {
       {/* Fil d'ariane. Il dit ou l'on est sans repeter le titre, qui arrive
           en grand juste dessous. */}
       <nav
-        aria-label="Fil d'ariane"
+        aria-label={t.filDAriane}
         className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.12em] text-gray-400"
       >
-        <Link href="/" className="transition-colors hover:text-emerald-700">Direct</Link>
+        <Link href="/" className="transition-colors hover:text-emerald-700">{t.direct}</Link>
         <span aria-hidden className="text-gray-300">›</span>
         {competition.venueCity && (
           <>
@@ -222,11 +283,11 @@ export default function PublicCompetitionHome() {
         <button
           type="button"
           onClick={partagerLaCompetition}
-          aria-label="Partager la compétition"
+          aria-label={t.partagerCompetition}
           className="ml-auto flex items-center gap-1.5 border border-gray-200/70 bg-white px-3 py-1.5 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
         >
           <Share2 size={13} />
-          <span className="hidden sm:inline">Partager</span>
+          <span className="hidden sm:inline">{t.partager}</span>
         </button>
       </nav>
 
@@ -267,7 +328,7 @@ export default function PublicCompetitionHome() {
 
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                {statusCfg.label}
+                {t.statut(competition.status)}
                 {competition.organizerName && (
                   <span className="text-white/40"> · {competition.organizerName}</span>
                 )}
@@ -289,7 +350,7 @@ export default function PublicCompetitionHome() {
             <span>{matchDurationLabel(competition.format)}</span>
             {followers !== null && followers > 0 && (
               <span className="text-emerald-300">
-                {followers} abonné{followers > 1 ? "s" : ""}
+                {t.abonnes(followers)}
               </span>
             )}
           </div>
@@ -307,7 +368,7 @@ export default function PublicCompetitionHome() {
           <MvpDuMatch
             name={competition.mvpPlayerName}
             teamName={teams.find((t) => t.id === competition.mvpTeamId)?.name ?? null}
-            label="Meilleur joueur du tournoi"
+            label={t.meilleurJoueur}
           />
         </div>
       )}
@@ -319,13 +380,13 @@ export default function PublicCompetitionHome() {
           <ClipboardList size={26} strokeWidth={1.3} className="shrink-0 text-emerald-600" />
           <div className="min-w-0 flex-1">
             <p className="font-display text-lg font-black tracking-tight text-emerald-900">
-              Inscriptions ouvertes
+              {t.inscriptionsOuvertes}
             </p>
             <p className="mt-0.5 text-xs font-semibold text-emerald-800">
-              Tu diriges une équipe ? Inscris-la à cette compétition.
+              {t.tuDiriges}
             </p>
           </div>
-          <RegisterTeamButton competition={competition} label="S'inscrire" />
+          <RegisterTeamButton competition={competition} label={t.sInscrire} />
         </div>
       )}
 
@@ -335,17 +396,17 @@ export default function PublicCompetitionHome() {
       <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-6">
         <div className="min-w-0 border border-gray-200/70 bg-white">
         <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
-          {TABS.map((t) => (
+          {TABS.map((o) => (
             <button
-              key={t.id}
-              onClick={() => selectTab(t.id)}
+              key={o.id}
+              onClick={() => selectTab(o.id)}
               className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                tab === t.id
+                tab === o.id
                   ? "border-gray-900 text-gray-900"
                   : "border-transparent text-gray-400 hover:text-gray-700"
               }`}
             >
-              {t.label}
+              {o.label}
             </button>
           ))}
         </div>

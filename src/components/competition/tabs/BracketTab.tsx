@@ -8,6 +8,9 @@ import {
   getCompetitionBySlug, onCompMatches, describeBracketSlotSource,
 } from "@/lib/competition-firestore";
 import type { Competition, CompMatch, CompMatchRound } from "@/types";
+import { useLangue, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
 
 // ============================================
 // Helpers
@@ -17,13 +20,16 @@ import type { Competition, CompMatch, CompMatchRound } from "@/types";
 // separately below the tree (it isn't a tree node).
 const ROUND_ORDER: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final"];
 
-const ROUND_LABELS: Record<CompMatchRound, string> = {
-  round_of_16: "8es de finale",
-  quarter: "Quarts",
-  semi: "Demi-finales",
-  final: "Finale",
-  third_place: "Petite finale",
-};
+const T = textes(
+  {
+    aDeterminer: "À déterminer",
+    pasCommence: "La phase finale n'a pas encore commencé.",
+  },
+  {
+    aDeterminer: "To be decided",
+    pasCommence: "The knockout stage hasn't started yet.",
+  },
+);
 
 // Team crest: real logo when present, otherwise a first-letter avatar. Mirrors
 // the crest treatment used across the public competition pages.
@@ -73,6 +79,7 @@ function BracketSide({
   dimmed: boolean;
   placeholder?: string | null;
 }) {
+  const t = useTextes(T);
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 ${
@@ -106,7 +113,7 @@ function BracketSide({
               placeholder ? "text-emerald-600" : "text-gray-400"
             }`}
           >
-            {placeholder ?? "À déterminer"}
+            {placeholder ?? t.aDeterminer}
           </span>
         </>
       )}
@@ -125,6 +132,8 @@ function BracketSide({
 
 // A single read-only bracket match card. Links to the public match view.
 function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
+  const { langue } = useLangue();
+  const f = useTextes(FOOT);
   const isLive = match.status === "live";
   const isCompleted = match.status === "completed";
   const showScore = isLive || isCompleted;
@@ -149,7 +158,7 @@ function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
           showScore={showScore}
           isWinner={homeWon}
           dimmed={hasWinner && !homeWon}
-          placeholder={match.homeSource ? describeBracketSlotSource(match.homeSource) : null}
+          placeholder={match.homeSource ? describeBracketSlotSource(match.homeSource, langue) : null}
         />
         <BracketSide
           teamId={match.awayTeamId}
@@ -159,13 +168,13 @@ function BracketMatch({ match, slug }: { match: CompMatch; slug: string }) {
           showScore={showScore}
           isWinner={awayWon}
           dimmed={hasWinner && !awayWon}
-          placeholder={match.awaySource ? describeBracketSlotSource(match.awaySource) : null}
+          placeholder={match.awaySource ? describeBracketSlotSource(match.awaySource, langue) : null}
         />
       </div>
       {isLive && (
         <div className="flex items-center justify-center gap-1.5 bg-red-50 py-1">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-          <span className="text-[10px] font-black uppercase tracking-wider text-red-600">En direct</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-red-600">{f.enDirect}</span>
         </div>
       )}
     </Link>
@@ -181,6 +190,8 @@ export default function BracketTab({ competition, matches }: {
   matches: CompMatch[];
 }) {
   const { slug } = useParams() as { slug: string };
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
   // Bracket columns in display order; matches sorted by bracketSlot within each.
   const columns = useMemo(() => {
     return ROUND_ORDER.map((round) => ({
@@ -206,7 +217,7 @@ const isEmpty = columns.length === 0 && !thirdPlace;
             <GitBranch size={32} />
           </div>
           <p className="text-sm font-bold text-gray-400 italic">
-            La phase finale n&apos;a pas encore commencé.
+            {t.pasCommence}
           </p>
         </div>
       ) : (
@@ -225,7 +236,7 @@ const isEmpty = columns.length === 0 && !thirdPlace;
                   {/* Column header */}
                   <div className="flex items-center justify-center gap-1.5">
                     <span className="font-display text-xs font-black uppercase tracking-tight text-gray-900">
-                      {ROUND_LABELS[col.round]}
+                      {f.tours(col.round)}
                     </span>
                   </div>
                   {/* Matches, vertically centered so later rounds align nicely. */}
@@ -250,7 +261,7 @@ const isEmpty = columns.length === 0 && !thirdPlace;
               <div className="flex items-center justify-center gap-1.5">
                 <Trophy size={14} className="text-amber-500" />
                 <span className="font-display text-xs font-black uppercase tracking-tight text-gray-900">
-                  {ROUND_LABELS.third_place}
+                  {f.tours("third_place")}
                 </span>
               </div>
               <div className="flex justify-center">

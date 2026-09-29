@@ -1190,7 +1190,7 @@ export async function createMatch(data: {
       userId: data.awayManagerId,
       type: "match_challenge",
       title: "Nouveau défi reçu",
-      body: `${data.homeTeamName} vous défie`,
+      body: `${data.homeTeamName} te défie`,
       link: "/matches",
     });
   }
@@ -2005,7 +2005,7 @@ export async function invitePlayerToMatch(
       userId: playerId,
       type: "participation_request",
       title: "Convocation à un match",
-      body: `Vous êtes convoqué pour ${matchLabel} le ${matchDate}`,
+      body: `Tu es convoqué pour ${matchLabel} le ${matchDate}`,
       link: "/participations",
     });
   }
@@ -2256,7 +2256,7 @@ export async function sendInvitation(data: {
     userId: data.receiverId,
     type: "invitation",
     title: "Nouvelle invitation",
-    body: `${data.senderName} vous invite à rejoindre ${data.teamName}`,
+    body: `${data.senderName} t'invite à rejoindre ${data.teamName}`,
     link: "/mercato",
   });
   return ref.id;

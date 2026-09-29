@@ -192,22 +192,22 @@ export async function obstaclesDuCompte(uid: string): Promise<string[]> {
   if (!equipes.empty) {
     const noms = equipes.docs.map((d) => (d.data().name as string) ?? "une équipe").join(", ");
     liste.push(
-      `Vous gérez ${equipes.size > 1 ? "les équipes" : "l'équipe"} ${noms}. ` +
-        "Confiez la gestion à un autre membre avant de partir.",
+      `Tu gères ${equipes.size > 1 ? "les équipes" : "l'équipe"} ${noms}. ` +
+        "Confie la gestion à un autre membre avant de partir.",
     );
   }
   if (!competitions.empty) {
     const noms = competitions.docs.map((d) => (d.data().name as string) ?? "une compétition").join(", ");
     liste.push(
-      `Vous organisez ${noms}. Nommez un autre organisateur, ou clôturez la ` +
-        "compétition, avant de supprimer votre compte.",
+      `Tu organises ${noms}. Nomme un autre organisateur, ou clôture la ` +
+        "compétition, avant de supprimer ton compte.",
     );
   }
   if (!terrains.empty) {
     const noms = terrains.docs.map((d) => (d.data().name as string) ?? "un terrain").join(", ");
     liste.push(
-      `Vous êtes propriétaire de ${noms}. Retirez la fiche du terrain, ou ` +
-        "transférez-la, avant de supprimer votre compte.",
+      `Tu es propriétaire de ${noms}. Retire la fiche du terrain, ou ` +
+        "transfère-la, avant de supprimer ton compte.",
     );
   }
   return liste;

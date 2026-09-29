@@ -12,8 +12,36 @@ import ClocheMatch, { useSuiviMatch } from "./ClocheMatch";
 import { useCompteARebours, formatCompteARebours } from "@/hooks/useCompteARebours";
 import { useReplieAuDefilement } from "@/hooks/useReplieAuDefilement";
 import { useHauteurPubliee } from "@/hooks/useHauteurPubliee";
-import { MOT_RESULTAT, type Resultat } from "@/lib/forme";
+import { RESULTATS, type Resultat } from "@/lib/forme";
 import type { Buteur, ButeursDuMatch } from "@/lib/buteurs";
+import { useLangue, useTextes } from "@/i18n";
+import type { Langue } from "@/i18n/config";
+import { dateAvecJour } from "@/lib/dates";
+import { textes } from "@/i18n/textes";
+import { FOOT } from "@/i18n/foot";
+
+const T = textes(
+  {
+    forme: (mots: string) => `Forme, du plus ancien au plus récent : ${mots}`,
+    aujourdhui: "Aujourd'hui",
+    demain: "Demain",
+    hier: "Hier",
+    csc: "(c.s.c.)",
+    passeDe: (noms: string) => `passe de ${noms}`,
+    revenir: "Revenir à l'écran précédent",
+    partager: "Partager ce match",
+  },
+  {
+    forme: (mots: string) => `Form, oldest to most recent: ${mots}`,
+    aujourdhui: "Today",
+    demain: "Tomorrow",
+    hier: "Yesterday",
+    csc: "(o.g.)",
+    passeDe: (noms: string) => `assist by ${noms}`,
+    revenir: "Back to the previous screen",
+    partager: "Share this match",
+  },
+);
 
 // ============================================
 // Le tableau d'affichage d'un match. LE MÊME pour un amical et pour une
@@ -142,16 +170,19 @@ const PASTILLE: Record<Resultat, string> = {
  * garde les adversaires.
  */
 function PointsDeForme({ forme }: { forme: Resultat[] }) {
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const { mot, lettre } = RESULTATS[langue];
   return (
     <span
       role="img"
-      aria-label={`Forme, du plus ancien au plus récent : ${forme.map((r) => MOT_RESULTAT[r]).join(", ")}`}
+      aria-label={t.forme(forme.map((r) => mot[r]).join(", "))}
       className="mt-1.5 flex justify-center gap-0.5"
     >
       {forme.map((r, i) => (
         <span key={i} aria-hidden className="flex flex-col items-center gap-0.5">
           <span className={`flex h-3.5 w-3.5 items-center justify-center text-[8px] font-black leading-none ${PASTILLE[r]}`}>
-            {r}
+            {lettre[r]}
           </span>
           <span className={`h-0.5 w-3.5 ${i === forme.length - 1 ? PASTILLE[r].split(" ")[0] : "bg-transparent"}`} />
         </span>
@@ -165,16 +196,16 @@ function PointsDeForme({ forme }: { forme: Resultat[] }) {
  * calendaires et non des millisecondes : un match à 22h ce soir est
  * aujourd'hui, pas « dans 3 heures ».
  */
-function jourRelatif(iso: string): string | null {
+function jourRelatif(iso: string, langue: Langue, t: (typeof T)["fr"]): string | null {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
   const aujourdhui = new Date();
   aujourdhui.setHours(0, 0, 0, 0);
   const jours = Math.round((d.getTime() - aujourdhui.getTime()) / 86_400_000);
-  if (jours === 0) return "Aujourd'hui";
-  if (jours === 1) return "Demain";
-  if (jours === -1) return "Hier";
-  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+  if (jours === 0) return t.aujourdhui;
+  if (jours === 1) return t.demain;
+  if (jours === -1) return t.hier;
+  return dateAvecJour(d, langue);
 }
 
 /**
@@ -212,12 +243,13 @@ function Camp({ side }: { side: HeroSide }) {
  * Un match renseigné n'a pas de minutes : le nombre de buts parle à leur place.
  */
 function ListeDeButeurs({ buteurs, droite }: { buteurs: Buteur[]; droite: boolean }) {
+  const t = useTextes(T);
   return (
     <ul className={`min-w-0 space-y-1 ${droite ? "text-left" : "text-right"}`}>
       {buteurs.map((b) => (
         <li key={`${b.nom}-${b.csc}`} className="break-words">
           {b.nom}
-          {b.csc && <span className="text-white/45"> (c.s.c.)</span>}
+          {b.csc && <span className="text-white/45"> {t.csc}</span>}
           {b.minutes.length > 0 ? (
             <span className="ml-1.5 tabular-nums text-white/45">{b.minutes.join(", ")}</span>
           ) : b.nombre > 1 ? (
@@ -227,7 +259,7 @@ function ListeDeButeurs({ buteurs, droite }: { buteurs: Buteur[]; droite: boolea
               chaque but ; il n'apparaissait nulle part sur la fiche. */}
           {b.passeurs.length > 0 && (
             <span className="block text-[10px] font-semibold text-white/40">
-              passe de {b.passeurs.map((p) => nomCourt(p, 18)).join(", ")}
+              {t.passeDe(b.passeurs.map((p) => nomCourt(p, 18)).join(", "))}
             </span>
           )}
         </li>
@@ -267,11 +299,14 @@ export default function MatchHero({
   periodLabel, clock, penaltyHome, penaltyAway, suivi, onShare,
 }: Props) {
   const router = useRouter();
+  const { langue } = useLangue();
+  const t = useTextes(T);
+  const f = useTextes(FOOT);
   const cloche = useSuiviMatch(suivi.mid, suivi.cid);
   const isLive = status === "live";
   // Un match à venir n'a pas de score : « 0 » se lit comme un 0-0 en cours.
   const aCommence = status === "live" || status === "completed";
-  const relatif = date ? jourRelatif(date) : null;
+  const relatif = date ? jourRelatif(date, langue, t) : null;
   const reste = useCompteARebours(aCommence || status === "cancelled" ? null : date, time);
   const compte = reste !== null ? formatCompteARebours(reste) : null;
 
@@ -316,14 +351,14 @@ export default function MatchHero({
     if (status === "completed") {
       return (
         <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/50">
-          {periodLabel || "Terminé"}
+          {periodLabel || f.termine}
         </span>
       );
     }
     if (status === "cancelled") {
       return (
         <span className="text-[10px] font-black uppercase tracking-[0.16em] text-red-400">
-          Annulé
+          {f.annule}
         </span>
       );
     }
@@ -344,14 +379,14 @@ export default function MatchHero({
             <span className="mt-1 font-mono text-[10px] font-black text-emerald-400">{clock}</span>
           ) : (
             <span className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/45">
-              {periodLabel || "Terminé"}
+              {periodLabel || f.termine}
             </span>
           )}
         </span>
       );
     }
     if (status === "cancelled") {
-      return <span className="text-[10px] font-black uppercase tracking-[0.14em] text-red-400">Annulé</span>;
+      return <span className="text-[10px] font-black uppercase tracking-[0.14em] text-red-400">{f.annule}</span>;
     }
     return (
       <span className="flex flex-col items-center leading-none">
@@ -377,7 +412,7 @@ export default function MatchHero({
         className="sticky z-30 -mx-3 -mt-3 bg-black pt-safe text-white lg:-mx-5 lg:-mt-5"
       >
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4 sm:px-6">
-          <button type="button" onClick={revenir} aria-label="Revenir à l'écran précédent" className={BOUTON}>
+          <button type="button" onClick={revenir} aria-label={t.revenir} className={BOUTON}>
             <ArrowLeft size={15} />
           </button>
 
@@ -399,7 +434,7 @@ export default function MatchHero({
           {/* La cloche au bord, le partage avant elle. */}
           <div className="flex shrink-0 items-center gap-1.5">
             {onShare && (
-              <button type="button" onClick={onShare} aria-label="Partager ce match" className={BOUTON}>
+              <button type="button" onClick={onShare} aria-label={t.partager} className={BOUTON}>
                 <Share2 size={14} />
               </button>
             )}

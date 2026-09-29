@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       // On ne se retire pas ses propres droits.
       if (userRecord.uid === callerUid) {
         return NextResponse.json(
-          { error: "Impossible de révoquer vos propres droits" },
+          { error: "Impossible de révoquer tes propres droits" },
           { status: 400 }
         );
       }

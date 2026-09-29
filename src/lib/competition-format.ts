@@ -4,6 +4,7 @@
 // ============================================
 
 import type { CompetitionFormat, CompetitionStatus, CompetitionType } from "@/types";
+import type { Langue } from "@/i18n/config";
 
 export const COMPETITION_TYPES: {
   type: CompetitionType;
@@ -54,12 +55,22 @@ export const COMPETITION_TYPES: {
   },
 ];
 
-export const COMPETITION_TYPE_LABELS: Record<CompetitionType, string> = {
-  cup: "Coupe",
-  league: "Championnat",
-  groups_knockout: "Poules + phase finale",
-  league_playoffs: "Championnat + play-offs",
+export const COMPETITION_TYPE_LABELS_PAR_LANGUE: Record<Langue, Record<CompetitionType, string>> = {
+  fr: {
+    cup: "Coupe",
+    league: "Championnat",
+    groups_knockout: "Poules + phase finale",
+    league_playoffs: "Championnat + play-offs",
+  },
+  en: {
+    cup: "Cup",
+    league: "League",
+    groups_knockout: "Groups + knockout",
+    league_playoffs: "League + play-offs",
+  },
 };
+
+export const COMPETITION_TYPE_LABELS = COMPETITION_TYPE_LABELS_PAR_LANGUE.fr;
 
 /** Does this type play a group/league stage before (or instead of) a bracket? */
 export function hasGroupStage(type: CompetitionType): boolean {
@@ -203,12 +214,15 @@ export function statusFlow(type: CompetitionType): CompetitionStatus[] {
 }
 
 /** Label for the running stage, "phase de groupes" reads wrong for a league. */
-export function stageLabel(type: CompetitionType, status: CompetitionStatus): string {
+export function stageLabel(type: CompetitionType, status: CompetitionStatus, langue: Langue = "fr"): string {
+  const en = langue === "en";
   if (status === "group_stage") {
-    return isSingleGroup(type) ? "Saison régulière" : "Phase de groupes";
+    if (isSingleGroup(type)) return en ? "Regular season" : "Saison régulière";
+    return en ? "Group stage" : "Phase de groupes";
   }
   if (status === "knockout") {
-    return type === "league_playoffs" ? "Play-offs" : "Phase finale";
+    if (type === "league_playoffs") return "Play-offs";
+    return en ? "Knockout stage" : "Phase finale";
   }
   return "";
 }

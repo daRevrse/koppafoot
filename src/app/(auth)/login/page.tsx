@@ -279,7 +279,7 @@ export default function LoginPage() {
         <div role="alert" className="mb-6 border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-gray-700">
           <p className="font-black text-gray-900">Compte suspendu</p>
           <p className="mt-0.5">
-            Ce compte ne peut plus se connecter. Si vous pensez qu&apos;il s&apos;agit d&apos;une erreur, écrivez-nous depuis
+            Ce compte ne peut plus se connecter. Si tu penses qu&apos;il s&apos;agit d&apos;une erreur, écris-nous depuis
             la <Link href="/aide" className="font-bold underline">page Aide</Link>.
           </p>
         </div>
@@ -346,7 +346,7 @@ export default function LoginPage() {
                   autoComplete="email"
                   {...emailForm.register("email")}
                   className={inputClass}
-                  placeholder="votre@email.com"
+                  placeholder="ton@email.com"
                 />
               </div>
               {emailForm.formState.errors.email && (

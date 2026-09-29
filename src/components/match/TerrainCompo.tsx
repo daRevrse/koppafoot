@@ -7,6 +7,41 @@ import {
 import { versFormation } from "@/lib/formations";
 import type { MarquesJoueur } from "@/lib/recit-du-match";
 import type { LineupEntry } from "@/types";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
+
+const T = textes(
+  {
+    buts: (n: number) => `${n} but${n > 1 ? "s" : ""}`,
+    csc: (n: number) => `${n} contre son camp`,
+    expulse2eJaune: "Expulsé, second jaune",
+    rouge: "Carton rouge",
+    jaune: "Carton jaune",
+    sortiA: (minute: number) => `Sorti à la ${minute}e minute`,
+    sorti: "Sorti en cours de match",
+    hommeDuMatch: "Homme du match",
+    changerOuRetirer: (nom: string, place: string) => `${nom}, ${place}. Changer ou retirer`,
+    emplacementLibre: (place: string) => `Emplacement libre, ${place}. Choisir un joueur`,
+    compoSurTerrain: "Composition sur le terrain",
+    changerRetirerGlisser: (nom: string, place: string) =>
+      `${nom}, ${place}. Changer ou retirer, ou faire glisser vers une autre place`,
+  },
+  {
+    buts: (n: number) => `${n} goal${n === 1 ? "" : "s"}`,
+    csc: (n: number) => `${n} own goal${n === 1 ? "" : "s"}`,
+    expulse2eJaune: "Sent off, second yellow",
+    rouge: "Red card",
+    jaune: "Yellow card",
+    sortiA: (minute: number) => `Came off at ${minute}'`,
+    sorti: "Came off during the match",
+    hommeDuMatch: "Player of the match",
+    changerOuRetirer: (nom: string, place: string) => `${nom}, ${place}. Change or remove`,
+    emplacementLibre: (place: string) => `Empty slot, ${place}. Pick a player`,
+    compoSurTerrain: "Line-up on the pitch",
+    changerRetirerGlisser: (nom: string, place: string) =>
+      `${nom}, ${place}. Change or remove, or drag to another position`,
+  },
+);
 
 // ============================================
 // Le terrain, et la composition dessus.
@@ -164,6 +199,7 @@ function Marques({ x, y, r, m, homme }: {
   m: MarquesJoueur | undefined;
   homme: boolean;
 }) {
+  const t = useTextes(T);
   if (!m && !homme) return null;
   const d = r * 0.78;
   const b = Math.max(1.7, r * 0.46);
@@ -176,8 +212,8 @@ function Marques({ x, y, r, m, homme }: {
         <g>
           <title>
             {[
-              buts > 0 ? `${buts} but${buts > 1 ? "s" : ""}` : null,
-              csc > 0 ? `${csc} contre son camp` : null,
+              buts > 0 ? t.buts(buts) : null,
+              csc > 0 ? t.csc(csc) : null,
             ].filter(Boolean).join(", ")}
           </title>
           <circle
@@ -203,7 +239,7 @@ function Marques({ x, y, r, m, homme }: {
 
       {m && (m.rouge || m.jaunes > 0) && (
         <g>
-          <title>{m.rouge ? (m.jaunes >= 2 ? "Expulsé, second jaune" : "Carton rouge") : "Carton jaune"}</title>
+          <title>{m.rouge ? (m.jaunes >= 2 ? t.expulse2eJaune : t.rouge) : t.jaune}</title>
           {m.rouge && m.jaunes >= 2 && (
             <rect
               x={x - d - b * 0.55 - 0.5} y={y - d - b * 0.8 - 0.4}
@@ -221,7 +257,7 @@ function Marques({ x, y, r, m, homme }: {
 
       {sortie !== null && (
         <g>
-          <title>{sortie > 0 ? `Sorti à la ${sortie}e minute` : "Sorti en cours de match"}</title>
+          <title>{sortie > 0 ? t.sortiA(sortie) : t.sorti}</title>
           <circle cx={x + d} cy={y + r * 0.55} r={b} fill="#dc2626" />
           <path
             d={`M ${x + d} ${y + r * 0.55 + b * 0.62} l ${-b * 0.55} ${-b * 0.62} h ${b * 0.34} v ${-b * 0.5} h ${b * 0.42} v ${b * 0.5} h ${b * 0.34} z`}
@@ -242,7 +278,7 @@ function Marques({ x, y, r, m, homme }: {
 
       {homme && (
         <g>
-          <title>Homme du match</title>
+          <title>{t.hommeDuMatch}</title>
           <circle cx={x - d} cy={y + r * 0.55} r={b} fill="#f59e0b" stroke="#ffffff" strokeWidth="0.3" />
           <polygon points={etoile(x - d, y + r * 0.55, b * 0.68)} fill="#ffffff" />
         </g>
@@ -302,6 +338,7 @@ export default function TerrainCompo({
    */
   onDeplacer?: (joueurId: string, vers: Emplacement) => void;
 }) {
+  const t = useTextes(T);
   const { places, ecart } = disposerSurTerrain(
     titulaires, taille, "haut", versFormation(formation),
   );
@@ -452,8 +489,8 @@ export default function TerrainCompo({
                 }
               },
               "aria-label": joueur
-                ? `${joueur.name}, ${place.etiquette}. Changer ou retirer`
-                : `Emplacement libre, ${place.etiquette}. Choisir un joueur`,
+                ? t.changerOuRetirer(joueur.name, place.etiquette)
+                : t.emplacementLibre(place.etiquette),
             }
           : {})}
         style={{
@@ -595,7 +632,7 @@ export default function TerrainCompo({
       ref={svgRef}
       viewBox="0 0 100 104"
       role="img"
-      aria-label="Composition sur le terrain"
+      aria-label={t.compoSurTerrain}
       className="block w-full"
     >
       <defs>
@@ -685,7 +722,7 @@ export default function TerrainCompo({
             ? {
                 role: "button" as const,
                 tabIndex: 0,
-                "aria-label": `${joueur.name}, ${place.etiquette}. Changer ou retirer, ou faire glisser vers une autre place`,
+                "aria-label": t.changerRetirerGlisser(joueur.name, place.etiquette),
                 onClick: () => {
                   if (vientDeGlisser.current) return;
                   onPlaceClick(i, place);

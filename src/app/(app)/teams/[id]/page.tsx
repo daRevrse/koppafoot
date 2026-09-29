@@ -65,8 +65,12 @@ interface FichePublique {
 }
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, normaliserPoste } from "@/lib/postes";
+import { dateAvecJour } from "@/lib/dates";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
 import CompositionsTypes from "@/components/team/CompositionsTypes";
+import { useLangue, useTextes } from "@/i18n";
+import { LOCALE } from "@/i18n/config";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // Constants
@@ -84,6 +88,86 @@ const COLOR_MAP: Record<string, { bg: string; icon: string; stripe: string; ring
 const LEVEL_LABELS: Record<string, string> = {
   beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Avancé",
 };
+
+// CE QUE LIT UN VISITEUR, OU UN MEMBRE, EST TRADUIT : la fiche publique du
+// club. Les outils du manager (effectif à gérer, paramètres, candidatures,
+// fenêtres de saisie) restent en français pour l'instant.
+const T = textes(
+  {
+    niveau: (n: string) => LEVEL_LABELS[n] ?? null,
+    creeUnCompte: "Crée ton compte pour suivre ce club.",
+    operationImpossible: "Opération impossible",
+    introuvable: "Équipe introuvable",
+    introuvableTexte: "Cette équipe n'existe pas ou a été supprimée.",
+    retourEquipes: "Retour aux équipes",
+    mesEquipes: "Mes équipes",
+    direct: "Direct",
+    toi: "Toi",
+    presents: (n: number, total: number) => `${n}/${total} présents`,
+    partageTexte: (nom: string, ville: string | null) => `${nom}${ville ? ` (${ville})` : ""} sur KoppaFoot`,
+    lienCopie: "Lien du club copié !",
+    partageEchoue: "Le partage a échoué.",
+    onglet: (id: string) => ({
+      roster: "Effectif", matches: "Matchs", compositions: "Compositions", trainings: "Entraînements",
+      palmares: "Palmarès", gallery: "Galerie", candidatures: "Candidatures", settings: "Paramètres",
+    } as Record<string, string>)[id] ?? id,
+    joueurs: (n: number) => `${n} joueur${n > 1 ? "s" : ""}`,
+    recrute: "Recrute",
+    partager: "Partager ce club",
+    suivi: "Suivi",
+    suivre: "Suivre",
+    modifier: "Modifier l'équipe",
+    sections: "Sections du club",
+    effectifVide: "L'effectif n'est pas encore renseigné.",
+    aucunTrophee: "Aucun trophée pour le moment",
+    aucunePhoto: "Aucune photo pour le moment",
+    quandEntrainement: (jour: string, heure: string) => `${jour} à ${heure}`,
+    confirmes: (n: number, total: number) => `${n}/${total} confirmés`,
+    presenceConfirmee: "Présence confirmée",
+    absenceSignalee: "Absence signalée",
+    present: "Présent",
+    absent: "Absent",
+    entrainementSupprime: "Entraînement supprimé",
+    aucunEntrainement: "Aucun entraînement programmé",
+  },
+  {
+    niveau: (n: string) => ({ beginner: "Beginner", amateur: "Amateur", intermediate: "Intermediate", advanced: "Advanced" } as Record<string, string>)[n] ?? null,
+    creeUnCompte: "Create your account to follow this club.",
+    operationImpossible: "Couldn't do that",
+    introuvable: "Team not found",
+    introuvableTexte: "This team doesn't exist or has been deleted.",
+    retourEquipes: "Back to teams",
+    mesEquipes: "My teams",
+    direct: "Live",
+    toi: "You",
+    presents: (n: number, total: number) => `${n}/${total} in`,
+    partageTexte: (nom: string, ville: string | null) => `${nom}${ville ? ` (${ville})` : ""} on KoppaFoot`,
+    lienCopie: "Club link copied!",
+    partageEchoue: "Sharing failed.",
+    onglet: (id: string) => ({
+      roster: "Squad", matches: "Matches", compositions: "Line-ups", trainings: "Training",
+      palmares: "Honours", gallery: "Gallery", candidatures: "Applications", settings: "Settings",
+    } as Record<string, string>)[id] ?? id,
+    joueurs: (n: number) => `${n} player${n === 1 ? "" : "s"}`,
+    recrute: "Recruiting",
+    partager: "Share this club",
+    suivi: "Following",
+    suivre: "Follow",
+    modifier: "Edit the team",
+    sections: "Club sections",
+    effectifVide: "The squad hasn't been filled in yet.",
+    aucunTrophee: "No trophies yet",
+    aucunePhoto: "No photos yet",
+    quandEntrainement: (jour: string, heure: string) => `${jour} at ${heure}`,
+    confirmes: (n: number, total: number) => `${n}/${total} confirmed`,
+    presenceConfirmee: "Attendance confirmed",
+    absenceSignalee: "Absence reported",
+    present: "In",
+    absent: "Out",
+    entrainementSupprime: "Training session deleted",
+    aucunEntrainement: "No training sessions scheduled",
+  },
+);
 
 const TEAM_COLORS = [
   { value: "emerald", label: "Vert", class: "bg-emerald-500" },
@@ -936,6 +1020,8 @@ export default function TeamDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { langue } = useLangue();
+  const t = useTextes(T);
   const teamId = params.id;
 
   const [team, setTeam] = useState<Team | null>(null);
@@ -1132,7 +1218,7 @@ export default function TeamDetailPage() {
     // Un visiteur touchait « Suivre » sans que rien ne se passe : on lui dit
     // ce qu'il faut pour suivre un club.
     if (!user) {
-      ouvrirConnexion("Crée ton compte pour suivre ce club.");
+      ouvrirConnexion(t.creeUnCompte);
       return;
     }
     if (!team) return;
@@ -1151,7 +1237,7 @@ export default function TeamDetailPage() {
       // The follow now round-trips to /api/follows, so it can fail on the
       // network as well as on permissions. Say so instead of leaving the
       // button silently unchanged.
-      toast.error(err instanceof Error ? err.message : "Opération impossible");
+      toast.error(err instanceof Error ? err.message : t.operationImpossible);
     } finally { setFollowLoading(false); }
   };
 
@@ -1306,10 +1392,10 @@ export default function TeamDetailPage() {
         receiverLevel: request.playerLevel,
         teamId: team.id,
         teamName: team.name,
-        message: `Votre candidature pour ${team.name} a été acceptée. Rejoignez-nous !`,
+        message: `Ta candidature pour ${team.name} a été acceptée. Rejoins-nous !`,
       });
     } catch {
-      setActionError("Une erreur est survenue. Veuillez réessayer.");
+      setActionError("Une erreur est survenue. Réessaie.");
     } finally {
       setRespondingId(null);
     }
@@ -1321,7 +1407,7 @@ export default function TeamDetailPage() {
     try {
       await respondToJoinRequest(requestId, false);
     } catch {
-      setActionError("Une erreur est survenue. Veuillez réessayer.");
+      setActionError("Une erreur est survenue. Réessaie.");
     } finally {
       setRespondingId(null);
     }
@@ -1407,11 +1493,11 @@ export default function TeamDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Shield size={48} className="text-gray-300" />
-        <h2 className="mt-4 font-display text-2xl font-black tracking-tight text-gray-900">Équipe introuvable</h2>
-        <p className="mt-2 text-sm text-gray-500">Cette equipe n&apos;existe pas ou a ete supprimee</p>
+        <h2 className="mt-4 font-display text-2xl font-black tracking-tight text-gray-900">{t.introuvable}</h2>
+        <p className="mt-2 text-sm text-gray-500">{t.introuvableTexte}</p>
         <Link href="/teams"
           className="mt-6 inline-flex items-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-all">
-          <ChevronLeft size={15} /> Retour aux équipes
+          <ChevronLeft size={15} /> {t.retourEquipes}
         </Link>
       </div>
     );
@@ -1428,8 +1514,8 @@ export default function TeamDetailPage() {
   // reellement le rayon dont cette equipe fait partie.
   const trail: { href: string; label: string }[] =
     origin === "mercato" ? [{ href: "/mercato", label: "Mercato" }]
-    : isTeamManager || isTeamMember ? [{ href: "/teams", label: "Mes équipes" }]
-    : [{ href: "/", label: "Direct" }];
+    : isTeamManager || isTeamMember ? [{ href: "/teams", label: t.mesEquipes }]
+    : [{ href: "/", label: t.direct }];
 
   const colors = COLOR_MAP[team.color] ?? COLOR_MAP.emerald;
   // Le résumé des paramètres du manager, seul endroit où il se lit encore.
@@ -1516,7 +1602,7 @@ export default function TeamDetailPage() {
     apres: (
       <>
         {j.uid && j.uid === user?.uid && (
-          <span className="bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">Toi</span>
+          <span className="bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">{t.toi}</span>
         )}
         <BadgeForme forme={formes[j.uid ? cleFormeCompte(j.uid) : cleFormeLigne(teamId, j.id)]} court />
       </>
@@ -1535,7 +1621,7 @@ export default function TeamDetailPage() {
           .map((m) => [
             m.id,
             <span key={m.id} className="shrink-0 border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
-              {m.playersConfirmed ?? 0}/{m.playersTotal} présents
+              {t.presents(m.playersConfirmed ?? 0, m.playersTotal)}
             </span>,
           ]),
       )
@@ -1544,11 +1630,11 @@ export default function TeamDetailPage() {
   const partagerLeClub = async () => {
     const resultat = await partagerLien({
       title: team.name,
-      text: `${team.name}${team.city ? ` (${team.city})` : ""} sur KoppaFoot`,
+      text: t.partageTexte(team.name, team.city || null),
       url: lienAbsolu(`/teams/${team.id}`),
     });
-    if (resultat === "copie") toast.success("Lien du club copié !");
-    else if (resultat === "echec") toast.error("Le partage a échoué.");
+    if (resultat === "copie") toast.success(t.lienCopie);
+    else if (resultat === "echec") toast.error(t.partageEchoue);
   };
 
   /**
@@ -1561,16 +1647,16 @@ export default function TeamDetailPage() {
    * quelque chose, sauf pour le manager, qui doit pouvoir les remplir.
    */
   const onglets: { id: ActiveTab; label: string; count: number; isBadge?: boolean }[] = [
-    { id: "roster", label: "Effectif", count: tailleEffectif },
-    { id: "matches", label: "Matchs", count: matchsPublics.length },
-    ...(isTeamManager ? [{ id: "compositions" as const, label: "Compositions", count: nombreDeCompositions }] : []),
-    ...(estMembre ? [{ id: "trainings" as const, label: "Entraînements", count: trainings.length }] : []),
+    { id: "roster", label: t.onglet("roster"), count: tailleEffectif },
+    { id: "matches", label: t.onglet("matches"), count: matchsPublics.length },
+    ...(isTeamManager ? [{ id: "compositions" as const, label: t.onglet("compositions"), count: nombreDeCompositions }] : []),
+    ...(estMembre ? [{ id: "trainings" as const, label: t.onglet("trainings"), count: trainings.length }] : []),
     ...((team.achievements ?? []).length > 0 || isTeamManager
-      ? [{ id: "palmares" as const, label: "Palmarès", count: (team.achievements ?? []).length }] : []),
+      ? [{ id: "palmares" as const, label: t.onglet("palmares"), count: (team.achievements ?? []).length }] : []),
     ...((team.galleryUrls ?? []).length > 0 || isTeamManager
-      ? [{ id: "gallery" as const, label: "Galerie", count: (team.galleryUrls ?? []).length }] : []),
-    ...(isTeamManager ? [{ id: "candidatures" as const, label: "Candidatures", count: pendingCount, isBadge: true }] : []),
-    ...(isTeamManager ? [{ id: "settings" as const, label: "Paramètres", count: 0 }] : []),
+      ? [{ id: "gallery" as const, label: t.onglet("gallery"), count: (team.galleryUrls ?? []).length }] : []),
+    ...(isTeamManager ? [{ id: "candidatures" as const, label: t.onglet("candidatures"), count: pendingCount, isBadge: true }] : []),
+    ...(isTeamManager ? [{ id: "settings" as const, label: t.onglet("settings"), count: 0 }] : []),
   ];
   // Un onglet qui disparaît (le dernier trophée retiré) ne laisse pas la page sur un panneau vide.
   const ongletOuvert: ActiveTab = onglets.some((o) => o.id === activeTab) ? activeTab : "roster";
@@ -1585,19 +1671,19 @@ export default function TeamDetailPage() {
         nom={team.name}
         logo={team.logoUrl ?? null}
         couleur={versHex(team.color)}
-        surtitre={[team.city, LEVEL_LABELS[team.level] ?? null].filter(Boolean).join(" · ") || null}
+        surtitre={[team.city, t.niveau(team.level)].filter(Boolean).join(" · ") || null}
         devise={team.slogan || null}
         banniere={team.bannerUrl ?? null}
         puces={
           <>
             <FormeEnLettres forme={formeChrono} />
-            <span>{tailleEffectif} joueur{tailleEffectif > 1 ? "s" : ""}</span>
-            {team.isRecruiting && <span className="text-emerald-300">Recrute</span>}
+            <span>{t.joueurs(tailleEffectif)}</span>
+            {team.isRecruiting && <span className="text-emerald-300">{t.recrute}</span>}
           </>
         }
         actions={
           <>
-            <button type="button" onClick={partagerLeClub} aria-label="Partager ce club" className={BOUTON_BANDEAU}>
+            <button type="button" onClick={partagerLeClub} aria-label={t.partager} className={BOUTON_BANDEAU}>
               <Share2 size={14} />
             </button>
             {!isTeamManager && (
@@ -1611,11 +1697,11 @@ export default function TeamDetailPage() {
                 {followLoading
                   ? <Loader2 size={14} className="animate-spin" />
                   : isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
-                {isFollowing ? "Suivi" : "Suivre"}
+                {isFollowing ? t.suivi : t.suivre}
               </button>
             )}
             {isTeamManager && (
-              <button type="button" onClick={() => setShowEditModal(true)} aria-label="Modifier l'équipe" className={BOUTON_BANDEAU}>
+              <button type="button" onClick={() => setShowEditModal(true)} aria-label={t.modifier} className={BOUTON_BANDEAU}>
                 <Edit3 size={14} />
               </button>
             )}
@@ -1630,7 +1716,7 @@ export default function TeamDetailPage() {
         <div className="lg:sticky lg:top-[calc(var(--header-h,72px)+1rem)] lg:col-start-2 lg:row-start-1">
           <CarteDuClub
             ville={team.city || null}
-            niveau={LEVEL_LABELS[team.level] ?? null}
+            niveau={t.niveau(team.level)}
             recrute={!!team.isRecruiting}
             abonnes={team.followersCount ?? 0}
             bilan={bilanServeur}
@@ -1645,7 +1731,7 @@ export default function TeamDetailPage() {
         <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1">
       {/* Les onglets : des mots, sans icône, dans le vocabulaire des autres
           fiches (capitales serrées, soulignage du courant). */}
-      <div role="tablist" aria-label="Sections du club" className="flex gap-6 overflow-x-auto border-b border-gray-200/70 scrollbar-hide">
+      <div role="tablist" aria-label={t.sections} className="flex gap-6 overflow-x-auto border-b border-gray-200/70 scrollbar-hide">
         {onglets.map((tab) => (
           <button
             key={tab.id}
@@ -1678,7 +1764,7 @@ export default function TeamDetailPage() {
             ? { nom: fiche.manager.nom, photo: fiche.manager.photo, lien: `/profile/${fiche.manager.uid}` }
             : null}
           staff={fiche?.staff ?? (team.staff ?? []).map((m) => ({ nom: m.name, titre: m.title }))}
-          vide="L'effectif n'est pas encore renseigné."
+          vide={t.effectifVide}
         />
       )}
       {ongletOuvert === "roster" && isTeamManager && (
@@ -2043,7 +2129,7 @@ export default function TeamDetailPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">{ach.title}</p>
-                    <p className="text-xs text-gray-400">{new Date(ach.date).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</p>
+                    <p className="text-xs text-gray-400">{new Date(ach.date).toLocaleDateString(LOCALE[langue], { month: "long", year: "numeric" })}</p>
                     {ach.description && <p className="mt-0.5 text-sm text-gray-500">{ach.description}</p>}
                   </div>
                   {isTeamManager && (
@@ -2058,7 +2144,7 @@ export default function TeamDetailPage() {
           ) : (
             <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Trophy size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucun trophée pour le moment</p>
+              <p className="mt-3 text-sm text-gray-500">{t.aucunTrophee}</p>
             </div>
           )}
           {isTeamManager && (
@@ -2090,7 +2176,7 @@ export default function TeamDetailPage() {
           ) : (
             <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Image size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucune photo pour le moment</p>
+              <p className="mt-3 text-sm text-gray-500">{t.aucunePhoto}</p>
             </div>
           )}
           {isTeamManager && (
@@ -2115,9 +2201,9 @@ export default function TeamDetailPage() {
                   <div>
                     <h4 className="font-semibold text-gray-900">{training.title}</h4>
                     <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1"><Calendar size={11} /> {new Date(training.date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} à {training.time}</span>
+                      <span className="flex items-center gap-1"><Calendar size={11} /> {t.quandEntrainement(dateAvecJour(new Date(training.date), langue), training.time)}</span>
                       <span className="flex items-center gap-1"><MapPin size={11} /> {training.location}</span>
-                      <span className="flex items-center gap-1"><Users size={11} /> {confirmedCount}/{training.attendees.length} confirmés</span>
+                      <span className="flex items-center gap-1"><Users size={11} /> {t.confirmes(confirmedCount, training.attendees.length)}</span>
                     </div>
                     {training.description && <p className="mt-2 text-sm text-gray-500">{training.description}</p>}
                   </div>
@@ -2125,23 +2211,23 @@ export default function TeamDetailPage() {
                     {/* Player response */}
                     {myAttendee && myAttendee.status === "pending" && (
                       <>
-                        <button onClick={() => respondToTraining(training.id, user!.uid, "confirmed").then(() => toast.success("Présence confirmée"))}
+                        <button onClick={() => respondToTraining(training.id, user!.uid, "confirmed").then(() => toast.success(t.presenceConfirmee))}
                           className="flex items-center gap-1 bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
-                          <Check size={12} /> Présent
+                          <Check size={12} /> {t.present}
                         </button>
-                        <button onClick={() => respondToTraining(training.id, user!.uid, "declined").then(() => toast.success("Absence signalée"))}
+                        <button onClick={() => respondToTraining(training.id, user!.uid, "declined").then(() => toast.success(t.absenceSignalee))}
                           className="flex items-center gap-1 border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
-                          <X size={12} /> Absent
+                          <X size={12} /> {t.absent}
                         </button>
                       </>
                     )}
                     {myAttendee && myAttendee.status !== "pending" && (
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${myAttendee.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                        {myAttendee.status === "confirmed" ? "Présent" : "Absent"}
+                        {myAttendee.status === "confirmed" ? t.present : t.absent}
                       </span>
                     )}
                     {isTeamManager && (
-                      <button onClick={() => deleteTraining(training.id).then(() => toast.success("Entraînement supprimé"))}
+                      <button onClick={() => deleteTraining(training.id).then(() => toast.success(t.entrainementSupprime))}
                         className=" p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
                         <Trash2 size={14} />
                       </button>
@@ -2153,7 +2239,7 @@ export default function TeamDetailPage() {
           }) : (
             <div className="flex flex-col items-center border border-gray-200/70 bg-white py-12">
               <Dumbbell size={32} className="text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">Aucun entraînement programmé</p>
+              <p className="mt-3 text-sm text-gray-500">{t.aucunEntrainement}</p>
             </div>
           )}
           {isTeamManager && (

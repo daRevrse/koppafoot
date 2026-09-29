@@ -59,14 +59,14 @@ export const villeRequise = yup
   .trim()
   .min(2, "Min. 2 caractères")
   .max(60, "Max. 60 caractères")
-  .test("a-des-lettres", "Indiquez un nom de ville", auMoinsTroisLettres)
+  .test("a-des-lettres", "Indique un nom de ville", auMoinsTroisLettres)
   .required("Ville requise");
 
 export const villeOptionnelle = yup
   .string()
   .trim()
   .max(60, "Max. 60 caractères")
-  .test("a-des-lettres", "Indiquez un nom de ville", (v) => !v || auMoinsTroisLettres(v))
+  .test("a-des-lettres", "Indique un nom de ville", (v) => !v || auMoinsTroisLettres(v))
   .optional();
 
 /**

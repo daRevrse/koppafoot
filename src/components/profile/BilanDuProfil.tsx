@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Award, Building2, Cake, Flag, Footprints, Ruler, Shirt, Star, Users, Weight,
@@ -7,6 +9,8 @@ import { BadgeCondition, BadgeForme, FriseDesNotes } from "@/components/forme/ba
 import { conditionEnVigueur, MATCHS_NOTES_MINIMUM, type FormeJoueur } from "@/lib/etat-de-forme";
 import { isVenueOwner } from "@/lib/hats";
 import type { UserProfile } from "@/types";
+import { useLocale, useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // La fiche publique en une carte.
@@ -56,25 +60,66 @@ export interface BilanArbitre {
 
 type Role = "player" | "manager" | "referee";
 
-const NIVEAUX: Record<string, string> = {
-  beginner: "Débutant",
-  amateur: "Amateur",
-  intermediate: "Intermédiaire",
-  advanced: "Confirmé",
-};
-
-const LICENCES: Record<string, string> = {
-  trainee: "Stagiaire",
-  regional: "Régionale",
-  national: "Nationale",
-  international: "Internationale",
-};
-
-const PIEDS: Record<string, string> = {
-  left: "Pied gauche",
-  right: "Pied droit",
-  both: "Deux pieds",
-};
+const T = textes(
+  {
+    niveau: (n: string) => ({ beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Confirmé" } as Record<string, string>)[n] ?? n,
+    licence: (l: string) => {
+      const nom = ({ trainee: "Stagiaire", regional: "Régionale", national: "Nationale", international: "Internationale" } as Record<string, string>)[l] ?? l;
+      return `Licence ${nom.toLowerCase()}`;
+    },
+    pied: (p: string) => ({ left: "Pied gauche", right: "Pied droit", both: "Deux pieds" } as Record<string, string>)[p] ?? p,
+    equipes: "Équipes",
+    forme: "Forme",
+    pasDeMatchNote: "Pas encore de match noté",
+    ilFaut: (n: number) => `Il faut ${n} matchs notés pour la calculer`,
+    matchs: "Matchs",
+    buts: "Buts",
+    passesDec: "Passes déc.",
+    pourcentVict: "% vict.",
+    victoiresSur: (v: number, n: number) => `${v} V sur ${n}`,
+    matchsArbitres: "Matchs arbitrés",
+    noteSur5: "Note /5",
+    avis: (n: number) => `${n} avis`,
+    pasEncoreNote: "pas encore noté",
+    experience: (n: number) => (n > 1 ? "Ans d'expérience" : "An d'expérience"),
+    ans: (n: number) => `${n} ans`,
+    corps: (chef: boolean, nom: string) => `${chef ? "Dirige" : "Membre de"} « ${nom} »`,
+    joueurSecond: (n: number) => `Joueur · ${n} match${n > 1 ? "s" : ""}`,
+    managerSecond: (pct: number, n: number) => `Manager · ${pct} % de victoires sur ${n} match${n > 1 ? "s" : ""}`,
+    manager: "Manager",
+    arbitreSecond: (n: number) => `Arbitre · ${n} match${n > 1 ? "s" : ""} arbitré${n > 1 ? "s" : ""}`,
+    arbitre: "Arbitre",
+  },
+  {
+    niveau: (n: string) => ({ beginner: "Beginner", amateur: "Amateur", intermediate: "Intermediate", advanced: "Experienced" } as Record<string, string>)[n] ?? n,
+    licence: (l: string) => {
+      const nom = ({ trainee: "Trainee", regional: "Regional", national: "National", international: "International" } as Record<string, string>)[l] ?? l;
+      return `${nom} licence`;
+    },
+    pied: (p: string) => ({ left: "Left-footed", right: "Right-footed", both: "Two-footed" } as Record<string, string>)[p] ?? p,
+    equipes: "Teams",
+    forme: "Form",
+    pasDeMatchNote: "No rated match yet",
+    ilFaut: (n: number) => `${n} rated matches needed to calculate it`,
+    matchs: "Matches",
+    buts: "Goals",
+    passesDec: "Assists",
+    pourcentVict: "Win %",
+    victoiresSur: (v: number, n: number) => `${v} W out of ${n}`,
+    matchsArbitres: "Matches refereed",
+    noteSur5: "Rating /5",
+    avis: (n: number) => `${n} review${n === 1 ? "" : "s"}`,
+    pasEncoreNote: "not rated yet",
+    experience: (n: number) => (n === 1 ? "Year of experience" : "Years of experience"),
+    ans: (n: number) => `${n} years old`,
+    corps: (chef: boolean, nom: string) => `${chef ? "Leads" : "Member of"} “${nom}”`,
+    joueurSecond: (n: number) => `Player · ${n} match${n === 1 ? "" : "es"}`,
+    managerSecond: (pct: number, n: number) => `Manager · ${pct}% wins over ${n} match${n === 1 ? "" : "es"}`,
+    manager: "Manager",
+    arbitreSecond: (n: number) => `Referee · ${n} match${n === 1 ? "" : "es"} refereed`,
+    arbitre: "Referee",
+  },
+);
 
 function age(dateDeNaissance: string | null | undefined): number | null {
   if (!dateDeNaissance) return null;
@@ -87,7 +132,6 @@ function age(dateDeNaissance: string | null | undefined): number | null {
   return a;
 }
 
-const virgule = (n: number) => n.toFixed(1).replace(".", ",");
 
 /**
  * Les rôles tenus, le principal d'abord.
@@ -121,27 +165,28 @@ function Etiquette({ children }: { children: React.ReactNode }) {
  * CHAQUE ÉCUSSON EST UN LIEN : c'est le seul chemin de la fiche vers le club.
  */
 function CaseEquipes({ teams }: { teams: EquipePubliee[] }) {
+  const t = useTextes(T);
   const montres = teams.slice(0, 4);
   const reste = teams.length - montres.length;
   return (
     <div className="flex w-full min-w-0 items-center gap-3 px-5 py-4 sm:w-auto sm:shrink-0">
-      <Etiquette>Équipes</Etiquette>
+      <Etiquette>{t.equipes}</Etiquette>
       {/* `hover:z-10` pour que celui qu'on survole passe devant ses voisins,
           qui le chevauchent. */}
       <div className="flex items-center -space-x-2">
-        {montres.map((t) => (
+        {montres.map((e) => (
           <Link
-            key={t.id}
-            href={`/teams/${t.id}`}
-            title={t.name}
-            aria-label={t.name}
+            key={e.id}
+            href={`/teams/${e.id}`}
+            title={e.name}
+            aria-label={e.name}
             className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gray-100 text-[10px] font-black text-gray-500 transition-transform hover:z-10 hover:scale-110"
           >
-            {t.logoUrl ? (
+            {e.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={t.logoUrl} alt="" className="h-full w-full object-contain" />
+              <img src={e.logoUrl} alt="" className="h-full w-full object-contain" />
             ) : (
-              t.name.slice(0, 2).toUpperCase()
+              e.name.slice(0, 2).toUpperCase()
             )}
           </Link>
         ))}
@@ -170,12 +215,13 @@ function CaseForme({
   formeChargee: boolean;
   condition: UserProfile["condition"];
 }) {
+  const t = useTextes(T);
   const matchs = forme?.matchs ?? [];
   const aDire = Boolean(conditionEnVigueur(condition) || forme?.niveau);
   return (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
-        <Etiquette>Forme</Etiquette>
+        <Etiquette>{t.forme}</Etiquette>
         {aDire ? (
           <span className="flex flex-wrap items-center gap-1.5">
             <BadgeCondition condition={condition} apte />
@@ -183,9 +229,7 @@ function CaseForme({
           </span>
         ) : formeChargee ? (
           <span className="text-[11px] font-bold text-gray-400">
-            {matchs.length === 0
-              ? "Pas encore de match noté"
-              : `Il faut ${MATCHS_NOTES_MINIMUM} matchs notés pour la calculer`}
+            {matchs.length === 0 ? t.pasDeMatchNote : t.ilFaut(MATCHS_NOTES_MINIMUM)}
           </span>
         ) : null}
       </div>
@@ -236,13 +280,16 @@ export default function BilanDuProfil({
   forme: FormeJoueur | null;
   formeChargee: boolean;
 }) {
+  const t = useTextes(T);
+  const locale = useLocale();
+  const virgule = (n: number) => n.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const roles = rolesDuProfil(profile);
   const principal = roles[0] ?? null;
 
   // Le bilan d'un manager se lit sur ses équipes, pas sur `users` : ce sont
   // elles qui le portent, et la projection publique les sert déjà.
-  const matchsDiriges = teams.reduce((n, t) => n + t.matchesPlayed, 0);
-  const victoires = teams.reduce((n, t) => n + t.wins, 0);
+  const matchsDiriges = teams.reduce((n, e) => n + e.matchesPlayed, 0);
+  const victoires = teams.reduce((n, e) => n + e.wins, 0);
   const pourcent = matchsDiriges > 0 ? Math.round((victoires / matchsDiriges) * 100) : 0;
 
   // ─── 2. Les chiffres du rôle principal ───
@@ -250,21 +297,21 @@ export default function BilanDuProfil({
   if (principal === "player") {
     chiffres = (
       <div className="grid grid-cols-3 divide-x divide-gray-200/70">
-        <CaseChiffre label="Matchs" valeur={profile.matchesPlayed ?? 0} />
-        <CaseChiffre label="Buts" valeur={profile.goals ?? 0} />
-        <CaseChiffre label="Passes déc." valeur={profile.assists ?? 0} />
+        <CaseChiffre label={t.matchs} valeur={profile.matchesPlayed ?? 0} />
+        <CaseChiffre label={t.buts} valeur={profile.goals ?? 0} />
+        <CaseChiffre label={t.passesDec} valeur={profile.assists ?? 0} />
       </div>
     );
   } else if (principal === "manager") {
     chiffres = (
       <div className="grid grid-cols-3 divide-x divide-gray-200/70">
-        <CaseChiffre label="Équipes" valeur={teams.length} />
-        <CaseChiffre label="Matchs" valeur={matchsDiriges} />
+        <CaseChiffre label={t.equipes} valeur={teams.length} />
+        <CaseChiffre label={t.matchs} valeur={matchsDiriges} />
         <CaseChiffre
-          label="% vict."
+          label={t.pourcentVict}
           valeur={pourcent}
           suffixe="%"
-          detail={matchsDiriges > 0 ? `${victoires} V sur ${matchsDiriges}` : null}
+          detail={matchsDiriges > 0 ? t.victoiresSur(victoires, matchsDiriges) : null}
         />
       </div>
     );
@@ -272,14 +319,14 @@ export default function BilanDuProfil({
     const experience = typeof profile.experienceYears === "number" ? profile.experienceYears : null;
     chiffres = (
       <div className={`grid divide-x divide-gray-200/70 ${experience !== null ? "grid-cols-3" : "grid-cols-2"}`}>
-        <CaseChiffre label="Matchs arbitrés" valeur={arbitrage.matchs} />
+        <CaseChiffre label={t.matchsArbitres} valeur={arbitrage.matchs} />
         <CaseChiffre
-          label="Note /5"
+          label={t.noteSur5}
           valeur={arbitrage.note !== null ? virgule(arbitrage.note) : "–"}
-          detail={arbitrage.note !== null ? `${arbitrage.avis} avis` : "pas encore noté"}
+          detail={arbitrage.note !== null ? t.avis(arbitrage.avis) : t.pasEncoreNote}
         />
         {experience !== null && (
-          <CaseChiffre label={experience > 1 ? "Ans d'expérience" : "An d'expérience"} valeur={experience} />
+          <CaseChiffre label={t.experience(experience)} valeur={experience} />
         )}
       </div>
     );
@@ -288,36 +335,35 @@ export default function BilanDuProfil({
   // ─── 3. Le reste, en une ligne ───
   const attributs: Attribut[] = [];
   if (principal === "player") {
-    const niveau = profile.skillLevel ? NIVEAUX[profile.skillLevel] ?? profile.skillLevel : null;
+    const niveau = profile.skillLevel ? t.niveau(profile.skillLevel) : null;
     const ans = age(profile.dateOfBirth);
     if (niveau) attributs.push({ Icone: Star, texte: niveau, fort: true });
-    if (profile.strongFoot) attributs.push({ Icone: Footprints, texte: PIEDS[profile.strongFoot] ?? profile.strongFoot });
+    if (profile.strongFoot) attributs.push({ Icone: Footprints, texte: t.pied(profile.strongFoot) });
     if (profile.height) attributs.push({ Icone: Ruler, texte: `${profile.height} cm` });
     if (profile.weight) attributs.push({ Icone: Weight, texte: `${profile.weight} kg` });
-    if (ans !== null) attributs.push({ Icone: Cake, texte: `${ans} ans` });
+    if (ans !== null) attributs.push({ Icone: Cake, texte: t.ans(ans) });
   }
   if (principal === "referee") {
-    const licence = profile.licenseLevel ? LICENCES[profile.licenseLevel] ?? profile.licenseLevel : null;
-    if (licence) attributs.push({ Icone: Award, texte: `Licence ${licence.toLowerCase()}`, fort: true });
+    if (profile.licenseLevel) attributs.push({ Icone: Award, texte: t.licence(profile.licenseLevel), fort: true });
     if (arbitrage?.corps) {
       attributs.push({
         Icone: Users,
-        texte: `${arbitrage.corps.chef ? "Dirige" : "Membre de"} « ${arbitrage.corps.nom} »`,
+        texte: t.corps(arbitrage.corps.chef, arbitrage.corps.nom),
       });
     }
   }
   // Le rôle second, résumé : il n'a pas sa carte, il a sa ligne.
   for (const r of roles.slice(1)) {
     if (r === "player") {
-      attributs.push({ Icone: Shirt, texte: `Joueur · ${profile.matchesPlayed ?? 0} match${(profile.matchesPlayed ?? 0) > 1 ? "s" : ""}` });
+      attributs.push({ Icone: Shirt, texte: t.joueurSecond(profile.matchesPlayed ?? 0) });
     } else if (r === "manager" && matchsDiriges > 0) {
-      attributs.push({ Icone: Users, texte: `Manager · ${pourcent} % de victoires sur ${matchsDiriges} match${matchsDiriges > 1 ? "s" : ""}` });
+      attributs.push({ Icone: Users, texte: t.managerSecond(pourcent, matchsDiriges) });
     } else if (r === "manager") {
-      attributs.push({ Icone: Users, texte: "Manager" });
+      attributs.push({ Icone: Users, texte: t.manager });
     } else if (r === "referee") {
       attributs.push({
         Icone: Flag,
-        texte: arbitrage ? `Arbitre · ${arbitrage.matchs} match${arbitrage.matchs > 1 ? "s" : ""} arbitré${arbitrage.matchs > 1 ? "s" : ""}` : "Arbitre",
+        texte: arbitrage ? t.arbitreSecond(arbitrage.matchs) : t.arbitre,
       });
     }
   }
