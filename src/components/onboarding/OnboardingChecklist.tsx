@@ -2,8 +2,10 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, ArrowRight, PartyPopper, ChevronDown } from "lucide-react";
+import { CheckCircle2, Circle, ArrowRight, PartyPopper, ChevronDown, BookOpen } from "lucide-react";
 import type { OnboardingProgress } from "@/lib/onboarding";
+import { useTextes } from "@/i18n";
+import { textes } from "@/i18n/textes";
 
 // ============================================
 // Guided onboarding checklist, the same widget for every role. Unlike the
@@ -16,6 +18,19 @@ import type { OnboardingProgress } from "@/lib/onboarding";
 // ============================================
 
 const STORAGE_KEY = "koppafoot:onboarding-collapsed";
+
+const T = textes(
+  {
+    titre: "Pour bien démarrer",
+    fini: "Tout est en place. Bon match !",
+    tutoriel: "Lire le tutoriel pas à pas",
+  },
+  {
+    titre: "Getting started",
+    fini: "You're all set. Enjoy the match!",
+    tutoriel: "Read the step-by-step guide",
+  },
+);
 
 // localStorage is external state, so it is read through useSyncExternalStore
 // rather than an effect: no hydration mismatch (the server snapshot is
@@ -52,12 +67,16 @@ function storeCollapsed(value: boolean): void {
 
 export default function OnboardingChecklist({
   progress,
-  title = "Pour bien démarrer",
+  title,
+  onglets,
 }: {
   progress: OnboardingProgress;
   title?: string;
+  /** Les autres guides du compte, quand il en a plusieurs : sous le titre. */
+  onglets?: React.ReactNode;
 }) {
-  const { steps, doneCount, total, current, complete } = progress;
+  const t = useTextes(T);
+  const { steps, doneCount, total, current, complete, suggestion, tutoriel } = progress;
   const collapsed = useSyncExternalStore(subscribe, getCollapsed, getServerCollapsed);
   const toggle = () => storeCollapsed(!collapsed);
 
@@ -69,7 +88,7 @@ export default function OnboardingChecklist({
         aria-expanded={!collapsed}
         className="flex w-full items-center justify-between gap-3 text-left"
       >
-        <p className="text-xs font-black uppercase tracking-widest text-gray-400">{title}</p>
+        <p className="text-xs font-black uppercase tracking-widest text-gray-400">{title ?? t.titre}</p>
         <span className="flex shrink-0 items-center gap-2">
           <span className="text-xs font-black text-emerald-600">
             {doneCount}/{total}
@@ -87,10 +106,12 @@ export default function OnboardingChecklist({
         />
       </div>
 
+      {!collapsed && onglets}
+
       {collapsed ? null : complete ? (
         <p className="mt-4 flex items-center gap-2 text-sm font-bold text-emerald-700">
           <PartyPopper size={16} />
-          Tout est en place. Bon match !
+          {t.fini}
         </p>
       ) : (
         <ul className="mt-4 space-y-2.5">
@@ -139,6 +160,29 @@ export default function OnboardingChecklist({
             );
           })}
         </ul>
+      )}
+
+      {/* Sous la liste : la porte qui n'est pas une étape (choisir un rôle,
+          pour un spectateur), et le tutoriel du profil, pour qui veut tout
+          voir d'un coup plutôt qu'étape par étape. */}
+      {!collapsed && (
+        <div className="mt-4 space-y-2 border-t border-gray-200/70 pt-3">
+          {suggestion && !complete && (
+            <p className="text-xs font-semibold text-gray-500">
+              {suggestion.texte}{" "}
+              <Link href={suggestion.href} className="font-black text-emerald-700 underline decoration-dotted underline-offset-2 hover:text-gray-900">
+                {suggestion.cta}
+              </Link>
+            </p>
+          )}
+          <Link
+            href={`/aide/tutoriels/${tutoriel}`}
+            className="inline-flex items-center gap-1.5 text-xs font-black text-gray-600 transition-colors hover:text-gray-900"
+          >
+            <BookOpen size={13} />
+            {t.tutoriel}
+          </Link>
+        </div>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { ChevronLeft, Loader2, CheckCircle2, Clock, XCircle } from "lucide-react
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
+import { accorder } from "@/lib/genre";
 
 // ============================================
 // La candidature de scoreur.
@@ -155,7 +156,7 @@ export default function CandidatureScoreurPage() {
         <div className="border border-emerald-200 bg-emerald-50 p-8 text-center sm:p-12">
           <CheckCircle2 size={36} className="mx-auto text-emerald-600" />
           <h2 className="mt-4 font-display text-xl font-black text-emerald-900">
-            Tu es déjà scoreur
+            Tu es déjà {accorder(user?.gender, "scoreur", "scoreuse")}
           </h2>
           <p className="mx-auto mt-1 max-w-sm text-sm text-emerald-800">
             Les amicaux qui cherchent quelqu&apos;un t&apos;attendent dans ton

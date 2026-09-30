@@ -66,7 +66,7 @@ const T = textes(
       text: "", match_result: "Result", team_announcement: "Recruiting",
       highlight: "Performance", competition_announcement: "Competition",
     })[p],
-    role: (r: string) => ({ Joueur: "Player", Manager: "Manager", Arbitre: "Referee" } as Record<string, string>)[r] ?? r,
+    role: (r: string) => ({ Joueur: "Player", Joueuse: "Player", Manager: "Manager", Arbitre: "Referee" } as Record<string, string>)[r] ?? r,
     epingle: "Pinned",
     compteOfficiel: "Official KoppaFoot account",
     modifier: "Edit",
@@ -214,7 +214,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
   const authorRole =
     currentUser?.evolutionRole === "manager" ? "Manager"
     : currentUser?.evolutionRole === "referee" ? "Arbitre"
-    : "Joueur";
+    : currentUser?.gender === "female" ? "Joueuse" : "Joueur";
 
   // Le nom se construit champ par champ : un profil incomplet en base a un
   // nom de famille vide, et « P. » tout court vaut mieux qu'un plantage.
@@ -396,7 +396,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
                 >
                   <BadgeCheck size={11} />
                 </span>
-              ) : ["Joueur", "Manager", "Arbitre"].includes(post.authorRole) ? (
+              ) : ["Joueur", "Joueuse", "Manager", "Arbitre"].includes(post.authorRole) ? (
                 /* Seuls les trois roles s'affichent. Les publications d'avant
                    portent parfois « Partenaire » ou « Organisateur » en
                    `author_role` : ce sont des casquettes, pas des roles, et on

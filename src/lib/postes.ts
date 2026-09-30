@@ -24,6 +24,7 @@
 // ============================================
 
 import type { Langue } from "@/i18n/config";
+import type { Genre } from "@/lib/genre";
 
 export type Poste = "goalkeeper" | "defender" | "midfielder" | "forward";
 
@@ -49,6 +50,26 @@ export const LIBELLES_POSTE: Record<Langue, Record<Poste, string>> = {
 
 /** Le français, pour les écrans qui ne parlent encore que lui. */
 export const LIBELLE_POSTE = LIBELLES_POSTE.fr;
+
+/**
+ * Les mêmes, pour une joueuse. « Défenseure » plutôt que « défenseuse » :
+ * c'est la forme des feuilles de match et de la presse du football féminin.
+ * L'anglais n'accorde pas.
+ */
+const LIBELLES_POSTE_FEMININ: Record<Langue, Record<Poste, string>> = {
+  fr: {
+    goalkeeper: "Gardienne",
+    defender: "Défenseure",
+    midfielder: "Milieu",
+    forward: "Attaquante",
+  },
+  en: LIBELLES_POSTE.en,
+};
+
+/** Le libellé d'un poste, accordé au genre de qui l'occupe (masculin par défaut). */
+export function nomDuPoste(poste: Poste, langue: Langue = "fr", genre?: Genre | null): string {
+  return (genre === "female" ? LIBELLES_POSTE_FEMININ : LIBELLES_POSTE)[langue][poste];
+}
 
 /**
  * L'initiale portée par le maillot sur le terrain : G, D, M, A.
@@ -125,9 +146,13 @@ export function estGardien(brut: string | null | undefined): boolean {
 }
 
 /** Le libellé à afficher, ou la saisie d'origine si elle est illisible. */
-export function libellePoste(brut: string | null | undefined, langue: Langue = "fr"): string | null {
+export function libellePoste(
+  brut: string | null | undefined,
+  langue: Langue = "fr",
+  genre?: Genre | null,
+): string | null {
   const poste = normaliserPoste(brut);
-  if (poste) return LIBELLES_POSTE[langue][poste];
+  if (poste) return nomDuPoste(poste, langue, genre);
   const reste = brut?.trim();
   return reste ? reste : null;
 }

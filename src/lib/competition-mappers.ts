@@ -9,6 +9,7 @@
 // ============================================
 
 import { normaliserPoste } from "@/lib/postes";
+import { lireCategorie } from "@/lib/genre";
 import { lireEmplacement } from "@/lib/terrain";
 import type {
   Competition, FirestoreCompetition,
@@ -28,6 +29,7 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     name: d.name,
     slug: d.slug,
     description: d.description,
+    category: lireCategorie(d.category),
     logoUrl: d.logo_url,
     bannerUrl: d.banner_url,
     organizerIds: d.organizer_ids ?? [],

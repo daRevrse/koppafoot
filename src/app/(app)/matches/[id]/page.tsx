@@ -36,7 +36,8 @@ import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
-import { usePhotosDesComptes } from "@/hooks/usePhotosDesComptes";
+import { useComptesPublics } from "@/hooks/usePhotosDesComptes";
+import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import TerrainCompo from "@/components/match/TerrainCompo";
@@ -866,13 +867,19 @@ export default function MatchDetailPage() {
 
   // Le visage de l'homme du match. Avant les retours anticipés : un hook ne
   // se saute pas.
-  const photosParCompte = usePhotosDesComptes([match?.mvpUserId]);
+  const { photos: photosParCompte, genres: genresParCompte } = useComptesPublics([match?.mvpUserId]);
 
   /**
    * LA COULEUR DES DEUX CLUBS, pour les barres de stats. Une équipe hors
    * plateforme n'a pas de fiche : elle garde le gris d'avant.
+   *
+   * Et leur catégorie, lue dans la même fiche : une équipe féminine aligne des
+   * joueuses, ce qui accorde « Joueuse du match » (lib/genre).
    */
-  const [couleursClubs, setCouleursClubs] = useState<{ home: string | null; away: string | null } | null>(null);
+  const [couleursClubs, setCouleursClubs] = useState<{
+    home: string | null; away: string | null;
+    categorieHome: Categorie | null; categorieAway: Categorie | null;
+  } | null>(null);
   const idDomicile = match?.homeTeamId ?? null;
   const idExterieur = match?.awayTeamId ?? null;
   useEffect(() => {
@@ -882,7 +889,10 @@ export default function MatchDetailPage() {
       idDomicile ? getTeamById(idDomicile).catch(() => null) : null,
       idExterieur ? getTeamById(idExterieur).catch(() => null) : null,
     ]).then(([h, a]) => {
-      if (vivant) setCouleursClubs({ home: h?.color ?? null, away: a?.color ?? null });
+      if (vivant) setCouleursClubs({
+        home: h?.color ?? null, away: a?.color ?? null,
+        categorieHome: h?.category ?? null, categorieAway: a?.category ?? null,
+      });
     });
     return () => { vivant = false; };
   }, [idDomicile, idExterieur]);
@@ -1144,6 +1154,10 @@ export default function MatchDetailPage() {
                 motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
                 note={noteDeLHomme}
                 href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
+                genre={genreDuJoueur(
+                  match.mvpUserId ? genresParCompte[match.mvpUserId] : null,
+                  match.mvpTeamId === match.homeTeamId ? couleursClubs?.categorieHome : couleursClubs?.categorieAway,
+                )}
               />
 
               {/* LE STATUT DE VALIDATION, POUR LES MANAGERS ET LEUR STAFF.

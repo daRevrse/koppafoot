@@ -16,6 +16,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { roleDepuisURL } from "@/lib/onboarding";
 import type { EvolutionRole } from "@/types";
+import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
+import type { Genre } from "@/lib/genre";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
@@ -65,6 +67,13 @@ export default function SignupPage() {
    */
   const [roleChoisi, setRoleChoisi] = useState<EvolutionRole | null>(null);
   useEffect(() => setRoleChoisi(roleDepuisURL()), []);
+  /**
+   * Le genre, demandé seulement avec un rôle : le compte naît alors joueur,
+   * manager ou arbitre, et un compte à rôle dit son genre (lib/genre). Un
+   * simple spectateur n'a rien à déclarer.
+   */
+  const [genre, setGenre] = useState<Genre | null>(null);
+  const [genreManquant, setGenreManquant] = useState(false);
   const { signupWithEmail, loginWithGoogle } = useAuth();
   const router = useRouter();
   // La provenance, transmise par /login : l'inscription doit promettre la
@@ -81,6 +90,10 @@ export default function SignupPage() {
   });
 
   const goToStep2 = (data: EssentialsForm) => {
+    if (roleChoisi && !genre) {
+      setGenreManquant(true);
+      return;
+    }
     setEssentials(data);
     setStep(2);
   };
@@ -103,6 +116,7 @@ export default function SignupPage() {
         // Le compte nait avec le role qu'on venait de choisir, plutot que de
         // renvoyer vers un ecran qui repose la meme question.
         ...(roleChoisi ? { evolutionRole: roleChoisi } : {}),
+        ...(roleChoisi && genre ? { gender: genre } : {}),
       });
       toast.success("Compte créé ! Vérifie ton email.");
     } catch (err) {
@@ -235,6 +249,25 @@ export default function SignupPage() {
                 <p className="mt-1.5 text-[11px] font-bold text-red-600">{essentialsForm.formState.errors.password.message}</p>
               )}
             </div>
+
+            {roleChoisi && (
+              <div>
+                <p className={labelClass}>Tu es</p>
+                <ChoixDuGenre
+                  valeur={genre}
+                  onChange={(g) => {
+                    setGenre(g);
+                    setGenreManquant(false);
+                  }}
+                  erreur={genreManquant}
+                />
+                {genreManquant && (
+                  <p className="mt-1.5 text-[11px] font-bold text-red-600">
+                    Dis-nous si tu es un homme ou une femme : ton rôle s&apos;accorde.
+                  </p>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"

@@ -161,7 +161,8 @@ export default function FeedPage() {
         user.userType === "manager" ? "Manager"
         : user.userType === "referee" ? "Arbitre"
         : isVenueOwner ? "Partenaire"
-        : "Joueur";
+        // Accordé : l'étiquette s'écrit telle quelle sur la publication.
+        : user.gender === "female" ? "Joueuse" : "Joueur";
 
       const authorName = isVenueOwner && user.companyName 
         ? user.companyName 

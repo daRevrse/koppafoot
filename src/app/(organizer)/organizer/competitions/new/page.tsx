@@ -14,6 +14,8 @@ import ImageUploadField from "@/components/ui/ImageUploadField";
 import CompetitionTypePicker from "@/components/competition/CompetitionTypePicker";
 import CompetitionFormatFields from "@/components/competition/CompetitionFormatFields";
 import toast from "react-hot-toast";
+import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
+import type { Categorie } from "@/lib/genre";
 import type { CompetitionFormat, CompetitionType } from "@/types";
 
 interface FormState {
@@ -43,6 +45,8 @@ export default function NewCompetitionPage() {
   const [bannerUrl, setBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /** Qui y joue. Le mercato et les fiches la lisent (voir lib/genre). */
+  const [categorie, setCategorie] = useState<Categorie>("men");
 
   const slugPreview = slugify(form.name);
 
@@ -90,6 +94,7 @@ export default function NewCompetitionPage() {
         // pas accès aux profils. Renommer sa structure plus tard ne touche
         // pas les compétitions déjà créées.
         organizerName: user.organizerName ?? null,
+        category: categorie,
       });
 
       // Uploaded files win over the URL fields.
@@ -150,6 +155,11 @@ export default function NewCompetitionPage() {
                 URL : <span className="font-mono text-gray-500">/{slugPreview}</span>
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Catégorie</label>
+            <ChoixDeCategorie valeur={categorie} onChange={setCategorie} />
           </div>
 
           <div>

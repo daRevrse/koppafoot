@@ -6,6 +6,8 @@ import MiniEcusson from "@/components/match/MiniEcusson";
 import { RESULTATS } from "@/lib/forme";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import BadgeCategorie from "@/components/genre/BadgeCategorie";
+import { categorieAffichee, type Categorie } from "@/lib/genre";
 
 // ============================================
 // Le bandeau d'une équipe : LE MÊME pour la fiche d'un club et pour celle
@@ -50,7 +52,7 @@ export interface EtapeDuFil {
 }
 
 export default function BandeauEquipe({
-  fil, nom, logo, couleur, surtitre, devise, banniere, puces, actions,
+  fil, nom, logo, couleur, surtitre, devise, banniere, puces, actions, categorie,
 }: {
   /** Le chemin jusqu'à l'équipe. Seul son dernier niveau cliquable sert : le repli du retour. */
   fil: EtapeDuFil[];
@@ -66,6 +68,8 @@ export default function BandeauEquipe({
   puces?: React.ReactNode;
   /** Les boutons du coin : suivre, partager, modifier. */
   actions?: React.ReactNode;
+  /** Féminine ou mixte : un badge à côté du surtitre (lib/genre). */
+  categorie?: Categorie | null;
 }) {
   const router = useRouter();
   const t = useTextes(T);
@@ -108,9 +112,10 @@ export default function BandeauEquipe({
             </span>
           )}
           <div className="min-w-0 flex-1">
-            {surtitre && (
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300 sm:text-[11px]">
+            {(surtitre || categorieAffichee(categorie)) && (
+              <p className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300 sm:text-[11px]">
                 {surtitre}
+                <BadgeCategorie categorie={categorie} sombre />
               </p>
             )}
             <h1 className="mt-1 line-clamp-2 break-words font-display text-2xl font-black uppercase leading-[1.05] tracking-tight sm:text-4xl">

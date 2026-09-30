@@ -14,6 +14,7 @@ import {
 } from "@/components/admin/ui";
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import type { FicheCompteAdmin } from "@/lib/admin-types";
+import { LIBELLES_GENRE } from "@/lib/genre";
 
 // ============================================
 // La fiche d'un compte, pour l'administration.
@@ -114,6 +115,7 @@ export default function FicheCompteAdminPage() {
               {c.email && <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 hover:text-gray-900"><Mail size={13} /> {c.email}</a>}
               {c.telephone && <a href={`tel:${c.telephone}`} className="flex items-center gap-1.5 hover:text-gray-900"><Phone size={13} /> {c.telephone}</a>}
               <span>{c.ville ?? "Ville non renseignée"}</span>
+              <span>{c.genre ? LIBELLES_GENRE.fr[c.genre] : "Genre non déclaré"}</span>
               <span className="text-gray-400">Inscrit {ilYA(c.creeLe)}</span>
             </div>
             {c.bio && <p className="mt-2 text-sm italic text-gray-500">« {c.bio} »</p>}

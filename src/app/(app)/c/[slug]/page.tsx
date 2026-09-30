@@ -22,6 +22,8 @@ import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
 import type { Competition, CompMatch, CompTeam, CompetitionStatus } from "@/types";
+import BadgeCategorie from "@/components/genre/BadgeCategorie";
+import type { Categorie } from "@/lib/genre";
 
 // ============================================
 // Helpers
@@ -65,7 +67,9 @@ const T = textes(
     partagerCompetition: "Partager la compétition",
     partager: "Partager",
     abonnes: (n: number) => `${n} abonné${n > 1 ? "s" : ""}`,
-    meilleurJoueur: "Meilleur joueur du tournoi",
+    /** Une compétition féminine élit sa meilleure joueuse (lib/genre). */
+    meilleurJoueur: (categorie: Categorie | null) =>
+      categorie === "women" ? "Meilleure joueuse du tournoi" : "Meilleur joueur du tournoi",
     inscriptionsOuvertes: "Inscriptions ouvertes",
     tuDiriges: "Tu diriges une équipe ? Inscris-la à cette compétition.",
     sInscrire: "S'inscrire",
@@ -95,7 +99,7 @@ const T = textes(
     partagerCompetition: "Share the competition",
     partager: "Share",
     abonnes: (n: number) => `${n} follower${n === 1 ? "" : "s"}`,
-    meilleurJoueur: "Player of the tournament",
+    meilleurJoueur: () => "Player of the tournament",
     inscriptionsOuvertes: "Registration open",
     tuDiriges: "Running a team? Register it for this competition.",
     sInscrire: "Register",
@@ -332,6 +336,7 @@ export default function PublicCompetitionHome() {
                 {competition.organizerName && (
                   <span className="text-white/40"> · {competition.organizerName}</span>
                 )}
+                <BadgeCategorie categorie={competition.category} sombre className="ml-2 align-middle" />
               </p>
               <h1 className="mt-1 truncate font-display text-2xl font-black uppercase leading-tight tracking-tight sm:text-4xl">
                 {competition.name}
@@ -368,7 +373,7 @@ export default function PublicCompetitionHome() {
           <MvpDuMatch
             name={competition.mvpPlayerName}
             teamName={teams.find((t) => t.id === competition.mvpTeamId)?.name ?? null}
-            label={t.meilleurJoueur}
+            label={t.meilleurJoueur(competition.category ?? null)}
           />
         </div>
       )}

@@ -8,6 +8,7 @@ const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 // were all redirects. Une seule declaration desormais, dans lib/partage :
 // elle en avait cinq, et rien ne garantissait qu'elles restent d'accord.
 import { APP_URL } from "@/lib/partage";
+import { accorder, type Genre } from "@/lib/genre";
 
 // ── Transport ──────────────────────────────────────────────
 // Provider-agnostic send: Brevo (BREVO_API_KEY) wins when configured,
@@ -332,14 +333,14 @@ export function campaignSansEspaceHtml(firstName: string): string {
   `);
 }
 
-export function campaignManagerNoTeamHtml(firstName: string): string {
+export function campaignManagerNoTeamHtml(firstName: string, genre: Genre | null = null): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut Coach ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
       Ton équipe t'attend&nbsp;👋
     </h2>
     <p style="margin:0 0 16px;">
-      Tu es inscrit sur KoppaFoot en tant que manager, mais tu n'as pas encore créé ton équipe.
+      Tu es ${accorder(genre, "inscrit", "inscrite")} sur KoppaFoot en tant que manager, mais tu n'as pas encore créé ton équipe.
     </p>
     <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
       En 2 minutes, crée ton équipe, invite tes joueurs et commence à défier tes adversaires.
@@ -364,7 +365,7 @@ export function campaignPlayerNoTeamHtml(firstName: string): string {
   return emailLayout(`
     <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Salut ${firstName},</p>
     <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#059669;">
-      Des équipes cherchent un joueur comme toi&nbsp;⚽
+      Des équipes recrutent près de chez toi&nbsp;⚽
     </h2>
     <p style="margin:0 0 16px;">
       Des dizaines d'équipes actives recherchent des joueurs dans ta ville.

@@ -11,6 +11,7 @@
 
 import { formatDate } from "@/lib/dates";
 import { lireCondition } from "@/lib/etat-de-forme";
+import { lireGenre } from "@/lib/genre";
 import type { AuthProvider, FirestoreUser, SignupData, UserProfile } from "@/types";
 
 /** L'identifiant de fournisseur Firebase, dans le vocabulaire du profil. */
@@ -62,6 +63,7 @@ export function firestoreToProfile(uid: string, data: FirestoreUser): UserProfil
     ...(data.experience_years !== undefined && { experienceYears: data.experience_years }),
     // Physical info
     ...(data.strong_foot !== undefined && { strongFoot: data.strong_foot }),
+    gender: lireGenre(data.gender),
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
@@ -113,6 +115,8 @@ export function buildFirestoreUser(
   if (data.bio) base.bio = data.bio;
   // Le role choisi avant l'inscription, s'il y en a eu un.
   if (data.evolutionRole) base.evolution_role = data.evolutionRole;
+  // Demandé avec le rôle : un compte à rôle dit son genre (lib/genre).
+  if (data.gender) base.gender = data.gender;
 
   if (data.userType === "player") {
     if (data.position) base.position = data.position;

@@ -1,5 +1,7 @@
 "use client";
 
+import CommentFaire from "@/components/aide/CommentFaire";
+import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -778,6 +780,10 @@ export default function MyVenuesPage() {
         ]}
       />
 
+      <div className="mb-6">
+        <GuideDeDemarrage profils={["venue_owner"]} />
+      </div>
+
       <Panneau
         surtitre="Espace terrain"
         titre="Mes terrains"
@@ -840,13 +846,16 @@ export default function MyVenuesPage() {
         {venues === null ? (
           <EnCours />
         ) : venues.length === 0 && !ajout ? (
-          <EtatVide
-            Icon={MapPin}
-            titre="Aucun terrain"
-            action={<Bouton Icon={Plus} onClick={commencerAjout}>Ajouter mon terrain</Bouton>}
-          >
-            Référence ton premier terrain pour qu&apos;on te trouve.
-          </EtatVide>
+          <>
+            <EtatVide
+              Icon={MapPin}
+              titre="Aucun terrain"
+              action={<Bouton Icon={Plus} onClick={commencerAjout}>Ajouter mon terrain</Bouton>}
+            >
+              Référence ton premier terrain pour qu&apos;on te trouve.
+            </EtatVide>
+            <CommentFaire tutoriel="terrain" className="mt-3 text-center" />
+          </>
         ) : (
           venues.map((v) =>
             edition === v.id ? (

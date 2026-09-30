@@ -1,5 +1,7 @@
 "use client";
 
+import CommentFaire from "@/components/aide/CommentFaire";
+import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
@@ -109,6 +111,7 @@ function Vide({ Icon, titre, texte, action }: {
       <h3 className="mt-4 font-display text-lg font-bold text-gray-900">{titre}</h3>
       <p className="mt-1 max-w-sm text-sm text-gray-500">{texte}</p>
       {action && <div className="mt-5">{action}</div>}
+      <CommentFaire tutoriel="arbitre" className="mt-5" />
     </motion.div>
   );
 }
@@ -397,6 +400,8 @@ export default function DesignationsPage() {
 
   return (
     <div className="space-y-6">
+      <GuideDeDemarrage profils={["referee"]} />
+
       {/* En-tête */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}

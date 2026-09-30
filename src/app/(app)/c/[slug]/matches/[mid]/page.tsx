@@ -18,7 +18,8 @@ import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
-import { usePhotosDesComptes } from "@/hooks/usePhotosDesComptes";
+import { useComptesPublics } from "@/hooks/usePhotosDesComptes";
+import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import { useMedia } from "@/hooks/useMedia";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
 import MatchTabs from "@/components/match/MatchTabs";
@@ -141,6 +142,8 @@ export default function PublicCompMatchView() {
   const [compTeams, setCompTeams] = useState<CompTeam[]>([]);
   const [compFormat, setCompFormat] = useState<CompetitionFormat | null>(null);
   const [compSlug, setCompSlug] = useState<string | null>(null);
+  /** Féminine : ses joueurs sans compte sont des joueuses (lib/genre). */
+  const [compCategorie, setCompCategorie] = useState<Categorie | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [displayTime, setDisplayTime] = useState(0);
@@ -168,6 +171,7 @@ export default function PublicCompMatchView() {
       setCompLogo(competition.logoUrl);
       setCompFormat(competition.format);
       setCompSlug(competition.slug ?? slug);
+      setCompCategorie(competition.category ?? null);
       unsub = onCompMatch(competition.id, mid, (m) => {
         if (cancelled) return;
         if (!m) setNotFound(true);
@@ -254,7 +258,7 @@ export default function PublicCompMatchView() {
 
   // LES VISAGES DE LA FEUILLE, pour le terrain et l'homme du match. Appelé
   // avant les retours anticipés plus bas : un hook ne se saute pas.
-  const photosParCompte = usePhotosDesComptes([
+  const { photos: photosParCompte, genres: genresParCompte } = useComptesPublics([
     ...(match?.homeLineup ?? []).map((e) => e.userId),
     ...(match?.awayLineup ?? []).map((e) => e.userId),
     match?.mvpUserId,
@@ -519,6 +523,7 @@ export default function PublicCompMatchView() {
           motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
           note={noteDeLHomme}
           href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
+          genre={genreDuJoueur(match.mvpUserId ? genresParCompte[match.mvpUserId] : null, compCategorie)}
         />
         {/* Chaque evenement du cote de son acteur, les reperes communs au
             centre. Voir MatchTimeline. */}

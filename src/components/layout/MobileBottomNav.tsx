@@ -56,7 +56,9 @@ function SpacesSheet({
   // deux sections leve exactement cette objection.
   const groupes = [
     {
-      titre: user.evolutionRole ? t(`espace.role.${user.evolutionRole}`) : espaces.label,
+      titre: user.evolutionRole
+        ? t(user.evolutionRole === "player" && user.gender === "female" ? "espace.role.playerF" : `espace.role.${user.evolutionRole}`)
+        : espaces.label,
       items: espaces.roleItems,
     },
     { titre: t("espace.mesCasquettes"), items: espaces.hatItems },

@@ -64,10 +64,12 @@ interface FichePublique {
   meneurs: { buteurs: Meneur[]; passeurs: Meneur[] } | null;
 }
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
-import { POSTES, normaliserPoste } from "@/lib/postes";
+import { POSTES, libellePoste, normaliserPoste } from "@/lib/postes";
+import { genreDuJoueur } from "@/lib/genre";
 import { dateAvecJour } from "@/lib/dates";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
 import CompositionsTypes from "@/components/team/CompositionsTypes";
+import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
 import { useLangue, useTextes } from "@/i18n";
 import { LOCALE } from "@/i18n/config";
 import { textes } from "@/i18n/textes";
@@ -111,7 +113,8 @@ const T = textes(
       roster: "Effectif", matches: "Matchs", compositions: "Compositions", trainings: "Entraînements",
       palmares: "Palmarès", gallery: "Galerie", candidatures: "Candidatures", settings: "Paramètres",
     } as Record<string, string>)[id] ?? id,
-    joueurs: (n: number) => `${n} joueur${n > 1 ? "s" : ""}`,
+    /** Une équipe féminine compte ses joueuses. */
+    joueurs: (n: number, feminin?: boolean) => `${n} ${feminin ? "joueuse" : "joueur"}${n > 1 ? "s" : ""}`,
     recrute: "Recrute",
     partager: "Partager ce club",
     suivi: "Suivi",
@@ -206,6 +209,7 @@ function EditTeamModal({ team, onClose, onSaved }: {
     maxMembers: team.maxMembers,
     color: team.color,
     slogan: team.slogan ?? "",
+    category: team.category ?? null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -242,6 +246,7 @@ function EditTeamModal({ team, onClose, onSaved }: {
         max_members: form.maxMembers,
         color: form.color,
         slogan: form.slogan.trim(),
+        ...(form.category ? { category: form.category } : {}),
       });
       const mediaUpdate: { logoUrl?: string; bannerUrl?: string } = {};
       if (logoFile) mediaUpdate.logoUrl = await uploadTeamLogo(team.id, logoFile);
@@ -323,6 +328,10 @@ function EditTeamModal({ team, onClose, onSaved }: {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
               className="w-full border border-gray-200/70 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 resize-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Catégorie</label>
+            <ChoixDeCategorie valeur={form.category} onChange={(c) => setForm({ ...form, category: c })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1669,6 +1678,7 @@ export default function TeamDetailPage() {
       <BandeauEquipe
         fil={[...trail, { label: team.name }]}
         nom={team.name}
+        categorie={team.category}
         logo={team.logoUrl ?? null}
         couleur={versHex(team.color)}
         surtitre={[team.city, t.niveau(team.level)].filter(Boolean).join(" · ") || null}
@@ -1677,7 +1687,7 @@ export default function TeamDetailPage() {
         puces={
           <>
             <FormeEnLettres forme={formeChrono} />
-            <span>{t.joueurs(tailleEffectif)}</span>
+            <span>{t.joueurs(tailleEffectif, team.category === "women")}</span>
             {team.isRecruiting && <span className="text-emerald-300">{t.recrute}</span>}
           </>
         }
@@ -1760,6 +1770,7 @@ export default function TeamDetailPage() {
       {ongletOuvert === "roster" && !isTeamManager && (
         <EffectifParPoste
           joueurs={lignesEffectif}
+          feminin={team.category === "women"}
           manager={fiche?.manager
             ? { nom: fiche.manager.nom, photo: fiche.manager.photo, lien: `/profile/${fiche.manager.uid}` }
             : null}
@@ -1940,7 +1951,7 @@ export default function TeamDetailPage() {
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <MapPin size={11} /> {member.locationCity}
-                            {pos && <span className={`ml-1 px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{POSITION_LABELS[pos] ?? pos}</span>}
+                            {pos && <span className={`ml-1 px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[pos] ?? "bg-gray-100 text-gray-600"}`}>{libellePoste(pos, "fr", genreDuJoueur(member.gender, team.category)) ?? POSITION_LABELS[pos] ?? pos}</span>}
                           </div>
                           {/* Condition déclarée, forme calculée : ce que le
                               manager regarde avant de cocher « titulaire ». */}
@@ -2007,7 +2018,7 @@ export default function TeamDetailPage() {
                               )
                             )}
                             <span className={` px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[ghost.position] ?? "bg-gray-100 text-gray-600"}`}>
-                              {POSITION_LABELS[ghost.position] ?? ghost.position}
+                              {libellePoste(ghost.position, "fr", genreDuJoueur(null, team.category)) ?? POSITION_LABELS[ghost.position] ?? ghost.position}
                             </span>
                           </div>
                           <PastillesEtatDeForme
@@ -2076,7 +2087,7 @@ export default function TeamDetailPage() {
               <button
                 onClick={() => { setEditingGhost(null); setShowGhostModal(true); }}
                 className="flex flex-1 items-center justify-center gap-2 border border-gray-200/70 bg-white py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-                <Plus size={16} /> Ajouter un joueur
+                <Plus size={16} /> {team.category === "women" ? "Ajouter une joueuse" : "Ajouter un joueur"}
               </button>
               {/* Recruter ouvre le mercato côté manager, sur l'onglet joueurs. */}
               <Link

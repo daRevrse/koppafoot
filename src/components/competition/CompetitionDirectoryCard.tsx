@@ -9,6 +9,7 @@ import { LOCALE_DATE_FNS } from "@/i18n/dates";
 import FollowCompetitionButton from "./FollowCompetitionButton";
 import type { Competition, CompetitionStatus } from "@/types";
 import Image from "next/image";
+import BadgeCategorie from "@/components/genre/BadgeCategorie";
 
 // ============================================
 // Helpers
@@ -120,6 +121,7 @@ export default function CompetitionDirectoryCard({ competition }: { competition:
         <div className="flex flex-1 flex-col gap-2 p-4">
           <h3 className="font-display text-base font-black leading-tight tracking-tight text-gray-900">
             {competition.name}
+            <BadgeCategorie categorie={competition.category} className="ml-2 align-middle" />
           </h3>
           {competition.organizerName && (
             <p className="-mt-1 truncate text-[11px] font-bold text-gray-400">

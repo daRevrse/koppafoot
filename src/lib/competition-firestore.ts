@@ -41,6 +41,7 @@ import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import type { PossessionStockee } from "@/lib/possession";
 import { synchroniserTerrainsCompetition } from "@/lib/reservations-client";
 import { terrainNomme } from "@/lib/terrains";
+import type { Categorie } from "@/lib/genre";
 
 // Converters now live in the SDK-agnostic competition-mappers module so the
 // server lib (firebase-admin) can reuse them. Re-exported for existing importers.
@@ -95,6 +96,8 @@ export async function createCompetition(input: {
   createdBy: string;
   /** Nom de la structure organisatrice, recopié du profil, voir le type. */
   organizerName?: string | null;
+  /** Masculine, féminine ou mixte ; rien = non précisée. */
+  category?: Categorie | null;
 }): Promise<string> {
   // Ensure slug uniqueness: slug, slug-2, slug-3, ...
   // Fallback when the name has no slug-able chars, so we never write an empty slug.
@@ -128,6 +131,7 @@ export async function createCompetition(input: {
     updated_at: serverTimestamp(),
   };
   if (input.description !== undefined) payload.description = input.description;
+  if (input.category) payload.category = input.category;
 
   // Non validée à la naissance : c'est l'administration qui ouvre la porte du
   // public, l'organisateur prépare tout le reste sans attendre.
@@ -341,6 +345,7 @@ export async function duplicateCompetition(
   const newId = await createCompetition({
     name,
     ...(source.description ? { description: source.description } : {}),
+    ...(source.category ? { category: source.category } : {}),
     logoUrl: source.logoUrl,
     bannerUrl: source.bannerUrl,
     competitionType: source.competitionType,

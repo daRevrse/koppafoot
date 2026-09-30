@@ -249,6 +249,14 @@ service cloud.firestore {
     // donc se poser `is_organizer: true` et s'ouvrir l'espace organisateur —
     // les candidatures et leur relecture se contournaient d'une écriture.
     // Ces trois-là ne s'obtiennent que par le SDK admin, qui ignore ces règles.
+    // Le genre : « male », « female », ou pas de champ. Rien d'autre, pour
+    // que les accords et les filtres du mercato n'aient pas à deviner.
+    function genreValide() {
+      return !('gender' in request.resource.data)
+        || request.resource.data.gender == null
+        || request.resource.data.gender in ['male', 'female'];
+    }
+
     function noProtectedFields() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny([
@@ -275,7 +283,10 @@ service cloud.firestore {
           // Personne ne vérifie ce numéro : il sert à se présenter aux
           // organisateurs, pas à valider quoi que ce soit. Le laisser écrire
           // par son propriétaire n'accorde donc aucun pouvoir.
-          'license_level', 'license_number'
+          'license_level', 'license_number',
+          // Le genre est demandé à l'activation du rôle (lib/genre) : il part
+          // dans la même écriture.
+          'gender'
         ])
         // « referee » rejoint les cibles possibles — il était déjà accepté en
         // valeur de DÉPART, ce qui laissait un arbitre historique changer de
@@ -303,7 +314,7 @@ service cloud.firestore {
       // author's name and avatar denormalized. Requiring an account matches how
       // /teams is already gated.
       allow read: if isAuthenticated();
-      allow create: if isOwner(uid);
+      allow create: if isOwner(uid) && genreValide();
       
       // Only the owner writes their own profile.
       //
@@ -315,8 +326,9 @@ service cloud.firestore {
       // follower count. Both operations moved to the admin SDK
       // (/api/follows, /api/matches/complete), which bypasses these rules, so
       // the branches are gone rather than narrowed.
-      allow update: if (isOwner(uid) && noProtectedFields())
-                   || (isOwner(uid) && isRoleEvolution());
+      allow update: if ((isOwner(uid) && noProtectedFields())
+                   || (isOwner(uid) && isRoleEvolution()))
+                   && genreValide();
 
       allow delete: if isSuperAdmin();
     }

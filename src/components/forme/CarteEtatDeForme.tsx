@@ -95,7 +95,7 @@ export default function CarteEtatDeForme({
               ) : (
                 <p className="text-sm font-semibold text-gray-500">
                   {editable
-                    ? "Rien de déclaré : tu es considéré comme apte."
+                    ? "Rien de déclaré : on te considère apte."
                     : "Rien de déclaré : considéré comme apte."}
                 </p>
               )}

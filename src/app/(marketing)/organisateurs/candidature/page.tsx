@@ -7,6 +7,7 @@ import { ClipboardList, CheckCircle2, Clock, XCircle, Loader2, Trophy, ArrowLeft
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/components/auth/AuthModal";
+import { accorder } from "@/lib/genre";
 
 // ============================================
 // Devenir organisateur, application form (the "Organiser" button).
@@ -128,7 +129,7 @@ export default function BecomeOrganizerPage() {
           <Trophy size={26} className="text-emerald-500" />
         </div>
         <h1 className="mt-4 font-display text-xl font-black text-gray-900">
-          Tu es déjà organisateur
+          Tu es déjà {accorder(user?.gender, "organisateur", "organisatrice")}
         </h1>
         <p className="mt-1 text-sm text-gray-400">Ton espace t&apos;attend.</p>
         <Link

@@ -1,5 +1,6 @@
 "use client";
 
+import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
@@ -105,9 +106,11 @@ export default function LiveOpsHome() {
       <div>
         <h1 className="font-display text-2xl font-black uppercase tracking-tight text-gray-900 sm:text-3xl">Console live</h1>
         <p className="mt-2 text-sm leading-relaxed text-gray-500">
-          Les matchs qu&apos;on t&apos;a confiés, et les compétitions où tu es organisateur ou modérateur.
+          Les matchs qu&apos;on t&apos;a confiés, et les compétitions que tu organises ou modères.
         </p>
       </div>
+
+      <GuideDeDemarrage profils={["scorer"]} />
 
       {/* Practice before the real thing, always available, first-timers
           especially need it when the list below is empty. */}

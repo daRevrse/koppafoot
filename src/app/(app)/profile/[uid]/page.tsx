@@ -45,7 +45,8 @@ import { cleFormeCompte } from "@/lib/etat-de-forme";
 import toast from "react-hot-toast";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
-import { LIBELLES_POSTE, normaliserPoste } from "@/lib/postes";
+import { nomDuPoste, normaliserPoste } from "@/lib/postes";
+import { accorder, lireGenre, type Genre } from "@/lib/genre";
 
 // ============================================
 // Constants
@@ -63,8 +64,9 @@ type PublicTab = "posts" | "galerie" | "palmares";
 
 const T = textes(
   {
-    polyvalent: "Polyvalent",
-    role: (r: string) => ({ user: "Membre", player: "Joueur", manager: "Manager", referee: "Arbitre" } as Record<string, string>)[r] ?? null,
+    polyvalent: (g: Genre | null | undefined) => accorder(g, "Polyvalent", "Polyvalente"),
+    role: (r: string, g: Genre | null | undefined) =>
+      ({ user: "Membre", player: accorder(g, "Joueur", "Joueuse"), manager: "Manager", referee: "Arbitre" } as Record<string, string>)[r] ?? null,
     lienCopie: "Lien de la fiche copié",
     copieImpossible: "Impossible de copier le lien",
     plusDActions: "Plus d'actions",
@@ -89,7 +91,7 @@ const T = textes(
     aucunePhoto: "Aucune photo dans la galerie",
   },
   {
-    polyvalent: "Utility player",
+    polyvalent: () => "Utility player",
     role: (r: string) => ({ user: "Member", player: "Player", manager: "Manager", referee: "Referee" } as Record<string, string>)[r] ?? null,
     lienCopie: "Profile link copied",
     copieImpossible: "Couldn't copy the link",
@@ -288,6 +290,7 @@ async function fetchPublicProfile(
       position: profile.position ?? null,
       skillLevel: profile.skill_level ?? null,
       strongFoot: profile.strong_foot ?? null,
+      gender: lireGenre(profile.gender),
       height: profile.height ?? null,
       weight: profile.weight ?? null,
       dateOfBirth: profile.date_of_birth ?? null,
@@ -689,10 +692,10 @@ export default function PublicProfilePage() {
   const posteNormalise = normaliserPoste(profile.position);
   const posteLisible = profile.position
     ? profile.position === "any"
-      ? t.polyvalent
-      : posteNormalise ? LIBELLES_POSTE[langue][posteNormalise] : POSITION_LABELS[profile.position] ?? profile.position
+      ? t.polyvalent(profile.gender)
+      : posteNormalise ? nomDuPoste(posteNormalise, langue, profile.gender) : POSITION_LABELS[profile.position] ?? profile.position
     : null;
-  const surtitre = posteLisible ?? t.role(roleDuProfil) ?? ROLE_LABELS[roleDuProfil] ?? profile.locationCity;
+  const surtitre = posteLisible ?? t.role(roleDuProfil, profile.gender) ?? ROLE_LABELS[roleDuProfil] ?? profile.locationCity;
 
   return (
     <div className="mx-auto max-w-6xl pb-24">

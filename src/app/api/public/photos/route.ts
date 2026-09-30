@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { lireGenre, type Genre } from "@/lib/genre";
 
 /**
  * GET /api/public/photos?uids=<uid>,<uid>
@@ -9,11 +10,13 @@ import { adminDb } from "@/lib/firebase-admin";
  *
  * `users/{uid}` est fermé aux visiteurs (voir /api/public/profile/[uid]), et
  * une fiche de match se lit sans compte. On lit donc avec le SDK admin, et on
- * ne rend QUE la photo : un champ que la fiche publique du joueur montre déjà
- * à tout le monde. Ni nom, ni rien d'autre du compte — la feuille de match
- * porte déjà les noms.
+ * ne rend QUE la photo et le genre : deux champs que la fiche publique du
+ * joueur montre déjà à tout le monde (le genre par ses accords, « Joueuse du
+ * match »). Ni nom, ni rien d'autre du compte — la feuille de match porte déjà
+ * les noms.
  *
- * Un compte sans photo est simplement absent de la réponse.
+ * Un compte sans photo, ou sans genre déclaré, est simplement absent de la
+ * liste correspondante.
  */
 
 export const dynamic = "force-dynamic";
@@ -35,18 +38,21 @@ export async function GET(req: Request) {
   try {
     const docs = await adminDb.getAll(...uids.map((uid) => adminDb.doc(`users/${uid}`)));
     const photos: Record<string, string> = {};
+    const genres: Record<string, Genre> = {};
     for (const d of docs) {
       const url = d.get("profile_picture_url");
       if (typeof url === "string" && url) photos[d.id] = url;
+      const genre = lireGenre(d.get("gender"));
+      if (genre) genres[d.id] = genre;
     }
     return NextResponse.json(
-      { photos },
+      { photos, genres },
       // Une photo change rarement : cinq minutes en cache partagé, et une
       // heure de plus à servir l'ancienne pendant qu'on relit la nouvelle.
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
     );
   } catch (err) {
     console.error("GET /api/public/photos failed:", err);
-    return NextResponse.json({ photos: {} }, { status: 500 });
+    return NextResponse.json({ photos: {}, genres: {} }, { status: 500 });
   }
 }

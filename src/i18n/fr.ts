@@ -49,6 +49,7 @@ export const fr = {
   "espace.mesDesignations": "Mes désignations",
   "espace.role.user": "Espace membre",
   "espace.role.player": "Espace joueur",
+  "espace.role.playerF": "Espace joueuse",
   "espace.role.manager": "Espace manager",
   "espace.role.referee": "Espace arbitre",
 
@@ -79,6 +80,7 @@ export const fr = {
 
   // ---- Support et préférences ----
   "support.titre": "Support",
+  "support.tutoriels": "Tutoriels",
   "support.faq": "Questions fréquentes",
   "support.retour": "Nous faire un retour",
   "prefs.titre": "Préférences",

@@ -1,5 +1,6 @@
 "use client";
 
+import CommentFaire from "@/components/aide/CommentFaire";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -647,7 +648,8 @@ export default function MatchesPage() {
       // d'identifiant d'équipe du tout.
       const opponentTeamId = isFriendly ? "" : awayTeamId;
       const ghostLineup: LineupEntry[] | undefined = isFriendly
-        ? ghostOpponentLineup(format)
+        // Une équipe féminine affronte des joueuses : « Joueuse 1 », « Joueuse 2 ».
+        ? ghostOpponentLineup(format, team.category === "women")
         : undefined;
 
       // Face à un fantôme personne n'acceptera le défi : c'est la création qui
@@ -2010,6 +2012,7 @@ export default function MatchesPage() {
                   ? "L'historique de tes matchs apparaîtra ici"
                   : "Défis reçus, défis envoyés et brouillons apparaîtront ici"}
               </p>
+              <CommentFaire tutoriel="manager" className="mt-4" />
             </motion.div>
           )}
         </div>
