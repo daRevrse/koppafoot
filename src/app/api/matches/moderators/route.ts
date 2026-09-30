@@ -5,6 +5,7 @@ import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreMatch } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { dateLongue } from "@/lib/terrains";
 
 /**
  * Les modérateurs d'UN match — ceux qui tiendront sa console live.
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
       await notifierCompte(uid, {
         type: "match_update",
         title: "Tu couvres un match",
-        body: `${affiche}, le ${match.date} à ${match.time}. La console live t'attend.`,
+        body: `${affiche}, le ${dateLongue(match.date)} à ${match.time}. La console live t'attend.`,
         link: "/live-ops",
       });
     } catch (notifErr) {

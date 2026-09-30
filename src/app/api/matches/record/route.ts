@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dateLongue } from "@/lib/terrains";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
@@ -214,7 +215,7 @@ export async function POST(req: NextRequest) {
       await notifierCompte(opponentManagerId, {
         type: "match_update",
         title: "Un résultat à confirmer",
-        body: `${doc.home_team_name} ${doc.score_home} – ${doc.score_away} ${doc.away_team_name}, le ${date}. Confirme ou conteste ce score.`,
+        body: `${doc.home_team_name} ${doc.score_home} – ${doc.score_away} ${doc.away_team_name}, le ${dateLongue(date)}. Confirme ou conteste ce score.`,
         link: `/matches/${ref.id}`,
       });
     } catch (e) {

@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>KoppaFoot · Manager, ton premier match</title>
+<!--
+  La vidéo « Manager : du zéro au premier match », 1080 × 1920, 60 s.
+
+  Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
+  par image (window.allerA(t)), en fait une capture, et ffmpeg les assemble.
+  Les écrans du téléphone sont de vraies captures de l'application
+  (outils/v*.mjs) ; tout le reste, titres, touchers, notifications, tableau
+  d'affichage, est dessiné ici.
+
+  Ouverte telle quelle dans Chromium, la page se joue en temps réel : c'est
+  l'aperçu pendant qu'on la retouche.
+-->
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+:root {
+  --vert: #00bf63;
+  --vert-fonce: #00994f;
+  --nuit: #04100b;
+  --encre: #111827;
+  --blanc-doux: rgba(255, 255, 255, .72);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--nuit); }
+body { font-family: "DM Sans", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+
+#scene { position: absolute; inset: 0; overflow: hidden;
+  background: radial-gradient(120% 70% at 50% 38%, #0f3a2a 0%, #082219 45%, var(--nuit) 100%); }
+
+/* Le terrain, en filigrane */
+#terrain { position: absolute; inset: 0; opacity: .9; }
+#terrain * { fill: none; stroke: rgba(255, 255, 255, .055); stroke-width: 4; }
+#lueur { position: absolute; left: 50%; top: 58%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px;
+  background: radial-gradient(circle, rgba(0, 191, 99, .22) 0%, rgba(0, 191, 99, 0) 60%); }
+
+/* Progression : quatre étapes */
+#progres { position: absolute; left: 90px; right: 90px; top: 92px; display: flex; gap: 14px; opacity: 0; }
+#progres .seg { flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+#progres .seg i { display: block; height: 100%; width: 0; background: var(--vert); border-radius: 4px; }
+
+/* Titres */
+.titre { position: absolute; left: 90px; right: 90px; top: 150px; }
+.titre .puce { font-family: "Outfit"; font-weight: 800; font-size: 30px; letter-spacing: .22em; color: var(--vert); text-transform: uppercase; opacity: 0; }
+.titre .ligne { overflow: hidden; padding: 22px 0 4px; margin-top: -22px; }
+.titre .ligne span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 118px; line-height: .98; letter-spacing: -.015em; text-transform: uppercase; transform: translateY(135%); }
+.titre .ligne span.vert { color: var(--vert); }
+.titre.t-long .ligne span { font-size: 100px; }
+.titre .sous { margin-top: 18px; font-size: 38px; line-height: 1.3; color: var(--blanc-doux); opacity: 0; }
+
+/* Le téléphone */
+#camera { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 540px 1180px; }
+#telephone { position: absolute; left: 238px; top: 590px; width: 604px; height: 1252px; border-radius: 78px;
+  background: #0b0b0c; padding: 20px; transform: translateY(1400px);
+  box-shadow: 0 0 0 3px #26282b, 0 50px 120px rgba(0, 0, 0, .6), 0 0 90px rgba(0, 191, 99, .18); }
+#ecran { position: relative; width: 564px; height: 1212px; border-radius: 60px; overflow: hidden; background: #f4f6fa; }
+#ecran img.e { position: absolute; left: 0; top: 0; width: 564px; height: auto; opacity: 0; }
+#ilot { position: absolute; left: 50%; top: 14px; width: 150px; height: 40px; margin-left: -75px; border-radius: 22px; background: #0b0b0c; z-index: 50; }
+
+/* Un toucher */
+.toucher { position: absolute; width: 0; height: 0; z-index: 40; }
+.toucher .point { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%;
+  background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 3px rgba(0, 191, 99, .9), 0 6px 18px rgba(0, 0, 0, .35); transform: scale(0); }
+.toucher .onde { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%;
+  border: 4px solid rgba(0, 191, 99, .9); transform: scale(0); opacity: 0; }
+
+/* La frappe du nom */
+#frappe { position: absolute; z-index: 30; background: #fff; display: flex; align-items: center; opacity: 0;
+  font-family: "DM Sans"; color: var(--encre); }
+#frappe .curseur { display: inline-block; width: 2px; height: 1.1em; background: var(--encre); margin-left: 2px; }
+
+/* Cartes qui sortent du téléphone */
+.carte { position: absolute; width: 760px; left: 160px; padding: 26px 30px; border-radius: 30px; background: #fff; color: var(--encre);
+  display: flex; align-items: center; gap: 24px; box-shadow: 0 30px 70px rgba(0, 0, 0, .45); opacity: 0; z-index: 60; }
+.carte .ico { flex: none; width: 86px; height: 86px; border-radius: 50%; background: #e7f9ef; display: flex; align-items: center; justify-content: center; }
+.carte .ico img { width: 64px; height: 64px; object-fit: contain; }
+.carte .ico svg { width: 44px; height: 44px; stroke: var(--vert-fonce); stroke-width: 2.6; fill: none; }
+.carte b { display: block; font-family: "Outfit"; font-weight: 800; font-size: 36px; line-height: 1.1; }
+.carte span { display: block; margin-top: 4px; font-size: 28px; color: #4b5563; }
+
+/* Pastilles de chiffre */
+.pastille { position: absolute; z-index: 60; padding: 20px 34px; border-radius: 999px; background: var(--vert); color: #04100b;
+  font-family: "Outfit"; font-weight: 900; font-size: 54px; letter-spacing: .02em; text-transform: uppercase;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .4); opacity: 0; white-space: nowrap; }
+
+/* Le tableau d'affichage */
+#tableau { position: absolute; left: 90px; right: 90px; top: 350px; height: 210px; border-radius: 34px;
+  background: rgba(255, 255, 255, .06); border: 2px solid rgba(255, 255, 255, .1);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 40px; opacity: 0; }
+#tableau .eq { width: 220px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#tableau .eq img { width: 104px; height: 104px; object-fit: contain; }
+#tableau .eq span { font-family: "Outfit"; font-weight: 800; font-size: 26px; letter-spacing: .1em; text-transform: uppercase; color: var(--blanc-doux); }
+#tableau .centre { text-align: center; }
+#tableau .score { font-family: "Outfit"; font-weight: 900; font-size: 128px; line-height: 1; letter-spacing: .02em; }
+#tableau .minute { margin-top: 8px; display: inline-flex; align-items: center; gap: 10px; font-family: "Outfit"; font-weight: 800; font-size: 28px; letter-spacing: .14em; color: var(--vert); }
+#tableau .minute i { width: 14px; height: 14px; border-radius: 50%; background: #ef4444; }
+
+/* But ! */
+#but { position: absolute; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 45%, rgba(0, 191, 99, .92) 0%, rgba(0, 120, 60, .9) 55%, rgba(4, 16, 11, .92) 100%); opacity: 0; }
+#but .mot { font-family: "Outfit"; font-weight: 900; font-size: 300px; line-height: .9; letter-spacing: -.02em; transform: rotate(-4deg); }
+#but .qui { margin-top: 40px; font-family: "Outfit"; font-weight: 800; font-size: 56px; letter-spacing: .06em; text-transform: uppercase; }
+#but .rayons { position: absolute; left: 50%; top: 45%; width: 1600px; height: 1600px; margin: -800px 0 0 -800px; opacity: .25;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .5) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 24deg);
+  border-radius: 50%; -webkit-mask: radial-gradient(circle, #000 0%, transparent 70%); mask: radial-gradient(circle, #000 0%, transparent 70%); }
+
+/* Tampon « Victoire » */
+#victoire { position: absolute; left: 50%; top: 1180px; z-index: 70; transform: translate(-50%, -50%) rotate(-8deg) scale(3); opacity: 0;
+  padding: 18px 46px; border: 10px solid var(--vert); border-radius: 26px; background: rgba(4, 16, 11, .82);
+  font-family: "Outfit"; font-weight: 900; font-size: 120px; letter-spacing: .04em; color: var(--vert); text-transform: uppercase; }
+
+/* Intro et fin */
+.centre-page { position: absolute; left: 0; right: 0; text-align: center; }
+#intro-symbole { position: absolute; left: 50%; top: 520px; width: 300px; margin-left: -150px; transform: scale(0); }
+#intro-texte { top: 930px; }
+#intro-texte .l { overflow: hidden; padding-top: 20px; margin-top: -20px; }
+#intro-texte .l span { display: block; font-family: "Outfit"; font-weight: 900; text-transform: uppercase; transform: translateY(135%); }
+#intro-texte .l1 span { font-size: 72px; letter-spacing: .14em; color: var(--vert); }
+#intro-texte .l2 span, #intro-texte .l3 span { font-size: 132px; line-height: .98; letter-spacing: -.015em; }
+#fin { position: absolute; inset: 0; opacity: 0; }
+#fin-logo { position: absolute; left: 50%; top: 470px; width: 760px; margin-left: -380px; transform: scale(.6); opacity: 0; }
+#fin-texte { top: 960px; }
+#fin-texte .l { overflow: hidden; padding-top: 20px; margin-top: -20px; }
+#fin-texte .l span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 92px; line-height: 1.02; text-transform: uppercase; transform: translateY(135%); }
+#fin-texte .l span.vert { color: var(--vert); }
+#fin-appel { position: absolute; left: 0; right: 0; top: 1420px; transform: scale(.8); opacity: 0; text-align: center; }
+#fin-appel .bouton { display: inline-block; white-space: nowrap; padding: 34px 64px; border-radius: 999px; background: var(--vert); color: #04100b;
+  font-family: "Outfit"; font-weight: 900; font-size: 52px; letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 24px 60px rgba(0, 191, 99, .35); }
+#fin-appel .url { margin-top: 34px; font-family: "Outfit"; font-weight: 700; font-size: 46px; letter-spacing: .04em; color: var(--blanc-doux); }
+</style>
+</head>
+<body>
+<div id="scene">
+  <svg id="terrain" viewBox="0 0 1080 1920" preserveAspectRatio="none">
+    <rect x="70" y="70" width="940" height="1780" rx="6" />
+    <line x1="70" y1="960" x2="1010" y2="960" />
+    <circle cx="540" cy="960" r="190" />
+    <rect x="290" y="70" width="500" height="260" />
+    <rect x="290" y="1590" width="500" height="260" />
+  </svg>
+  <div id="lueur"></div>
+
+  <!-- Intro -->
+  <img id="intro-symbole" src="images/symbole.png" alt="">
+  <div id="intro-texte" class="centre-page">
+    <div class="l l1"><span>Manager ?</span></div>
+    <div class="l l2"><span>Ton premier</span></div>
+    <div class="l l3"><span>match en 60 s</span></div>
+  </div>
+
+  <div id="progres"><div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div></div>
+
+  <div class="titre" id="t1"><div class="puce">Étape 1 / 4</div><div class="ligne"><span>Crée ton</span></div><div class="ligne"><span class="vert">équipe</span></div><div class="sous">Un nom, une ville, ton écusson.</div></div>
+  <div class="titre" id="t2"><div class="puce">Étape 2 / 4</div><div class="ligne"><span>Recrute tes</span></div><div class="ligne"><span class="vert">joueurs</span></div><div class="sous">Invite-les depuis le mercato.</div></div>
+  <div class="titre" id="t3"><div class="puce">Étape 3 / 4</div><div class="ligne"><span>Défie une</span></div><div class="ligne"><span class="vert">équipe</span></div><div class="sous">L'adversaire, la date, le terrain.</div></div>
+  <div class="titre" id="t4"><div class="puce">Étape 4 / 4 · En direct</div><div class="ligne"><span>Le <span class="vert" style="display:inline">match</span></span></div></div>
+  <div class="titre t-long" id="t5"><div class="puce">Et après ?</div><div class="ligne"><span>Ton palmarès</span></div><div class="ligne"><span class="vert">se construit</span></div><div class="sous">Chaque victoire reste sur ta fiche.</div></div>
+
+  <div id="tableau">
+    <div class="eq"><img src="images/ecusson-avenir.png" alt=""><span>Adakpamé</span></div>
+    <div class="centre"><div class="score" id="score">0 – 0</div><div class="minute"><i id="rouge"></i><span id="minute">2'</span></div></div>
+    <div class="eq"><img src="images/ecusson-tokoin.png" alt=""><span>Tokoin</span></div>
+  </div>
+
+  <div id="camera">
+    <div id="telephone">
+      <div id="ecran">
+        <div id="ilot"></div>
+        <!-- les écrans, dans l'ordre où ils apparaissent -->
+        <img class="e" id="e01" src="ecrans/01-equipes-vide.jpg">
+        <img class="e" id="e02a" src="ecrans/02a-creer-equipe-vide.jpg">
+        <img class="e" id="e02" src="ecrans/02-creer-equipe.jpg">
+        <img class="e" id="e03" src="ecrans/03-equipe.jpg">
+        <img class="e" id="e04" src="ecrans/04-mercato.jpg">
+        <img class="e" id="e05" src="ecrans/05-selection.jpg">
+        <img class="e" id="e06" src="ecrans/06-inviter.jpg">
+        <img class="e" id="e07" src="ecrans/07-notifications.jpg">
+        <img class="e" id="e08" src="ecrans/08-equipe-effectif.jpg">
+        <img class="e" id="e09" src="ecrans/09-matchs.jpg">
+        <img class="e" id="e10" src="ecrans/10-defi-recherche.jpg">
+        <img class="e" id="e11" src="ecrans/11-defi-rempli.jpg">
+        <img class="e" id="e11b" src="ecrans/11b-defi-envoyer.jpg">
+        <img class="e" id="e12" src="ecrans/12-defi-envoye.jpg">
+        <img class="e" id="e14" src="ecrans/14-a-venir.jpg">
+        <img class="e" id="e15" src="ecrans/15-fiche-avant.jpg">
+        <img class="e" id="e16" src="ecrans/16-fiche-coup-envoi.jpg">
+        <img class="e" id="e17" src="ecrans/17-fiche-1-0.jpg">
+        <img class="e" id="e18" src="ecrans/18-fiche-1-1.jpg">
+        <img class="e" id="e19" src="ecrans/19-fiche-2-1.jpg">
+        <img class="e" id="e20" src="ecrans/20-fiche-finale.jpg">
+        <img class="e" id="e20b" src="ecrans/20b-fiche-finale-fil.jpg">
+        <img class="e" id="e22" src="ecrans/22-equipe-victoire.jpg">
+        <div id="frappe"><span id="frappe-texte"></span><span class="curseur"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pastille" id="p-equipe" style="left:560px;top:600px">✓ Équipe créée</div>
+  <div class="pastille" id="p-joueurs" style="left:120px;top:640px"><span id="nb-joueurs">0</span> joueurs</div>
+  <div class="pastille" id="p-date" style="left:520px;top:620px">Dim. 4 oct. · 9 h</div>
+
+  <div class="carte" id="c-accepte" style="top:640px">
+    <div class="ico"><img src="images/ecusson-tokoin.png" alt=""></div>
+    <div><b>Défi accepté !</b><span>L'Olympique de Tokoin relève le défi.</span></div>
+  </div>
+  <div class="carte" id="c-recrues" style="top:640px">
+    <div class="ico"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div><b>5 nouveaux coéquipiers</b><span>Kafui, Dodzi, Enyonam, Selom, Etse</span></div>
+  </div>
+
+  <div id="victoire">Victoire</div>
+
+  <div id="but"><div class="rayons"></div><div class="mot">But !</div><div class="qui" id="but-qui"></div></div>
+
+  <div id="fin">
+    <img id="fin-logo" src="images/logo.png" alt="KoppaFoot">
+    <div id="fin-texte" class="centre-page">
+      <div class="l"><span>Ton équipe.</span></div>
+      <div class="l"><span>Tes matchs.</span></div>
+      <div class="l"><span class="vert">Ton palmarès.</span></div>
+    </div>
+    <div id="fin-appel"><div class="bouton">Crée ton équipe</div><div class="url">koppafoot.com</div></div>
+  </div>
+</div>
+
+<script src="cibles.js"></script>
+<script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+// ============================================================
+// La ligne de temps. Les temps sont en secondes, la vidéo en dure 60.
+// ============================================================
+const DUREE = 60;
+const ECHELLE = 564 / 390;            // pixels vidéo par pixel CSS du téléphone filmé
+const NOM = "Avenir d'Adakpamé";
+const C = window.CIBLES || {};
+const etat = { frappe: 0, joueurs: 0, score: "0 – 0", minute: "2'", enDirect: 1, qui: "" };
+const FOND_NOUS = "radial-gradient(circle at 50% 45%, rgba(0,191,99,.92) 0%, rgba(0,120,60,.9) 55%, rgba(4,16,11,.92) 100%)";
+const FOND_EUX = "radial-gradient(circle at 50% 45%, rgba(55,65,81,.94) 0%, rgba(17,24,39,.94) 60%, rgba(4,16,11,.95) 100%)";
+const T = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+const $ = (s) => document.querySelector(s);
+
+/** Montrer un écran du téléphone : il passe devant le précédent. */
+let z = 1;
+function ecran(id, t, d = 0.35) {
+  const el = $("#e" + id);
+  el.style.zIndex = z++;
+  T.fromTo(el, { opacity: 0, scale: 1.03 }, { opacity: 1, scale: 1, duration: d, ease: "power2.out" }, t);
+}
+
+/** Un toucher du doigt, au centre d'un bouton retenu au tournage. */
+function toucher(nom, t) {
+  const b = C[nom];
+  if (!b) { console.warn("cible absente", nom); return; }
+  const el = document.createElement("div");
+  el.className = "toucher";
+  el.innerHTML = '<div class="onde"></div><div class="point"></div>';
+  el.style.left = (b.x + b.w / 2) * ECHELLE + "px";
+  el.style.top = (b.y + b.h / 2) * ECHELLE + "px";
+  $("#ecran").appendChild(el);
+  const p = el.querySelector(".point"), o = el.querySelector(".onde");
+  T.fromTo(p, { scale: 0, opacity: 1 }, { scale: 1, duration: 0.18, ease: "back.out(3)", immediateRender: false }, t)
+   .to(p, { scale: 0.8, duration: 0.12 }, t + 0.22)
+   .to(p, { opacity: 0, scale: 0.4, duration: 0.25, ease: "power2.in" }, t + 0.42)
+   .fromTo(o, { scale: 0.6, opacity: 0.9 }, { scale: 2.6, opacity: 0, duration: 0.6, ease: "power2.out", immediateRender: false }, t + 0.18);
+}
+
+/** Un titre de scène : il entre, puis sort. */
+function titre(id, entree, sortie) {
+  const racine = $(id);
+  T.to(racine.querySelector(".puce"), { opacity: 1, duration: 0.4 }, entree)
+   .to(racine.querySelectorAll(".ligne > span"), { y: "0%", duration: 0.7, stagger: 0.09 }, entree + 0.05)
+   .to(racine, { opacity: 0, y: -40, duration: 0.35, ease: "power2.in" }, sortie);
+  const sous = racine.querySelector(".sous");
+  if (sous) T.to(sous, { opacity: 1, duration: 0.5 }, entree + 0.35);
+}
+
+/** Une pastille ou une carte qui surgit, puis s'efface. */
+function surgir(sel, t, fin, depuis = { y: 60, scale: 0.8 }) {
+  T.fromTo(sel, { opacity: 0, ...depuis }, { opacity: 1, y: 0, x: 0, scale: 1, duration: 0.55, ease: "back.out(1.8)" }, t);
+  if (fin) T.to(sel, { opacity: 0, y: -30, duration: 0.3, ease: "power2.in" }, fin);
+}
+
+/** Avancer la barre de progression jusqu'à l'étape n. */
+function etape(n, t) {
+  T.to(`#progres .seg:nth-child(${n}) i`, { width: "100%", duration: 0.8, ease: "power2.inOut" }, t);
+}
+
+// ── Intro : 0 → 3,6 s ─────────────────────────────────────
+T.fromTo("#terrain", { opacity: 0 }, { opacity: 0.9, duration: 1.2, ease: "none" }, 0)
+ .to("#intro-symbole", { scale: 1, duration: 0.7, ease: "back.out(2)" }, 0.15)
+ .to("#intro-texte .l1 span", { y: "0%", duration: 0.6 }, 0.7)
+ .to("#intro-texte .l2 span, #intro-texte .l3 span", { y: "0%", duration: 0.7, stagger: 0.12 }, 1.15)
+ .to("#intro-symbole, #intro-texte", { opacity: 0, y: -80, duration: 0.45, ease: "power2.in" }, 3.1)
+ .to("#progres", { opacity: 1, duration: 0.4 }, 3.4)
+ .to("#telephone", { y: 0, duration: 0.9, ease: "power3.out" }, 3.3);
+
+// ── 1. Crée ton équipe : 3,6 → 13 s ───────────────────────
+ecran("01", 3.3, 0.01);
+titre("#t1", 3.6, 12.5);
+etape(1, 3.7);
+toucher("01-equipes-vide", 5.0);
+ecran("02a", 5.45);
+{
+  const b = C["02a-creer-equipe-vide"] || C["02-creer-equipe-nom"] || { x: 37, y: 198, w: 316, h: 42 };
+  const f = $("#frappe");
+  Object.assign(f.style, {
+    left: (b.x + 1.5) * ECHELLE + "px", top: (b.y + 1.5) * ECHELLE + "px",
+    width: (b.w - 3) * ECHELLE + "px", height: (b.h - 3) * ECHELLE + "px",
+    paddingLeft: 12 * ECHELLE + "px", fontSize: 15 * ECHELLE + "px",
+  });
+  f.style.zIndex = 900;
+  T.to(f, { opacity: 1, duration: 0.15 }, 5.9)
+   .to(etat, { frappe: NOM.length, duration: 1.5, ease: "none" }, 6.05)
+   .to(f, { opacity: 0, duration: 0.2 }, 7.85);
+}
+ecran("02", 7.75, 0.2);
+toucher("02b-creer-equipe-bouton", 8.5);
+ecran("03", 9.05);
+surgir("#p-equipe", 9.6, 12.4, { y: 40, scale: 0.6 });
+
+// ── 2. Recrute : 13 → 25 s ────────────────────────────────
+titre("#t2", 13.0, 24.4);
+etape(2, 13.1);
+ecran("04", 12.9);
+toucher("04-mercato", 14.3);
+ecran("05", 14.85);
+toucher("05-selection", 15.9);
+ecran("06", 16.4);
+toucher("06-inviter", 17.4);
+ecran("07", 18.0);
+T.to("#camera", { scale: 1.12, y: -40, duration: 1.1, ease: "power2.inOut" }, 18.2)
+ .to("#camera", { scale: 1, y: 0, duration: 0.9, ease: "power2.inOut" }, 20.6);
+surgir("#c-recrues", 18.9, 20.7);
+ecran("08", 21.1);
+surgir("#p-joueurs", 21.7, 24.3, { y: 40, scale: 0.6 });
+T.to(etat, { joueurs: 14, duration: 1.1, ease: "power1.out" }, 21.8);
+
+// ── 3. Défie une équipe : 25 → 36 s ───────────────────────
+titre("#t3", 25.0, 35.4);
+etape(3, 25.1);
+ecran("09", 24.9);
+toucher("09-matchs", 26.2);
+ecran("10", 26.75);
+toucher("10-defi-recherche", 27.8);
+ecran("11", 28.35);
+ecran("11b", 29.6, 0.45);
+toucher("11b-defi-envoyer", 30.3);
+ecran("12", 30.85);
+surgir("#c-accepte", 31.9, 33.9);
+ecran("14", 33.7);
+surgir("#p-date", 34.2, 35.4, { y: 40, scale: 0.6 });
+
+// ── 4. Le match : 36 → 51 s ───────────────────────────────
+titre("#t4", 36.0, 50.6);
+etape(4, 36.1);
+ecran("15", 35.9);
+T.to("#tableau", { opacity: 1, duration: 0.5 }, 37.2)
+ .fromTo("#tableau", { y: 30 }, { y: 0, duration: 0.6 }, 37.2);
+ecran("16", 37.4);
+T.to("#rouge", { opacity: 0.25, duration: 0.5, repeat: 25, yoyo: true, ease: "sine.inOut" }, 37.5);
+
+/** Un but : l'écran s'embrase, puis la fiche et le tableau suivent. */
+function but(t, qui, score, minute, pourNous) {
+  T.set(etat, { qui }, t)
+   .set("#but", { background: pourNous ? FOND_NOUS : FOND_EUX }, t)
+   .fromTo("#but", { opacity: 0 }, { opacity: 1, duration: 0.18, ease: "none" }, t)
+   .fromTo("#but .mot", { scale: 0.3, rotation: -14 }, { scale: 1, rotation: -4, duration: 0.55, ease: "back.out(2.2)" }, t)
+   .fromTo("#but .qui", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, t + 0.25)
+   .fromTo("#but .rayons", { rotation: 0 }, { rotation: 40, duration: 1.8, ease: "none" }, t)
+   .to("#but", { opacity: 0, duration: 0.3, ease: "power2.in" }, t + 1.55)
+   .set(etat, { score, minute }, t + 0.3)
+   .fromTo("#score", { scale: 1.35 }, { scale: 1, duration: 0.5, ease: "back.out(2)" }, t + 1.6);
+}
+but(38.9, "Kafui Mensah · 24'", "1 – 0", "24'", true);
+ecran("17", 40.2);
+but(42.3, "Olympique de Tokoin · 52'", "1 – 1", "52'", false);
+ecran("18", 43.6);
+but(45.1, "Ekoué Bawa · 79'", "2 – 1", "79'", true);
+ecran("19", 46.4);
+T.set(etat, { minute: "Terminé", enDirect: 0 }, 47.8);
+ecran("20", 47.9);
+T.to("#victoire", { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 48.3)
+ .to("#victoire", { opacity: 0, duration: 0.3 }, 49.9);
+ecran("20b", 49.6, 0.45);
+T.to("#tableau", { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 50.6)
+ .to("#progres", { opacity: 0, duration: 0.3 }, 50.6);
+
+// ── Et après : 51 → 55 s ──────────────────────────────────
+titre("#t5", 51.0, 54.5);
+ecran("22", 51.0);
+T.to("#telephone", { y: 1400, duration: 0.7, ease: "power3.in" }, 54.5);
+
+// ── Fin : 55 → 60 s ───────────────────────────────────────
+T.to("#fin", { opacity: 1, duration: 0.3 }, 55.0)
+ .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 55.1)
+ .to("#fin-texte .l span", { y: "0%", duration: 0.7, stagger: 0.14 }, 55.6)
+ .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 56.6)
+ .to("#fin-appel .bouton", { scale: 1.05, duration: 0.5, repeat: 3, yoyo: true, ease: "sine.inOut" }, 57.4)
+ .set({}, {}, DUREE);
+
+// ── Ce que les interpolations ne savent pas écrire ────────
+function rendre() {
+  $("#frappe-texte").textContent = NOM.slice(0, Math.round(etat.frappe));
+  $("#nb-joueurs").textContent = Math.round(etat.joueurs);
+  $("#score").textContent = etat.score;
+  $("#but-qui").textContent = etat.qui;
+  $("#minute").textContent = etat.minute;
+  $("#rouge").style.display = etat.enDirect ? "" : "none";
+}
+
+/** Aller à l'instant t (en secondes) : appelé image par image par outils/rendu.mjs. */
+window.allerA = (t) => { T.seek(t, true); rendre(); };
+window.DUREE = DUREE;
+window.pret = Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))),
+]).then(() => true);
+
+// Ouverte à la main : la page se joue en temps réel.
+if (!navigator.webdriver) {
+  window.pret.then(() => { T.eventCallback("onUpdate", rendre); T.play(0); });
+}
+</script>
+</body>
+</html>

@@ -1835,7 +1835,7 @@ export async function respondToMatchChallenge(
       type: "match_challenge",
       title: accepted ? "Défi accepté" : "Défi refusé",
       body: accepted
-        ? `${matchLabel}, le ${matchDate} à ${matchTime} : c'est parti.`
+        ? `${matchLabel}, le ${dateLongue(matchDate)} à ${matchTime} : c'est parti.`
         : `${matchLabel} : ton défi a été décliné.`,
       link: `/matches/${matchId}`,
     }).catch(() => {});
@@ -1852,7 +1852,7 @@ export async function respondToMatchChallenge(
         author_role: "system",
         author_avatar: "",
         type: "match_announcement",
-        content: `⚽ Match confirmé ! ${matchLabel} le ${matchDate} à ${matchTime}, ${venueName}`,
+        content: `⚽ Match confirmé ! ${matchLabel} le ${dateLongue(matchDate)} à ${matchTime}, ${venueName}`,
         metadata: { home_team: homeTeamId, away_team: awayTeamId },
         likes: [], comment_count: 0,
         created_at: serverTimestamp(), updated_at: serverTimestamp(),
@@ -1929,7 +1929,7 @@ export async function updateMatchSchedule(
       userId: part.player_id,
       type: "match_update",
       title: "Match déplacé",
-      body: `${part.match_label} : ${data.date} à ${data.time}${data.venueName ? `, ${data.venueName}` : ""}`,
+      body: `${part.match_label} : ${dateLongue(data.date)} à ${data.time}${data.venueName ? `, ${data.venueName}` : ""}`,
       link: `/matches/${matchId}`,
     });
   }));
@@ -2012,7 +2012,7 @@ export async function invitePlayerToMatch(
       type: "participation_request",
       title: "Convocation à un match",
       // Tournure sans accord : le genre du joueur n'est pas lu ici.
-      body: `Ton équipe te convoque pour ${matchLabel} le ${matchDate}`,
+      body: `Ton équipe te convoque pour ${matchLabel} le ${dateLongue(matchDate)}`,
       link: "/participations",
     });
   }
@@ -2135,7 +2135,7 @@ export async function respondToParticipation(
         author_role: "system",
         author_avatar: "",
         type: "match_announcement",
-        content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${matchData.date} à ${matchData.time}, ${matchData.venue_name}`,
+        content: `⚽ Match confirmé ! ${matchData.home_team_name} vs ${matchData.away_team_name} le ${dateLongue(matchData.date)} à ${matchData.time}, ${matchData.venue_name}`,
         metadata: { home_team: matchData.home_team_name, away_team: matchData.away_team_name },
         likes: [], comment_count: 0,
         created_at: serverTimestamp(), updated_at: serverTimestamp(),
