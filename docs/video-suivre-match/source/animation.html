@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>KoppaFoot · Suivre un match sans être au stade</title>
+<!--
+  Vidéo YouTube #1 : « Et si tu pouvais suivre ton match… même à distance ? »
+  1080 × 1920, 48 s, pour les Shorts, TikTok et Reels.
+
+  Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
+  par image (window.allerA(t)), en fait une capture, et ffmpeg les assemble ;
+  outils/mixage.mjs pose ensuite le son.
+
+  Trois sources d'images :
+   - les plans réels, filmés au bord du terrain : leurs images une à une
+     (plans/, outils/preparer-plans.mjs, découpage dans outils/montage.mjs) ;
+   - les écrans de l'application, de vraies captures (ecrans/, outils/s*.mjs) ;
+   - le reste, dessiné ici : le groupe de discussion, l'écran verrouillé et
+     ses notifications (leurs textes sont mot pour mot ceux de la console,
+     voir LiveMatchConsole), les titres, la fin.
+
+  Ouverte telle quelle dans Chromium, la page se joue en temps réel : c'est
+  l'aperçu pendant qu'on la retouche.
+-->
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+:root {
+  --vert: #00bf63;
+  --vert-fonce: #00994f;
+  --nuit: #04100b;
+  --encre: #111827;
+  --blanc-doux: rgba(255, 255, 255, .72);
+  --emoji: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji";
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--nuit); }
+body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+
+#scene { position: absolute; inset: 0; overflow: hidden; background: var(--nuit); }
+
+/* ── Les plans réels ───────────────────────────────────── */
+#plan { position: absolute; inset: 0; overflow: hidden; background: #2f5d2a; }
+#plan img { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; transform-origin: 50% 50%; }
+#plan .vide { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  background: repeating-linear-gradient(90deg, #2f6b2a 0 120px, #36782f 120px 240px);
+  font-family: "Outfit"; font-weight: 800; font-size: 44px; letter-spacing: .1em; color: rgba(255, 255, 255, .5); text-transform: uppercase; }
+#teinte { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4, 16, 11, .55) 0%, rgba(4, 16, 11, .25) 40%, rgba(4, 16, 11, .7) 100%); opacity: 0; }
+#teinte-fin { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 40%, rgba(0, 120, 60, .55) 0%, rgba(4, 16, 11, .92) 75%); opacity: 0; }
+
+/* ── Les étiquettes posées sur les plans ───────────────── */
+.etiquettes { position: absolute; left: 70px; right: 70px; }
+.etiquettes .l { overflow: hidden; padding: 6px 0; }
+.etiquettes .l span { display: inline-block; padding: 8px 26px 4px; background: rgba(4, 16, 11, .86); color: #fff;
+  font-family: "Outfit"; font-weight: 900; font-size: 112px; line-height: 1.02; letter-spacing: -.01em; text-transform: uppercase;
+  transform: translateX(-110%); }
+.etiquettes .l span.vert { background: var(--vert); color: var(--nuit); }
+.etiquettes.petit .l span { font-size: 92px; }
+
+/* ── Le groupe de discussion ───────────────────────────── */
+#groupe { position: absolute; left: 70px; top: 250px; display: flex; align-items: center; gap: 18px;
+  padding: 18px 30px 18px 18px; border-radius: 999px; background: rgba(255, 255, 255, .14); border: 2px solid rgba(255, 255, 255, .18);
+  font-size: 36px; font-weight: 700; opacity: 0; }
+#groupe .ico { width: 64px; height: 64px; border-radius: 50%; background: var(--vert); display: flex; align-items: center; justify-content: center; font-size: 34px; }
+#groupe small { display: block; font-size: 26px; font-weight: 500; color: var(--blanc-doux); }
+.bulle { position: absolute; left: 70px; display: flex; align-items: flex-end; gap: 20px; opacity: 0; transform-origin: 0% 100%; }
+.bulle .av { flex: none; width: 92px; height: 92px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: "Outfit"; font-weight: 800; font-size: 40px; color: #fff; }
+.bulle .corps { max-width: 800px; padding: 22px 34px 26px; border-radius: 44px 44px 44px 12px; background: #fff; color: var(--encre);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .35); }
+.bulle .nom { font-size: 30px; font-weight: 800; }
+.bulle .txt { font-size: 50px; font-weight: 600; line-height: 1.18; }
+.bulle.moi { left: auto; right: 70px; flex-direction: row-reverse; transform-origin: 100% 100%; }
+.bulle.moi .corps { background: var(--vert); color: var(--nuit); border-radius: 44px 44px 12px 44px; }
+.bulle .points { display: flex; gap: 12px; padding: 14px 6px 4px; }
+.bulle .points i { width: 18px; height: 18px; border-radius: 50%; background: #9ca3af; }
+
+/* ── Le noir, la question ──────────────────────────────── */
+#noir { position: absolute; inset: 0; background: #000; opacity: 0; }
+#question { position: absolute; left: 0; right: 0; top: 700px; text-align: center; }
+#question .l { overflow: hidden; padding: 10px 0 0; }
+#question .l span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 104px; line-height: 1.04; text-transform: uppercase; transform: translateY(135%); }
+#question .l span.vert { color: var(--vert); }
+
+/* ── Le décor des scènes de téléphone ──────────────────── */
+#decor { position: absolute; inset: 0; opacity: 0;
+  background: radial-gradient(120% 70% at 50% 38%, #0f3a2a 0%, #082219 45%, var(--nuit) 100%); }
+#decor svg { position: absolute; inset: 0; }
+#decor svg * { fill: none; stroke: rgba(255, 255, 255, .055); stroke-width: 4; }
+#lueur { position: absolute; left: 50%; top: 62%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px;
+  background: radial-gradient(circle, rgba(0, 191, 99, .22) 0%, rgba(0, 191, 99, 0) 60%); }
+
+/* Titres */
+.titre { position: absolute; left: 90px; right: 90px; top: 170px; }
+.titre .puce { font-family: "Outfit"; font-weight: 800; font-size: 30px; letter-spacing: .22em; color: var(--vert); text-transform: uppercase; opacity: 0; }
+.titre .ligne { overflow: hidden; padding: 22px 0 4px; margin-top: -22px; }
+.titre .ligne span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 108px; line-height: .98; letter-spacing: -.015em; text-transform: uppercase; transform: translateY(135%); }
+.titre .ligne span.vert { color: var(--vert); }
+.titre .sous { margin-top: 16px; font-size: 36px; line-height: 1.3; color: var(--blanc-doux); opacity: 0; }
+
+/* Le téléphone : grand, coupé par le bas de l'image */
+#camera { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 540px 760px; }
+#telephone { position: absolute; left: 120px; top: 590px; width: 840px; height: 1771px; border-radius: 100px;
+  background: #0b0b0c; padding: 20px; transform: translateY(1500px);
+  box-shadow: 0 0 0 4px #26282b, 0 50px 120px rgba(0, 0, 0, .6), 0 0 90px rgba(0, 191, 99, .18); }
+#ecran { position: relative; width: 800px; height: 1731px; border-radius: 80px; overflow: hidden; background: #f4f6fa; }
+#ecran img.e { position: absolute; left: 0; top: 0; width: 800px; height: auto; opacity: 0; }
+#ilot { position: absolute; left: 50%; top: 20px; width: 210px; height: 58px; margin-left: -105px; border-radius: 30px; background: #0b0b0c; z-index: 300; }
+
+/* L'écran verrouillé */
+/* Au-dessus des écrans de l'application (leur z-index monte de 20 en 21, 22…), sous l'îlot et les touchers. */
+#verrou { position: absolute; inset: 0; z-index: 100; opacity: 0; overflow: hidden; }
+#verrou .fond { position: absolute; inset: -60px; background: url(images/fond-verrou.jpg) center / cover; filter: blur(26px) brightness(.5) saturate(1.2); }
+#verrou .barre { position: absolute; left: 0; right: 0; top: 30px; height: 50px; padding: 0 60px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; }
+#verrou .barre .reseau { display: flex; align-items: flex-end; gap: 4px; height: 26px; }
+#verrou .barre .reseau i { width: 7px; background: #fff; border-radius: 2px; }
+#verrou .barre .pile { width: 48px; height: 24px; border: 3px solid rgba(255, 255, 255, .8); border-radius: 7px; padding: 2px; }
+#verrou .barre .pile i { display: block; width: 70%; height: 100%; background: #fff; border-radius: 3px; }
+#verrou .date { position: absolute; left: 0; right: 0; top: 136px; text-align: center; font-size: 34px; font-weight: 600; color: rgba(255, 255, 255, .9); }
+#verrou .heure { position: absolute; left: 0; right: 0; top: 176px; text-align: center; font-family: "Outfit"; font-weight: 600; font-size: 176px; line-height: 1; letter-spacing: -.02em; }
+#verrou .noir-ecran { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 5; }
+.notif { position: absolute; left: 16px; top: 0; width: 768px; height: 200px; padding: 24px 26px; border-radius: 42px; z-index: 2;
+  background: rgba(246, 246, 248, .9); color: var(--encre); display: flex; gap: 22px; opacity: 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.notif .ico { flex: none; width: 76px; height: 76px; border-radius: 20px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px rgba(0, 0, 0, .06); }
+.notif .ico img { width: 56px; height: 56px; object-fit: contain; }
+.notif .txt { min-width: 0; flex: 1; }
+.notif .app { display: flex; justify-content: space-between; font-size: 23px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
+.notif .app span { letter-spacing: 0; text-transform: none; font-weight: 500; }
+.notif b { display: block; margin-top: 2px; font-size: 38px; font-weight: 800; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif p { font-size: 32px; line-height: 1.22; color: #374151; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notif .halo { position: absolute; inset: -6px; border-radius: 48px; border: 6px solid var(--vert); opacity: 0; }
+
+/* Un toucher */
+.toucher { position: absolute; width: 0; height: 0; z-index: 200; }
+.toucher .point { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 4px rgba(0, 191, 99, .9), 0 6px 18px rgba(0, 0, 0, .35); transform: scale(0); }
+.toucher .onde { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border-radius: 50%;
+  border: 5px solid rgba(0, 191, 99, .9); transform: scale(0); opacity: 0; }
+
+/* La ligne du carton jaune, soulignée sur le fil */
+#souligne { position: absolute; left: 14px; right: 14px; z-index: 30; border: 6px solid #f59e0b; border-radius: 22px;
+  background: rgba(245, 158, 11, .1); opacity: 0; }
+
+/* ── La fin ────────────────────────────────────────────── */
+#fin { position: absolute; inset: 0; opacity: 0; }
+#fin-logo { position: absolute; left: 50%; top: 520px; width: 760px; margin-left: -380px; transform: scale(.6); opacity: 0; }
+#fin-texte { position: absolute; left: 0; right: 0; top: 930px; text-align: center; }
+#fin-texte .l { overflow: hidden; padding-top: 20px; margin-top: -20px; }
+#fin-texte .l span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 96px; line-height: 1.02; text-transform: uppercase; transform: translateY(135%); }
+#fin-texte .l span.vert { color: var(--vert); }
+#fin-appel { position: absolute; left: 0; right: 0; top: 1240px; transform: scale(.8); opacity: 0; text-align: center; }
+#fin-appel .bouton { display: inline-block; white-space: nowrap; padding: 30px 56px; border-radius: 999px; background: var(--vert); color: #04100b;
+  font-family: "Outfit"; font-weight: 900; font-size: 46px; letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 24px 60px rgba(0, 191, 99, .35); }
+#fin-appel .url { margin-top: 30px; font-family: "Outfit"; font-weight: 700; font-size: 50px; letter-spacing: .04em; }
+#fin-appel .lien { margin-top: 6px; font-size: 32px; color: var(--blanc-doux); }
+</style>
+</head>
+<body>
+<div id="scene">
+  <!-- Les plans réels -->
+  <div id="plan"><img id="plan-img" alt=""><div class="vide" id="plan-vide">Plan réel</div></div>
+  <div id="teinte"></div>
+  <div id="teinte-fin"></div>
+
+  <div class="etiquettes" id="e-joue" style="top:640px">
+    <div class="l"><span>Ton équipe</span></div>
+    <div class="l"><span class="vert">joue.</span></div>
+  </div>
+  <div class="etiquettes petit" id="e-stade" style="top:640px">
+    <div class="l"><span>Mais tu n'es</span></div>
+    <div class="l"><span class="vert">pas au stade.</span></div>
+  </div>
+
+  <!-- Le groupe de discussion -->
+  <div id="groupe"><div class="ico">⚽</div><div>Supporters de l'Avenir<small>Yao, Afi, Kodjo, Mawuli, toi</small></div></div>
+  <div class="bulle" id="b1" style="top:430px"><div class="av" style="background:#f59e0b">Y</div><div class="corps"><div class="nom" style="color:#d97706">Yao</div><div class="txt">Le match a commencé ?</div></div></div>
+  <div class="bulle" id="b2" style="top:640px"><div class="av" style="background:#ec4899">A</div><div class="corps"><div class="nom" style="color:#db2777">Afi</div><div class="txt">C'est combien ?</div></div></div>
+  <div class="bulle" id="b3" style="top:850px"><div class="av" style="background:#0ea5e9">K</div><div class="corps"><div class="nom" style="color:#0284c7">Kodjo</div><div class="txt">Qui a marqué ??</div></div></div>
+  <div class="bulle" id="b4" style="top:1060px"><div class="av" style="background:#8b5cf6">M</div><div class="corps"><div class="nom" style="color:#7c3aed">Mawuli</div><div class="txt">Quelqu'un est au terrain ? 😩</div></div></div>
+  <div class="bulle" id="b5" style="top:1270px"><div class="av" style="background:#f59e0b">Y</div><div class="corps"><div class="points"><i></i><i></i><i></i></div></div></div>
+
+  <div class="bulle moi" id="r1" style="top:430px"><div class="corps"><div class="txt">2 – 0 ! Kafui à la 23e,<br>Ekoué à la 67e 🔥</div></div></div>
+  <div class="bulle" id="r2" style="top:700px"><div class="av" style="background:#f59e0b">Y</div><div class="corps"><div class="nom" style="color:#d97706">Yao</div><div class="txt">T'es au terrain ??</div></div></div>
+  <div class="bulle moi" id="r3" style="top:910px"><div class="corps"><div class="txt">Non. Je le suis<br>sur KoppaFoot 😎</div></div></div>
+
+  <!-- Le noir, la question -->
+  <div id="noir"></div>
+  <div id="question">
+    <div class="l"><span>Et si tu pouvais</span></div>
+    <div class="l"><span>suivre ton match…</span></div>
+    <div class="l"><span class="vert">même à distance ?</span></div>
+  </div>
+
+  <!-- Les scènes de téléphone -->
+  <div id="decor">
+    <svg viewBox="0 0 1080 1920" preserveAspectRatio="none">
+      <rect x="70" y="70" width="940" height="1780" rx="6" />
+      <line x1="70" y1="960" x2="1010" y2="960" />
+      <circle cx="540" cy="960" r="190" />
+      <rect x="290" y="70" width="500" height="260" />
+      <rect x="290" y="1590" width="500" height="260" />
+    </svg>
+    <div id="lueur"></div>
+  </div>
+
+  <div class="titre" id="t1"><div class="puce">Sur KoppaFoot</div><div class="ligne"><span>Suis ton</span></div><div class="ligne"><span class="vert">match</span></div><div class="sous">Ouvre sa fiche, touche la cloche.</div></div>
+  <div class="titre" id="t2"><div class="puce">Même à distance</div><div class="ligne"><span>Le match</span></div><div class="ligne"><span class="vert">vient à toi</span></div><div class="sous">Chaque but arrive sur ton téléphone.</div></div>
+  <div class="titre" id="t3"><div class="puce">Sur la fiche du match</div><div class="ligne"><span>À la minute</span></div><div class="ligne"><span class="vert">près</span></div><div class="sous">Buts, cartons, mi-temps : tout le fil.</div></div>
+
+  <div id="camera">
+    <div id="telephone">
+      <div id="ecran">
+        <div id="ilot"></div>
+        <img class="e" id="e01" src="ecrans/01-fiche-avant.jpg">
+        <img class="e" id="e02" src="ecrans/02-fiche-suivie.jpg">
+        <div id="verrou">
+          <div class="fond"></div>
+          <div class="barre"><div class="reseau"><i style="height:9px"></i><i style="height:14px"></i><i style="height:19px"></i><i style="height:25px"></i></div><div class="pile"><i></i></div></div>
+          <div class="date">dimanche 4 octobre</div>
+          <div class="heure" id="heure">8:59</div>
+          <div id="notifs"></div>
+          <div class="noir-ecran"></div>
+        </div>
+        <img class="e" id="e08" src="ecrans/08-fiche-finale.jpg">
+        <img class="e" id="e08b" src="ecrans/08b-fil-final.jpg">
+        <div id="souligne"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- La fin -->
+  <div class="etiquettes petit" id="e-merite" style="top:300px">
+    <div class="l"><span>Le foot amateur</span></div>
+    <div class="l"><span>mérite aussi</span></div>
+    <div class="l"><span class="vert">d'être suivi.</span></div>
+  </div>
+  <div id="fin">
+    <img id="fin-logo" src="images/logo.png" alt="KoppaFoot">
+    <div id="fin-texte">
+      <div class="l"><span>Le foot amateur</span></div>
+      <div class="l"><span class="vert">en temps réel.</span></div>
+    </div>
+    <div id="fin-appel"><div class="bouton">Suis le prochain match</div><div class="url">koppafoot.com</div><div class="lien">Lien en description</div></div>
+  </div>
+</div>
+
+<script src="plans/plans.js"></script>
+<script src="cibles.js"></script>
+<script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+// ============================================================
+// La ligne de temps. Les temps sont en secondes, la vidéo en dure 48.
+// Les moments des plans réels sont fixés dans outils/montage.mjs.
+// ============================================================
+const DUREE = 48;
+const ECHELLE = 800 / 390;            // pixels vidéo par pixel CSS du téléphone filmé
+const PLANS = window.PLANS || [];
+const C = window.CIBLES || {};
+const etat = { heure: "8:59" };
+const T = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+const $ = (s) => document.querySelector(s);
+/** Les bruitages, lus par outils/mixage.mjs : { t, son }. */
+const SONS = [];
+const son = (nom, t) => SONS.push({ t, son: nom });
+
+// ── Les plans réels ─────────────────────────────────────────
+const FLOU = "blur(18px) brightness(0.5) saturate(0.55)";
+const NET = "blur(0px) brightness(1) saturate(1)";
+gsap.set("#plan-img", { filter: NET });
+
+/** Le plan affiché à l'instant t, et son image. */
+function imageDuPlan(t) {
+  const p = PLANS.find((x) => t >= x.t && t < x.t + Math.max(x.duree, 0.001))
+    // Le dernier plan tient sa dernière image jusqu'à la fin.
+    ?? (PLANS.length && t >= PLANS[PLANS.length - 1].t ? PLANS[PLANS.length - 1] : null);
+  if (!p) return null;
+  const i = Math.min(p.n, Math.max(1, Math.floor((t - p.t) * p.ips + 1e-6) + 1));
+  return `plans/${p.id}/${String(i).padStart(4, "0")}.jpg`;
+}
+
+// ── Les outils de la ligne de temps ─────────────────────────
+/** Des étiquettes qui entrent par la gauche, puis s'effacent. */
+function etiquettes(sel, entree, sortie) {
+  T.to(`${sel} .l span`, { x: "0%", duration: 0.55, stagger: 0.12, ease: "power4.out" }, entree);
+  if (sortie) T.to(sel, { opacity: 0, y: -50, duration: 0.35, ease: "power2.in" }, sortie);
+}
+
+/** Une bulle du groupe qui surgit. */
+function bulle(sel, t, moi = false) {
+  T.fromTo(sel, { opacity: 0, scale: 0.6, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "back.out(2)" }, t);
+  son(moi ? "envoi" : "pop", t);
+}
+
+/** Un titre de scène : il entre, puis sort. */
+function titre(id, entree, sortie) {
+  const racine = $(id);
+  T.to(racine.querySelector(".puce"), { opacity: 1, duration: 0.4 }, entree)
+   .to(racine.querySelectorAll(".ligne > span"), { y: "0%", duration: 0.7, stagger: 0.09 }, entree + 0.05)
+   .to(racine, { opacity: 0, y: -40, duration: 0.35, ease: "power2.in" }, sortie);
+  const sous = racine.querySelector(".sous");
+  if (sous) T.to(sous, { opacity: 1, duration: 0.5 }, entree + 0.35);
+}
+
+/** Montrer un écran du téléphone : il passe devant le précédent. */
+let z = 1;
+function ecran(id, t, d = 0.35) {
+  const el = $("#e" + id);
+  el.style.zIndex = 20 + z++;
+  T.fromTo(el, { opacity: 0, scale: 1.03 }, { opacity: 1, scale: 1, duration: d, ease: "power2.out", immediateRender: false }, t);
+}
+
+/** Un toucher du doigt, en (x, y) pixels de l'écran vidéo. */
+function toucherEn(x, y, t) {
+  const el = document.createElement("div");
+  el.className = "toucher";
+  el.innerHTML = '<div class="onde"></div><div class="point"></div>';
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+  $("#ecran").appendChild(el);
+  const p = el.querySelector(".point"), o = el.querySelector(".onde");
+  T.fromTo(p, { scale: 0, opacity: 1 }, { scale: 1, duration: 0.18, ease: "back.out(3)", immediateRender: false }, t)
+   .to(p, { scale: 0.8, duration: 0.12 }, t + 0.22)
+   .to(p, { opacity: 0, scale: 0.4, duration: 0.25, ease: "power2.in" }, t + 0.42)
+   .fromTo(o, { scale: 0.6, opacity: 0.9 }, { scale: 2.6, opacity: 0, duration: 0.6, ease: "power2.out", immediateRender: false }, t + 0.18);
+  son("toucher", t + 0.15);
+}
+/** Le même, au centre d'un bouton retenu au tournage. */
+function toucher(nom, t) {
+  const b = C[nom];
+  if (!b) { console.warn("cible absente", nom); return; }
+  toucherEn((b.x + b.w / 2) * ECHELLE, (b.y + b.h / 2) * ECHELLE, t);
+}
+
+// ── 0 → 5 s : « Ton équipe joue. Mais tu n'es pas au stade. » ──
+etiquettes("#e-joue", 0.25, 2.75);
+T.to("#plan-img", { filter: FLOU, scale: 1.08, duration: 1.4, ease: "power2.inOut" }, 3.3);
+etiquettes("#e-stade", 3.2, 4.85);
+
+// ── 5 → 12 s : le groupe s'impatiente ───────────────────────
+T.to("#teinte", { opacity: 1, duration: 0.6 }, 4.8)
+ .fromTo("#groupe", { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.5 }, 5.0);
+bulle("#b1", 5.55);
+bulle("#b2", 6.65);
+bulle("#b3", 7.6);
+bulle("#b4", 8.55);
+bulle("#b5", 9.6);
+T.to("#b5 .points i", { y: -10, duration: 0.25, stagger: { each: 0.12, repeat: 7, yoyo: true }, ease: "sine.inOut" }, 9.9)
+ .to("#b5", { opacity: 0, duration: 0.25 }, 11.2)
+ .to("#groupe, #b1, #b2, #b3, #b4", { opacity: 0, y: -20, duration: 0.35, stagger: 0.04, ease: "power2.in" }, 11.45);
+
+// ── 12 → 15,4 s : le coup de sifflet, le noir, la question ──
+T.to("#noir", { opacity: 1, duration: 0.25, ease: "none" }, 11.85)
+ .to("#question .l span", { y: "0%", duration: 0.7, stagger: 0.16 }, 12.3)
+ .fromTo("#question .l:nth-child(3) span", { scale: 1 }, { scale: 1.06, duration: 0.4, yoyo: true, repeat: 1, ease: "sine.inOut", immediateRender: false }, 13.6)
+ .to("#question", { opacity: 0, y: -60, duration: 0.4, ease: "power2.in" }, 14.9);
+
+// ── 15,4 → 19,8 s : la fiche du match, la cloche ────────────
+T.set("#plan", { opacity: 0 }, 15.2)
+ .set("#teinte", { opacity: 0 }, 15.2)
+ .to("#decor", { opacity: 1, duration: 0.5 }, 15.2)
+ .to("#noir", { opacity: 0, duration: 0.5 }, 15.2)
+ .to("#telephone", { y: 0, duration: 0.9 }, 15.3);
+son("glisse", 15.3);
+ecran("01", 15.3, 0.01);
+titre("#t1", 15.6, 19.6);
+toucher("01-fiche-avant", 17.0);
+ecran("02", 17.4, 0.2);
+T.to("#camera", { scale: 1.32, duration: 0.9, ease: "power2.inOut" }, 17.6)
+ .to("#camera", { scale: 1, duration: 0.7, ease: "power2.inOut" }, 19.2);
+
+// ── 19,8 → 29,8 s : l'écran verrouillé se remplit ───────────
+T.set("#verrou", { opacity: 1 }, 19.8)
+ .fromTo("#verrou .noir-ecran", { opacity: 1 }, { opacity: 0, duration: 0.35, ease: "power1.out", immediateRender: false }, 19.95);
+titre("#t2", 20.0, 29.6);
+
+const NOTIFS = [
+  // Mot pour mot ce qu'envoie la console (LiveMatchConsole) aux abonnés du match.
+  { heure: "9:01", t: 20.7, titre: "🔴 C'est parti !", texte: "Avenir d'Adakpamé – Olympique de Tokoin, coup d'envoi !" },
+  { heure: "9:24", t: 22.7, titre: "⚽ BUT ! Kafui Mensah (23')", texte: "Avenir d'Adakpamé 1 – 0 Olympique de Tokoin", but: true },
+  { heure: "9:46", t: 24.7, titre: "⏸️ Mi-temps", texte: "Avenir d'Adakpamé 1 – 0 Olympique de Tokoin" },
+  { heure: "10:23", t: 26.7, titre: "⚽ BUT ! Ekoué Bawa (67')", texte: "Avenir d'Adakpamé 2 – 0 Olympique de Tokoin", but: true },
+  { heure: "10:49", t: 28.7, titre: "🏁 Score final", texte: "Avenir d'Adakpamé 2 – 0 Olympique de Tokoin" },
+];
+const HAUT = 410, PAS = 216, VISIBLES = 4;
+const cartes = NOTIFS.map((n) => {
+  const el = document.createElement("div");
+  el.className = "notif";
+  el.innerHTML = `<div class="halo"></div><div class="ico"><img src="images/symbole.png" alt=""></div>
+    <div class="txt"><div class="app">KoppaFoot<span>maintenant</span></div><b></b><p></p></div>`;
+  el.querySelector("b").textContent = n.titre;
+  el.querySelector("p").textContent = n.texte;
+  $("#notifs").appendChild(el);
+  return el;
+});
+NOTIFS.forEach((n, k) => {
+  T.set(etat, { heure: n.heure }, n.t - 0.05);
+  T.fromTo(cartes[k], { opacity: 0, y: HAUT - 70, scale: 0.92 },
+    { opacity: 1, y: HAUT, scale: 1, duration: 0.5, ease: "back.out(1.6)", immediateRender: false }, n.t);
+  for (let j = 0; j < k; j++) {
+    const rang = k - j;
+    T.to(cartes[j], rang < VISIBLES ? { y: HAUT + rang * PAS, duration: 0.45, ease: "power3.out" }
+                                    : { y: HAUT + rang * PAS, opacity: 0, duration: 0.4 }, n.t);
+  }
+  son("notif", n.t);
+  if (n.but) {
+    son("vibre", n.t + 0.05);
+    T.fromTo("#telephone", { x: 0 }, { x: 9, duration: 0.05, repeat: 7, yoyo: true, ease: "none", immediateRender: false }, n.t + 0.05)
+     .set("#telephone", { x: 0 }, n.t + 0.5)
+     .fromTo(cartes[k].querySelector(".halo"), { opacity: 1, scale: 1 }, { opacity: 0, scale: 1.06, duration: 1.1, ease: "power2.out", immediateRender: false }, n.t + 0.15);
+  }
+});
+
+// ── 29,6 → 34,2 s : on touche, la fiche du match s'ouvre ────
+toucherEn(400, HAUT + 100, 29.55);
+// Le déverrouillage : l'écran verrouillé remonte, la fiche est dessous.
+ecran("08", 29.9, 0.01);
+T.to("#verrou", { yPercent: -100, duration: 0.45, ease: "power3.in" }, 29.95);
+son("glisse", 29.95);
+titre("#t3", 30.1, 33.9);
+ecran("08b", 31.5, 0.45);
+{
+  const b = C["08b-fil-final"];
+  const y = b ? (b.y + b.h / 2) * ECHELLE : 900;
+  gsap.set("#souligne", { top: y - 62, height: 124 });
+}
+T.fromTo("#souligne", { opacity: 0, scale: 1.15 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)", immediateRender: false }, 32.2)
+ .to("#souligne", { opacity: 0, duration: 0.3 }, 33.7)
+ .to("#telephone", { y: 1500, duration: 0.6, ease: "power3.in" }, 33.85)
+ .to("#decor", { opacity: 0, duration: 0.4 }, 34.1);
+son("glisse", 33.85);
+
+// ── 34,2 → 38,5 s : la réponse au groupe ────────────────────
+T.set("#plan", { opacity: 1 }, 34.2)
+ .set("#plan-img", { filter: FLOU, scale: 1.08 }, 34.2)
+ .to("#teinte", { opacity: 1, duration: 0.4 }, 34.2)
+ .fromTo("#groupe", { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.45, immediateRender: false }, 34.35);
+bulle("#r1", 34.75, true);
+bulle("#r2", 35.95);
+bulle("#r3", 36.95, true);
+T.to("#groupe, #r1, #r2, #r3", { opacity: 0, y: -20, duration: 0.35, stagger: 0.04, ease: "power2.in" }, 38.15);
+
+// ── 38,6 → 43,2 s : le but de Gilles ────────────────────────
+T.set("#teinte", { opacity: 0 }, 38.6)
+ .set("#plan-img", { filter: NET, scale: 1.45, xPercent: 8, yPercent: -2 }, 38.6)
+ .to("#plan-img", { scale: 1.25, xPercent: 4, duration: 4.6, ease: "none" }, 38.6);
+son("glisse", 38.55);
+etiquettes("#e-merite", 39.0, 42.75);
+
+// ── 43,2 → 48 s : la fin ────────────────────────────────────
+// Le logo arrive avec le son des notifications : celui qu'on vient d'entendre
+// annoncer chaque but.
+son("notif", 43.45);
+T.set("#plan-img", { scale: 1.08, xPercent: 0, yPercent: 0 }, 43.2)
+ .to("#plan-img", { filter: FLOU, duration: 0.6, ease: "power2.out" }, 43.2)
+ .to("#teinte-fin", { opacity: 1, duration: 0.6 }, 43.2)
+ .to("#fin", { opacity: 1, duration: 0.3 }, 43.3)
+ .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 43.4)
+ .to("#fin-texte .l span", { y: "0%", duration: 0.7, stagger: 0.14 }, 43.9)
+ .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 44.8)
+ .to("#fin-appel .bouton", { scale: 1.05, duration: 0.5, repeat: 3, yoyo: true, ease: "sine.inOut" }, 45.6)
+ .set({}, {}, DUREE);
+
+// ── Ce que les interpolations ne savent pas écrire ──────────
+const img = $("#plan-img");
+let srcCourante = null;
+function rendre(t) {
+  $("#heure").textContent = etat.heure;
+  const src = imageDuPlan(t);
+  $("#plan-vide").style.display = PLANS.length ? "none" : "flex";
+  if (src && src !== srcCourante) {
+    srcCourante = src;
+    img.src = src;
+    return img.decode().catch(() => {});
+  }
+  return null;
+}
+
+/** Aller à l'instant t (en secondes) : appelé image par image par outils/rendu.mjs. */
+window.allerA = (t) => { T.seek(t, true); return rendre(t); };
+window.DUREE = DUREE;
+window.SONS = SONS;
+window.pret = Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map((i) => (i.complete || !i.getAttribute("src") ? null : new Promise((r) => { i.onload = i.onerror = r; }))),
+]).then(() => true);
+
+// Ouverte à la main : la page se joue en temps réel.
+if (!navigator.webdriver) {
+  window.pret.then(() => { T.eventCallback("onUpdate", () => rendre(T.time())); T.play(0); });
+}
+</script>
+</body>
+</html>
