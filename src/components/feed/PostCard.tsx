@@ -748,7 +748,7 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
             <CommentSection
               postId={post.id}
               commentCount={post.commentCount}
-              currentUser={currentUser ? { uid: currentUser.uid, name: authorName } : null}
+              currentUser={currentUser ? { uid: currentUser.uid, name: authorName, photo: currentUser.profilePictureUrl } : null}
             />
           </motion.div>
         )}

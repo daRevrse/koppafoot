@@ -115,7 +115,9 @@ export default function AdminCompetitionsPage() {
                 <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link href={c.slug ? `/c/${c.slug}` : "/competitions"} className="text-sm font-black text-gray-900 hover:text-emerald-700">
+                      {/* LA FICHE D'ADMINISTRATION, pas la page publique : on y
+                          décide de la validation, et on y trouve qui joindre. */}
+                      <Link href={`/admin/competitions/${c.id}`} className="text-sm font-black text-gray-900 hover:text-emerald-700">
                         {c.name}
                       </Link>
                       <Pastille ton={st.ton}>{st.label}</Pastille>
