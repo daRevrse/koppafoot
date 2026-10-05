@@ -73,10 +73,7 @@ export interface PartenaireAffiche {
   deLaCompetition: boolean;
 }
 
-/** La journée en cours à Lomé (GMT toute l'année) : « 2026-10-05 ». */
-export function jourDeLome(maintenant: Date = new Date()): string {
-  return maintenant.toISOString().slice(0, 10);
-}
+export { jourDeLome } from "@/lib/jour";
 
 /** Le partenariat est-il à l'affiche ce jour-là ? */
 export function aLAffiche(p: Pick<FirestorePartenariat, "actif" | "debut" | "fin">, jour: string): boolean {

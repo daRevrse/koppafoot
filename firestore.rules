@@ -347,9 +347,13 @@ service cloud.firestore {
       // par candidature. Elle se cumule avec le rôle Evolution : un arbitre
       // ou un organisateur peut posséder un terrain sans cesser d'être l'un
       // ou l'autre.
-      allow create: if isAuthenticated()
-                    && request.resource.data.owner_id == request.auth.uid
-                    && isVenueOwnerHat();
+      //
+      // CRÉATION PAR LE SERVEUR SEULEMENT. L'offre gratuite plafonne ce
+      // nombre (lib/offre), et une règle ne sait pas compter des documents :
+      // la création passe par /api/venues, qui vérifie la limite avec le SDK
+      // admin (le premier terrain, lui, naît de la candidature approuvée).
+      // Modifier et supprimer restent ici.
+      allow create: if false;
       allow update: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
       allow delete: if isAuthenticated() && (resource.data.owner_id == request.auth.uid || isSuperAdmin());
     }
@@ -396,7 +400,11 @@ service cloud.firestore {
     // ============================================
     match /teams/{teamId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      // CRÉATION PAR LE SERVEUR SEULEMENT. L'offre gratuite plafonne ce
+      // nombre (lib/offre), et une règle ne sait pas compter des documents :
+      // la création passe par /api/teams, qui vérifie la limite
+      // avec le SDK admin. Modifier et supprimer restent ici.
+      allow create: if false;
       allow update: if isAuthenticated()
         && (
           resource.data.manager_id == request.auth.uid
@@ -676,6 +684,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Les droits d'un compte : le Pro, l'option sans pub (lib/offre).
+    // Son titulaire les lit ; seul le serveur les écrit, l'administration
+    // les accorde depuis /admin/offre. On ne s'accorde pas le Pro.
+    match /droits/{uid} {
+      allow read: if isOwner(uid) || isSuperAdmin();
+      allow write: if false;
+    }
+
     match /posts/{postId} {
       allow read: if true;
       // A post must be signed by its writer. Without the author_id check any
@@ -835,13 +851,20 @@ service cloud.firestore {
     // ============================================
     match /competitions/{cid} {
       allow read: if true;
-      allow create: if isOrganizerHat()
-                    && request.auth.uid in request.resource.data.organizer_ids;
+      // CRÉATION PAR LE SERVEUR SEULEMENT. L'offre gratuite plafonne ce
+      // nombre (lib/offre), et une règle ne sait pas compter des documents :
+      // la création passe par /api/competitions, qui vérifie la limite
+      // avec le SDK admin. Modifier et supprimer restent ici.
+      allow create: if false;
       allow update, delete: if isOrganizerOf(cid) || isSuperAdmin();
 
       match /comp_teams/{tid} {
         allow read: if true;
-        allow create, delete: if isOrganizerOf(cid) || isSuperAdmin();
+        // La taille d'une compétition est plafonnée par l'offre gratuite :
+        // l'ajout passe par /api/competitions/{cid}/teams (ou par
+        // l'acceptation d'une inscription), qui comptent les équipes.
+        allow create: if false;
+        allow delete: if isOrganizerOf(cid) || isSuperAdmin();
         // The team's manager runs their own squad: roster, kit colour, crest.
         // Everything that decides the competition itself — the team's name,
         // its poule, who manages it — stays with the organizer.

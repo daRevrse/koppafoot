@@ -51,6 +51,12 @@ const SECTIONS: SectionJuridique[] = [
           l&apos;avance, leur prix sera affiché avant tout paiement, et aucune ne sera exigée pour terminer un match ou une
           compétition déjà commencés.
         </p>
+        <p>
+          Jouer, suivre un match, s&apos;inscrire à une compétition et arbitrer restent gratuits. L&apos;offre gratuite peut
+          en revanche limiter ce que tu gères : le nombre d&apos;équipes, de terrains ou de compétitions en cours, et la taille
+          d&apos;une compétition. Ces limites sont détaillées sur la page « Mon offre », annoncées au moins un mois avant
+          d&apos;entrer en vigueur, et ne retirent jamais ce qui existe déjà : elles empêchent seulement de créer au-delà.
+        </p>
       </>
     ),
   },

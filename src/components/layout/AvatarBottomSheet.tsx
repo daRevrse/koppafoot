@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, LogOut, LogIn, X, Settings } from "lucide-react";
+import { User, LogOut, LogIn, X, Settings, Gem } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
 import {
@@ -160,6 +160,17 @@ export default function AvatarBottomSheet({
               <Settings size={18} className="text-emerald-400" />
               {t("compte.parametres")}
             </Link>
+            {/* L'offre, elle, est celle du COMPTE : seulement connecté. */}
+            {user && (
+              <Link
+                href="/offre"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <Gem size={18} className="text-emerald-400" />
+                {t("compte.offre")}
+              </Link>
+            )}
           </div>
 
           {/* L'invitation a installer reste : ce n'est pas un reglage, c'est

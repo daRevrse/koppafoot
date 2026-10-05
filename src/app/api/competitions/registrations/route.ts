@@ -7,6 +7,7 @@ import { announceCompetitionEvent } from "@/lib/tribune-server";
 import { notifyTeamActivity } from "@/lib/activity-notify-server";
 import type { FirestoreCompetition } from "@/types";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { limiteEquipesDeCompetition, reponseLimite } from "@/lib/offre-server";
 
 /**
  * Competition registrations, a manager enters their club in a competition
@@ -373,6 +374,11 @@ export async function PATCH(req: NextRequest) {
     }
 
     // ── Accept: create the competition team from the club, then import ──
+    // La taille de la compétition d'abord : l'offre gratuite la plafonne
+    // (lib/offre). L'inscription reste en attente, rien n'est perdu.
+    const limite = await limiteEquipesDeCompetition(reg.competition_id, competition);
+    if (limite) return reponseLimite(limite);
+
     const clubSnap = await adminDb.collection("teams").doc(reg.club_id).get();
     if (!clubSnap.exists) {
       return NextResponse.json({ error: "Le club n'existe plus." }, { status: 404 });

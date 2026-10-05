@@ -26,6 +26,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { creerParLeServeur } from "@/lib/offre-client";
 import { dateLongue, horairesLus, reservationDuMatch } from "@/lib/terrains";
 import type {
   Team, FirestoreTeam, Achievement,
@@ -535,17 +536,12 @@ export async function createTeam(data: {
   /** Masculine, féminine ou mixte ; rien = non précisée. */
   category?: Categorie | null;
 }): Promise<string> {
-  const ref = await addDoc(collection(db, "teams"), {
-    name: data.name, manager_id: data.managerId, city: data.city,
-    description: data.description, level: data.level,
-    looking_for: [], member_ids: [],
-    max_members: data.maxMembers, color: data.color,
-    wins: 0, losses: 0, draws: 0, matches_played: 0,
-    is_recruiting: true,
-    ...(data.category ? { category: data.category } : {}),
-    created_at: serverTimestamp(), updated_at: serverTimestamp(),
+  // Par le serveur : l'offre gratuite plafonne le nombre d'équipes gérées
+  // (lib/offre). Le manager est l'appelant, `managerId` ne part pas.
+  return creerParLeServeur("/api/teams", {
+    name: data.name, city: data.city, description: data.description, level: data.level,
+    maxMembers: data.maxMembers, color: data.color, category: data.category ?? null,
   });
-  return ref.id;
 }
 
 /**
@@ -3594,26 +3590,21 @@ export async function getVenueById(venueId: string): Promise<Venue | null> {
 }
 
 export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "updatedAt" | "rating" | "reviewCount">): Promise<string> {
-  const ref = await addDoc(collection(db, "venues"), {
+  // Par le serveur : l'offre gratuite plafonne le nombre de terrains
+  // (lib/offre). Le propriétaire est l'appelant ; les photos suivent, une fois
+  // l'identifiant connu, comme avant.
+  return creerParLeServeur("/api/venues", {
     name: data.name,
     address: data.address,
     city: data.city,
-    owner_id: data.ownerId,
-    field_type: data.fieldType,
-    field_surface: data.fieldSurface,
-    field_size: data.fieldSize,
-    price_per_hour: data.pricePerHour,
+    fieldType: data.fieldType,
+    fieldSurface: data.fieldSurface,
+    fieldSize: data.fieldSize,
+    pricePerHour: data.pricePerHour,
     amenities: data.amenities,
     available: data.available,
-    photo_url: data.photoUrl,
-    gallery_urls: data.galleryUrls ?? [],
-    opening_hours: data.openingHours ?? null,
-    rating: 0,
-    review_count: 0,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
+    openingHours: data.openingHours ?? null,
   });
-  return ref.id;
 }
 
 export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id" | "createdAt" | "updatedAt">>): Promise<void> {

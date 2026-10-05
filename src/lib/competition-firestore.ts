@@ -22,6 +22,8 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { creerParLeServeur, envoyerCreation } from "@/lib/offre-client";
+import { ErreurLimiteOffre } from "@/lib/offre";
 import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
@@ -67,17 +69,9 @@ export async function setCompetitionFollow(
 // Helpers
 // ============================================
 
-/**
- * lowercase; strip accents; collapse runs of non-alphanumerics to a single "-"; trim edge "-".
- */
-export function slugify(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+// Le slug se calcule aussi sur le serveur, qui crée la compétition : la
+// fonction vit dans le module pur, on la réexporte pour l'aperçu du formulaire.
+export { slugify } from "./competition-format";
 
 // ============================================
 // Competitions
@@ -99,44 +93,23 @@ export async function createCompetition(input: {
   /** Masculine, féminine ou mixte ; rien = non précisée. */
   category?: Categorie | null;
 }): Promise<string> {
-  // Ensure slug uniqueness: slug, slug-2, slug-3, ...
-  // Fallback when the name has no slug-able chars, so we never write an empty slug.
-  const base = slugify(input.name) || "competition";
-  let slug = base;
-  let suffix = 2;
-  while (true) {
-    const q = query(collection(db, "competitions"), where("slug", "==", slug), firestoreLimit(1));
-    const snap = await getDocs(q);
-    if (snap.empty) break;
-    slug = `${base}-${suffix}`;
-    suffix += 1;
-  }
-
-  const payload: Record<string, unknown> = {
+  // Par le serveur : l'offre gratuite plafonne le nombre de compétitions en
+  // cours (lib/offre). Il calcule aussi l'adresse unique (slug), et la
+  // compétition naît en brouillon, non validée : c'est l'administration qui
+  // ouvre la porte du public. `createdBy` ne part pas, c'est l'appelant.
+  return creerParLeServeur("/api/competitions", {
     name: input.name,
-    slug,
-    logo_url: input.logoUrl ?? null,
-    banner_url: input.bannerUrl ?? null,
-    organizer_ids: [input.createdBy],
-    moderator_ids: [],
-    created_by: input.createdBy,
-    status: "draft",
-    competition_type: input.competitionType,
-    organizer_name: input.organizerName ?? null,
+    description: input.description,
+    logoUrl: input.logoUrl ?? null,
+    bannerUrl: input.bannerUrl ?? null,
+    competitionType: input.competitionType,
     format: input.format,
-    start_date: input.startDate ?? null,
-    end_date: input.endDate ?? null,
-    venue_city: input.venueCity ?? null,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  };
-  if (input.description !== undefined) payload.description = input.description;
-  if (input.category) payload.category = input.category;
-
-  // Non validée à la naissance : c'est l'administration qui ouvre la porte du
-  // public, l'organisateur prépare tout le reste sans attendre.
-  const ref = await addDoc(collection(db, "competitions"), { ...payload, is_validated: false });
-  return ref.id;
+    startDate: input.startDate ?? null,
+    endDate: input.endDate ?? null,
+    venueCity: input.venueCity ?? null,
+    organizerName: input.organizerName ?? null,
+    category: input.category ?? null,
+  });
 }
 
 export async function getCompetition(id: string): Promise<Competition | null> {
@@ -333,12 +306,16 @@ export async function deleteCompetition(cid: string): Promise<void> {
  * Creates a fresh competition from an existing one: same type, format and
  * team list (rosters included), but no matches, no groups, no staff and no
  * manager claims, a new edition starts from a clean slate.
+ *
+ * `equipesRefusees` : la copie existe, mais ses équipes ont dépassé la taille
+ * que permet l'offre gratuite (lib/offre). Elle reste vide, l'organisateur y
+ * ajoute celles qu'il garde ; l'écran le lui dit.
  */
 export async function duplicateCompetition(
   cid: string,
   name: string,
   createdBy: string,
-): Promise<string> {
+): Promise<{ id: string; equipesRefusees: ErreurLimiteOffre | null }> {
   const source = await getCompetition(cid);
   if (!source) throw new Error(`Competition ${cid} not found`);
 
@@ -357,29 +334,28 @@ export async function duplicateCompetition(
     organizerName: source.organizerName,
   });
 
+  // Les équipes, effectifs compris, en un appel au serveur : l'offre gratuite
+  // plafonne la taille d'une compétition (lib/offre), et le lot passe ou
+  // échoue d'un bloc. Sans poule ni rattachement : une édition repart à neuf.
   const teams = await listCompTeams(cid);
-  const targetCol = collection(db, "competitions", newId, "comp_teams");
-  for (let i = 0; i < teams.length; i += BATCH_LIMIT) {
-    const batch = writeBatch(db);
-    for (const team of teams.slice(i, i + BATCH_LIMIT)) {
-      const data: FirestoreCompTeam = {
-        name: team.name,
-        short_name: team.shortName,
-        logo_url: team.logoUrl,
-        color: team.color,
-        group: null,
-        players: team.players,
-        claimed_by_manager_id: null,
-        claimed_by_team_id: null,
-        created_at: serverTimestamp() as unknown as string,
-        updated_at: serverTimestamp() as unknown as string,
-      };
-      batch.set(doc(targetCol), data);
+  if (teams.length) {
+    try {
+      await envoyerCreation(`/api/competitions/${encodeURIComponent(newId)}/teams`, {
+        equipes: teams.map((team) => ({
+          name: team.name,
+          shortName: team.shortName,
+          logoUrl: team.logoUrl,
+          color: team.color,
+          players: team.players,
+        })),
+      });
+    } catch (err) {
+      if (err instanceof ErreurLimiteOffre) return { id: newId, equipesRefusees: err };
+      throw err;
     }
-    await batch.commit();
   }
 
-  return newId;
+  return { id: newId, equipesRefusees: null };
 }
 
 // ============================================
@@ -388,19 +364,17 @@ export async function duplicateCompetition(
 
 export async function createCompTeam(
   cid: string,
-  input: { name: string; shortName: string; color: string; logoUrl?: string | null },
+  input: { name: string; shortName: string; color: string; logoUrl?: string | null; group?: string | null },
 ): Promise<string> {
-  const payload: Record<string, unknown> = {
+  // Par le serveur : l'offre gratuite plafonne la taille d'une compétition
+  // (lib/offre).
+  return creerParLeServeur(`/api/competitions/${encodeURIComponent(cid)}/teams`, {
     name: input.name,
-    short_name: input.shortName,
+    shortName: input.shortName,
     color: input.color,
-    logo_url: input.logoUrl ?? null,
-    group: null,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  };
-  const ref = await addDoc(collection(db, "competitions", cid, "comp_teams"), payload);
-  return ref.id;
+    logoUrl: input.logoUrl ?? null,
+    group: input.group ?? null,
+  });
 }
 
 export async function listCompTeams(cid: string): Promise<CompTeam[]> {
@@ -757,8 +731,7 @@ export async function importTeams(
       });
       updated += 1;
     } else {
-      const tid = await createCompTeam(cid, { name, shortName, color });
-      if (group) await updateCompTeam(cid, tid, { group });
+      await createCompTeam(cid, { name, shortName, color, group });
       created += 1;
     }
   }

@@ -10,6 +10,8 @@ import {
   X, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import { getTeamsIManage, getTeamsByPlayer, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
 import type { Team } from "@/types";
 import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
@@ -58,6 +60,7 @@ function CreateTeamModal({ onClose, onCreated, managerId, genreDuManager }: {
     category: (genreDuManager === "female" ? "women" : "men") as Categorie,
   });
   const [submitting, setSubmitting] = useState(false);
+  const signalerLimite = useSignalerLimite();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +79,8 @@ function CreateTeamModal({ onClose, onCreated, managerId, genreDuManager }: {
       });
       onCreated();
       onClose();
-    } catch {
+    } catch (err) {
+      if (!signalerLimite(err)) toast.error("La création de l'équipe a échoué");
       setSubmitting(false);
     }
   };
