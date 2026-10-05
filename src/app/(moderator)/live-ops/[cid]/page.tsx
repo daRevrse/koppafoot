@@ -9,6 +9,7 @@ import { onCompetition, onCompMatches } from "@/lib/competition-firestore";
 import { getStaffGrant } from "@/lib/staff-access";
 import { describeStaffScope, grantCoversMatch, isGrantActive } from "@/lib/staff-scope";
 import type { Competition, CompMatch, StaffGrant } from "@/types";
+import { gereLaCompetition } from "@/lib/hats";
 
 export default function LiveOpsCompetition() {
   const { cid } = useParams() as { cid: string };
@@ -46,8 +47,10 @@ export default function LiveOpsCompetition() {
   // of THIS competition (Firestore rules also enforce this on writes).
   useEffect(() => {
     if (!user || !competition || !grantChecked) return;
+    // L'administration aussi : elle y arrive depuis sa fiche d'une
+    // compétition, et les règles la laissent déjà écrire (voir lib/hats).
     const member =
-      competition.organizerIds.includes(user.uid) ||
+      gereLaCompetition(user, competition) ||
       competition.moderatorIds.includes(user.uid) ||
       grant != null;
     if (!member) router.replace("/live-ops");
@@ -56,7 +59,7 @@ export default function LiveOpsCompetition() {
   // A scoped holder is shown only the matches they may actually write to,
   // opening a console that refuses every save would be a trap.
   const visibleMatches =
-    grant && competition && !competition.organizerIds.includes(user?.uid ?? "")
+    grant && competition && !gereLaCompetition(user, competition)
       && !competition.moderatorIds.includes(user?.uid ?? "")
       ? matches.filter((m) => grantCoversMatch(grant, m))
       : matches;
