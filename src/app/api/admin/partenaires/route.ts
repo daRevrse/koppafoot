@@ -1,8 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { adminDb, adminStorage } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { exigerSuperadmin } from "@/lib/admin-api-auth";
+import { effacerVisuels, stockerVisuel } from "@/lib/visuel-serveur";
 import {
   EMPLACEMENTS, jourValide, lienValide,
   type EmplacementPartenaire, type FirestorePartenariat,
@@ -22,7 +22,6 @@ import {
  */
 
 const COLLECTION = "partenariats";
-const POIDS_MAX = 2 * 1024 * 1024;
 
 interface Champs {
   annonceur?: string;
@@ -96,23 +95,9 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
   return out;
 }
 
-/** Range le visuel sous `partenaires/{id}/` et rend son adresse publique. */
-async function stockerVisuel(id: string, image: NonNullable<Champs["image"]>): Promise<string | Erreur> {
-  if (!image.data || !image.contentType?.startsWith("image/")) return { erreur: "Le visuel doit être une image." };
-  const contenu = Buffer.from(image.data, "base64");
-  if (contenu.length > POIDS_MAX) return { erreur: "Visuel trop lourd (2 Mo au plus)." };
-  const ext = image.contentType.split("/")[1]?.replace("jpeg", "jpg").replace(/[^a-z0-9]/g, "") || "png";
-  const chemin = `partenaires/${id}/visuel-${randomUUID().slice(0, 8)}.${ext}`;
-  const jeton = randomUUID();
-  const bucket = adminStorage.bucket();
-  // Un seul visuel par partenaire : l'ancien part avant que le nouveau arrive.
-  await bucket.deleteFiles({ prefix: `partenaires/${id}/` }).catch(() => {});
-  await bucket.file(chemin).save(contenu, {
-    contentType: image.contentType,
-    metadata: { metadata: { firebaseStorageDownloadTokens: jeton } },
-  });
-  return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(chemin)}?alt=media&token=${jeton}`;
-}
+/** Le visuel d'un partenaire : un seul, sous `partenaires/{id}/`, l'ancien part avant. */
+const stockerVisuelPartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
+  stockerVisuel(`partenaires/${id}/visuel-`, image, `partenaires/${id}/`);
 
 export async function GET(req: NextRequest) {
   const appelant = await exigerSuperadmin(req);
@@ -156,7 +141,7 @@ export async function POST(req: NextRequest) {
     const ref = adminDb.collection(COLLECTION).doc();
     let imageUrl: string | null = null;
     if (corps.image?.data) {
-      const url = await stockerVisuel(ref.id, corps.image);
+      const url = await stockerVisuelPartenaire(ref.id, corps.image);
       if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
       imageUrl = url;
     }
@@ -190,11 +175,11 @@ export async function PATCH(req: NextRequest) {
 
     const maj: Record<string, unknown> = { ...champs, updated_at: FieldValue.serverTimestamp() };
     if (corps.image?.data) {
-      const url = await stockerVisuel(ref.id, corps.image);
+      const url = await stockerVisuelPartenaire(ref.id, corps.image);
       if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
       maj.image_url = url;
     } else if (corps.retirerImage) {
-      await adminStorage.bucket().deleteFiles({ prefix: `partenaires/${ref.id}/` }).catch(() => {});
+      await effacerVisuels(`partenaires/${ref.id}/`);
       maj.image_url = null;
     }
     await ref.update(maj);
@@ -211,7 +196,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const { id } = (await req.json()) as { id?: string };
     if (!id) return NextResponse.json({ error: "Identifiant manquant" }, { status: 400 });
-    await adminStorage.bucket().deleteFiles({ prefix: `partenaires/${id}/` }).catch(() => {});
+    await effacerVisuels(`partenaires/${id}/`);
     await adminDb.collection(COLLECTION).doc(id).delete();
     return NextResponse.json({ ok: true });
   } catch (err) {

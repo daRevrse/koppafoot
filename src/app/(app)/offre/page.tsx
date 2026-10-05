@@ -67,7 +67,9 @@ const T = textes(
     avantage2: "Compétitions en cours illimitées, et plus de 16 équipes par compétition",
     avantage3: "Terrains illimités, pour les gérants",
     avantage4: "Aucune publicité",
-    pasEnVente: "Le Pro n'est pas encore en vente. Pour l'essayer avec ton club, ta compétition ou ton terrain, écris-nous.",
+    avantage5: "Le statut club : réunis tes équipes sous un même club, avec sa page et son encadrement",
+    gererClub: "Gérer mon club",
+    pasEnVente: "Le Pro n'est pas encore en vente. Pour l'essayer avec ton équipe, ta compétition ou ton terrain, écris-nous.",
     ecrire: "Nous écrire",
     erreur: "Impossible de charger ton offre.",
   },
@@ -97,7 +99,9 @@ const T = textes(
     avantage2: "Unlimited running competitions, and more than 16 teams per competition",
     avantage3: "Unlimited venues, for venue owners",
     avantage4: "No ads",
-    pasEnVente: "Pro isn't on sale yet. To try it with your club, competition or venue, write to us.",
+    avantage5: "Club status: bring your teams together under one club, with its page and staff",
+    gererClub: "Manage my club",
+    pasEnVente: "Pro isn't on sale yet. To try it with your team, competition or venue, write to us.",
     ecrire: "Write to us",
     erreur: "Couldn't load your plan.",
   },
@@ -202,6 +206,9 @@ export default function OffrePage() {
           <>
             <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.14em] text-emerald-300">{fin(offre.pro)}</p>
             <p className="mt-2 text-sm text-emerald-100">{t.proActif}</p>
+            <Link href="/mon-club" className="mt-3 inline-flex text-xs font-black uppercase tracking-[0.12em] text-emerald-300 hover:text-white">
+              {t.gererClub} →
+            </Link>
           </>
         )}
         {!offre.estPro && offre.estSansPub && <p className="mt-1 text-sm text-gray-600">{t.sansPubSeul(fin(offre.sansPub))}</p>}
@@ -227,7 +234,7 @@ export default function OffrePage() {
           <h2 className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">{t.proDebloque}</h2>
           <div className="border border-gray-200/70 bg-white p-4">
             <ul className="space-y-2">
-              {[t.avantage1, t.avantage2, t.avantage3, t.avantage4].map((a) => (
+              {[t.avantage5, t.avantage1, t.avantage2, t.avantage3, t.avantage4].map((a) => (
                 <li key={a} className="flex items-start gap-2 text-sm text-gray-700">
                   <Check size={16} className="mt-0.5 shrink-0 text-emerald-600" />
                   {a}

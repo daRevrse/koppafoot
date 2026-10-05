@@ -57,6 +57,11 @@ const SECTIONS: SectionJuridique[] = [
           d&apos;une compétition. Ces limites sont détaillées sur la page « Mon offre », annoncées au moins un mois avant
           d&apos;entrer en vigueur, et ne retirent jamais ce qui existe déjà : elles empêchent seulement de créer au-delà.
         </p>
+        <p>
+          Le statut club, qui réunit plusieurs équipes sous un même club, fait partie de KoppaFoot Pro. S&apos;il
+          s&apos;arrête, le club se met en sommeil : sa page ne s&apos;affiche plus, mais rien n&apos;est effacé, et ses
+          équipes continuent comme des équipes autonomes, avec tout leur historique.
+        </p>
       </>
     ),
   },

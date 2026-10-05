@@ -269,6 +269,19 @@ export async function purgerCompte(uid: string): Promise<Record<string, number>>
     console.error("Sortie des effectifs échouée:", err);
   }
 
+  // Le club qu'il possédait se dissout : ses équipes n'y perdent rien, le club
+  // ne faisait que les réunir (lib/clubs).
+  try {
+    const clubs = await adminDb.collection("clubs").where("proprietaire_id", "==", uid).get();
+    for (const c of clubs.docs) {
+      await adminStorage.bucket().deleteFiles({ prefix: `clubs/${c.id}/` }).catch(() => {});
+      await c.ref.delete();
+    }
+    if (clubs.size) bilan.clubsDissous = clubs.size;
+  } catch (err) {
+    console.error("Dissolution du club échouée:", err);
+  }
+
   // Les fichiers : photo de profil, couverture, galerie, tous sous le même
   // préfixe.
   try {

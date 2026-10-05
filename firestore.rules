@@ -692,6 +692,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Les clubs (lib/clubs) : réservés à KoppaFoot Pro, endormis quand il
+    // s'arrête. L'état se décide à chaque lecture d'après le Pro du
+    // propriétaire, et une section demande l'accord de son manager : tout
+    // passe donc par /api/clubs et /api/public/club, avec le SDK admin.
+    match /clubs/{clubId} {
+      allow read, write: if false;
+    }
+
     match /posts/{postId} {
       allow read: if true;
       // A post must be signed by its writer. Without the author_id check any
