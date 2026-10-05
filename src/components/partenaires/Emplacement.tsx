@@ -80,7 +80,7 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
   const contenu = (
     <>
       {partenaire.imageUrl && (
-        <span className="relative h-12 w-24 shrink-0 sm:h-14 sm:w-32">
+        <span className="relative h-12 w-24 shrink-0 @md:h-14 @md:w-32">
           <Image src={partenaire.imageUrl} alt="" fill sizes="128px" className="object-contain" />
         </span>
       )}
@@ -96,16 +96,19 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
         )}
       </span>
       {partenaire.cliquable && (
-        <span className="hidden shrink-0 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-700 sm:block">
+        <span className="hidden shrink-0 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-700 @md:block">
           {t.voir} →
         </span>
       )}
     </>
   );
 
+  // Réglé sur la largeur de SA colonne, pas de l'écran : dans le rail de
+  // l'accueil Direct (320 à 420 px), même sur un grand écran, le visuel
+  // rétrécit et « Voir le site » s'efface, l'encadré entier restant cliquable.
   const classe = `flex items-center gap-4 border border-gray-200/70 bg-white px-4 py-3 ${className}`;
   return (
-    <div ref={ref} data-emplacement={emplacement}>
+    <div ref={ref} data-emplacement={emplacement} className="@container">
       {partenaire.cliquable ? (
         // Le clic passe par le serveur, qui le compte et connaît seul la
         // destination. « sponsored » : les moteurs de recherche savent que
