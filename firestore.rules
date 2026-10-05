@@ -881,6 +881,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Les partenaires (sponsors). Fermés aux navigateurs, dans les deux sens :
+    // le document porte ses compteurs et l'adresse de destination, que la page
+    // n'a pas à lire, et seule l'administration les écrit. Tout passe par les
+    // routes /api/partenaires (lecture publique filtrée) et
+    // /api/admin/partenaires (superadmin), dont le SDK admin contourne ces
+    // règles après ses propres vérifications.
+    match /partenariats/{id} {
+      allow read, write: if false;
+    }
+
     // Collection-group read of the grants — the live space asks "which
     // competitions did I redeem a code for?" and can only ever see its own.
     match /{path=**}/staff_grants/{gid} {

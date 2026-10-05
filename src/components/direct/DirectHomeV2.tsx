@@ -35,6 +35,7 @@ import { isWorldComp } from "@/lib/world-board-shared";
 import type { FootballCompetition } from "@/lib/football-data";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
+import Emplacement from "@/components/partenaires/Emplacement";
 
 // ============================================
 // DirectHomeV2, the live-score home, a scores board rather than a timeline.
@@ -1695,6 +1696,8 @@ export default function DirectHomeV2({
             picks={picks}
             onPick={choosePick}
           />
+
+          <Emplacement emplacement="direct" />
 
           {/* MASQUEE SUR TELEPHONE. Empilee, elle tombait sous le tableau des
               matchs — soit apres une trentaine de rencontres — et personne ne
