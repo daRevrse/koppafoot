@@ -22,6 +22,7 @@ import {
 } from "@/lib/phone";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
+import MentionConditions from "@/components/auth/MentionConditions";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
   classeChampAuth, classeChampAuthMdp, classeChampAuthNu,
@@ -520,7 +521,10 @@ export default function LoginPage() {
       {/* Le lien emporte `?for=` et `?next=` : sans eux, quelqu'un venu par
           « référencer mon terrain » basculait sur une inscription générique et
           retombait sur l'accueil au lieu de sa candidature. */}
-      <div className="mt-8 border-t border-gray-200/70 pt-6 text-center">
+      {/* « Continuer avec Google » crée le compte s'il n'existe pas encore. */}
+      <MentionConditions className="mt-6 text-center" />
+
+      <div className="mt-6 border-t border-gray-200/70 pt-6 text-center">
         <p className="text-sm text-gray-500">
           Pas encore de compte ?{" "}
           <Link

@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import MentionConditions from "@/components/auth/MentionConditions";
 
 const T = textes(
   {
@@ -300,6 +301,7 @@ function AuthDialog({ reason, onClose }: { reason?: string; onClose: () => void 
           </Link>{" "}
           {t.ouGoogle}
         </p>
+        <MentionConditions onNavigate={onClose} className="mt-3 text-center" />
       </div>
     </div>
   );

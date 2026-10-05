@@ -19,6 +19,7 @@ import type { EvolutionRole } from "@/types";
 import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
 import type { Genre } from "@/lib/genre";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
+import MentionConditions from "@/components/auth/MentionConditions";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
   classeChampAuth, classeChampAuthMdp, classeEtiquetteAuth, classeIconeChamp,
@@ -363,7 +364,9 @@ export default function SignupPage() {
         )}
       </AnimatePresence>
 
-      <div className="mt-8 border-t border-gray-200/70 pt-6 text-center">
+      <MentionConditions className="mt-6 text-center" />
+
+      <div className="mt-6 border-t border-gray-200/70 pt-6 text-center">
         <p className="text-sm text-gray-500">
           Déjà un compte ?{" "}
           <Link
