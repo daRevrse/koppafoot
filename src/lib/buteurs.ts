@@ -79,6 +79,41 @@ export function buteursDuMatch(
 }
 
 /**
+ * Les buteurs d'un match renseigné, tels que `recorded_scorers` les garde.
+ *
+ * UN SEUL LECTEUR, PARCE QUE QUATRE SE TROMPAIENT. La route qui renseigne un
+ * match (api/matches/record) écrit ses lignes telles quelles, en camelCase :
+ * `playerId`. Les lecteurs — fiche de match, fiche du club, classement —
+ * lisaient `player_id`, qui n'a jamais existé. La fiche du club écartait donc
+ * TOUS les buteurs des matchs renseignés, et le classement ne savait à quel
+ * compte rendre leurs buts.
+ *
+ * `player_id` reste lu en second, par prudence : un document écrit à la main
+ * ou par un outil d'import ne doit pas perdre ses buteurs pour une casse.
+ * Une ligne sans identifiant est écartée : on ne sait à qui la rendre.
+ */
+export function lireButeursRenseignes(brut: unknown): RecordedScorer[] {
+  if (!Array.isArray(brut)) return [];
+  const lignes: RecordedScorer[] = [];
+  for (const r of brut) {
+    if (!r || typeof r !== "object") continue;
+    const x = r as Record<string, unknown>;
+    const id = typeof x.playerId === "string" && x.playerId
+      ? x.playerId
+      : typeof x.player_id === "string" && x.player_id ? x.player_id : null;
+    if (!id) continue;
+    lignes.push({
+      playerId: id,
+      sansCompte: x.sansCompte === true,
+      nom: typeof x.nom === "string" ? x.nom : "",
+      buts: typeof x.buts === "number" && x.buts > 0 ? x.buts : 0,
+      passes: typeof x.passes === "number" && x.passes > 0 ? x.passes : 0,
+    });
+  }
+  return lignes;
+}
+
+/**
  * Un match RENSEIGNÉ n'a pas de direct : ses buteurs sont ceux que la saisie
  * a nommés, sans minutes, et tous du camp qui l'a saisi.
  */

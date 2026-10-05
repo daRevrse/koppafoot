@@ -43,6 +43,24 @@ export function isSuperAdmin(user: Hatted | null | undefined): boolean {
 }
 
 /**
+ * Tient l'espace organisateur de CETTE compétition : l'un de ses
+ * organisateurs, ou l'administration.
+ *
+ * Chaque page de l'espace vérifiait seulement la liste des organisateurs, et
+ * renvoyait les autres sur /organizer. L'administration, qui n'y figure pas,
+ * y était renvoyée aussitôt : « Gérer comme l'organisateur », depuis sa fiche
+ * d'une compétition, ne menait nulle part. Les règles Firestore et les routes
+ * serveur l'acceptaient pourtant déjà ; il n'y avait que cette garde-là.
+ */
+export function gereLaCompetition(
+  user: (Hatted & { uid?: string }) | null | undefined,
+  competition: { organizerIds: string[] } | null | undefined,
+): boolean {
+  if (!user || !competition) return false;
+  return (!!user.uid && competition.organizerIds.includes(user.uid)) || isSuperAdmin(user);
+}
+
+/**
  * Scoreur valide : celui qui peut couvrir un amical qui n'est pas le sien.
  *
  * Elle est nee avec son drapeau, sans jamais passer par `user_type` — c'est

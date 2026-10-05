@@ -1,8 +1,8 @@
 import { cache } from "react";
 import { adminDb } from "@/lib/firebase-admin";
-import { buteursDuMatch, buteursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
+import { buteursDuMatch, buteursRenseignes, lireButeursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
 import { imageSure } from "@/lib/image-sure";
-import type { CompMatchRound, FirestoreMatch, FirestoreRecordedScorer } from "@/types";
+import type { CompMatchRound, FirestoreMatch } from "@/types";
 
 // ============================================
 // Ce qu'un match montre AVANT que le navigateur exécute quoi que ce soit.
@@ -101,14 +101,7 @@ function buteursDesEvenements(
  */
 function buteursDUnAmical(d: Partial<FirestoreMatch>): ButeursDuMatch {
   if (d.recorded_at) {
-    const saisis = (d.recorded_scorers ?? []).map((r: FirestoreRecordedScorer) => ({
-      playerId: r.player_id,
-      sansCompte: r.sansCompte,
-      nom: r.nom,
-      buts: r.buts,
-      passes: r.passes,
-    }));
-    return buteursRenseignes(saisis, d.is_home ? "home" : "away");
+    return buteursRenseignes(lireButeursRenseignes(d.recorded_scorers), d.is_home ? "home" : "away");
   }
 
   const horsPlateforme = !d.away_manager_id;

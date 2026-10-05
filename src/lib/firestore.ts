@@ -51,6 +51,7 @@ import type {
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import { lireCategorie, lireGenre, type Categorie } from "@/lib/genre";
+import { lireButeursRenseignes } from "@/lib/buteurs";
 import { nouvelIdEvenement, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
@@ -176,10 +177,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
     penaltyHome: d.penalty_home ?? null,
     penaltyAway: d.penalty_away ?? null,
     recordedAt: d.recorded_at ?? null,
-    recordedScorers: (d.recorded_scorers ?? []).map((b) => ({
-      playerId: b.player_id, sansCompte: b.sansCompte,
-      nom: b.nom, buts: b.buts, passes: b.passes,
-    })),
+    recordedScorers: lireButeursRenseignes(d.recorded_scorers),
     confirmedHome: d.confirmed_home ?? 0,
     confirmedAway: d.confirmed_away ?? 0,
     // La feuille de match, ou son heritage. Voir `FirestoreMatch.home_lineup` :
