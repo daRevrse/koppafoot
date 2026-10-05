@@ -1,6 +1,8 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { A_TRAITER_VIDE, compterLesComptes, compterLesMatchs, dateLue, type ATraiter } from "@/lib/admin-tableau";
+import {
+  A_TRAITER_VIDE, compterLesComptes, compterLesMatchs, dateLue, repartirLesManagers, type ATraiter,
+} from "@/lib/admin-tableau";
 import { roleEffectifBrut } from "@/lib/admin-segments";
 import { bilanDuClub, BILAN_VIDE, type MatchPourBilan } from "@/lib/bilan-club";
 import { auNomDuClub } from "@/lib/bilan-club-serveur";
@@ -234,7 +236,7 @@ export async function tableauDeBord(): Promise<TableauDeBord> {
       "is_active", "is_organizer", "is_venue_owner", "is_scorer", "is_superadmin", "created_at",
     ).get(),
     matchsPourAdmin(),
-    adminDb.collection("teams").select("is_ghost").get(),
+    adminDb.collection("teams").select("is_ghost", "manager_id").get(),
     compter(adminDb.collection("venues")),
     adminDb.collection("competitions").select("is_sandbox", "status").get(),
   ]);
@@ -266,6 +268,8 @@ export async function tableauDeBord(): Promise<TableauDeBord> {
     villes.set(cle, v);
   }
   const jour = maintenant.toISOString().slice(0, 10);
+  const noms = new Map(docsComptes.map(({ uid, data }) => [uid, nomComplet(data) || "Compte sans nom"]));
+  const managers = repartirLesManagers(equipes.docs.map((d) => d.data()));
 
   return {
     aTraiter,
@@ -290,6 +294,10 @@ export async function tableauDeBord(): Promise<TableauDeBord> {
       ...matchs.filter((m) => m.statut === "completed" && m.date !== jour),
     ].slice(0, 8),
     villes: [...villes.values()].sort((a, b) => b.comptes - a.comptes).slice(0, 12),
+    managers: {
+      ...managers,
+      plusGrands: managers.plusGrands.map((m) => ({ ...m, nom: noms.get(m.uid) ?? "Compte supprimé" })),
+    },
     calculeLe: maintenant.toISOString(),
   };
 }
