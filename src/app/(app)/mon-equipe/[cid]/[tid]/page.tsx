@@ -374,7 +374,7 @@ export default function MyTeamPage() {
                 <div className="flex flex-wrap items-center gap-3 border border-emerald-100 bg-emerald-50/60 p-4">
                   <Link2 size={16} className="shrink-0 text-emerald-600" />
                   <p className="min-w-0 flex-1 text-sm font-bold text-emerald-900">
-                    Rattachée à {club ? club.name : "ton club"}
+                    Rattachée à {club ? club.name : "ton équipe"}
                   </p>
                   {club && (
                     <button
@@ -398,7 +398,7 @@ export default function MyTeamPage() {
             <div className=" border border-gray-200/70 bg-white p-4">
               <p className="text-sm font-bold text-gray-900">Importer ton effectif</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
-                Reprends les joueurs de ton club plutôt que de tout ressaisir. Ceux qui
+                Reprends les joueurs de ton équipe plutôt que de tout ressaisir. Ceux qui
                 ont un compte KoppaFoot sont rattachés directement, leurs stats se
                 remplissent sans qu&apos;ils aient à le demander.
               </p>
@@ -423,12 +423,12 @@ export default function MyTeamPage() {
             </div>
           ) : (
             <div className=" border border-dashed border-gray-200/70 bg-gray-50/60 p-4">
-              <p className="text-sm font-bold text-gray-700">Pas encore de club</p>
+              <p className="text-sm font-bold text-gray-700">Pas encore d&apos;équipe</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
-                Crée ton club pour gérer un effectif permanent et l&apos;importer dans
+                Crée ton équipe pour gérer un effectif permanent et l&apos;importer dans
                 chacune de tes compétitions.{" "}
                 <Link href="/teams" className="font-black text-emerald-600 hover:underline">
-                  Créer mon club →
+                  Créer mon équipe →
                 </Link>
               </p>
             </div>

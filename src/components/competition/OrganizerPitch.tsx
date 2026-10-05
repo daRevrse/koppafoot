@@ -30,7 +30,7 @@ const PROMISES = [
   {
     Icon: Share2,
     title: "Une page d'inscription à envoyer",
-    body: "Ta compétition a son adresse publique dès sa création : tu l'envoies sur WhatsApp, les clubs s'inscrivent eux-mêmes, tu valides.",
+    body: "Ta compétition a son adresse publique dès sa création : tu l'envoies sur WhatsApp, les équipes s'inscrivent elles-mêmes, tu valides.",
   },
   {
     Icon: ListChecks,

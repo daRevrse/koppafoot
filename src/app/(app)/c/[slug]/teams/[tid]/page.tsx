@@ -46,7 +46,7 @@ const T = textes(
     /** Une compétition féminine compte des joueuses. */
     joueurs: (n: number, feminin?: boolean) => `${n} ${feminin ? "joueuse" : "joueur"}${n > 1 ? "s" : ""}`,
     partager: "Partager cette équipe",
-    ficheDuClub: "Fiche du club",
+    ficheDuClub: "Fiche de l'équipe",
     domicile: "Domicile",
     exterieur: "Extérieur",
     aucunAVenir: "Aucun match à venir.",
@@ -79,7 +79,7 @@ const T = textes(
     direct: "Live",
     joueurs: (n: number) => `${n} player${n === 1 ? "" : "s"}`,
     partager: "Share this team",
-    ficheDuClub: "Club page",
+    ficheDuClub: "Team page",
     domicile: "Home",
     exterieur: "Away",
     aucunAVenir: "No upcoming matches.",

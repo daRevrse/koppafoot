@@ -116,7 +116,7 @@ export default function AdminMatchesPage() {
                   // se refait aussitôt, mais les buts d'un match couvert en
                   // direct viennent de sa feuille, pas de ce score.
                   avertissement={m.statut === "completed"
-                    ? "Ce match est joué. Corriger le score ou le statut recalcule le bilan des deux clubs et le classement, mais pas les buteurs : ceux d'un match couvert en direct se corrigent sur sa feuille."
+                    ? "Ce match est joué. Corriger le score ou le statut recalcule le bilan des deux équipes et le classement, mais pas les buteurs : ceux d'un match couvert en direct se corrigent sur sa feuille."
                     : undefined}
                   champs={[
                     { cle: "date", label: "Date (AAAA-MM-JJ)" },
