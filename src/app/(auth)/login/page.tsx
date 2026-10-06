@@ -79,7 +79,7 @@ const inputClassPassword = classeChampAuthMdp;
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée tant que les SMS ne partent pas : voir
+ * Connexion par SMS masquée tant que l'interrupteur n'est pas allumé : voir
  * CONNEXION_SMS_OUVERTE (lib/phone), qui s'allume par une variable
  * d'environnement. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du
  * code, création du profil au premier code) est conservé et testé sur

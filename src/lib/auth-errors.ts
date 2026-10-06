@@ -50,28 +50,33 @@ const AUTH_ERRORS: Record<Langue, Record<string, string>> = {
     // Backend refusal from the SMS layer (503). The SDK passes the numeric
     // code straight through, hence the odd shape.
     //
-    // STILL BLOCKING PRODUCTION as of 2026-08-07: every real number is refused
-    // while test numbers go through. Ruled out by test, per-number throttle
-    // (reproduced on a fresh number, first attempt), browser extensions and
-    // third-party cookies (reproduced in a clean private window), SMS region
-    // policy (TG allowed), billing (Blaze active), authorized domain.
+    // RESOLVED 2026-10-06, a real Togolese number received its SMS in
+    // production and the code validated. What it took, for the next time
+    // this code shows up (a new project, a key recreated):
     //
-    // Lead: a sister project hit the same symptom and traced it to Google's
-    // project-level SMS anti-fraud defense, whose default enforcement is too
-    // strict. Fixed there by PATCHing the Identity Toolkit project config to
-    // `recaptchaConfig.phoneEnforcementState = AUDIT` with
-    // `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+    // 1. Identity Toolkit project config, `recaptchaConfig`:
+    //    phoneEnforcementState AUDIT, useSmsTollFraudProtection true,
+    //    tollFraudManagedRules [{action: BLOCK, startScore: 0.8}].
+    // 2. AND SMS defense switched on for the WEB key that config names
+    //    ("Key for Identity Platform reCAPTCHA integration"): Google Cloud ›
+    //    Security › Fraud Defense › that key › SMS defense › Activer. Its two
+    //    "integration steps" are for sites calling reCAPTCHA themselves;
+    //    Identity Platform sends the phone number on its own.
     //
-    // 2026-10-06: that config IS in place on this project (read back:
-    // AUDIT, BLOCK from 0.8, useSmsTollFraudProtection true), with no real
-    // number tested since. Next step: a real number on the production domain
-    // through /login?essai-sms=1, reading the `[sms]` console line
-    // (signalerEchecSms below). If -39 persists, suspect that BLOCK rule
-    // scoring our numbers at 0.8 or above: check the reCAPTCHA WEB key's SMS
-    // toll fraud assessments before loosening it.
+    // With (1) but not (2), every send failed twice over: the reCAPTCHA
+    // Enterprise token came back INVALID_APP_CREDENTIAL (a 400, swallowed by
+    // the SDK), the SDK fell back to reCAPTCHA v2, and the v2 request got
+    // this -39 (a 503), the same refusal as before any of this was set up.
+    // The 400 never reaches our code: read it in the browser's Network tab,
+    // `accounts:sendVerificationCode`, Response.
     //
-    // The message stays neutral, the user can do nothing about it either way,
-    // and we do not yet know the cause for THIS project.
+    // Ruled out along the way (2026-08-07): per-number throttle, browser
+    // extensions and third-party cookies, SMS region policy (TG allowed),
+    // billing (Blaze), authorized domain, reCAPTCHA key domains (validation
+    // is off on the Identity Platform key), Brave versus Chrome.
+    //
+    // The message stays neutral: if it fires again, the user can do nothing
+    // about it, and the cause is in the project's configuration.
     "auth/error-code:-39":
       "L'envoi du SMS a échoué. Réessaie dans quelques minutes ; si le problème persiste, préviens-nous.",
     generique: "Une erreur est survenue. Réessaie.",

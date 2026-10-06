@@ -23,10 +23,11 @@ export const COUNTRY_CODES = [
 export const DEFAULT_DIAL_CODE = COUNTRY_CODES[0].code;
 
 /**
- * L'ENVOI DE SMS EST-IL OUVERT ? Tant que Firebase refuse les vrais numéros
- * (voir `auth/error-code:-39` dans lib/auth-errors), la connexion par SMS et
- * l'ajout d'un numéro au compte sont masqués : ils ne mèneraient qu'à une
- * erreur. Tout le circuit reste compilé et testé sur l'émulateur.
+ * L'ENVOI DE SMS EST-IL OUVERT ? La connexion par SMS et l'ajout d'un numéro
+ * au compte sont restés masqués tant que Firebase refusait les vrais numéros
+ * (voir `auth/error-code:-39` dans lib/auth-errors, résolu le 2026-10-06 :
+ * un vrai numéro togolais reçoit son SMS en production). Tout le circuit
+ * reste compilé et testé sur l'émulateur.
  *
  * Un interrupteur d'environnement, pas une constante : `NEXT_PUBLIC_CONNEXION_SMS=1`
  * s'allume sur une préversion Vercel pour vérifier avec un vrai téléphone,
