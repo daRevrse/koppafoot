@@ -29,12 +29,14 @@ export const DEFAULT_DIAL_CODE = COUNTRY_CODES[0].code;
  * un vrai numéro togolais reçoit son SMS en production). Tout le circuit
  * reste compilé et testé sur l'émulateur.
  *
- * Un interrupteur d'environnement, pas une constante : `NEXT_PUBLIC_CONNEXION_SMS=1`
- * s'allume sur une préversion Vercel pour vérifier avec un vrai téléphone,
- * puis en production, sans toucher au code (un redéploiement suffit, la
- * valeur est figée à la construction).
+ * OUVERT PAR DÉFAUT depuis. L'interrupteur reste, comme frein d'urgence :
+ * `NEXT_PUBLIC_CONNEXION_SMS=0` sur Vercel referme la connexion par SMS et
+ * l'ajout d'un numéro si les envois cassent à nouveau, ou si la facture de
+ * SMS s'emballe, sans toucher au code (un redéploiement suffit, la valeur est
+ * figée à la construction). `/login?essai-sms=1` rouvre alors l'onglet pour
+ * un essai.
  */
-export const CONNEXION_SMS_OUVERTE = process.env.NEXT_PUBLIC_CONNEXION_SMS === "1";
+export const CONNEXION_SMS_OUVERTE = process.env.NEXT_PUBLIC_CONNEXION_SMS !== "0";
 
 // Firebase throttles per number; a 60s floor keeps users from burning the
 // project's daily SMS quota on the resend button.

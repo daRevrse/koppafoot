@@ -23,7 +23,7 @@ export const metadata = {
   description: "Quelles données KoppaFoot collecte, pourquoi, avec qui elles sont partagées, et comment exercer tes droits.",
 };
 
-const MIS_A_JOUR = "5 octobre 2026";
+const MIS_A_JOUR = "6 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -60,7 +60,7 @@ const SECTIONS: SectionJuridique[] = [
     titre: "Ce que nous collectons",
     corps: (
       <>
-        <p><strong>Ton compte.</strong> Prénom, nom, e-mail, genre (il accorde le nom de ton rôle : joueur ou joueuse), le rôle que tu choisis, et, si tu les donnes, ta ville et ton téléphone. Ton mot de passe est géré par notre prestataire d&apos;authentification : nous ne le voyons jamais. Si tu te connectes avec Google, nous recevons ton nom et ton e-mail.</p>
+        <p><strong>Ton compte.</strong> Prénom, nom, e-mail, genre (il accorde le nom de ton rôle : joueur ou joueuse), le rôle que tu choisis, et, si tu les donnes, ta ville et ton téléphone. Ton mot de passe est géré par notre prestataire d&apos;authentification : nous ne le voyons jamais. Si tu te connectes avec Google, nous recevons ton nom et ton e-mail. Si tu te connectes par SMS, ton numéro est transmis à ce même prestataire, qui t&apos;envoie le code et vérifie que la demande ne vient pas d&apos;un robot cherchant à envoyer des SMS frauduleux.</p>
         <p><strong>Ton profil sportif, s&apos;il te plaît de le remplir.</strong> Poste, niveau, pied fort, taille, poids, date de naissance, présentation, photos, palmarès. Pour un arbitre : niveau, années d&apos;expérience et numéro de licence. Ton état de forme (apte, incertain, blessé, suspendu, indisponible), si tu le déclares.</p>
         <p><strong>Ton activité sur KoppaFoot.</strong> Tes équipes, tes matchs et leurs feuilles, les buts, passes, cartons et notes qui te concernent, tes statistiques, tes compétitions, tes réservations de terrain, tes pronostics, les matchs et compétitions que tu suis.</p>
         <p><strong>Ce que tu publies ou nous envoies.</strong> Messages et commentaires de la Tribune, photos, signalements, messages envoyés à l&apos;équipe.</p>
@@ -118,7 +118,7 @@ const SECTIONS: SectionJuridique[] = [
       <>
         <p>Avec les prestataires techniques qui font tourner KoppaFoot, et seulement pour cela :</p>
         <Liste>
-          <li><strong>Google Firebase</strong> : connexion, base de données, stockage des photos, envoi des notifications.</li>
+          <li><strong>Google Firebase</strong> et <strong>reCAPTCHA</strong> : connexion (dont l&apos;envoi des codes par SMS et la vérification anti-robot), base de données, stockage des photos, envoi des notifications.</li>
           <li><strong>Vercel</strong> : hébergement du site et statistiques de fréquentation anonymes.</li>
           <li><strong>Brevo</strong> ou <strong>Resend</strong> : envoi des e-mails.</li>
         </Liste>

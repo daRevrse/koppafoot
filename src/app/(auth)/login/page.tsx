@@ -79,15 +79,14 @@ const inputClassPassword = classeChampAuthMdp;
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée tant que l'interrupteur n'est pas allumé : voir
- * CONNEXION_SMS_OUVERTE (lib/phone), qui s'allume par une variable
- * d'environnement. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du
- * code, création du profil au premier code) est conservé et testé sur
- * l'émulateur.
+ * Connexion par SMS ouverte, sauf si le frein d'urgence est tiré : voir
+ * CONNEXION_SMS_OUVERTE (lib/phone), que `NEXT_PUBLIC_CONNEXION_SMS=0`
+ * referme. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du code,
+ * création du profil au premier code) est testé sur l'émulateur.
  *
- * `/login?essai-sms=1` l'ouvre pour une seule visite, sans redéployer : c'est
- * la porte d'essai avec un vrai téléphone sur le vrai domaine, le seul où les
- * clés reCAPTCHA et les domaines autorisés de Firebase sont ceux de la
+ * `/login?essai-sms=1` la rouvre pour une seule visite, sans redéployer :
+ * la porte d'essai avec un vrai téléphone sur le vrai domaine, le seul où
+ * les clés reCAPTCHA et les domaines autorisés de Firebase sont ceux de la
  * production. Rien n'est protégé par là : le formulaire n'appelle que ce que
  * le SDK Firebase expose de toute façon. On cache un onglet qui échoue, pas
  * une fonction.

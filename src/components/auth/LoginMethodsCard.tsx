@@ -198,7 +198,7 @@ export default function LoginMethodsCard() {
               <Check size={12} /> Actif
             </span>
           ) : !CONNEXION_SMS_OUVERTE ? (
-            // Ajouter un numéro envoie un SMS : tant qu'ils ne partent pas
+            // Ajouter un numéro envoie un SMS : frein d'urgence tiré
             // (lib/phone), le bouton ne mènerait qu'à une erreur.
             <span className="shrink-0 text-[11px] font-bold text-gray-400">Bientôt</span>
           ) : (
