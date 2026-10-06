@@ -76,7 +76,7 @@ function SelecteurEspace({ vitrine }: { vitrine: Vitrine }) {
       </button>
 
       {ouvert && (
-        <div className="absolute left-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-3rem))] border border-gray-200/70 bg-white shadow-xl">
+        <div className="apparition-menu-gauche absolute left-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-3rem))] border border-gray-200/70 bg-white shadow-xl">
           {VITRINES.map((v) => {
             const ici = v.cle === vitrine.cle;
             const surLaPresentation = pathname === v.chemin;
@@ -199,7 +199,7 @@ export function MarketingHeader() {
       </div>
 
       {open && (
-        <nav className="max-h-[calc(100dvh-5rem)] overflow-y-auto border-t border-gray-200/70 px-6 py-3 lg:hidden">
+        <nav className="apparition-deroule max-h-[calc(100dvh-5rem)] overflow-y-auto border-t border-gray-200/70 px-6 py-3 lg:hidden">
           {[...sections, ...(action ? [action] : [])].map((s) => (
             <a
               key={s.href}

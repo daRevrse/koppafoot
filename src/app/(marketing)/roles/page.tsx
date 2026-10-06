@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Reveler from "@/components/motion/Reveler";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import ChoixDuRole from "@/components/roles/ChoixDuRole";
@@ -126,41 +127,42 @@ export default function RolesPage() {
       <section className="relative flex min-h-[88vh] items-end overflow-hidden">
         <div
           aria-hidden
-          className="absolute inset-0 bg-cover bg-center"
+          className="entree-photo absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/branding/role_joueur.png')" }}
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
-          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+          <p className="entree-hero mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
             Koppafoot Evolution
           </p>
           <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
-            Ce que tu
-            <br />
-            deviens ici
+            <span className="entree-hero block" style={{ animationDelay: "80ms" }}>Ce que tu</span>
+            <span className="entree-hero block" style={{ animationDelay: "160ms" }}>deviens ici</span>
           </h1>
 
-          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
+          <p className="entree-hero mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl" style={{ animationDelay: "280ms" }}>
             Un compte, trois façons d&apos;être là. Tu choisis ce que tu es sur le
             terrain, et tu peux en changer sans rien perdre.
           </p>
 
           {/* Une ancre, et plus un lien vers ailleurs : ce que ce bouton
               promet est deux sections plus bas, sur cette page. */}
-          <Link
-            href="#choisir"
-            className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-amber-400 sm:px-12 sm:py-9"
-          >
-            <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
-              Choisir mon rôle
-            </span>
-            <ArrowRight
-              size={32}
-              strokeWidth={1.5}
-              className="shrink-0 transition-transform group-hover:translate-x-2"
-            />
-          </Link>
+          <div className="entree-hero" style={{ animationDelay: "360ms" }}>
+            <Link
+              href="#choisir"
+              className="appui group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 hover:bg-amber-400 sm:px-12 sm:py-9"
+            >
+              <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
+                Choisir mon rôle
+              </span>
+              <ArrowRight
+                size={32}
+                strokeWidth={1.5}
+                className="shrink-0 transition-transform group-hover:translate-x-2"
+              />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -175,9 +177,9 @@ export default function RolesPage() {
             Joueur, manager, arbitre. Un seul à la fois : c&apos;est ce que tu es
             sur le terrain, et ça se change quand ça change dans la vraie vie.
           </p>
-          <div className="mt-8 grid gap-px bg-gray-200/70 lg:grid-cols-3">
+          <Reveler className="mt-8 grid gap-px bg-gray-200/70 lg:grid-cols-3" contenu>
             {OPEN.map((r) => <RoleCard key={r.name} role={r} />)}
-          </div>
+          </Reveler>
         </div>
       </section>
 

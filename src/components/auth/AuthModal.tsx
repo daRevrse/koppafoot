@@ -232,14 +232,14 @@ function AuthDialog({
         type="button"
         aria-label={t.fermer}
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="apparition-voile absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={mode === "inscription" ? t.titreInscription : t.connexion}
-        className="relative max-h-[92dvh] w-full overflow-y-auto border-t border-gray-200/70 bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 sm:max-w-md sm:border sm:p-10"
+        className="apparition-fenetre relative max-h-[92dvh] w-full overflow-y-auto border-t border-gray-200/70 bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 sm:max-w-md sm:border sm:p-10"
       >
         <button
           type="button"

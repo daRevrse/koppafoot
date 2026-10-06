@@ -109,7 +109,7 @@ const TRIBUNE: NavEntry = { href: "/feed", label: "La Tribune", cle: "nav.tribun
 // The sidebar's role destinations, now reached from the avatar menu.
 
 const MENU_CLASS =
-  "absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-80 overflow-y-auto border border-gray-200/70 bg-white shadow-xl";
+  "apparition-menu absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-80 overflow-y-auto border border-gray-200/70 bg-white shadow-xl";
 
 /** Open state + click-outside, shared by the three menus of the band. */
 function useDropdown() {
@@ -213,7 +213,7 @@ function EspaceMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[21rem] overflow-hidden border border-gray-200/70 bg-white shadow-xl">
+        <div className="apparition-menu absolute right-0 top-full z-50 mt-2 w-[21rem] overflow-hidden border border-gray-200/70 bg-white shadow-xl">
           <EspaceGroupe items={roleItems} onPick={() => setOpen(false)} />
 
           {/* Deux familles : ce que le ROLE donne, et ce que les CASQUETTES
@@ -267,7 +267,7 @@ function KoppaLinksMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[26rem] border border-gray-200/70 bg-white shadow-xl">
+        <div className="apparition-menu absolute right-0 top-full z-50 mt-2 w-[26rem] border border-gray-200/70 bg-white shadow-xl">
           {PORTES.map((v) => (
             <Link
               key={v.cle}
@@ -317,14 +317,14 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
 
   return (
     <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Koppa Links">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="apparition-voile absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* `bottom-[var(--bottomnav-h)]` : la feuille s'arrete AU-DESSUS de la
           barre du bas, qui est fixee et flottait par-dessus, le dernier lien,
           MyFields, passait dessous et devenait illisible et intouchable.
           `max-h` + defilement pour le cas ou trois portes ne tiendraient pas
           sur un petit ecran. */}
-      <div className="absolute inset-x-0 bottom-[var(--bottomnav-h,0px)] max-h-[70vh] overflow-y-auto border-t border-gray-200/70 bg-white">
+      <div className="apparition-feuille absolute inset-x-0 bottom-[var(--bottomnav-h,0px)] max-h-[70vh] overflow-y-auto border-t border-gray-200/70 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200/70 px-5 py-4">
           <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
             Koppa Links

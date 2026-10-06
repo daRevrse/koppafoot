@@ -1,5 +1,6 @@
 "use client";
 
+import Eclosion from "@/components/motion/Eclosion";
 import PorteCandidature from "@/components/marketing/PorteCandidature";
 import { isOrganizer } from "@/lib/hats";
 import { useState, useEffect, useCallback } from "react";
@@ -170,9 +171,11 @@ export default function BecomeOrganizerPage() {
   if (sent || existing?.status === "pending") {
     return (
       <div className="mx-auto my-10 max-w-lg border border-gray-200/70 bg-white p-8 text-center sm:p-12">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
-          <Clock size={26} className="text-amber-500" />
-        </div>
+        <Eclosion actif={sent}>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
+            <Clock size={26} className="text-amber-500" />
+          </div>
+        </Eclosion>
         <h1 className="mt-4 font-display text-xl font-black text-gray-900">
           Candidature en cours d&apos;examen
         </h1>

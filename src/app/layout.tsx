@@ -9,6 +9,7 @@ import { LangueProvider } from "@/i18n";
 import { langueServeur } from "@/i18n/serveur";
 import { APP_URL } from "@/lib/partage";
 import { AuthModalProvider } from "@/components/auth/AuthModal";
+import PreferencesMouvement from "@/components/motion/PreferencesMouvement";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import RappelDuGenre from "@/components/genre/RappelDuGenre";
 import TopLoadingBar from "@/components/ui/TopLoadingBar";
@@ -154,6 +155,7 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
         <ThemeProvider>
+        <PreferencesMouvement>
         <LangueProvider langue={langue}>
         <AuthProvider>
           <AuthModalProvider>
@@ -177,6 +179,7 @@ export default async function RootLayout({
           />
         </AuthProvider>
         </LangueProvider>
+        </PreferencesMouvement>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
         <Analytics />

@@ -43,14 +43,14 @@ export const classeEtiquetteAuth =
 
 /** Le bouton qui engage : noir, vert au survol, vert plein en thème sombre. */
 export const classeBoutonAuth =
-  "flex w-full items-center justify-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 " +
-  "text-[11px] font-black uppercase tracking-[0.15em] text-white transition-colors " +
+  "appui flex w-full items-center justify-center gap-2 border border-gray-900 bg-gray-900 px-6 py-4 " +
+  "text-[11px] font-black uppercase tracking-[0.15em] text-white " +
   "hover:border-emerald-700 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40";
 
 /** Le geste secondaire : « Retour », « Passer ». */
 export const classeBoutonAuthSecondaire =
-  "flex items-center justify-center gap-2 border border-gray-200/70 px-6 py-4 " +
-  "text-[11px] font-black uppercase tracking-[0.15em] text-gray-500 transition-colors " +
+  "appui flex items-center justify-center gap-2 border border-gray-200/70 px-6 py-4 " +
+  "text-[11px] font-black uppercase tracking-[0.15em] text-gray-500 " +
   "hover:border-gray-900 hover:text-gray-900 disabled:opacity-40";
 
 /** Le titre d'un écran d'authentification, et sa phrase : les pages et la fenêtre (AuthModal). */
@@ -104,7 +104,7 @@ export function BoutonGoogle({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex w-full items-center justify-center gap-3 border border-gray-200/70 bg-white px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900 disabled:opacity-40"
+      className="appui flex w-full items-center justify-center gap-3 border border-gray-200/70 bg-white px-6 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-gray-600 hover:border-gray-900 hover:text-gray-900 disabled:opacity-40"
     >
       {enCours ? <Loader2 size={16} className="animate-spin" /> : (
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
