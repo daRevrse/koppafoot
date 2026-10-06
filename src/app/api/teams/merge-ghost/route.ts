@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreGhostPlayer, FirestoreTeam } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
+import { dossierPhotoSansCompte, effacerVisuels } from "@/lib/visuel-serveur";
 
 /**
  * POST { teamId, ghostId, playerId } — fusionner un joueur sans compte avec le
@@ -20,7 +21,9 @@ import { estSuperadmin } from "@/lib/admin-api-auth";
  *   - les compteurs de carrière, additionnés sur le compte ;
  *   - les lignes des feuilles de match déjà jouées, réécrites au vrai nom et
  *     rattachées au compte, pour que l'historique le désigne lui ;
- *   - puis le joueur sans compte disparaît.
+ *   - puis le joueur sans compte disparaît, et la photo que son club lui avait
+ *     mise avec lui : il a désormais un compte, c'est à lui de choisir la
+ *     sienne.
  *
  * CÔTÉ SERVEUR PARCE QUE LES ÉCRITURES SORTENT DE CE QUE LE MANAGER POSSÈDE :
  * incrémenter `users/{uid}` ne lui est pas permis par les règles, et ce serait
@@ -143,6 +146,10 @@ export async function POST(req: NextRequest) {
   batch.delete(ghostRef);
 
   await batch.commit();
+
+  // Après la fusion, jamais avant : un échec ici laisse un fichier orphelin,
+  // pas une fusion à moitié faite. `effacerVisuels` ne lève pas.
+  if (ghost.photo_url) await effacerVisuels(dossierPhotoSansCompte(teamId, ghostId));
 
   return NextResponse.json({
     ok: true,

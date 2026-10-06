@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { ligneDuClub } from "@/lib/photos-sans-compte";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
 
 // ============================================
@@ -69,7 +70,9 @@ export async function importClubRoster(input: {
   }
 
   for (const doc of ghostSnap?.docs ?? []) {
-    const id = `ghost_${doc.id}`;
+    // Ce préfixe permet aux pages publiques de retrouver sa fiche, et sa
+    // photo (voir lib/photos-sans-compte).
+    const id = ligneDuClub(doc.id);
     if (existingIds.has(id)) continue;
     const g = doc.data();
     added.push({

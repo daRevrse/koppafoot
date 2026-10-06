@@ -49,12 +49,14 @@ function renomme(nom: string, extension: string): string {
 }
 
 /**
- * Réduit une image et la réencode en WebP.
+ * Réduit une image et la réencode en WebP (en JPEG pour une photo, là où le
+ * navigateur n'encode pas le WebP).
  *
  * Rend le fichier D'ORIGINE, sans erreur, dans tous les cas où l'opération
- * n'a pas de sens ou échoue : format intouchable, navigateur sans WebP,
- * décodage impossible, ou résultat plus lourd que la source. Un envoi qui
- * marche avec une image trop grande vaut mieux qu'un envoi qui échoue.
+ * n'a pas de sens ou échoue : format intouchable, navigateur sans WebP pour
+ * une image qui n'est pas un JPEG, décodage impossible, ou résultat plus
+ * lourd que la source. Un envoi qui marche avec une image trop grande vaut
+ * mieux qu'un envoi qui échoue.
  */
 export async function alleger(
   fichier: File,
@@ -88,23 +90,40 @@ export async function alleger(
   ctx.drawImage(bitmap, 0, 0, l, h);
   bitmap.close?.();
 
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/webp", reglage.qualite),
+  const encoder = (type: string) => new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, type, reglage.qualite),
   );
+  let blob = await encoder("image/webp");
 
-  // `toBlob` rend null quand le format n'est pas géré. On ne se rabat PAS sur
-  // le JPEG : il perd la transparence, et un écusson détouré reviendrait avec
-  // un carré blanc autour. Mieux vaut l'original intact.
-  if (!blob || blob.type !== "image/webp") return fichier;
+  // `toBlob` rend null, ou du PNG, quand le format n'est pas géré — Safari,
+  // donc tous les iPhone, n'encode pas le WebP. Le JPEG ne sert de repli
+  // QU'À UNE SOURCE DÉJÀ EN JPEG, qui n'a pas de transparence à perdre : une
+  // photo prise au téléphone repart réduite au lieu de ses 3 Mo. Un écusson
+  // détouré, lui, reviendrait avec un carré blanc autour : mieux vaut
+  // l'original intact.
+  if ((!blob || blob.type !== "image/webp") && fichier.type === "image/jpeg") {
+    blob = await encoder("image/jpeg");
+  }
+  if (!blob || (blob.type !== "image/webp" && blob.type !== "image/jpeg")) return fichier;
 
   // Réencoder peut alourdir : un PNG déjà optimisé, une image minuscule. Dans
   // ce cas on garde la source — sauf si on a vraiment réduit les dimensions,
   // auquel cas le gain de pixels compte plus que le poids du fichier.
   if (blob.size >= fichier.size && facteur === 1) return fichier;
 
-  return new File([blob], renomme(fichier.name, "webp"), {
-    type: "image/webp",
+  return new File([blob], renomme(fichier.name, blob.type === "image/webp" ? "webp" : "jpg"), {
+    type: blob.type,
     lastModified: Date.now(),
+  });
+}
+
+/** Le contenu d'un fichier en base64, sans le préfixe `data:…;base64,` que les routes n'attendent pas. */
+export function enBase64(fichier: File): Promise<string> {
+  return new Promise((ok, ko) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => ok(String(lecteur.result).split(",")[1] ?? "");
+    lecteur.onerror = () => ko(lecteur.error);
+    lecteur.readAsDataURL(fichier);
   });
 }
 

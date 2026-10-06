@@ -39,6 +39,16 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Photos des joueurs sans compte. Publiques comme l'effectif qui les
+    // montre ; écrites par le serveur seulement
+    // (/api/teams/[id]/ghost-players/[gid]/photo), qui vérifie qu'on gère
+    // l'équipe — ce qu'une règle Storage ne sait pas faire, voir
+    // /branding/tribune plus bas.
+    match /teams/{teamId}/ghost_players/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Competition assets: logo, banner, and per-match banners. Public read;
     // any authenticated user may write (organizer role is enforced by the
     // Firestore rules that gate the competition docs these images belong to).
