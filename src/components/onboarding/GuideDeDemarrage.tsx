@@ -37,7 +37,14 @@ import type { ProfilGuide } from "@/lib/onboarding";
 // puisque c'est justement la lecture qui apprend qu'une étape est faite.
 // ============================================
 
-export default function GuideDeDemarrage({ profils }: { profils?: ProfilGuide[] }) {
+export default function GuideDeDemarrage({
+  profils,
+  compact = false,
+}: {
+  profils?: ProfilGuide[];
+  /** Une ligne sur téléphone (voir OnboardingChecklist) : là où la page a mieux à montrer. */
+  compact?: boolean;
+}) {
   const { user } = useAuth();
   const guides = useGuidesDeDemarrage(profils);
   const [choisi, setChoisi] = useState<ProfilGuide | null>(null);
@@ -73,5 +80,5 @@ export default function GuideDeDemarrage({ profils }: { profils?: ProfilGuide[] 
     </div>
   ) : null;
 
-  return <OnboardingChecklist progress={actif} onglets={onglets} />;
+  return <OnboardingChecklist progress={actif} onglets={onglets} compact={compact} />;
 }

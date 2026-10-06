@@ -1620,8 +1620,9 @@ export default function DirectHomeV2({
     <div className="mx-auto max-w-[1400px] space-y-3">
       {/* « Pour bien démarrer », pour qui vient d'activer un rôle. Le composant
           se tait de lui-même dès que la liste est finie — ou qu'il n'y a
-          personne à guider. */}
-      <GuideDeDemarrage />
+          personne à guider. Une seule ligne sur téléphone : ici, le match en
+          cours doit tenir dans le premier écran. */}
+      <GuideDeDemarrage compact />
 
       {/* Competition switcher, the board's own filter, under the chrome. */}
       <div className="flex items-center gap-2">
