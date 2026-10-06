@@ -1,5 +1,6 @@
 "use client";
 
+import Eclosion from "@/components/motion/Eclosion";
 import PorteCandidature from "@/components/marketing/PorteCandidature";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -166,7 +167,9 @@ export default function CandidatureScoreurPage() {
       <div className="mx-auto max-w-2xl space-y-4 px-5 py-10">
         <RetourALaPage />
         <div className="border border-gray-200/70 bg-white p-8 text-center sm:p-12">
-          <Clock size={36} className="mx-auto text-amber-500" />
+          <Eclosion actif={envoyee}>
+            <Clock size={36} className="mx-auto text-amber-500" />
+          </Eclosion>
           <h2 className="mt-4 font-display text-xl font-black text-gray-900">
             Candidature reçue
           </h2>

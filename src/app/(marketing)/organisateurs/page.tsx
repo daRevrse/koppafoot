@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Reveler from "@/components/motion/Reveler";
 import Image from "next/image";
 import {
   Radio, Trophy, BarChart3, Users, ArrowRight,
@@ -100,41 +101,41 @@ export default function OrganizersLandingPage() {
       <section className="relative flex min-h-[88vh] items-end overflow-hidden">
         <div
           aria-hidden
-          className="absolute inset-0 bg-cover bg-center"
+          className="entree-photo absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/branding/hero_stadium.png')" }}
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
-          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+          <p className="entree-hero mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
             Koppafoot Organize
           </p>
           <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
-            Ta compétition
-            <br />
-            mérite mieux
-            <br />
-            qu&apos;un cahier
+            <span className="entree-hero block" style={{ animationDelay: "80ms" }}>Ta compétition</span>
+            <span className="entree-hero block" style={{ animationDelay: "160ms" }}>mérite mieux</span>
+            <span className="entree-hero block" style={{ animationDelay: "240ms" }}>qu&apos;un cahier</span>
           </h1>
 
-          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
+          <p className="entree-hero mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl" style={{ animationDelay: "360ms" }}>
             KoppaFoot tient le calendrier, calcule les classements et diffuse
             tes matchs en direct. Toi, tu gères le terrain.
           </p>
 
-          <Link
-            href="/organisateurs/candidature"
-            className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-amber-400 sm:px-12 sm:py-9"
-          >
-            <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
-              Déposer ma candidature
-            </span>
-            <ArrowRight
-              size={32}
-              strokeWidth={1.5}
-              className="shrink-0 transition-transform group-hover:translate-x-2"
-            />
-          </Link>
+          <div className="entree-hero" style={{ animationDelay: "440ms" }}>
+            <Link
+              href="/organisateurs/candidature"
+              className="appui group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 hover:bg-amber-400 sm:px-12 sm:py-9"
+            >
+              <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
+                Déposer ma candidature
+              </span>
+              <ArrowRight
+                size={32}
+                strokeWidth={1.5}
+                className="shrink-0 transition-transform group-hover:translate-x-2"
+              />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -184,7 +185,7 @@ export default function OrganizersLandingPage() {
 
       {/* ---------- Capabilities: flat cards, bare icons ---------- */}
       <section className="border-y border-gray-200/70">
-        <div className="mx-auto grid max-w-7xl gap-px bg-gray-200/70 sm:grid-cols-2">
+        <Reveler className="mx-auto grid max-w-7xl gap-px bg-gray-200/70 sm:grid-cols-2" contenu>
           {CAPABILITIES.map(({ Icon, title, body }) => (
             <div key={title} className="bg-white px-8 py-16 sm:px-14 sm:py-20">
               <Icon size={52} strokeWidth={1} className="text-gray-900" />
@@ -194,7 +195,7 @@ export default function OrganizersLandingPage() {
               <p className="mt-4 max-w-sm text-base leading-relaxed text-gray-500">{body}</p>
             </div>
           ))}
-        </div>
+        </Reveler>
       </section>
 
       {/* ---------- The distribution argument, full bleed ---------- */}
@@ -232,7 +233,7 @@ export default function OrganizersLandingPage() {
             compétition tourne.
           </h2>
 
-          <div className="mt-20 space-y-px bg-gray-200/70">
+          <Reveler className="mt-20 space-y-px bg-gray-200/70" contenu>
             {TUTORIAL.map(({ n, title, body }) => (
               <div
                 key={n}
@@ -249,7 +250,7 @@ export default function OrganizersLandingPage() {
                 </div>
               </div>
             ))}
-          </div>
+          </Reveler>
         </div>
       </section>
 

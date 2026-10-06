@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Reveler from "@/components/motion/Reveler";
 import Image from "next/image";
 import { ArrowRight, CalendarCheck, Search, Wallet } from "lucide-react";
 
@@ -73,47 +74,49 @@ export default function TerrainsPage() {
       <section className="relative flex min-h-[88vh] items-end overflow-hidden">
         <div
           aria-hidden
-          className="absolute inset-0 bg-cover bg-center"
+          className="entree-photo absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/branding/fan_terrain.png')" }}
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
-          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+          <p className="entree-hero mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
             MyFields
           </p>
           <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
-            Sans pelouse,
-            <br />
-            pas de match
+            <span className="entree-hero block" style={{ animationDelay: "80ms" }}>Sans pelouse,</span>
+            <span className="entree-hero block" style={{ animationDelay: "160ms" }}>pas de match</span>
           </h1>
 
-          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70">
+          <p className="entree-hero mt-8 max-w-lg text-lg leading-relaxed text-white/70" style={{ animationDelay: "280ms" }}>
             Les équipes cherchent où jouer et repartent avec un créneau.
             Un terrain qui n&apos;est référencé nulle part reste vide les soirs
             où quelqu&apos;un le cherchait.
           </p>
 
-          <Link
-            href="/terrains/candidature"
-            className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-amber-400 sm:px-12 sm:py-9"
-          >
-            <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
-              Référencer mon terrain
-            </span>
-            <ArrowRight
-              size={32}
-              strokeWidth={1.5}
-              className="shrink-0 transition-transform group-hover:translate-x-2"
-            />
-          </Link>
+          <div className="entree-hero" style={{ animationDelay: "360ms" }}>
+            <Link
+              href="/terrains/candidature"
+              className="appui group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 hover:bg-amber-400 sm:px-12 sm:py-9"
+            >
+              <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
+                Référencer mon terrain
+              </span>
+              <ArrowRight
+                size={32}
+                strokeWidth={1.5}
+                className="shrink-0 transition-transform group-hover:translate-x-2"
+              />
+            </Link>
+          </div>
 
           {/* L'autre public arrive aussi ici, par le menu : celui qui cherche
               un terrain, pas celui qui en possède un. Sans cette sortie, il
               lisait « référencer mon terrain » et repartait. */}
           <Link
             href="/terrains/annuaire"
-            className="mt-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-white/60 transition-colors hover:text-white"
+            className="entree-hero mt-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] text-white/60 transition-colors hover:text-white"
+            style={{ animationDelay: "440ms" }}
           >
             Je cherche un terrain, pas en référencer un
             <ArrowRight size={14} />
@@ -123,7 +126,7 @@ export default function TerrainsPage() {
 
       <section id="etapes" className="scroll-mt-24 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
-          <div className="grid gap-px bg-gray-200/70 lg:grid-cols-3">
+          <Reveler className="grid gap-px bg-gray-200/70 lg:grid-cols-3" contenu>
             {ETAPES.map((s) => (
               <article key={s.n} className="bg-white p-8 sm:p-10">
                 <p className="font-display text-5xl font-black tabular-nums text-gray-200">{s.n}</p>
@@ -133,7 +136,7 @@ export default function TerrainsPage() {
                 <p className="mt-4 text-base leading-relaxed text-gray-600">{s.corps}</p>
               </article>
             ))}
-          </div>
+          </Reveler>
         </div>
       </section>
 
@@ -146,7 +149,7 @@ export default function TerrainsPage() {
             Ce que KoppaFoot fait, et ne fait pas
           </h2>
 
-          <div className="mt-10 grid gap-px bg-gray-200/70 lg:grid-cols-3">
+          <Reveler className="mt-10 grid gap-px bg-gray-200/70 lg:grid-cols-3" contenu>
             {PREUVES.map((p) => (
               <article key={p.titre} className="bg-white p-8">
                 <p.Icon size={26} strokeWidth={1.5} className="text-emerald-600" />
@@ -156,7 +159,7 @@ export default function TerrainsPage() {
                 <p className="mt-3 text-base leading-relaxed text-gray-600">{p.corps}</p>
               </article>
             ))}
-          </div>
+          </Reveler>
         </div>
       </section>
 

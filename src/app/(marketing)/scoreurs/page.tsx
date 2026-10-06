@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Reveler from "@/components/motion/Reveler";
 import Image from "next/image";
 import {
   Radio, Hand, ListChecks, ShieldCheck, ArrowRight,
@@ -112,41 +113,41 @@ export default function ScoreursPage() {
       <section className="relative flex min-h-[88vh] items-end overflow-hidden">
         <div
           aria-hidden
-          className="absolute inset-0 bg-cover bg-center"
+          className="entree-photo absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/branding/fan_scores.png')" }}
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/75 to-black/30" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-32 sm:px-10 sm:pb-28">
-          <p className="mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+          <p className="entree-hero mb-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
             Koppafoot Score
           </p>
           <h1 className="max-w-5xl font-display text-[13vw] font-black uppercase leading-[0.86] tracking-[-0.03em] text-white sm:text-[9vw] lg:text-[7.5vw]">
-            Le match se joue.
-            <br />
-            Personne
-            <br />
-            ne sait le score
+            <span className="entree-hero block" style={{ animationDelay: "80ms" }}>Le match se joue.</span>
+            <span className="entree-hero block" style={{ animationDelay: "160ms" }}>Personne</span>
+            <span className="entree-hero block" style={{ animationDelay: "240ms" }}>ne sait le score</span>
           </h1>
 
-          <p className="mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl">
+          <p className="entree-hero mt-8 max-w-lg text-lg leading-relaxed text-white/70 sm:text-xl" style={{ animationDelay: "360ms" }}>
             Un scoreur, c&apos;est quelqu&apos;un avec un téléphone au bord du
             terrain. Ça suffit à ce que tout le quartier suive la rencontre.
           </p>
 
-          <Link
-            href="/scoreurs/candidature"
-            className="group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 transition-colors hover:bg-emerald-400 sm:px-12 sm:py-9"
-          >
-            <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
-              Déposer ma candidature
-            </span>
-            <ArrowRight
-              size={32}
-              strokeWidth={1.5}
-              className="shrink-0 transition-transform group-hover:translate-x-2"
-            />
-          </Link>
+          <div className="entree-hero" style={{ animationDelay: "440ms" }}>
+            <Link
+              href="/scoreurs/candidature"
+              className="appui group mt-12 flex w-full items-center justify-between gap-6 bg-white px-8 py-7 text-gray-900 hover:bg-emerald-400 sm:px-12 sm:py-9"
+            >
+              <span className="font-display text-xl font-black uppercase tracking-tight sm:text-3xl">
+                Déposer ma candidature
+              </span>
+              <ArrowRight
+                size={32}
+                strokeWidth={1.5}
+                className="shrink-0 transition-transform group-hover:translate-x-2"
+              />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -185,7 +186,7 @@ export default function ScoreursPage() {
 
       {/* ---------- Ce qu'on fait pendant le match ---------- */}
       <section className="border-y border-gray-200/70 bg-gray-50/50">
-        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 sm:grid-cols-3 sm:px-10 sm:py-28">
+        <Reveler className="mx-auto grid max-w-6xl gap-12 px-6 py-20 sm:grid-cols-3 sm:px-10 sm:py-28">
           {PENDANT_LE_MATCH.map(({ Icon, title, body }) => (
             <div key={title}>
               <Icon size={34} className="text-emerald-600" strokeWidth={1.5} />
@@ -195,7 +196,7 @@ export default function ScoreursPage() {
               <p className="mt-3 text-[15px] leading-relaxed text-gray-600">{body}</p>
             </div>
           ))}
-        </div>
+        </Reveler>
       </section>
 
       {/* ---------- La console, en image ---------- */}
@@ -226,7 +227,7 @@ export default function ScoreursPage() {
           <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
             Comment ça se passe
           </h2>
-          <div className="mt-16 grid gap-x-16 gap-y-14 sm:grid-cols-2">
+          <Reveler className="mt-16 grid gap-x-16 gap-y-14 sm:grid-cols-2">
             {ETAPES.map(({ n, title, body }) => (
               <div key={n} className="flex gap-6">
                 <span className="font-display text-3xl font-black text-gray-200">{n}</span>
@@ -238,7 +239,7 @@ export default function ScoreursPage() {
                 </div>
               </div>
             ))}
-          </div>
+          </Reveler>
         </div>
       </section>
 

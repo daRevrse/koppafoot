@@ -35,6 +35,13 @@
 }
 
 :root {
+  /* Les courbes du mouvement, une seule fois pour tout le produit (voir le
+     bloc « Mouvement » plus bas). Les courbes intégrées de CSS sont trop
+     molles : celles-ci donnent un départ franc et une arrivée douce. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
   /* Semantic Colors */
   --color-primary: #059669;
   --color-primary-dark: #047857;
@@ -307,3 +314,160 @@ body {
   animation: fade-in 0.2s ease-out;
 }
 
+
+
+/* ============================================
+   Mouvement : menus, feuilles, héros, apparitions au défilement.
+
+   Peu de mouvement, et seulement là où il sert : montrer d'où sort un menu,
+   éviter qu'une feuille surgisse, présenter une vitrine à la première
+   visite. Rien sur ce qu'on fait cent fois par jour. On n'anime que
+   `transform` et `opacity`.
+
+   Les entrées passent par @starting-style : l'élément naît dans son état de
+   départ et glisse vers son état normal, sans JavaScript. Un navigateur qui
+   ne le connaît pas affiche l'élément directement, ce qui est le bon repli.
+
+   « Réduire les animations » : les déplacements tombent, les fondus restent
+   (voir la fin du bloc). Moins de mouvement, pas zéro.
+   ============================================ */
+
+/* Un menu sort de son bouton : origine en haut à droite (ou à gauche). */
+.apparition-menu,
+.apparition-menu-gauche {
+  transform-origin: top right;
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+.apparition-menu-gauche { transform-origin: top left; }
+@starting-style {
+  .apparition-menu,
+  .apparition-menu-gauche {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* Une feuille monte du bas de l'écran, de toute sa hauteur. */
+.apparition-feuille {
+  transition: transform 400ms var(--ease-drawer);
+}
+@starting-style {
+  .apparition-feuille { transform: translateY(100%); }
+}
+
+/* La fenêtre de connexion : une feuille sur téléphone, une fenêtre centrée
+   au-delà (elle n'est attachée à aucun bouton, son origine reste au centre). */
+.apparition-fenetre {
+  transition:
+    opacity 250ms var(--ease-out),
+    transform 400ms var(--ease-drawer);
+}
+@starting-style {
+  .apparition-fenetre { transform: translateY(100%); }
+}
+@media (min-width: 640px) {
+  .apparition-fenetre {
+    transition:
+      opacity 250ms var(--ease-out),
+      transform 250ms var(--ease-out);
+  }
+  @starting-style {
+    .apparition-fenetre { opacity: 0; transform: scale(0.96); }
+  }
+}
+
+/* Le voile sous une feuille ou une fenêtre. */
+.apparition-voile {
+  transition: opacity 250ms var(--ease-out);
+}
+@starting-style {
+  .apparition-voile { opacity: 0; }
+}
+
+/* Le menu mobile des vitrines descend de l'en-tête. */
+.apparition-deroule {
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+@starting-style {
+  .apparition-deroule { opacity: 0; transform: translateY(-8px); }
+}
+
+/* Le héros d'une vitrine, à la première visite : les lignes montent, la
+   photo se pose. Une animation CSS, et non JavaScript : elle tourne hors du
+   fil principal, pendant que la page finit de charger. Le délai de chaque
+   élément est donné à la ligne (style). Le bouton reste cliquable pendant. */
+@keyframes entree-hero {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes entree-photo {
+  from { transform: scale(1.04); }
+  to { transform: scale(1); }
+}
+.entree-hero { animation: entree-hero 600ms var(--ease-out) both; }
+.entree-photo { animation: entree-photo 1200ms var(--ease-out) both; }
+
+/* Les étapes d'une vitrine apparaissent au défilement, une seule fois
+   (components/motion/Reveler) : 60 ms d'écart de l'une à l'autre. Tant que
+   le script n'a rien décidé (`data-revele` absent), tout reste visible.
+
+   Dans une grille à filets (fond gris sous des cases blanches, `gap-px`),
+   cacher la case laisserait voir un bloc gris le temps du fondu : on y
+   anime le CONTENU de chaque case (`data-revele-contenu`), la case reste. */
+[data-revele] > :nth-child(2) { --revele-delai: 60ms; }
+[data-revele] > :nth-child(3) { --revele-delai: 120ms; }
+[data-revele] > :nth-child(4) { --revele-delai: 180ms; }
+[data-revele] > :nth-child(5) { --revele-delai: 240ms; }
+[data-revele] > :nth-child(n + 6) { --revele-delai: 300ms; }
+[data-revele="attente"]:not([data-revele-contenu]) > *,
+[data-revele="attente"][data-revele-contenu] > * > * {
+  opacity: 0;
+  transform: translateY(16px);
+}
+[data-revele="vu"]:not([data-revele-contenu]) > *,
+[data-revele="vu"][data-revele-contenu] > * > * {
+  transition:
+    opacity 400ms var(--ease-out),
+    transform 400ms var(--ease-out);
+  transition-delay: var(--revele-delai, 0ms);
+}
+
+/* L'appui d'un bouton principal : il s'enfonce, sous le doigt comme sous la
+   souris (`:active` est un vrai appui sur écran tactile, pas un survol). */
+.appui {
+  transition-property: color, background-color, border-color, transform;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+}
+.appui:active:not(:disabled) { transform: scale(0.97); }
+
+@keyframes fondu-seul {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apparition-menu,
+  .apparition-menu-gauche,
+  .apparition-feuille,
+  .apparition-fenetre,
+  .apparition-deroule {
+    transition: opacity 150ms var(--ease-out);
+  }
+  @starting-style {
+    .apparition-menu,
+    .apparition-menu-gauche,
+    .apparition-feuille,
+    .apparition-fenetre,
+    .apparition-deroule { opacity: 0; transform: none; }
+  }
+  .entree-hero { animation-name: fondu-seul; }
+  .entree-photo { animation: none; }
+  [data-revele="attente"]:not([data-revele-contenu]) > *,
+  [data-revele="attente"][data-revele-contenu] > * > * { transform: none; }
+  .appui:active:not(:disabled) { transform: none; }
+}
