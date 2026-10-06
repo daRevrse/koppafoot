@@ -221,7 +221,7 @@ export default function ScoreursPage() {
       </section>
 
       {/* ---------- Comment ça se passe ---------- */}
-      <section className="py-24 sm:py-36">
+      <section id="deroulement" className="scroll-mt-24 py-24 sm:py-36">
         <div className="mx-auto max-w-6xl px-6 sm:px-10">
           <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
             Comment ça se passe
@@ -243,7 +243,7 @@ export default function ScoreursPage() {
       </section>
 
       {/* ---------- Les limites, dites franchement ---------- */}
-      <section className="border-t border-gray-200/70 py-24 sm:py-32">
+      <section id="cadre" className="scroll-mt-24 border-t border-gray-200/70 py-24 sm:py-32">
         <div className="mx-auto max-w-4xl px-6 sm:px-10">
           <div className="flex items-start gap-6">
             <ShieldCheck size={34} className="mt-1 shrink-0 text-gray-300" strokeWidth={1.5} />
@@ -272,7 +272,7 @@ export default function ScoreursPage() {
       </section>
 
       {/* ---------- Questions ---------- */}
-      <section className="border-t border-gray-200/70 py-24 sm:py-32">
+      <section id="questions" className="scroll-mt-24 border-t border-gray-200/70 py-24 sm:py-32">
         <div className="mx-auto max-w-4xl px-6 sm:px-10">
           <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
             Questions

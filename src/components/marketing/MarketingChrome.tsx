@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 import { usePathname } from "next/navigation";
 import { useHauteurPubliee } from "@/hooks/useHauteurPubliee";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X, ArrowRight, ChevronDown } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { VITRINES, vitrineDe, type Vitrine } from "@/config/vitrines";
 
 // ============================================
-// MarketingChrome, the header and footer of the organizer site.
+// MarketingChrome, l'en-tête et le pied des vitrines (Organize, Score,
+// MyFields, Evolution), lus dans config/vitrines.
 //
 // Deliberately NOT the app shell. Someone who opens this link has not signed
 // in and has no competition: Direct / Compétitions / Mercato would be
@@ -21,60 +24,102 @@ import { Menu, X, ArrowRight } from "lucide-react";
 // ============================================
 
 /**
- * Chaque vitrine a ses sections et son action.
+ * L'EN-TÊTE DIT DANS QUEL ESPACE ON EST, ET PERMET D'EN CHANGER.
  *
- * Le chrome portait celles de la page organisateur, en dur, pour les trois
- * vitrines : sur Evolution et MyFields, « La méthode » et « Tutoriel »
- * pointaient vers des ancres inexistantes, un clic qui ne fait rien, et
- * « Candidater » envoyait vers la candidature ORGANISATEUR depuis la page
- * des terrains.
+ * Il ne portait que « KOPPAFOOT » : une fois la page défilée, rien ne disait
+ * qu'on lisait Organize plutôt que Score, et passer d'un espace à l'autre
+ * obligeait à descendre jusqu'au pied. Le nom de l'espace se lit maintenant à
+ * côté de celui du produit, et c'est un menu vers les autres espaces.
+ *
+ * Les sections (ancres) ne valent que sur la page de présentation ; une
+ * sous-page (candidature, annuaire, fiche d'un terrain) garde le nom de son
+ * espace, qui y ramène. Les listes viennent de config/vitrines.
+ *
+ * CONNECTÉ, L'EN-TÊTE LE SAIT : « Retour au Direct » ramène à l'application,
+ * et qui a déjà l'espace (un organisateur validé, un scoreur, un gérant) se
+ * voit proposer son écran de travail plutôt que de candidater à nouveau.
  */
-interface Vitrine {
-  sections: { href: string; label: string }[];
-  action: { href: string; label: string } | null;
+function nomCourt(v: Vitrine): string {
+  return v.nom.replace(/^Koppafoot\s+/i, "");
 }
 
-const VITRINES: Record<string, Vitrine> = {
-  "/organisateurs": {
-    sections: [
-      { href: "#methode", label: "La méthode" },
-      { href: "#tutoriel", label: "Tutoriel" },
-      { href: "#questions", label: "Questions" },
-    ],
-    action: { href: "/organisateurs/candidature", label: "Candidater" },
-  },
-  "/roles": {
-    sections: [
-      { href: "#ouverts", label: "Les rôles" },
-      { href: "#choisir", label: "Choisir" },
-    ],
-    // Une ancre, et non /evolution : le choix se fait sur cette page même,
-    // dans la section que la barre désigne deux entrées plus tôt.
-    action: { href: "#choisir", label: "Choisir mon rôle" },
-  },
-  "/terrains": {
-    sections: [
-      { href: "#etapes", label: "Comment ça marche" },
-      { href: "#cadre", label: "Le cadre" },
-    ],
-    action: { href: "/terrains/candidature", label: "Référencer" },
-  },
-  // L'annuaire s'adresse au public inverse : celui qui cherche un terrain.
-  // Son action est donc la candidature elle aussi, mais ses ancres n'ont pas
-  // lieu d'être — la page est une liste, on y descend en filtrant.
-  "/terrains/annuaire": {
-    sections: [],
-    action: { href: "/terrains", label: "J'ai un terrain" },
-  },
-};
+function SelecteurEspace({ vitrine }: { vitrine: Vitrine }) {
+  const [ouvert, setOuvert] = useState(false);
+  const boite = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
-/** Une page inconnue garde le logo et le retour au direct, rien d'invente. */
-const VITRINE_NEUTRE: Vitrine = { sections: [], action: null };
+  useEffect(() => {
+    if (!ouvert) return;
+    const dehors = (e: MouseEvent) => {
+      if (boite.current && !boite.current.contains(e.target as Node)) setOuvert(false);
+    };
+    const echap = (e: KeyboardEvent) => e.key === "Escape" && setOuvert(false);
+    document.addEventListener("mousedown", dehors);
+    document.addEventListener("keydown", echap);
+    return () => {
+      document.removeEventListener("mousedown", dehors);
+      document.removeEventListener("keydown", echap);
+    };
+  }, [ouvert]);
+
+  return (
+    <div ref={boite} className="relative min-w-0">
+      <button
+        type="button"
+        onClick={() => setOuvert((v) => !v)}
+        aria-expanded={ouvert}
+        aria-haspopup="true"
+        className="flex min-w-0 items-center gap-1.5 font-display text-xl font-black uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:text-emerald-800 sm:text-2xl"
+      >
+        <span className="truncate">{nomCourt(vitrine)}</span>
+        <ChevronDown size={18} className={`shrink-0 transition-transform ${ouvert ? "rotate-180" : ""}`} />
+      </button>
+
+      {ouvert && (
+        <div className="absolute left-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-3rem))] border border-gray-200/70 bg-white shadow-xl">
+          {VITRINES.map((v) => {
+            const ici = v.cle === vitrine.cle;
+            const surLaPresentation = pathname === v.chemin;
+            return (
+              <Link
+                key={v.cle}
+                href={v.chemin}
+                onClick={() => setOuvert(false)}
+                aria-current={ici ? "page" : undefined}
+                className={`group flex items-start gap-3.5 border-b border-gray-200/70 px-5 py-4 transition-colors last:border-b-0 ${
+                  ici ? "bg-gray-50" : "hover:bg-gray-50"
+                }`}
+              >
+                <v.Icone
+                  size={20}
+                  strokeWidth={1.5}
+                  className={`mt-0.5 shrink-0 ${ici ? "text-emerald-600" : "text-gray-300 transition-colors group-hover:text-emerald-600"}`}
+                />
+                <span className="min-w-0">
+                  <span className="block font-display text-base font-black uppercase leading-tight tracking-tight text-gray-900">
+                    {v.nom}
+                  </span>
+                  <span className="mt-1 block text-xs font-medium leading-relaxed text-gray-500">
+                    {ici && !surLaPresentation ? "Revenir à la présentation" : v.phrase.fr}
+                  </span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function MarketingHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { sections, action } = VITRINES[pathname] ?? VITRINE_NEUTRE;
+  const { user } = useAuth();
+  const vitrine = vitrineDe(pathname);
+  const surLaPresentation = vitrine?.chemin === pathname;
+  const sections = vitrine && surLaPresentation ? vitrine.sections : [];
+  const action = vitrine ? (vitrine.monEspace(user) ?? vitrine.action) : null;
 
   // L'en-tete publie sa hauteur reelle : l'annuaire des terrains y epingle sa
   // barre de filtres, et cette hauteur change de 16px entre mobile et
@@ -85,15 +130,28 @@ export function MarketingHeader() {
   return (
     <header ref={ref} className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-5 sm:px-10 sm:py-7">
-        {/* Back into the app proper, this page is a door, not a dead end. */}
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 text-gray-900">
-          <SymboleKoppafoot className="h-7 sm:h-8" />
-          <span className="font-display text-xl font-black uppercase tracking-[0.18em] sm:text-2xl">
-            Koppafoot
-          </span>
-        </Link>
+        {/* Le produit, puis l'espace. Le nom du produit ramène à l'application :
+            ces pages sont des portes, pas des impasses. */}
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 text-gray-900">
+            <SymboleKoppafoot className="h-7 sm:h-8" />
+            <span
+              className={`font-display text-xl font-black uppercase tracking-[0.18em] sm:text-2xl ${
+                vitrine ? "hidden sm:inline" : ""
+              }`}
+            >
+              Koppafoot
+            </span>
+          </Link>
+          {vitrine && (
+            <>
+              <span aria-hidden className="hidden h-6 w-px bg-gray-200 sm:block" />
+              <SelecteurEspace vitrine={vitrine} />
+            </>
+          )}
+        </div>
 
-        <nav className="ml-auto hidden items-center gap-9 md:flex">
+        <nav className="ml-auto hidden items-center gap-9 lg:flex">
           {sections.map((s) => (
             <a
               key={s.href}
@@ -105,11 +163,24 @@ export function MarketingHeader() {
           ))}
         </nav>
 
+        {user && (
+          <Link
+            href="/"
+            className={`hidden shrink-0 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-gray-900 md:block ${
+              sections.length ? "" : "ml-auto"
+            }`}
+          >
+            Retour au Direct
+          </Link>
+        )}
+
         {/* A link, dressed as a link. The wide CTAs live in the page. */}
         {action && (
           <Link
             href={action.href}
-            className="group ml-auto hidden shrink-0 items-center gap-2 border-b-2 border-gray-900 pb-1 text-[11px] font-black uppercase tracking-[0.2em] text-gray-900 transition-colors hover:border-emerald-600 hover:text-emerald-700 sm:flex md:ml-0"
+            className={`group hidden shrink-0 items-center gap-2 border-b-2 border-gray-900 pb-1 text-[11px] font-black uppercase tracking-[0.2em] text-gray-900 transition-colors hover:border-emerald-600 hover:text-emerald-700 sm:flex ${
+              sections.length || user ? "" : "ml-auto"
+            }`}
           >
             {action.label}
             <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
@@ -121,14 +192,14 @@ export function MarketingHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Menu"
           aria-expanded={open}
-          className="ml-auto shrink-0 text-gray-900 transition-opacity hover:opacity-60 md:hidden"
+          className="ml-auto shrink-0 text-gray-900 transition-opacity hover:opacity-60 sm:ml-0 lg:hidden"
         >
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {open && (
-        <nav className="border-t border-gray-200/70 px-6 py-3 md:hidden">
+        <nav className="max-h-[calc(100dvh-5rem)] overflow-y-auto border-t border-gray-200/70 px-6 py-3 lg:hidden">
           {[...sections, ...(action ? [action] : [])].map((s) => (
             <a
               key={s.href}
@@ -139,6 +210,31 @@ export function MarketingHeader() {
               {s.label}
             </a>
           ))}
+
+          <p className="mt-3 border-t border-gray-200/70 pt-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+            Les espaces
+          </p>
+          {VITRINES.map((v) => (
+            <Link
+              key={v.cle}
+              href={v.chemin}
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-3 py-3 text-sm font-black uppercase tracking-[0.14em] ${
+                v.cle === vitrine?.cle ? "text-emerald-700" : "text-gray-700"
+              }`}
+            >
+              <v.Icone size={16} strokeWidth={1.75} className="shrink-0" />
+              {v.nom}
+            </Link>
+          ))}
+
+          <Link
+            href="/"
+            onClick={() => setOpen(false)}
+            className="mt-2 block border-t border-gray-200/70 py-4 text-sm font-black uppercase tracking-[0.18em] text-gray-900"
+          >
+            {user ? "Retour au Direct" : "Ouvrir l'application"}
+          </Link>
         </nav>
       )}
     </header>
@@ -166,17 +262,13 @@ export function MarketingFooter() {
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
                 Les espaces
               </p>
-              {[
-                { href: "/organisateurs", label: "Koppafoot Organize" },
-                { href: "/roles", label: "Koppafoot Evolution" },
-                { href: "/terrains", label: "MyFields" },
-              ].map((l) => (
+              {VITRINES.map((v) => (
                 <Link
-                  key={l.href}
-                  href={l.href}
+                  key={v.cle}
+                  href={v.chemin}
                   className="text-sm font-bold text-white/60 transition-colors hover:text-white"
                 >
-                  {l.label}
+                  {v.nom}
                 </Link>
               ))}
             </div>
