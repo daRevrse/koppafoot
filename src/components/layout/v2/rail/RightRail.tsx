@@ -5,6 +5,7 @@ import MovementsRail from "./MovementsRail";
 import NewsRail from "./NewsRail";
 import TodayMatchesRail from "./TodayMatchesRail";
 import PerformanceRail from "./PerformanceRail";
+import Emplacement from "@/components/partenaires/Emplacement";
 
 // ============================================
 // RightRail, ce qui occupe la colonne de droite, selon la page.
@@ -56,6 +57,13 @@ export default function RightRail() {
   if (pathname === "/") {
     return (
       <div className="space-y-8">
+        {/* Le bandeau des partenaires du Direct, debout : en tête du rail,
+            au-dessus de la presse. C'est le même emplacement que le bandeau
+            de tête sur téléphone (DirectHomeV2), à sa place sur grand écran,
+            là où ce rail s'affiche ; sous 1280 px, le Direct le porte. Pas
+            de position fixe au défilement : les Actus sont dessous, un bloc
+            fixe passerait par-dessus. */}
+        <Emplacement emplacement="direct" variante="verticale" />
         <NewsRail />
         <MovementsRail max={5} />
       </div>

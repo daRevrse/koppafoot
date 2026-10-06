@@ -19,12 +19,21 @@
 // partagent.
 // ============================================
 
-export const EMPLACEMENTS = ["direct", "competition", "match"] as const;
+//
+// SUR LE DIRECT, DEUX EMPLACEMENTS :
+//   · `direct` : le bandeau, en tête du contenu sur téléphone, sous l'affiche
+//     du match sur tablette, en haut du rail de droite sur grand écran (là,
+//     dans son visuel vertical s'il en a un). Un seul endroit à la fois.
+//   · `direct_vide` : un jour sans aucun match, sous « Voir demain ». La
+//     place ne coûte rien au lecteur, il n'y a rien d'autre à montrer ; elle
+//     se vend à part, son audience n'est pas celle du bandeau.
+export const EMPLACEMENTS = ["direct", "direct_vide", "competition", "match"] as const;
 export type EmplacementPartenaire = (typeof EMPLACEMENTS)[number];
 
 /** Ce que l'administration lit, emplacement par emplacement. */
 export const LIBELLE_EMPLACEMENT: Record<EmplacementPartenaire, string> = {
-  direct: "Accueil Direct",
+  direct: "Accueil Direct (bandeau)",
+  direct_vide: "Accueil Direct, jour sans match",
   competition: "Page d'une compétition",
   match: "Fiche d'un match",
 };
@@ -57,6 +66,15 @@ export const LIBELLE_FORMAT: Record<FormatPartenaire, string> = {
 export const RATIO_BANNIERE = 4;
 export const BANNIERE_CONSEILLEE = { largeur: 1200, hauteur: 300 } as const;
 
+/**
+ * LE VISUEL VERTICAL, FACULTATIF : 1 pour 2, pour le rail de droite du Direct
+ * sur grand écran (300 × 600 à l'affichage). Une marque qui n'en fournit pas
+ * y paraît quand même, avec sa bannière 4:1, qui tient dans le rail : le
+ * vertical est un plus qu'on vend, jamais une condition.
+ */
+export const RATIO_VERTICALE = 1 / 2;
+export const VERTICALE_CONSEILLEE = { largeur: 600, hauteur: 1200 } as const;
+
 /** Le partenariat, tel que Firestore le range (`partenariats/{id}`). */
 export interface FirestorePartenariat {
   /** Le nom de la marque, affiché sous son visuel. */
@@ -65,8 +83,13 @@ export interface FirestorePartenariat {
   accroche: string | null;
   /** Absent sur les partenariats d'avant les bannières : un logo. */
   format?: FormatPartenaire;
-  /** Le visuel ou le logo, dans Storage (`partenaires/{id}/…`). */
+  /** Le visuel ou le logo, dans Storage (`partenaires/{id}/visuel-…`). */
   image_url: string | null;
+  /**
+   * Le visuel vertical d'une bannière, 1:2, facultatif (`partenaires/{id}/verticale-…`).
+   * Absent : le rail de droite montre la bannière 4:1.
+   */
+  image_verticale_url?: string | null;
   /** Où mène un clic. https seulement ; absent = le visuel ne mène nulle part. */
   lien: string | null;
   emplacements: EmplacementPartenaire[];
@@ -98,6 +121,8 @@ export interface PartenaireAffiche {
   accroche: string | null;
   format: FormatPartenaire;
   imageUrl: string | null;
+  /** Le visuel vertical d'une bannière, s'il y en a un. */
+  imageVerticaleUrl: string | null;
   /** Le visuel mène-t-il quelque part ? Le lien lui-même reste au serveur. */
   cliquable: boolean;
   /** Partenaire de CETTE compétition, plutôt que de KoppaFoot en général. */
@@ -134,6 +159,19 @@ export function avisBanniere(largeur: number, hauteur: number): string | null {
     return `Cette image fait ${largeur} × ${hauteur} px : elle sera recadrée au centre pour tenir en 4:1, comme l'aperçu le montre. Format conseillé : ${l} × ${h} px.`;
   }
   if (largeur < 800) {
+    return `Cette image ne fait que ${largeur} px de large : elle sera floue sur grand écran. ${l} × ${h} px conseillés.`;
+  }
+  return null;
+}
+
+/** Comme `avisBanniere`, pour le visuel vertical (1:2, affiché en 300 × 600). */
+export function avisVerticale(largeur: number, hauteur: number): string | null {
+  if (!(largeur > 0 && hauteur > 0)) return null;
+  const { largeur: l, hauteur: h } = VERTICALE_CONSEILLEE;
+  if (Math.abs(largeur / hauteur / RATIO_VERTICALE - 1) > 0.15) {
+    return `Cette image fait ${largeur} × ${hauteur} px : elle sera recadrée au centre pour tenir en 1:2, comme l'aperçu le montre. Format conseillé : ${l} × ${h} px.`;
+  }
+  if (largeur < 450) {
     return `Cette image ne fait que ${largeur} px de large : elle sera floue sur grand écran. ${l} × ${h} px conseillés.`;
   }
   return null;

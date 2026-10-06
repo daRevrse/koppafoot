@@ -1611,6 +1611,10 @@ export default function DirectHomeV2({
           <p className="mt-1 text-sm text-gray-500">
             {t.prochainesCompetitions}
           </p>
+          {/* Rien ne se joue du tout : la même place qu'un jour sans match. */}
+          <div className="mt-6 w-full max-w-lg px-4 empty:hidden">
+            <Emplacement emplacement="direct_vide" />
+          </div>
         </div>
       </div>
     );
@@ -1623,6 +1627,16 @@ export default function DirectHomeV2({
           personne à guider. Une seule ligne sur téléphone : ici, le match en
           cours doit tenir dans le premier écran. */}
       <GuideDeDemarrage compact />
+
+      {/* LE BANDEAU DES PARTENAIRES, EN TÊTE SUR TÉLÉPHONE ET TABLETTE. Il
+          descendait sous l'affiche du match ; il ouvre maintenant le contenu,
+          à la place qu'on lui vend. Sur ordinateur, le même emplacement passe
+          sous l'affiche (entre 1024 et 1280 px), puis dans le rail de droite
+          (voir layout/v2/rail/RightRail) : un seul endroit à la fois. Rien du
+          tout sans partenaire (`empty:hidden`). */}
+      <div className="empty:hidden lg:hidden">
+        <Emplacement emplacement="direct" />
+      </div>
 
       {/* Competition switcher, the board's own filter, under the chrome. */}
       <div className="flex items-center gap-2">
@@ -1702,7 +1716,11 @@ export default function DirectHomeV2({
             onPick={choosePick}
           />
 
-          <Emplacement emplacement="direct" />
+          {/* Entre 1024 et 1280 px seulement : au-dessous, le bandeau est en
+              tête de page ; au-dessus, dans le rail de droite. */}
+          <div className="hidden empty:hidden lg:block xl:hidden">
+            <Emplacement emplacement="direct" />
+          </div>
 
           {/* MASQUEE SUR TELEPHONE. Empilee, elle tombait sous le tableau des
               matchs — soit apres une trentaine de rencontres — et personne ne
@@ -1847,6 +1865,16 @@ export default function DirectHomeV2({
                     {t.voirLeJour(dayLabel(nearestDay), estJourProche(nearestDay))}
                   </button>
                 )
+              )}
+              {/* Un jour sans AUCUN match : la place ne coûte rien au lecteur,
+                  elle se vend à part (lib/partenaires, `direct_vide`). Sous
+                  « Voir demain », jamais avant : c'est la seule action utile
+                  de l'écran. Pas sur un filtre vide (« En direct » à 10 h) :
+                  là, des matchs existent, simplement pas ceux-là. */}
+              {tab === "all" && chip === null && (
+                <div className="mx-auto mt-6 w-full max-w-lg text-left empty:hidden">
+                  <Emplacement emplacement="direct_vide" />
+                </div>
               )}
             </div>
           ) : (

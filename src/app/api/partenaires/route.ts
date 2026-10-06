@@ -42,13 +42,16 @@ export async function GET(req: NextRequest) {
       .filter((p) => !p.competition_id || p.competition_id === cid);
 
     const choisi = choisirPartenaire(candidats, cid, Math.random());
-    const partenaire: PartenaireAffiche | null = choisi
+    const format = choisi ? formatDe(choisi) : null;
+    const partenaire: PartenaireAffiche | null = choisi && format
       ? {
           id: choisi.id,
           annonceur: choisi.annonceur,
           accroche: choisi.accroche ?? null,
-          format: formatDe(choisi),
+          format,
           imageUrl: choisi.image_url ?? null,
+          // Le vertical n'a de sens que pour une bannière : un logo garde son encadré.
+          imageVerticaleUrl: format === "banniere" ? choisi.image_verticale_url ?? null : null,
           cliquable: lienValide(choisi.lien) !== null,
           deLaCompetition: Boolean(cid && choisi.competition_id === cid),
         }

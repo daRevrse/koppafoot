@@ -37,6 +37,9 @@ interface Champs {
   /** Nouveau visuel, en base64 : le navigateur ne peut pas écrire le bucket. */
   image?: { data?: string; contentType?: string } | null;
   retirerImage?: boolean;
+  /** Le visuel vertical d'une bannière (1:2), facultatif, même transport. */
+  imageVerticale?: { data?: string; contentType?: string } | null;
+  retirerImageVerticale?: boolean;
 }
 
 type Erreur = { erreur: string };
@@ -107,9 +110,18 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
  */
 const SANS_VISUEL = "Une bannière a besoin de son visuel : ajoute l'image, ou choisis le format « Logo et nom ».";
 
-/** Le visuel d'un partenaire : un seul, sous `partenaires/{id}/`, l'ancien part avant. */
+/**
+ * Les visuels d'un partenaire, sous `partenaires/{id}/` : la bannière (ou le
+ * logo) en `visuel-…`, le vertical en `verticale-…`. Chacun remplace SON
+ * ancien fichier, et lui seul : effacer tout le dossier, comme avant le
+ * vertical, emporterait l'autre visuel à chaque changement.
+ */
+const visuel = (id: string) => `partenaires/${id}/visuel-`;
+const verticale = (id: string) => `partenaires/${id}/verticale-`;
 const stockerVisuelPartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
-  stockerVisuel(`partenaires/${id}/visuel-`, image, `partenaires/${id}/`);
+  stockerVisuel(visuel(id), image, visuel(id));
+const stockerVerticalePartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
+  stockerVisuel(verticale(id), image, verticale(id));
 
 export async function GET(req: NextRequest) {
   const appelant = await exigerSuperadmin(req);
@@ -125,6 +137,7 @@ export async function GET(req: NextRequest) {
           accroche: p.accroche ?? null,
           format: p.format ?? "logo",
           imageUrl: p.image_url ?? null,
+          imageVerticaleUrl: p.image_verticale_url ?? null,
           lien: p.lien ?? null,
           emplacements: p.emplacements ?? [],
           competitionId: p.competition_id ?? null,
@@ -161,9 +174,17 @@ export async function POST(req: NextRequest) {
       if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
       imageUrl = url;
     }
+    // Le vertical ne sert qu'une bannière : envoyé avec un logo, il est ignoré.
+    let imageVerticaleUrl: string | null = null;
+    if (champs.format === "banniere" && corps.imageVerticale?.data) {
+      const url = await stockerVerticalePartenaire(ref.id, corps.imageVerticale);
+      if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
+      imageVerticaleUrl = url;
+    }
     await ref.set({
       ...champs,
       image_url: imageUrl,
+      image_verticale_url: imageVerticaleUrl,
       vues: 0,
       clics: 0,
       created_by: appelant.uid,
@@ -205,8 +226,20 @@ export async function PATCH(req: NextRequest) {
       if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
       maj.image_url = url;
     } else if (corps.retirerImage) {
-      await effacerVisuels(`partenaires/${ref.id}/`);
+      await effacerVisuels(visuel(ref.id));
       maj.image_url = null;
+    }
+    // Passé en logo, le vertical n'a plus d'usage : il part avec.
+    if (format !== "banniere" && actuel.image_verticale_url) {
+      await effacerVisuels(verticale(ref.id));
+      maj.image_verticale_url = null;
+    } else if (format === "banniere" && corps.imageVerticale?.data) {
+      const url = await stockerVerticalePartenaire(ref.id, corps.imageVerticale);
+      if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
+      maj.image_verticale_url = url;
+    } else if (corps.retirerImageVerticale) {
+      await effacerVisuels(verticale(ref.id));
+      maj.image_verticale_url = null;
     }
     await ref.update(maj);
     return NextResponse.json({ ok: true });

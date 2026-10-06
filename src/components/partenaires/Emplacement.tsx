@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import { useSansPub } from "@/hooks/useSansPub";
 import type { EmplacementPartenaire, PartenaireAffiche } from "@/lib/partenaires";
 
 // ============================================
@@ -21,7 +22,32 @@ import type { EmplacementPartenaire, PartenaireAffiche } from "@/lib/partenaires
 // LÉGER. Le visuel ne se charge qu'une fois la réponse arrivée, la vue ne se
 // compte qu'à moitié à l'écran, une fois par affichage : rien ne ralentit la
 // page autour, et rien ne coûte de données à qui ne voit pas l'emplacement.
+//
+// UN EMPLACEMENT, PLUSIEURS PLACES. Le bandeau du Direct est posé en trois
+// endroits, chacun visible à une largeur d'écran (voir DirectHomeV2 et le rail
+// de droite) : la demande est partagée, une seule par page, et les trois
+// montrent la même marque. Seul l'endroit visible compte une vue.
+//
+// RIEN POUR QUI A PAYÉ POUR NE RIEN VOIR : le Pro et l'option sans pub
+// (hooks/useSansPub).
 // ============================================
+
+/** Une demande par emplacement et par page, partagée, rafraîchie après cinq minutes comme le cache du serveur. */
+const demandes = new Map<string, { depuis: number; partenaire: Promise<PartenaireAffiche | null> }>();
+
+function partenaireDe(emplacement: EmplacementPartenaire, cid: string | null): Promise<PartenaireAffiche | null> {
+  const cle = `${emplacement}|${cid ?? ""}`;
+  const deja = demandes.get(cle);
+  if (deja && Date.now() - deja.depuis < 5 * 60_000) return deja.partenaire;
+  const params = new URLSearchParams({ emplacement });
+  if (cid) params.set("cid", cid);
+  const partenaire = fetch(`/api/partenaires?${params}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => (d?.partenaire ?? null) as PartenaireAffiche | null)
+    .catch(() => null);
+  demandes.set(cle, { depuis: Date.now(), partenaire });
+  return partenaire;
+}
 
 const T = textes(
   {
@@ -36,26 +62,29 @@ const T = textes(
   },
 );
 
-export default function Emplacement({ emplacement, cid = null, className = "" }: {
+export default function Emplacement({ emplacement, cid = null, variante = "horizontale", className = "" }: {
   emplacement: EmplacementPartenaire;
   /** La compétition de la page : son propre partenaire passe en premier. */
   cid?: string | null;
+  /**
+   * `verticale` : le rail de droite. Le visuel 1:2 de la bannière s'il y en
+   * a un ; sinon la bannière 4:1 ou l'encadré, qui tiennent dans le rail.
+   */
+  variante?: "horizontale" | "verticale";
   className?: string;
 }) {
   const t = useTextes(T);
+  const sansPub = useSansPub();
   const [partenaire, setPartenaire] = useState<PartenaireAffiche | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // On attend de savoir : `null`, c'est peut-être un compte sans pub.
+    if (sansPub !== false) return;
     let vivant = true;
-    const params = new URLSearchParams({ emplacement });
-    if (cid) params.set("cid", cid);
-    fetch(`/api/partenaires?${params}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (vivant) setPartenaire(d?.partenaire ?? null); })
-      .catch(() => {});
+    void partenaireDe(emplacement, cid).then((p) => { if (vivant) setPartenaire(p); });
     return () => { vivant = false; };
-  }, [emplacement, cid]);
+  }, [emplacement, cid, sansPub]);
 
   // Une vue : le visuel à moitié à l'écran, une fois par affichage.
   useEffect(() => {
@@ -75,7 +104,7 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
     return () => obs.disconnect();
   }, [partenaire]);
 
-  if (!partenaire) return null;
+  if (!partenaire || sansPub !== false) return null;
 
   const mention = partenaire.deLaCompetition ? t.presentePar : t.partenaire;
 
@@ -84,7 +113,11 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
   // l'accroche sert de texte de remplacement aux lecteurs d'écran.
   // Recadrée au centre si la marque n'a pas respecté le format :
   // l'administration l'en prévient à l'envoi, aperçu à l'appui.
+  //
+  // En variante verticale, avec un visuel 1:2 : la même chose debout, 300 px
+  // de large au plus (300 × 600, le format que les marques connaissent).
   if (partenaire.format === "banniere" && partenaire.imageUrl) {
+    const debout = variante === "verticale" && partenaire.imageVerticaleUrl ? partenaire.imageVerticaleUrl : null;
     const banniere = (
       <>
         <span className="mb-1.5 flex items-baseline gap-2">
@@ -96,19 +129,24 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
             </span>
           )}
         </span>
-        <span className="relative block aspect-[4/1] w-full overflow-hidden border border-gray-200/70 bg-gray-50 transition-colors group-hover:border-gray-400">
+        <span className={`relative block w-full overflow-hidden border border-gray-200/70 bg-gray-50 transition-colors group-hover:border-gray-400 ${debout ? "aspect-[1/2]" : "aspect-[4/1]"}`}>
           <Image
-            src={partenaire.imageUrl}
+            src={debout ?? partenaire.imageUrl}
             alt={partenaire.accroche ? `${partenaire.annonceur} : ${partenaire.accroche}` : partenaire.annonceur}
             fill
-            sizes="(min-width: 800px) 768px, 100vw"
+            sizes={debout ? "300px" : "(min-width: 800px) 768px, 100vw"}
             className="object-cover"
           />
         </span>
       </>
     );
     return (
-      <div ref={ref} data-emplacement={emplacement} className={`@container mx-auto w-full max-w-3xl ${className}`}>
+      <div
+        ref={ref}
+        data-emplacement={emplacement}
+        data-variante={debout ? "verticale" : "horizontale"}
+        className={`@container mx-auto w-full ${debout ? "max-w-[300px]" : "max-w-3xl"} ${className}`}
+      >
         {partenaire.cliquable ? (
           <a
             href={`/api/partenaires/clic?id=${encodeURIComponent(partenaire.id)}`}
