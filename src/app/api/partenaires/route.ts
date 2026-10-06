@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import {
-  EMPLACEMENTS, aLAffiche, choisirPartenaire, jourDeLome, lienValide,
+  EMPLACEMENTS, aLAffiche, choisirPartenaire, formatDe, jourDeLome, lienValide,
   type EmplacementPartenaire, type FirestorePartenariat, type PartenaireAffiche,
 } from "@/lib/partenaires";
 
@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
           id: choisi.id,
           annonceur: choisi.annonceur,
           accroche: choisi.accroche ?? null,
+          format: formatDe(choisi),
           imageUrl: choisi.image_url ?? null,
           cliquable: lienValide(choisi.lien) !== null,
           deLaCompetition: Boolean(cid && choisi.competition_id === cid),

@@ -4,8 +4,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import { effacerVisuels, stockerVisuel } from "@/lib/visuel-serveur";
 import {
-  EMPLACEMENTS, jourValide, lienValide,
-  type EmplacementPartenaire, type FirestorePartenariat,
+  EMPLACEMENTS, FORMATS, jourValide, lienValide,
+  type EmplacementPartenaire, type FirestorePartenariat, type FormatPartenaire,
 } from "@/lib/partenaires";
 
 /**
@@ -26,6 +26,7 @@ const COLLECTION = "partenariats";
 interface Champs {
   annonceur?: string;
   accroche?: string | null;
+  format?: string;
   lien?: string | null;
   emplacements?: string[];
   /** L'adresse de la compétition, son identifiant ou son slug ; vide = toutes. */
@@ -67,6 +68,11 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
     if (accroche.length > 120) return { erreur: "L'accroche tient en 120 caractères." };
     out.accroche = accroche || null;
   }
+  if (!partiel || c.format !== undefined) {
+    const format = c.format ?? "logo";
+    if (!(FORMATS as readonly string[]).includes(format)) return { erreur: "Format inconnu." };
+    out.format = format as FormatPartenaire;
+  }
   if (!partiel || c.lien !== undefined) {
     const brut = (c.lien ?? "").trim();
     const lien = lienValide(brut);
@@ -95,6 +101,12 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
   return out;
 }
 
+/**
+ * Une bannière sans image n'a rien à montrer. Vérifié AVANT d'envoyer quoi que
+ * ce soit à Storage : un refus ne laisse pas de fichier orphelin.
+ */
+const SANS_VISUEL = "Une bannière a besoin de son visuel : ajoute l'image, ou choisis le format « Logo et nom ».";
+
 /** Le visuel d'un partenaire : un seul, sous `partenaires/{id}/`, l'ancien part avant. */
 const stockerVisuelPartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
   stockerVisuel(`partenaires/${id}/visuel-`, image, `partenaires/${id}/`);
@@ -111,6 +123,7 @@ export async function GET(req: NextRequest) {
           id: d.id,
           annonceur: p.annonceur,
           accroche: p.accroche ?? null,
+          format: p.format ?? "logo",
           imageUrl: p.image_url ?? null,
           lien: p.lien ?? null,
           emplacements: p.emplacements ?? [],
@@ -137,6 +150,9 @@ export async function POST(req: NextRequest) {
     const corps = (await req.json()) as Champs;
     const champs = await nettoyer(corps, false);
     if (estErreur(champs)) return NextResponse.json({ error: champs.erreur }, { status: 400 });
+    if (champs.format === "banniere" && !corps.image?.data) {
+      return NextResponse.json({ error: SANS_VISUEL }, { status: 400 });
+    }
 
     const ref = adminDb.collection(COLLECTION).doc();
     let imageUrl: string | null = null;
@@ -168,10 +184,20 @@ export async function PATCH(req: NextRequest) {
     const corps = (await req.json()) as Champs & { id?: string };
     if (!corps.id) return NextResponse.json({ error: "Identifiant manquant" }, { status: 400 });
     const ref = adminDb.collection(COLLECTION).doc(corps.id);
-    if (!(await ref.get()).exists) return NextResponse.json({ error: "Partenariat introuvable" }, { status: 404 });
+    const avant = await ref.get();
+    if (!avant.exists) return NextResponse.json({ error: "Partenariat introuvable" }, { status: 404 });
 
     const champs = await nettoyer(corps, true);
     if (estErreur(champs)) return NextResponse.json({ error: champs.erreur }, { status: 400 });
+
+    // Le format et le visuel tels qu'ils seront APRÈS la modification : un
+    // changement de format, un visuel retiré, ou les deux à la fois.
+    const actuel = avant.data() as FirestorePartenariat;
+    const format = champs.format ?? actuel.format ?? "logo";
+    const aUnVisuel = Boolean(corps.image?.data) || (!corps.retirerImage && Boolean(actuel.image_url));
+    if (format === "banniere" && !aUnVisuel) {
+      return NextResponse.json({ error: SANS_VISUEL }, { status: 400 });
+    }
 
     const maj: Record<string, unknown> = { ...champs, updated_at: FieldValue.serverTimestamp() };
     if (corps.image?.data) {
