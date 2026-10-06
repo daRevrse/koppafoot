@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { CONNEXION_SMS_OUVERTE } from "@/lib/phone";
 import FormulaireSms from "@/components/auth/FormulaireSms";
+import { versGetStarted } from "@/lib/destination";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
 import MentionConditions from "@/components/auth/MentionConditions";
@@ -133,8 +134,9 @@ export default function LoginPage() {
   const handleConfirmCode = async (confirmation: ConfirmationResult, code: string) => {
     const { isNewUser } = await confirmPhoneCode(confirmation, code);
     if (isNewUser) {
-      // Authenticated but no Firestore profile yet, same path as Google.
-      router.push("/get-started");
+      // Authenticated but no Firestore profile yet, same path as Google ; la
+      // destination (`?next=`) suit jusqu'au bout de /get-started.
+      router.push(versGetStarted({ next: searchParams.get("next") }));
       return;
     }
     toast.success("Connexion réussie");
@@ -147,7 +149,7 @@ export default function LoginPage() {
     try {
       const { isNewUser } = await loginWithGoogle();
       if (isNewUser) {
-        router.push("/get-started");
+        router.push(versGetStarted({ next: searchParams.get("next") }));
         return;
       }
       toast.success("Connexion réussie");
@@ -168,8 +170,8 @@ export default function LoginPage() {
 
       {/* Une session fermée par une suspension atterrit ici (contexts/AuthContext). */}
       {searchParams.get("suspendu") && (
-        <div role="alert" className="mb-6 border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-gray-700">
-          <p className="font-black text-gray-900">Compte suspendu</p>
+        <div role="alert" className="mb-6 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <p className="font-black text-red-950">Compte suspendu</p>
           <p className="mt-0.5">
             Ce compte ne peut plus se connecter. Si tu penses qu&apos;il s&apos;agit d&apos;une erreur, écris-nous depuis
             la <Link href="/aide" className="font-bold underline">page Aide</Link>.

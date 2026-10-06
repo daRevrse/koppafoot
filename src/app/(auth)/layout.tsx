@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_REDIRECTS } from "@/types";
 import { isOrganizer, isSuperAdmin } from "@/lib/hats";
 import CadreAuth, { ChargementAuth, classeLienPiedAuth } from "@/components/auth/CadreAuth";
+import { destinationDeLURL } from "@/lib/destination";
 
 // ============================================
 // L'écran d'authentification. Son habillage (le panneau de la section d'où
@@ -30,8 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   // Direct, en lui faisant chercher son espace à la main à chaque connexion.
   useEffect(() => {
     if (!loading && user) {
-      const next = new URLSearchParams(window.location.search).get("next");
-      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+      const safeNext = destinationDeLURL();
       const parCasquette = isSuperAdmin(user) ? "/admin" : isOrganizer(user) ? "/organizer" : null;
       router.replace(safeNext ?? parCasquette ?? ROLE_REDIRECTS[user.userType] ?? "/");
     }

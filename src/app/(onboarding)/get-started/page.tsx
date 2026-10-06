@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import type { EvolutionRole, SignupData } from "@/types";
 import { roleDepuisURL } from "@/lib/onboarding";
+import { destinationDeLURL } from "@/lib/destination";
 import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
 import type { Genre } from "@/lib/genre";
 import MentionConditions from "@/components/auth/MentionConditions";
@@ -84,7 +85,9 @@ export default function GetStartedPage() {
       };
       await completeProfile(signupData);
       toast.success("Profil créé !");
-      router.push("/");
+      // Là où l'on allait avant de devoir créer un compte (une candidature,
+      // une invitation), sinon l'accueil.
+      router.push(destinationDeLURL() ?? "/");
     } catch (err) {
       console.error("completeProfile error:", err);
       toast.error(getAuthErrorMessage(err));

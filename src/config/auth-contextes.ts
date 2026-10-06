@@ -1,3 +1,4 @@
+import { destinationSure } from "@/lib/destination";
 // ============================================
 // D'où vient-on, et que lui promet-on.
 //
@@ -119,7 +120,8 @@ export function lienAuth(base: string, params: URLSearchParams): string {
   if (four) garde.set("for", four);
   // `next` n'est suivi que s'il reste sur le site : une adresse absolue ferait
   // de la connexion un tremplin vers l'extérieur.
-  if (next && next.startsWith("/") && !next.startsWith("//")) garde.set("next", next);
+  const sure = destinationSure(next);
+  if (sure) garde.set("next", sure);
   const q = garde.toString();
   return q ? `${base}?${q}` : base;
 }

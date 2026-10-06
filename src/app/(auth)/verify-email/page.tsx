@@ -3,10 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Loader2, CheckCircle, Mail, ArrowLeft, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeft, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { classeBoutonAuth } from "@/components/auth/auth-ui";
+import { EnTeteAuth, classeBoutonAuth } from "@/components/auth/auth-ui";
+
+// Le même alignement que les autres écrans d'authentification (titre à
+// gauche, components/auth/auth-ui) : cette page était la seule centrée, sous
+// une tuile d'icône qui jaillissait d'une échelle nulle.
 
 export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
@@ -33,18 +37,8 @@ export default function VerifyEmailPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="text-center"
       >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.15 }}
-          className="mx-auto mb-5 flex h-16 w-16 items-center justify-center border border-emerald-200 bg-emerald-50"
-        >
-          <CheckCircle size={32} className="text-emerald-600" />
-        </motion.div>
-        <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Email vérifié</h1>
-        <p className="mb-6 text-sm text-gray-400">Ton adresse email est vérifiée.</p>
+        <EnTeteAuth titre="Email vérifié" phrase="Ton adresse email est vérifiée." />
         <Link
           href="/"
           className={classeBoutonAuth}
@@ -60,25 +54,11 @@ export default function VerifyEmailPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="text-center"
     >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.15 }}
-        className="mx-auto mb-5 flex h-16 w-16 items-center justify-center border border-emerald-200 bg-emerald-50"
-      >
-        <Mail size={32} className="text-emerald-600" />
-      </motion.div>
-
-      <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Vérifie ton email</h1>
-      <p className="mb-6 text-sm text-gray-400">
-        {user?.email
-          ? <>Un email de vérification a été envoyé à <span className="font-bold text-gray-600">{user.email}</span>.</>
-          : "Vérifie ta boîte mail."}
-        <br />
-        Pense à vérifier tes spams.
-      </p>
+      <EnTeteAuth
+        titre="Vérifie ton email"
+        phrase={`${user?.email ? `Un email de vérification a été envoyé à ${user.email}.` : "Vérifie ta boîte mail."} Pense à vérifier tes spams.`}
+      />
 
       {!resent ? (
         <button
@@ -97,7 +77,7 @@ export default function VerifyEmailPage() {
         <motion.p
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-sm font-bold text-emerald-600"
+          className="text-sm font-bold text-emerald-700"
         >
           Email renvoyé avec succès !
         </motion.p>
@@ -106,9 +86,9 @@ export default function VerifyEmailPage() {
       <div className="mt-8">
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-900"
         >
-          <ArrowLeft size={14} /> Retour à la connexion
+          <ArrowLeft size={13} /> Retour à la connexion
         </Link>
       </div>
     </motion.div>

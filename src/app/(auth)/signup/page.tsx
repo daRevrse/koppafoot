@@ -23,6 +23,7 @@ import { contexteAuth, lienAuth } from "@/config/auth-contextes";
 import MentionConditions from "@/components/auth/MentionConditions";
 import FormulaireSms from "@/components/auth/FormulaireSms";
 import { CONNEXION_SMS_OUVERTE } from "@/lib/phone";
+import { versGetStarted } from "@/lib/destination";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
   classeChampAuth, classeChampAuthMdp, classeEtiquetteAuth, classeIconeChamp,
@@ -144,13 +145,14 @@ export default function SignupPage() {
   // Google et le SMS créent le compte sans passer par notre formulaire : le
   // rôle ne peut pas y être posé. On le transporte jusqu'à /get-started, qui
   // le pose avec le nom, la ville et le genre. Il partait sur /roles, qui,
-  // face à un compte sans profil, reproposait… de s'inscrire.
-  const versGetStarted = roleChoisi ? `/get-started?role=${roleChoisi}` : "/get-started";
+  // face à un compte sans profil, reproposait… de s'inscrire. La destination
+  // (`?next=`) voyage avec lui.
+  const suiteNouveauCompte = versGetStarted({ role: roleChoisi, next: searchParams.get("next") });
 
   const handlePhoneCode = async (confirmation: ConfirmationResult, code: string) => {
     const { isNewUser } = await confirmPhoneCode(confirmation, code);
     if (isNewUser) {
-      router.push(versGetStarted);
+      router.push(suiteNouveauCompte);
       return;
     }
     // Le numéro avait déjà son compte : c'est une connexion, (auth)/layout
@@ -163,7 +165,7 @@ export default function SignupPage() {
     try {
       const { isNewUser } = await loginWithGoogle();
       if (isNewUser) {
-        router.push(versGetStarted);
+        router.push(suiteNouveauCompte);
         return;
       }
       toast.success("Connexion réussie");

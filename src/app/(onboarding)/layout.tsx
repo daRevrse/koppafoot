@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ROLE_REDIRECTS } from "@/types";
+import { destinationDeLURL } from "@/lib/destination";
 import CadreAuth, { ChargementAuth, classeLienPiedAuth } from "@/components/auth/CadreAuth";
 
 // /get-started est la queue du tunnel d'inscription : on y arrive juste après
@@ -20,9 +21,11 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       router.replace("/login");
       return;
     }
-    // Profile already exists → go to dashboard
+    // Profile already exists → its destination (`?next=`), or its dashboard.
+    // Le profil vient d'être créé ici même : sans la destination, ce détour
+    // gagnait la course contre celui de la page et renvoyait à l'accueil.
     if (user) {
-      router.replace(ROLE_REDIRECTS[user.userType] ?? "/");
+      router.replace(destinationDeLURL() ?? ROLE_REDIRECTS[user.userType] ?? "/");
     }
   }, [user, firebaseUser, loading, router]);
 

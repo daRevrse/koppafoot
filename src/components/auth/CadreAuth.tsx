@@ -124,6 +124,28 @@ function PanneauSection() {
   );
 }
 
+/**
+ * Le retour vers l'espace d'où l'on vient, SUR TÉLÉPHONE.
+ *
+ * Sur ordinateur, le panneau photo le porte (« ← Retour à Koppafoot
+ * Organize ») ; sur téléphone, le panneau n'existe pas, et la seule sortie
+ * était « Retour à l'accueil », c'est-à-dire l'application, pas la vitrine
+ * qu'on lisait une seconde plus tôt.
+ */
+function RetourSectionMobile() {
+  const params = useSearchParams();
+  const ctx = contexteAuth(params.get("for"));
+  if (!ctx.retour) return null;
+  return (
+    <Link
+      href={ctx.retour.href}
+      className="-mt-5 mb-8 flex w-fit items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-gray-900 lg:hidden"
+    >
+      ← Retour à {ctx.retour.label}
+    </Link>
+  );
+}
+
 /** Le lien discret sous le formulaire : « Retour à l'accueil », « Changer de compte ». */
 export const classeLienPiedAuth =
   "mt-10 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-emerald-700";
@@ -166,6 +188,9 @@ export default function CadreAuth({ children, pied }: { children: React.ReactNod
             <SymboleKoppafoot className="h-8" />
             Koppafoot
           </Link>
+          <Suspense fallback={null}>
+            <RetourSectionMobile />
+          </Suspense>
 
           {children}
         </div>

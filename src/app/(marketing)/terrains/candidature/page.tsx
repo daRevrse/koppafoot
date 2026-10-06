@@ -1,5 +1,6 @@
 "use client";
 
+import PorteCandidature from "@/components/marketing/PorteCandidature";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { MapPin, Check, ArrowRight, Clock, RotateCcw, Pencil, Trash2 } from "lucide-react";
@@ -256,22 +257,11 @@ export default function VenueApplicationPage() {
   if (!firebaseUser) {
     return (
       <Cadre>
-        <div className="border border-gray-200/70 bg-white p-8 sm:p-12">
-          <h1 className="font-display text-3xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-4xl">
-            Référencer un terrain
-          </h1>
-          <p className="mt-5 text-base leading-relaxed text-gray-600">
-            Il faut un compte : la fiche du terrain sera rattachée au tien, et
-            c&apos;est par lui que les équipes te demanderont un créneau.
-          </p>
-          <LienBouton
-            href="/login?for=terrain&next=/terrains/candidature"
-            Icon={ArrowRight}
-            className="mt-8"
-          >
-            Créer mon compte
-          </LienBouton>
-        </div>
+        <PorteCandidature
+          titre="Référencer un terrain"
+          phrase="Il faut un compte : la fiche du terrain sera rattachée au tien, et c'est par lui que les équipes te demanderont un créneau."
+          pourQuoi="référencer ton terrain"
+        />
       </Cadre>
     );
   }
