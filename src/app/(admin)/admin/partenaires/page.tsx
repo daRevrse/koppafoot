@@ -10,9 +10,9 @@ import {
   type Ton,
 } from "@/components/admin/ui";
 import {
-  BANNIERE_CONSEILLEE, EMPLACEMENTS, FORMATS, LIBELLE_EMPLACEMENT, LIBELLE_FORMAT, VERTICALE_CONSEILLEE, aLAffiche, avisBanniere,
-  avisVerticale, jourDeLome,
-  type EmplacementPartenaire, type FormatPartenaire,
+  BANNIERE_CONSEILLEE, DUREE_ANNONCE_MS, EMPLACEMENTS, FORMATS, LIBELLE_EMPLACEMENT, LIBELLE_FORMAT, LIBELLE_TYPE, TYPES,
+  VERTICALE_CONSEILLEE, aLAffiche, avisBanniere, avisVerticale, jourDeLome,
+  type EmplacementPartenaire, type FormatPartenaire, type TypePartenariat,
 } from "@/lib/partenaires";
 
 // ============================================
@@ -34,6 +34,7 @@ interface Partenaire {
   annonceur: string;
   accroche: string | null;
   format: FormatPartenaire;
+  type: TypePartenariat;
   imageUrl: string | null;
   imageVerticaleUrl: string | null;
   lien: string | null;
@@ -52,6 +53,7 @@ interface Formulaire {
   annonceur: string;
   accroche: string;
   format: FormatPartenaire;
+  type: TypePartenariat;
   lien: string;
   emplacements: EmplacementPartenaire[];
   competition: string;
@@ -79,7 +81,7 @@ function dansUnMois(): string {
 }
 
 const VIDE: Formulaire = {
-  id: null, annonceur: "", accroche: "", format: "logo", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
+  id: null, annonceur: "", accroche: "", format: "logo", type: "partenaire", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
   debut: "", fin: "", actif: true, imageUrl: null, fichier: null, apercu: null, retirerImage: false,
   imageVerticaleUrl: null, fichierVerticale: null, apercuVerticale: null, retirerImageVerticale: false,
 };
@@ -153,7 +155,7 @@ export default function AdminPartenairesPage() {
   const ouvrir = (p?: Partenaire) => {
     setForm(p ? {
       ...VIDE,
-      id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", format: p.format, lien: p.lien ?? "",
+      id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", format: p.format, type: p.type, lien: p.lien ?? "",
       emplacements: p.emplacements, competition: p.competitionId ?? "", competitionNom: p.competitionNom, debut: p.debut, fin: p.fin,
       actif: p.actif, imageUrl: p.imageUrl, imageVerticaleUrl: p.imageVerticaleUrl,
     } : { ...VIDE, debut: jour, fin: dansUnMois() });
@@ -168,6 +170,7 @@ export default function AdminPartenairesPage() {
         annonceur: form.annonceur,
         accroche: form.accroche,
         format: form.format,
+        type: form.type,
         lien: form.lien,
         emplacements: form.emplacements,
         competition: form.competition,
@@ -217,7 +220,7 @@ export default function AdminPartenairesPage() {
     <div className="space-y-6">
       <EnTete
         titre="Partenaires"
-        sousTitre="Les marques affichées sur les compétitions, les fiches de match et l'accueil, toujours signalées « Partenaire »."
+        sousTitre="Les marques affichées sur les compétitions, les fiches de match et l'accueil, toujours signalées « Partenaire » ou « Annonce »."
         actions={
           <button onClick={() => ouvrir()} className={BOUTON_VERT}>
             <Plus size={14} /> Nouveau partenaire
@@ -265,6 +268,7 @@ export default function AdminPartenairesPage() {
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-black text-gray-900">{p.annonceur}</span>
                     <Pastille ton={s.ton}>{s.label}</Pastille>
+                    <Pastille ton={p.type === "annonce" ? "bleu" : "noir"}>{LIBELLE_TYPE[p.type]}</Pastille>
                     {p.format === "banniere" && <Pastille ton="gris">{LIBELLE_FORMAT.banniere}</Pastille>}
                     {p.format === "banniere" && p.imageVerticaleUrl && <Pastille ton="gris">+ vertical</Pastille>}
                   </p>
@@ -358,18 +362,49 @@ function FormulairePartenaire({ form, setForm }: {
       </label>
 
       <div>
+        <span className={ETIQUETTE}>Formule</span>
+        <div role="radiogroup" aria-label="Formule" className="grid grid-cols-2 gap-2">
+          {TYPES.map((ty) => {
+            const choisi = form.type === ty;
+            return (
+              <button
+                key={ty}
+                type="button"
+                role="radio"
+                aria-checked={choisi}
+                onClick={() => maj(ty === "annonce" ? { type: ty, format: "banniere" } : { type: ty })}
+                className={`border px-3 py-2 text-left transition-colors ${
+                  choisi ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                <span className="block text-sm font-black">{LIBELLE_TYPE[ty]}</span>
+                <span className={`mt-0.5 block text-[11px] leading-snug ${choisi ? "text-gray-300" : "text-gray-400"}`}>
+                  {ty === "partenaire"
+                    ? "Seul dans ses emplacements, ne défile pas. Mention « Partenaire ». La formule la plus chère."
+                    : `Partage l'emplacement avec les autres annonces, qui défilent au hasard toutes les ${DUREE_ANNONCE_MS / 1000} s. Mention « Annonce ». Toujours une bannière.`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
         <span className={ETIQUETTE}>Format</span>
         <div role="radiogroup" aria-label="Format" className="grid grid-cols-2 gap-2">
           {FORMATS.map((f) => {
             const choisi = form.format === f;
+            // Une annonce défile avec d'autres bannières : pas de logo.
+            const interdit = form.type === "annonce" && f === "logo";
             return (
               <button
                 key={f}
                 type="button"
                 role="radio"
                 aria-checked={choisi}
+                disabled={interdit}
                 onClick={() => maj({ format: f })}
-                className={`border px-3 py-2 text-left transition-colors ${
+                className={`border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   choisi ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:border-gray-400"
                 }`}
               >

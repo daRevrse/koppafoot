@@ -4,8 +4,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import { effacerVisuels, stockerVisuel } from "@/lib/visuel-serveur";
 import {
-  EMPLACEMENTS, FORMATS, jourValide, lienValide,
-  type EmplacementPartenaire, type FirestorePartenariat, type FormatPartenaire,
+  EMPLACEMENTS, FORMATS, TYPES, jourValide, lienValide, typeDe,
+  type EmplacementPartenaire, type FirestorePartenariat, type FormatPartenaire, type TypePartenariat,
 } from "@/lib/partenaires";
 
 /**
@@ -13,7 +13,7 @@ import {
  *
  * GET                       , tous les partenariats, compteurs compris.
  * POST   { …champs, image? } , en créer un.
- * PATCH  { id, …champs, image?, retirerImage? } , le modifier.
+ * PATCH  { id, …champs, image?, retirerImage?, imageVerticale?, retirerImageVerticale? } , le modifier.
  * DELETE { id }              , le supprimer, visuel compris.
  *
  * Superadmin seulement. La collection est fermée aux navigateurs
@@ -27,6 +27,8 @@ interface Champs {
   annonceur?: string;
   accroche?: string | null;
   format?: string;
+  /** « partenaire » (exclusif) ou « annonce » (en rotation). */
+  type?: string;
   lien?: string | null;
   emplacements?: string[];
   /** L'adresse de la compétition, son identifiant ou son slug ; vide = toutes. */
@@ -76,6 +78,11 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
     if (!(FORMATS as readonly string[]).includes(format)) return { erreur: "Format inconnu." };
     out.format = format as FormatPartenaire;
   }
+  if (!partiel || c.type !== undefined) {
+    const type = c.type ?? "partenaire";
+    if (!(TYPES as readonly string[]).includes(type)) return { erreur: "Type inconnu." };
+    out.type = type as TypePartenariat;
+  }
   if (!partiel || c.lien !== undefined) {
     const brut = (c.lien ?? "").trim();
     const lien = lienValide(brut);
@@ -111,6 +118,12 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
 const SANS_VISUEL = "Une bannière a besoin de son visuel : ajoute l'image, ou choisis le format « Logo et nom ».";
 
 /**
+ * Une annonce défile avec les autres : toujours une bannière, pour que des
+ * visuels de même proportion se relaient sans faire bouger la page.
+ */
+const ANNONCE_EN_LOGO = "Une annonce est une bannière : choisis le format « Bannière », avec son visuel.";
+
+/**
  * Les visuels d'un partenaire, sous `partenaires/{id}/` : la bannière (ou le
  * logo) en `visuel-…`, le vertical en `verticale-…`. Chacun remplace SON
  * ancien fichier, et lui seul : effacer tout le dossier, comme avant le
@@ -136,6 +149,7 @@ export async function GET(req: NextRequest) {
           annonceur: p.annonceur,
           accroche: p.accroche ?? null,
           format: p.format ?? "logo",
+          type: typeDe(p),
           imageUrl: p.image_url ?? null,
           imageVerticaleUrl: p.image_verticale_url ?? null,
           lien: p.lien ?? null,
@@ -163,6 +177,9 @@ export async function POST(req: NextRequest) {
     const corps = (await req.json()) as Champs;
     const champs = await nettoyer(corps, false);
     if (estErreur(champs)) return NextResponse.json({ error: champs.erreur }, { status: 400 });
+    if (champs.type === "annonce" && champs.format !== "banniere") {
+      return NextResponse.json({ error: ANNONCE_EN_LOGO }, { status: 400 });
+    }
     if (champs.format === "banniere" && !corps.image?.data) {
       return NextResponse.json({ error: SANS_VISUEL }, { status: 400 });
     }
@@ -215,6 +232,10 @@ export async function PATCH(req: NextRequest) {
     // changement de format, un visuel retiré, ou les deux à la fois.
     const actuel = avant.data() as FirestorePartenariat;
     const format = champs.format ?? actuel.format ?? "logo";
+    const type = champs.type ?? typeDe(actuel);
+    if (type === "annonce" && format !== "banniere") {
+      return NextResponse.json({ error: ANNONCE_EN_LOGO }, { status: 400 });
+    }
     const aUnVisuel = Boolean(corps.image?.data) || (!corps.retirerImage && Boolean(actuel.image_url));
     if (format === "banniere" && !aUnVisuel) {
       return NextResponse.json({ error: SANS_VISUEL }, { status: 400 });

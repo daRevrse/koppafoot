@@ -21,7 +21,7 @@ export const metadata = {
   description: "Les règles du jeu sur KoppaFoot : ton compte, les rôles, ce qui est interdit, ce qui est gratuit.",
 };
 
-const MIS_A_JOUR = "5 octobre 2026";
+const MIS_A_JOUR = "6 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -138,11 +138,13 @@ const SECTIONS: SectionJuridique[] = [
   },
   {
     id: "partenaires",
-    titre: "Partenaires et sponsors",
+    titre: "Partenaires, sponsors et annonces",
     corps: (
       <p>
-        Certaines pages peuvent présenter des partenaires, par exemple le sponsor d&apos;une compétition. Ils sont toujours
-        signalés comme tels. Leurs offres relèvent d&apos;eux seuls ; KoppaFoot ne vend pas tes données pour les afficher.
+        Certaines pages peuvent présenter des marques : un partenaire, par exemple le sponsor d&apos;une compétition, ou des
+        annonces qui se relaient dans un même espace. Elles sont toujours signalées comme telles, par la mention
+        « Partenaire » ou « Annonce ». Leurs offres relèvent d&apos;elles seules ; KoppaFoot ne vend pas tes données pour les
+        afficher. Avec KoppaFoot Pro ou l&apos;option sans pub, aucune ne s&apos;affiche.
       </p>
     ),
   },

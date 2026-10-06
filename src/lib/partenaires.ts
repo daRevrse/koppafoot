@@ -55,6 +55,38 @@ export const LIBELLE_FORMAT: Record<FormatPartenaire, string> = {
 };
 
 /**
+ * CE QUE LA MARQUE A ACHETÉ : deux formules, deux prix.
+ *
+ * `partenaire` : la plus chère. L'emplacement lui revient à lui seul, il ne
+ * défile pas, et il est annoncé « Partenaire » (« Présenté par » sur la
+ * compétition qu'il sponsorise). Tant qu'un partenaire est à l'affiche
+ * quelque part, aucune annonce n'y paraît.
+ *
+ * `annonce` : moins chère, parce que partagée. Les annonces d'un même
+ * emplacement défilent d'elles-mêmes, dans un ordre tiré au hasard à chaque
+ * affichage, une toutes les `DUREE_ANNONCE_MS`, sous la mention « Annonce ».
+ * Une annonce est toujours une bannière : des visuels de même proportion se
+ * relaient sans faire bouger la page.
+ *
+ * Absent (les partenariats d'avant les annonces) : partenaire, ce qu'ils ont
+ * acheté.
+ */
+export const TYPES = ["partenaire", "annonce"] as const;
+export type TypePartenariat = (typeof TYPES)[number];
+
+export const LIBELLE_TYPE: Record<TypePartenariat, string> = {
+  partenaire: "Partenaire",
+  annonce: "Annonce",
+};
+
+/** Le temps d'une annonce à l'écran avant la suivante. */
+export const DUREE_ANNONCE_MS = 8000;
+
+export function typeDe(p: Pick<FirestorePartenariat, "type">): TypePartenariat {
+  return p.type === "annonce" ? "annonce" : "partenaire";
+}
+
+/**
  * La bannière a UNE proportion, 4 pour 1, quel que soit l'emplacement.
  *
  * Une marque locale fait son visuel une fois, souvent sur Canva : un seul
@@ -83,6 +115,8 @@ export interface FirestorePartenariat {
   accroche: string | null;
   /** Absent sur les partenariats d'avant les bannières : un logo. */
   format?: FormatPartenaire;
+  /** Partenaire (exclusif) ou annonce (en rotation). Absent : partenaire. */
+  type?: TypePartenariat;
   /** Le visuel ou le logo, dans Storage (`partenaires/{id}/visuel-…`). */
   image_url: string | null;
   /**
@@ -117,6 +151,7 @@ export interface FirestorePartenariat {
 /** Ce qu'un emplacement reçoit : rien de plus que ce qu'il affiche. */
 export interface PartenaireAffiche {
   id: string;
+  type: TypePartenariat;
   annonceur: string;
   accroche: string | null;
   format: FormatPartenaire;
@@ -199,6 +234,42 @@ export function choisirPartenaire<P extends Pick<FirestorePartenariat, "competit
   const pool = propres.length ? propres : generaux;
   if (!pool.length) return null;
   return pool[Math.min(pool.length - 1, Math.floor(tirage * pool.length))];
+}
+
+/**
+ * Ce qu'un emplacement montre : un partenaire seul, ou les annonces qui s'y
+ * relaient.
+ *
+ * Même règle de priorité que `choisirPartenaire` pour la compétition (ses
+ * propres marques d'abord). Puis le partenaire, qui a payé l'exclusivité :
+ * s'il y en a un, les annonces se taisent. Sinon, toutes les annonces de
+ * l'emplacement, l'ordre étant tiré par le navigateur à chaque affichage (la
+ * réponse est en cache, le hasard ne peut pas venir du serveur). Une annonce
+ * sans visuel n'a rien à faire défiler : elle est écartée.
+ */
+export function choisirAffiches<P extends Pick<FirestorePartenariat, "competition_id" | "type" | "format" | "image_url">>(
+  candidats: P[],
+  cid: string | null,
+  tirage: number,
+): { partenaire: P | null; annonces: P[] } {
+  const propres = cid ? candidats.filter((c) => c.competition_id === cid) : [];
+  const generaux = candidats.filter((c) => !c.competition_id);
+  const pool = propres.length ? propres : generaux;
+  const partenaires = pool.filter((c) => typeDe(c) === "partenaire");
+  if (partenaires.length) {
+    return { partenaire: partenaires[Math.min(partenaires.length - 1, Math.floor(tirage * partenaires.length))], annonces: [] };
+  }
+  return { partenaire: null, annonces: pool.filter((c) => typeDe(c) === "annonce" && formatDe(c) === "banniere") };
+}
+
+/** Un ordre au hasard (Fisher-Yates), sans toucher à la liste reçue. */
+export function melanger<T>(liste: readonly T[], aleatoire: () => number = Math.random): T[] {
+  const copie = [...liste];
+  for (let i = copie.length - 1; i > 0; i--) {
+    const j = Math.floor(aleatoire() * (i + 1));
+    [copie[i], copie[j]] = [copie[j], copie[i]];
+  }
+  return copie;
 }
 
 /** Un lien de partenaire acceptable : une adresse https complète. */
