@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Reveler from "@/components/motion/Reveler";
+import VideoYoutube from "@/components/aide/VideoYoutube";
+import { tutoriel, videoDe } from "@/lib/tutoriels";
 import Image from "next/image";
 import { ArrowRight, CalendarCheck, Search, Wallet } from "lucide-react";
 
@@ -46,6 +48,9 @@ const ETAPES: { n: string; titre: string; corps: string }[] = [
       "Confirmer bloque le créneau et prévient l'équipe. Refuser le laisse libre, et peut proposer un autre horaire. Rien ne se décide sans toi : le produit te prévient même quand un créneau en chevauche un autre avant que tu ne l'acceptes.",
   },
 ];
+
+// La vidéo du tutoriel des propriétaires (lib/tutoriels), quand elle existe.
+const VIDEO = videoDe(tutoriel("terrain"), "fr")?.video;
 
 const PREUVES: { Icon: typeof Search; titre: string; corps: string }[] = [
   {
@@ -126,6 +131,14 @@ export default function TerrainsPage() {
 
       <section id="etapes" className="scroll-mt-24 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
+          {VIDEO && (
+            <VideoYoutube
+              video={VIDEO}
+              titre="Référencer son terrain sur KoppaFoot"
+              sizes="(min-width: 1024px) 896px, 100vw"
+              className="mb-16 max-w-4xl"
+            />
+          )}
           <Reveler className="grid gap-px bg-gray-200/70 lg:grid-cols-3" contenu>
             {ETAPES.map((s) => (
               <article key={s.n} className="bg-white p-8 sm:p-10">

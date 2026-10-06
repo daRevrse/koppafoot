@@ -18,11 +18,19 @@
 // ============================================
 
 import type { Langue } from "@/i18n/config";
+import { idYoutube } from "@/lib/youtube";
 
 export interface EtapeTutoriel {
   titre: string;
   texte: string;
   lien?: { href: string; label: string };
+}
+
+export interface VideoTutoriel {
+  /** Le lien YouTube tel qu'on le copie (youtu.be/…, watch?v=…, shorts/…), ou l'identifiant seul. */
+  youtube: string;
+  /** Affichée sur la miniature, comme sur YouTube : « 3:20 ». */
+  duree?: string;
 }
 
 export interface Tutoriel {
@@ -33,6 +41,13 @@ export interface Tutoriel {
   pourQui: Record<Langue, string>;
   /** Les étapes ; sans `en`, la fiche s'affiche en français dans les deux langues. */
   etapes: { fr: EtapeTutoriel[]; en?: EtapeTutoriel[] };
+  /**
+   * La vidéo, sur YouTube. Sans `en`, la française sert aux deux langues,
+   * annoncée comme telle. Elle apparaît d'elle-même partout où le tutoriel
+   * est montré : sa fiche, sa carte, la liste « Pour bien démarrer », et la
+   * vitrine du rôle quand il en a une.
+   */
+  video?: { fr: VideoTutoriel; en?: VideoTutoriel };
 }
 
 export const TUTORIELS: Tutoriel[] = [
@@ -386,4 +401,21 @@ export const TUTORIELS: Tutoriel[] = [
 
 export function tutoriel(slug: string): Tutoriel | null {
   return TUTORIELS.find((t) => t.slug === slug) ?? null;
+}
+
+/**
+ * La vidéo à montrer dans cette langue, et si elle est en français faute
+ * d'une anglaise. Un lien illisible compte pour pas de vidéo : sinon la
+ * carte et « Pour bien démarrer » annonceraient une vidéo que la fiche ne
+ * montre pas.
+ */
+export function videoDe(
+  tuto: Tutoriel | null,
+  langue: Langue,
+): { video: VideoTutoriel; enFrancais: boolean } | null {
+  if (!tuto?.video) return null;
+  const anglaise = langue === "en" && tuto.video.en && idYoutube(tuto.video.en.youtube) ? tuto.video.en : undefined;
+  const video = anglaise ?? tuto.video.fr;
+  if (!idYoutube(video.youtube)) return null;
+  return { video, enFrancais: langue === "en" && !anglaise };
 }
