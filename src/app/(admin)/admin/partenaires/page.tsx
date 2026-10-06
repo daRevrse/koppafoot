@@ -10,14 +10,16 @@ import {
   type Ton,
 } from "@/components/admin/ui";
 import {
-  EMPLACEMENTS, LIBELLE_EMPLACEMENT, aLAffiche, jourDeLome, type EmplacementPartenaire,
+  BANNIERE_CONSEILLEE, EMPLACEMENTS, FORMATS, LIBELLE_EMPLACEMENT, LIBELLE_FORMAT, aLAffiche, avisBanniere, jourDeLome,
+  type EmplacementPartenaire, type FormatPartenaire,
 } from "@/lib/partenaires";
 
 // ============================================
 // Admin, les partenaires.
 //
-// Les marques vendues en direct : leur visuel, leurs emplacements, leur
-// période, et ce qu'on leur rend en fin de campagne, les vues et les clics.
+// Les marques vendues en direct : leur visuel (un logo ou une bannière),
+// leurs emplacements, leur période, et ce qu'on leur rend en fin de campagne,
+// les vues et les clics.
 // Tout passe par /api/admin/partenaires ; la collection est fermée aux
 // navigateurs.
 //
@@ -30,6 +32,7 @@ interface Partenaire {
   id: string;
   annonceur: string;
   accroche: string | null;
+  format: FormatPartenaire;
   imageUrl: string | null;
   lien: string | null;
   emplacements: EmplacementPartenaire[];
@@ -46,6 +49,7 @@ interface Formulaire {
   id: string | null;
   annonceur: string;
   accroche: string;
+  format: FormatPartenaire;
   lien: string;
   emplacements: EmplacementPartenaire[];
   competition: string;
@@ -68,7 +72,7 @@ function dansUnMois(): string {
 }
 
 const VIDE: Formulaire = {
-  id: null, annonceur: "", accroche: "", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
+  id: null, annonceur: "", accroche: "", format: "logo", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
   debut: "", fin: "", actif: true, imageUrl: null, fichier: null, apercu: null, retirerImage: false,
 };
 
@@ -141,7 +145,7 @@ export default function AdminPartenairesPage() {
   const ouvrir = (p?: Partenaire) => {
     setForm(p ? {
       ...VIDE,
-      id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", lien: p.lien ?? "",
+      id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", format: p.format, lien: p.lien ?? "",
       emplacements: p.emplacements, competition: p.competitionId ?? "", competitionNom: p.competitionNom, debut: p.debut, fin: p.fin,
       actif: p.actif, imageUrl: p.imageUrl,
     } : { ...VIDE, debut: jour, fin: dansUnMois() });
@@ -155,6 +159,7 @@ export default function AdminPartenairesPage() {
         ...(form.id ? { id: form.id } : {}),
         annonceur: form.annonceur,
         accroche: form.accroche,
+        format: form.format,
         lien: form.lien,
         emplacements: form.emplacements,
         competition: form.competition,
@@ -232,7 +237,14 @@ export default function AdminPartenairesPage() {
               <div key={p.id} className="flex flex-wrap items-center gap-4 px-4 py-3">
                 <span className="relative flex h-12 w-20 shrink-0 items-center justify-center bg-gray-50">
                   {p.imageUrl ? (
-                    <Image src={p.imageUrl} alt="" fill sizes="80px" className="object-contain p-1" />
+                    p.format === "banniere" ? (
+                      // La bannière telle qu'elle paraît : en 4:1, recadrée au centre.
+                      <span className="relative block aspect-[4/1] w-full">
+                        <Image src={p.imageUrl} alt="" fill sizes="80px" className="object-cover" />
+                      </span>
+                    ) : (
+                      <Image src={p.imageUrl} alt="" fill sizes="80px" className="object-contain p-1" />
+                    )
                   ) : (
                     <Handshake size={18} className="text-gray-300" />
                   )}
@@ -241,6 +253,7 @@ export default function AdminPartenairesPage() {
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-black text-gray-900">{p.annonceur}</span>
                     <Pastille ton={s.ton}>{s.label}</Pastille>
+                    {p.format === "banniere" && <Pastille ton="gris">{LIBELLE_FORMAT.banniere}</Pastille>}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {p.emplacements.map((e) => LIBELLE_EMPLACEMENT[e]).join(" · ")}
@@ -297,6 +310,18 @@ function FormulairePartenaire({ form, setForm }: {
     maj({ emplacements: form.emplacements.includes(e) ? form.emplacements.filter((x) => x !== e) : [...form.emplacements, e] });
   const visuel = form.apercu ?? (form.retirerImage ? null : form.imageUrl);
 
+  // Les dimensions réelles de l'image affichée, lues à son chargement : un
+  // fichier qu'on vient de choisir comme le visuel déjà enregistré (un logo
+  // qu'on voudrait passer en bannière, par exemple).
+  const [dimensions, setDimensions] = useState<{ src: string; largeur: number; hauteur: number } | null>(null);
+  const mesurer = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (visuel) setDimensions({ src: visuel, largeur: img.naturalWidth, hauteur: img.naturalHeight });
+  };
+  const avis = form.format === "banniere" && visuel && dimensions?.src === visuel
+    ? avisBanniere(dimensions.largeur, dimensions.hauteur)
+    : null;
+
   return (
     <div className="space-y-4">
       <label className="block">
@@ -308,6 +333,11 @@ function FormulairePartenaire({ form, setForm }: {
         <span className={ETIQUETTE}>Accroche (facultative)</span>
         <input value={form.accroche} onChange={(e) => maj({ accroche: e.target.value })} maxLength={120}
           placeholder="Fière partenaire du foot de quartier" className={CHAMP} />
+        {form.format === "banniere" && (
+          <span className="mt-1 block text-[11px] text-gray-400">
+            Sur une bannière, elle n&apos;est pas affichée : l&apos;image porte déjà son message. Elle est lue par les lecteurs d&apos;écran.
+          </span>
+        )}
       </label>
       <label className="block">
         <span className={ETIQUETTE}>Lien (facultatif, https)</span>
@@ -315,17 +345,65 @@ function FormulairePartenaire({ form, setForm }: {
       </label>
 
       <div>
-        <span className={ETIQUETTE}>Visuel ou logo (2 Mo au plus)</span>
+        <span className={ETIQUETTE}>Format</span>
+        <div role="radiogroup" aria-label="Format" className="grid grid-cols-2 gap-2">
+          {FORMATS.map((f) => {
+            const choisi = form.format === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                role="radio"
+                aria-checked={choisi}
+                onClick={() => maj({ format: f })}
+                className={`border px-3 py-2 text-left transition-colors ${
+                  choisi ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                <span className="block text-sm font-black">{LIBELLE_FORMAT[f]}</span>
+                <span className={`mt-0.5 block text-[11px] leading-snug ${choisi ? "text-gray-300" : "text-gray-400"}`}>
+                  {f === "logo"
+                    ? "Le logo en vignette, le nom et l'accroche à côté."
+                    : "Une image pleine largeur, en 4:1, faite par la marque."}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        {form.format === "banniere" ? (
+          <>
+            <span className={ETIQUETTE}>
+              Bannière ({BANNIERE_CONSEILLEE.largeur} × {BANNIERE_CONSEILLEE.hauteur} px conseillés, 2 Mo au plus)
+            </span>
+            {/* L'aperçu dans les proportions exactes de l'affichage : ce qui
+                dépasse ici sera coupé sur le site. */}
+            <span className="relative mb-2 flex aspect-[4/1] w-full items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50">
+              {visuel ? (
+                // L'aperçu d'un fichier local est une adresse blob:, que next/image ne sert pas.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={visuel} src={visuel} alt="" onLoad={mesurer} className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-gray-400">Aucune image : une bannière en a besoin</span>
+              )}
+            </span>
+          </>
+        ) : (
+          <span className={ETIQUETTE}>Logo (2 Mo au plus)</span>
+        )}
         <div className="flex items-center gap-3">
-          <span className="relative flex h-14 w-28 shrink-0 items-center justify-center border border-gray-200/70 bg-gray-50">
-            {visuel ? (
-              // L'aperçu d'un fichier local est une adresse blob:, que next/image ne sert pas.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={visuel} alt="" className="max-h-full max-w-full object-contain p-1" />
-            ) : (
-              <Handshake size={18} className="text-gray-300" />
-            )}
-          </span>
+          {form.format === "logo" && (
+            <span className="relative flex h-14 w-28 shrink-0 items-center justify-center border border-gray-200/70 bg-gray-50">
+              {visuel ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={visuel} src={visuel} alt="" onLoad={mesurer} className="max-h-full max-w-full object-contain p-1" />
+              ) : (
+                <Handshake size={18} className="text-gray-300" />
+              )}
+            </span>
+          )}
           <input
             type="file"
             accept="image/*"
@@ -336,6 +414,7 @@ function FormulairePartenaire({ form, setForm }: {
             className="min-w-0 text-xs"
           />
         </div>
+        {avis && <p className="mt-1.5 text-[11px] font-semibold leading-snug text-amber-700">{avis}</p>}
         {(form.imageUrl || form.fichier) && !form.retirerImage && (
           <button type="button" onClick={() => maj({ fichier: null, apercu: null, retirerImage: true })}
             className="mt-1 text-[11px] font-bold text-red-600 hover:underline">

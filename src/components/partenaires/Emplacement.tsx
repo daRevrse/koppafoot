@@ -77,6 +77,54 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
 
   if (!partenaire) return null;
 
+  const mention = partenaire.deLaCompetition ? t.presentePar : t.partenaire;
+
+  // LA BANNIÈRE : l'image de la marque, en 4:1 (voir lib/partenaires), la
+  // mention et le nom au-dessus, en petit. L'image porte déjà son message ;
+  // l'accroche sert de texte de remplacement aux lecteurs d'écran.
+  // Recadrée au centre si la marque n'a pas respecté le format :
+  // l'administration l'en prévient à l'envoi, aperçu à l'appui.
+  if (partenaire.format === "banniere" && partenaire.imageUrl) {
+    const banniere = (
+      <>
+        <span className="mb-1.5 flex items-baseline gap-2">
+          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">{mention}</span>
+          <span className="min-w-0 truncate text-xs font-bold text-gray-600">{partenaire.annonceur}</span>
+          {partenaire.cliquable && (
+            <span className="ml-auto hidden shrink-0 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-700 @md:block">
+              {t.voir} →
+            </span>
+          )}
+        </span>
+        <span className="relative block aspect-[4/1] w-full overflow-hidden border border-gray-200/70 bg-gray-50 transition-colors group-hover:border-gray-400">
+          <Image
+            src={partenaire.imageUrl}
+            alt={partenaire.accroche ? `${partenaire.annonceur} : ${partenaire.accroche}` : partenaire.annonceur}
+            fill
+            sizes="(min-width: 800px) 768px, 100vw"
+            className="object-cover"
+          />
+        </span>
+      </>
+    );
+    return (
+      <div ref={ref} data-emplacement={emplacement} className={`@container mx-auto w-full max-w-3xl ${className}`}>
+        {partenaire.cliquable ? (
+          <a
+            href={`/api/partenaires/clic?id=${encodeURIComponent(partenaire.id)}`}
+            target="_blank"
+            rel="sponsored noopener"
+            className="group block"
+          >
+            {banniere}
+          </a>
+        ) : (
+          <div>{banniere}</div>
+        )}
+      </div>
+    );
+  }
+
   const contenu = (
     <>
       {partenaire.imageUrl && (
@@ -86,7 +134,7 @@ export default function Emplacement({ emplacement, cid = null, className = "" }:
       )}
       <span className="min-w-0 flex-1">
         <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
-          {partenaire.deLaCompetition ? t.presentePar : t.partenaire}
+          {mention}
         </span>
         <span className="mt-0.5 block truncate font-display text-base font-black tracking-tight text-gray-900">
           {partenaire.annonceur}

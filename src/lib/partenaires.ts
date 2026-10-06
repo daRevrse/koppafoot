@@ -29,12 +29,42 @@ export const LIBELLE_EMPLACEMENT: Record<EmplacementPartenaire, string> = {
   match: "Fiche d'un match",
 };
 
+/**
+ * Comment le partenaire se présente.
+ *
+ * `logo` : son logo en vignette, son nom et son accroche à côté, dans un
+ * encadré. `banniere` : une image pleine largeur, faite par la marque, qui
+ * porte elle-même son message ; le nom ne l'accompagne qu'en petit, avec la
+ * mention « Partenaire ».
+ */
+export const FORMATS = ["logo", "banniere"] as const;
+export type FormatPartenaire = (typeof FORMATS)[number];
+
+export const LIBELLE_FORMAT: Record<FormatPartenaire, string> = {
+  logo: "Logo et nom",
+  banniere: "Bannière",
+};
+
+/**
+ * La bannière a UNE proportion, 4 pour 1, quel que soit l'emplacement.
+ *
+ * Une marque locale fait son visuel une fois, souvent sur Canva : un seul
+ * format à lui demander, et elle sait exactement ce qui paraîtra. 4:1 tient
+ * dans le rail de l'accueil Direct (320 px de large, 80 de haut) comme en
+ * pleine largeur sur téléphone ; sur ordinateur, la bannière s'arrête à
+ * 768 px de large (192 de haut) pour ne pas écraser la page.
+ */
+export const RATIO_BANNIERE = 4;
+export const BANNIERE_CONSEILLEE = { largeur: 1200, hauteur: 300 } as const;
+
 /** Le partenariat, tel que Firestore le range (`partenariats/{id}`). */
 export interface FirestorePartenariat {
   /** Le nom de la marque, affiché sous son visuel. */
   annonceur: string;
   /** Une phrase, facultative : « Fière partenaire du foot de quartier ». */
   accroche: string | null;
+  /** Absent sur les partenariats d'avant les bannières : un logo. */
+  format?: FormatPartenaire;
   /** Le visuel ou le logo, dans Storage (`partenaires/{id}/…`). */
   image_url: string | null;
   /** Où mène un clic. https seulement ; absent = le visuel ne mène nulle part. */
@@ -66,6 +96,7 @@ export interface PartenaireAffiche {
   id: string;
   annonceur: string;
   accroche: string | null;
+  format: FormatPartenaire;
   imageUrl: string | null;
   /** Le visuel mène-t-il quelque part ? Le lien lui-même reste au serveur. */
   cliquable: boolean;
@@ -74,6 +105,39 @@ export interface PartenaireAffiche {
 }
 
 export { jourDeLome } from "@/lib/jour";
+
+/**
+ * Le format à afficher.
+ *
+ * Une bannière sans image n'aurait rien à montrer : elle retombe sur
+ * l'encadré, qui a toujours au moins le nom de la marque. L'administration
+ * refuse ce cas (une bannière exige son visuel) ; ceci couvre un document
+ * abîmé ou un visuel effacé à la main.
+ */
+export function formatDe(p: Pick<FirestorePartenariat, "format" | "image_url">): FormatPartenaire {
+  return p.format === "banniere" && p.image_url ? "banniere" : "logo";
+}
+
+/**
+ * Ce qu'il faut dire à l'administrateur d'une image de bannière, ou `null`
+ * si elle convient.
+ *
+ * Le recadrage est annoncé au-delà de 15 % d'écart avec le 4:1 : en deçà, il
+ * ne rogne qu'une marge que personne ne remarque. Une image étroite est
+ * signalée aussi, elle serait floue en pleine largeur sur ordinateur.
+ */
+export function avisBanniere(largeur: number, hauteur: number): string | null {
+  if (!(largeur > 0 && hauteur > 0)) return null;
+  const { largeur: l, hauteur: h } = BANNIERE_CONSEILLEE;
+  const ratio = largeur / hauteur;
+  if (Math.abs(ratio / RATIO_BANNIERE - 1) > 0.15) {
+    return `Cette image fait ${largeur} × ${hauteur} px : elle sera recadrée au centre pour tenir en 4:1, comme l'aperçu le montre. Format conseillé : ${l} × ${h} px.`;
+  }
+  if (largeur < 800) {
+    return `Cette image ne fait que ${largeur} px de large : elle sera floue sur grand écran. ${l} × ${h} px conseillés.`;
+  }
+  return null;
+}
 
 /** Le partenariat est-il à l'affiche ce jour-là ? */
 export function aLAffiche(p: Pick<FirestorePartenariat, "actif" | "debut" | "fin">, jour: string): boolean {
