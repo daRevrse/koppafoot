@@ -287,6 +287,7 @@ export default function LoginMethodsCard() {
                 <input
                   type="text"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}

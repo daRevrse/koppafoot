@@ -489,6 +489,8 @@ export default function LoginPage() {
                 id="code"
                 type="text"
                 inputMode="numeric"
+                // Le téléphone propose le code reçu au-dessus du clavier.
+                autoComplete="one-time-code"
                 maxLength={6}
                 {...codeForm.register("code")}
                 className="w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
