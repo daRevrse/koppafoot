@@ -1,5 +1,5 @@
 // ============================================
-// Le statut club : plusieurs équipes réunies sous un même club.
+// Le Club multi-équipes : plusieurs équipes réunies sous un même club.
 //
 // UNE COUCHE AU-DESSUS DES ÉQUIPES, RIEN DE PLUS. Une équipe reste une équipe,
 // gratuite, avec sa fiche, son effectif, ses matchs et ses stats. Le club les

@@ -101,7 +101,7 @@ export default function AdminStatsPage() {
           />
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          La cible du statut club : une structure à plusieurs équipes (seniors, jeunes, féminines). Au-delà de 2 équipes,
+          La cible du Club multi-équipes : une structure à plusieurs équipes (seniors, jeunes, féminines). Au-delà de 2 équipes,
           l&apos;offre gratuite ne permet plus d&apos;en créer.
         </p>
         {data.managers.plusGrands.length > 0 && (

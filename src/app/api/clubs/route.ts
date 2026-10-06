@@ -110,7 +110,7 @@ export async function POST(req: Request) {
   if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   try {
     if (!estPro(await lireDroits(uid), jourDeLome())) {
-      return NextResponse.json({ error: "Le statut club fait partie de KoppaFoot Pro." }, { status: 403 });
+      return NextResponse.json({ error: "Le Club multi-équipes fait partie de KoppaFoot Pro." }, { status: 403 });
     }
     if (await clubDuProprietaire(uid)) {
       return NextResponse.json({ error: "Tu as déjà un club." }, { status: 409 });

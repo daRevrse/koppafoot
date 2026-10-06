@@ -131,7 +131,7 @@ export function compterLesMatchs(
 /**
  * Combien d'équipes gère chaque manager.
  *
- * La cible du statut club (lib/clubs) : un manager qui gère plusieurs
+ * La cible du Club multi-équipes (lib/clubs) : un manager qui gère plusieurs
  * équipes, seniors, jeunes, féminines, est une structure qui gagnerait à les
  * réunir. Les équipes fantômes (adversaires sans compte) ne comptent pas.
  */

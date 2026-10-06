@@ -33,7 +33,7 @@ interface Donnees { estPro: boolean; club: MonClub | null; mesEquipes: MonEquipe
 
 const T = textes(
   {
-    titre: "Mon club",
+    titre: "Club multi-équipes",
     sousTitre: "Réunis tes équipes sous un même club : seniors, jeunes, féminines, avec une seule page.",
     erreur: "Impossible de charger ton club.",
     invitationsRecues: "Invitations reçues",
@@ -42,10 +42,10 @@ const T = textes(
     refuser: "Refuser",
     acceptee: "Ton équipe a rejoint le club",
     refusee: "Invitation refusée",
-    proRequis: "Le statut club fait partie de KoppaFoot Pro.",
+    proRequis: "Le Club multi-équipes fait partie de KoppaFoot Pro.",
     proRequisDetail: "Une page de club, l'encadrement commun, et toutes tes équipes réunies. Tes équipes, elles, restent gratuites.",
     voirOffre: "Voir mon offre",
-    creerTitre: "Créer ton club",
+    creerTitre: "Créer ton Club multi-équipes",
     nom: "Nom du club",
     ville: "Ville",
     creer: "Créer le club",
@@ -91,7 +91,7 @@ const T = textes(
     mesEquipesDansClubs: "Mes équipes dans un club",
   },
   {
-    titre: "My club",
+    titre: "Multi-team club",
     sousTitre: "Bring your teams together under one club: seniors, youth, women, with a single page.",
     erreur: "Couldn't load your club.",
     invitationsRecues: "Invitations received",
@@ -100,10 +100,10 @@ const T = textes(
     refuser: "Decline",
     acceptee: "Your team joined the club",
     refusee: "Invitation declined",
-    proRequis: "Club status is part of KoppaFoot Pro.",
+    proRequis: "The multi-team club is part of KoppaFoot Pro.",
     proRequisDetail: "A club page, a shared staff, and all your teams together. Your teams themselves stay free.",
     voirOffre: "See my plan",
-    creerTitre: "Create your club",
+    creerTitre: "Create your multi-team club",
     nom: "Club name",
     ville: "City",
     creer: "Create the club",

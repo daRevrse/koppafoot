@@ -357,7 +357,7 @@ export default function TeamsPage() {
               href="/mon-club"
               className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
             >
-              <Building2 size={16} /> Mon club
+              <Building2 size={16} /> Club multi-équipes
             </Link>
           )}
           {isManager && (
