@@ -25,6 +25,7 @@ import type { Competition, CompTeam, Venue } from "@/types";
 import toast from "react-hot-toast";
 import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import { normaliserPoste, libellePoste } from "@/lib/postes";
+import { gereLaCompetition } from "@/lib/hats";
 
 type TabKey = "teams" | "players" | "matches";
 
@@ -167,7 +168,8 @@ export default function CompetitionImportPage() {
   // Guard: only organizers of this competition may view it.
   useEffect(() => {
     if (!user || !competition) return;
-    if (!competition.organizerIds.includes(user.uid)) {
+    // Ses organisateurs, et l'administration (voir lib/hats).
+    if (!gereLaCompetition(user, competition)) {
       router.replace("/organizer");
     }
   }, [user, competition, router]);

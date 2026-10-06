@@ -5,6 +5,7 @@ import { amicalVersCompMatch } from "@/lib/friendlies-shared";
 import { toCompetition, toCompMatch, toCompTeam } from "@/lib/competition-mappers";
 import { computeStandings } from "@/lib/poules";
 import { normaliserPoste } from "@/lib/postes";
+import { lireButeursRenseignes } from "@/lib/buteurs";
 import {
   meneursDuClub, statutPublicAmical, statutPublicCompetition,
   type CompetitionDuClub, type JoueurDuClub, type MatchDuClub, type MatchPourMeneurs,
@@ -203,15 +204,8 @@ export async function ficheDuClub(teamId: string, club: Doc): Promise<FicheDuClu
       evenements: m.liveState?.events ?? [],
       // Les buteurs d'un match renseigné sont ceux du camp qui l'a saisi : on
       // ne garde que les lignes de CE club.
-      renseignes: ((d.recorded_scorers ?? []) as Doc[])
-        .filter((r) => typeof r.player_id === "string" && lignesDuClub.has(r.player_id))
-        .map((r) => ({
-          playerId: r.player_id as string,
-          nom: String(r.nom ?? ""),
-          sansCompte: r.sansCompte === true,
-          buts: typeof r.buts === "number" ? r.buts : 0,
-          passes: typeof r.passes === "number" ? r.passes : 0,
-        })),
+      renseignes: lireButeursRenseignes(d.recorded_scorers)
+        .filter((r) => lignesDuClub.has(r.playerId)),
     });
   }
 

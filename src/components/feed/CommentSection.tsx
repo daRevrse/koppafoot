@@ -8,6 +8,7 @@ import { avatarColor, timeAgo } from "./PostCard";
 import type { Comment } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import { useComptesPublics } from "@/hooks/usePhotosDesComptes";
 
 const T = textes(
   { ecrire: "Écrire un commentaire...", aucun: "Aucun commentaire. Sois le premier !" },
@@ -21,7 +22,31 @@ interface CommentSectionProps {
    * Le lecteur, ou `null` sans compte. Les commentaires restent lisibles,
    * c'est une page publique, mais on ne peut pas en ecrire.
    */
-  currentUser: { uid: string; name: string } | null;
+  currentUser: { uid: string; name: string; photo?: string | null } | null;
+}
+
+/**
+ * Le visage de l'auteur : sa photo de profil, sinon ses initiales.
+ *
+ * LA PHOTO EST LUE, PAS RECOPIÉE. Un commentaire n'enregistre que le nom de
+ * son auteur, et le fil affichait donc des initiales même pour qui a une
+ * photo. On la demande à /api/public/photos (une requête pour tous les auteurs
+ * du fil) : elle vaut pour les commentaires déjà écrits, et suit l'auteur
+ * quand il change de photo.
+ */
+function Visage({ nom, photo, taille }: { nom: string; photo: string | null | undefined; taille: "sm" | "md" }) {
+  const dim = taille === "md" ? "h-8 w-8 text-xs" : "h-7 w-7 text-[10px]";
+  if (photo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={photo} alt="" className={`${dim} shrink-0 rounded-full object-cover`} />
+    );
+  }
+  return (
+    <div className={`flex ${dim} shrink-0 items-center justify-center rounded-full font-bold text-white ${avatarColor(nom)}`}>
+      {nom.slice(0, 2).toUpperCase()}
+    </div>
+  );
 }
 
 export function CommentSection({ postId, currentUser }: CommentSectionProps) {
@@ -59,16 +84,15 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
     }
   };
 
-  const initials = (name: string) => name.slice(0, 2).toUpperCase();
+  // Les auteurs du fil, et le lecteur : une seule requête pour toutes les photos.
+  const { photos } = useComptesPublics([...comments.map((c) => c.authorId), currentUser?.uid]);
 
   return (
     <div className="px-4 py-3 space-y-3">
       {/* Saisie : reservee a qui a un compte. Le fil, lui, reste lisible. */}
       {currentUser && (
       <div className="flex gap-2 items-center">
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(currentUser.name)}`}>
-          {initials(currentUser.name)}
-        </div>
+        <Visage nom={currentUser.name} photo={currentUser.photo || photos[currentUser.uid]} taille="md" />
         <div className="flex flex-1 items-center gap-2 rounded-full border border-gray-200/70 bg-gray-50 px-3 py-1.5">
           <input
             value={newComment}
@@ -114,9 +138,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
               transition={{ duration: 0.2 }}
               className="flex gap-2"
             >
-              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(c.authorName)}`}>
-                {initials(c.authorName)}
-              </div>
+              <Visage nom={c.authorName} photo={photos[c.authorId]} taille="sm" />
               <div className="flex-1">
                 <div className="inline-block bg-gray-100 px-3 py-2 max-w-full">
                   <p className="text-xs font-semibold text-gray-900">{c.authorName}</p>

@@ -1973,9 +1973,15 @@ export interface FirestoreLineupEntry {
   emplacement?: Emplacement | null;
 }
 
-/** Une ligne de la saisie « qui a marqué » d'un match renseigné. */
+/**
+ * Une ligne de la saisie « qui a marqué » d'un match renseigné.
+ *
+ * EN CAMELCASE, contrairement au reste du document : api/matches/record écrit
+ * ses lignes telles quelles depuis le début. Le type disait `player_id`, et
+ * les lecteurs l'avaient cru. Lire avec `lireButeursRenseignes` (lib/buteurs).
+ */
 export interface FirestoreRecordedScorer {
-  player_id: string;
+  playerId: string;
   /** Un joueur sans compte vit sur `teams/{id}/ghost_players`, pas sur `users`. */
   sansCompte: boolean;
   nom: string;

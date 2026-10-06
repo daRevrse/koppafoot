@@ -19,6 +19,7 @@ import RosterClaimsPanel from "@/components/competition/RosterClaimsPanel";
 import { POSTES, LIBELLE_POSTE, libellePoste, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompTeam, CompPlayer } from "@/types";
 import toast from "react-hot-toast";
+import { gereLaCompetition } from "@/lib/hats";
 
 // Le <select> ECRIT la forme canonique et AFFICHE le francais. Il ecrivait le
 // francais dans les deux roles, ce qui donnait trois vocabulaires en base pour
@@ -86,7 +87,8 @@ export default function CompetitionRosterPage() {
   // Guard: only organizers of this competition may view it.
   useEffect(() => {
     if (!user || !competition) return;
-    if (!competition.organizerIds.includes(user.uid)) {
+    // Ses organisateurs, et l'administration (voir lib/hats).
+    if (!gereLaCompetition(user, competition)) {
       router.replace("/organizer");
     }
   }, [user, competition, router]);
