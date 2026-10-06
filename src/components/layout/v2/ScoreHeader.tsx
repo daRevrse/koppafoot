@@ -20,6 +20,7 @@ import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
 import HeaderProgress from "./HeaderProgress";
+import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 
 // ============================================
 // ScoreHeader, the one band of the shell.
@@ -625,13 +626,14 @@ export default function ScoreHeader({
       className={`sticky top-0 z-40 border-b border-gray-200/70 bg-white pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
     >
       <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-4 lg:px-5 lg:py-4 xl:gap-5 xl:px-8">
-        {/* LE SYMBOLE EST PARTI. Il doublait le mot-marque a cote de lui —
-            deux fois la meme chose pour dire la meme chose — et il coutait
-            34 pixels sur une bande qui en compte 375. Le mot tient le retour
-            a l'accueil tout seul, et la place gagnee revient au compte, a
-            droite. */}
-        <Link href={HOME} className="flex shrink-0 items-center">
-          <span className="font-display text-base font-black uppercase tracking-[0.14em] text-gray-900 lg:text-lg">
+        {/* LE SYMBOLE EST REVENU, AUTRE. L'ancien, carré, doublait le
+            mot-marque et coûtait 34 pixels sur une bande qui en compte 375 :
+            il était parti. Le nouveau koppa est étroit (une dizaine de
+            pixels à cette hauteur) et dit ce que le mot ne dit pas, la
+            forme qu'on reconnaîtra sur l'icône de l'application. */}
+        <Link href={HOME} className="flex shrink-0 items-center gap-2 text-gray-900">
+          <SymboleKoppafoot className="h-5 lg:h-6" />
+          <span className="font-display text-base font-black uppercase tracking-[0.14em] lg:text-lg">
             Koppafoot
           </span>
         </Link>

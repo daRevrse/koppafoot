@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronLeft, ClipboardList, Flag, Gem, Goal, Handshake, LayoutDashboard, LogOut, MapPin, MapPinPlus,
@@ -106,7 +106,7 @@ export default function AdminSidebar({ ouvert, onFermer }: { ouvert: boolean; on
     <div className="flex h-full flex-col bg-black text-white">
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5">
         <Link href="/admin" onClick={onFermer} className="flex items-center gap-2.5">
-          <Image src="/branding/logo_symbol.png" alt="" width={24} height={24} className="brightness-0 invert" />
+          <SymboleKoppafoot className="h-6" />
           <span className="font-display text-base font-black uppercase tracking-tight">Koppa</span>
           <span className="bg-emerald-400 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-black">Admin</span>
         </Link>

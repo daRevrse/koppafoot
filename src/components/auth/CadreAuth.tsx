@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { contexteAuth } from "@/config/auth-contextes";
+import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 
 // ============================================
 // L'écran d'authentification, et la fin du même tunnel.
@@ -82,11 +83,13 @@ function PanneauSection() {
             et il fallait l'inverser au filtre pour le poser sur du sombre.
             C'est la même typographie que le header (voir ScoreHeader), en
             plus grand : on est sur la porte d'entrée, le nom a le droit d'y
-            tenir sa place. */}
+            tenir sa place. Le symbole à côté n'est pas une image non plus :
+            un SVG qui prend la couleur du texte (components/marque). */}
         <Link
           href="/"
-          className="w-fit font-display text-3xl font-black uppercase tracking-[0.14em] text-white drop-shadow-lg transition-opacity hover:opacity-80"
+          className="flex w-fit items-center gap-3 font-display text-3xl font-black uppercase tracking-[0.14em] text-white drop-shadow-lg transition-opacity hover:opacity-80"
         >
+          <SymboleKoppafoot className="h-10" />
           Koppafoot
         </Link>
 
@@ -158,8 +161,9 @@ export default function CadreAuth({ children, pied }: { children: React.ReactNod
               en encre sombre — le fond est clair de ce côté. */}
           <Link
             href="/"
-            className="mb-9 block w-fit font-display text-2xl font-black uppercase tracking-[0.14em] text-gray-900 transition-opacity hover:opacity-70 lg:hidden"
+            className="mb-9 flex w-fit items-center gap-2.5 font-display text-2xl font-black uppercase tracking-[0.14em] text-gray-900 transition-opacity hover:opacity-70 lg:hidden"
           >
+            <SymboleKoppafoot className="h-8" />
             Koppafoot
           </Link>
 

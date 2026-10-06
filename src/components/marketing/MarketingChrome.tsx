@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 import { usePathname } from "next/navigation";
 import { useHauteurPubliee } from "@/hooks/useHauteurPubliee";
 import { Menu, X, ArrowRight } from "lucide-react";
@@ -86,9 +86,9 @@ export function MarketingHeader() {
     <header ref={ref} className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-5 sm:px-10 sm:py-7">
         {/* Back into the app proper, this page is a door, not a dead end. */}
-        <Link href="/" className="flex shrink-0 items-center gap-3">
-          <Image src="/branding/logo_symbol.png" alt="KoppaFoot" width={34} height={34} />
-          <span className="font-display text-xl font-black uppercase tracking-[0.18em] text-gray-900 sm:text-2xl">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5 text-gray-900">
+          <SymboleKoppafoot className="h-7 sm:h-8" />
+          <span className="font-display text-xl font-black uppercase tracking-[0.18em] sm:text-2xl">
             Koppafoot
           </span>
         </Link>
