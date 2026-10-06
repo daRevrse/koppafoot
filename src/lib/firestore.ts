@@ -6,7 +6,6 @@ import {
   orderBy,
   limit as firestoreLimit,
   getDocs,
-  documentId,
   getDoc,
   getDocFromCache,
   addDoc,
@@ -694,19 +693,52 @@ export async function removeTeamMember(teamId: string, playerId: string): Promis
 // invitation (/api/team-invitations/respond) or a manager accepting a join
 // request.
 
+/**
+ * LES PROFILS DES AUTRES PASSENT PAR LE SERVEUR.
+ *
+ * `users/{uid}` porte l'e-mail, le numéro, les jetons de notification de son
+ * titulaire : la règle Firestore n'en laisse plus la lecture qu'à lui (et à
+ * l'administration). Le profil d'un autre membre se lit par /api/membres, qui
+ * n'en rend qu'une liste blanche (lib/membres-serveur) : `email` et `phone`
+ * y sont donc absents, et rien ici ne doit en dépendre.
+ *
+ * Sans compte connecté, rien : un visiteur lit les pages publiques.
+ */
+async function lireCommeMembre<T>(url: string, corps?: unknown): Promise<T | null> {
+  const utilisateur = auth.currentUser;
+  if (!utilisateur) return null;
+  const res = await fetch(url, {
+    method: corps === undefined ? "GET" : "POST",
+    headers: {
+      Authorization: `Bearer ${await utilisateur.getIdToken()}`,
+      ...(corps === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: corps === undefined ? undefined : JSON.stringify(corps),
+  });
+  if (!res.ok) throw new Error(`Lecture des profils impossible (${res.status})`);
+  return (await res.json()) as T;
+}
+
+/** Des profils bruts (liste blanche), par paquets de cent, dans l'ordre demandé. */
+async function membresBruts(uids: string[]): Promise<Map<string, FirestoreUser>> {
+  const ids = [...new Set(uids.filter(Boolean))];
+  const out = new Map<string, FirestoreUser>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const r = await lireCommeMembre<{ membres: (FirestoreUser & { uid: string })[] }>(
+      "/api/membres", { uids: ids.slice(i, i + 100) },
+    );
+    for (const m of r?.membres ?? []) out.set(m.uid, m);
+  }
+  return out;
+}
+
 export async function getUsersByIds(uids: string[]): Promise<UserProfile[]> {
   if (uids.length === 0) return [];
-  // Firestore 'in' supports up to 30 values per query
-  const results: UserProfile[] = [];
-  for (let i = 0; i < uids.length; i += 30) {
-    const batch = uids.slice(i, i + 30);
-    const q = query(collection(db, "users"), where("__name__", "in", batch));
-    const snap = await getDocs(q);
-    for (const d of snap.docs) {
-      results.push(toUserProfile(d.id, d.data() as FirestoreUser));
-    }
-  }
-  return results;
+  const membres = await membresBruts(uids);
+  return [...new Set(uids)].flatMap((uid) => {
+    const m = membres.get(uid);
+    return m ? [toUserProfile(uid, m)] : [];
+  });
 }
 
 /**
@@ -730,9 +762,7 @@ export async function getTeamsByIds(teamIds: string[]): Promise<Team[]> {
 }
 
 export async function getUserById(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, "users", uid));
-  if (!snap.exists()) return null;
-  return toUserProfile(snap.id, snap.data() as FirestoreUser);
+  return (await getUsersByIds([uid]))[0] ?? null;
 }
 
 export async function getParticipationsForMatch(matchId: string): Promise<Participation[]> {
@@ -2343,18 +2373,17 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
  * exactement le but.
  */
 export async function searchPlayers(filters: { city?: string; position?: string; skillLevel?: string; query?: string }): Promise<UserProfile[]> {
-  const constraints: QueryConstraint[] = [where("evolution_role", "==", "player"), where("is_active", "==", true)];
-  if (filters.city) constraints.push(where("location_city", "==", filters.city));
-  if (filters.position) constraints.push(where("position", "==", filters.position));
-  if (filters.skillLevel) constraints.push(where("skill_level", "==", filters.skillLevel));
-  const q = query(collection(db, "users"), ...constraints);
-  const snap = await getDocs(q);
-  let results = snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
-  if (filters.query) {
-    const search = filters.query.toLowerCase();
-    results = results.filter((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(search));
-  }
-  return results;
+  return rechercherMembres({
+    role: "joueur", ville: filters.city, poste: filters.position, niveau: filters.skillLevel, texte: filters.query,
+  });
+}
+
+/** Une recherche de membres, rejouée par le serveur (voir lireCommeMembre). */
+async function rechercherMembres(filtres: Record<string, string | undefined>): Promise<UserProfile[]> {
+  const params = new URLSearchParams();
+  for (const [cle, valeur] of Object.entries(filtres)) if (valeur) params.set(cle, valeur);
+  const r = await lireCommeMembre<{ membres: (FirestoreUser & { uid: string })[] }>(`/api/membres/recherche?${params}`);
+  return (r?.membres ?? []).map((m) => toUserProfile(m.uid, m));
 }
 
 // ============================================
@@ -2378,26 +2407,9 @@ export async function searchPlayers(filters: { city?: string; position?: string;
  * la moitié des arbitres, et laquelle dépend de leur ancienneté.
  */
 export async function searchReferees(filters: { city?: string; licenseLevel?: string; query?: string }): Promise<UserProfile[]> {
-  const common: QueryConstraint[] = [where("is_active", "==", true)];
-  if (filters.city) common.push(where("location_city", "==", filters.city));
-  if (filters.licenseLevel) common.push(where("license_level", "==", filters.licenseLevel));
-
-  const [parRole, parType] = await Promise.all([
-    getDocs(query(collection(db, "users"), where("evolution_role", "==", "referee"), ...common)),
-    getDocs(query(collection(db, "users"), where("user_type", "==", "referee"), ...common)),
-  ]);
-
-  const vus = new Set<string>();
-  let results = [...parRole.docs, ...parType.docs].flatMap((d) => {
-    if (vus.has(d.id)) return [];
-    vus.add(d.id);
-    return [toUserProfile(d.id, d.data() as FirestoreUser)];
-  });
-  if (filters.query) {
-    const search = filters.query.toLowerCase();
-    results = results.filter((r) => `${r.firstName} ${r.lastName}`.toLowerCase().includes(search));
-  }
-  return results;
+  // Les deux requêtes (rôle activé, ancien `user_type`) et leur fusion se
+  // font désormais sur le serveur : voir lib/membres-serveur.
+  return rechercherMembres({ role: "arbitre", ville: filters.city, licence: filters.licenseLevel, texte: filters.query });
 }
 
 // ============================================
@@ -2448,21 +2460,15 @@ async function hydratePostAuthors(
     ),
   ];
 
-  // documentId() 'in' takes at most 30 values per query.
-  for (let i = 0; i < missing.length; i += 30) {
-    const chunk = missing.slice(i, i + 30);
-    try {
-      const snap = await getDocs(
-        query(collection(db, "users"), where(documentId(), "in", chunk)),
-      );
-      for (const d of snap.docs) {
-        const u = d.data();
-        const name = `${u.first_name ?? ""} ${u.last_name ? u.last_name.charAt(0) + "." : ""}`.trim();
-        cache.set(d.id, { name, avatar: u.profile_picture_url ?? "" });
-      }
-    } catch (err) {
-      console.error("Error hydrating post authors:", err);
+  // Par le serveur (voir lireCommeMembre) ; un visiteur garde les noms et
+  // photos recopiés dans les publications.
+  try {
+    for (const [uid, u] of await membresBruts(missing)) {
+      const name = `${u.first_name ?? ""} ${u.last_name ? u.last_name.charAt(0) + "." : ""}`.trim();
+      cache.set(uid, { name, avatar: u.profile_picture_url ?? "" });
     }
+  } catch (err) {
+    console.error("Error hydrating post authors:", err);
   }
 
   // The official account's identity lives in settings/tribune and is editable
@@ -2692,10 +2698,7 @@ export async function getCorpsDirigesPar(uids: string[]): Promise<Map<string, Co
 
 /** Les scoreurs validés (la casquette `is_scorer`), pour les inviter dans un corps. */
 export async function searchScoreurs(): Promise<UserProfile[]> {
-  const snap = await getDocs(query(
-    collection(db, "users"), where("is_scorer", "==", true), where("is_active", "==", true),
-  ));
-  return snap.docs.map((d) => toUserProfile(d.id, d.data() as FirestoreUser));
+  return rechercherMembres({ role: "scoreur" });
 }
 
 /** Les matchs où l'on accompagne un arbitre : assistant ou scoreur de son équipe. */
@@ -3188,9 +3191,7 @@ export async function isFollowing(followerId: string, followingId: string): Prom
 
 
 export async function getFollowersCount(uid: string): Promise<number> {
-  const snap = await getDoc(doc(db, "users", uid));
-  if (!snap.exists()) return 0;
-  return (snap.data() as FirestoreUser).followers_count ?? 0;
+  return (await membresBruts([uid])).get(uid)?.followers_count ?? 0;
 }
 
 // ============================================

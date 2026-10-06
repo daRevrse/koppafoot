@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import {
   CODE_LIMITE, LIMITES_GRATUIT, estPro, jourDeLome, limitesEnVigueur, messageLimite,
   type CleLimite, type FirestoreDroits, type LimiteAtteinte,
@@ -18,16 +18,7 @@ import {
 // que le geste en cours, voir lib/offre.
 // ============================================
 
-/** L'appelant, d'après son jeton ; `null` sans jeton valable. */
-export async function uidAppelant(req: Request): Promise<string | null> {
-  const entete = req.headers.get("authorization");
-  if (!entete?.startsWith("Bearer ")) return null;
-  try {
-    return (await adminAuth.verifyIdToken(entete.slice(7))).uid;
-  } catch {
-    return null;
-  }
-}
+export { uidAppelant } from "@/lib/appelant";
 
 export async function lireDroits(uid: string): Promise<FirestoreDroits | null> {
   const snap = await adminDb.collection("droits").doc(uid).get();

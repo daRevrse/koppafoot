@@ -311,9 +311,17 @@ service cloud.firestore {
       // No public route reads profiles — the login-free pages (accueil,
       // /competitions, /c/**, /staff/rejoindre, /invitations) work off
       // competitions, comp_teams and comp_matches, and posts carry their
-      // author's name and avatar denormalized. Requiring an account matches how
-      // /teams is already gated.
-      allow read: if isAuthenticated();
+      // author's name and avatar denormalized.
+      //
+      // RÉSERVÉ À SON TITULAIRE, DÉSORMAIS. « Tout compte connecté » laissait
+      // encore n'importe qui, l'inscription étant ouverte, lire l'e-mail, le
+      // numéro et les jetons de notification de chacun. Une règle ne sait pas
+      // cacher un champ : le document n'est plus lisible que par son
+      // titulaire et l'administration, et le profil d'un autre membre passe
+      // par /api/membres, en liste blanche (lib/membres-serveur). Les `get()`
+      // des autres règles sur `users` ne sont pas concernés : ils s'évaluent
+      // côté serveur.
+      allow read: if isOwner(uid) || isSuperAdmin();
       allow create: if isOwner(uid) && genreValide();
       
       // Only the owner writes their own profile.
