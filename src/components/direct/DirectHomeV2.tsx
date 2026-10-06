@@ -1597,8 +1597,12 @@ export default function DirectHomeV2({
   const liveCount = liveEntries.length;
 
   if (feed.length === 0) {
+    // Le guide AUSSI quand rien ne se joue : un compte tout neuf qui arrive
+    // un jour sans compétition ne voyait qu'un trophée gris, sans savoir
+    // quoi faire. C'est le moment même où « Pour bien démarrer » sert.
     return (
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl space-y-3">
+        <GuideDeDemarrage />
         <div className="flex flex-col items-center border border-gray-200/70 bg-white py-16">
           <Trophy size={32} className="text-gray-300" />
           <h3 className="mt-4 font-display text-lg font-black text-gray-900">
