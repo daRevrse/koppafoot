@@ -26,6 +26,8 @@ function isPublicPath(pathname: string): boolean {
     // actions (suivre, ajouter au mercato) ouvrent la modale d'elles-memes.
     /^\/profile\/[^/]+$/.test(pathname) ||
     /^\/teams\/[^/]+$/.test(pathname) ||
+    // La page d'un club, comme celle d'une équipe : faite pour être partagée.
+    /^\/clubs\/[^/]+$/.test(pathname) ||
     // La fiche d'un match, pour la même raison, et parce que c'est ce qu'on
     // envoie sur WhatsApp quand on veut faire venir quelqu'un. Le lien
     // tombait sur « Connexion requise », c'est-à-dire exactement sur le mur

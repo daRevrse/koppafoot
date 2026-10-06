@@ -8,6 +8,7 @@ import {
   MapPin, Plus, Trash2, Pencil, Check, X, ImagePlus, ArrowRight, Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   onVenuesByOwner, createVenue, updateVenue, onBookingsByOwner,
@@ -595,6 +596,7 @@ export default function MyVenuesPage() {
   const [occupe, setOccupe] = useState(false);
   const [demandes, setDemandes] = useState<Booking[]>([]);
   const { demander, Dialogue } = useConfirmation();
+  const signalerLimite = useSignalerLimite();
 
   useEffect(() => {
     if (!user) return;
@@ -719,7 +721,7 @@ export default function MyVenuesPage() {
       fermer();
     } catch (err) {
       console.error("Venue save failed:", err);
-      toast.error("L'enregistrement a échoué");
+      if (!signalerLimite(err)) toast.error("L'enregistrement a échoué");
     } finally {
       setOccupe(false);
     }

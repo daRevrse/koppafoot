@@ -7,6 +7,7 @@ import { announceCompetitionEvent } from "@/lib/tribune-server";
 import { notifyTeamActivity } from "@/lib/activity-notify-server";
 import type { FirestoreCompetition } from "@/types";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { limiteEquipesDeCompetition, reponseLimite } from "@/lib/offre-server";
 
 /**
  * Competition registrations, a manager enters their club in a competition
@@ -108,13 +109,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
     }
     if (!clubSnap.exists) {
-      return NextResponse.json({ error: "Club introuvable" }, { status: 404 });
+      return NextResponse.json({ error: "Équipe introuvable" }, { status: 404 });
     }
     const competition = compSnap.data() as FirestoreCompetition;
     const club = clubSnap.data()!;
 
     if (club.manager_id !== callerUid) {
-      return NextResponse.json({ error: "Ce club n'est pas le tien." }, { status: 403 });
+      return NextResponse.json({ error: "Cette équipe n'est pas la tienne." }, { status: 403 });
     }
     // Entries are only open at the "registration" stage: once fixtures are
     // generated, adding a team would break the schedule.
@@ -373,9 +374,14 @@ export async function PATCH(req: NextRequest) {
     }
 
     // ── Accept: create the competition team from the club, then import ──
+    // La taille de la compétition d'abord : l'offre gratuite la plafonne
+    // (lib/offre). L'inscription reste en attente, rien n'est perdu.
+    const limite = await limiteEquipesDeCompetition(reg.competition_id, competition);
+    if (limite) return reponseLimite(limite);
+
     const clubSnap = await adminDb.collection("teams").doc(reg.club_id).get();
     if (!clubSnap.exists) {
-      return NextResponse.json({ error: "Le club n'existe plus." }, { status: 404 });
+      return NextResponse.json({ error: "L'équipe n'existe plus." }, { status: 404 });
     }
     const club = clubSnap.data()!;
 

@@ -128,6 +128,41 @@ export function compterLesMatchs(
   return m;
 }
 
+/**
+ * Combien d'équipes gère chaque manager.
+ *
+ * La cible du Club multi-équipes (lib/clubs) : un manager qui gère plusieurs
+ * équipes, seniors, jeunes, féminines, est une structure qui gagnerait à les
+ * réunir. Les équipes fantômes (adversaires sans compte) ne comptent pas.
+ */
+export interface ManagersParEquipes {
+  une: number;
+  deux: number;
+  troisEtPlus: number;
+  /** Les managers aux équipes les plus nombreuses, pour aller leur parler. */
+  plusGrands: { uid: string; equipes: number }[];
+}
+
+export function repartirLesManagers(equipes: Brut[], combien = 10): ManagersParEquipes {
+  const parManager = new Map<string, number>();
+  for (const e of equipes) {
+    if (e.is_ghost === true || typeof e.manager_id !== "string" || !e.manager_id) continue;
+    parManager.set(e.manager_id, (parManager.get(e.manager_id) ?? 0) + 1);
+  }
+  const r: ManagersParEquipes = { une: 0, deux: 0, troisEtPlus: 0, plusGrands: [] };
+  for (const n of parManager.values()) {
+    if (n === 1) r.une += 1;
+    else if (n === 2) r.deux += 1;
+    else r.troisEtPlus += 1;
+  }
+  r.plusGrands = [...parManager.entries()]
+    .filter(([, n]) => n > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, combien)
+    .map(([uid, equipes]) => ({ uid, equipes }));
+  return r;
+}
+
 /** Ce qui attend l'administration. Chaque ligne mène à la page qui le traite. */
 export interface ATraiter {
   organisateurs: number;

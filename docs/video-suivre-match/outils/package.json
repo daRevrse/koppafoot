@@ -1,0 +1,16 @@
+{
+  "name": "koppafoot-video-suivre-match-outils",
+  "private": true,
+  "description": "Vidéo YouTube #1 « suivre un match sans être au stade » : captures, animation et rendu (voir ../README.md).",
+  "type": "module",
+  "scripts": {
+    "emulateurs": "cp ../../../firestore.rules ../../../firestore.indexes.json ../../../storage.rules emulateurs/ && firebase emulators:start --project demo-koppafoot --only auth,firestore,storage --config emulateurs/firebase.json",
+    "captures": "./run-captures.sh",
+    "rendu": "node rendu.mjs"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.31.0",
+    "gsap": "^3.15.0",
+    "playwright": "^1.63.0"
+  }
+}

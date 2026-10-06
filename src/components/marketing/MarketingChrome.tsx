@@ -161,7 +161,7 @@ export function MarketingFooter() {
               Le pied ne portait que « Devenir organisateur » : depuis la page
               des terrains, c'etait la seule sortie proposee, et elle menait
               ailleurs. */}
-          <div className="grid gap-x-16 gap-y-8 sm:grid-cols-2">
+          <div className="grid gap-x-16 gap-y-8 sm:grid-cols-3">
             <div className="flex flex-col gap-3">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
                 Les espaces
@@ -190,6 +190,25 @@ export function MarketingFooter() {
                 { href: "/competitions", label: "Les compétitions" },
                 { href: "/actus", label: "Les actus" },
                 { href: "/login", label: "Se connecter" },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="text-sm font-bold text-white/60 transition-colors hover:text-white"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+                Le cadre
+              </p>
+              {[
+                { href: "/conditions", label: "Conditions d'utilisation" },
+                { href: "/confidentialite", label: "Confidentialité" },
+                { href: "/aide", label: "Nous écrire" },
               ].map((l) => (
                 <Link
                   key={l.href}

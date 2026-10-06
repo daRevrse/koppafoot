@@ -22,6 +22,7 @@ import CompetitionFormatFields from "@/components/competition/CompetitionFormatF
 import CompetitionShareCard from "@/components/competition/CompetitionShareCard";
 import OrganizerProgress from "@/components/competition/OrganizerProgress";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
 import type { Categorie } from "@/lib/genre";
 import type {
@@ -71,6 +72,7 @@ export default function CompetitionDashboardPage() {
   // Danger zone
   const [statusSaving, setStatusSaving] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const signalerLimite = useSignalerLimite();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -189,16 +191,23 @@ export default function CompetitionDashboardPage() {
     if (!competition || !user) return;
     setDuplicating(true);
     try {
-      const newId = await duplicateCompetition(
+      const { id: newId, equipesRefusees } = await duplicateCompetition(
         competition.id,
         `${competition.name} (copie)`,
         user.uid,
       );
-      toast.success("Compétition dupliquée, équipes reprises, calendrier vierge");
+      if (equipesRefusees) {
+        // La copie existe, sans ses équipes : trop nombreuses pour l'offre
+        // gratuite. On y va quand même, le message dit pourquoi elle est vide.
+        signalerLimite(equipesRefusees);
+      } else {
+        toast.success("Compétition dupliquée, équipes reprises, calendrier vierge");
+      }
       router.push(`/organizer/competitions/${newId}`);
     } catch (err) {
       console.error("Error duplicating competition:", err);
-      toast.error("Une erreur est survenue lors de la duplication");
+      // Une compétition en cours de trop, avec l'offre gratuite.
+      if (!signalerLimite(err)) toast.error("Une erreur est survenue lors de la duplication");
       setDuplicating(false);
     }
   };

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio, Settings,
+  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio, Settings, Gem,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -494,6 +494,17 @@ function AccountMenu() {
             <Settings size={15} className="shrink-0 text-gray-400" />
             <span className="text-[13px] font-bold text-gray-700">{t("compte.parametres")}</span>
           </Link>
+          {/* L'offre, elle, est celle du COMPTE : seulement connecté. */}
+          {user && (
+            <Link
+              href="/offre"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+            >
+              <Gem size={15} className="shrink-0 text-gray-400" />
+              <span className="text-[13px] font-bold text-gray-700">{t("compte.offre")}</span>
+            </Link>
+          )}
 
           {/* Partager l'appli ne demande pas de compte : c'est le lien public
               qui part, et un visiteur convaincu est le meilleur porteur. */}

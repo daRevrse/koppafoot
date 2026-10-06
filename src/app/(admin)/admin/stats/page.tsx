@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAdminApi } from "@/hooks/useAdminApi";
 import { Carte, Chargement, Chiffre, EnTete, Erreur, Titre, ilYA } from "@/components/admin/ui";
 import type { TableauDeBord } from "@/lib/admin-types";
@@ -87,6 +88,37 @@ export default function AdminStatsPage() {
           </Carte>
         </section>
       </div>
+
+      <section>
+        <Titre>Managers et équipes</Titre>
+        <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
+          <Chiffre valeur={data.managers.une} libelle="Gèrent 1 équipe" />
+          <Chiffre valeur={data.managers.deux} libelle="Gèrent 2 équipes" />
+          <Chiffre
+            valeur={data.managers.troisEtPlus}
+            libelle="Gèrent 3 équipes ou plus"
+            ton={data.managers.troisEtPlus > 0 ? "text-emerald-700" : "text-gray-900"}
+          />
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          La cible du Club multi-équipes : une structure à plusieurs équipes (seniors, jeunes, féminines). Au-delà de 2 équipes,
+          l&apos;offre gratuite ne permet plus d&apos;en créer.
+        </p>
+        {data.managers.plusGrands.length > 0 && (
+          <Carte className="mt-3 divide-y divide-gray-100">
+            {data.managers.plusGrands.map((m) => (
+              <Link
+                key={m.uid}
+                href={`/admin/users/${m.uid}`}
+                className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+              >
+                <span className="truncate font-semibold text-gray-800">{m.nom}</span>
+                <span className="shrink-0 font-black tabular-nums text-gray-900">{m.equipes} équipes</span>
+              </Link>
+            ))}
+          </Carte>
+        )}
+      </section>
 
       <section>
         <Titre>Villes</Titre>

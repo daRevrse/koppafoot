@@ -23,6 +23,7 @@ import { getVenues } from "@/lib/firestore";
 import { terrainNomme } from "@/lib/terrains";
 import type { Competition, CompTeam, Venue } from "@/types";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import { normaliserPoste, libellePoste } from "@/lib/postes";
 import { gereLaCompetition } from "@/lib/hats";
 
@@ -215,6 +216,7 @@ export default function CompetitionImportPage() {
     }
   };
 
+  const signalerLimite = useSignalerLimite();
   const handleImportTeams = async () => {
     if (validTeams.length === 0 || submitting) return;
     setSubmitting(true);
@@ -229,7 +231,9 @@ export default function CompetitionImportPage() {
       if (teamsFileRef.current) teamsFileRef.current.value = "";
     } catch (err) {
       console.error("Error importing teams:", err);
-      toast.error("L'import a échoué");
+      // Une limite atteinte en cours d'import : les équipes d'avant sont
+      // créées, la liste de la compétition le montre.
+      if (!signalerLimite(err)) toast.error("L'import a échoué");
     } finally {
       setSubmitting(false);
     }

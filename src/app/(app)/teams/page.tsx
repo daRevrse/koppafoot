@@ -7,9 +7,11 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users, Search, Plus, ChevronRight, Shield, MapPin, ClipboardCheck, ArrowLeftRight,
-  X, Loader2,
+  X, Loader2, Building2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import { getTeamsIManage, getTeamsByPlayer, createTeam, getGhostPlayersByTeam } from "@/lib/firestore";
 import type { Team } from "@/types";
 import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
@@ -58,6 +60,7 @@ function CreateTeamModal({ onClose, onCreated, managerId, genreDuManager }: {
     category: (genreDuManager === "female" ? "women" : "men") as Categorie,
   });
   const [submitting, setSubmitting] = useState(false);
+  const signalerLimite = useSignalerLimite();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +79,8 @@ function CreateTeamModal({ onClose, onCreated, managerId, genreDuManager }: {
       });
       onCreated();
       onClose();
-    } catch {
+    } catch (err) {
+      if (!signalerLimite(err)) toast.error("La création de l'équipe a échoué");
       setSubmitting(false);
     }
   };
@@ -346,6 +350,16 @@ export default function TeamsPage() {
           >
             <ArrowLeftRight size={16} /> Mercato
           </Link>
+          {/* Le club réunit plusieurs équipes (KoppaFoot Pro) ; la page dit
+              comment l'obtenir à qui ne l'a pas, et montre les invitations. */}
+          {isManager && (
+            <Link
+              href="/mon-club"
+              className="inline-flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-900"
+            >
+              <Building2 size={16} /> Club multi-équipes
+            </Link>
+          )}
           {isManager && (
             <button
               onClick={() => setShowCreateModal(true)}

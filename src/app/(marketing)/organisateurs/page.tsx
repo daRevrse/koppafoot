@@ -64,7 +64,7 @@ const TUTORIAL = [
   {
     n: "02",
     title: "Ajoute les équipes",
-    body: "À la main, ou en envoyant ton lien public : les clubs s'inscrivent eux-mêmes et tu valides. L'effectif peut suivre plus tard.",
+    body: "À la main, ou en envoyant ton lien public : les équipes s'inscrivent elles-mêmes et tu valides. L'effectif peut suivre plus tard.",
   },
   {
     n: "03",

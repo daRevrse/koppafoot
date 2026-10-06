@@ -34,6 +34,7 @@ import { uploadTeamLogo, uploadTeamBanner, uploadTeamGalleryImage } from "@/lib/
 import { avatarColor } from "@/components/feed/PostCard";
 import GhostMergeCorner from "@/components/team/GhostMergeCorner";
 import BandeauEquipe, { BOUTON_BANDEAU, FormeEnLettres } from "@/components/team/BandeauEquipe";
+import SectionDuClub from "@/components/club/SectionDuClub";
 import CarteDuClub from "@/components/team/CarteDuClub";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
 import MatchsDuClub from "@/components/team/MatchsDuClub";
@@ -97,7 +98,7 @@ const LEVEL_LABELS: Record<string, string> = {
 const T = textes(
   {
     niveau: (n: string) => LEVEL_LABELS[n] ?? null,
-    creeUnCompte: "Crée ton compte pour suivre ce club.",
+    creeUnCompte: "Crée ton compte pour suivre cette équipe.",
     operationImpossible: "Opération impossible",
     introuvable: "Équipe introuvable",
     introuvableTexte: "Cette équipe n'existe pas ou a été supprimée.",
@@ -107,7 +108,7 @@ const T = textes(
     toi: "Toi",
     presents: (n: number, total: number) => `${n}/${total} présents`,
     partageTexte: (nom: string, ville: string | null) => `${nom}${ville ? ` (${ville})` : ""} sur KoppaFoot`,
-    lienCopie: "Lien du club copié !",
+    lienCopie: "Lien de l'équipe copié !",
     partageEchoue: "Le partage a échoué.",
     onglet: (id: string) => ({
       roster: "Effectif", matches: "Matchs", compositions: "Compositions", trainings: "Entraînements",
@@ -116,11 +117,11 @@ const T = textes(
     /** Une équipe féminine compte ses joueuses. */
     joueurs: (n: number, feminin?: boolean) => `${n} ${feminin ? "joueuse" : "joueur"}${n > 1 ? "s" : ""}`,
     recrute: "Recrute",
-    partager: "Partager ce club",
+    partager: "Partager cette équipe",
     suivi: "Suivi",
     suivre: "Suivre",
     modifier: "Modifier l'équipe",
-    sections: "Sections du club",
+    sections: "Sections de la fiche",
     effectifVide: "L'effectif n'est pas encore renseigné.",
     aucunTrophee: "Aucun trophée pour le moment",
     aucunePhoto: "Aucune photo pour le moment",
@@ -135,7 +136,7 @@ const T = textes(
   },
   {
     niveau: (n: string) => ({ beginner: "Beginner", amateur: "Amateur", intermediate: "Intermediate", advanced: "Advanced" } as Record<string, string>)[n] ?? null,
-    creeUnCompte: "Create your account to follow this club.",
+    creeUnCompte: "Create your account to follow this team.",
     operationImpossible: "Couldn't do that",
     introuvable: "Team not found",
     introuvableTexte: "This team doesn't exist or has been deleted.",
@@ -145,7 +146,7 @@ const T = textes(
     toi: "You",
     presents: (n: number, total: number) => `${n}/${total} in`,
     partageTexte: (nom: string, ville: string | null) => `${nom}${ville ? ` (${ville})` : ""} on KoppaFoot`,
-    lienCopie: "Club link copied!",
+    lienCopie: "Team link copied!",
     partageEchoue: "Sharing failed.",
     onglet: (id: string) => ({
       roster: "Squad", matches: "Matches", compositions: "Line-ups", trainings: "Training",
@@ -153,11 +154,11 @@ const T = textes(
     } as Record<string, string>)[id] ?? id,
     joueurs: (n: number) => `${n} player${n === 1 ? "" : "s"}`,
     recrute: "Recruiting",
-    partager: "Share this club",
+    partager: "Share this team",
     suivi: "Following",
     suivre: "Follow",
     modifier: "Edit the team",
-    sections: "Club sections",
+    sections: "Page sections",
     effectifVide: "The squad hasn't been filled in yet.",
     aucunTrophee: "No trophies yet",
     aucunePhoto: "No photos yet",
@@ -936,7 +937,7 @@ function ConditionFantomeModal({
           Condition de {ghost.firstName} {ghost.lastName}
         </h3>
         <p className="mb-5 text-xs text-gray-400">
-          Il n&apos;a pas de compte : c&apos;est au club de la déclarer pour lui.
+          Il n&apos;a pas de compte : c&apos;est à l&apos;équipe de la déclarer pour lui.
         </p>
         <EditeurCondition
           initiale={conditionEnVigueur(ghost.condition)}
@@ -1718,6 +1719,9 @@ export default function TeamDetailPage() {
           </>
         }
       />
+
+      {/* Le club dont l'équipe est une section, s'il est éveillé (lib/clubs). */}
+      {!team.isGhost && <SectionDuClub equipeId={team.id} />}
 
       {/* DEUX COLONNES SUR GRAND ÉCRAN : l'onglet ouvert à gauche, la carte du
           club à droite, qui reste en vue. Sur téléphone, la carte passe entre

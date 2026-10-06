@@ -55,6 +55,7 @@ import { useLangue, useTextes } from "@/i18n";
 import { LOCALE } from "@/i18n/config";
 import { textes } from "@/i18n/textes";
 import { FOOT } from "@/i18n/foot";
+import EmplacementPartenaire from "@/components/partenaires/Emplacement";
 
 // ============================================
 // Helpers
@@ -2493,6 +2494,11 @@ export default function MatchDetailPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* En bas de la colonne, jamais près du tableau d'affichage ni de la
+          console : on vient ici pour le score. Un amical n'a pas de
+          compétition, seuls les partenaires de KoppaFoot y paraissent. */}
+      <EmplacementPartenaire emplacement="match" />
       </div>
     </div>
   );

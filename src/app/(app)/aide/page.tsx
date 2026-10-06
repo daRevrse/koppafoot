@@ -149,8 +149,14 @@ function FormulaireRetour() {
 }
 
 const TT = textes(
-  { tutoriels: "Tutoriels : par où commencer", tous: "Tout voir" },
-  { tutoriels: "Guides: where to start", tous: "See all" },
+  {
+    tutoriels: "Tutoriels : par où commencer", tous: "Tout voir",
+    conditions: "Conditions d'utilisation", confidentialite: "Politique de confidentialité",
+  },
+  {
+    tutoriels: "Guides: where to start", tous: "See all",
+    conditions: "Terms of use (in French)", confidentialite: "Privacy policy (in French)",
+  },
 );
 
 export default function AidePage() {
@@ -213,6 +219,14 @@ export default function AidePage() {
         </h2>
         <FormulaireRetour />
       </section>
+
+      {/* Le cadre : ce que KoppaFoot fait des données, et les règles du jeu.
+          Ici parce que c'est la page où l'on vient chercher une réponse, et
+          que ce formulaire est aussi la porte des demandes sur les données. */}
+      <p className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-xs font-bold text-gray-400">
+        <Link href="/conditions" className="transition-colors hover:text-emerald-700">{tt.conditions}</Link>
+        <Link href="/confidentialite" className="transition-colors hover:text-emerald-700">{tt.confidentialite}</Link>
+      </p>
     </div>
   );
 }

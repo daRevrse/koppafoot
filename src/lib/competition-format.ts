@@ -226,3 +226,13 @@ export function stageLabel(type: CompetitionType, status: CompetitionStatus, lan
   }
   return "";
 }
+
+/** L'adresse d'une compétition à partir de son nom : « Coupe de Bè » → « coupe-de-be ». */
+export function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

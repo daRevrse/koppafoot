@@ -37,6 +37,7 @@ import type { CompMatch, CompTeam, CompetitionFormat } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 import { FOOT } from "@/i18n/foot";
+import Emplacement from "@/components/partenaires/Emplacement";
 
 // ============================================
 // Helpers
@@ -780,6 +781,10 @@ export default function PublicCompMatchView() {
 
           </div>
         )}
+
+        {/* En bas de la colonne, jamais près du tableau d'affichage : on vient
+            ici pour le score, le partenaire attend qu'on l'ait lu. */}
+        <Emplacement emplacement="match" cid={cid} />
       </div>
     </div>
   );
