@@ -104,6 +104,26 @@ const AUTH_ERRORS: Record<Langue, Record<string, string>> = {
 };
 
 /**
+ * Ajouter un numéro à son compte, quand ce numéro appartient déjà à un autre
+ * compte. Firebase répond `auth/credential-already-in-use` (ou, selon la
+ * version et l'émulateur, `auth/account-exists-with-different-credential`),
+ * dont le message général parle d'« email » : faux ici, et la personne
+ * cherchait son adresse alors que c'est le numéro qui est pris.
+ */
+const NUMERO_DEJA_PRIS: Record<Langue, string> = {
+  fr: "Ce numéro est déjà rattaché à un autre compte KoppaFoot. Connecte-toi avec ce numéro, ou choisis-en un autre.",
+  en: "This number is already linked to another KoppaFoot account. Sign in with it, or pick another number.",
+};
+
+export function getPhoneLinkErrorMessage(error: unknown, langue: Langue = "fr"): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "auth/credential-already-in-use" || code === "auth/account-exists-with-different-credential") {
+    return NUMERO_DEJA_PRIS[langue];
+  }
+  return getAuthErrorMessage(error, langue);
+}
+
+/**
  * Identity Toolkit failures the SDK does not give a distinct code for: the
  * real reason sits in the raw server body, so we match on that body.
  *

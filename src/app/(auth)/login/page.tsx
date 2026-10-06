@@ -19,6 +19,7 @@ import {
   RESEND_COOLDOWN_S,
   normalizeNational,
   toE164 as joinE164,
+  CONNEXION_SMS_OUVERTE,
 } from "@/lib/phone";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
@@ -78,17 +79,18 @@ const inputClassPassword = classeChampAuthMdp;
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée, temporairement.
- *
- * L'envoi de SMS réels est toujours refusé côté Firebase, donc l'onglet ne
- * menait qu'à une erreur. Tout le circuit (schéma, formulaires, reCAPTCHA,
- * renvoi du code) est conservé et reste compilé : repasser à `true` suffit à
- * le remettre en ligne le jour où les SMS partent.
+ * Connexion par SMS masquée tant que les SMS ne partent pas : voir
+ * CONNEXION_SMS_OUVERTE (lib/phone), qui s'allume par une variable
+ * d'environnement. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du
+ * code, création du profil au premier code) est conservé et testé sur
+ * l'émulateur.
  *
  * L'inscription n'est pas concernée : elle n'a jamais proposé le téléphone
  * comme moyen d'authentification, seulement comme champ de profil facultatif.
+ * Un premier code reçu sur un numéro inconnu crée le compte, puis mène à
+ * /get-started.
  */
-const PHONE_LOGIN_ENABLED = false;
+const PHONE_LOGIN_ENABLED = CONNEXION_SMS_OUVERTE;
 
 /**
  * L'EMAIL + MOT DE PASSE EST DE RETOUR, à côté de Google.
