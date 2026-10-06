@@ -1,12 +1,12 @@
 "use client";
 
+import PorteCandidature from "@/components/marketing/PorteCandidature";
 import { isOrganizer } from "@/lib/hats";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ClipboardList, CheckCircle2, Clock, XCircle, Loader2, Trophy, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAuthModal } from "@/components/auth/AuthModal";
 import { accorder } from "@/lib/genre";
 
 // ============================================
@@ -38,7 +38,6 @@ function BackToPitch() {
 
 export default function BecomeOrganizerPage() {
   const { user, firebaseUser, loading } = useAuth();
-  const authModal = useAuthModal();
   const [existing, setExisting] = useState<MyApplication | null>(null);
   const [checking, setChecking] = useState(true);
   const [motivation, setMotivation] = useState("");
@@ -148,24 +147,12 @@ export default function BecomeOrganizerPage() {
     return (
       <div className="mx-auto max-w-2xl space-y-4 px-5 py-10">
         <BackToPitch />
-        <div
-          id="candidature"
-          className="scroll-mt-20 border border-gray-200/70 bg-white p-8 text-center sm:p-12"
-        >
-          <h2 className="font-display text-xl font-black text-gray-900">
-            Prêt à lancer ta compétition ?
-          </h2>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">
-            Il faut d&apos;abord un compte KoppaFoot, Google suffit, et tu
-            reviens ici pour déposer ta candidature.
-          </p>
-          <button
-            type="button"
-            onClick={() => authModal.open("Connecte-toi pour déposer ta candidature d'organisateur.")}
-            className="mt-5 rounded-none bg-gray-900 px-8 py-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-emerald-700"
-          >
-            Créer mon compte
-          </button>
+        <div id="candidature" className="scroll-mt-20">
+          <PorteCandidature
+            titre="Prêt à lancer ta compétition ?"
+            phrase="Il faut d'abord un compte KoppaFoot, Google suffit, et tu reviens ici pour déposer ta candidature."
+            pourQuoi="déposer ta candidature d'organisateur"
+          />
         </div>
       </div>
     );

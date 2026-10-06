@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Loader2, Mail, Lock, Phone, MapPin, User, ArrowRight, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import type { ConfirmationResult } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { roleDepuisURL } from "@/lib/onboarding";
@@ -20,6 +21,9 @@ import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
 import type { Genre } from "@/lib/genre";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
 import MentionConditions from "@/components/auth/MentionConditions";
+import FormulaireSms from "@/components/auth/FormulaireSms";
+import { CONNEXION_SMS_OUVERTE } from "@/lib/phone";
+import { versGetStarted } from "@/lib/destination";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
   classeChampAuth, classeChampAuthMdp, classeEtiquetteAuth, classeIconeChamp,
@@ -32,6 +36,14 @@ import {
 // city/phone, everything optional can be completed later in the
 // profile. Single account type ("player" as the technical default);
 // organizer / live-ops / superadmin are granted by promotion.
+//
+// TROIS PORTES, COMME À LA CONNEXION : Google en tête, puis l'e-mail ou le
+// téléphone. Le téléphone manquait ici : la connexion par SMS crée le compte
+// au premier code, mais il fallait le savoir, et quelqu'un qui cherchait à
+// s'inscrire avec son numéro ne le trouvait pas sur la page qui s'appelle
+// « Créer un compte ». Le SMS et Google créent le compte sans ce
+// formulaire : le nom, la ville (et le rôle choisi) se posent ensuite sur
+// /get-started.
 // ============================================
 
 const essentialsSchema = yup.object({
@@ -75,7 +87,8 @@ export default function SignupPage() {
    */
   const [genre, setGenre] = useState<Genre | null>(null);
   const [genreManquant, setGenreManquant] = useState(false);
-  const { signupWithEmail, loginWithGoogle } = useAuth();
+  const { signupWithEmail, loginWithGoogle, confirmPhoneCode } = useAuth();
+  const [porte, setPorte] = useState<"email" | "phone">("email");
   const router = useRouter();
   // La provenance, transmise par /login : l'inscription doit promettre la
   // meme chose que la porte par laquelle on est entre.
@@ -129,15 +142,30 @@ export default function SignupPage() {
 
   const handleSkip = () => createAccount({});
 
+  // Google et le SMS créent le compte sans passer par notre formulaire : le
+  // rôle ne peut pas y être posé. On le transporte jusqu'à /get-started, qui
+  // le pose avec le nom, la ville et le genre. Il partait sur /roles, qui,
+  // face à un compte sans profil, reproposait… de s'inscrire. La destination
+  // (`?next=`) voyage avec lui.
+  const suiteNouveauCompte = versGetStarted({ role: roleChoisi, next: searchParams.get("next") });
+
+  const handlePhoneCode = async (confirmation: ConfirmationResult, code: string) => {
+    const { isNewUser } = await confirmPhoneCode(confirmation, code);
+    if (isNewUser) {
+      router.push(suiteNouveauCompte);
+      return;
+    }
+    // Le numéro avait déjà son compte : c'est une connexion, (auth)/layout
+    // emmène vers l'espace.
+    toast.success("Ce numéro a déjà un compte : te voilà connecté.");
+  };
+
   const handleGoogle = async () => {
     setSubmitting(true);
     try {
       const { isNewUser } = await loginWithGoogle();
       if (isNewUser) {
-        // Google cree le compte sans passer par notre formulaire : le role ne
-        // peut pas y etre pose. On le transporte jusqu'a l'ecran qui sait
-        // l'activer, qui l'appliquera sans reposer la question.
-        router.push(roleChoisi ? `/roles?role=${roleChoisi}#choisir` : "/get-started");
+        router.push(suiteNouveauCompte);
         return;
       }
       toast.success("Connexion réussie");
@@ -156,6 +184,41 @@ export default function SignupPage() {
     >
       <EnTeteAuth titre={contexte.titreInscription} phrase={contexte.phraseInscription} />
 
+      {step === 1 && (
+        <>
+          {/* Google en tête, comme à la connexion : le chemin le plus court. */}
+          <BoutonGoogle onClick={handleGoogle} disabled={submitting}>
+            Continuer avec Google
+          </BoutonGoogle>
+
+          <Separateur />
+
+          {CONNEXION_SMS_OUVERTE && (
+            <div className="mb-6 grid grid-cols-2 border border-gray-200/70">
+              {([
+                ["email", Mail, "Email"],
+                ["phone", Phone, "Téléphone"],
+              ] as const).map(([cle, Icone, libelle]) => (
+                <button
+                  key={cle}
+                  type="button"
+                  onClick={() => setPorte(cle)}
+                  className={`flex items-center justify-center gap-2 py-3 text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${
+                    porte === cle ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <Icone size={14} /> {libelle}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {porte === "phone" && step === 1 ? (
+        <FormulaireSms onConfirmer={handlePhoneCode} occupe={submitting} />
+      ) : (
+      <>
       {/* Step indicator */}
       <div className="mb-6 flex items-center gap-2">
         {[1, 2].map((s) => (
@@ -277,12 +340,6 @@ export default function SignupPage() {
               Continuer
               <ArrowRight size={16} />
             </button>
-
-            <Separateur />
-
-            <BoutonGoogle onClick={handleGoogle} disabled={submitting}>
-              Continuer avec Google
-            </BoutonGoogle>
           </motion.form>
         )}
 
@@ -363,6 +420,8 @@ export default function SignupPage() {
           </motion.form>
         )}
       </AnimatePresence>
+      </>
+      )}
 
       <MentionConditions className="mt-6 text-center" />
 

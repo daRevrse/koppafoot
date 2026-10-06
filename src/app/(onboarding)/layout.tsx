@@ -1,16 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ROLE_REDIRECTS } from "@/types";
+import { destinationDeLURL } from "@/lib/destination";
+import CadreAuth, { ChargementAuth, classeLienPiedAuth } from "@/components/auth/CadreAuth";
 
-// Onboarding shell. Deliberately mirrors (auth)/layout, /get-started is the
-// tail of the sign-up funnel, so arriving here must not feel like landing on
-// a different site.
+// /get-started est la queue du tunnel d'inscription : on y arrive juste après
+// Google ou le code SMS, d'où le même cadre que (auth) (components/auth/
+// CadreAuth). Arriver ici ne doit pas donner l'impression de changer de site.
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, firebaseUser, loading, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -20,38 +21,31 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       router.replace("/login");
       return;
     }
-    // Profile already exists → go to dashboard
+    // Profile already exists → its destination (`?next=`), or its dashboard.
+    // Le profil vient d'être créé ici même : sans la destination, ce détour
+    // gagnait la course contre celui de la page et renvoyait à l'accueil.
     if (user) {
-      router.replace(ROLE_REDIRECTS[user.userType] ?? "/");
+      router.replace(destinationDeLURL() ?? ROLE_REDIRECTS[user.userType] ?? "/");
     }
   }, [user, firebaseUser, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F4F6FA]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <ChargementAuth />;
 
   // Don't render if no firebaseUser or if profile already exists
   if (!firebaseUser || user) return null;
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-[#F4F6FA] px-4 py-10 sm:justify-center">
-      <div className="mb-6">
-        <Image
-          src="/branding/logo_full_name.png"
-          alt="KOPPAFOOT"
-          width={160}
-          height={42}
-          style={{ height: "auto" }}
-          priority
-        />
-      </div>
-      <div className="w-full max-w-md border border-gray-200/70 bg-white p-8 lg:p-10">
-        {children}
-      </div>
-    </div>
+    <CadreAuth
+      // Pas « Retour à l'accueil » : on est déjà connecté, l'accueil
+      // renverrait ici. Le geste utile est l'autre : on s'est trompé de
+      // compte Google ou de numéro, on repart de la connexion.
+      pied={
+        <button type="button" onClick={() => logout()} className={classeLienPiedAuth}>
+          Changer de compte
+        </button>
+      }
+    >
+      {children}
+    </CadreAuth>
   );
 }

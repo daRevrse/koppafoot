@@ -4,13 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Flame, Trophy, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowUpRight, X, Rocket, LogOut, LogIn, MapPin, Radio, Settings, Gem,
+  Flame, Newspaper, MessageCircle, Search, ChevronDown, User, User as UserIcon, Link2 as LinkIcon, ArrowRight, X, Rocket, LogOut, LogIn, Settings, Gem,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
 import AvatarBottomSheet from "@/components/layout/AvatarBottomSheet";
-import { useT, useTextes } from "@/i18n";
+import { useLangue, useT, useTextes } from "@/i18n";
+import { VITRINES } from "@/config/vitrines";
 import type { CleTraduction } from "@/i18n/fr";
 import { textes } from "@/i18n/textes";
 import {
@@ -20,6 +21,7 @@ import { useAuthModal } from "@/components/auth/AuthModal";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 import SearchModal from "./SearchModal";
 import HeaderProgress from "./HeaderProgress";
+import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 
 // ============================================
 // ScoreHeader, the one band of the shell.
@@ -58,8 +60,6 @@ interface NavEntry {
    * pas perdre son ecran pour aller lire une presentation.
    */
   newTab?: boolean;
-  /** Ce qu'on trouve derriere, pour le megamenu (une cle de T). */
-  blurb?: "blurbOrganize" | "blurbScore" | "blurbFields";
   /** La cle de traduction, quand l'entree en a une. Sinon, `label`. */
   cle?: CleTraduction;
 }
@@ -70,48 +70,28 @@ const PRIMARY: NavEntry[] = [
 ];
 
 /**
- * Les portes d'entree du produit, autrefois repliees dans un menu « Extra ».
+ * Les portes d'entree du produit : les vitrines du menu Koppa Links, lues
+ * dans config/vitrines comme l'en-tete et le pied des vitrines (une seule
+ * liste, au lieu de trois qui ne nommaient pas les memes espaces).
  *
- * Le repli partait d'une bonne intention, ce sont des actions, pas des
- * sections, mais il enterrait trois pages faites pour etre trouvees par
- * quelqu'un qui ne connait pas encore le produit. Une page d'acquisition
- * derriere un menu deroulant est une page qu'on ne lit pas.
+ * KOPPAFOOT EVOLUTION N'EST PAS ICI. Son lien vit derriere le bouton jaune
+ * « Evolution » (plus bas), et c'est tout l'interet : ce bouton s'efface des
+ * qu'un role est actif. Dans ce menu, l'entree serait restee a trainer dans
+ * la navigation de quelqu'un qui a deja choisi.
  *
- * Les libelles portent le nom de produit complet, c'est ainsi que ces trois
- * espaces s'appellent, et la rangee est le seul endroit ou ils sont nommes.
+ * LE MEME ONGLET. Elles s'ouvraient dans un nouveau, pour ne pas faire perdre
+ * le direct : on se retrouvait avec deux applications ouvertes, la vitrine
+ * ramenant a l'accueil DANS son onglet. L'en-tete des vitrines porte
+ * maintenant « Retour au Direct », et le retour du navigateur fait le reste.
  */
-const ENTRIES: NavEntry[] = [
-  {
-    href: "/organisateurs", label: "Koppafoot Organize", Icon: Trophy, newTab: true,
-    blurb: "blurbOrganize",
-  },
-  // KOPPAFOOT EVOLUTION N'EST PLUS ICI. Son lien vit derriere le bouton jaune
-  // « Evolution » (plus bas), et c'est tout l'interet : ce bouton s'efface des
-  // qu'un role est actif. Dans ce menu, l'entree serait restee a trainer dans
-  // la navigation de quelqu'un qui a deja choisi — une porte vers une decision
-  // qu'il a prise.
-  {
-    href: "/scoreurs", label: "Koppafoot Score", Icon: Radio, newTab: true,
-    blurb: "blurbScore",
-  },
-  {
-    href: "/terrains", label: "MyFields", Icon: MapPin, newTab: true,
-    blurb: "blurbFields",
-  },
-];
+const PORTES = VITRINES.filter((v) => v.dansKoppaLinks);
 
 const T = textes(
   {
-    blurbOrganize: "Monter une compétition, tenir son calendrier et la diffuser en direct.",
-    blurbScore: "Tenir la console d'un match, et faire vivre le direct pour ceux qui n'y sont pas.",
-    blurbFields: "Référencer un terrain et se rendre trouvable par les équipes.",
     fermer: "Fermer",
     rechercher: "Rechercher",
   },
   {
-    blurbOrganize: "Set up a competition, run its fixtures and stream it live.",
-    blurbScore: "Run a match console, and bring the game to life for those who can't be there.",
-    blurbFields: "List a pitch and make it easy for teams to find.",
     fermer: "Close",
     rechercher: "Search",
   },
@@ -266,7 +246,7 @@ function EspaceMenu({
  */
 function KoppaLinksMenu() {
   const { open, setOpen, boxRef } = useDropdown();
-  const tx = useTextes(T);
+  const { langue } = useLangue();
 
   return (
     <div ref={boxRef} className="relative shrink-0">
@@ -288,29 +268,27 @@ function KoppaLinksMenu() {
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-[26rem] border border-gray-200/70 bg-white shadow-xl">
-          {ENTRIES.map((item) => (
+          {PORTES.map((v) => (
             <Link
-              key={item.href}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              key={v.cle}
+              href={v.chemin}
               onClick={() => setOpen(false)}
               className="group flex items-start gap-4 border-b border-gray-200/70 px-6 py-5 transition-colors last:border-b-0 hover:bg-gray-50"
             >
-              <item.Icon
+              <v.Icone
                 size={26}
                 strokeWidth={1.5}
                 className="mt-1 shrink-0 text-gray-300 transition-colors group-hover:text-emerald-600"
               />
               <span className="min-w-0">
                 <span className="block font-display text-xl font-black uppercase leading-tight tracking-tight text-gray-900">
-                  {item.label}
+                  {v.nom}
                 </span>
                 <span className="mt-1.5 block text-[13px] font-medium leading-relaxed text-gray-500">
-                  {item.blurb && tx[item.blurb]}
+                  {v.phrase[langue]}
                 </span>
               </span>
-              <ArrowUpRight
+              <ArrowRight
                 size={17}
                 className="mt-1 shrink-0 text-gray-300 transition-colors group-hover:text-emerald-600"
               />
@@ -334,6 +312,7 @@ function KoppaLinksMenu() {
  */
 function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const tx = useTextes(T);
+  const { langue } = useLangue();
   if (!open) return null;
 
   return (
@@ -360,25 +339,23 @@ function KoppaLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
           </button>
         </div>
 
-        {ENTRIES.map((item) => (
+        {PORTES.map((v) => (
           <Link
-            key={item.href}
-            href={item.href}
-            target="_blank"
-            rel="noopener noreferrer"
+            key={v.cle}
+            href={v.chemin}
             onClick={onClose}
             className="flex items-start gap-4 border-b border-gray-200/70 px-5 py-5 last:border-b-0 active:bg-gray-50"
           >
-            <item.Icon size={24} strokeWidth={1.5} className="mt-0.5 shrink-0 text-gray-300" />
+            <v.Icone size={24} strokeWidth={1.5} className="mt-0.5 shrink-0 text-gray-300" />
             <span className="min-w-0">
               <span className="block font-display text-lg font-black uppercase leading-tight tracking-tight text-gray-900">
-                {item.label}
+                {v.nom}
               </span>
               <span className="mt-1 block text-[13px] font-medium leading-relaxed text-gray-500">
-                {item.blurb && tx[item.blurb]}
+                {v.phrase[langue]}
               </span>
             </span>
-            <ArrowUpRight size={16} className="mt-1 shrink-0 text-gray-300" />
+            <ArrowRight size={16} className="mt-1 shrink-0 text-gray-300" />
           </Link>
         ))}
       </div>
@@ -625,13 +602,14 @@ export default function ScoreHeader({
       className={`sticky top-0 z-40 border-b border-gray-200/70 bg-white pt-safe ${masqueSurMobile ? "max-lg:hidden" : ""}`}
     >
       <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 lg:gap-4 lg:px-5 lg:py-4 xl:gap-5 xl:px-8">
-        {/* LE SYMBOLE EST PARTI. Il doublait le mot-marque a cote de lui —
-            deux fois la meme chose pour dire la meme chose — et il coutait
-            34 pixels sur une bande qui en compte 375. Le mot tient le retour
-            a l'accueil tout seul, et la place gagnee revient au compte, a
-            droite. */}
-        <Link href={HOME} className="flex shrink-0 items-center">
-          <span className="font-display text-base font-black uppercase tracking-[0.14em] text-gray-900 lg:text-lg">
+        {/* LE SYMBOLE EST REVENU, AUTRE. L'ancien, carré, doublait le
+            mot-marque et coûtait 34 pixels sur une bande qui en compte 375 :
+            il était parti. Le nouveau koppa est étroit (une dizaine de
+            pixels à cette hauteur) et dit ce que le mot ne dit pas, la
+            forme qu'on reconnaîtra sur l'icône de l'application. */}
+        <Link href={HOME} className="flex shrink-0 items-center gap-2 text-gray-900">
+          <SymboleKoppafoot className="h-5 lg:h-6" />
+          <span className="font-display text-base font-black uppercase tracking-[0.14em] lg:text-lg">
             Koppafoot
           </span>
         </Link>

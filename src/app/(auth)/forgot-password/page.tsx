@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import { Loader2, Mail, ArrowLeft, Send } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { classeChampAuth, classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth } from "@/components/auth/auth-ui";
+import { EnTeteAuth, classeChampAuth, classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth } from "@/components/auth/auth-ui";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 const schema = yup.object({
@@ -103,31 +103,21 @@ export default function ForgotPasswordPage() {
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
-            className="text-center"
           >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-              className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50"
-            >
-              <Mail size={28} className="text-emerald-600" />
-            </motion.div>
-            <h1 className="mb-3 font-display text-2xl font-black uppercase tracking-tight text-gray-900">Email envoyé</h1>
-            <p className="mb-6 text-sm text-gray-400">
-              Si un compte existe avec cette adresse, tu recevras un email avec un lien de
-              réinitialisation. Pense à vérifier tes spams.
-            </p>
+            <EnTeteAuth
+              titre="Email envoyé"
+              phrase="Si un compte existe avec cette adresse, tu recevras un email avec un lien de réinitialisation. Pense à vérifier tes spams."
+            />
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="mt-8 text-center">
+      <div className="mt-8">
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-900"
         >
-          <ArrowLeft size={14} /> Retour à la connexion
+          <ArrowLeft size={13} /> Retour à la connexion
         </Link>
       </div>
     </motion.div>

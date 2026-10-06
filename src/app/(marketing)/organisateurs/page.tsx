@@ -143,7 +143,7 @@ export default function OrganizersLandingPage() {
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
           <div className="grid gap-16 lg:grid-cols-2 lg:gap-24">
             <div>
-              <h2 className="font-display text-4xl font-black leading-[1.02] tracking-tight text-gray-900 sm:text-6xl">
+              <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-6xl">
                 Le terrain n&apos;est pas
                 <br />
                 le plus dur.
@@ -226,7 +226,7 @@ export default function OrganizersLandingPage() {
       {/* ---------- Tutorial ---------- */}
       <section id="tutoriel" className="scroll-mt-24 py-28 sm:py-40">
         <div className="mx-auto max-w-7xl px-6 sm:px-10">
-          <h2 className="max-w-3xl font-display text-4xl font-black leading-[1.02] tracking-tight text-gray-900 sm:text-6xl">
+          <h2 className="max-w-3xl font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-6xl">
             Quatre écrans, et ta
             <br />
             compétition tourne.
@@ -269,7 +269,7 @@ export default function OrganizersLandingPage() {
             </div>
 
             <div className="lg:pt-2">
-              <h2 className="font-display text-4xl font-black leading-[1.02] tracking-tight text-gray-900 sm:text-5xl">
+              <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
                 Lance ta prochaine édition ici.
               </h2>
               <p className="mt-6 max-w-md text-lg leading-relaxed text-gray-500">
