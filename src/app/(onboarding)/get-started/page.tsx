@@ -7,10 +7,15 @@ import * as yup from "yup";
 import { nomPersonne, villeRequise } from "@/lib/champs-valides";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Mail, MapPin, Phone, User } from "lucide-react";
+import { motion } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import type { SignupData } from "@/types";
+import MentionConditions from "@/components/auth/MentionConditions";
+import {
+  EnTeteAuth, classeChampAuth, classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth,
+} from "@/components/auth/auth-ui";
 
 // ============================================
 // Schema
@@ -27,12 +32,9 @@ const schema = yup.object({
 
 type FormData = yup.InferType<typeof schema>;
 
-// Same field styling as the (auth) pages, this screen is the tail of the
-// same funnel and must not read as a different product.
-const inputClass =
-  "w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all";
-const labelClass = "mb-1.5 block text-xs font-bold text-gray-600";
-const errorClass = "mt-1 text-xs text-red-400";
+// Les champs, étiquettes et boutons de la connexion et de l'inscription
+// (components/auth/auth-ui) : cet écran est la fin du même tunnel.
+const classeErreur = "mt-1.5 text-[11px] font-bold text-red-600";
 
 export default function GetStartedPage() {
   const [submitting, setSubmitting] = useState(false);
@@ -70,50 +72,86 @@ export default function GetStartedPage() {
     }
   };
 
+  // Le compte qu'on vient d'ouvrir : l'e-mail de Google, ou le numéro du SMS.
+  const identifiant = firebaseUser?.email ?? firebaseUser?.phoneNumber ?? null;
+  const IconeIdentifiant = firebaseUser?.email ? Mail : Phone;
+
   return (
-    <>
-      <h2 className="mb-1 font-display text-2xl font-black text-gray-900">
-        Bienvenue !
-      </h2>
-      <p className="mb-8 text-sm text-gray-400">
-        {firebaseUser?.email ?? firebaseUser?.phoneNumber ?? "Complète ton profil pour continuer"}
-      </p>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+    >
+      <EnTeteAuth
+        titre="Bienvenue"
+        phrase="Encore une étape : ton nom et ta ville, et ton espace est prêt."
+      />
+
+      {identifiant && (
+        <div className="mb-6 flex items-center gap-3 border border-gray-200/70 px-4 py-3">
+          <IconeIdentifiant size={15} className="shrink-0 text-gray-300" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">Connecté avec</p>
+            <p className="truncate text-sm font-semibold text-gray-900">{identifiant}</p>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="firstName" className={labelClass}>Prénom</label>
-            <input id="firstName" autoComplete="given-name" {...register("firstName")} className={inputClass} />
-            {errors.firstName && <p className={errorClass}>{errors.firstName.message}</p>}
+            <label htmlFor="firstName" className={classeEtiquetteAuth}>Prénom</label>
+            <div className="relative">
+              <User size={15} className={classeIconeChamp} />
+              <input
+                id="firstName"
+                autoComplete="given-name"
+                {...register("firstName")}
+                className={classeChampAuth}
+                placeholder="Prénom"
+              />
+            </div>
+            {errors.firstName && <p className={classeErreur}>{errors.firstName.message}</p>}
           </div>
           <div>
-            <label htmlFor="lastName" className={labelClass}>Nom</label>
-            <input id="lastName" autoComplete="family-name" {...register("lastName")} className={inputClass} />
-            {errors.lastName && <p className={errorClass}>{errors.lastName.message}</p>}
+            <label htmlFor="lastName" className={classeEtiquetteAuth}>Nom</label>
+            <div className="relative">
+              <User size={15} className={classeIconeChamp} />
+              <input
+                id="lastName"
+                autoComplete="family-name"
+                {...register("lastName")}
+                className={classeChampAuth}
+                placeholder="Nom"
+              />
+            </div>
+            {errors.lastName && <p className={classeErreur}>{errors.lastName.message}</p>}
           </div>
         </div>
 
         <div>
-          <label htmlFor="locationCity" className={labelClass}>Ta ville</label>
-          <input
-            id="locationCity"
-            autoComplete="address-level2"
-            placeholder="Ta ville"
-            {...register("locationCity")}
-            className={inputClass}
-          />
-          {errors.locationCity && <p className={errorClass}>{errors.locationCity.message}</p>}
+          <label htmlFor="locationCity" className={classeEtiquetteAuth}>Ville</label>
+          <div className="relative">
+            <MapPin size={15} className={classeIconeChamp} />
+            <input
+              id="locationCity"
+              autoComplete="address-level2"
+              placeholder="Ta ville"
+              {...register("locationCity")}
+              className={classeChampAuth}
+            />
+          </div>
+          {errors.locationCity && <p className={classeErreur}>{errors.locationCity.message}</p>}
         </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
-        >
-          {submitting && <Loader2 size={16} className="animate-spin" />}
-          Continuer
+        <button type="submit" disabled={submitting} className={classeBoutonAuth}>
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
+          Créer mon profil
+          {!submitting && <ArrowRight size={16} />}
         </button>
       </form>
-    </>
+
+      <MentionConditions className="mt-6 text-center" />
+    </motion.div>
   );
 }
