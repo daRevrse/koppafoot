@@ -14,9 +14,17 @@
 // une autre langue que les pages ouvertes juste après.
 // ============================================
 
-const BASE =
-  "w-full border border-gray-200/70 bg-white py-3 text-sm font-semibold text-gray-900 " +
+const ASPECT =
+  "border border-gray-200/70 bg-white py-3 text-sm font-semibold text-gray-900 " +
   "placeholder:font-medium placeholder:text-gray-300 focus:border-gray-900 focus:outline-none transition-colors";
+const BASE = `w-full ${ASPECT}`;
+
+/**
+ * L'indicatif pays, à gauche du numéro : largeur fixe, le numéro prend le
+ * reste. Sans `w-full` : ajouté à côté de `w-[7.5rem]`, c'est lui qui
+ * l'emportait, et le menu poussait le champ du numéro hors de l'écran.
+ */
+export const classeIndicatifAuth = `w-[7.5rem] shrink-0 ${ASPECT} px-3`;
 
 /** Avec l'icône à gauche. */
 export const classeChampAuth = `${BASE} pl-11 pr-4`;

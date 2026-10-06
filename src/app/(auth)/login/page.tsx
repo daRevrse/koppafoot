@@ -12,20 +12,21 @@ import { motion, AnimatePresence } from "motion/react";
 import { type RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { createRecaptchaVerifier } from "@/lib/recaptcha";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { getAuthErrorMessage, signalerEchecSms } from "@/lib/auth-errors";
 import {
   COUNTRY_CODES,
   DEFAULT_DIAL_CODE,
   RESEND_COOLDOWN_S,
   normalizeNational,
   toE164 as joinE164,
+  CONNEXION_SMS_OUVERTE,
 } from "@/lib/phone";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
 import MentionConditions from "@/components/auth/MentionConditions";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
-  classeChampAuth, classeChampAuthMdp, classeChampAuthNu,
+  classeChampAuth, classeChampAuthMdp, classeIndicatifAuth,
   classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth,
 } from "@/components/auth/auth-ui";
 
@@ -78,17 +79,25 @@ const inputClassPassword = classeChampAuthMdp;
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée, temporairement.
+ * Connexion par SMS masquée tant que les SMS ne partent pas : voir
+ * CONNEXION_SMS_OUVERTE (lib/phone), qui s'allume par une variable
+ * d'environnement. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du
+ * code, création du profil au premier code) est conservé et testé sur
+ * l'émulateur.
  *
- * L'envoi de SMS réels est toujours refusé côté Firebase, donc l'onglet ne
- * menait qu'à une erreur. Tout le circuit (schéma, formulaires, reCAPTCHA,
- * renvoi du code) est conservé et reste compilé : repasser à `true` suffit à
- * le remettre en ligne le jour où les SMS partent.
+ * `/login?essai-sms=1` l'ouvre pour une seule visite, sans redéployer : c'est
+ * la porte d'essai avec un vrai téléphone sur le vrai domaine, le seul où les
+ * clés reCAPTCHA et les domaines autorisés de Firebase sont ceux de la
+ * production. Rien n'est protégé par là : le formulaire n'appelle que ce que
+ * le SDK Firebase expose de toute façon. On cache un onglet qui échoue, pas
+ * une fonction.
  *
  * L'inscription n'est pas concernée : elle n'a jamais proposé le téléphone
  * comme moyen d'authentification, seulement comme champ de profil facultatif.
+ * Un premier code reçu sur un numéro inconnu crée le compte, puis mène à
+ * /get-started.
  */
-const PHONE_LOGIN_ENABLED = false;
+const ESSAI_SMS = "essai-sms";
 
 /**
  * L'EMAIL + MOT DE PASSE EST DE RETOUR, à côté de Google.
@@ -118,7 +127,10 @@ const EMAIL_LOGIN_ENABLED = true;
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const contexte = contexteAuth(searchParams.get("for"));
-  const [tab, setTab] = useState<Tab>("email");
+  const essaiSms = searchParams.get(ESSAI_SMS) === "1";
+  const PHONE_LOGIN_ENABLED = CONNEXION_SMS_OUVERTE || essaiSms;
+  // Venu pour l'essai : l'onglet téléphone d'emblée.
+  const [tab, setTab] = useState<Tab>(essaiSms ? "phone" : "email");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [phoneStep, setPhoneStep] = useState<"number" | "code">("number");
@@ -201,6 +213,7 @@ export default function LoginPage() {
       codeForm.reset();
       toast.success("Code envoyé !");
     } catch (err) {
+      signalerEchecSms(err);
       toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -215,6 +228,7 @@ export default function LoginPage() {
       codeForm.reset();
       toast.success("Nouveau code envoyé !");
     } catch (err) {
+      signalerEchecSms(err);
       toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -418,7 +432,7 @@ export default function LoginPage() {
                   aria-label="Indicatif pays"
                   value={dialCode}
                   onChange={(e) => setDialCode(e.target.value)}
-                  className={`w-[7.5rem] shrink-0 ${classeChampAuthNu} px-3`}
+                  className={classeIndicatifAuth}
                 >
                   {COUNTRY_CODES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -426,7 +440,7 @@ export default function LoginPage() {
                     </option>
                   ))}
                 </select>
-                <div className="relative flex-1">
+                <div className="relative min-w-0 flex-1">
                   <Phone size={15} className={classeIconeChamp} />
                   <input
                     id="phone"

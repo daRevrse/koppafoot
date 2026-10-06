@@ -56,11 +56,19 @@ const AUTH_ERRORS: Record<Langue, Record<string, string>> = {
     // third-party cookies (reproduced in a clean private window), SMS region
     // policy (TG allowed), billing (Blaze active), authorized domain.
     //
-    // Lead, NOT yet applied here: a sister project hit the same symptom and
-    // traced it to Google's project-level SMS anti-fraud defense, whose
-    // default enforcement is too strict. Fixed there by PATCHing the Identity
-    // Toolkit project config to `recaptchaConfig.phoneEnforcementState = AUDIT`
-    // with `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+    // Lead: a sister project hit the same symptom and traced it to Google's
+    // project-level SMS anti-fraud defense, whose default enforcement is too
+    // strict. Fixed there by PATCHing the Identity Toolkit project config to
+    // `recaptchaConfig.phoneEnforcementState = AUDIT` with
+    // `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+    //
+    // 2026-10-06: that config IS in place on this project (read back:
+    // AUDIT, BLOCK from 0.8, useSmsTollFraudProtection true), with no real
+    // number tested since. Next step: a real number on the production domain
+    // through /login?essai-sms=1, reading the `[sms]` console line
+    // (signalerEchecSms below). If -39 persists, suspect that BLOCK rule
+    // scoring our numbers at 0.8 or above: check the reCAPTCHA WEB key's SMS
+    // toll fraud assessments before loosening it.
     //
     // The message stays neutral, the user can do nothing about it either way,
     // and we do not yet know the cause for THIS project.
@@ -102,6 +110,41 @@ const AUTH_ERRORS: Record<Langue, Record<string, string>> = {
     generique: "Something went wrong. Try again.",
   },
 };
+
+/**
+ * Ajouter un numéro à son compte, quand ce numéro appartient déjà à un autre
+ * compte. Firebase répond `auth/credential-already-in-use` (ou, selon la
+ * version et l'émulateur, `auth/account-exists-with-different-credential`),
+ * dont le message général parle d'« email » : faux ici, et la personne
+ * cherchait son adresse alors que c'est le numéro qui est pris.
+ */
+const NUMERO_DEJA_PRIS: Record<Langue, string> = {
+  fr: "Ce numéro est déjà rattaché à un autre compte KoppaFoot. Connecte-toi avec ce numéro, ou choisis-en un autre.",
+  en: "This number is already linked to another KoppaFoot account. Sign in with it, or pick another number.",
+};
+
+export function getPhoneLinkErrorMessage(error: unknown, langue: Langue = "fr"): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "auth/credential-already-in-use" || code === "auth/account-exists-with-different-credential") {
+    return NUMERO_DEJA_PRIS[langue];
+  }
+  return getAuthErrorMessage(error, langue);
+}
+
+/**
+ * Un envoi de SMS refusé, écrit en entier dans la console du navigateur.
+ *
+ * Le message affiché reste neutre (voir `auth/error-code:-39`), et
+ * getAuthErrorMessage ne journalise que les codes qu'elle ne connaît pas :
+ * sans cette ligne, un essai avec un vrai téléphone ne laissait rien à lire.
+ * Code, message et `customData` (où Firebase range la réponse du serveur
+ * quand il l'a) : de quoi diagnostiquer depuis le téléphone de l'essai, rien
+ * qui parte ailleurs que dans sa propre console.
+ */
+export function signalerEchecSms(error: unknown): void {
+  const e = (error ?? {}) as { code?: unknown; message?: unknown; customData?: unknown };
+  console.error("[sms] envoi refusé :", e.code ?? "(sans code)", e.message ?? "", e.customData ?? "", error);
+}
 
 /**
  * Identity Toolkit failures the SDK does not give a distinct code for: the
