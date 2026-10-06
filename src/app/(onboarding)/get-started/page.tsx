@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -11,7 +11,10 @@ import { ArrowRight, Loader2, Mail, MapPin, Phone, User } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
-import type { SignupData } from "@/types";
+import type { EvolutionRole, SignupData } from "@/types";
+import { roleDepuisURL } from "@/lib/onboarding";
+import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
+import type { Genre } from "@/lib/genre";
 import MentionConditions from "@/components/auth/MentionConditions";
 import {
   EnTeteAuth, classeChampAuth, classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth,
@@ -39,6 +42,18 @@ const classeErreur = "mt-1.5 text-[11px] font-bold text-red-600";
 export default function GetStartedPage() {
   const [submitting, setSubmitting] = useState(false);
   const { firebaseUser, completeProfile } = useAuth();
+  /**
+   * Le rôle choisi sur /roles, qui a traversé Google ou le SMS en `?role=`.
+   *
+   * Ces deux portes créent le compte sans passer par le formulaire de
+   * /signup : c'est donc ici que le rôle se pose, avec le genre qu'il
+   * demande (lib/genre), comme /signup le fait pour l'e-mail. Lu après le
+   * montage, `window` n'existant pas au rendu serveur.
+   */
+  const [roleChoisi, setRoleChoisi] = useState<EvolutionRole | null>(null);
+  useEffect(() => setRoleChoisi(roleDepuisURL()), []);
+  const [genre, setGenre] = useState<Genre | null>(null);
+  const [genreManquant, setGenreManquant] = useState(false);
   const router = useRouter();
 
   const {
@@ -48,6 +63,10 @@ export default function GetStartedPage() {
   } = useForm<FormData>({ resolver: yupResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
+    if (roleChoisi && !genre) {
+      setGenreManquant(true);
+      return;
+    }
     setSubmitting(true);
     try {
       const signupData: SignupData = {
@@ -60,6 +79,8 @@ export default function GetStartedPage() {
         locationCity: data.locationCity,
         email: firebaseUser?.email ?? undefined,
         phone: firebaseUser?.phoneNumber ?? undefined,
+        ...(roleChoisi ? { evolutionRole: roleChoisi } : {}),
+        ...(roleChoisi && genre ? { gender: genre } : {}),
       };
       await completeProfile(signupData);
       toast.success("Profil créé !");
@@ -143,6 +164,23 @@ export default function GetStartedPage() {
           </div>
           {errors.locationCity && <p className={classeErreur}>{errors.locationCity.message}</p>}
         </div>
+
+        {roleChoisi && (
+          <div>
+            <p className={classeEtiquetteAuth}>Tu es</p>
+            <ChoixDuGenre
+              valeur={genre}
+              onChange={(g) => {
+                setGenre(g);
+                setGenreManquant(false);
+              }}
+              erreur={genreManquant}
+            />
+            {genreManquant && (
+              <p className={classeErreur}>Dis-nous si tu es un homme ou une femme : ton rôle s&apos;accorde.</p>
+            )}
+          </div>
+        )}
 
         <button type="submit" disabled={submitting} className={classeBoutonAuth}>
           {submitting ? <Loader2 size={16} className="animate-spin" /> : null}

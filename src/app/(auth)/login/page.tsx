@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -9,24 +9,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Mail, Phone, Loader2, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { type RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
-import { createRecaptchaVerifier } from "@/lib/recaptcha";
+import type { ConfirmationResult } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAuthErrorMessage, signalerEchecSms } from "@/lib/auth-errors";
-import {
-  COUNTRY_CODES,
-  DEFAULT_DIAL_CODE,
-  RESEND_COOLDOWN_S,
-  normalizeNational,
-  toE164 as joinE164,
-  CONNEXION_SMS_OUVERTE,
-} from "@/lib/phone";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { CONNEXION_SMS_OUVERTE } from "@/lib/phone";
+import FormulaireSms from "@/components/auth/FormulaireSms";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
 import MentionConditions from "@/components/auth/MentionConditions";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
-  classeChampAuth, classeChampAuthMdp, classeIndicatifAuth,
+  classeChampAuth, classeChampAuthMdp,
   classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth,
 } from "@/components/auth/auth-ui";
 
@@ -39,27 +32,10 @@ const emailSchema = yup.object({
   password: yup.string().required("Mot de passe requis"),
 });
 
-// The national part only, the country code comes from the picker and the
-// two are joined into E.164 before hitting Firebase. Users type their number
-// the way they say it ("90 12 34 56"), spaces and leading 0 included.
-const phoneSchema = yup.object({
-  phone: yup
-    .string()
-    .transform((v: string) => normalizeNational(v))
-    .matches(/^\d{6,14}$/, "Numéro invalide")
-    .required("Numéro requis"),
-});
-
-const codeSchema = yup.object({
-  code: yup
-    .string()
-    .matches(/^\d{6}$/, "Code à 6 chiffres")
-    .required("Code requis"),
-});
+// Le numéro et le code ont leurs schémas dans components/auth/FormulaireSms,
+// partagé avec /signup.
 
 type EmailForm = yup.InferType<typeof emailSchema>;
-type PhoneForm = yup.InferType<typeof phoneSchema>;
-type CodeForm = yup.InferType<typeof codeSchema>;
 
 // ============================================
 // Shared styles
@@ -81,8 +57,9 @@ type Tab = "email" | "phone";
 /**
  * Connexion par SMS ouverte, sauf si le frein d'urgence est tiré : voir
  * CONNEXION_SMS_OUVERTE (lib/phone), que `NEXT_PUBLIC_CONNEXION_SMS=0`
- * referme. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du code,
- * création du profil au premier code) est testé sur l'émulateur.
+ * referme. Le parcours (numéro, code, renvoi, reCAPTCHA) est celui de
+ * components/auth/FormulaireSms, partagé avec /signup ; ici ne reste que la
+ * suite d'un code validé.
  *
  * `/login?essai-sms=1` la rouvre pour une seule visite, sans redéployer :
  * la porte d'essai avec un vrai téléphone sur le vrai domaine, le seul où
@@ -91,10 +68,8 @@ type Tab = "email" | "phone";
  * le SDK Firebase expose de toute façon. On cache un onglet qui échoue, pas
  * une fonction.
  *
- * L'inscription n'est pas concernée : elle n'a jamais proposé le téléphone
- * comme moyen d'authentification, seulement comme champ de profil facultatif.
  * Un premier code reçu sur un numéro inconnu crée le compte, puis mène à
- * /get-started.
+ * /get-started : se connecter par SMS sans compte, c'est s'inscrire.
  */
 const ESSAI_SMS = "essai-sms";
 
@@ -132,40 +107,8 @@ export default function LoginPage() {
   const [tab, setTab] = useState<Tab>(essaiSms ? "phone" : "email");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [phoneStep, setPhoneStep] = useState<"number" | "code">("number");
-  const [dialCode, setDialCode] = useState<string>(DEFAULT_DIAL_CODE);
-  const [sentTo, setSentTo] = useState("");
-  const [cooldown, setCooldown] = useState(0);
-  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
-  const recaptchaRef = useRef<HTMLDivElement>(null);
-  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
   const router = useRouter();
-  const { loginWithEmail, sendPhoneCode, confirmPhoneCode, loginWithGoogle } = useAuth();
-
-  // Fresh verifier AND fresh container on every attempt, see lib/recaptcha.
-  const buildRecaptcha = (): RecaptchaVerifier => {
-    if (!recaptchaRef.current) throw new Error("reCAPTCHA indisponible");
-    const verifier = createRecaptchaVerifier(recaptchaRef.current, recaptchaVerifier.current);
-    recaptchaVerifier.current = verifier;
-    return verifier;
-  };
-
-  // The verifier is built on demand by requestCode (Firebase consumes it on
-  // every attempt), so here we only tear it down, on unmount and whenever
-  // the user leaves the phone tab.
-  useEffect(() => {
-    return () => {
-      recaptchaVerifier.current?.clear();
-      recaptchaVerifier.current = null;
-    };
-  }, [tab]);
-
-  // Resend countdown
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(id);
-  }, [cooldown]);
+  const { loginWithEmail, confirmPhoneCode, loginWithGoogle } = useAuth();
 
   // --- Email form ---
 
@@ -185,81 +128,16 @@ export default function LoginPage() {
     }
   };
 
-  // --- Phone form ---
+  // --- Téléphone : la suite d'un code validé ---
 
-  const phoneForm = useForm<PhoneForm>({
-    resolver: yupResolver(phoneSchema),
-  });
-
-  const codeForm = useForm<CodeForm>({
-    resolver: yupResolver(codeSchema),
-  });
-
-  // Sends (or resends) the SMS. Firebase consumes the verifier on every
-  // attempt, successful or not, so a fresh one is built each time.
-  const requestCode = async (e164: string) => {
-    const result = await sendPhoneCode(e164, buildRecaptcha());
-    setConfirmation(result);
-    setSentTo(e164);
-    setCooldown(RESEND_COOLDOWN_S);
-  };
-
-  const handleSendCode = async (data: PhoneForm) => {
-    setSubmitting(true);
-    try {
-      await requestCode(joinE164(dialCode, data.phone));
-      setPhoneStep("code");
-      codeForm.reset();
-      toast.success("Code envoyé !");
-    } catch (err) {
-      signalerEchecSms(err);
-      toast.error(getAuthErrorMessage(err));
-    } finally {
-      setSubmitting(false);
+  const handleConfirmCode = async (confirmation: ConfirmationResult, code: string) => {
+    const { isNewUser } = await confirmPhoneCode(confirmation, code);
+    if (isNewUser) {
+      // Authenticated but no Firestore profile yet, same path as Google.
+      router.push("/get-started");
+      return;
     }
-  };
-
-  const handleResendCode = async () => {
-    if (cooldown > 0 || !sentTo) return;
-    setSubmitting(true);
-    try {
-      await requestCode(sentTo);
-      codeForm.reset();
-      toast.success("Nouveau code envoyé !");
-    } catch (err) {
-      signalerEchecSms(err);
-      toast.error(getAuthErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleChangeNumber = () => {
-    setPhoneStep("number");
-    setConfirmation(null);
-    setSentTo("");
-    setCooldown(0);
-    codeForm.reset();
-    // No need to rebuild the verifier here: requestCode builds a fresh one
-    // (and a fresh container) on every send.
-  };
-
-  const handleConfirmCode = async (data: CodeForm) => {
-    setSubmitting(true);
-    try {
-      if (!confirmation) throw new Error("Pas de confirmation en cours");
-      const { isNewUser } = await confirmPhoneCode(confirmation, data.code);
-      if (isNewUser) {
-        // Authenticated but no Firestore profile yet, same path as Google.
-        router.push("/get-started");
-        return;
-      }
-      toast.success("Connexion réussie");
-    } catch (err) {
-      toast.error(getAuthErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+    toast.success("Connexion réussie");
   };
 
   // --- Google ---
@@ -315,7 +193,7 @@ export default function LoginPage() {
       <div className="mb-6 grid grid-cols-2 border border-gray-200/70">
         <button
           type="button"
-          onClick={() => { setTab("email"); setPhoneStep("number"); }}
+          onClick={() => setTab("email")}
           className={`flex items-center justify-center gap-2 py-3 text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${
             tab === "email"
               ? "bg-gray-900 text-white"
@@ -414,119 +292,16 @@ export default function LoginPage() {
         )}
 
         {/* Phone Tab */}
-        {PHONE_LOGIN_ENABLED && tab === "phone" && phoneStep === "number" && (
-          <motion.form
+        {PHONE_LOGIN_ENABLED && tab === "phone" && (
+          <motion.div
             key="phone"
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.2 }}
-            onSubmit={phoneForm.handleSubmit(handleSendCode)}
-            className="space-y-4"
           >
-            <div>
-              <label htmlFor="phone" className={classeEtiquetteAuth}>Numéro de téléphone</label>
-              <div className="flex gap-2">
-                <select
-                  aria-label="Indicatif pays"
-                  value={dialCode}
-                  onChange={(e) => setDialCode(e.target.value)}
-                  className={classeIndicatifAuth}
-                >
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label.slice(0, 2)} {c.code}
-                    </option>
-                  ))}
-                </select>
-                <div className="relative min-w-0 flex-1">
-                  <Phone size={15} className={classeIconeChamp} />
-                  <input
-                    id="phone"
-                    type="tel"
-                    autoComplete="tel-national"
-                    inputMode="tel"
-                    {...phoneForm.register("phone")}
-                    className={inputClass}
-                    placeholder="90 12 34 56"
-                  />
-                </div>
-              </div>
-              {phoneForm.formState.errors.phone && (
-                <p className="mt-1.5 text-[11px] font-bold text-red-600">{phoneForm.formState.errors.phone.message}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className={classeBoutonAuth}
-            >
-              {submitting && <Loader2 size={16} className="animate-spin" />}
-              Envoyer le code
-            </button>
-          </motion.form>
-        )}
-
-        {PHONE_LOGIN_ENABLED && tab === "phone" && phoneStep === "code" && (
-          <motion.form
-            key="code"
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
-            onSubmit={codeForm.handleSubmit(handleConfirmCode)}
-            className="space-y-4"
-          >
-            <p className="text-sm text-gray-500">
-              Un code à 6 chiffres a été envoyé au{" "}
-              <span className="font-semibold text-gray-700">{sentTo}</span>.
-            </p>
-            <div>
-              <label htmlFor="code" className={classeEtiquetteAuth}>Code de vérification</label>
-              <input
-                id="code"
-                type="text"
-                inputMode="numeric"
-                // Le téléphone propose le code reçu au-dessus du clavier.
-                autoComplete="one-time-code"
-                maxLength={6}
-                {...codeForm.register("code")}
-                className="w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
-                placeholder="000000"
-              />
-              {codeForm.formState.errors.code && (
-                <p className="mt-1.5 text-[11px] font-bold text-red-600">{codeForm.formState.errors.code.message}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className={classeBoutonAuth}
-            >
-              {submitting && <Loader2 size={16} className="animate-spin" />}
-              Vérifier
-            </button>
-
-            <div className="flex items-center justify-between gap-3 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={handleChangeNumber}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                Changer de numéro
-              </button>
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={cooldown > 0 || submitting}
-                className="text-emerald-600 hover:text-emerald-700 disabled:text-gray-300 disabled:hover:text-gray-300 transition-colors"
-              >
-                {cooldown > 0 ? `Renvoyer le code (${cooldown}s)` : "Renvoyer le code"}
-              </button>
-            </div>
-          </motion.form>
+            <FormulaireSms onConfirmer={handleConfirmCode} occupe={submitting} />
+          </motion.div>
         )}
       </AnimatePresence>
       </>
@@ -553,8 +328,6 @@ export default function LoginPage() {
 
       <PWAInstallPrompt />
 
-      {/* reCAPTCHA container, seul le SMS s'en sert */}
-      {PHONE_LOGIN_ENABLED && <div ref={recaptchaRef} />}
     </motion.div>
   );
 }
