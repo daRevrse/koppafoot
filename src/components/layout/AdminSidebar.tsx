@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ClipboardList, Flag, Goal, LayoutDashboard, LogOut, MapPin, MapPinPlus,
+  ChevronLeft, ClipboardList, Flag, Gem, Goal, Handshake, LayoutDashboard, LogOut, MapPin, MapPinPlus,
   Megaphone, MessageSquareText, Radio, Scale, Send, Shield, ShieldCheck, TrendingUp, Trophy, Users, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,9 +58,16 @@ const NAV: { titre: string | null; entrees: Entree[] }[] = [
     entrees: [
       { href: "/admin/tribune", label: "Tribune", Icone: Megaphone },
       { href: "/admin/messages", label: "Messages", Icone: Send },
+      { href: "/admin/partenaires", label: "Partenaires", Icone: Handshake },
     ],
   },
-  { titre: "Réglages", entrees: [{ href: "/admin/settings", label: "Administrateurs", Icone: ShieldCheck }] },
+  {
+    titre: "Réglages",
+    entrees: [
+      { href: "/admin/offre", label: "Offre", Icone: Gem },
+      { href: "/admin/settings", label: "Administrateurs", Icone: ShieldCheck },
+    ],
+  },
 ];
 
 /** L'intitulé de la page ouverte, pour l'en-tête. Les fiches héritent de leur liste. */

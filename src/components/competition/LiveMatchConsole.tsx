@@ -43,6 +43,7 @@ import TerrainsFaceAFace, { ModaleActionsJoueur, type ActionJoueur } from "@/com
 import { nomCourt } from "@/components/match/TerrainCompo";
 import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
+import { isSuperAdmin } from "@/lib/hats";
 
 /** One entry of the live feed. */
 type LiveEvent = NonNullable<CompMatch["liveState"]>["events"][number];
@@ -462,7 +463,8 @@ export default function LiveMatchConsole({
 
   // Qui peut sortir sans terminer : l'organisateur en competition, le manager
   // sur un amical. Le pilote repond, la console ne connait pas les roles.
-  const isOrganizer = pilote.autoriseAQuitter(user?.uid ?? null, competition, match);
+  // L'administration aussi, comme partout ailleurs dans l'espace organisateur.
+  const isOrganizer = pilote.autoriseAQuitter(user?.uid ?? null, competition, match) || isSuperAdmin(user);
 
   // Règles de jeu de la compétition : le NvN plafonne les titulaires, la durée
   // d'une mi-temps cale l'horloge (pause, puis coup de sifflet final à 2×).

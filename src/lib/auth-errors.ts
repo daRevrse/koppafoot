@@ -50,20 +50,33 @@ const AUTH_ERRORS: Record<Langue, Record<string, string>> = {
     // Backend refusal from the SMS layer (503). The SDK passes the numeric
     // code straight through, hence the odd shape.
     //
-    // STILL BLOCKING PRODUCTION as of 2026-08-07: every real number is refused
-    // while test numbers go through. Ruled out by test, per-number throttle
-    // (reproduced on a fresh number, first attempt), browser extensions and
-    // third-party cookies (reproduced in a clean private window), SMS region
-    // policy (TG allowed), billing (Blaze active), authorized domain.
+    // RESOLVED 2026-10-06, a real Togolese number received its SMS in
+    // production and the code validated. What it took, for the next time
+    // this code shows up (a new project, a key recreated):
     //
-    // Lead, NOT yet applied here: a sister project hit the same symptom and
-    // traced it to Google's project-level SMS anti-fraud defense, whose
-    // default enforcement is too strict. Fixed there by PATCHing the Identity
-    // Toolkit project config to `recaptchaConfig.phoneEnforcementState = AUDIT`
-    // with `tollFraudManagedRules: [{action: BLOCK, startScore: 0.8}]`.
+    // 1. Identity Toolkit project config, `recaptchaConfig`:
+    //    phoneEnforcementState AUDIT, useSmsTollFraudProtection true,
+    //    tollFraudManagedRules [{action: BLOCK, startScore: 0.8}].
+    // 2. AND SMS defense switched on for the WEB key that config names
+    //    ("Key for Identity Platform reCAPTCHA integration"): Google Cloud ›
+    //    Security › Fraud Defense › that key › SMS defense › Activer. Its two
+    //    "integration steps" are for sites calling reCAPTCHA themselves;
+    //    Identity Platform sends the phone number on its own.
     //
-    // The message stays neutral, the user can do nothing about it either way,
-    // and we do not yet know the cause for THIS project.
+    // With (1) but not (2), every send failed twice over: the reCAPTCHA
+    // Enterprise token came back INVALID_APP_CREDENTIAL (a 400, swallowed by
+    // the SDK), the SDK fell back to reCAPTCHA v2, and the v2 request got
+    // this -39 (a 503), the same refusal as before any of this was set up.
+    // The 400 never reaches our code: read it in the browser's Network tab,
+    // `accounts:sendVerificationCode`, Response.
+    //
+    // Ruled out along the way (2026-08-07): per-number throttle, browser
+    // extensions and third-party cookies, SMS region policy (TG allowed),
+    // billing (Blaze), authorized domain, reCAPTCHA key domains (validation
+    // is off on the Identity Platform key), Brave versus Chrome.
+    //
+    // The message stays neutral: if it fires again, the user can do nothing
+    // about it, and the cause is in the project's configuration.
     "auth/error-code:-39":
       "L'envoi du SMS a échoué. Réessaie dans quelques minutes ; si le problème persiste, préviens-nous.",
     generique: "Une erreur est survenue. Réessaie.",
@@ -102,6 +115,41 @@ const AUTH_ERRORS: Record<Langue, Record<string, string>> = {
     generique: "Something went wrong. Try again.",
   },
 };
+
+/**
+ * Ajouter un numéro à son compte, quand ce numéro appartient déjà à un autre
+ * compte. Firebase répond `auth/credential-already-in-use` (ou, selon la
+ * version et l'émulateur, `auth/account-exists-with-different-credential`),
+ * dont le message général parle d'« email » : faux ici, et la personne
+ * cherchait son adresse alors que c'est le numéro qui est pris.
+ */
+const NUMERO_DEJA_PRIS: Record<Langue, string> = {
+  fr: "Ce numéro est déjà rattaché à un autre compte KoppaFoot. Connecte-toi avec ce numéro, ou choisis-en un autre.",
+  en: "This number is already linked to another KoppaFoot account. Sign in with it, or pick another number.",
+};
+
+export function getPhoneLinkErrorMessage(error: unknown, langue: Langue = "fr"): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "auth/credential-already-in-use" || code === "auth/account-exists-with-different-credential") {
+    return NUMERO_DEJA_PRIS[langue];
+  }
+  return getAuthErrorMessage(error, langue);
+}
+
+/**
+ * Un envoi de SMS refusé, écrit en entier dans la console du navigateur.
+ *
+ * Le message affiché reste neutre (voir `auth/error-code:-39`), et
+ * getAuthErrorMessage ne journalise que les codes qu'elle ne connaît pas :
+ * sans cette ligne, un essai avec un vrai téléphone ne laissait rien à lire.
+ * Code, message et `customData` (où Firebase range la réponse du serveur
+ * quand il l'a) : de quoi diagnostiquer depuis le téléphone de l'essai, rien
+ * qui parte ailleurs que dans sa propre console.
+ */
+export function signalerEchecSms(error: unknown): void {
+  const e = (error ?? {}) as { code?: unknown; message?: unknown; customData?: unknown };
+  console.error("[sms] envoi refusé :", e.code ?? "(sans code)", e.message ?? "", e.customData ?? "", error);
+}
 
 /**
  * Identity Toolkit failures the SDK does not give a distinct code for: the

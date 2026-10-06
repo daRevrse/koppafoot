@@ -12,19 +12,21 @@ import { motion, AnimatePresence } from "motion/react";
 import { type RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { createRecaptchaVerifier } from "@/lib/recaptcha";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { getAuthErrorMessage, signalerEchecSms } from "@/lib/auth-errors";
 import {
   COUNTRY_CODES,
   DEFAULT_DIAL_CODE,
   RESEND_COOLDOWN_S,
   normalizeNational,
   toE164 as joinE164,
+  CONNEXION_SMS_OUVERTE,
 } from "@/lib/phone";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { contexteAuth, lienAuth } from "@/config/auth-contextes";
+import MentionConditions from "@/components/auth/MentionConditions";
 import {
   EnTeteAuth, Separateur, BoutonGoogle,
-  classeChampAuth, classeChampAuthMdp, classeChampAuthNu,
+  classeChampAuth, classeChampAuthMdp, classeIndicatifAuth,
   classeEtiquetteAuth, classeIconeChamp, classeBoutonAuth,
 } from "@/components/auth/auth-ui";
 
@@ -77,17 +79,24 @@ const inputClassPassword = classeChampAuthMdp;
 type Tab = "email" | "phone";
 
 /**
- * Connexion par SMS masquée, temporairement.
+ * Connexion par SMS ouverte, sauf si le frein d'urgence est tiré : voir
+ * CONNEXION_SMS_OUVERTE (lib/phone), que `NEXT_PUBLIC_CONNEXION_SMS=0`
+ * referme. Tout le circuit (schéma, formulaires, reCAPTCHA, renvoi du code,
+ * création du profil au premier code) est testé sur l'émulateur.
  *
- * L'envoi de SMS réels est toujours refusé côté Firebase, donc l'onglet ne
- * menait qu'à une erreur. Tout le circuit (schéma, formulaires, reCAPTCHA,
- * renvoi du code) est conservé et reste compilé : repasser à `true` suffit à
- * le remettre en ligne le jour où les SMS partent.
+ * `/login?essai-sms=1` la rouvre pour une seule visite, sans redéployer :
+ * la porte d'essai avec un vrai téléphone sur le vrai domaine, le seul où
+ * les clés reCAPTCHA et les domaines autorisés de Firebase sont ceux de la
+ * production. Rien n'est protégé par là : le formulaire n'appelle que ce que
+ * le SDK Firebase expose de toute façon. On cache un onglet qui échoue, pas
+ * une fonction.
  *
  * L'inscription n'est pas concernée : elle n'a jamais proposé le téléphone
  * comme moyen d'authentification, seulement comme champ de profil facultatif.
+ * Un premier code reçu sur un numéro inconnu crée le compte, puis mène à
+ * /get-started.
  */
-const PHONE_LOGIN_ENABLED = false;
+const ESSAI_SMS = "essai-sms";
 
 /**
  * L'EMAIL + MOT DE PASSE EST DE RETOUR, à côté de Google.
@@ -117,7 +126,10 @@ const EMAIL_LOGIN_ENABLED = true;
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const contexte = contexteAuth(searchParams.get("for"));
-  const [tab, setTab] = useState<Tab>("email");
+  const essaiSms = searchParams.get(ESSAI_SMS) === "1";
+  const PHONE_LOGIN_ENABLED = CONNEXION_SMS_OUVERTE || essaiSms;
+  // Venu pour l'essai : l'onglet téléphone d'emblée.
+  const [tab, setTab] = useState<Tab>(essaiSms ? "phone" : "email");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [phoneStep, setPhoneStep] = useState<"number" | "code">("number");
@@ -200,6 +212,7 @@ export default function LoginPage() {
       codeForm.reset();
       toast.success("Code envoyé !");
     } catch (err) {
+      signalerEchecSms(err);
       toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -214,6 +227,7 @@ export default function LoginPage() {
       codeForm.reset();
       toast.success("Nouveau code envoyé !");
     } catch (err) {
+      signalerEchecSms(err);
       toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -417,7 +431,7 @@ export default function LoginPage() {
                   aria-label="Indicatif pays"
                   value={dialCode}
                   onChange={(e) => setDialCode(e.target.value)}
-                  className={`w-[7.5rem] shrink-0 ${classeChampAuthNu} px-3`}
+                  className={classeIndicatifAuth}
                 >
                   {COUNTRY_CODES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -425,7 +439,7 @@ export default function LoginPage() {
                     </option>
                   ))}
                 </select>
-                <div className="relative flex-1">
+                <div className="relative min-w-0 flex-1">
                   <Phone size={15} className={classeIconeChamp} />
                   <input
                     id="phone"
@@ -474,6 +488,8 @@ export default function LoginPage() {
                 id="code"
                 type="text"
                 inputMode="numeric"
+                // Le téléphone propose le code reçu au-dessus du clavier.
+                autoComplete="one-time-code"
                 maxLength={6}
                 {...codeForm.register("code")}
                 className="w-full border border-gray-200/70 bg-gray-50 px-4 py-3 text-center text-lg tracking-[0.3em] text-gray-900 focus:border-emerald-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-200 transition-all placeholder:text-gray-300"
@@ -520,7 +536,10 @@ export default function LoginPage() {
       {/* Le lien emporte `?for=` et `?next=` : sans eux, quelqu'un venu par
           « référencer mon terrain » basculait sur une inscription générique et
           retombait sur l'accueil au lieu de sa candidature. */}
-      <div className="mt-8 border-t border-gray-200/70 pt-6 text-center">
+      {/* « Continuer avec Google » crée le compte s'il n'existe pas encore. */}
+      <MentionConditions className="mt-6 text-center" />
+
+      <div className="mt-6 border-t border-gray-200/70 pt-6 text-center">
         <p className="text-sm text-gray-500">
           Pas encore de compte ?{" "}
           <Link

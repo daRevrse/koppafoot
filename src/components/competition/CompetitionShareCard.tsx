@@ -131,7 +131,7 @@ export default function CompetitionShareCard({
         </span>
         <span className="flex items-center gap-1.5">
           <UserPlus size={12} className={open ? "text-emerald-500" : "text-gray-300"} />
-          {open ? "Un club peut s'inscrire depuis la page" : "Inscriptions fermées"}
+          {open ? "Une équipe peut s'inscrire depuis la page" : "Inscriptions fermées"}
         </span>
         <span className="flex items-center gap-1.5">
           <Radio size={12} className="text-emerald-500" />

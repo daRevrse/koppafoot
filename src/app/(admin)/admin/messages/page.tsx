@@ -42,7 +42,7 @@ const RELANCES: Record<Relance["type"], { label: string; description: string }> 
   },
   manager_no_team: {
     label: "Managers sans équipe",
-    description: "Managers qui ne dirigent encore aucun club.",
+    description: "Managers qui ne dirigent encore aucune équipe.",
   },
   player_no_team: {
     label: "Joueurs sans équipe",

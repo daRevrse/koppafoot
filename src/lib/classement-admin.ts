@@ -23,6 +23,7 @@ import type {
   ClassementsPublies, ContributionDirecte, LigneJoueurPubliee, MatchAClasser,
 } from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
+import { lireButeursRenseignes } from "@/lib/buteurs";
 import type { FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
 
 const DOC = "rankings/top_players";
@@ -113,14 +114,14 @@ function feuille(
  * événements, qui valent mieux.
  */
 function contributionsDirectes(d: FirestoreMatch): ContributionDirecte[] {
-  return (d.recorded_scorers ?? []).map((b) => ({
-    playerId: b.player_id ?? "",
-    nom: b.nom ?? "",
+  return lireButeursRenseignes(d.recorded_scorers).map((b) => ({
+    playerId: b.playerId,
+    nom: b.nom,
     // `sansCompte` dit exactement ce qu'il dit : l'identifiant n'est alors pas
     // un compte, et le classement retombera sur le nom.
-    userId: b.sansCompte ? null : (b.player_id ?? null),
-    buts: b.buts ?? 0,
-    passes: b.passes ?? 0,
+    userId: b.sansCompte ? null : b.playerId,
+    buts: b.buts,
+    passes: b.passes,
   }));
 }
 

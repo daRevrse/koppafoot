@@ -22,11 +22,13 @@ import CompetitionFormatFields from "@/components/competition/CompetitionFormatF
 import CompetitionShareCard from "@/components/competition/CompetitionShareCard";
 import OrganizerProgress from "@/components/competition/OrganizerProgress";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
 import type { Categorie } from "@/lib/genre";
 import type {
   Competition, CompetitionFormat, CompetitionStatus, CompTeam, CompMatch,
 } from "@/types";
+import { gereLaCompetition } from "@/lib/hats";
 
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
   draft: { label: "Brouillon", color: "text-gray-600", bg: "bg-gray-100" },
@@ -70,6 +72,7 @@ export default function CompetitionDashboardPage() {
   // Danger zone
   const [statusSaving, setStatusSaving] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const signalerLimite = useSignalerLimite();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -188,16 +191,23 @@ export default function CompetitionDashboardPage() {
     if (!competition || !user) return;
     setDuplicating(true);
     try {
-      const newId = await duplicateCompetition(
+      const { id: newId, equipesRefusees } = await duplicateCompetition(
         competition.id,
         `${competition.name} (copie)`,
         user.uid,
       );
-      toast.success("Compétition dupliquée, équipes reprises, calendrier vierge");
+      if (equipesRefusees) {
+        // La copie existe, sans ses équipes : trop nombreuses pour l'offre
+        // gratuite. On y va quand même, le message dit pourquoi elle est vide.
+        signalerLimite(equipesRefusees);
+      } else {
+        toast.success("Compétition dupliquée, équipes reprises, calendrier vierge");
+      }
       router.push(`/organizer/competitions/${newId}`);
     } catch (err) {
       console.error("Error duplicating competition:", err);
-      toast.error("Une erreur est survenue lors de la duplication");
+      // Une compétition en cours de trop, avec l'offre gratuite.
+      if (!signalerLimite(err)) toast.error("Une erreur est survenue lors de la duplication");
       setDuplicating(false);
     }
   };
@@ -219,7 +229,8 @@ export default function CompetitionDashboardPage() {
   // Guard: only organizers of this competition may view it.
   useEffect(() => {
     if (!user || !competition) return;
-    if (!competition.organizerIds.includes(user.uid)) {
+    // Ses organisateurs, et l'administration (voir lib/hats).
+    if (!gereLaCompetition(user, competition)) {
       router.replace("/organizer");
     }
   }, [user, competition, router]);

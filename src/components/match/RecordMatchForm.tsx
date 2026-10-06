@@ -229,7 +229,7 @@ export default function RecordMatchForm({ teams, managerId, onClose, onRecorded 
         <div className="mt-4">
           <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Ce qui sera crédité</p>
           {buteurs.length === 0 ? (
-            <p className="text-sm italic text-gray-400">Aucun joueur nommé : seul le bilan du club bougera.</p>
+            <p className="text-sm italic text-gray-400">Aucun joueur nommé : seul le bilan de l&apos;équipe bougera.</p>
           ) : (
             <ul className="space-y-1.5">
               {buteurs.map((b) => (
@@ -254,7 +254,7 @@ export default function RecordMatchForm({ teams, managerId, onClose, onRecorded 
           ) : (
             <>
               <strong className="font-semibold text-gray-800">{advNom}</strong>{" "}n&apos;est pas sur KoppaFoot :
-              le résultat compte immédiatement dans le bilan de ton club et dans la carrière des joueurs nommés.
+              le résultat compte immédiatement dans le bilan de ton équipe et dans la carrière des joueurs nommés.
             </>
           )}
         </p>

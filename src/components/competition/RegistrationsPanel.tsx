@@ -5,6 +5,8 @@ import {
   Check, X, Loader2, ClipboardList, MapPin, Receipt, FileCheck, Circle,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
+import { ErreurLimiteOffre, estLimiteAtteinte } from "@/lib/offre";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CompetitionRegistration } from "@/types";
 
@@ -44,6 +46,7 @@ export default function RegistrationsPanel({
     load();
   }, [load]);
 
+  const signalerLimite = useSignalerLimite();
   const act = async (
     reg: CompetitionRegistration,
     action: "accept" | "reject" | "mark_paid" | "mark_unpaid",
@@ -59,7 +62,8 @@ export default function RegistrationsPanel({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Une erreur est survenue");
+        if (estLimiteAtteinte(data)) signalerLimite(new ErreurLimiteOffre(data.error ?? "", data.cle, data.max));
+        else toast.error(data.error ?? "Une erreur est survenue");
         return;
       }
       const messages = {

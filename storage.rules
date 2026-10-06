@@ -81,6 +81,22 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Écussons et bannières des clubs : publics, écrits par le serveur
+    // (/api/clubs/[id]), qui vérifie le propriétaire et son Pro.
+    match /clubs/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Visuels des partenaires (sponsors). Lecture publique, ils sont faits
+    // pour être vus ; jamais écrits depuis un navigateur : ils passent par
+    // /api/admin/partenaires, comme l'avatar de la Tribune et pour la même
+    // raison (voir /branding/tribune ci-dessus).
+    match /partenaires/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Catch-all deny
     match /{allPaths=**} {
       allow read: if false;

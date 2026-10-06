@@ -1,0 +1,14 @@
+node_modules/
+captures-brutes/
+profiles/
+logs/
+actifs/
+state.json
+emulateurs/*.rules
+emulateurs/firestore.indexes.json
+*-debug.log
+apercu/
+cibles.json
+rushes
+video-muette.mp4
+sons.json

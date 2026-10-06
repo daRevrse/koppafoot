@@ -8,8 +8,7 @@ import {
   ArrowLeft, Loader2, ShieldCheck, UserPlus, Trash2, Mail, Ticket, Plus, X,
   Copy, Check, KeyRound, Clock, Users, Share2,
 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getUsersByIds } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { onCompetition, onCompMatches, onCompTeams } from "@/lib/competition-firestore";
 import { onStaffGrants } from "@/lib/staff-access";
@@ -21,15 +20,15 @@ import {
   isGrantActive,
 } from "@/lib/staff-scope";
 import type {
-  Competition, CompMatch, CompTeam, FirestoreUser, StaffGrant, StaffScope,
+  Competition, CompMatch, CompTeam, StaffGrant, StaffScope,
 } from "@/types";
 import toast from "react-hot-toast";
+import { gereLaCompetition } from "@/lib/hats";
 
 interface ModeratorRow {
   uid: string;
   firstName: string;
   lastName: string;
-  email: string | null;
 }
 
 /** A code as the organizer API returns it. */
@@ -119,13 +118,16 @@ export default function CompetitionStaffPage() {
   // Guard: only organizers of this competition may view the staff screen.
   useEffect(() => {
     if (!user || !competition) return;
-    if (!competition.organizerIds.includes(user.uid)) {
+    // Ses organisateurs, et l'administration (voir lib/hats).
+    if (!gereLaCompetition(user, competition)) {
       router.replace("/organizer");
     }
   }, [user, competition, router]);
 
-  // Resolve moderator names whenever the moderatorIds list changes. Users are
-  // publicly readable, so a direct getDoc per uid is fine here.
+  // Resolve moderator names whenever the moderatorIds list changes, through
+  // the server: a profile is no longer readable by other accounts, and the
+  // member view carries neither the email nor the phone number (see
+  // lib/membres-serveur). The organizer sees who moderates, by name.
   useEffect(() => {
     const ids = competition?.moderatorIds;
     if (!ids) return;
@@ -136,20 +138,16 @@ export default function CompetitionStaffPage() {
     let cancelled = false;
     setLoadingMods(true);
     (async () => {
-      const rows = await Promise.all(
-        ids.map(async (uid): Promise<ModeratorRow> => {
-          try {
-            const snap = await getDoc(doc(db, "users", uid));
-            if (snap.exists()) {
-              const d = snap.data() as FirestoreUser;
-              return { uid, firstName: d.first_name, lastName: d.last_name, email: d.email };
-            }
-          } catch (err) {
-            console.error("Error loading moderator profile:", err);
-          }
-          return { uid, firstName: "", lastName: "", email: null };
-        }),
-      );
+      const profils = await getUsersByIds(ids).catch((err) => {
+        console.error("Error loading moderator profiles:", err);
+        return [];
+      });
+      const parUid = new Map(profils.map((p) => [p.uid, p]));
+      const rows: ModeratorRow[] = ids.map((uid) => ({
+        uid,
+        firstName: parUid.get(uid)?.firstName ?? "",
+        lastName: parUid.get(uid)?.lastName ?? "",
+      }));
       if (!cancelled) {
         setModerators(rows);
         setLoadingMods(false);
@@ -703,9 +701,6 @@ export default function CompetitionStaffPage() {
                       <p className="truncate text-sm font-bold text-gray-900">
                         {fullName || "Membre"}
                       </p>
-                      {mod.email && (
-                        <p className="mt-0.5 truncate text-xs text-gray-500">{mod.email}</p>
-                      )}
                     </div>
                     <button
                       type="button"

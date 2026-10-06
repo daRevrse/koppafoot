@@ -244,7 +244,7 @@ export default function FicheCompteAdminPage() {
           { titre: "Joue dans", liste: c.equipesJouees.map((e) => ({ cle: e.id, label: e.nom, href: `/admin/teams/${e.id}` })) },
           {
             titre: "Organise",
-            liste: c.competitions.map((x) => ({ cle: x.id, label: `${x.nom}${x.publique ? "" : " (non publique)"}`, href: x.lien ?? "/admin/competitions" })),
+            liste: c.competitions.map((x) => ({ cle: x.id, label: `${x.nom}${x.publique ? "" : " (non publique)"}`, href: `/admin/competitions/${x.id}` })),
           },
         ].map((bloc) => (
           <section key={bloc.titre}>

@@ -14,6 +14,7 @@ import ImageUploadField from "@/components/ui/ImageUploadField";
 import CompetitionTypePicker from "@/components/competition/CompetitionTypePicker";
 import CompetitionFormatFields from "@/components/competition/CompetitionFormatFields";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 import ChoixDeCategorie from "@/components/genre/ChoixDeCategorie";
 import type { Categorie } from "@/lib/genre";
 import type { CompetitionFormat, CompetitionType } from "@/types";
@@ -67,6 +68,7 @@ export default function NewCompetitionPage() {
     }));
   };
 
+  const signalerLimite = useSignalerLimite();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -107,7 +109,7 @@ export default function NewCompetitionPage() {
       router.push(`/organizer/competitions/${id}`);
     } catch (err) {
       console.error("Error creating competition:", err);
-      toast.error("Une erreur est survenue lors de la création");
+      if (!signalerLimite(err)) toast.error("Une erreur est survenue lors de la création");
       setSubmitting(false);
     }
   };

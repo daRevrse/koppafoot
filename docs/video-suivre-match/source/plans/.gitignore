@@ -1,0 +1,4 @@
+# Tout ce dossier se régénère depuis les plans d'origine (outils/preparer-plans.mjs) :
+# morceaux, images et plans.js ne sont pas versionnés.
+*
+!.gitignore

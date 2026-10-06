@@ -122,7 +122,7 @@ export default function AdminContestationsPage() {
 
                   {!c.statsCreditees && (
                     <p className="text-xs text-gray-500">
-                      Score renseigné après coup : il n&apos;a encore rien crédité. Le valider le fera compter pour les deux clubs et les joueurs nommés.
+                      Score renseigné après coup : il n&apos;a encore rien crédité. Le valider le fera compter pour les deux équipes et les joueurs nommés.
                     </p>
                   )}
 

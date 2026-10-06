@@ -29,6 +29,13 @@ export interface TableauDeBord {
   derniersMatchs: MatchAdmin[];
   /** Les villes des comptes, de la plus représentée à la moins. */
   villes: { ville: string; comptes: number }[];
+  /** Combien d'équipes gère chaque manager : la cible du Club multi-équipes. */
+  managers: {
+    une: number;
+    deux: number;
+    troisEtPlus: number;
+    plusGrands: { uid: string; nom: string; equipes: number }[];
+  };
   /** Quand ces chiffres ont été comptés : ils ne se mettent pas à jour seuls. */
   calculeLe: string;
 }

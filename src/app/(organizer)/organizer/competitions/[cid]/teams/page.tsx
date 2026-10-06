@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import RegistrationsPanel from "@/components/competition/RegistrationsPanel";
 import type { CompTeam, TeamManagerInvite } from "@/types";
 import toast from "react-hot-toast";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
 
 const COLOR_PRESETS = [
   "#ef4444", "#f97316", "#f59e0b", "#eab308", "#22c55e", "#10b981",
@@ -228,6 +229,7 @@ export default function CompetitionTeamsPage() {
     setModalOpen(false);
   };
 
+  const signalerLimite = useSignalerLimite();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = form.name.trim();
@@ -274,7 +276,7 @@ export default function CompetitionTeamsPage() {
       setModalOpen(false);
     } catch (err) {
       console.error("Error saving team:", err);
-      toast.error("Une erreur est survenue");
+      if (!signalerLimite(err)) toast.error("Une erreur est survenue");
     } finally {
       setSubmitting(false);
     }

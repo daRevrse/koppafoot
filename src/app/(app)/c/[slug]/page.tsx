@@ -24,6 +24,7 @@ import FollowCompetitionButton from "@/components/competition/FollowCompetitionB
 import type { Competition, CompMatch, CompTeam, CompetitionStatus } from "@/types";
 import BadgeCategorie from "@/components/genre/BadgeCategorie";
 import type { Categorie } from "@/lib/genre";
+import Emplacement from "@/components/partenaires/Emplacement";
 
 // ============================================
 // Helpers
@@ -365,6 +366,12 @@ export default function PublicCompetitionHome() {
           </div>
         </div>
       </section>
+
+      {/* Le partenaire de la compétition, sinon celui de KoppaFoot. Jamais sur
+          une compétition d'entraînement : elle n'a pas de public. */}
+      {!competition.isSandbox && (
+        <Emplacement emplacement="competition" cid={competition.id} className="mt-6" />
+      )}
 
       {/* Le meilleur joueur du tournoi, une fois la compétition terminée. Le
           même bandeau que sur une fiche de match, une échelle au-dessus. */}

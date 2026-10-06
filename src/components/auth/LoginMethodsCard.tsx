@@ -6,13 +6,14 @@ import { Mail, Phone, Loader2, Check, Plus, ShieldCheck, X, Lock } from "lucide-
 import { type RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { createRecaptchaVerifier } from "@/lib/recaptcha";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { getAuthErrorMessage, getPhoneLinkErrorMessage } from "@/lib/auth-errors";
 import {
   COUNTRY_CODES,
   DEFAULT_DIAL_CODE,
   RESEND_COOLDOWN_S,
   normalizeNational,
   toE164,
+  CONNEXION_SMS_OUVERTE,
 } from "@/lib/phone";
 
 // ============================================
@@ -28,7 +29,7 @@ const inputClass =
 type Panel = "none" | "phone" | "email";
 
 export default function LoginMethodsCard() {
-  const { firebaseUser, sendPhoneCode, linkPhone, linkEmail } = useAuth();
+  const { firebaseUser, sendPhoneCode, linkPhone, linkEmail, refreshUser } = useAuth();
   const [panel, setPanel] = useState<Panel>("none");
   const [submitting, setSubmitting] = useState(false);
 
@@ -113,10 +114,13 @@ export default function LoginMethodsCard() {
     setSubmitting(true);
     try {
       await linkPhone(confirmation, code);
+      // Le profil affiché (« Mes informations ») se relit tout de suite :
+      // sans ça, il disait « Non renseigné » jusqu'au rechargement.
+      await refreshUser();
       toast.success("Téléphone ajouté à ton compte");
       closePanel();
     } catch (err) {
-      toast.error(getAuthErrorMessage(err));
+      toast.error(getPhoneLinkErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -130,6 +134,7 @@ export default function LoginMethodsCard() {
     setSubmitting(true);
     try {
       await linkEmail(email.trim(), password);
+      await refreshUser();
       toast.success("Email ajouté, vérifie ta boîte mail");
       closePanel();
     } catch (err) {
@@ -192,6 +197,10 @@ export default function LoginMethodsCard() {
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
               <Check size={12} /> Actif
             </span>
+          ) : !CONNEXION_SMS_OUVERTE ? (
+            // Ajouter un numéro envoie un SMS : frein d'urgence tiré
+            // (lib/phone), le bouton ne mènerait qu'à une erreur.
+            <span className="shrink-0 text-[11px] font-bold text-gray-400">Bientôt</span>
           ) : (
             <button
               type="button"
@@ -278,6 +287,7 @@ export default function LoginMethodsCard() {
                 <input
                   type="text"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}

@@ -50,7 +50,7 @@ export default function AdminTeamsPage() {
     <div className="mx-auto max-w-6xl space-y-5">
       <EnTete
         titre="Équipes"
-        sousTitre={data ? `${equipes.length} clubs, ${equipes.filter((e) => e.recrute).length} qui recrutent.` : "Lecture…"}
+        sousTitre={data ? `${equipes.length} équipes, ${equipes.filter((e) => e.recrute).length} qui recrutent.` : "Lecture…"}
       />
       <Filtres<Filtre>
         valeur={filtre}
@@ -62,7 +62,7 @@ export default function AdminTeamsPage() {
           { valeur: "sans_manager", label: "Sans manager", compte: equipes.filter((e) => !e.manager || e.manager.nom === "Compte supprimé").length },
         ]}
       />
-      <Recherche valeur={recherche} onChange={setRecherche} placeholder="Nom du club, ville, manager…" />
+      <Recherche valeur={recherche} onChange={setRecherche} placeholder="Nom de l'équipe, ville, manager…" />
 
       {erreur && <Erreur message={erreur} onReessayer={recharger} />}
       {chargement ? (
