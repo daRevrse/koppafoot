@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Reveler from "@/components/motion/Reveler";
+import VideoYoutube from "@/components/aide/VideoYoutube";
+import { tutoriel, videoDe } from "@/lib/tutoriels";
 import Image from "next/image";
 import {
   Radio, Hand, ListChecks, ShieldCheck, ArrowRight,
@@ -78,6 +80,9 @@ const ETAPES = [
     body: "Dix minutes avant, tu valides les deux feuilles de match. Puis coup d'envoi, et tu saisis ce qui se passe jusqu'au coup de sifflet final.",
   },
 ];
+
+// La vidéo du tutoriel scoreur (lib/tutoriels), quand elle existe.
+const VIDEO = videoDe(tutoriel("scoreur"), "fr")?.video;
 
 const QUESTIONS = [
   {
@@ -227,6 +232,14 @@ export default function ScoreursPage() {
           <h2 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 sm:text-5xl">
             Comment ça se passe
           </h2>
+          {VIDEO && (
+            <VideoYoutube
+              video={VIDEO}
+              titre="Tenir la console d'un match sur KoppaFoot"
+              sizes="(min-width: 1024px) 896px, 100vw"
+              className="mt-12 max-w-4xl"
+            />
+          )}
           <Reveler className="mt-16 grid gap-x-16 gap-y-14 sm:grid-cols-2">
             {ETAPES.map(({ n, title, body }) => (
               <div key={n} className="flex gap-6">

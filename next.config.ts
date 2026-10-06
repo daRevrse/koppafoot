@@ -46,6 +46,16 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "koppafoot.firebasestorage.app",
       },
+      // Les miniatures des vidéos des tutoriels (components/aide/VideoYoutube).
+      // Elles passent par l'optimiseur pour que le navigateur ne contacte pas
+      // YouTube avant qu'on lance la vidéo. Restreint au chemin des
+      // miniatures, sans paramètres : rien d'autre de ce domaine ne passe.
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        pathname: "/vi/**",
+        search: "",
+      },
       // LE JOKER `hostname: "**"` A ÉTÉ RETIRÉ, et avec lui un proxy ouvert.
       //
       // Il était là parce que logos et bannières pouvaient être des URL libres,

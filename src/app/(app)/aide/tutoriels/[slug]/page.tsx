@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
 import { ArrowRight, Download } from "lucide-react";
 import { useLangue, useT, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
-import { tutoriel } from "@/lib/tutoriels";
+import { tutoriel, videoDe } from "@/lib/tutoriels";
 import CartesTutoriels from "@/components/aide/CartesTutoriels";
+import VideoYoutube from "@/components/aide/VideoYoutube";
 
 // ============================================
 // Une fiche de tutoriel : l'essentiel d'un profil en quelques étapes, chacune
@@ -16,6 +17,9 @@ import CartesTutoriels from "@/components/aide/CartesTutoriels";
 // Numérotée, parce que l'ordre compte : on ne recrute pas avant d'avoir créé
 // son équipe. Mais chaque étape se lit seule, pour qui revient chercher UN
 // geste.
+//
+// La vidéo, quand il y en a une, ouvre la fiche : qui préfère regarder n'a
+// pas à lire d'abord. L'ancre #video y mène depuis « Pour bien démarrer ».
 // ============================================
 
 const T = textes(
@@ -57,6 +61,7 @@ export default function TutorielPage() {
 
   const etapes = (langue === "en" ? tuto.etapes.en : null) ?? tuto.etapes.fr;
   const enFrancais = langue === "en" && !tuto.etapes.en;
+  const video = videoDe(tuto, langue);
 
   return (
     <div className="mx-auto max-w-3xl pb-24">
@@ -76,6 +81,17 @@ export default function TutorielPage() {
           {tuto.titre[langue]}
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/70">{tuto.pourQui[langue]}</p>
+        {video && (
+          <div id="video" className="mt-6 scroll-mt-24">
+            <VideoYoutube
+              video={video.video}
+              titre={tuto.titre[langue]}
+              enFrancais={video.enFrancais}
+              sombre
+              sizes="(min-width: 768px) 704px, 100vw"
+            />
+          </div>
+        )}
         {tuto.pdf && (
           <a
             href={tuto.pdf}

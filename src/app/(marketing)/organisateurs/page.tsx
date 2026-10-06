@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Reveler from "@/components/motion/Reveler";
+import VideoYoutube from "@/components/aide/VideoYoutube";
+import { tutoriel, videoDe } from "@/lib/tutoriels";
 import Image from "next/image";
 import {
   Radio, Trophy, BarChart3, Users, ArrowRight,
@@ -78,6 +80,9 @@ const TUTORIAL = [
     body: "Invite tes scoreurs par code, attribue-leur les rencontres du jour. Le jour J, ils ouvrent la console sur leur téléphone.",
   },
 ];
+
+// La vidéo du tutoriel organisateur (lib/tutoriels), quand elle existe.
+const VIDEO = videoDe(tutoriel("organisateur"), "fr")?.video;
 
 const QUESTIONS = [
   {
@@ -232,6 +237,15 @@ export default function OrganizersLandingPage() {
             <br />
             compétition tourne.
           </h2>
+
+          {VIDEO && (
+            <VideoYoutube
+              video={VIDEO}
+              titre="Organiser une compétition sur KoppaFoot"
+              sizes="(min-width: 1024px) 896px, 100vw"
+              className="mt-16 max-w-4xl"
+            />
+          )}
 
           <Reveler className="mt-20 space-y-px bg-gray-200/70" contenu>
             {TUTORIAL.map(({ n, title, body }) => (

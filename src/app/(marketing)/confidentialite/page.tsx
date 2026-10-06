@@ -6,7 +6,8 @@ import { DocumentJuridique, Liste, Lien, type SectionJuridique } from "@/compone
 // ELLE DÉCRIT CE QUE LE CODE FAIT, PAS UN MODÈLE GÉNÉRIQUE. Chaque donnée
 // citée ici existe dans l'application (voir types/index.ts, FirestoreUser),
 // chaque prestataire est réellement appelé (Firebase, Vercel, Brevo ou
-// Resend), et ce qui part avec un compte supprimé est ce que
+// Resend, et YouTube dès qu'un tutoriel a sa vidéo : voir
+// components/aide/VideoYoutube), et ce qui part avec un compte supprimé est ce que
 // lib/account-purge efface. Un ajout dans l'un de ces endroits (un champ de
 // profil, un prestataire, un cookie) se reporte ici, ou la page ment.
 //
@@ -121,6 +122,12 @@ const SECTIONS: SectionJuridique[] = [
           <li><strong>Google Firebase</strong> et <strong>reCAPTCHA</strong> : connexion (dont l&apos;envoi des codes par SMS et la vérification anti-robot), base de données, stockage des photos, envoi des notifications.</li>
           <li><strong>Vercel</strong> : hébergement du site et statistiques de fréquentation anonymes.</li>
           <li><strong>Brevo</strong> ou <strong>Resend</strong> : envoi des e-mails.</li>
+          <li>
+            <strong>YouTube</strong> (Google) : les vidéos des tutoriels, seulement si tu en lances une. Avant, rien ne
+            lui est envoyé : la miniature passe par nos serveurs. Au moment où tu appuies sur lecture, la vidéo se charge
+            depuis youtube-nocookie.com, le mode de YouTube qui limite les traceurs ; YouTube reçoit alors ton adresse IP
+            et applique sa propre politique de confidentialité pendant la lecture.
+          </li>
         </Liste>
         <p>
           Ces prestataires peuvent conserver les données sur des serveurs situés hors du Togo, notamment en Europe et aux
@@ -145,7 +152,8 @@ const SECTIONS: SectionJuridique[] = [
         </Liste>
         <p>
           Aucun cookie publicitaire ni de pistage d&apos;un site à l&apos;autre. Les statistiques de fréquentation fonctionnent
-          sans cookie.
+          sans cookie. Seule exception, et à ton initiative : une vidéo YouTube que tu lances peut enregistrer ses propres
+          données dans ton navigateur pendant la lecture (voir plus haut).
         </p>
       </>
     ),

@@ -2,9 +2,10 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, ArrowRight, PartyPopper, ChevronDown, BookOpen } from "lucide-react";
+import { CheckCircle2, Circle, ArrowRight, PartyPopper, ChevronDown, BookOpen, PlayCircle } from "lucide-react";
 import type { OnboardingProgress } from "@/lib/onboarding";
-import { useTextes } from "@/i18n";
+import { tutoriel as tutorielDe, videoDe } from "@/lib/tutoriels";
+import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
 // ============================================
@@ -24,11 +25,13 @@ const T = textes(
     titre: "Pour bien démarrer",
     fini: "Tout est en place. Bon match !",
     tutoriel: "Lire le tutoriel pas à pas",
+    video: "Voir la vidéo",
   },
   {
     titre: "Getting started",
     fini: "You're all set. Enjoy the match!",
     tutoriel: "Read the step-by-step guide",
+    video: "Watch the video",
   },
 );
 
@@ -76,7 +79,9 @@ export default function OnboardingChecklist({
   onglets?: React.ReactNode;
 }) {
   const t = useTextes(T);
+  const { langue } = useLangue();
   const { steps, doneCount, total, current, complete, suggestion, tutoriel } = progress;
+  const video = videoDe(tutorielDe(tutoriel), langue)?.video;
   const collapsed = useSyncExternalStore(subscribe, getCollapsed, getServerCollapsed);
   const toggle = () => storeCollapsed(!collapsed);
 
@@ -175,13 +180,25 @@ export default function OnboardingChecklist({
               </Link>
             </p>
           )}
-          <Link
-            href={`/aide/tutoriels/${tutoriel}`}
-            className="inline-flex items-center gap-1.5 text-xs font-black text-gray-600 transition-colors hover:text-gray-900"
-          >
-            <BookOpen size={13} />
-            {t.tutoriel}
-          </Link>
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link
+              href={`/aide/tutoriels/${tutoriel}`}
+              className="inline-flex items-center gap-1.5 text-xs font-black text-gray-600 transition-colors hover:text-gray-900"
+            >
+              <BookOpen size={13} />
+              {t.tutoriel}
+            </Link>
+            {video && (
+              <Link
+                href={`/aide/tutoriels/${tutoriel}#video`}
+                className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 transition-colors hover:text-gray-900"
+              >
+                <PlayCircle size={13} />
+                {t.video}
+                {video.duree && <span className="tabular-nums font-bold text-gray-400">{video.duree}</span>}
+              </Link>
+            )}
+          </p>
         </div>
       )}
     </div>
