@@ -8,23 +8,37 @@ Contrairement aux autres vidéos du dossier `docs/`, celle-ci ne contient **aucu
 
 | Temps | Scène |
 |---|---|
-| 0 – 3 s | La nuit, un terrain vu de haut dont les lignes se tracent : « Ton terrain dort le soir ? » (« Mardi, 21 h ») |
-| 3 – 4,6 s | Les projecteurs s'allument un à un, flash : « Réveille-le. » |
-| 4,6 – 10,5 s | **1 · Les équipes te trouvent.** Une recherche « Terrain 5v5 à Lomé » ; la fiche du terrain sort en tête, avec son format, sa surface, ses équipements, son tarif et sa note. |
-| 10,5 – 18,6 s | **2 · Tu confirmes en un geste.** Une demande de créneau arrive ; un doigt touche « Confirmer » ; le planning de la semaine se remplit. |
-| 18,6 – 23,7 s | **3 · Garde tout.** « 0 % de commission » ; le ticket : ton tarif, ce que KoppaFoot prend (0 FCFA), ce qui te revient. |
-| 23,7 – 26,7 s | « Ton premier terrain » : le tampon « Gratuit ». L'équipe KoppaFoot valide la fiche, puis le terrain entre dans l'annuaire. |
-| 26,7 – 30 s | Fin : le stade allumé, logo, « Sans pelouse, pas de match. », « Référence ton terrain », koppafoot.com/terrains |
+| 0 – 2,8 s | La nuit, un terrain vu de haut dont les lignes se tracent : « Ton terrain dort le soir ? » (« Mardi, 21 h ») |
+| 2,8 – 4,4 s | Les projecteurs s'allument un à un, flash : « Réveille-le. » |
+| 4,4 – 8,9 s | **1 · Les équipes te trouvent.** Une recherche « Terrain 5v5 à Lomé » ; la fiche du terrain sort en tête. |
+| 8,9 – 15,4 s | **2 · Paiement mobile : réservé, frais payés.** L'équipe voit le tarif du terrain et les frais de réservation (« remboursés si le match a lieu »), puis paie les frais par mobile : « Paiement reçu ». Le propriétaire reçoit la réservation, frais payés, et la confirme ; son planning se remplit. |
+| 15,4 – 21,9 s | **3 · Fini les lapins.** Les deux issues d'une réservation : le match a lieu, les frais sont remboursés à l'équipe ; l'équipe ne vient pas, les frais reviennent au propriétaire. « Ton créneau n'est plus bloqué pour rien. » |
+| 21,9 – 26,6 s | **4 · Garde tout.** « 0 % de commission » ; le ticket : ton tarif, ce que KoppaFoot prend (0 FCFA), ce qui te revient. Les frais s'ajoutent au tarif. |
+| 26,6 – 30 s | Fin : le stade allumé, logo, « Sans pelouse, pas de match. », « Référence ton terrain », koppafoot.com/terrains, « Ton premier terrain est gratuit » |
 
-Ce que la vidéo promet est dans le produit :
+## Elle annonce une fonctionnalité à venir
 
-- **L'annuaire est filtrable** par ville, format et surface (page `/terrains`).
-- **La demande de créneau** arrive chez le propriétaire, qui la confirme ou la refuse.
-- **Aucune commission** : « La plateforme n'encaisse rien », et le règlement se fait entre le propriétaire et l'équipe.
-- **Le premier terrain est gratuit** : l'offre gratuite permet d'en référencer un (`LIMITES_GRATUIT.terrains`, dans `lib/offre`).
-- **Une candidature est relue** par l'équipe avant d'entrer dans l'annuaire (`/terrains/candidature`).
+La vidéo présente le modèle de réservation voulu :
 
-Le terrain des Cocotiers, son tarif, sa note et les équipes du planning sont fictifs. L'Avenir d'Adakpamé et l'Olympique de Tokoin sont ceux des autres vidéos.
+- l'équipe paie par **paiement mobile** des **frais de réservation**, en plus du tarif ;
+- ces frais lui sont **remboursés si le match a lieu** ;
+- si l'équipe ne vient pas, ils **reviennent au propriétaire** ;
+- KoppaFoot prend **0 % de commission** sur les réservations.
+
+**L'application ne fait pas encore tout cela.** Aujourd'hui, la page `/terrains` dit que « la plateforme n'encaisse rien », et le règlement se fait entre le propriétaire et l'équipe. La vidéo est donc à publier une fois le paiement mobile en service, ou en annonçant « bientôt ». Il faudra aussi mettre la page `/terrains` à jour.
+
+Les autres promesses sont déjà dans le produit :
+
+- l'annuaire filtrable par ville, format et surface ;
+- la demande de créneau que le propriétaire confirme ;
+- un terrain référencé avec l'offre gratuite (`LIMITES_GRATUIT.terrains`, dans `lib/offre`).
+
+Deux choix restent faciles à changer :
+
+- **Le montant des frais** : 2 000 FCFA dans la vidéo, un exemple. Il est réglé par `FRAIS`, en haut du script de `source/animation.html`.
+- **À qui vont les frais d'une équipe absente** : au propriétaire, en dédommagement du créneau perdu. Si la règle change, il faut modifier la carte « L'équipe ne vient pas » (`#i-non`).
+
+Le terrain des Cocotiers, son tarif, sa note et les équipes du planning sont fictifs. L'Avenir d'Adakpamé et l'Olympique de Tokoin sont ceux des autres vidéos. Aucun opérateur de paiement n'est nommé : l'écran dit « Paiement mobile ».
 
 ## Ajouter une musique
 
