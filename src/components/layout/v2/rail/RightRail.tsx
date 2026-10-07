@@ -5,6 +5,7 @@ import MovementsRail from "./MovementsRail";
 import NewsRail from "./NewsRail";
 import TodayMatchesRail from "./TodayMatchesRail";
 import PerformanceRail from "./PerformanceRail";
+import Emplacement from "@/components/partenaires/Emplacement";
 
 // ============================================
 // RightRail, ce qui occupe la colonne de droite, selon la page.
@@ -50,14 +51,22 @@ export function routeOwnsItsRail(pathname: string): boolean {
 export default function RightRail() {
   const pathname = usePathname();
 
-  // Le Direct porte ce qui se lit a cote d'un tableau de scores : ce que la
-  // presse ecrit, et qui a signe ou. Pas de pronostic ici, il appartient a
+  // Le Direct porte ce qui se lit a cote d'un tableau de scores : qui a signe
+  // ou, et ce que la presse ecrit. Pas de pronostic ici, il appartient a
   // la page d'un match, la ou on sait de quelle rencontre on parle.
   if (pathname === "/") {
     return (
       <div className="space-y-8">
-        <NewsRail />
+        {/* Le bandeau des partenaires du Direct, debout : en tête du rail.
+            C'est le même emplacement que le bandeau de tête sur téléphone
+            (DirectHomeV2), à sa place sur grand écran, là où ce rail
+            s'affiche ; sous 1280 px, le Direct le porte. Pas de position fixe
+            au défilement : un bloc fixe passerait par-dessus ce qui suit. */}
+        <Emplacement emplacement="direct" variante="verticale" />
+        {/* Les transferts avant la presse : ce qui se signe chez nous passe
+            devant ce que les médias écrivent ailleurs. */}
         <MovementsRail max={5} />
+        <NewsRail />
       </div>
     );
   }

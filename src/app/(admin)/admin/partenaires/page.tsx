@@ -10,8 +10,9 @@ import {
   type Ton,
 } from "@/components/admin/ui";
 import {
-  BANNIERE_CONSEILLEE, EMPLACEMENTS, FORMATS, LIBELLE_EMPLACEMENT, LIBELLE_FORMAT, aLAffiche, avisBanniere, jourDeLome,
-  type EmplacementPartenaire, type FormatPartenaire,
+  BANNIERE_CONSEILLEE, DUREE_ANNONCE_MS, EMPLACEMENTS, FORMATS, LIBELLE_EMPLACEMENT, LIBELLE_FORMAT, LIBELLE_TYPE, TYPES,
+  VERTICALE_CONSEILLEE, aLAffiche, avisBanniere, avisVerticale, jourDeLome,
+  type EmplacementPartenaire, type FormatPartenaire, type TypePartenariat,
 } from "@/lib/partenaires";
 
 // ============================================
@@ -33,7 +34,9 @@ interface Partenaire {
   annonceur: string;
   accroche: string | null;
   format: FormatPartenaire;
+  type: TypePartenariat;
   imageUrl: string | null;
+  imageVerticaleUrl: string | null;
   lien: string | null;
   emplacements: EmplacementPartenaire[];
   competitionId: string | null;
@@ -50,6 +53,7 @@ interface Formulaire {
   annonceur: string;
   accroche: string;
   format: FormatPartenaire;
+  type: TypePartenariat;
   lien: string;
   emplacements: EmplacementPartenaire[];
   competition: string;
@@ -62,6 +66,11 @@ interface Formulaire {
   fichier: File | null;
   apercu: string | null;
   retirerImage: boolean;
+  /** Le visuel vertical d'une bannière (1:2), facultatif : le rail de droite du Direct. */
+  imageVerticaleUrl: string | null;
+  fichierVerticale: File | null;
+  apercuVerticale: string | null;
+  retirerImageVerticale: boolean;
 }
 
 /** Dans un mois, jour pour jour : la durée par défaut d'une campagne. */
@@ -72,8 +81,9 @@ function dansUnMois(): string {
 }
 
 const VIDE: Formulaire = {
-  id: null, annonceur: "", accroche: "", format: "logo", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
+  id: null, annonceur: "", accroche: "", format: "logo", type: "partenaire", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
   debut: "", fin: "", actif: true, imageUrl: null, fichier: null, apercu: null, retirerImage: false,
+  imageVerticaleUrl: null, fichierVerticale: null, apercuVerticale: null, retirerImageVerticale: false,
 };
 
 /** Retire le préfixe `data:<type>;base64,` : la route attend la charge seule. */
@@ -145,9 +155,9 @@ export default function AdminPartenairesPage() {
   const ouvrir = (p?: Partenaire) => {
     setForm(p ? {
       ...VIDE,
-      id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", format: p.format, lien: p.lien ?? "",
+      id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", format: p.format, type: p.type, lien: p.lien ?? "",
       emplacements: p.emplacements, competition: p.competitionId ?? "", competitionNom: p.competitionNom, debut: p.debut, fin: p.fin,
-      actif: p.actif, imageUrl: p.imageUrl,
+      actif: p.actif, imageUrl: p.imageUrl, imageVerticaleUrl: p.imageVerticaleUrl,
     } : { ...VIDE, debut: jour, fin: dansUnMois() });
   };
 
@@ -160,6 +170,7 @@ export default function AdminPartenairesPage() {
         annonceur: form.annonceur,
         accroche: form.accroche,
         format: form.format,
+        type: form.type,
         lien: form.lien,
         emplacements: form.emplacements,
         competition: form.competition,
@@ -168,6 +179,10 @@ export default function AdminPartenairesPage() {
         actif: form.actif,
         image: form.fichier ? { data: await enBase64(form.fichier), contentType: form.fichier.type } : null,
         retirerImage: form.retirerImage,
+        imageVerticale: form.format === "banniere" && form.fichierVerticale
+          ? { data: await enBase64(form.fichierVerticale), contentType: form.fichierVerticale.type }
+          : null,
+        retirerImageVerticale: form.retirerImageVerticale,
       };
       await appel(form.id ? "PATCH" : "POST", corps);
       toast.success(form.id ? "Partenaire mis à jour" : "Partenaire créé");
@@ -205,7 +220,7 @@ export default function AdminPartenairesPage() {
     <div className="space-y-6">
       <EnTete
         titre="Partenaires"
-        sousTitre="Les marques affichées sur les compétitions, les fiches de match et l'accueil, toujours signalées « Partenaire »."
+        sousTitre="Les marques affichées sur les compétitions, les fiches de match et l'accueil, toujours signalées « Partenaire » ou « Annonce »."
         actions={
           <button onClick={() => ouvrir()} className={BOUTON_VERT}>
             <Plus size={14} /> Nouveau partenaire
@@ -253,7 +268,9 @@ export default function AdminPartenairesPage() {
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-black text-gray-900">{p.annonceur}</span>
                     <Pastille ton={s.ton}>{s.label}</Pastille>
+                    <Pastille ton={p.type === "annonce" ? "bleu" : "noir"}>{LIBELLE_TYPE[p.type]}</Pastille>
                     {p.format === "banniere" && <Pastille ton="gris">{LIBELLE_FORMAT.banniere}</Pastille>}
+                    {p.format === "banniere" && p.imageVerticaleUrl && <Pastille ton="gris">+ vertical</Pastille>}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {p.emplacements.map((e) => LIBELLE_EMPLACEMENT[e]).join(" · ")}
@@ -345,18 +362,49 @@ function FormulairePartenaire({ form, setForm }: {
       </label>
 
       <div>
+        <span className={ETIQUETTE}>Formule</span>
+        <div role="radiogroup" aria-label="Formule" className="grid grid-cols-2 gap-2">
+          {TYPES.map((ty) => {
+            const choisi = form.type === ty;
+            return (
+              <button
+                key={ty}
+                type="button"
+                role="radio"
+                aria-checked={choisi}
+                onClick={() => maj(ty === "annonce" ? { type: ty, format: "banniere" } : { type: ty })}
+                className={`border px-3 py-2 text-left transition-colors ${
+                  choisi ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                <span className="block text-sm font-black">{LIBELLE_TYPE[ty]}</span>
+                <span className={`mt-0.5 block text-[11px] leading-snug ${choisi ? "text-gray-300" : "text-gray-400"}`}>
+                  {ty === "partenaire"
+                    ? "Seul dans ses emplacements, ne défile pas. Mention « Partenaire ». La formule la plus chère."
+                    : `Partage l'emplacement avec les autres annonces, qui défilent au hasard toutes les ${DUREE_ANNONCE_MS / 1000} s. Mention « Annonce ». Toujours une bannière.`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
         <span className={ETIQUETTE}>Format</span>
         <div role="radiogroup" aria-label="Format" className="grid grid-cols-2 gap-2">
           {FORMATS.map((f) => {
             const choisi = form.format === f;
+            // Une annonce défile avec d'autres bannières : pas de logo.
+            const interdit = form.type === "annonce" && f === "logo";
             return (
               <button
                 key={f}
                 type="button"
                 role="radio"
                 aria-checked={choisi}
+                disabled={interdit}
                 onClick={() => maj({ format: f })}
-                className={`border px-3 py-2 text-left transition-colors ${
+                className={`border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   choisi ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200/70 bg-white text-gray-700 hover:border-gray-400"
                 }`}
               >
@@ -423,6 +471,8 @@ function FormulairePartenaire({ form, setForm }: {
         )}
       </div>
 
+      {form.format === "banniere" && <VisuelVertical form={form} maj={maj} />}
+
       <div>
         <span className={ETIQUETTE}>Emplacements</span>
         <div className="space-y-1.5">
@@ -465,6 +515,61 @@ function FormulairePartenaire({ form, setForm }: {
         <input type="checkbox" checked={form.actif} onChange={(e) => maj({ actif: e.target.checked })} />
         Actif (décoché : jamais affiché, quelles que soient les dates)
       </label>
+    </div>
+  );
+}
+
+/**
+ * Le visuel vertical d'une bannière, 1:2, facultatif : le rail de droite du
+ * Direct sur grand écran. Sans lui, le rail montre la bannière 4:1.
+ */
+function VisuelVertical({ form, maj }: { form: Formulaire; maj: (patch: Partial<Formulaire>) => void }) {
+  const visuel = form.apercuVerticale ?? (form.retirerImageVerticale ? null : form.imageVerticaleUrl);
+  const [dimensions, setDimensions] = useState<{ src: string; largeur: number; hauteur: number } | null>(null);
+  const avis = visuel && dimensions?.src === visuel ? avisVerticale(dimensions.largeur, dimensions.hauteur) : null;
+  return (
+    <div>
+      <span className={ETIQUETTE}>
+        Visuel vertical, facultatif ({VERTICALE_CONSEILLEE.largeur} × {VERTICALE_CONSEILLEE.hauteur} px conseillés)
+      </span>
+      <div className="flex items-start gap-3">
+        {/* Les proportions exactes de l'affichage (300 × 600 dans le rail). */}
+        <span className="relative flex aspect-[1/2] w-20 shrink-0 items-center justify-center overflow-hidden border border-gray-200/70 bg-gray-50">
+          {visuel ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={visuel}
+              src={visuel}
+              alt=""
+              onLoad={(e) => setDimensions({ src: visuel, largeur: e.currentTarget.naturalWidth, hauteur: e.currentTarget.naturalHeight })}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="px-1 text-center text-[10px] font-bold leading-tight text-gray-400">1:2</span>
+          )}
+        </span>
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="text-[11px] leading-snug text-gray-500">
+            Pour le rail de droite du Direct, sur grand écran. Sans lui, la bannière y paraît en 4:1.
+          </p>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              maj({ fichierVerticale: f, apercuVerticale: f ? URL.createObjectURL(f) : null, retirerImageVerticale: false });
+            }}
+            className="block min-w-0 text-xs"
+          />
+          {avis && <p className="text-[11px] font-semibold leading-snug text-amber-700">{avis}</p>}
+          {(form.imageVerticaleUrl || form.fichierVerticale) && !form.retirerImageVerticale && (
+            <button type="button" onClick={() => maj({ fichierVerticale: null, apercuVerticale: null, retirerImageVerticale: true })}
+              className="text-[11px] font-bold text-red-600 hover:underline">
+              Retirer le visuel vertical
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
