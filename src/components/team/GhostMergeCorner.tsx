@@ -96,8 +96,11 @@ export default function GhostMergeCorner({ teamId, ghostPlayers, members, onMerg
         <>
           Sa carrière — {carriere(fantome)} — passe sur le compte de{" "}
           <strong className="font-bold text-gray-900">{nomCompte}</strong>, les feuilles de
-          match déjà jouées porteront son vrai nom, et la fiche sans compte disparaîtra.
-          C&apos;est définitif.
+          match déjà jouées porteront son vrai nom, et la fiche sans compte disparaîtra
+          {fantome.photoUrl
+            ? <>, avec la photo que le club lui avait mise : c&apos;est désormais à lui de choisir la sienne</>
+            : null}
+          . C&apos;est définitif.
         </>
       ),
       action: "Fusionner",

@@ -159,7 +159,9 @@ export async function ficheDuClub(teamId: string, club: Doc): Promise<FicheDuClu
         nom: nomComplet(d) || "Joueur",
         numero: numero && !dossardsDesComptes.has(numero) ? numero : null,
         poste: normaliserPoste(d.position),
-        photo: null,
+        // Posée par le club, avec l'accord du joueur (voir
+        // `FirestoreGhostPlayer.photo_url`).
+        photo: texte(d.photo_url),
         uid: null,
       };
     }),

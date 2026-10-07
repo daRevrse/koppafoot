@@ -1599,6 +1599,14 @@ export interface FirestoreGhostPlayer {
    * pas dire lui-même qu'il est blessé. Voir lib/etat-de-forme.
    */
   condition?: FirestoreConditionJoueur | null;
+  /**
+   * Sa photo, posée par ceux qui gèrent l'équipe : il n'a pas de compte pour
+   * la mettre lui-même. Rangée dans Storage sous
+   * `teams/{id}/ghost_players/{ghostId}/`, écrite par le serveur seulement
+   * (voir /api/teams/[id]/ghost-players/[gid]/photo). Elle disparaît avec lui,
+   * et le jour où il fusionne avec son compte : c'est alors à lui de choisir.
+   */
+  photo_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1616,6 +1624,8 @@ export interface GhostPlayer {
   matchesPlayed: number;
   /** Voir `FirestoreGhostPlayer.condition`. */
   condition: ConditionJoueur | null;
+  /** Voir `FirestoreGhostPlayer.photo_url`. */
+  photoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -49,3 +49,12 @@ export async function stockerVisuel(
 export async function effacerVisuels(prefixe: string): Promise<void> {
   await adminStorage.bucket().deleteFiles({ prefix: prefixe }).catch(() => {});
 }
+
+/**
+ * Le dossier de la photo d'un joueur sans compte. Un seul fichier y vit à la
+ * fois (voir /api/teams/[id]/ghost-players/[gid]/photo) ; le vider suffit à
+ * l'effacer, à sa suppression comme à sa fusion avec un compte.
+ */
+export function dossierPhotoSansCompte(teamId: string, ghostId: string): string {
+  return `teams/${teamId}/ghost_players/${ghostId}/`;
+}

@@ -57,6 +57,7 @@ import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
 import { lireEmplacement, type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
+import { enBase64 } from "@/lib/images";
 import type { FirestoreLineupEntry } from "@/types";
 
 // ============================================
@@ -91,6 +92,7 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     assists: d.assists ?? 0,
     matchesPlayed: d.matches_played ?? 0,
     condition: lireCondition(d.condition),
+    photoUrl: d.photo_url || null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -3774,7 +3776,63 @@ export async function mergeGhostPlayer(input: {
   return data;
 }
 
-export async function deleteGhostPlayer(teamId: string, ghostId: string): Promise<void> {
+/**
+ * La route de la photo d'un joueur sans compte : seul le serveur écrit dans
+ * son dossier Storage, après avoir vérifié qu'on gère l'équipe. Voir
+ * /api/teams/[id]/ghost-players/[gid]/photo.
+ */
+async function routePhotoSansCompte(
+  teamId: string,
+  ghostId: string,
+  method: "POST" | "DELETE",
+  corps?: unknown,
+): Promise<{ photoUrl?: string }> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch(
+    `/api/teams/${encodeURIComponent(teamId)}/ghost-players/${encodeURIComponent(ghostId)}/photo`,
+    {
+      method,
+      headers: {
+        Authorization: `Bearer ${await current.getIdToken()}`,
+        ...(corps ? { "Content-Type": "application/json" } : {}),
+      },
+      body: corps ? JSON.stringify(corps) : undefined,
+    },
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "La photo n'a pas pu être enregistrée");
+  return data;
+}
+
+/**
+ * Pose ou remplace la photo d'un joueur sans compte. Le fichier arrive déjà
+ * allégé (voir ImageUploadField) : une photo d'effectif s'affiche en
+ * vignette, jamais en grand.
+ */
+export async function envoyerPhotoSansCompte(teamId: string, ghostId: string, fichier: File): Promise<string> {
+  const { photoUrl } = await routePhotoSansCompte(teamId, ghostId, "POST", {
+    image: { data: await enBase64(fichier), contentType: fichier.type },
+  });
+  return photoUrl ?? "";
+}
+
+export async function retirerPhotoSansCompte(teamId: string, ghostId: string): Promise<void> {
+  await routePhotoSansCompte(teamId, ghostId, "DELETE");
+}
+
+/**
+ * Supprime un joueur sans compte, et sa photo s'il en a une : sans ce
+ * passage par le serveur, le fichier resterait dans Storage, public, sans plus
+ * rien qui le montre ni qui permette de l'effacer. Un échec sur la photo
+ * n'empêche pas la suppression.
+ */
+export async function deleteGhostPlayer(
+  teamId: string,
+  ghostId: string,
+  photoUrl?: string | null,
+): Promise<void> {
+  if (photoUrl) await retirerPhotoSansCompte(teamId, ghostId).catch(() => {});
   await deleteDoc(doc(db, "teams", teamId, "ghost_players", ghostId));
 }
 
