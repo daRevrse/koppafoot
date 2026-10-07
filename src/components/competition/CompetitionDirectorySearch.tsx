@@ -17,12 +17,13 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 
 // Three public buckets inside the local tab, rendered in this order. Each maps
 // to one or more competition statuses (draft is never public, so it has no
-// bucket).
+// bucket). « À venir » holds both open and closed registration: the card's
+// badge tells which ones still take teams.
 type Section = "enCours" | "aVenir" | "terminees";
 
 const SECTIONS: { cle: Section; statuses: Competition["status"][] }[] = [
   { cle: "enCours", statuses: ["group_stage", "knockout"] },
-  { cle: "aVenir", statuses: ["registration"] },
+  { cle: "aVenir", statuses: ["registration", "registration_closed"] },
   { cle: "terminees", statuses: ["completed"] },
 ];
 
@@ -35,6 +36,7 @@ const T = textes(
     top: "Top compétitions",
     resultatsPour: (q: string) => `Résultats pour «\u00a0${q}\u00a0»`,
     effacer: "Effacer",
+    competitions: (n: number) => `${n} compétition${n > 1 ? "s" : ""}`,
     aucunResultat: "Aucun résultat",
     aucuneLocale: "Aucune compétition locale pour le moment.",
     aucuneDisponible: "Aucune compétition disponible.",
@@ -45,6 +47,7 @@ const T = textes(
     top: "Top competitions",
     resultatsPour: (q: string) => `Results for “${q}”`,
     effacer: "Clear",
+    competitions: (n: number) => `${n} competition${n === 1 ? "" : "s"}`,
     aucunResultat: "No results",
     aucuneLocale: "No local competitions yet.",
     aucuneDisponible: "No competitions available.",
@@ -148,17 +151,20 @@ export default function CompetitionDirectorySearch({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-5 border-b border-gray-200/70">
+      {/* Tabs. Sur une ligne quoi qu'il arrive : sur téléphone, les icônes
+          s'effacent pour que les deux libellés tiennent sans se couper. */}
+      <div className="flex gap-5 overflow-x-auto border-b border-gray-200/70 [scrollbar-width:none]">
         {TABS.map((t) => (
           <button
             key={t.key}
+            type="button"
+            aria-pressed={tab === t.key}
             onClick={() => setChoice({ query, tab: t.key })}
-            className={`relative flex items-center gap-1.5 pb-2.5 text-sm font-bold transition-colors ${
+            className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap pb-2.5 text-sm font-bold transition-colors ${
               tab === t.key ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            <t.Icon size={14} className={tab === t.key ? "text-emerald-500" : "text-gray-300"} />
+            <t.Icon size={14} className={`hidden sm:block ${tab === t.key ? "text-emerald-500" : "text-gray-300"}`} />
             {t.label}
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums ${
@@ -175,7 +181,7 @@ export default function CompetitionDirectorySearch({
       </div>
 
       {activeCount === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 border border-gray-200/70 bg-white py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 border border-gray-200/70 bg-white px-6 py-16 text-center">
           <div className="flex h-14 w-14 items-center justify-center bg-gray-50 text-gray-300">
             <SearchX size={28} />
           </div>
@@ -188,18 +194,20 @@ export default function CompetitionDirectorySearch({
           </p>
         </div>
       ) : tab === "local" ? (
-        <div className="space-y-8">
+        <div className="space-y-10">
+          {/* Les en-têtes de section sont ceux des Actus : un titre, le
+              compte à droite, un filet dessous. */}
           {sections.map((section) => (
-            <section key={section.title} className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
-                <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
+            <section key={section.title} className="space-y-4">
+              <div className="flex items-baseline justify-between gap-4 border-b border-gray-200/70 pb-3">
+                <h2 className="font-display text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
                   {section.title}
                 </h2>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black tabular-nums text-gray-500">
-                  {section.items.length}
+                <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
+                  {tx.competitions(section.items.length)}
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
                 {section.items.map((competition) => (
                   <CompetitionDirectoryCard key={competition.id} competition={competition} />
                 ))}
@@ -208,7 +216,7 @@ export default function CompetitionDirectorySearch({
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {filteredWorld.map((competition) => (
             <WorldCompetitionCard key={competition.code} competition={competition} />
           ))}

@@ -1700,7 +1700,13 @@ export interface Notification {
 // Competitions
 // ============================================
 
-export type CompetitionStatus = "draft" | "registration" | "group_stage" | "knockout" | "completed";
+/**
+ * Où en est une compétition. `registration_closed` : les inscriptions sont
+ * closes mais rien ne se joue encore — les équipes sont connues, l'organisateur
+ * prépare les poules et le calendrier. Le public la voit « à venir ».
+ */
+export type CompetitionStatus =
+  | "draft" | "registration" | "registration_closed" | "group_stage" | "knockout" | "completed";
 
 /**
  * Shape of a competition. Drives which stages exist, which generators the

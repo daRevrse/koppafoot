@@ -13,7 +13,7 @@ import type {
 
 // Relevance rank: ongoing first, then upcoming, then finished. (draft is filtered out.)
 const STATUS_RANK: Record<CompetitionStatus, number> = {
-  group_stage: 0, knockout: 0, registration: 1, completed: 2, draft: 99,
+  group_stage: 0, knockout: 0, registration: 1, registration_closed: 1, completed: 2, draft: 99,
 };
 
 /** All publicly-visible competitions (status != draft), most relevant first. */

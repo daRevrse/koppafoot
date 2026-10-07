@@ -302,6 +302,7 @@ export async function imageDuMatch(match: MatchPublic | CompMatchPublic | null):
 /** Les états d'une compétition, dits pour quelqu'un qui ne connaît pas l'appli. */
 export const ETATS_COMPETITION: Record<string, string> = {
   registration: "Inscriptions ouvertes",
+  registration_closed: "Bientôt le coup d'envoi",
   group_stage: "Phase de groupes",
   knockout: "Phase finale",
   completed: "Terminée",

@@ -118,10 +118,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Cette équipe n'est pas la tienne." }, { status: 403 });
     }
     // Entries are only open at the "registration" stage: once fixtures are
-    // generated, adding a team would break the schedule.
+    // generated, adding a team would break the schedule. `registration_closed`
+    // is the organizer saying so before the fixtures exist.
     if (competition.status !== "registration") {
       return NextResponse.json(
-        { error: "Les inscriptions ne sont pas ouvertes pour cette compétition." },
+        {
+          error: competition.status === "registration_closed"
+            ? "Les inscriptions sont closes pour cette compétition."
+            : "Les inscriptions ne sont pas ouvertes pour cette compétition.",
+        },
         { status: 409 },
       );
     }

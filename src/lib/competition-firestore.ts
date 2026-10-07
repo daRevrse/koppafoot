@@ -153,7 +153,7 @@ export async function getCompetitionBySlug(slug: string): Promise<Competition | 
 // Relevance rank shared with competition-admin.getPublicCompetitions:
 // ongoing first, then upcoming, then finished (draft filtered out).
 const PUBLIC_STATUS_RANK: Record<Competition["status"], number> = {
-  group_stage: 0, knockout: 0, registration: 1, completed: 2, draft: 99,
+  group_stage: 0, knockout: 0, registration: 1, registration_closed: 1, completed: 2, draft: 99,
 };
 
 /**

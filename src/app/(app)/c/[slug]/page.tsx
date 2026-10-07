@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, SearchX, Trophy, ClipboardList, Share2 } from "lucide-react";
+import { Loader2, SearchX, Trophy, ClipboardList, ClipboardCheck, Share2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import { format, parseISO } from "date-fns";
@@ -49,8 +49,8 @@ type TabId = (typeof TAB_IDS)[number];
 const T = textes(
   {
     statut: (s: CompetitionStatus) => ({
-      draft: "Brouillon", registration: "Inscriptions", group_stage: "Phase de groupes",
-      knockout: "Phase finale", completed: "Terminée",
+      draft: "Brouillon", registration: "Inscriptions", registration_closed: "Inscriptions closes",
+      group_stage: "Phase de groupes", knockout: "Phase finale", completed: "Terminée",
     })[s],
     aPartirDu: (d: string) => `À partir du ${d}`,
     jusquau: (d: string) => `Jusqu'au ${d}`,
@@ -78,12 +78,14 @@ const T = textes(
       categorie === "women" ? "Meilleure joueuse du tournoi" : "Meilleur joueur du tournoi",
     inscriptionsOuvertes: "Inscriptions ouvertes",
     tuDiriges: "Tu diriges une équipe ? Inscris-la à cette compétition.",
+    inscriptionsCloses: "Inscriptions closes",
+    coupDEnvoi: "Les équipes sont connues, le calendrier arrive. Suis la compétition pour ne pas rater le coup d'envoi.",
     sInscrire: "S'inscrire",
   },
   {
     statut: (s: CompetitionStatus) => ({
-      draft: "Draft", registration: "Registration", group_stage: "Group stage",
-      knockout: "Knockout stage", completed: "Finished",
+      draft: "Draft", registration: "Registration", registration_closed: "Registration closed",
+      group_stage: "Group stage", knockout: "Knockout stage", completed: "Finished",
     })[s],
     aPartirDu: (d: string) => `From ${d}`,
     jusquau: (d: string) => `Until ${d}`,
@@ -109,6 +111,8 @@ const T = textes(
     meilleurJoueur: () => "Player of the tournament",
     inscriptionsOuvertes: "Registration open",
     tuDiriges: "Running a team? Register it for this competition.",
+    inscriptionsCloses: "Registration closed",
+    coupDEnvoi: "The teams are set and the fixtures are on their way. Follow the competition to hear about kick-off.",
     sInscrire: "Register",
   },
 );
@@ -406,6 +410,21 @@ export default function PublicCompetitionHome() {
             </p>
           </div>
           <RegisterTeamButton competition={competition} label={t.sInscrire} />
+        </div>
+      )}
+
+      {/* Inscriptions closes, rien ne se joue encore : on le dit, pour que
+          l'absence du bouton S'inscrire ne passe pas pour un oubli. Le suivi
+          est déjà dans l'en-tête. */}
+      {competition.status === "registration_closed" && (
+        <div className="mt-6 flex items-center gap-4 border border-gray-200/70 bg-white px-5 py-4">
+          <ClipboardCheck size={26} strokeWidth={1.3} className="shrink-0 text-gray-400" />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg font-black tracking-tight text-gray-900">
+              {t.inscriptionsCloses}
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-gray-500">{t.coupDEnvoi}</p>
+          </div>
         </div>
       )}
 
