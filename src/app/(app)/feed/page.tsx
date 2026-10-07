@@ -11,6 +11,7 @@ import { uploadPostMedia } from "@/lib/storage";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { PostCard, avatarColor } from "@/components/feed/PostCard";
+import Emplacement from "@/components/partenaires/Emplacement";
 import { UserProfileWidget } from "@/components/feed/UserProfileWidget";
 import type { Post } from "@/types";
 
@@ -221,6 +222,12 @@ export default function FeedPage() {
       {/* Qui je suis, pendant que je lis les autres. */}
       <aside className="sticky top-[calc(var(--header-h,72px)+1.5rem)] hidden w-60 shrink-0 lg:block">
         <UserProfileWidget user={user} />
+        {/* La zone partenaire de la Tribune, debout sous la carte du lecteur.
+            Sur téléphone, cette colonne n'existe pas : la même zone se pose
+            dans le fil (voir plus bas). */}
+        <div className="mt-4 empty:hidden">
+          <Emplacement emplacement="tribune" variante="verticale" />
+        </div>
       </aside>
 
       <div className="min-w-0 flex-1 space-y-4">
@@ -338,6 +345,15 @@ export default function FeedPage() {
                     onLikeAction={handleLike}
                     onDeleteAction={handleDelete}
                   />
+                  {/* Sur téléphone, la zone partenaire de la Tribune après la
+                      troisième publication (ou la dernière, s'il y en a moins),
+                      toujours signalée comme telle. Sur ordinateur, elle est
+                      dans la colonne de gauche. */}
+                  {i === Math.min(2, posts.length - 1) && (
+                    <div className="mt-4 empty:hidden lg:hidden">
+                      <Emplacement emplacement="tribune" />
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>

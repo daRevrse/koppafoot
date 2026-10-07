@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { MapPin, Search, Loader2, ExternalLink } from "lucide-react";
+import { MapPin, Search, Loader2, ExternalLink, Star } from "lucide-react";
+import toast from "react-hot-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { getAllVenues } from "@/lib/admin-firestore";
 import Pagination, { usePagination } from "@/components/admin/Pagination";
 import type { Venue } from "@/types";
@@ -28,16 +30,57 @@ import Image from "next/image";
 // Elle ne MODIFIE rien : un terrain se corrige par son propriétaire, dans son
 // espace. Ce qu'on fait ici, c'est vérifier ce qui est publié — et ouvrir la
 // fiche pour la voir comme une équipe la voit.
+//
+// UNE SEULE DÉCISION S'Y PREND : mettre un terrain À LA UNE du Direct, dans
+// la carte qui défile à côté des Top performances (voir lib/vitrine). Elle
+// vit dans `settings/vitrine`, hors de la fiche, que son propriétaire modifie
+// lui-même.
 // ============================================
 
 export default function AdminVenuesPage() {
+  const { firebaseUser } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [recherche, setRecherche] = useState("");
+  const [aLaUne, setALaUne] = useState<string[]>([]);
+  const [bascule, setBascule] = useState<string | null>(null);
 
   useEffect(() => {
     getAllVenues(300).then(setVenues).finally(() => setLoading(false));
   }, []);
+
+  // Les terrains à la une du Direct (voir lib/vitrine).
+  useEffect(() => {
+    if (!firebaseUser) return;
+    let vivant = true;
+    firebaseUser.getIdToken()
+      .then((jeton) => fetch("/api/admin/terrains-a-la-une", { headers: { Authorization: `Bearer ${jeton}` } }))
+      .then((r) => (r.ok ? r.json() : { ids: [] }))
+      .then((d: { ids?: string[] }) => { if (vivant) setALaUne(d.ids ?? []); })
+      .catch(() => {});
+    return () => { vivant = false; };
+  }, [firebaseUser]);
+
+  const basculerALaUne = async (v: Venue) => {
+    if (!firebaseUser) return;
+    const mettre = !aLaUne.includes(v.id);
+    setBascule(v.id);
+    try {
+      const rep = await fetch("/api/admin/terrains-a-la-une", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await firebaseUser.getIdToken()}` },
+        body: JSON.stringify({ venueId: v.id, aLaUne: mettre }),
+      });
+      const d = await rep.json().catch(() => ({}));
+      if (!rep.ok) throw new Error(d.error ?? "Erreur serveur");
+      setALaUne(d.ids ?? []);
+      toast.success(mettre ? `${v.name} est à la une du Direct` : `${v.name} n'est plus à la une`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Modification impossible");
+    } finally {
+      setBascule(null);
+    }
+  };
 
   const filtres = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -68,11 +111,12 @@ export default function AdminVenuesPage() {
       {/* Le chiffre qui compte pour la suite : une fiche sans photo ni tarif
           ne se choisit pas, et c'est elle qu'il faudra aller relancer. */}
       {venues.length > 0 && (
-        <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-3">
+        <div className="grid gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Publiés", valeur: venues.length },
             { label: "Ouverts", valeur: ouverts },
             { label: "Fiches complètes", valeur: `${complets} / ${venues.length}` },
+            { label: "À la une du Direct", valeur: aLaUne.length },
           ].map((s) => (
             <div key={s.label} className="bg-white px-5 py-4">
               <Etiquette>{s.label}</Etiquette>
@@ -173,6 +217,22 @@ export default function AdminVenuesPage() {
                       Son gestionnaire
                     </Link>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => void basculerALaUne(v)}
+                    disabled={bascule === v.id}
+                    aria-pressed={aLaUne.includes(v.id)}
+                    className={`ml-auto inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 ${
+                      aLaUne.includes(v.id) ? "text-amber-600 hover:text-amber-700" : "hover:text-amber-600"
+                    }`}
+                  >
+                    {bascule === v.id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Star size={12} className={aLaUne.includes(v.id) ? "fill-current" : ""} />
+                    )}
+                    {aLaUne.includes(v.id) ? "À la une" : "Mettre à la une"}
+                  </button>
                 </div>
               </div>
             </article>

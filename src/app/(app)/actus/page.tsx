@@ -4,6 +4,7 @@ import { getSportsArticles, type Article } from "@/lib/news-rss";
 import { LOCALE, type Langue } from "@/i18n/config";
 import { textes } from "@/i18n/textes";
 import { langueServeur } from "@/i18n/serveur";
+import Emplacement from "@/components/partenaires/Emplacement";
 
 // ============================================
 // Actus, le fil d'articles de sport.
@@ -152,6 +153,12 @@ export default async function ActusPage() {
       ) : (
         <>
           <ArticleHero articles={heroItems} />
+
+          {/* La zone partenaire des Actus, sous la une. Rien sans marque à
+              l'affiche (`empty:hidden`). */}
+          <div className="empty:hidden">
+            <Emplacement emplacement="actus" />
+          </div>
 
           {sections.map((day) => (
             <section key={day.heading} className="space-y-5">
