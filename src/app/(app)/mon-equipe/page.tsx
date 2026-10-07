@@ -25,6 +25,7 @@ import type { Competition, CompTeam, CompetitionStatus, Team } from "@/types";
 const STATUS_LABELS: Record<CompetitionStatus, { label: string; cls: string }> = {
   draft: { label: "Brouillon", cls: "bg-gray-100 text-gray-600" },
   registration: { label: "Inscriptions", cls: "bg-blue-50 text-blue-700" },
+  registration_closed: { label: "Inscriptions closes", cls: "bg-indigo-50 text-indigo-700" },
   group_stage: { label: "Phase de groupes", cls: "bg-amber-50 text-amber-700" },
   knockout: { label: "Phase finale", cls: "bg-purple-50 text-purple-700" },
   completed: { label: "Terminée", cls: "bg-emerald-50 text-emerald-700" },

@@ -204,9 +204,12 @@ export function defaultFormat(type: CompetitionType): CompetitionFormat {
  * Statuses an organizer may set by hand, in order. `group_stage` and
  * `knockout` are also set automatically by the generators; `draft` is the
  * only one that hides the competition from the public listings.
+ * `registration_closed` sits between entries and kick-off: no new team can
+ * register (the registrations route only accepts `registration`), the
+ * organizer builds the groups and fixtures, the public sees it upcoming.
  */
 export function statusFlow(type: CompetitionType): CompetitionStatus[] {
-  const flow: CompetitionStatus[] = ["draft", "registration"];
+  const flow: CompetitionStatus[] = ["draft", "registration", "registration_closed"];
   if (hasGroupStage(type)) flow.push("group_stage");
   if (hasKnockout(type)) flow.push("knockout");
   flow.push("completed");

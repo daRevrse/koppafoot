@@ -283,7 +283,7 @@ export async function tableauDeBord(): Promise<TableauDeBord> {
     terrains,
     competitions: {
       total: reelles.length,
-      enCours: reelles.filter((c) => ["registration", "group_stage", "knockout"].includes(String(c.data().status))).length,
+      enCours: reelles.filter((c) => ["registration", "registration_closed", "group_stage", "knockout"].includes(String(c.data().status))).length,
     },
     derniersComptes,
     // Les matchs du jour d'abord (en direct ou à venir aujourd'hui), puis les

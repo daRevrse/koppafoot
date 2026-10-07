@@ -17,6 +17,7 @@ import toast from "react-hot-toast";
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
   draft: { label: "Brouillon", color: "text-gray-600", bg: "bg-gray-100" },
   registration: { label: "Inscriptions", color: "text-blue-700", bg: "bg-blue-50" },
+  registration_closed: { label: "Inscriptions closes", color: "text-indigo-700", bg: "bg-indigo-50" },
   group_stage: { label: "Phase de groupes", color: "text-amber-700", bg: "bg-amber-50" },
   knockout: { label: "Phase finale", color: "text-purple-700", bg: "bg-purple-50" },
   completed: { label: "Terminée", color: "text-emerald-700", bg: "bg-emerald-50" },

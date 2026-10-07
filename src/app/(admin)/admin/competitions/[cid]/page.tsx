@@ -51,6 +51,7 @@ interface Reponse {
 const STATUTS: Record<string, { label: string; ton: Ton }> = {
   draft: { label: "Brouillon", ton: "gris" },
   registration: { label: "Inscriptions", ton: "bleu" },
+  registration_closed: { label: "Inscriptions closes", ton: "ambre" },
   group_stage: { label: "Phase de groupes", ton: "vert" },
   knockout: { label: "Phase finale", ton: "vert" },
   completed: { label: "Terminée", ton: "gris" },
