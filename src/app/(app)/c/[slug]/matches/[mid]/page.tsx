@@ -19,7 +19,7 @@ import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
 import { useComptesPublics, usePhotosSansCompte } from "@/hooks/usePhotosDesComptes";
-import { cleDeLigneDeCompetition } from "@/lib/photos-sans-compte";
+import { cleDeLigneDeCompetition, photoDeLaLigne } from "@/lib/photos-sans-compte";
 import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import { useMedia } from "@/hooks/useMedia";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
@@ -265,13 +265,17 @@ export default function PublicCompMatchView() {
     ...(match?.awayLineup ?? []).map((e) => e.userId),
     match?.mvpUserId,
   ]);
-  // Et ceux des joueurs sans compte à qui leur club a mis une photo : une
-  // ligne `ghost_<id>` d'une équipe qui représente un club (voir
-  // lib/photos-sans-compte).
-  const clubDe = (teamId: string | null | undefined) =>
-    (teamId ? compTeams.find((e) => e.id === teamId)?.claimedByTeamId : null) ?? null;
+  // Et ceux des joueurs sans compte : la photo posée sur leur ligne
+  // d'effectif par l'organisateur ou le manager, sinon celle que leur club
+  // leur a mise — une ligne `ghost_<id>` d'une équipe qui représente un club
+  // (voir lib/photos-sans-compte).
+  const equipeDuCamp = (teamId: string | null | undefined) =>
+    (teamId ? compTeams.find((e) => e.id === teamId) : undefined);
+  const clubDe = (teamId: string | null | undefined) => equipeDuCamp(teamId)?.claimedByTeamId ?? null;
+  const photoPoseeSur = (teamId: string | null | undefined, playerId: string) =>
+    equipeDuCamp(teamId)?.players.find((p) => p.id === playerId)?.photo_url ?? null;
   const cleSansCompteDe = (teamId: string | null | undefined, e: { playerId: string; userId?: string | null }) =>
-    e.userId ? null : cleDeLigneDeCompetition(clubDe(teamId), e.playerId);
+    e.userId || photoPoseeSur(teamId, e.playerId) ? null : cleDeLigneDeCompetition(clubDe(teamId), e.playerId);
   const photosSansCompte = usePhotosSansCompte([
     ...(match?.homeLineup ?? []).map((e) => cleSansCompteDe(match?.homeTeamId, e)),
     ...(match?.awayLineup ?? []).map((e) => cleSansCompteDe(match?.awayTeamId, e)),
@@ -437,15 +441,17 @@ export default function PublicCompMatchView() {
   // Voir lib/recit-du-match.
   const marques = marquesDesJoueurs(events);
 
-  // Le visage de chaque ligne de feuille : celui du compte derrière elle, ou
-  // la photo que son club a mise au joueur sans compte.
+  // Le visage de chaque ligne de feuille : celui du compte derrière elle,
+  // sinon la photo posée sur la ligne, sinon celle de sa fiche au club.
   const photosParLigne: Record<string, string | null> = {};
   for (const [teamId, lignes] of [[match.homeTeamId, match.homeLineup], [match.awayTeamId, match.awayLineup]] as const) {
     for (const e of lignes) {
-      const cle = cleSansCompteDe(teamId, e);
-      photosParLigne[e.playerId] = e.userId
-        ? (photosParCompte[e.userId] ?? null)
-        : (cle ? (photosSansCompte[cle] ?? null) : null);
+      photosParLigne[e.playerId] = photoDeLaLigne(
+        { id: e.playerId, user_id: e.userId, photo_url: photoPoseeSur(teamId, e.playerId) },
+        clubDe(teamId),
+        photosParCompte,
+        photosSansCompte,
+      );
     }
   }
 

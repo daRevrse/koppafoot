@@ -470,7 +470,7 @@ export default function PublicTeamPage() {
                   {t.effectifNonCommunique}
                 </p>
               ) : (
-                <RosterClaimList cid={competition.id} teamId={tid} roster={roster} feminin={competition.category === "women"} />
+                <RosterClaimList cid={competition.id} teamId={tid} roster={roster} clubId={team.claimedByTeamId} feminin={competition.category === "women"} />
               )
             )}
           </div>

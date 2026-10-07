@@ -115,6 +115,20 @@ export async function uploadMatchBanner(cid: string, matchId: string, file: File
 }
 
 /**
+ * La photo d'un joueur sans compte d'une équipe de compétition (voir
+ * `CompPlayer.photo_url`). Un nom de fichier neuf à chaque envoi : la ligne
+ * n'a pas encore d'identifiant quand on l'ajoute, et une adresse qui change
+ * avec la photo ne laisse aucun cache servir l'ancienne.
+ */
+export async function uploadCompPlayerPhoto(cid: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `competitions/${cid}/joueurs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  return getDownloadURL(storageRef);
+}
+
+/**
  * Upload a venue photo.
  */
 export async function uploadVenuePhoto(venueId: string, file: File): Promise<string> {

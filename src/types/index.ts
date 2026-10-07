@@ -1872,6 +1872,14 @@ export interface CompPlayer {
    * line is just a name typed by the organizer.
    */
   user_id?: string | null;
+  /**
+   * La photo d'un joueur SANS COMPTE, posée par l'organisateur ou par le
+   * manager de l'équipe (voir lib/photos-sans-compte). Rangée dans Storage
+   * sous `competitions/{cid}/joueurs/`. Sans effet sur une ligne qui porte un
+   * compte : c'est alors la photo de son profil, qu'il choisit lui-même, et
+   * le rattachement efface celle-ci (voir /api/competitions/roster-claims).
+   */
+  photo_url?: string | null;
 }
 
 // ============================================

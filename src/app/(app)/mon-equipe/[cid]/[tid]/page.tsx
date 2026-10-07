@@ -13,7 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getCompetition, getCompTeam, listCompMatches,
   addCompPlayer, updateCompPlayer, removeCompPlayer,
+  photoDeLigneAEnregistrer, effacerPhotoRemplacee,
 } from "@/lib/competition-firestore";
+import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
+import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
 import { getTeamsByManager } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
 import { matchDuration } from "@/lib/competition-format";
@@ -49,6 +52,10 @@ export default function MyTeamPage() {
   const [fName, setFName] = useState("");
   const [fNumber, setFNumber] = useState("");
   const [fPosition, setFPosition] = useState("");
+  // La photo enregistrée ("" une fois retirée), et celle qu'on vient de
+  // choisir (voir ChampPhotoDuJoueur).
+  const [fPhotoUrl, setFPhotoUrl] = useState("");
+  const [fPhoto, setFPhoto] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [busyClaim, setBusyClaim] = useState<string | null>(null);
 
@@ -171,6 +178,8 @@ export default function MyTeamPage() {
       return na - nb;
     });
   }, [team]);
+  // Le visage de chaque ligne : compte, photo posée ici, ou fiche du club.
+  const photos = usePhotosDesLignes(roster, team?.claimedByTeamId);
 
   // La durée vient du format de la compétition : un temps de jeu calculé sur
   // 90 minutes serait faux de moitié sur un 5v5 en mi-temps de 25.
@@ -187,6 +196,8 @@ export default function MyTeamPage() {
     setFName("");
     setFNumber("");
     setFPosition("");
+    setFPhotoUrl("");
+    setFPhoto(null);
     setAdding(true);
   };
 
@@ -196,6 +207,8 @@ export default function MyTeamPage() {
     setFName(player.name);
     setFNumber(player.number);
     setFPosition(normaliserPoste(player.position) ?? "");
+    setFPhotoUrl(player.photo_url ?? "");
+    setFPhoto(null);
   };
 
   const closeEditor = () => {
@@ -211,19 +224,26 @@ export default function MyTeamPage() {
     }
     setSaving(true);
     try {
+      // La photo d'abord : à l'ajout, la ligne n'existe pas encore.
+      const photo_url = await photoDeLigneAEnregistrer(cid, {
+        fichier: fPhoto, avant: editing?.photo_url, gardee: fPhotoUrl,
+      });
       if (editing) {
         await updateCompPlayer(cid, tid, editing.id, {
           name,
           number: fNumber.trim(),
           position: fPosition.trim(),
+          ...(photo_url !== undefined ? { photo_url } : {}),
         });
       } else {
         await addCompPlayer(cid, tid, {
           name,
           number: fNumber.trim(),
           position: fPosition.trim() || undefined,
+          photo_url,
         });
       }
+      await effacerPhotoRemplacee(cid, editing?.photo_url, photo_url);
       await reloadTeam();
       toast.success(editing ? "Joueur modifié" : "Joueur ajouté");
       closeEditor();
@@ -449,6 +469,14 @@ export default function MyTeamPage() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-3 border border-gray-200/70 bg-white p-4"
             >
+              <ChampPhotoDuJoueur
+                url={fPhotoUrl}
+                onUrlChange={setFPhotoUrl}
+                file={fPhoto}
+                onFile={setFPhoto}
+                visibleSur="sur la page publique de l'équipe et sur les feuilles de match"
+                aUnCompte={!!editing?.user_id}
+              />
               <div className="grid gap-2 sm:grid-cols-[5rem_1fr_8rem]">
                 <input
                   type="text"
@@ -507,9 +535,22 @@ export default function MyTeamPage() {
             <div className="divide-y divide-gray-50 overflow-hidden border border-gray-200/70 bg-white">
               {roster.map((player) => (
                 <div key={player.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-50 text-xs font-black tabular-nums text-gray-500">
-                    {player.number || "–"}
-                  </span>
+                  {/* Le visage quand il y en a un, le dossard en pastille. */}
+                  {photos[player.id] ? (
+                    <span className="relative h-8 w-8 shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photos[player.id]!} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      {player.number && (
+                        <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center bg-gray-900 px-0.5 text-[9px] font-black tabular-nums text-white">
+                          {player.number}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-50 text-xs font-black tabular-nums text-gray-500">
+                      {player.number || "–"}
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>
                     {player.user_id && (

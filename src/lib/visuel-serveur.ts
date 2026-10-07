@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { adminStorage } from "@/lib/firebase-admin";
+import { cheminDeLAdresse } from "@/lib/photos-sans-compte";
 
 // ============================================
 // Un visuel (logo, bannière) envoyé par l'administration ou par un club, et
@@ -57,4 +58,11 @@ export async function effacerVisuels(prefixe: string): Promise<void> {
  */
 export function dossierPhotoSansCompte(teamId: string, ghostId: string): string {
   return `teams/${teamId}/ghost_players/${ghostId}/`;
+}
+
+/** Efface le fichier derrière une adresse de Storage ; une erreur ne bloque rien. */
+export async function effacerVisuelParAdresse(url: string | null | undefined): Promise<void> {
+  const chemin = cheminDeLAdresse(url);
+  if (!chemin) return;
+  await adminStorage.bucket().file(chemin).delete().catch(() => {});
 }

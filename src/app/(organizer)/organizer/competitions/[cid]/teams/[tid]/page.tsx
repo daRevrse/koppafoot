@@ -14,8 +14,12 @@ import {
   addCompPlayer,
   updateCompPlayer,
   removeCompPlayer,
+  photoDeLigneAEnregistrer,
+  effacerPhotoRemplacee,
 } from "@/lib/competition-firestore";
 import RosterClaimsPanel from "@/components/competition/RosterClaimsPanel";
+import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
+import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
 import { POSTES, LIBELLE_POSTE, libellePoste, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompTeam, CompPlayer } from "@/types";
 import toast from "react-hot-toast";
@@ -62,6 +66,10 @@ export default function CompetitionRosterPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CompPlayer | null>(null);
   const [form, setForm] = useState<PlayerFormState>(EMPTY_FORM);
+  // La photo enregistrée ("" une fois retirée), et celle qu'on vient de
+  // choisir (voir ChampPhotoDuJoueur).
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Delete confirmation state.
@@ -99,6 +107,8 @@ export default function CompetitionRosterPage() {
     () => (team ? [...team.players].sort(byNumber) : []),
     [team],
   );
+  // Le visage de chaque ligne : compte, photo posée ici, ou fiche du club.
+  const photos = usePhotosDesLignes(players, team?.claimedByTeamId);
 
   const update = <K extends keyof PlayerFormState>(key: K, value: PlayerFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -107,6 +117,8 @@ export default function CompetitionRosterPage() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setPhotoUrl("");
+    setPhoto(null);
     setModalOpen(true);
   };
 
@@ -117,6 +129,8 @@ export default function CompetitionRosterPage() {
       number: player.number,
       position: normaliserPoste(player.position) ?? "",
     });
+    setPhotoUrl(player.photo_url ?? "");
+    setPhoto(null);
     setModalOpen(true);
   };
 
@@ -141,13 +155,20 @@ export default function CompetitionRosterPage() {
 
     setSubmitting(true);
     try {
+      // La photo d'abord : à l'ajout, la ligne n'existe pas encore.
+      const photo_url = await photoDeLigneAEnregistrer(cid, {
+        fichier: photo, avant: editing?.photo_url, gardee: photoUrl,
+      });
       if (editing) {
-        await updateCompPlayer(cid, tid, editing.id, { name, number, position });
+        await updateCompPlayer(cid, tid, editing.id, {
+          name, number, position, ...(photo_url !== undefined ? { photo_url } : {}),
+        });
         toast.success("Joueur mis à jour");
       } else {
-        await addCompPlayer(cid, tid, { name, number, position: position || undefined });
+        await addCompPlayer(cid, tid, { name, number, position: position || undefined, photo_url });
         toast.success("Joueur ajouté");
       }
+      await effacerPhotoRemplacee(cid, editing?.photo_url, photo_url);
       setModalOpen(false);
     } catch (err) {
       console.error("Error saving player:", err);
@@ -295,10 +316,23 @@ export default function CompetitionRosterPage() {
               transition={{ delay: i * 0.02 }}
               className="group flex items-center gap-4 border-b border-gray-50 px-4 py-3 transition-colors last:border-b-0 hover:bg-gray-50/60"
             >
-              {/* Dossard badge */}
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-900 text-sm font-bold text-white">
-                {player.number}
-              </div>
+              {/* Le visage quand il y en a un, le dossard en pastille ; sinon
+                  le dossard seul. */}
+              {photos[player.id] ? (
+                <div className="relative h-10 w-10 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photos[player.id]!} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  {player.number && (
+                    <span className="absolute -bottom-1 -right-1 flex h-5 min-w-5 items-center justify-center bg-gray-900 px-1 text-[10px] font-bold text-white">
+                      {player.number}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-900 text-sm font-bold text-white">
+                  {player.number}
+                </div>
+              )}
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>
@@ -348,7 +382,7 @@ export default function CompetitionRosterPage() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-md bg-white p-6 shadow-2xl"
+              className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-gray-900">
@@ -364,6 +398,14 @@ export default function CompetitionRosterPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
+                <ChampPhotoDuJoueur
+                  url={photoUrl}
+                  onUrlChange={setPhotoUrl}
+                  file={photo}
+                  onFile={setPhoto}
+                  visibleSur="sur la page publique de l'équipe et sur les feuilles de match"
+                  aUnCompte={!!editing?.user_id}
+                />
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>
                   <input
