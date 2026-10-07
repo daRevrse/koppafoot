@@ -20,20 +20,37 @@
 // ============================================
 
 //
-// SUR LE DIRECT, DEUX EMPLACEMENTS :
-//   · `direct` : le bandeau, en tête du contenu sur téléphone, sous l'affiche
-//     du match sur tablette, en haut du rail de droite sur grand écran (là,
-//     dans son visuel vertical s'il en a un). Un seul endroit à la fois.
+// SUR LE DIRECT, TROIS EMPLACEMENTS :
+//   · `direct` : le bandeau, en tête du contenu sur téléphone et tablette
+//     (jusqu'à 1280 px), en haut du rail de droite au-delà (là, dans son
+//     visuel vertical s'il en a un). Un seul endroit à la fois.
+//   · `direct_affiche` : sur ordinateur, sous « Qui va gagner ? », au-dessus
+//     des Top performances — la place qu'occupait le bandeau avant qu'il
+//     monte dans le rail. Vendue à part : elle est visible en même temps que
+//     lui.
 //   · `direct_vide` : un jour sans aucun match, sous « Voir demain ». La
 //     place ne coûte rien au lecteur, il n'y a rien d'autre à montrer ; elle
 //     se vend à part, son audience n'est pas celle du bandeau.
-export const EMPLACEMENTS = ["direct", "direct_vide", "competition", "match"] as const;
+//
+// AILLEURS :
+//   · `tribune` : la colonne de gauche de la Tribune sur ordinateur (debout,
+//     sous la carte du lecteur), dans le fil sur téléphone, après la
+//     troisième publication. Signalée comme toute marque : jamais déguisée en
+//     publication.
+//   · `actus` : sous la une des Actus.
+//   · `competition`, `match` : la page d'une compétition, la fiche d'un match.
+export const EMPLACEMENTS = [
+  "direct", "direct_affiche", "direct_vide", "tribune", "actus", "competition", "match",
+] as const;
 export type EmplacementPartenaire = (typeof EMPLACEMENTS)[number];
 
 /** Ce que l'administration lit, emplacement par emplacement. */
 export const LIBELLE_EMPLACEMENT: Record<EmplacementPartenaire, string> = {
   direct: "Accueil Direct (bandeau)",
+  direct_affiche: "Accueil Direct, sous « Qui va gagner ? »",
   direct_vide: "Accueil Direct, jour sans match",
+  tribune: "La Tribune",
+  actus: "Actus",
   competition: "Page d'une compétition",
   match: "Fiche d'un match",
 };

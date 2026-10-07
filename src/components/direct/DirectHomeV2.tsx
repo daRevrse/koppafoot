@@ -36,6 +36,9 @@ import type { FootballCompetition } from "@/lib/football-data";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import Emplacement from "@/components/partenaires/Emplacement";
+import CarteDefilante from "@/components/direct/CarteDefilante";
+import DiapoTerrain, { useVitrineDesTerrains } from "@/components/direct/DiapoTerrain";
+import { useMedia } from "@/hooks/useMedia";
 
 // ============================================
 // DirectHomeV2, the live-score home, a scores board rather than a timeline.
@@ -89,6 +92,7 @@ const T = textes(
     suivant: "Suivant",
     affiche: (i: number) => `Affiche ${i}`,
     topPerformances: "Top performances",
+    carteDefilante: "Top performances et terrains",
     cinqDerniers: "5 derniers matchs",
     classementVide: "Le classement se remplit à la fin de chaque match.",
     personneEncore: "Personne n'y figure encore.",
@@ -140,6 +144,7 @@ const T = textes(
     suivant: "Next",
     affiche: (i: number) => `Featured match ${i}`,
     topPerformances: "Top performances",
+    carteDefilante: "Top performances and pitches",
     cinqDerniers: "Last 5 matches",
     classementVide: "The rankings fill up at the end of each match.",
     personneEncore: "Nobody is in them yet.",
@@ -1297,8 +1302,11 @@ function stageTagLabel(match: CompMatch, f: (typeof FOOT)["fr"]): string | null 
  */
 function TopPerformancesCard({ top }: { top: { tri: TriClassement; lignes: LigneJoueurPubliee[] } }) {
   const t = useTextes(T);
+  // Sans cadre : c'est la carte défilante qui le porte (voir CarteDefilante).
+  // Toute la hauteur de la carte, qui est celle de sa plus grande diapositive :
+  // le lien reste en bas, le reste se répartit au-dessus.
   return (
-    <div className="border border-gray-200/70 bg-white">
+    <div className="flex flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <p className="flex items-center gap-1.5 font-display text-sm font-black text-gray-900">
           <Flame size={15} className="text-amber-500" />
@@ -1313,13 +1321,13 @@ function TopPerformancesCard({ top }: { top: { tri: TriClassement; lignes: Ligne
         /* Le classement se remplit match après match : tant que les feuilles
            ne sont pas saisies, il n'a personne à montrer. Mieux vaut le dire
            que d'afficher une carte vide, qui se lit comme une panne. */
-        <p className="border-t border-gray-200/70 px-4 py-8 text-center text-[11px] font-bold leading-relaxed text-gray-400">
+        <p className="flex flex-1 flex-col items-center justify-center border-t border-gray-200/70 px-4 py-8 text-center text-[11px] font-bold leading-relaxed text-gray-400">
           {t.classementVide}
           <br />
           {t.personneEncore}
         </p>
       ) : (
-        <div className="border-t border-gray-200/70">
+        <div className="flex-1 border-t border-gray-200/70">
           {top.lignes.map((ligne) => (
             <LigneDeClassement key={ligne.cle} ligne={ligne} tri={top.tri} compacte />
           ))}
@@ -1369,6 +1377,9 @@ export default function DirectHomeV2({
   const { langue } = useLangue();
   const t = useTextes(T);
   const dayLabel = (cle: string) => libelleDuJour(cle, langue);
+  // Les terrains de la carte défilante, seulement là où elle se voit.
+  const grandEcran = useMedia("(min-width: 1024px)");
+  const vitrine = useVitrineDesTerrains(grandEcran);
 
   // L'annuaire ne montre que de vraies competitions : celle des amicaux est
   // un fanion de regroupement, pas un tournoi qu'on peut ouvrir ou suivre.
@@ -1628,13 +1639,13 @@ export default function DirectHomeV2({
           cours doit tenir dans le premier écran. */}
       <GuideDeDemarrage compact />
 
-      {/* LE BANDEAU DES PARTENAIRES, EN TÊTE SUR TÉLÉPHONE ET TABLETTE. Il
-          descendait sous l'affiche du match ; il ouvre maintenant le contenu,
-          à la place qu'on lui vend. Sur ordinateur, le même emplacement passe
-          sous l'affiche (entre 1024 et 1280 px), puis dans le rail de droite
-          (voir layout/v2/rail/RightRail) : un seul endroit à la fois. Rien du
-          tout sans partenaire (`empty:hidden`). */}
-      <div className="empty:hidden lg:hidden">
+      {/* LE BANDEAU DES PARTENAIRES, EN TÊTE JUSQU'À 1280 PX. Il ouvre le
+          contenu, à la place qu'on lui vend ; au-delà, le même emplacement
+          passe dans le rail de droite (voir layout/v2/rail/RightRail) : un
+          seul endroit à la fois. Sous l'affiche, sur ordinateur, c'est un
+          autre emplacement (`direct_affiche`). Rien du tout sans partenaire
+          (`empty:hidden`). */}
+      <div className="empty:hidden xl:hidden">
         <Emplacement emplacement="direct" />
       </div>
 
@@ -1716,10 +1727,12 @@ export default function DirectHomeV2({
             onPick={choosePick}
           />
 
-          {/* Entre 1024 et 1280 px seulement : au-dessous, le bandeau est en
-              tête de page ; au-dessus, dans le rail de droite. */}
-          <div className="hidden empty:hidden lg:block xl:hidden">
-            <Emplacement emplacement="direct" />
+          {/* SOUS « QUI VA GAGNER ? », SUR ORDINATEUR : sa propre zone, vendue
+              à part du bandeau (en tête de page sous 1280 px, dans le rail
+              au-delà). Sur téléphone, la colonne passe au-dessus du tableau :
+              une deuxième marque dans le premier écran, ce serait trop. */}
+          <div className="hidden empty:hidden lg:block">
+            <Emplacement emplacement="direct_affiche" />
           </div>
 
           {/* MASQUEE SUR TELEPHONE. Empilee, elle tombait sous le tableau des
@@ -1727,8 +1740,22 @@ export default function DirectHomeV2({
               defilait jusque-la. Le raccourci de la barre de filtres la
               remplace : une pastille qu'on voit tout de suite vaut mieux
               qu'une carte complete qu'on ne voit jamais. */}
+          {/* UNE CARTE QUI DÉFILE : les Top performances, puis les terrains à
+              la une (ou à découvrir, tant qu'aucun ne l'est — voir
+              lib/vitrine). Les terrains ne sont demandés que sur grand écran,
+              là où la carte se voit. */}
           <div className="hidden lg:block">
-            <TopPerformancesCard top={topPerformances} />
+            <CarteDefilante
+              libelle={t.carteDefilante}
+              diapos={[
+                { cle: "top", nom: t.topPerformances, contenu: <TopPerformancesCard top={topPerformances} /> },
+                ...vitrine.terrains.map((terrain) => ({
+                  cle: `terrain-${terrain.id}`,
+                  nom: terrain.nom,
+                  contenu: <DiapoTerrain terrain={terrain} aLaUne={vitrine.aLaUne} />,
+                })),
+              ]}
+            />
           </div>
         </div>
 
