@@ -4,6 +4,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { effacerVisuelParAdresse } from "@/lib/visuel-serveur";
+import { photoDeLaCompetition } from "@/lib/photos-sans-compte";
 
 /**
  * Roster claims, a player says "this line of the roster is me", and the
@@ -254,6 +256,10 @@ export async function PATCH(req: NextRequest) {
     // The roster is a single array field, so read-modify-write in a
     // transaction, two validators accepting at once must not clobber
     // each other's link.
+    // La photo que l'organisateur avait posée sur la ligne : la ligne a
+    // désormais un compte, c'est à lui de choisir la sienne (voir
+    // `CompPlayer.photo_url`). Effacée après la transaction.
+    let photoRetiree: string | null = null;
     await adminDb.runTransaction(async (tx) => {
       const teamSnap = await tx.get(teamRef);
       if (!teamSnap.exists) throw new Error("TEAM_NOT_FOUND");
@@ -263,7 +269,10 @@ export async function PATCH(req: NextRequest) {
       if (players[idx].user_id) throw new Error("ALREADY_LINKED");
 
       const next = [...players];
-      next[idx] = { ...next[idx], user_id: claim.user_id };
+      photoRetiree = next[idx].photo_url ?? null;
+      const ligne: CompPlayer = { ...next[idx], user_id: claim.user_id };
+      delete ligne.photo_url;
+      next[idx] = ligne;
       tx.update(teamRef, { players: next, updated_at: FieldValue.serverTimestamp() });
 
       const link: LinkedCompPlayer = {
@@ -282,6 +291,7 @@ export async function PATCH(req: NextRequest) {
 
       tx.update(claimRef, { status: "accepted", decided_by: callerUid });
     });
+    if (photoDeLaCompetition(claim.competition_id, photoRetiree)) await effacerVisuelParAdresse(photoRetiree);
 
     // Any other pending request on the same line is now moot.
     const others = await adminDb

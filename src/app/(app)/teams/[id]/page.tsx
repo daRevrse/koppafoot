@@ -37,7 +37,7 @@ import BandeauEquipe, { BOUTON_BANDEAU, FormeEnLettres } from "@/components/team
 import SectionDuClub from "@/components/club/SectionDuClub";
 import CarteDuClub from "@/components/team/CarteDuClub";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
-import ImageUploadField from "@/components/ui/ImageUploadField";
+import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
 import MatchsDuClub from "@/components/team/MatchsDuClub";
 import { BadgeForme } from "@/components/forme/badges";
 import { useAuthModal } from "@/components/auth/AuthModal";
@@ -809,25 +809,13 @@ function GhostPlayerModal({
           {ghost ? "Modifier le joueur" : "Ajouter un joueur"}
         </h3>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* IL N'A PAS DE COMPTE POUR LA METTRE LUI-MÊME : c'est le club qui
-              la pose, et la fiche du club est publique. D'où la mention de
-              son accord, que personne d'autre ne peut vérifier — sous le
-              champ et non dans son indication, que le champ remplace par le
-              poids gagné dès qu'on choisit une image. */}
-          <div>
-            <ImageUploadField
-              label="Photo (facultative)"
-              url={photoUrl}
-              onUrlChange={setPhotoUrl}
-              file={photo}
-              onFile={setPhoto}
-              maxMb={10}
-            />
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              Avec son accord, et celui de ses parents s&apos;il est mineur : elle paraît sur la fiche
-              publique du club et sur les feuilles de match.
-            </p>
-          </div>
+          <ChampPhotoDuJoueur
+            url={photoUrl}
+            onUrlChange={setPhotoUrl}
+            file={photo}
+            onFile={setPhoto}
+            visibleSur="sur la fiche publique du club et sur les feuilles de match"
+          />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-gray-500">Prénom</label>

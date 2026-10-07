@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Genre } from "@/lib/genre";
+import { cleDeLigneDeCompetition, photoDeLaLigne } from "@/lib/photos-sans-compte";
 
 // ============================================
 // Les photos de profil de quelques comptes, pour une page publique — et leur
@@ -111,4 +112,23 @@ export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record
   const photos: Record<string, string | null> = {};
   for (const c of liste) if (lignesConnues.has(c)) photos[c] = lignesConnues.get(c) ?? null;
   return photos;
+}
+
+/**
+ * Le visage de chaque ligne d'un effectif de compétition, par identifiant de
+ * ligne : le compte qui la porte, sinon la photo posée sur la ligne, sinon
+ * celle de sa fiche dans le club (voir `photoDeLaLigne`). `clubId` : le club
+ * que l'équipe représente (`claimedByTeamId`), s'il y en a un.
+ */
+export function usePhotosDesLignes(
+  lignes: { id: string; user_id?: string | null; photo_url?: string | null }[],
+  clubId: string | null | undefined,
+): Record<string, string | null> {
+  const { photos } = useComptesPublics(lignes.map((l) => l.user_id));
+  const sansCompte = usePhotosSansCompte(
+    lignes.filter((l) => !l.user_id && !l.photo_url).map((l) => cleDeLigneDeCompetition(clubId, l.id)),
+  );
+  const parLigne: Record<string, string | null> = {};
+  for (const l of lignes) parLigne[l.id] = photoDeLaLigne(l, clubId, photos, sansCompte);
+  return parLigne;
 }

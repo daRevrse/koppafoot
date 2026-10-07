@@ -21,7 +21,9 @@ import {
   increment,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { uploadCompPlayerPhoto } from "@/lib/storage";
+import { photoDeLaCompetition } from "@/lib/photos-sans-compte";
 import { creerParLeServeur, envoyerCreation } from "@/lib/offre-client";
 import { ErreurLimiteOffre } from "@/lib/offre";
 import type {
@@ -346,7 +348,14 @@ export async function duplicateCompetition(
           shortName: team.shortName,
           logoUrl: team.logoUrl,
           color: team.color,
-          players: team.players,
+          // Sans leurs photos : la nouvelle édition aurait montré les
+          // fichiers de l'ancienne, et retirer une photo d'un côté l'aurait
+          // effacée de l'autre (voir /api/competitions/[cid]/photos-joueurs).
+          players: team.players.map((p) => {
+            const ligne = { ...p };
+            delete ligne.photo_url;
+            return ligne;
+          }),
         })),
       });
     } catch (err) {
@@ -548,7 +557,7 @@ export async function syncTeamToMatches(
 export async function addCompPlayer(
   cid: string,
   tid: string,
-  input: { name: string; number?: string; position?: string },
+  input: { name: string; number?: string; position?: string; photo_url?: string | null },
 ): Promise<string> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
@@ -557,6 +566,7 @@ export async function addCompPlayer(
     name: input.name,
     number: input.number ?? "",
     ...(input.position ? { position: input.position } : {}),
+    ...(input.photo_url ? { photo_url: input.photo_url } : {}),
   };
   await updateCompTeam(cid, tid, { players: [...team.players, player] });
   return player.id;
@@ -623,7 +633,7 @@ export async function updateCompPlayer(
   cid: string,
   tid: string,
   playerId: string,
-  patch: { name?: string; number?: string; position?: string; user_id?: string | null },
+  patch: { name?: string; number?: string; position?: string; user_id?: string | null; photo_url?: string | null },
 ): Promise<void> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
@@ -633,12 +643,16 @@ export async function updateCompPlayer(
     // `user_id` is carried over unless the patch explicitly sets it,
     // renaming a player must not silently unlink their account.
     const userId = patch.user_id !== undefined ? patch.user_id : p.user_id ?? null;
+    // La photo aussi : la ligne était reconstruite champ par champ, et la
+    // moindre correction du nom l'aurait effacée.
+    const photo = patch.photo_url !== undefined ? patch.photo_url : p.photo_url ?? null;
     return {
       id: p.id,
       name: patch.name ?? p.name,
       number: patch.number ?? p.number,
       ...(position ? { position } : {}),
       user_id: userId,
+      ...(photo ? { photo_url: photo } : {}),
     };
   });
   await updateCompTeam(cid, tid, { players });
@@ -647,7 +661,65 @@ export async function updateCompPlayer(
 export async function removeCompPlayer(cid: string, tid: string, playerId: string): Promise<void> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
+  const photo = team.players.find((p) => p.id === playerId)?.photo_url;
   await updateCompTeam(cid, tid, { players: team.players.filter((p) => p.id !== playerId) });
+  // Après la ligne, jamais avant : un échec laisse un fichier orphelin, pas
+  // une ligne qui pointe vers une photo effacée.
+  await effacerPhotoDeCompetition(cid, photo);
+}
+
+/**
+ * Efface une photo de joueur qui ne sert plus, par le serveur : le navigateur
+ * n'a pas le droit d'effacer dans Storage (voir
+ * /api/competitions/[cid]/photos-joueurs). Sans erreur : la ligne est déjà
+ * écrite, un fichier resté en place ne doit rien bloquer.
+ */
+async function effacerPhotoDeCompetition(cid: string, url: string | null | undefined): Promise<void> {
+  if (!photoDeLaCompetition(cid, url) || !auth.currentUser) return;
+  try {
+    await fetch(`/api/competitions/${encodeURIComponent(cid)}/photos-joueurs`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${await auth.currentUser.getIdToken()}`,
+      },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    // Voir plus haut.
+  }
+}
+
+/**
+ * La photo à écrire sur une ligne d'effectif, depuis la fenêtre qui l'édite :
+ * la nouvelle, envoyée ici ; `null` pour la retirer ; `undefined` pour n'y
+ * rien changer. `avant` est la photo de la ligne, `gardee` ce que la fenêtre
+ * en montre encore (vide une fois retirée).
+ *
+ * L'ancien fichier, lui, s'efface APRÈS l'écriture de la ligne : voir
+ * `effacerPhotoRemplacee`.
+ */
+export async function photoDeLigneAEnregistrer(
+  cid: string,
+  { fichier, avant, gardee }: { fichier: File | null; avant: string | null | undefined; gardee: string },
+): Promise<string | null | undefined> {
+  if (fichier) return uploadCompPlayerPhoto(cid, fichier);
+  if (avant && !gardee) return null;
+  return undefined;
+}
+
+/**
+ * Efface l'ancienne photo d'une ligne, une fois la nouvelle (ou son retrait)
+ * écrite — si elle est bien rangée chez cette compétition (voir
+ * `photoDeLaCompetition`).
+ */
+export async function effacerPhotoRemplacee(
+  cid: string,
+  avant: string | null | undefined,
+  enregistree: string | null | undefined,
+): Promise<void> {
+  if (enregistree === undefined || !avant || avant === enregistree) return;
+  await effacerPhotoDeCompetition(cid, avant);
 }
 
 /** Set (or update) one side's match sheet on a comp_match + its ready flag. */

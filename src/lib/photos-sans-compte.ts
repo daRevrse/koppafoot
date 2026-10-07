@@ -56,3 +56,48 @@ export function lireCleSansCompte(cle: string): { clubId: string; ghostId: strin
   const [clubId, ghostId] = morceaux;
   return cleSansCompte(clubId, ghostId) ? { clubId, ghostId } : null;
 }
+
+/**
+ * Le visage d'une ligne d'effectif de COMPÉTITION, par ordre de préférence :
+ *
+ *   1. le compte qui la porte : la photo de son profil, ou aucune — c'est lui
+ *      qui choisit, pas l'organisateur ;
+ *   2. la photo posée sur la ligne par l'organisateur ou le manager ;
+ *   3. celle de sa fiche dans le club, pour une ligne copiée de l'effectif du
+ *      club (`ghost_<id>`).
+ */
+export function photoDeLaLigne(
+  ligne: { id: string; user_id?: string | null; photo_url?: string | null },
+  clubId: string | null | undefined,
+  photosDesComptes: Record<string, string | null | undefined>,
+  photosSansCompte: Record<string, string | null | undefined>,
+): string | null {
+  if (ligne.user_id) return photosDesComptes[ligne.user_id] || null;
+  if (ligne.photo_url) return ligne.photo_url;
+  const cle = cleDeLigneDeCompetition(clubId, ligne.id);
+  return (cle && photosSansCompte[cle]) || null;
+}
+
+/**
+ * Le chemin Storage derrière une adresse de téléchargement Firebase
+ * (`…/o/<chemin encodé>?alt=media…`), ou null pour une autre adresse.
+ */
+export function cheminDeLAdresse(url: string | null | undefined): string | null {
+  const m = /\/o\/([^?#]+)/.exec(url ?? "");
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cette photo de ligne est-elle rangée chez CETTE compétition ? Une édition
+ * dupliquée reprend les lignes de la précédente, photos comprises, et donc
+ * leurs fichiers : la retirer de la nouvelle ne doit pas les effacer de
+ * l'ancienne.
+ */
+export function photoDeLaCompetition(cid: string, url: string | null | undefined): boolean {
+  return cheminDeLAdresse(url)?.startsWith(`competitions/${cid}/joueurs/`) ?? false;
+}

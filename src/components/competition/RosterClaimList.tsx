@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { CompPlayer, RosterClaim } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
+import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
 import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
@@ -41,15 +42,21 @@ export default function RosterClaimList({
   cid,
   teamId,
   roster,
+  clubId = null,
   feminin = false,
 }: {
   cid: string;
   teamId: string;
   roster: CompPlayer[];
+  /** Le club que l'équipe représente : la photo de ses joueurs sans compte. */
+  clubId?: string | null;
   /** Compétition féminine : l'effectif s'accorde (voir EffectifParPoste). */
   feminin?: boolean;
 }) {
   const { user, firebaseUser } = useAuth();
+  // Le visage de chaque ligne : le compte, la photo posée par l'organisateur
+  // ou le manager, ou celle de la fiche du club (voir `photoDeLaLigne`).
+  const photos = usePhotosDesLignes(roster, clubId);
   const t = useTextes(T);
   const [myClaims, setMyClaims] = useState<RosterClaim[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
@@ -126,6 +133,7 @@ export default function RosterClaimList({
       nom: player.name,
       numero: player.number,
       poste: player.position ?? null,
+      photo: photos[player.id] ?? null,
       lien: player.user_id ? `/profile/${player.user_id}` : null,
       apres: isMe ? (
         <span className="inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-600">
