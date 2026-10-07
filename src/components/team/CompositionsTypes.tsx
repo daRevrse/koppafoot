@@ -119,7 +119,7 @@ export default function CompositionsTypes({
         numero: g.squadNumber?.trim() ?? "",
         userId: null,
         posteParDefaut: g.position,
-        photo: null,
+        photo: g.photoUrl,
       })),
     ],
     [members, ghostPlayers, squadNumbers],

@@ -22,7 +22,7 @@ import {
   followTeam, unfollowTeam, isFollowingTeam,
   onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
   onGhostPlayersByTeam, createGhostPlayer, updateGhostPlayer, deleteGhostPlayer,
-  declarerConditionFantome,
+  declarerConditionFantome, envoyerPhotoSansCompte, retirerPhotoSansCompte,
   setTeamStaff,
 } from "@/lib/firestore";
 import { useFormes } from "@/hooks/useFormes";
@@ -37,6 +37,7 @@ import BandeauEquipe, { BOUTON_BANDEAU, FormeEnLettres } from "@/components/team
 import SectionDuClub from "@/components/club/SectionDuClub";
 import CarteDuClub from "@/components/team/CarteDuClub";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
+import ImageUploadField from "@/components/ui/ImageUploadField";
 import MatchsDuClub from "@/components/team/MatchsDuClub";
 import { BadgeForme } from "@/components/forme/badges";
 import { useAuthModal } from "@/components/auth/AuthModal";
@@ -758,27 +759,42 @@ function GhostPlayerModal({
     position: (ghost?.position ?? "midfielder") as GhostPlayer["position"],
     squadNumber: ghost?.squadNumber ?? "",
   });
+  // La photo enregistrée ("" une fois retirée), et celle qu'on vient de
+  // choisir, déjà allégée par le champ.
+  const [photoUrl, setPhotoUrl] = useState(ghost?.photoUrl ?? "");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) return;
     setSubmitting(true);
+    let ghostId = ghost?.id ?? null;
     try {
       if (ghost) {
         await updateGhostPlayer(teamId, ghost.id, form);
-        toast.success("Joueur modifié");
       } else {
-        await createGhostPlayer(teamId, form);
-        toast.success("Joueur ajouté");
+        ghostId = await createGhostPlayer(teamId, form);
       }
-      onSaved();
-      onClose();
     } catch {
       toast.error("Erreur");
-    } finally {
       setSubmitting(false);
+      return;
     }
+    // LA PHOTO APRÈS LA FICHE : à la création, il faut l'identifiant du
+    // joueur pour ranger son fichier. Un échec ne défait pas le joueur, déjà
+    // enregistré : on le dit, et la fenêtre se ferme quand même — la rouvrir
+    // pour « réessayer » créerait un doublon.
+    try {
+      if (photo) await envoyerPhotoSansCompte(teamId, ghostId!, photo);
+      else if (ghost?.photoUrl && !photoUrl) await retirerPhotoSansCompte(teamId, ghost.id);
+      toast.success(ghost ? "Joueur modifié" : "Joueur ajouté");
+    } catch (err) {
+      toast.error(`Joueur enregistré, mais pas sa photo : ${err instanceof Error ? err.message : "erreur"}`);
+    }
+    setSubmitting(false);
+    onSaved();
+    onClose();
   };
 
   return (
@@ -793,6 +809,25 @@ function GhostPlayerModal({
           {ghost ? "Modifier le joueur" : "Ajouter un joueur"}
         </h3>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* IL N'A PAS DE COMPTE POUR LA METTRE LUI-MÊME : c'est le club qui
+              la pose, et la fiche du club est publique. D'où la mention de
+              son accord, que personne d'autre ne peut vérifier — sous le
+              champ et non dans son indication, que le champ remplace par le
+              poids gagné dès qu'on choisit une image. */}
+          <div>
+            <ImageUploadField
+              label="Photo (facultative)"
+              url={photoUrl}
+              onUrlChange={setPhotoUrl}
+              file={photo}
+              onFile={setPhoto}
+              maxMb={10}
+            />
+            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+              Avec son accord, et celui de ses parents s&apos;il est mineur : elle paraît sur la fiche
+              publique du club et sur les feuilles de match.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-gray-500">Prénom</label>
@@ -1598,7 +1633,7 @@ export default function TeamDetailPage() {
       nom: `${g.firstName} ${g.lastName}`.trim(),
       numero: g.squadNumber?.trim() && !dossardsDesComptes.has(g.squadNumber.trim()) ? g.squadNumber.trim() : null,
       poste: normaliserPoste(g.position),
-      photo: null,
+      photo: g.photoUrl,
       uid: null,
     })),
   ];
@@ -1999,7 +2034,7 @@ export default function TeamDetailPage() {
                     >
                       <div className="flex items-center gap-3">
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white ${avatarColor(`${ghost.firstName} ${ghost.lastName}`)}`}>
-                          {initials}
+                          {ghost.photoUrl ? <img src={ghost.photoUrl} alt="" className="h-full w-full object-cover" /> : initials}
                         </div>
                         <div>
                           <h4 className="font-semibold text-gray-900">{ghost.firstName} {ghost.lastName}</h4>
@@ -2053,7 +2088,7 @@ export default function TeamDetailPage() {
                             onClick={async () => {
                               setDeletingGhostId(ghost.id);
                               try {
-                                await deleteGhostPlayer(teamId, ghost.id);
+                                await deleteGhostPlayer(teamId, ghost.id, ghost.photoUrl);
                                 toast.success("Joueur supprimé");
                               } catch {
                                 toast.error("Erreur lors de la suppression");

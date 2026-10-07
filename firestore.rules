@@ -858,8 +858,16 @@ service cloud.firestore {
 
     match /teams/{teamId}/ghost_players/{ghostId} {
       allow read: if isAuthenticated();
-      allow create: if equipeGeree(teamId);
-      allow update, delete: if equipeGeree(teamId);
+      // LA PHOTO S'ÉCRIT PAR LE SERVEUR SEULEMENT
+      // (/api/teams/[id]/ghost-players/[gid]/photo), qui range le fichier
+      // dans Storage et vérifie qui l'envoie. Une adresse écrite d'ici
+      // pourrait pointer n'importe où, et la fiche publique du club comme les
+      // feuilles de match l'afficheraient.
+      allow create: if equipeGeree(teamId)
+                    && !('photo_url' in request.resource.data);
+      allow update: if equipeGeree(teamId)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['photo_url']);
+      allow delete: if equipeGeree(teamId);
     }
 
     // ============================================

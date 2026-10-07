@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { lireGenre, type Genre } from "@/lib/genre";
+import { lireCleSansCompte } from "@/lib/photos-sans-compte";
 
 /**
- * GET /api/public/photos?uids=<uid>,<uid>
+ * GET /api/public/photos?uids=<uid>,<uid>&lignes=<club>:<id>,<club>:<id>
  *
  * La photo de profil de plusieurs comptes d'un coup : ceux d'une feuille de
  * match, pour leurs pastilles sur le terrain et pour l'homme du match.
@@ -17,6 +18,11 @@ import { lireGenre, type Genre } from "@/lib/genre";
  *
  * Un compte sans photo, ou sans genre déclaré, est simplement absent de la
  * liste correspondante.
+ *
+ * `lignes` : les joueurs SANS COMPTE d'une feuille, désignés par leur club et
+ * leur fiche (voir lib/photos-sans-compte). Leur photo, que le club a posée
+ * avec leur accord, est déjà sur la fiche publique du club ; rien d'autre de
+ * la fiche ne sort d'ici.
  */
 
 export const dynamic = "force-dynamic";
@@ -32,11 +38,22 @@ export async function GET(req: Request) {
       .map((u) => u.trim())
       .filter((u) => UID.test(u)),
   )].slice(0, MAX_COMPTES);
+  const lignes = [...new Set((new URL(req.url).searchParams.get("lignes") ?? "").split(","))]
+    .map((c) => lireCleSansCompte(c.trim()))
+    .filter((c): c is NonNullable<typeof c> => c !== null)
+    .slice(0, MAX_COMPTES);
 
-  if (uids.length === 0) return NextResponse.json({ photos: {} });
+  if (uids.length === 0 && lignes.length === 0) return NextResponse.json({ photos: {}, genres: {}, lignes: {} });
 
   try {
-    const docs = await adminDb.getAll(...uids.map((uid) => adminDb.doc(`users/${uid}`)));
+    // `getAll` refuse une liste vide : chaque lecture n'a lieu que si on a
+    // quelque chose à lui demander.
+    const [docs, fiches] = await Promise.all([
+      uids.length ? adminDb.getAll(...uids.map((uid) => adminDb.doc(`users/${uid}`))) : [],
+      lignes.length
+        ? adminDb.getAll(...lignes.map((l) => adminDb.doc(`teams/${l.clubId}/ghost_players/${l.ghostId}`)))
+        : [],
+    ]);
     const photos: Record<string, string> = {};
     const genres: Record<string, Genre> = {};
     for (const d of docs) {
@@ -45,14 +62,19 @@ export async function GET(req: Request) {
       const genre = lireGenre(d.get("gender"));
       if (genre) genres[d.id] = genre;
     }
+    const photosSansCompte: Record<string, string> = {};
+    fiches.forEach((d, i) => {
+      const url = d.get("photo_url");
+      if (typeof url === "string" && url) photosSansCompte[`${lignes[i].clubId}:${lignes[i].ghostId}`] = url;
+    });
     return NextResponse.json(
-      { photos, genres },
+      { photos, genres, lignes: photosSansCompte },
       // Une photo change rarement : cinq minutes en cache partagé, et une
       // heure de plus à servir l'ancienne pendant qu'on relit la nouvelle.
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
     );
   } catch (err) {
     console.error("GET /api/public/photos failed:", err);
-    return NextResponse.json({ photos: {}, genres: {} }, { status: 500 });
+    return NextResponse.json({ photos: {}, genres: {}, lignes: {} }, { status: 500 });
   }
 }

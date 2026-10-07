@@ -18,7 +18,8 @@ import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
-import { useComptesPublics } from "@/hooks/usePhotosDesComptes";
+import { useComptesPublics, usePhotosSansCompte } from "@/hooks/usePhotosDesComptes";
+import { cleDeLigneDeCompetition } from "@/lib/photos-sans-compte";
 import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import { useMedia } from "@/hooks/useMedia";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
@@ -264,6 +265,17 @@ export default function PublicCompMatchView() {
     ...(match?.awayLineup ?? []).map((e) => e.userId),
     match?.mvpUserId,
   ]);
+  // Et ceux des joueurs sans compte à qui leur club a mis une photo : une
+  // ligne `ghost_<id>` d'une équipe qui représente un club (voir
+  // lib/photos-sans-compte).
+  const clubDe = (teamId: string | null | undefined) =>
+    (teamId ? compTeams.find((e) => e.id === teamId)?.claimedByTeamId : null) ?? null;
+  const cleSansCompteDe = (teamId: string | null | undefined, e: { playerId: string; userId?: string | null }) =>
+    e.userId ? null : cleDeLigneDeCompetition(clubDe(teamId), e.playerId);
+  const photosSansCompte = usePhotosSansCompte([
+    ...(match?.homeLineup ?? []).map((e) => cleSansCompteDe(match?.homeTeamId, e)),
+    ...(match?.awayLineup ?? []).map((e) => cleSansCompteDe(match?.awayTeamId, e)),
+  ]);
   // Sur grand écran, le fil a une colonne à côté de lui (voir plus bas).
   const grandEcran = useMedia("(min-width: 1024px)");
 
@@ -425,10 +437,16 @@ export default function PublicCompMatchView() {
   // Voir lib/recit-du-match.
   const marques = marquesDesJoueurs(events);
 
-  // Le visage de chaque ligne de feuille qui a un compte derrière elle.
+  // Le visage de chaque ligne de feuille : celui du compte derrière elle, ou
+  // la photo que son club a mise au joueur sans compte.
   const photosParLigne: Record<string, string | null> = {};
-  for (const e of [...match.homeLineup, ...match.awayLineup]) {
-    if (e.userId) photosParLigne[e.playerId] = photosParCompte[e.userId] ?? null;
+  for (const [teamId, lignes] of [[match.homeTeamId, match.homeLineup], [match.awayTeamId, match.awayLineup]] as const) {
+    for (const e of lignes) {
+      const cle = cleSansCompteDe(teamId, e);
+      photosParLigne[e.playerId] = e.userId
+        ? (photosParCompte[e.userId] ?? null)
+        : (cle ? (photosSansCompte[cle] ?? null) : null);
+    }
   }
 
   /**
@@ -520,7 +538,9 @@ export default function PublicCompMatchView() {
               ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
               : null
           }
-          photo={match.mvpUserId ? (photosParCompte[match.mvpUserId] ?? null) : null}
+          photo={match.mvpUserId
+            ? (photosParCompte[match.mvpUserId] ?? null)
+            : (match.mvpPlayerId ? (photosParLigne[match.mvpPlayerId] ?? null) : null)}
           motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
           note={noteDeLHomme}
           href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}

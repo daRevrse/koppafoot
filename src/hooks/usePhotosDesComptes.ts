@@ -78,3 +78,37 @@ export function useComptesPublics(uids: (string | null | undefined)[]): ComptesP
 export function usePhotosDesComptes(uids: (string | null | undefined)[]): Record<string, string | null> {
   return useComptesPublics(uids).photos;
 }
+
+/** Les photos de joueurs sans compte déjà demandées, par clé `<club>:<id>`. */
+const lignesConnues = new Map<string, string | null>();
+
+/**
+ * La photo des joueurs SANS COMPTE d'une feuille, par clé `<club>:<id>` (voir
+ * lib/photos-sans-compte) : celle que leur club leur a mise. Même mémoire
+ * pour la visite, même requête que les comptes.
+ */
+export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record<string, string | null> {
+  const liste = [...new Set(cles.filter((c): c is string => !!c))].sort();
+  const cle = liste.join(",");
+  const [, setReponses] = useState(0);
+
+  useEffect(() => {
+    const manquantes = (cle ? cle.split(",") : []).filter((c) => !lignesConnues.has(c));
+    if (manquantes.length === 0) return;
+    let vivant = true;
+    fetch(`/api/public/photos?lignes=${encodeURIComponent(manquantes.join(","))}`)
+      .then((r) => (r.ok ? r.json() : { lignes: {} }))
+      .then((j: { lignes?: Record<string, string> }) => {
+        for (const c of manquantes) lignesConnues.set(c, j.lignes?.[c] ?? null);
+        if (vivant) setReponses((n) => n + 1);
+      })
+      .catch(() => {
+        // Sans photo, la pastille garde son numéro : rien ne manque.
+      });
+    return () => { vivant = false; };
+  }, [cle]);
+
+  const photos: Record<string, string | null> = {};
+  for (const c of liste) if (lignesConnues.has(c)) photos[c] = lignesConnues.get(c) ?? null;
+  return photos;
+}

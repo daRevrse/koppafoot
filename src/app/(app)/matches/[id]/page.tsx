@@ -36,7 +36,8 @@ import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
-import { useComptesPublics } from "@/hooks/usePhotosDesComptes";
+import { useComptesPublics, usePhotosSansCompte } from "@/hooks/usePhotosDesComptes";
+import { cleSansCompte } from "@/lib/photos-sans-compte";
 import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import MatchLineups from "@/components/match/MatchLineups";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
@@ -417,14 +418,18 @@ export default function MatchDetailPage() {
   /**
    * LE VISAGE DES JOUEURS, pour les pastilles du terrain.
    *
-   * Seuls les comptes en ont un : un joueur sans compte vit sur
-   * `ghost_players`, qui ne porte pas de photo. Sa pastille garde alors son
-   * numéro, et c'est le repli normal — la plupart des licenciés d'un club
-   * amateur n'ont pas mis de photo non plus.
+   * Les comptes, et les joueurs sans compte à qui le club a mis une photo
+   * (voir `FirestoreGhostPlayer.photo_url`) — la ligne de feuille de ces
+   * derniers porte l'identifiant de leur fiche. Sans photo, la pastille garde
+   * son numéro, et c'est le repli normal : la plupart des licenciés d'un club
+   * amateur n'en ont pas.
    */
   const photosDeLEffectif = useMemo(
-    () => Object.fromEntries(teamMembers.map((m) => [m.uid, m.profilePictureUrl ?? null])),
-    [teamMembers],
+    () => Object.fromEntries([
+      ...teamMembers.map((m) => [m.uid, m.profilePictureUrl ?? null]),
+      ...ghostPlayers.map((g) => [g.id, g.photoUrl]),
+    ]),
+    [teamMembers, ghostPlayers],
   );
 
   /**
@@ -869,6 +874,11 @@ export default function MatchDetailPage() {
   // Le visage de l'homme du match. Avant les retours anticipés : un hook ne
   // se saute pas.
   const { photos: photosParCompte, genres: genresParCompte } = useComptesPublics([match?.mvpUserId]);
+  // L'homme du match sans compte : la photo que son club lui a mise, lue pour
+  // tout visiteur — dans un amical, sa ligne porte l'identifiant de sa fiche
+  // (voir lib/photos-sans-compte).
+  const cleHommeSansCompte = match && !match.mvpUserId ? cleSansCompte(match.mvpTeamId, match.mvpPlayerId) : null;
+  const photosSansCompte = usePhotosSansCompte([cleHommeSansCompte]);
 
   /**
    * LA COULEUR DES DEUX CLUBS, pour les barres de stats. Une équipe hors
@@ -1151,7 +1161,9 @@ export default function MatchDetailPage() {
                     ? (match.mvpTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName)
                     : null
                 }
-                photo={match.mvpUserId ? (photosParCompte[match.mvpUserId] ?? null) : null}
+                photo={match.mvpUserId
+                  ? (photosParCompte[match.mvpUserId] ?? null)
+                  : (cleHommeSansCompte ? (photosSansCompte[cleHommeSansCompte] ?? null) : null)}
                 motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
                 note={noteDeLHomme}
                 href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
