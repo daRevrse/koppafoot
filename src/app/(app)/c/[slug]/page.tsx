@@ -17,6 +17,7 @@ import CalendarTab from "@/components/competition/tabs/CalendarTab";
 import StandingsTab from "@/components/competition/tabs/StandingsTab";
 import BracketTab from "@/components/competition/tabs/BracketTab";
 import ScorersTab from "@/components/competition/tabs/ScorersTab";
+import TeamsTab from "@/components/competition/tabs/TeamsTab";
 import { gameTypeLabel, matchDurationLabel, hasGroupStage, hasKnockout } from "@/lib/competition-format";
 import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
@@ -37,8 +38,11 @@ import Emplacement from "@/components/partenaires/Emplacement";
  * « Accueil » a disparu : il ne montrait qu'un extrait de ce que les autres
  * contiennent en entier, ce qui obligeait a choisir entre lire un resume et
  * lire la chose. Le calendrier ouvre desormais la page.
+ *
+ * « Équipes » n'apparaît qu'une fois les inscriptions closes : avant, la
+ * liste bouge encore, et l'organisateur ne l'a pas arrêtée.
  */
-const TAB_IDS = ["calendar", "standings", "bracket", "scorers"] as const;
+const TAB_IDS = ["calendar", "standings", "bracket", "scorers", "teams"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 // Status → label + accent, reusing the mapping style from the organizer landing.
@@ -57,6 +61,7 @@ const T = textes(
     playOffs: "Play-offs",
     tableau: "Tableau",
     buteurs: "Buteurs",
+    equipes: "Équipes",
     partageInscriptions: (nom: string, ville: string | null) =>
       `${nom}${ville ? ` à ${ville}` : ""} : les inscriptions sont ouvertes.`,
     partageSuivre: (nom: string, ville: string | null) =>
@@ -89,6 +94,7 @@ const T = textes(
     playOffs: "Play-offs",
     tableau: "Bracket",
     buteurs: "Top scorers",
+    equipes: "Teams",
     partageInscriptions: (nom: string, ville: string | null) =>
       `${nom}${ville ? ` in ${ville}` : ""}: registration is open.`,
     partageSuivre: (nom: string, ville: string | null) =>
@@ -223,6 +229,7 @@ export default function PublicCompetitionHome() {
   // Memes conditions que l'ancienne barre d'onglets : un classement n'a de
   // sens qu'avec une phase de groupes, un tableau qu'avec une phase finale.
   const type = competition.competitionType ?? null;
+  const equipesVisibles = competition.status !== "draft" && competition.status !== "registration";
   const TABS: { id: TabId; label: string }[] = [
     { id: "calendar", label: t.calendrier },
     ...(type === null || hasGroupStage(type) ? [{ id: "standings" as TabId, label: t.classement }] : []),
@@ -230,6 +237,7 @@ export default function PublicCompetitionHome() {
       ? [{ id: "bracket" as TabId, label: type === "league_playoffs" ? t.playOffs : t.tableau }]
       : []),
     { id: "scorers", label: t.buteurs },
+    ...(equipesVisibles ? [{ id: "teams" as TabId, label: t.equipes }] : []),
   ];
 
   /** Change d'onglet et met l'URL a jour sans recharger ni empiler d'entree. */
@@ -428,6 +436,7 @@ export default function PublicCompetitionHome() {
           {tab === "standings" && <StandingsTab competition={competition} matches={matches} teams={teams} />}
           {tab === "bracket" && <BracketTab competition={competition} matches={matches} />}
             {tab === "scorers" && <ScorersTab competition={competition} matches={matches} teams={teams} />}
+            {tab === "teams" && equipesVisibles && <TeamsTab competition={competition} matches={matches} teams={teams} />}
           </div>
         </div>
 
