@@ -1,10 +1,9 @@
 {
-  "name": "koppafoot-video-annonceurs-outils",
+  "name": "koppafoot-video-tribune-outils",
   "private": true,
-  "description": "Vidéo de l'offre annonceurs : visuels fictifs, tournage, animation et rendu (voir ../README.md).",
+  "description": "Vidéo de la Tribune : décor, tournage, animation et rendu (voir ../README.md).",
   "type": "module",
   "scripts": {
-    "visuels": "node visuels.mjs",
     "decor": "node decor.mjs",
     "tournage": "node tournage.mjs",
     "rendu": "node rendu.mjs"

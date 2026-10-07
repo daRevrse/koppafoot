@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>KoppaFoot · La Tribune</title>
+<!--
+  La vidéo de la Tribune, 1080 × 1920, 30 s.
+
+  Une foule en tribune, dessinée sur un canevas, fait la ola ; devant elle, un
+  téléphone montre la vraie Tribune (outils/tournage.mjs, sur les émulateurs) :
+  Kafui raconte son match avec une photo, la Tribune réagit, les résultats du
+  compte officiel tombent dans le fil. Les cœurs, les bulles et les titres
+  sont dessinés ici.
+
+  Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
+  par image (window.allerA(t)), en fait une capture, et ffmpeg les assemble.
+  Ouverte telle quelle dans Chromium, la page se joue en temps réel.
+-->
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+:root {
+  --vert: #00bf63;
+  --vert-fonce: #00994f;
+  --or: #ffc53d;
+  --rouge: #ff4d5e;
+  --nuit: #050a12;
+  --encre: #111827;
+  --blanc-doux: rgba(255, 255, 255, .74);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--nuit); }
+body { font-family: "DM Sans", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#scene { position: absolute; inset: 0; overflow: hidden; background: var(--nuit); }
+
+/* La foule, en tribune : un canevas redessiné à chaque image */
+#foule { position: absolute; inset: 0; width: 1080px; height: 1920px; }
+#voile { position: absolute; inset: 0; background: rgba(5, 10, 18, .62); opacity: 0; }
+
+/* Titres */
+.centre-page { position: absolute; left: 0; right: 0; text-align: center; }
+.mot { overflow: hidden; padding-top: 20px; margin-top: -20px; }
+.mot span { display: block; font-family: "Outfit"; font-weight: 900; text-transform: uppercase; transform: translateY(135%); white-space: nowrap; }
+#accroche { top: 210px; }
+#accroche .puce { display: inline-block; margin-bottom: 18px; padding: 12px 28px; border-radius: 999px; background: var(--vert); color: #04100b;
+  font-family: "Outfit"; font-weight: 900; font-size: 32px; letter-spacing: .2em; text-transform: uppercase; opacity: 0; }
+#accroche .mot span { font-size: 132px; line-height: .96; letter-spacing: -.015em; text-shadow: 0 10px 50px rgba(0, 0, 0, .8); }
+#accroche .mot span.vert { color: var(--vert); }
+.chant { position: absolute; padding: 22px 32px; border-radius: 34px; background: #fff; color: var(--encre); opacity: 0;
+  font-family: "Outfit"; font-weight: 800; font-size: 40px; white-space: nowrap; box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
+.chant::after { content: ""; position: absolute; bottom: -18px; width: 36px; height: 36px; background: #fff; transform: rotate(45deg); border-radius: 6px; }
+.chant.g::after { left: 46px; }
+.chant.d::after { right: 46px; }
+
+.titre { position: absolute; left: 90px; right: 90px; top: 150px; }
+.titre .puce { margin-bottom: 14px; font-family: "Outfit"; font-weight: 800; font-size: 30px; letter-spacing: .22em; color: var(--vert); text-transform: uppercase; opacity: 0; }
+.titre .ligne { overflow: hidden; padding: 22px 0 4px; margin-top: -22px; }
+.titre .ligne span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 106px; line-height: .98; letter-spacing: -.015em; text-transform: uppercase; transform: translateY(135%); white-space: nowrap; }
+.titre .ligne span.vert { color: var(--vert); }
+
+/* Le téléphone */
+#camera { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+#telephone { position: absolute; left: 238px; top: 600px; width: 604px; height: 1252px; border-radius: 78px;
+  background: #0b0b0c; padding: 20px; transform: translateY(1400px);
+  box-shadow: 0 0 0 3px #26282b, 0 50px 120px rgba(0, 0, 0, .7), 0 0 90px rgba(0, 191, 99, .2); }
+#ecran { position: relative; width: 564px; height: 1212px; border-radius: 60px; overflow: hidden; background: #f4f6fa; }
+#ilot { position: absolute; left: 50%; top: 14px; width: 150px; height: 40px; margin-left: -75px; border-radius: 22px; background: #0b0b0c; z-index: 50; }
+.page { position: absolute; inset: 0; opacity: 0; }
+.page .defile, .page .calque { position: absolute; left: 0; top: 0; width: 564px; }
+.page .calque { z-index: 4; height: 0; }
+.page .corps { display: block; width: 564px; }
+.page .haut { position: absolute; left: 0; top: 0; width: 564px; z-index: 3; }
+.page .bas { position: absolute; left: 0; bottom: 0; width: 564px; z-index: 3; }
+.cadre { position: absolute; border-radius: 8px; border: 5px solid var(--vert); opacity: 0;
+  box-shadow: 0 0 0 0 rgba(5, 10, 18, 0), 0 0 40px rgba(0, 191, 99, 0); }
+.ruban { position: absolute; overflow: hidden; background-repeat: no-repeat; width: 0; }
+.curseur { position: absolute; width: 3px; background: var(--encre); opacity: 0; }
+.coeur { position: absolute; width: 0; height: 0; z-index: 6; }
+.coeur svg { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; fill: var(--rouge); filter: drop-shadow(0 4px 8px rgba(255, 77, 94, .45)); }
+.toucher { position: absolute; width: 0; height: 0; z-index: 40; }
+.toucher .point { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%;
+  background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 3px rgba(0, 191, 99, .9), 0 6px 18px rgba(0, 0, 0, .35); transform: scale(0); }
+.toucher .onde { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%;
+  border: 4px solid rgba(0, 191, 99, .9); transform: scale(0); opacity: 0; }
+
+/* Les pastilles au-dessus du téléphone */
+.pastille { position: absolute; top: 486px; display: inline-flex; align-items: center; gap: 14px; padding: 16px 30px; border-radius: 999px;
+  font-family: "Outfit"; font-weight: 900; font-size: 40px; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .45); opacity: 0; z-index: 70; }
+.pastille svg { width: 40px; height: 40px; }
+.pastille.blanche { background: #fff; color: var(--encre); }
+.pastille.verte { background: var(--vert); color: #04100b; }
+#pa-jaime svg { fill: var(--rouge); }
+#pa-com svg { fill: none; stroke: var(--encre); stroke-width: 2.4; }
+
+/* Les commentaires, en grand */
+.bulle { position: absolute; left: 70px; width: 760px; display: flex; align-items: center; gap: 20px; padding: 22px 28px; border-radius: 30px;
+  background: #fff; color: var(--encre); box-shadow: 0 24px 60px rgba(0, 0, 0, .5); opacity: 0; z-index: 75; }
+.bulle.d { left: auto; right: 70px; }
+.bulle i { flex: none; width: 76px; height: 76px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: "Outfit"; font-style: normal; font-weight: 900; font-size: 28px; color: #fff; }
+.bulle b { display: block; font-family: "Outfit"; font-weight: 800; font-size: 28px; color: #6b7280; }
+.bulle span { display: block; font-size: 38px; font-weight: 700; line-height: 1.2; }
+
+/* 4. Tout le monde */
+#monde { top: 470px; }
+.role { display: flex; align-items: center; justify-content: center; gap: 28px; margin-bottom: 34px; opacity: 0; }
+.role i { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: "Outfit"; font-style: normal; font-weight: 900; font-size: 44px; color: #fff; box-shadow: 0 14px 40px rgba(0, 0, 0, .5); }
+.role b { font-family: "Outfit"; font-weight: 900; font-size: 116px; line-height: 1; text-transform: uppercase; letter-spacing: -.01em; text-shadow: 0 10px 40px rgba(0, 0, 0, .7); }
+#monde-sous { top: 1260px; left: 110px; right: 110px; padding: 34px 40px; border-radius: 36px; background: rgba(5, 10, 18, .88);
+  border: 2px solid rgba(255, 255, 255, .12); font-family: "Outfit"; font-weight: 800; font-size: 52px; line-height: 1.2; opacity: 0;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
+#monde-sous em { font-style: normal; color: var(--vert); }
+
+/* Fin */
+#fin { position: absolute; inset: 0; opacity: 0; }
+#fin-voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 10, 18, .9) 0%, rgba(5, 10, 18, .75) 55%, rgba(5, 10, 18, .2) 80%, rgba(5, 10, 18, 0) 100%); }
+#fin-logo { position: absolute; left: 50%; top: 300px; width: 700px; margin-left: -350px; transform: scale(.6); opacity: 0; }
+#fin-texte { top: 720px; }
+#fin-texte .mot span { font-size: 116px; line-height: 1; }
+#fin-texte .mot span.vert { color: var(--vert); }
+#fin-appel { position: absolute; left: 0; right: 0; top: 1060px; transform: scale(.8); opacity: 0; text-align: center; }
+#fin-appel .bouton { display: inline-block; white-space: nowrap; padding: 34px 64px; border-radius: 999px; background: var(--vert); color: #04100b;
+  font-family: "Outfit"; font-weight: 900; font-size: 52px; letter-spacing: .05em; text-transform: uppercase; box-shadow: 0 24px 60px rgba(0, 191, 99, .35); }
+#fin-appel .url { margin-top: 30px; font-family: "Outfit"; font-weight: 800; font-size: 46px; letter-spacing: .04em; color: #fff; text-shadow: 0 4px 20px rgba(0, 0, 0, .8); }
+</style>
+</head>
+<body>
+<div id="scene">
+  <canvas id="foule" width="1080" height="1920"></canvas>
+  <div id="voile"></div>
+
+  <!-- Accroche -->
+  <div id="accroche" class="centre-page">
+    <div class="puce">La Tribune</div>
+    <div class="mot"><span>Le foot</span></div>
+    <div class="mot"><span>de quartier</span></div>
+    <div class="mot"><span class="vert">a sa tribune.</span></div>
+  </div>
+  <div class="chant g" id="c1" style="left:80px;top:860px">Quel but ! 🔥</div>
+  <div class="chant d" id="c2" style="right:70px;top:1010px">On remet ça samedi ? 💪</div>
+  <div class="chant g" id="c3" style="left:130px;top:1170px">Allez l'Avenir ! 💚</div>
+  <div class="chant d" id="c4" style="right:110px;top:1330px">Qui vient à la finale ?</div>
+
+  <!-- 1. Raconte ton match -->
+  <div class="titre" id="t1"><div class="puce">1 · Publie</div><div class="ligne"><span>Raconte</span></div><div class="ligne"><span class="vert">ton match</span></div></div>
+  <div class="pastille verte" id="pa-publie" style="left:50%;transform:translateX(-50%)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#04100b" stroke-width="3"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Publié, avec ta photo</div>
+
+  <!-- 2. Ta tribune réagit -->
+  <div class="titre" id="t2"><div class="puce">2 · Ça réagit</div><div class="ligne"><span>Ta tribune</span></div><div class="ligne"><span class="vert">s'enflamme</span></div></div>
+  <div class="pastille blanche" id="pa-jaime" style="left:120px"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8 3.2 4 7 4c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.8 0 6.1 4 4.6 7.6C19.5 16.4 12 21 12 21z"/></svg><span id="n-jaime">0</span></div>
+  <div class="pastille blanche" id="pa-com" style="right:120px"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/></svg><span id="n-com">0</span></div>
+
+  <div id="camera">
+    <div id="telephone">
+      <div id="ecran">
+        <div id="ilot"></div>
+        <!-- les états, posés par le script à partir de cibles.js -->
+      </div>
+    </div>
+  </div>
+
+  <div class="bulle" id="b1" style="top:1230px"><i style="background:#3b82f6">AF</i><div><b>Afi L.</b><span>Quel but Kafui !! 🔥🔥</span></div></div>
+  <div class="bulle d" id="b2" style="top:1420px"><i style="background:#f97316">KO</i><div><b>Kossi M. · Manager</b><span>Bravo les gars, on remet ça samedi 💪</span></div></div>
+  <div class="bulle" id="b3" style="top:1610px"><i style="background:#10b981">DO</i><div><b>Dodzi A.</b><span>J'étais au bord du terrain, l'ambiance 😍</span></div></div>
+
+  <!-- 3. Les résultats -->
+  <div class="titre" id="t3"><div class="puce">3 · Le compte officiel KoppaFoot</div><div class="ligne"><span>Les résultats</span></div><div class="ligne"><span class="vert">tombent ici</span></div></div>
+  <div class="pastille verte" id="pa-o1" style="left:50%;transform:translateX(-50%)">🏁 Résultats</div>
+  <div class="pastille verte" id="pa-o2" style="left:50%;transform:translateX(-50%)">📋 Inscriptions ouvertes</div>
+  <div class="pastille verte" id="pa-o3" style="left:50%;transform:translateX(-50%)">🏆 Vainqueurs</div>
+
+  <!-- 4. Tout le monde -->
+  <div id="monde" class="centre-page">
+    <div class="role" id="r1"><i style="background:#f59e0b">KA</i><b>Joueurs</b></div>
+    <div class="role" id="r2"><i style="background:#f97316">KO</i><b>Managers</b></div>
+    <div class="role" id="r3"><i style="background:#3b82f6">AF</i><b>Supporters</b></div>
+  </div>
+  <div id="monde-sous" class="centre-page">Tout le foot de quartier,<br><em>au même endroit.</em></div>
+
+  <!-- Fin -->
+  <div id="fin">
+    <div id="fin-voile"></div>
+    <img id="fin-logo" src="images/logo.png" alt="KoppaFoot">
+    <div id="fin-texte" class="centre-page">
+      <div class="mot"><span>Ta tribune</span></div>
+      <div class="mot"><span class="vert">t'attend.</span></div>
+    </div>
+    <div id="fin-appel"><div class="bouton">Rejoins la Tribune</div><div class="url">koppafoot.com</div></div>
+  </div>
+</div>
+
+<script src="cibles.js"></script>
+<script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+// ============================================================
+// La ligne de temps. Les temps sont en secondes, la vidéo en dure 30.
+// ============================================================
+const DUREE = 30;
+const ECHELLE = 564 / 390;            // pixels vidéo par pixel CSS du téléphone filmé
+const HAUTEUR_ECRAN = 1212 / ECHELLE; // ce que l'écran montre, en px CSS
+const C = window.CIBLES || {};
+const etat = { jaime: 0, com: 0 };
+const T = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const px = (v) => v * ECHELLE + "px";
+
+// ── La foule ──────────────────────────────────────────────
+// Des rangées de supporters, petites au fond, grandes devant ; la ola passe
+// de gauche à droite. Tout se calcule à partir du temps : une image donnée est
+// toujours la même, quel que soit l'ordre du rendu.
+const foule = $("#foule").getContext("2d");
+const PEAUX = ["#5b3a29", "#3d2618", "#6b4430", "#7a5038", "#4a2f20", "#8a5a3c"];
+const MAILLOTS = ["#00bf63", "#00bf63", "#f8fafc", "#ffc53d", "#ef4444", "#3b82f6", "#16a34a", "#f8fafc", "#facc15"];
+let graine = 7;
+const hasard = () => ((graine = (graine * 16807) % 2147483647) / 2147483647);
+const SIEGES = [];
+const RANGS = 19;
+for (let r = 0; r < RANGS; r++) {
+  const p = r / (RANGS - 1);
+  const rayon = 8 + 24 * p;
+  const pas = rayon * 2.7;
+  const y = 330 + 1560 * Math.pow(p, 1.18);
+  const decalage = (r % 2) * pas / 2 - pas;
+  for (let x = decalage; x < 1080 + pas; x += pas) {
+    SIEGES.push({
+      x: x + (hasard() - 0.5) * rayon * 0.6, y, rayon, p,
+      peau: PEAUX[Math.floor(hasard() * PEAUX.length)],
+      maillot: MAILLOTS[Math.floor(hasard() * MAILLOTS.length)],
+      jeu: hasard(),
+    });
+  }
+}
+function dessinerFoule(t) {
+  const g = foule;
+  g.clearRect(0, 0, 1080, 1920);
+  // Le ciel de nuit, et la lueur des projecteurs au-dessus de la tribune.
+  const ciel = g.createLinearGradient(0, 0, 0, 1920);
+  ciel.addColorStop(0, "#0b1a33"); ciel.addColorStop(0.35, "#09121f"); ciel.addColorStop(1, "#050a12");
+  g.fillStyle = ciel; g.fillRect(0, 0, 1080, 1920);
+  for (const lx of [180, 900]) {
+    const l = g.createRadialGradient(lx, 120, 0, lx, 120, 520);
+    l.addColorStop(0, "rgba(255,250,225,.55)"); l.addColorStop(0.25, "rgba(255,245,200,.16)"); l.addColorStop(1, "rgba(255,245,200,0)");
+    g.fillStyle = l; g.fillRect(0, 0, 1080, 900);
+    g.fillStyle = "#fffbe6"; g.fillRect(lx - 40, 104, 80, 26);
+  }
+  // Les marches.
+  for (let r = 0; r < RANGS; r++) {
+    const p = r / (RANGS - 1);
+    const y = 330 + 1560 * Math.pow(p, 1.18);
+    g.fillStyle = r % 2 ? "rgba(255,255,255,.035)" : "rgba(255,255,255,.06)";
+    g.fillRect(0, y + 8 + 24 * p, 1080, 6 + 10 * p);
+  }
+  // Les supporters, du fond vers l'avant.
+  for (const s of SIEGES) {
+    const vague = Math.pow(Math.max(0, Math.cos(s.x / 1080 * 5.2 - t * 3.1 + s.p * 0.6)), 8);
+    const saut = s.rayon * 2.3 * vague + Math.sin(t * 6 + s.jeu * 20) * s.rayon * 0.08;
+    const y = s.y - saut;
+    // Les bras levés quand la vague passe.
+    if (vague > 0.25) {
+      g.strokeStyle = s.peau; g.lineWidth = s.rayon * 0.42; g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(s.x - s.rayon * 0.9, y + s.rayon * 1.2); g.lineTo(s.x - s.rayon * 1.3, y - s.rayon * 1.4 * vague);
+      g.moveTo(s.x + s.rayon * 0.9, y + s.rayon * 1.2); g.lineTo(s.x + s.rayon * 1.3, y - s.rayon * 1.4 * vague);
+      g.stroke();
+    }
+    g.fillStyle = s.maillot;
+    g.beginPath(); g.ellipse(s.x, y + s.rayon * 2.05, s.rayon * 1.25, s.rayon * 1.1, 0, Math.PI, 0); g.fill();
+    g.fillRect(s.x - s.rayon * 1.25, y + s.rayon * 2.0, s.rayon * 2.5, s.rayon * 1.6);
+    g.fillStyle = s.peau;
+    g.beginPath(); g.arc(s.x, y + s.rayon * 0.9, s.rayon * 0.82, 0, Math.PI * 2); g.fill();
+  }
+  // Le haut du canevas s'assombrit : les titres restent lisibles.
+  const haut = g.createLinearGradient(0, 0, 0, 980);
+  haut.addColorStop(0, "rgba(5,10,18,.92)"); haut.addColorStop(0.55, "rgba(5,10,18,.78)"); haut.addColorStop(1, "rgba(5,10,18,0)");
+  g.fillStyle = haut; g.fillRect(0, 0, 1080, 980);
+}
+
+// ── Les états du téléphone, posés d'après le tournage ─────
+const ETATS = ["vide", "texte", "photo", "publie", "reactions"];
+for (const nom of ETATS) {
+  const c = C[nom];
+  if (!c) { console.warn("état absent", nom); continue; }
+  const p = document.createElement("div");
+  p.className = "page";
+  p.id = "p-" + nom;
+  p.innerHTML = `
+    <div class="defile"><img class="corps" src="ecrans/${nom}-page.jpg"></div>
+    <div class="calque"></div>
+    ${c.haut ? `<img class="haut" src="ecrans/${nom}-haut.jpg">` : ""}
+    ${c.bas ? `<img class="bas" src="ecrans/${nom}-bas.jpg">` : ""}`;
+  $("#ecran").appendChild(p);
+}
+
+let z = 1;
+/** Un état passe devant le précédent. */
+function montrer(nom, t, d = 0.3) {
+  const p = $("#p-" + nom);
+  if (!p) return;
+  T.set(p, { zIndex: z++ }, t).fromTo(p, { opacity: 0 }, { opacity: 1, duration: d, ease: "power2.out" }, t);
+}
+/** Faire défiler un état jusqu'à `y` (px CSS), borné à sa page. */
+function defiler(nom, y, t, d = 0.8) {
+  const c = C[nom], p = $("#p-" + nom);
+  if (!c || !p) return;
+  const cible = Math.max(0, Math.min(c.hauteur - HAUTEUR_ECRAN, y));
+  T.to([p.querySelector(".defile"), p.querySelector(".calque")], { y: -cible * ECHELLE, duration: d, ease: "power2.inOut" }, t);
+  return cible;
+}
+/** Un cadre et un projecteur sur une zone de la page. */
+function projecteur(nom, r, t, fin) {
+  if (!r) return;
+  const m = 6;
+  const cadre = document.createElement("div");
+  cadre.className = "cadre";
+  Object.assign(cadre.style, { left: px(r.x - m), top: px(r.y - m), width: px(r.w + 2 * m), height: px(r.h + 2 * m) });
+  $(`#p-${nom} .calque`).appendChild(cadre);
+  T.fromTo(cadre, { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)", immediateRender: false }, t)
+   .to(cadre, { boxShadow: "0 0 0 1600px rgba(5,10,18,.5), 0 0 46px rgba(0,191,99,.8)", duration: 0.45 }, t)
+   .to(cadre, { opacity: 0, boxShadow: "0 0 0 1600px rgba(5,10,18,0), 0 0 46px rgba(0,191,99,0)", duration: 0.3 }, fin);
+}
+/** Un doigt sur l'écran, au centre d'une zone (px CSS de la page, défilement `y`). */
+function toucher(r, t, y = 0) {
+  if (!r) return;
+  const el = document.createElement("div");
+  el.className = "toucher";
+  el.innerHTML = '<div class="onde"></div><div class="point"></div>';
+  el.style.left = px(r.x + r.w / 2);
+  el.style.top = px(r.y + r.h / 2 - y);
+  $("#ecran").appendChild(el);
+  const pt = el.querySelector(".point"), o = el.querySelector(".onde");
+  T.fromTo(pt, { scale: 0, opacity: 1 }, { scale: 1, duration: 0.18, ease: "back.out(3)", immediateRender: false }, t)
+   .to(pt, { scale: 0.8, duration: 0.12 }, t + 0.22)
+   .to(pt, { opacity: 0, scale: 0.4, duration: 0.25, ease: "power2.in" }, t + 0.42)
+   .fromTo(o, { scale: 0.6, opacity: 0.9 }, { scale: 2.6, opacity: 0, duration: 0.6, ease: "power2.out", immediateRender: false }, t + 0.18);
+}
+function titre(id, entree, sortie) {
+  const racine = $(id);
+  T.to(racine.querySelector(".puce"), { opacity: 1, duration: 0.4 }, entree)
+   .to(racine.querySelectorAll(".ligne > span"), { y: "0%", duration: 0.7, stagger: 0.09 }, entree + 0.05)
+   .to(racine, { opacity: 0, y: -40, duration: 0.35, ease: "power2.in" }, sortie);
+}
+function surgir(sel, t, fin, depuis = { y: 50, scale: 0.85 }) {
+  T.fromTo(sel, { opacity: 0, ...depuis }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, t);
+  if (fin) T.to(sel, { opacity: 0, y: -24, duration: 0.3, ease: "power2.in" }, fin);
+}
+/** La foule passe au second plan, ou revient. */
+function foulePlan(t, fond) {
+  T.to("#voile", { opacity: fond ? 1 : 0, duration: 0.6 }, t)
+   .to("#foule", { filter: fond ? "blur(5px)" : "blur(0px)", duration: 0.6 }, t);
+}
+
+// ── Accroche : 0 → 3,8 s ──────────────────────────────────
+T.to("#accroche .puce", { opacity: 1, duration: 0.4 }, 0.2)
+ .fromTo("#accroche .puce", { scale: 0.6 }, { scale: 1, duration: 0.5, ease: "back.out(2.5)" }, 0.2)
+ .to("#accroche .mot span", { y: "0%", duration: 0.7, stagger: 0.13 }, 0.45);
+["#c1", "#c2", "#c3", "#c4"].forEach((c, i) => {
+  T.fromTo(c, { opacity: 0, scale: 0.4, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "back.out(2.4)" }, 1.25 + i * 0.32);
+});
+T.to("#accroche, .chant", { opacity: 0, y: -60, duration: 0.4, ease: "power2.in" }, 3.4);
+
+// ── 1. Raconte ton match : 3,8 → 10,6 s ───────────────────
+foulePlan(3.5, true);
+titre("#t1", 3.85, 10.4);
+T.to("#telephone", { y: 0, duration: 0.9, ease: "power3.out" }, 3.6);
+montrer("vide", 3.6, 0.01);
+{
+  // La frappe : le texte apparaît, ligne par ligne, dans la zone de saisie.
+  const z = C.vide && C.vide.zone;
+  if (z) {
+    const lignes = [[z.y + 6, 25], [z.y + 31, 25]];
+    const d = $("#p-vide .defile");
+    lignes.forEach(([y, h], i) => {
+      const r = document.createElement("div");
+      r.className = "ruban";
+      Object.assign(r.style, {
+        left: px(z.x), top: px(y), height: px(h),
+        backgroundImage: "url(ecrans/texte-page.jpg)", backgroundSize: "564px auto",
+        backgroundPosition: `${-z.x * ECHELLE}px ${-y * ECHELLE}px`,
+      });
+      d.appendChild(r);
+      T.to(r, { width: px(z.w), duration: 0.85, ease: "none" }, 4.6 + i * 0.9);
+      const c = document.createElement("div");
+      c.className = "curseur";
+      Object.assign(c.style, { left: px(z.x + 12), top: px(y + 3), height: px(h - 6) });
+      d.appendChild(c);
+      T.set(c, { opacity: 1 }, 4.6 + i * 0.9)
+       .to(c, { x: (z.w - 24) * ECHELLE, duration: 0.85, ease: "none" }, 4.6 + i * 0.9)
+       .set(c, { opacity: 0 }, 4.6 + (i + 1) * 0.9);
+    });
+  }
+}
+montrer("texte", 6.4, 0.01);
+toucher(C.texte && C.texte.photo, 6.55);
+montrer("photo", 7.0);
+toucher(C.photo && C.photo.publier, 8.1);
+montrer("publie", 8.65);
+surgir("#pa-publie", 8.9, 10.35, { y: 30, scale: 0.7 });
+
+// ── 2. Ta tribune s'enflamme : 10,6 → 17,2 s ──────────────
+titre("#t2", 10.6, 16.95);
+surgir("#pa-jaime", 10.9, 16.9, { y: 30, scale: 0.7 });
+surgir("#pa-com", 11.05, 16.9, { y: 30, scale: 0.7 });
+{
+  // Les cœurs s'envolent du bouton « J'aime ».
+  const j = C.publie && C.publie.jaime;
+  if (j) {
+    const calque = $("#p-publie .calque");
+    const coeur = '<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8 3.2 4 7 4c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.8 0 6.1 4 4.6 7.6C19.5 16.4 12 21 12 21z"/></svg>';
+    let graineC = 11;
+    const h = () => ((graineC = (graineC * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 16; i++) {
+      const el = document.createElement("div");
+      el.className = "coeur";
+      el.innerHTML = coeur;
+      el.style.left = px(j.x + j.w / 2);
+      el.style.top = px(j.y + j.h / 2);
+      el.style.opacity = 0;
+      calque.appendChild(el);
+      const t0 = 11.3 + i * 0.09;
+      const dx = (h() - 0.3) * 260, dy = -(260 + h() * 380);
+      T.fromTo(el, { opacity: 0, scale: 0.3, x: 0, y: 0 }, { opacity: 1, scale: 0.8 + h() * 0.7, duration: 0.25, immediateRender: false }, t0)
+       .to(el, { x: dx, y: dy, rotation: (h() - 0.5) * 50, duration: 1.4, ease: "power1.out" }, t0)
+       .to(el, { opacity: 0, duration: 0.4 }, t0 + 1.0);
+    }
+    toucher(j, 11.15);
+  }
+}
+T.to(etat, { jaime: 48, duration: 1.7, ease: "power2.out" }, 11.3)
+ .to(etat, { com: 3, duration: 0.9, ease: "none" }, 12.9);
+montrer("reactions", 12.6, 0.4);
+defiler("reactions", 250, 13.05, 0.8);
+surgir("#b1", 13.4, 16.9, { x: -80, y: 0, scale: 0.9 });
+surgir("#b2", 14.05, 16.9, { x: 80, y: 0, scale: 0.9 });
+surgir("#b3", 14.7, 16.9, { x: -80, y: 0, scale: 0.9 });
+
+// ── 3. Les résultats tombent ici : 17,2 → 23,6 s ──────────
+titre("#t3", 17.2, 23.4);
+{
+  const o = (C.reactions && C.reactions.officiels) || [];
+  const centrer = (r) => r.y + r.h / 2 - HAUTEUR_ECRAN / 2 + 40;
+  const etapes = [[17.3, 18.2, 19.5, "#pa-o1"], [19.5, 20.35, 21.5, "#pa-o2"], [21.5, 22.35, 23.4, "#pa-o3"]];
+  etapes.forEach(([td, tp, fin, pastille], i) => {
+    if (!o[i]) return;
+    defiler("reactions", centrer(o[i]), td, 0.75);
+    projecteur("reactions", o[i], tp - 0.1, fin - 0.05);
+    surgir(pastille, tp, fin - 0.05, { y: 30, scale: 0.7 });
+  });
+}
+T.to("#telephone", { y: 1400, duration: 0.6, ease: "power3.in" }, 23.3);
+
+// ── 4. Tout le monde : 23,8 → 26,8 s ──────────────────────
+T.to("#voile", { opacity: 0.72, duration: 0.6 }, 23.6)
+ .to("#foule", { filter: "blur(0px)", duration: 0.6 }, 23.6)
+ .to("#voile", { opacity: 0, duration: 0.6 }, 26.6);
+["#r1", "#r2", "#r3"].forEach((r, i) => {
+  T.fromTo(r, { opacity: 0, x: i % 2 ? 160 : -160 }, { opacity: 1, x: 0, duration: 0.45, ease: "back.out(1.6)" }, 23.85 + i * 0.32);
+});
+T.fromTo("#monde-sous", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5 }, 25.0)
+ .to("#monde, #monde-sous", { opacity: 0, y: -40, duration: 0.35, ease: "power2.in" }, 26.55);
+
+// ── Fin : 26,8 → 30 s ─────────────────────────────────────
+T.to("#fin", { opacity: 1, duration: 0.3 }, 26.8)
+ .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 26.9)
+ .to("#fin-texte .mot span", { y: "0%", duration: 0.7, stagger: 0.14 }, 27.3)
+ .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 28.0)
+ .to("#fin-appel .bouton", { scale: 1.05, duration: 0.42, repeat: 3, yoyo: true, ease: "sine.inOut" }, 28.6)
+ .set({}, {}, DUREE);
+
+// ── Ce que les interpolations ne savent pas écrire ────────
+function rendre(t) {
+  dessinerFoule(t);
+  $("#n-jaime").textContent = Math.round(etat.jaime);
+  $("#n-com").textContent = Math.round(etat.com);
+}
+
+/** Aller à l'instant t (en secondes) : appelé image par image par outils/rendu.mjs. */
+window.allerA = (t) => { T.seek(t, true); rendre(t); };
+window.DUREE = DUREE;
+window.pret = Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))),
+]).then(() => true);
+
+// Ouverte à la main : la page se joue en temps réel.
+if (!navigator.webdriver) {
+  window.pret.then(() => { T.eventCallback("onUpdate", () => rendre(T.time())); T.play(0); });
+}
+</script>
+</body>
+</html>
