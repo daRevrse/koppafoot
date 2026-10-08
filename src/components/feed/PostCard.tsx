@@ -15,6 +15,7 @@ import { deletePost, updatePostContent, createPost } from "@/lib/firestore";
 import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import { auth } from "@/lib/firebase";
 import { CommentSection } from "./CommentSection";
+import { CarteRecrutement } from "./CarteRecrutement";
 import VisionneuseMedia from "./VisionneuseMedia";
 import { SYSTEM_AUTHOR_ID } from "@/types";
 import type { Post, PostType, UserProfile } from "@/types";
@@ -37,7 +38,6 @@ const T = textes(
     signaler: "Signaler",
     sauvegarder: "Sauvegarder",
     annuler: "Annuler",
-    rechercheJoueurs: "Recherche de joueurs",
     voirPhoto: (n: number) => `Voir la photo ${n} en grand`,
     jaime: "J'aime",
     commentaires: "Commentaires",
@@ -74,7 +74,6 @@ const T = textes(
     signaler: "Report",
     sauvegarder: "Save",
     annuler: "Cancel",
-    rechercheJoueurs: "Looking for players",
     voirPhoto: (n: number) => `View photo ${n} full size`,
     jaime: "Like",
     commentaires: "Comments",
@@ -176,10 +175,12 @@ interface PostCardProps {
   currentUser: UserProfile | null;
   onLikeAction: (postId: string, isLiked: boolean) => void;
   onDeleteAction: (postId: string) => void;
+  /** Les commentaires ouverts d'emblée : on arrive de la notification d'un commentaire. */
+  commentairesOuverts?: boolean;
 }
 
-export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: PostCardProps) {
-  const [showComments, setShowComments] = useState(false);
+export function PostCard({ post, currentUser, onLikeAction, onDeleteAction, commentairesOuverts = false }: PostCardProps) {
+  const [showComments, setShowComments] = useState(commentairesOuverts);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -543,17 +544,9 @@ export function PostCard({ post, currentUser, onLikeAction, onDeleteAction }: Po
         </div>
       )}
 
-      {/* Team announcement card */}
+      {/* L'annonce de recrutement : l'équipe, les postes, « Demander à rejoindre » */}
       {post.type === "team_announcement" && post.metadata?.teamName && (
-        <div className="mx-4 mb-2 flex items-center gap-3 bg-blue-50 p-3">
-          <div className="flex h-10 w-10 items-center justify-center bg-blue-100">
-            <Shield size={20} className="text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-gray-900">{post.metadata.teamName}</p>
-            <p className="text-xs text-blue-600">{t.rechercheJoueurs}</p>
-          </div>
-        </div>
+        <CarteRecrutement post={post} currentUser={currentUser} />
       )}
 
       {/* LE MEDIA DANS UN CADRE FIXE.

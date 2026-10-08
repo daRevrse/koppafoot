@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>KoppaFoot · Annonceurs</title>
+<!--
+  La vidéo de l'offre annonceurs, 1080 × 1920, 30 s.
+
+  Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
+  par image (window.allerA(t)), en fait une capture, et ffmpeg les assemble.
+  Les écrans du téléphone sont de vraies captures de l'application
+  (outils/tournage.mjs), avec des marques fictives (outils/visuels.mjs) ; le
+  reste, titres, projecteur, formules, bilan, est dessiné ici.
+
+  LES CHIFFRES DU BILAN SONT UN EXEMPLE, et la vidéo le dit (« Exemple »).
+  Ils sont dans BILAN, plus bas : les remplacer par ceux d'une vraie
+  campagne, puis retirer la mention.
+
+  Ouverte telle quelle dans Chromium, la page se joue en temps réel : c'est
+  l'aperçu pendant qu'on la retouche.
+-->
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+:root {
+  --vert: #00bf63;
+  --vert-fonce: #00994f;
+  --or: #ffc53d;
+  --nuit: #04100b;
+  --encre: #111827;
+  --blanc-doux: rgba(255, 255, 255, .72);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--nuit); }
+body { font-family: "DM Sans", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+
+#scene { position: absolute; inset: 0; overflow: hidden;
+  background: radial-gradient(120% 70% at 50% 38%, #0f3a2a 0%, #082219 45%, var(--nuit) 100%); }
+
+/* Le terrain, en filigrane */
+#terrain { position: absolute; inset: 0; opacity: .9; }
+#terrain * { fill: none; stroke: rgba(255, 255, 255, .055); stroke-width: 4; }
+#lueur { position: absolute; left: 50%; top: 58%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px;
+  background: radial-gradient(circle, rgba(0, 191, 99, .22) 0%, rgba(0, 191, 99, 0) 60%); }
+
+/* Titres de scène */
+.titre { position: absolute; left: 90px; right: 90px; top: 150px; }
+.titre .puce { font-family: "Outfit"; font-weight: 800; font-size: 30px; letter-spacing: .22em; color: var(--vert); text-transform: uppercase; opacity: 0; }
+.titre .ligne { overflow: hidden; padding: 22px 0 4px; margin-top: -22px; }
+.titre .ligne span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 104px; line-height: .98; letter-spacing: -.015em; text-transform: uppercase; transform: translateY(135%); white-space: nowrap; }
+.titre .ligne span.vert { color: var(--vert); }
+.titre .ligne span.or { color: var(--or); }
+.titre .sous { margin-top: 20px; font-size: 36px; line-height: 1.3; color: var(--blanc-doux); opacity: 0; }
+
+/* Le téléphone */
+#camera { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+#telephone { position: absolute; left: 238px; top: 600px; width: 604px; height: 1252px; border-radius: 78px;
+  background: #0b0b0c; padding: 20px; transform: translateY(1400px);
+  box-shadow: 0 0 0 3px #26282b, 0 50px 120px rgba(0, 0, 0, .6), 0 0 90px rgba(0, 191, 99, .18); }
+#ecran { position: relative; width: 564px; height: 1212px; border-radius: 60px; overflow: hidden; background: #f4f6fa; }
+#ilot { position: absolute; left: 50%; top: 14px; width: 150px; height: 40px; margin-left: -75px; border-radius: 22px; background: #0b0b0c; z-index: 50; }
+.page { position: absolute; inset: 0; opacity: 0; }
+.page .defile { position: absolute; left: 0; top: 0; width: 564px; }
+.page .corps { display: block; width: 564px; }
+.page .haut { position: absolute; left: 0; top: 0; width: 564px; z-index: 3; }
+.page .bas { position: absolute; left: 0; bottom: 0; width: 564px; z-index: 3; }
+/* Le projecteur : un cadre doré autour de la marque, le reste dans l'ombre */
+.page .cadre { position: absolute; z-index: 4; border-radius: 8px; border: 5px solid var(--or);
+  box-shadow: 0 0 0 0 rgba(4, 16, 11, 0), 0 0 40px rgba(255, 197, 61, .0); opacity: 0; }
+.page .rotation { position: absolute; z-index: 2; overflow: hidden; }
+.page .rotation img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Le nom de l'annonceur et les points du défilement, réécrits à chaque relève */
+.page .nom-annonce { position: absolute; z-index: 2; overflow: hidden; font-family: "DM Sans"; font-weight: 700; color: #4b5563; white-space: nowrap; }
+.page .nom-annonce span { position: absolute; left: 0; top: 0; }
+.page .points-annonce { position: absolute; z-index: 2; display: flex; justify-content: center; align-items: center; }
+.page .points-annonce b { display: flex; align-items: center; justify-content: center; }
+.page .points-annonce i { display: block; border-radius: 99px; background: #d1d5db; }
+
+/* Où la marque paraît : une étiquette au-dessus du téléphone */
+.lieu { position: absolute; left: 0; right: 0; top: 486px; text-align: center; opacity: 0; z-index: 70; }
+.lieu span { display: inline-flex; align-items: center; gap: 16px; padding: 16px 32px; border-radius: 999px;
+  background: var(--or); color: #1f1300; font-family: "Outfit"; font-weight: 900; font-size: 40px; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .4); white-space: nowrap; }
+.lieu span i { font-style: normal; font-size: 28px; opacity: .6; letter-spacing: .1em; }
+
+/* Les deux formules */
+.formule { position: absolute; left: 90px; width: 900px; padding: 34px 30px 30px; border-radius: 34px; background: #fff; color: var(--encre);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .45); opacity: 0; }
+.formule .tete { display: flex; align-items: baseline; gap: 22px; padding: 0 6px 22px; }
+.formule .badge { font-family: "Outfit"; font-weight: 900; font-size: 46px; letter-spacing: .04em; text-transform: uppercase; }
+.formule .badge.or { color: #b7791f; }
+.formule .badge.vert { color: var(--vert-fonce); }
+.formule .tete b { font-family: "Outfit"; font-weight: 700; font-size: 32px; color: #6b7280; }
+.formule .visuel { position: relative; width: 840px; height: 210px; border-radius: 14px; overflow: hidden; background: #f3f4f6; }
+.formule .visuel img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.formule ul { list-style: none; margin-top: 24px; padding: 0 6px; }
+.formule li { display: flex; align-items: center; gap: 18px; font-size: 34px; font-weight: 600; line-height: 1.5; color: #374151; }
+.formule li::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; background: var(--vert); }
+.formule .points { position: absolute; right: 52px; top: 52px; display: flex; gap: 10px; }
+.formule .points i { width: 14px; height: 14px; border-radius: 7px; background: #d1d5db; }
+#f-note { position: absolute; left: 0; right: 0; top: 1700px; text-align: center; font-size: 32px; color: var(--blanc-doux); opacity: 0; }
+#f-note b { color: #fff; }
+
+/* Le bilan */
+#bilan { position: absolute; left: 90px; width: 900px; top: 640px; padding: 40px 44px 44px; border-radius: 38px; background: #fff; color: var(--encre);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5); opacity: 0; }
+#bilan .tete { display: flex; align-items: center; gap: 24px; padding-bottom: 30px; border-bottom: 2px solid #eef0f3; }
+#bilan .tete img { width: 200px; height: 50px; border-radius: 8px; object-fit: cover; }
+#bilan .tete b { display: block; font-family: "Outfit"; font-weight: 800; font-size: 38px; line-height: 1.1; }
+#bilan .tete span { display: block; font-size: 26px; color: #6b7280; margin-top: 4px; }
+#bilan .exemple { margin-left: auto; align-self: flex-start; padding: 8px 18px; border-radius: 999px; background: #f3f4f6; color: #6b7280;
+  font-family: "Outfit"; font-weight: 800; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; }
+#bilan .stat { padding: 30px 0 8px; }
+#bilan .stat + .stat { border-top: 2px solid #eef0f3; }
+#bilan .lib { font-family: "Outfit"; font-weight: 800; font-size: 28px; letter-spacing: .2em; color: #9ca3af; text-transform: uppercase; }
+#bilan .val { margin-top: 2px; font-family: "Outfit"; font-weight: 900; font-size: 150px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+#bilan .val.vert { color: var(--vert-fonce); }
+#bilan .jauge { margin-top: 18px; height: 14px; border-radius: 7px; background: #eef0f3; overflow: hidden; }
+#bilan .jauge i { display: block; height: 100%; width: 0; border-radius: 7px; background: linear-gradient(90deg, var(--vert), #4ade80); }
+#bilan .jauge.or i { background: linear-gradient(90deg, #f59e0b, var(--or)); }
+
+/* Intro et fin */
+.centre-page { position: absolute; left: 0; right: 0; text-align: center; }
+#intro-symbole { position: absolute; left: 50%; top: 430px; width: 260px; margin-left: -130px; transform: scale(0); }
+#intro-texte { top: 790px; }
+#intro-texte .l { overflow: hidden; padding-top: 20px; margin-top: -20px; }
+#intro-texte .l span { display: block; font-family: "Outfit"; font-weight: 900; text-transform: uppercase; transform: translateY(135%); }
+#intro-texte .l1 span { font-size: 54px; letter-spacing: .24em; color: var(--or); }
+#intro-texte .l2 span, #intro-texte .l3 span, #intro-texte .l4 span { font-size: 140px; line-height: .98; letter-spacing: -.015em; }
+#intro-texte .l4 span { color: var(--vert); }
+#intro-sous { top: 1400px; font-size: 40px; line-height: 1.35; color: var(--blanc-doux); opacity: 0; padding: 0 120px; }
+#intro-banniere { position: absolute; left: 90px; top: 1560px; width: 900px; height: 225px; border-radius: 18px; overflow: hidden; opacity: 0;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .5), 0 0 0 5px var(--or); }
+#intro-banniere img { width: 100%; height: 100%; object-fit: cover; }
+#fin { position: absolute; inset: 0; opacity: 0; }
+#fin-logo { position: absolute; left: 50%; top: 470px; width: 760px; margin-left: -380px; transform: scale(.6); opacity: 0; }
+#fin-texte { top: 960px; }
+#fin-texte .l { overflow: hidden; padding-top: 20px; margin-top: -20px; }
+#fin-texte .l span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 92px; line-height: 1.02; text-transform: uppercase; transform: translateY(135%); }
+#fin-texte .l span.vert { color: var(--vert); }
+#fin-appel { position: absolute; left: 0; right: 0; top: 1360px; transform: scale(.8); opacity: 0; text-align: center; }
+#fin-appel .bouton { display: inline-block; white-space: nowrap; padding: 34px 64px; border-radius: 999px; background: var(--or); color: #1f1300;
+  font-family: "Outfit"; font-weight: 900; font-size: 52px; letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 24px 60px rgba(255, 197, 61, .3); }
+#fin-appel .url { margin-top: 34px; font-family: "Outfit"; font-weight: 700; font-size: 46px; letter-spacing: .04em; color: var(--blanc-doux); }
+</style>
+</head>
+<body>
+<div id="scene">
+  <svg id="terrain" viewBox="0 0 1080 1920" preserveAspectRatio="none">
+    <rect x="70" y="70" width="940" height="1780" rx="6" />
+    <line x1="70" y1="960" x2="1010" y2="960" />
+    <circle cx="540" cy="960" r="190" />
+    <rect x="290" y="70" width="500" height="260" />
+    <rect x="290" y="1590" width="500" height="260" />
+  </svg>
+  <div id="lueur"></div>
+
+  <!-- Intro -->
+  <img id="intro-symbole" src="images/symbole.png" alt="">
+  <div id="intro-texte" class="centre-page">
+    <div class="l l1"><span>Annonceurs</span></div>
+    <div class="l l2"><span>Ta marque</span></div>
+    <div class="l l3"><span>au bord</span></div>
+    <div class="l l4"><span>du terrain.</span></div>
+  </div>
+  <div id="intro-sous" class="centre-page">Là où le foot de quartier se suit en direct.</div>
+  <div id="intro-banniere"><img src="images/bannieres/sika-jus.jpg" alt=""></div>
+
+  <!-- 1. Partout où on suit le match -->
+  <div class="titre" id="t1"><div class="puce">7 emplacements</div><div class="ligne"><span>Partout où</span></div><div class="ligne"><span class="vert">ça joue.</span></div></div>
+  <div class="lieu" id="l-direct"><span>Le Direct <i>1 / 4</i></span></div>
+  <div class="lieu" id="l-match"><span>La fiche du match <i>2 / 4</i></span></div>
+  <div class="lieu" id="l-competition"><span>Ta compétition <i>3 / 4</i></span></div>
+  <div class="lieu" id="l-tribune"><span>La Tribune <i>4 / 4</i></span></div>
+
+  <div id="camera">
+    <div id="telephone">
+      <div id="ecran">
+        <div id="ilot"></div>
+        <!-- les pages, posées par le script à partir de cibles.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Deux formules -->
+  <div class="titre" id="t2"><div class="puce">Deux formules</div><div class="ligne"><span>Choisis</span></div><div class="ligne"><span class="vert">ta place</span></div></div>
+  <div class="formule" id="f-partenaire" style="top:610px">
+    <div class="tete"><span class="badge or">Partenaire</span><b>la place rien qu'à toi</b></div>
+    <div class="visuel"><img src="images/bannieres/sika-jus.jpg" alt=""></div>
+    <ul><li>Seul à l'affiche, sans rotation</li><li>« Présenté par » sur ta compétition</li></ul>
+  </div>
+  <div class="formule" id="f-annonce" style="top:1150px">
+    <div class="tete"><span class="badge vert">Annonce</span><b>une place partagée</b></div>
+    <div class="points"><i></i><i></i><i></i></div>
+    <div class="visuel" id="f-rotation">
+      <img src="images/bannieres/novo-assurances.jpg" alt="">
+      <img src="images/bannieres/pharmacie-lagune.jpg" alt="">
+      <img src="images/bannieres/mawuli-auto.jpg" alt="">
+    </div>
+    <ul><li>Ta bannière en rotation</li><li>Un prix plus doux</li></ul>
+  </div>
+  <div id="f-note">Ton visuel : <b>une bannière 1200 × 300</b>, ou ton logo.</div>
+
+  <!-- 3. Le bilan -->
+  <div class="titre" id="t3"><div class="puce">Tes résultats</div><div class="ligne"><span>Chaque vue</span></div><div class="ligne"><span class="vert">est comptée</span></div><div class="sous">Une vue ne compte que si ta marque est vraiment à l'écran.</div></div>
+  <div id="bilan">
+    <div class="tete">
+      <img src="images/bannieres/sika-jus.jpg" alt="">
+      <div><b>Sika Jus</b><span>Ton bilan de campagne</span></div>
+      <div class="exemple">Exemple</div>
+    </div>
+    <div class="stat"><div class="lib">Vues</div><div class="val" id="v-vues">0</div><div class="jauge"><i id="j-vues"></i></div></div>
+    <div class="stat"><div class="lib">Clics vers ton site</div><div class="val" id="v-clics">0</div><div class="jauge"><i id="j-clics"></i></div></div>
+    <div class="stat"><div class="lib">Taux de clic</div><div class="val vert" id="v-taux">0 %</div><div class="jauge or"><i id="j-taux"></i></div></div>
+  </div>
+
+  <!-- Fin -->
+  <div id="fin">
+    <img id="fin-logo" src="images/logo.png" alt="KoppaFoot">
+    <div id="fin-texte" class="centre-page">
+      <div class="l"><span>Le foot de quartier,</span></div>
+      <div class="l"><span class="vert">ta vitrine.</span></div>
+    </div>
+    <div id="fin-appel"><div class="bouton">Deviens partenaire</div><div class="url">koppafoot.com</div></div>
+  </div>
+</div>
+
+<script src="cibles.js"></script>
+<script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+// ============================================================
+// La ligne de temps. Les temps sont en secondes, la vidéo en dure 30.
+// ============================================================
+const DUREE = 30;
+const ECHELLE = 564 / 390;            // pixels vidéo par pixel CSS du téléphone filmé
+const HAUTEUR_ECRAN = 1212 / ECHELLE; // ce que l'écran montre, en px CSS
+const ECRAN = { x: 238 + 20, y: 600 + 20 };   // coin de l'écran dans la vidéo
+const C = window.CIBLES || {};
+
+// LE BILAN, UN EXEMPLE (la vidéo affiche « Exemple »). Le taux s'en déduit.
+const BILAN = { vues: 12480, clics: 437 };
+const etat = { vues: 0, clics: 0, taux: 0 };
+
+const T = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+const $ = (s) => document.querySelector(s);
+const px = (v) => v * ECHELLE + "px";
+
+// ── Les pages du téléphone, posées d'après le tournage ────
+const PAGES = ["direct", "match", "competition", "tribune"];
+for (const nom of PAGES) {
+  const c = C[nom];
+  if (!c) { console.warn("page absente", nom); continue; }
+  const p = document.createElement("div");
+  p.className = "page";
+  p.id = "p-" + nom;
+  p.innerHTML = `
+    <div class="defile"><img class="corps" src="ecrans/${nom}-page.jpg"></div>
+    <div class="cadre"></div>
+    ${c.haut ? `<img class="haut" src="ecrans/${nom}-haut.jpg">` : ""}
+    ${c.bas ? `<img class="bas" src="ecrans/${nom}-bas.jpg">` : ""}`;
+  const marge = 7;  // le cadre déborde un peu de la zone
+  Object.assign(p.querySelector(".cadre").style, {
+    left: px(c.zone.x - marge), top: px(c.zone.y - marge),
+    width: px(c.zone.w + 2 * marge), height: px(c.zone.h + 2 * marge),
+  });
+  $("#ecran").appendChild(p);
+}
+
+/** Le défilement nécessaire pour centrer la marque à l'écran (borné à la page). */
+function defilementPour(nom) {
+  const c = C[nom];
+  const centre = c.zone.y + c.zone.h / 2 - HAUTEUR_ECRAN / 2 - 40;
+  return Math.max(0, Math.min(c.hauteur - HAUTEUR_ECRAN, centre));
+}
+
+/**
+ * Une page : elle passe devant la précédente, défile jusqu'à la marque, puis
+ * le projecteur s'allume sur elle et la caméra s'en approche.
+ */
+let z = 1;
+function montrer(nom, t, { defilement = 0, projecteur = 0.7, fin } = {}) {
+  const p = $("#p-" + nom);
+  const c = C[nom];
+  if (!p || !c) return;
+  T.set(p, { zIndex: z++ }, t)
+   .fromTo(p, { opacity: 0, scale: 1.03 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power2.out" }, t);
+  const cible = defilementPour(nom);
+  // Le cadre est hors du défilement (au-dessus de l'en-tête) : il le suit.
+  const mobiles = [p.querySelector(".defile"), p.querySelector(".cadre")];
+  if (defilement && cible > 0) {
+    T.fromTo(mobiles, { y: 0 }, { y: -cible * ECHELLE, duration: defilement, ease: "power2.inOut" }, t + 0.35);
+  } else {
+    T.set(mobiles, { y: -cible * ECHELLE }, t);
+  }
+  const allume = t + 0.35 + defilement + projecteur * 0.3;
+  const cadre = p.querySelector(".cadre");
+  T.fromTo(cadre, { opacity: 0, scale: 1.12 },
+    { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(2)", immediateRender: false }, allume)
+   .to(cadre, { boxShadow: "0 0 0 1600px rgba(4, 16, 11, .55), 0 0 46px rgba(255, 197, 61, .8)", duration: 0.5, ease: "power2.out" }, allume);
+  // La caméra s'approche de la marque, puis recule.
+  const ox = ECRAN.x + (c.zone.x + c.zone.w / 2) * ECHELLE;
+  const oy = ECRAN.y + (c.zone.y - cible + c.zone.h / 2) * ECHELLE;
+  T.set("#camera", { transformOrigin: `${ox}px ${oy}px` }, allume)
+   .to("#camera", { scale: 1.16, duration: 1.0, ease: "power2.inOut" }, allume + 0.1);
+  if (fin) {
+    T.to("#camera", { scale: 1, duration: 0.5, ease: "power2.inOut" }, fin - 0.5)
+     .to(cadre, { opacity: 0, boxShadow: "0 0 0 1600px rgba(4, 16, 11, 0), 0 0 46px rgba(255, 197, 61, 0)", duration: 0.35 }, fin - 0.45);
+  }
+}
+
+/** Un titre de scène : il entre, puis sort. */
+function titre(id, entree, sortie) {
+  const racine = $(id);
+  T.to(racine.querySelector(".puce"), { opacity: 1, duration: 0.4 }, entree)
+   .to(racine.querySelectorAll(".ligne > span"), { y: "0%", duration: 0.7, stagger: 0.09 }, entree + 0.05)
+   .to(racine, { opacity: 0, y: -40, duration: 0.35, ease: "power2.in" }, sortie);
+  const sous = racine.querySelector(".sous");
+  if (sous) T.to(sous, { opacity: 1, duration: 0.5 }, entree + 0.35);
+}
+
+/** Une étiquette ou une carte qui surgit, puis s'efface. */
+function surgir(sel, t, fin, depuis = { y: 60, scale: 0.8 }) {
+  T.fromTo(sel, { opacity: 0, ...depuis }, { opacity: 1, y: 0, x: 0, scale: 1, duration: 0.55, ease: "back.out(1.8)" }, t);
+  if (fin) T.to(sel, { opacity: 0, y: -30, duration: 0.3, ease: "power2.in" }, fin);
+}
+
+/**
+ * Des bannières qui se relaient à la même place : la suivante pousse la
+ * précédente vers la gauche. La première est à l'affiche dès le départ ; la
+ * relève i a lieu à t0 + (i - 1) × pas. `points` (facultatif) suit : le point
+ * de la bannière à l'affiche s'allonge, comme dans l'application.
+ */
+function relais(images, t0, pas, { points, actif = { width: 34, background: "#00994f" }, inactif = { width: 14, background: "#d1d5db" }, noms } = {}) {
+  images.forEach((img, i) => T.set(img, { xPercent: i === 0 ? 0 : 100 }, 0));
+  if (points) points.forEach((pt, i) => T.set(pt, i === 0 ? actif : inactif, 0));
+  if (noms) noms.forEach((n, i) => T.set(n, { yPercent: i === 0 ? 0 : 110 }, 0));
+  for (let i = 1; i < images.length; i++) {
+    const t = t0 + (i - 1) * pas;
+    T.to(images[i - 1], { xPercent: -100, duration: 0.5, ease: "power3.inOut" }, t)
+     .to(images[i], { xPercent: 0, duration: 0.5, ease: "power3.inOut" }, t);
+    if (points) T.to(points[i - 1], { ...inactif, duration: 0.3 }, t).to(points[i], { ...actif, duration: 0.3 }, t);
+    if (noms) T.to(noms[i - 1], { yPercent: -110, duration: 0.35, ease: "power2.in" }, t)
+                .to(noms[i], { yPercent: 0, duration: 0.35, ease: "power2.out" }, t + 0.15);
+  }
+}
+
+// ── Intro : 0 → 3,4 s ─────────────────────────────────────
+T.fromTo("#terrain", { opacity: 0 }, { opacity: 0.9, duration: 1.2, ease: "none" }, 0)
+ .to("#intro-symbole", { scale: 1, duration: 0.7, ease: "back.out(2)" }, 0.1)
+ .to("#intro-texte .l1 span", { y: "0%", duration: 0.55 }, 0.45)
+ .to("#intro-texte .l2 span, #intro-texte .l3 span, #intro-texte .l4 span", { y: "0%", duration: 0.7, stagger: 0.12 }, 0.75)
+ .to("#intro-sous", { opacity: 1, duration: 0.5 }, 1.45)
+ .fromTo("#intro-banniere", { opacity: 0, y: 80, rotation: -3 }, { opacity: 1, y: 0, rotation: 0, duration: 0.6, ease: "back.out(1.6)" }, 1.7)
+ .to("#intro-symbole, #intro-texte, #intro-sous", { opacity: 0, y: -80, duration: 0.45, ease: "power2.in" }, 3.0)
+ .to("#intro-banniere", { opacity: 0, y: 120, scale: 0.6, duration: 0.45, ease: "power2.in" }, 3.0);
+
+// ── 1. Partout où on suit le match : 3,4 → 12,6 s ─────────
+T.to("#telephone", { y: 0, duration: 0.9, ease: "power3.out" }, 3.25);
+titre("#t1", 3.45, 12.4);
+montrer("direct", 3.25, { fin: 5.5 });
+surgir("#l-direct", 3.9, 5.4, { y: 30, scale: 0.7 });
+montrer("match", 5.5, { fin: 7.5 });
+surgir("#l-match", 5.7, 7.4, { y: 30, scale: 0.7 });
+montrer("competition", 7.5, { fin: 9.5 });
+surgir("#l-competition", 7.7, 9.4, { y: 30, scale: 0.7 });
+montrer("tribune", 9.5, { defilement: 0.7, fin: 12.6 });
+surgir("#l-tribune", 9.7, 12.4, { y: 30, scale: 0.7 });
+// Dans la Tribune, les annonces se relaient : on le montre sur la vraie
+// bannière, son annonceur et ses points, qui suivent comme dans l'application.
+{
+  const c = C.tribune;
+  const d = $("#p-tribune .defile");
+  if (c && c.image && d) {
+    const marques = [["mawuli-auto", "Mawuli Auto"], ["novo-assurances", "Novo Assurances"], ["pharmacie-lagune", "Pharmacie de la Lagune"]];
+    const r = document.createElement("div");
+    r.className = "rotation";
+    Object.assign(r.style, { left: px(c.image.x), top: px(c.image.y), width: px(c.image.w), height: px(c.image.h) });
+    r.innerHTML = marques.map(([f]) => `<img src="images/bannieres/${f}.jpg" alt="">`).join("");
+    d.appendChild(r);
+    let noms = null, points = null;
+    if (c.nom) {
+      const n = document.createElement("div");
+      n.className = "nom-annonce";
+      Object.assign(n.style, {
+        left: px(c.nom.x), top: px(c.nom.y), width: px(c.zone.x + c.zone.w - c.nom.x), height: px(c.nom.h),
+        background: c.fond, fontSize: px(12), lineHeight: px(c.nom.h),
+      });
+      n.innerHTML = marques.map(([, nom]) => `<span>${nom}</span>`).join("");
+      d.appendChild(n);
+      noms = [...n.querySelectorAll("span")];
+    }
+    if (c.points) {
+      const pt = document.createElement("div");
+      pt.className = "points-annonce";
+      Object.assign(pt.style, { left: px(c.points.x), top: px(c.points.y), width: px(c.points.w), height: px(c.points.h), background: c.fond });
+      pt.innerHTML = marques.map(() => `<b style="width:${px(24)};height:${px(24)}"><i style="height:${px(6)}"></i></b>`).join("");
+      d.appendChild(pt);
+      points = [...pt.querySelectorAll("i")];
+    }
+    relais([...r.querySelectorAll("img")], 11.0, 0.65, {
+      points, noms,
+      actif: { width: px(16), background: "#374151" }, inactif: { width: px(6), background: "#d1d5db" },
+    });
+  }
+}
+T.to("#telephone", { y: 1400, duration: 0.6, ease: "power3.in" }, 12.4);
+
+// ── 2. Deux formules : 12,8 → 19 s ────────────────────────
+titre("#t2", 12.8, 18.7);
+surgir("#f-partenaire", 13.3, 18.6, { y: 120, scale: 0.9 });
+surgir("#f-annonce", 14.0, 18.6, { y: 120, scale: 0.9 });
+relais([...document.querySelectorAll("#f-rotation img")], 15.2, 1.3, { points: [...document.querySelectorAll("#f-annonce .points i")] });
+T.to("#f-note", { opacity: 1, duration: 0.5 }, 15.4)
+ .to("#f-note", { opacity: 0, duration: 0.3 }, 18.6);
+
+// ── 3. Le bilan : 19 → 25,6 s ─────────────────────────────
+titre("#t3", 19.0, 25.3);
+surgir("#bilan", 19.6, 25.3, { y: 140, scale: 0.92 });
+T.to(etat, { vues: BILAN.vues, duration: 1.8, ease: "power2.out" }, 20.3)
+ .to("#j-vues", { width: "100%", duration: 1.8, ease: "power2.out" }, 20.3)
+ .to(etat, { clics: BILAN.clics, duration: 1.5, ease: "power2.out" }, 21.0)
+ .to("#j-clics", { width: "62%", duration: 1.5, ease: "power2.out" }, 21.0)
+ .to(etat, { taux: (BILAN.clics / BILAN.vues) * 100, duration: 1.3, ease: "power2.out" }, 21.7)
+ .to("#j-taux", { width: "48%", duration: 1.3, ease: "power2.out" }, 21.7)
+ .fromTo("#v-taux", { scale: 1 }, { scale: 1.08, duration: 0.25, yoyo: true, repeat: 1, ease: "sine.inOut", transformOrigin: "left center" }, 23.05);
+
+// ── Fin : 25,6 → 30 s ─────────────────────────────────────
+T.to("#fin", { opacity: 1, duration: 0.3 }, 25.55)
+ .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 25.65)
+ .to("#fin-texte .l span", { y: "0%", duration: 0.7, stagger: 0.14 }, 26.1)
+ .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 26.9)
+ .to("#fin-appel .bouton", { scale: 1.05, duration: 0.45, repeat: 3, yoyo: true, ease: "sine.inOut" }, 27.6)
+ .set({}, {}, DUREE);
+
+// ── Ce que les interpolations ne savent pas écrire ────────
+const entier = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
+const decimal = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+function rendre() {
+  const espace = (s) => s.replace(/\u202f/g, "\u00a0");
+  $("#v-vues").textContent = espace(entier.format(Math.round(etat.vues)));
+  $("#v-clics").textContent = espace(entier.format(Math.round(etat.clics)));
+  $("#v-taux").textContent = decimal.format(etat.taux) + " %";
+}
+
+/** Aller à l'instant t (en secondes) : appelé image par image par outils/rendu.mjs. */
+window.allerA = (t) => { T.seek(t, true); rendre(); };
+window.DUREE = DUREE;
+window.pret = Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))),
+]).then(() => true);
+
+// Ouverte à la main : la page se joue en temps réel.
+if (!navigator.webdriver) {
+  window.pret.then(() => { T.eventCallback("onUpdate", rendre); T.play(0); });
+}
+</script>
+</body>
+</html>

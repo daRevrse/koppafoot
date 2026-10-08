@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Send } from "lucide-react";
-import { getComments, addComment } from "@/lib/firestore";
+import toast from "react-hot-toast";
+import { getComments } from "@/lib/firestore";
+import { commenter } from "@/lib/tribune-client";
+import { COMMENTAIRE_MAX } from "@/lib/tribune-commentaires";
 import { avatarColor, timeAgo } from "./PostCard";
 import type { Comment } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
@@ -11,8 +14,16 @@ import { textes } from "@/i18n/textes";
 import { useComptesPublics } from "@/hooks/usePhotosDesComptes";
 
 const T = textes(
-  { ecrire: "Écrire un commentaire...", aucun: "Aucun commentaire. Sois le premier !" },
-  { ecrire: "Write a comment...", aucun: "No comments yet. Be the first!" },
+  {
+    ecrire: "Écrire un commentaire...",
+    aucun: "Aucun commentaire. Sois le premier !",
+    pasParti: "Ton commentaire n'est pas parti. Réessaie.",
+  },
+  {
+    ecrire: "Write a comment...",
+    aucun: "No comments yet. Be the first!",
+    pasParti: "Your comment wasn't sent. Try again.",
+  },
 );
 
 interface CommentSectionProps {
@@ -65,20 +76,21 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
 
   const handleSubmit = async () => {
     if (!currentUser) return;
-    if (!newComment.trim()) return;
+    const texte = newComment.trim();
+    if (!texte) return;
     setSubmitting(true);
     try {
-      const id = await addComment(postId, {
-        authorId: currentUser.uid,
-        authorName: currentUser.name,
-        content: newComment.trim(),
-      });
+      const { id, authorName } = await commenter(postId, texte);
       const now = new Date().toISOString();
       setComments((prev) => [
-        { id, authorId: currentUser.uid, authorName: currentUser.name, content: newComment.trim(), createdAt: now },
+        { id, authorId: currentUser.uid, authorName: authorName || currentUser.name, content: texte, createdAt: now },
         ...prev,
       ]);
       setNewComment("");
+    } catch (err) {
+      // L'échec se taisait : le texte restait dans le champ, sans un mot.
+      console.error("Commentaire non publié :", err);
+      toast.error(t.pasParti);
     } finally {
       setSubmitting(false);
     }
@@ -99,6 +111,7 @@ export function CommentSection({ postId, currentUser }: CommentSectionProps) {
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
             placeholder={t.ecrire}
+            maxLength={COMMENTAIRE_MAX}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
           />
           <button

@@ -27,6 +27,8 @@ export type PushCategory =
   | "equipe"
   /** La vie de ce que je suis, sans en faire partie. */
   | "suivis"
+  /** La Tribune : on commente mes publications. */
+  | "tribune"
   /** Le direct des compétitions que je suis : coup d'envoi, buts, fin. */
   | "competitions"
   /** Ce que la plateforme diffuse, campagnes et messages d'administration. */
@@ -37,6 +39,7 @@ export const CATEGORIES_PUSH: PushCategory[] = [
   "perso",
   "equipe",
   "suivis",
+  "tribune",
   "competitions",
   "annonces",
 ];
@@ -74,6 +77,11 @@ export function categorieDuType(type: NotificationType): PushCategory {
       return "equipe";
     case "follow_activity":
       return "suivis";
+    // Une catégorie à part : un commentaire me parle de MA publication, mais
+    // personne n'attend de réponse. Qui publie beaucoup doit pouvoir couper
+    // ces notifications sans perdre ses convocations.
+    case "tribune_comment":
+      return "tribune";
     case "admin_message":
       return "annonces";
   }

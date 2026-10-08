@@ -1213,6 +1213,13 @@ export interface FirestorePost {
     score_home?: number;
     score_away?: number;
     team_name?: string;
+    /** L'annonce de recrutement (lib/annonce-recrutement), écrite par le serveur. */
+    team_id?: string;
+    team_logo?: string | null;
+    team_city?: string | null;
+    postes?: string[];
+    /** Le recrutement s'est arrêté : la carte le dit, le bouton disparaît. */
+    closed?: boolean;
     repost_of?: { post_id: string; author_name: string; content: string };
   } | null;
   likes: string[];
@@ -1240,6 +1247,11 @@ export interface Post {
     scoreHome?: number;
     scoreAway?: number;
     teamName?: string;
+    teamId?: string;
+    teamLogo?: string | null;
+    teamCity?: string | null;
+    postes?: string[];
+    closed?: boolean;
     repostOf?: { postId: string; authorName: string; content: string };
   } | null;
   likes: string[];
@@ -1673,7 +1685,10 @@ export type NotificationType =
   /** L'arbitrage d'un match : candidature, invitation, réponse, désistement.
    *  Envoyée à l'arbitre ou aux managers, selon qui doit agir. Sans elle,
    *  une candidature n'existait que pour le manager qui ouvrait sa page. */
-  | "arbitrage";
+  | "arbitrage"
+  /** Quelqu'un a commenté ma publication dans la Tribune. Envoyée à
+   *  l'AUTEUR, jamais à celui qui commente sa propre publication. */
+  | "tribune_comment";
 
 export interface FirestoreNotification {
   user_id: string;

@@ -118,6 +118,8 @@ export const fr = {
   "notifs.cat.equipe.detail": "Arrivées, départs, état de forme, inscriptions",
   "notifs.cat.suivis": "Ce que je suis",
   "notifs.cat.suivis.detail": "Équipes et joueurs que tu suis",
+  "notifs.cat.tribune": "Tribune",
+  "notifs.cat.tribune.detail": "Commentaires sur tes publications",
   "notifs.cat.competitions": "Direct",
   "notifs.cat.competitions.detail": "Coup d'envoi, buts, exclusions, score final",
   "notifs.cat.annonces": "Annonces",

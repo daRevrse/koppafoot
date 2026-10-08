@@ -1,0 +1,13 @@
+{
+  "name": "koppafoot-video-terrains-outils",
+  "private": true,
+  "description": "Vidéo motion design pour les propriétaires de terrains : animation et rendu (voir ../README.md).",
+  "type": "module",
+  "scripts": {
+    "rendu": "node rendu.mjs"
+  },
+  "devDependencies": {
+    "gsap": "^3.15.0",
+    "playwright": "^1.63.0"
+  }
+}

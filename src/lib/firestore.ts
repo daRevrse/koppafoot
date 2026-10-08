@@ -426,6 +426,11 @@ function toPost(id: string, d: FirestorePost, currentUserId?: string): Post {
       homeTeam: meta.home_team, awayTeam: meta.away_team,
       scoreHome: meta.score_home, scoreAway: meta.score_away,
       teamName: meta.team_name,
+      teamId: meta.team_id,
+      teamLogo: meta.team_logo ?? null,
+      teamCity: meta.team_city ?? null,
+      postes: meta.postes ?? [],
+      closed: meta.closed === true,
       repostOf: meta.repost_of ? {
         postId: meta.repost_of.post_id,
         authorName: meta.repost_of.author_name,
@@ -2545,13 +2550,27 @@ export async function toggleLike(postId: string, userId: string, isLiked: boolea
   });
 }
 
-export async function addComment(postId: string, data: { authorId: string; authorName: string; content: string }): Promise<string> {
-  const ref = await addDoc(collection(db, "posts", postId, "comments"), {
-    author_id: data.authorId, author_name: data.authorName,
-    content: data.content, created_at: serverTimestamp(),
-  });
-  await updateDoc(doc(db, "posts", postId), { comment_count: increment(1) });
-  return ref.id;
+// Commenter passe par le serveur, qui signe le commentaire et prévient
+// l'auteur : voir commenter(), dans lib/tribune-client.
+
+/**
+ * La dernière annonce de recrutement d'une équipe dans la Tribune, ou `null`.
+ * Deux égalités sans tri : Firestore y répond sans index composé, et une
+ * équipe n'a jamais qu'une poignée d'annonces.
+ */
+export async function getAnnonceRecrutement(teamId: string): Promise<{
+  id: string; createdAt: string; closed: boolean;
+} | null> {
+  const snap = await getDocs(query(collection(db, "posts"),
+    where("metadata.team_id", "==", teamId),
+    where("type", "==", "team_announcement")));
+  const derniere = snap.docs
+    .map((d) => {
+      const data = d.data() as FirestorePost;
+      return { id: d.id, createdAt: formatDate(data.created_at), closed: data.metadata?.closed === true };
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+  return derniere ?? null;
 }
 
 export async function getComments(postId: string): Promise<Comment[]> {

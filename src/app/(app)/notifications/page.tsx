@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 import {
   Bell, CheckCheck, ChevronRight, Inbox, Loader2, Megaphone,
   Swords, ClipboardCheck, UserPlus, Users, Star, CalendarClock,
-  CalendarPlus, CalendarCheck, MapPin, Flag,
+  CalendarPlus, CalendarCheck, MapPin, Flag, MessageCircle,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { Notification, NotificationType } from "@/types";
@@ -41,6 +41,7 @@ const TYPE_META: Record<
   booking_answer:        { label: "Créneau",     Icon: CalendarCheck,  tone: "bg-emerald-50 text-emerald-600" },
   venue_application:     { label: "Terrain",     Icon: MapPin,         tone: "bg-emerald-50 text-emerald-600" },
   arbitrage:             { label: "Arbitrage",   Icon: Flag,           tone: "bg-violet-50 text-violet-600" },
+  tribune_comment:       { label: "Tribune",     Icon: MessageCircle,  tone: "bg-primary-50 text-primary-600" },
 };
 
 const FILTERS = [
@@ -50,6 +51,7 @@ const FILTERS = [
   { key: "market", label: "Mercato" },
   { key: "terrains", label: "Terrains" },
   { key: "arbitrage", label: "Arbitrage" },
+  { key: "tribune", label: "Tribune" },
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
@@ -155,6 +157,7 @@ export default function NotificationsPage() {
       case "market": return notifications.filter((n) => MARKET_TYPES.includes(n.type));
       case "terrains": return notifications.filter((n) => TERRAIN_TYPES.includes(n.type));
       case "arbitrage": return notifications.filter((n) => n.type === "arbitrage");
+      case "tribune": return notifications.filter((n) => n.type === "tribune_comment");
       default:       return notifications;
     }
   }, [notifications, filter]);
