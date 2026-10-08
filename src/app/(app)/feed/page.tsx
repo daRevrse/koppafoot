@@ -56,6 +56,15 @@ export default function FeedPage() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Arrivé depuis la notification d'un commentaire (/feed?post=<id>&commentaires=1) :
+  // les commentaires de cette publication s'ouvrent d'eux-mêmes. Lu une fois,
+  // au premier rendu ; le fil ne s'affiche qu'après le chargement, donc rien
+  // ne change pendant l'hydratation.
+  const [commentairesDe] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const q = new URLSearchParams(window.location.search);
+    return q.get("commentaires") === "1" ? q.get("post") : null;
+  });
 
   // Real-time feed listener
   useEffect(() => {
@@ -344,6 +353,7 @@ export default function FeedPage() {
                     currentUser={user}
                     onLikeAction={handleLike}
                     onDeleteAction={handleDelete}
+                    commentairesOuverts={post.id === commentairesDe}
                   />
                   {/* Sur téléphone, la zone partenaire de la Tribune après la
                       troisième publication (ou la dernière, s'il y en a moins),

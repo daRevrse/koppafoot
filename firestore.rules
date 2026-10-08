@@ -677,13 +677,6 @@ service cloud.firestore {
         );
     }
 
-    // Commenting bumps the counter on a post the commenter does not own.
-    function bumpsCommentCountOnly() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comment_count'])
-        && request.resource.data.comment_count is int
-        && request.resource.data.comment_count >= 0;
-    }
-
     // Display identity of the official Tribune account. Everyone reads it —
     // the feed resolves it on every official post — and only the admin SDK
     // writes it, from the superadmin-gated route.
@@ -714,17 +707,32 @@ service cloud.firestore {
       // logged-in account could publish as "system" and wear the official
       // badge; official posts are written by the admin SDK, which bypasses
       // these rules entirely.
+      //
+      // L'annonce de recrutement parle au nom d'une équipe : elle passe par
+      // /api/tribune/recruitment, qui vérifie que l'appelant en est le
+      // manager. Et l'épingle est à l'administration.
       allow create: if isAuthenticated()
-                    && request.resource.data.author_id == request.auth.uid;
+                    && request.resource.data.author_id == request.auth.uid
+                    && request.resource.data.type != 'team_announcement'
+                    && request.resource.data.get('pinned', false) != true;
+      // L'auteur retouche son texte et ses photos, rien d'autre : changer le
+      // type ou les métadonnées d'une publication en ferait une fausse
+      // annonce d'équipe, et l'épingle la mettrait en tête du fil de tous.
+      // Le compteur de commentaires n'est plus ouvert à tous : il ne bouge
+      // qu'avec un commentaire, que seul le serveur écrit (ci-dessous).
       allow update: if isAuthenticated() && (
-        resource.data.author_id == request.auth.uid
+        (resource.data.author_id == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'media_urls', 'updated_at']))
         || likesOwnUidOnly()
-        || bumpsCommentCountOnly()
       );
       allow delete: if isAuthenticated() && (resource.data.author_id == request.auth.uid || isSuperAdmin());
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isAuthenticated();
+        // Par /api/tribune/comments seulement (SDK admin) : le serveur signe
+        // le commentaire du compte appelant, compte le commentaire et
+        // prévient l'auteur. Ouverte au navigateur, la création laissait
+        // n'importe quel compte commenter sous le nom de son choix.
+        allow create: if false;
         allow delete: if isAuthenticated() && (resource.data.author_id == request.auth.uid || isSuperAdmin());
       }
     }

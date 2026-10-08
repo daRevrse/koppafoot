@@ -19,7 +19,7 @@ Ce que la vidéo montre est dans le produit :
 - **Les réactions** : j'aime, commentaires, badges Joueur et Manager (`components/feed/PostCard`, `CommentSection`).
 - **Le compte officiel** publie les résultats, l'ouverture des inscriptions et le vainqueur d'une compétition avec les textes exacts du serveur (`lib/tribune-server`, `announcementFor`).
 
-La vidéo ne parle pas de notification de commentaire, ni d'annonce de recrutement : le produit n'en crée pas aujourd'hui.
+La vidéo ne parle ni de la notification de commentaire, ni de l'annonce de recrutement signée du manager : elle a été tournée avant que le produit les ait. La [vidéo de présentation](../video-presentation/scenario.md) les montre.
 
 **Les écrans du téléphone sont de vraies captures**, jouées sur les **émulateurs Firebase** : Kafui publie vraiment, et les réactions sont posées par `decor.mjs reactions`. Les personnes et les équipes sont fictives, celles des autres vidéos. La photo publiée vient de `public/branding/fan_terrain.png`. La foule, les cœurs, les bulles et les titres sont dessinés dans `source/animation.html`. Aucune donnée de production n'a été lue ni écrite.
 

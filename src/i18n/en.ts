@@ -114,6 +114,8 @@ export const en: Partial<Record<CleTraduction, string>> = {
   "notifs.cat.equipe.detail": "Arrivals, departures, fitness, entries",
   "notifs.cat.suivis": "What I follow",
   "notifs.cat.suivis.detail": "Teams and players you follow",
+  "notifs.cat.tribune": "Tribune",
+  "notifs.cat.tribune.detail": "Comments on your posts",
   "notifs.cat.competitions": "Live",
   "notifs.cat.competitions.detail": "Kick-off, goals, red cards, final score",
   "notifs.cat.annonces": "Announcements",

@@ -39,6 +39,8 @@ import CarteDuClub from "@/components/team/CarteDuClub";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
 import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
 import MatchsDuClub from "@/components/team/MatchsDuClub";
+import { AnnonceRecrutement } from "@/components/team/AnnonceRecrutement";
+import { cloreAnnonceRecrutement } from "@/lib/tribune-client";
 import { BadgeForme } from "@/components/forme/badges";
 import { useAuthModal } from "@/components/auth/AuthModal";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
@@ -1088,6 +1090,8 @@ export default function TeamDetailPage() {
   // Modals
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  /** La fenêtre de l'annonce de recrutement dans la Tribune. */
+  const [annonceOuverte, setAnnonceOuverte] = useState(false);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1377,9 +1381,15 @@ export default function TeamDetailPage() {
 
   const handleToggleRecruiting = async () => {
     if (!team) return;
+    const ouvrir = !team.isRecruiting;
     try {
-      await updateTeam(team.id, { is_recruiting: !team.isRecruiting });
+      await updateTeam(team.id, { is_recruiting: ouvrir });
       await fetchTeam();
+      // Rouvrir le recrutement, c'est le moment de le dire : la fenêtre de
+      // l'annonce s'ouvre (pour le manager, qui la signe). Le couper ferme
+      // l'annonce en ligne, dont la carte dit alors « Recrutement terminé ».
+      if (ouvrir && isTeamOwner) setAnnonceOuverte(true);
+      if (!ouvrir) void cloreAnnonceRecrutement(team.id);
     } catch {
       // Silent
     }
@@ -2444,6 +2454,16 @@ export default function TeamDetailPage() {
                 {team.isRecruiting ? "Actif" : "Inactif"}
               </button>
             </div>
+            {team.isRecruiting && (
+              <AnnonceRecrutement
+                teamId={team.id}
+                teamName={team.name}
+                estManager={isTeamOwner}
+                ouverte={annonceOuverte}
+                onOuvrir={() => setAnnonceOuverte(true)}
+                onFermer={() => setAnnonceOuverte(false)}
+              />
+            )}
           </div>
 
           {/* Training schedule */}

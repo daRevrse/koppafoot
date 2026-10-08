@@ -25,6 +25,12 @@ export interface NotificationServeur {
   link?: string | null;
   /** Par défaut, la catégorie du type (lib/push-categories). */
   categorie?: PushCategory;
+  /**
+   * Faux : la cloche seulement, sans sonner le téléphone. Pour ce qui arrive
+   * en rafale (dix commentaires sous une même photo), où la cloche garde
+   * chaque message et le téléphone n'en annonce qu'un.
+   */
+  push?: boolean;
 }
 
 /** Écrit la notification et la pousse. Ne lève jamais. */
@@ -41,7 +47,7 @@ export async function notifierCompte(uid: string, n: NotificationServeur): Promi
       read: false,
       created_at: FieldValue.serverTimestamp(),
     }),
-    sendPushToUser(uid, {
+    n.push === false ? null : sendPushToUser(uid, {
       title: n.title,
       body: n.body,
       link: link ?? "/notifications",

@@ -81,8 +81,8 @@ Les temps sont indicatifs : ils seront recalés sur la durée réelle des fichie
 **À l'écran.** Carte de titre « Lundi ».
 
 1. **Créer.** Edem crée l'équipe : le nom tapé lettre par lettre, l'écusson, la fiche de l'équipe. (Captures de la [vidéo manager](../video-manager/), à refaire en 16:9.)
-2. **Recruter.** Il ouvre le recrutement. La nouvelle fenêtre propose de l'annoncer dans la Tribune : il coche « Gardien », publie. L'annonce apparaît dans la Tribune, signée « Edem A. · Manager », avec son bouton « Demander à rejoindre ».
-3. **Le mercato.** Edem invite deux joueurs ; une demande arrive de l'autre côté : un gardien veut rejoindre l'équipe. L'effectif se remplit.
+2. **Recruter.** Dans les paramètres de l'équipe, sous « Statut de recrutement », il touche « Annoncer dans la Tribune » : il coche « Gardien », publie. (Une équipe recrute dès sa création ; quand le manager rouvre le recrutement, la même fenêtre s'ouvre d'elle-même.) L'annonce apparaît dans la Tribune, signée « Edem A. · Manager », avec la carte de l'équipe, « Cherche : Gardien » et le bouton « Demander à rejoindre ».
+3. **Le mercato.** Edem invite deux joueurs. De l'autre côté, un gardien touche « Demander à rejoindre » sous l'annonce : la demande arrive chez Edem. L'effectif se remplit.
 4. **Défier.** Il défie l'Olympique de Tokoin : la date (samedi, 16 h), le terrain choisi dans l'annuaire, « Complexe sportif de Bè ». Le défi est accepté ; le statut du terrain passe à « Terrain confirmé ».
 
 **Voix off.**
