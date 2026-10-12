@@ -8,9 +8,10 @@ import { DocumentJuridique, Liste, Lien, type SectionJuridique } from "@/compone
 // commission » de la page des terrains. Un texte juridique qui contredit la
 // vitrine casse la confiance plus vite qu'aucun prix.
 //
-// L'AVENIR PAYANT Y EST ÉCRIT HONNÊTEMENT : des options pourront apparaître,
-// annoncées avant, jamais imposées pour finir ce qui est commencé. C'est ce
-// qui permet plus tard des limites d'usage sans trahir personne.
+// CE QUI SE PAIE Y EST ÉCRIT HONNÊTEMENT : KoppaFoot Pro, son prix affiché
+// avant de payer, une période et non un abonnement, rien de prélevé à
+// l'échéance, jamais exigé pour finir ce qui est commencé. C'est ce qui
+// permet des limites d'usage sans trahir personne.
 //
 // À FAIRE VALIDER par un juriste avant publication, et à compléter de
 // l'identité de l'éditeur dès que la société existe.
@@ -21,7 +22,7 @@ export const metadata = {
   description: "Les règles du jeu sur KoppaFoot : ton compte, les rôles, ce qui est interdit, ce qui est gratuit.",
 };
 
-const MIS_A_JOUR = "6 octobre 2026";
+const MIS_A_JOUR = "12 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -47,9 +48,14 @@ const SECTIONS: SectionJuridique[] = [
           et la <Lien href="/confidentialite">politique de confidentialité</Lien>.
         </p>
         <p>
-          L&apos;utilisation de KoppaFoot est gratuite. Si des options payantes apparaissent, elles seront annoncées à
-          l&apos;avance, leur prix sera affiché avant tout paiement, et aucune ne sera exigée pour terminer un match ou une
-          compétition déjà commencés.
+          L&apos;utilisation de KoppaFoot est gratuite. KoppaFoot Pro est une option payante : son prix est affiché avant
+          tout paiement, et elle n&apos;est jamais exigée pour terminer un match ou une compétition déjà commencés.
+        </p>
+        <p>
+          Le Pro s&apos;achète pour une période, un mois ou un an, <strong>sans renouvellement automatique</strong>{" "}: à
+          l&apos;échéance, rien n&apos;est prélevé, et tu es prévenu avant. Le paiement se fait par mobile money ou par
+          carte, sur la page de notre prestataire FedaPay. Une période commencée n&apos;est pas remboursée ; en cas de
+          double paiement ou d&apos;erreur, écris-nous : nous prolongeons ta période ou nous te remboursons.
         </p>
         <p>
           Jouer, suivre un match, s&apos;inscrire à une compétition et arbitrer restent gratuits. L&apos;offre gratuite peut

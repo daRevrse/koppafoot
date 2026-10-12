@@ -6,7 +6,7 @@ import { DocumentJuridique, Liste, Lien, type SectionJuridique } from "@/compone
 // ELLE DÉCRIT CE QUE LE CODE FAIT, PAS UN MODÈLE GÉNÉRIQUE. Chaque donnée
 // citée ici existe dans l'application (voir types/index.ts, FirestoreUser),
 // chaque prestataire est réellement appelé (Firebase, Vercel, Brevo ou
-// Resend, et YouTube dès qu'un tutoriel a sa vidéo : voir
+// Resend, FedaPay à l'achat du Pro, et YouTube dès qu'un tutoriel a sa vidéo : voir
 // components/aide/VideoYoutube), et ce qui part avec un compte supprimé est ce que
 // lib/account-purge efface. Un ajout dans l'un de ces endroits (un champ de
 // profil, un prestataire, un cookie) se reporte ici, ou la page ment.
@@ -24,7 +24,7 @@ export const metadata = {
   description: "Quelles données KoppaFoot collecte, pourquoi, avec qui elles sont partagées, et comment exercer tes droits.",
 };
 
-const MIS_A_JOUR = "6 octobre 2026";
+const MIS_A_JOUR = "12 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -122,6 +122,12 @@ const SECTIONS: SectionJuridique[] = [
           <li><strong>Google Firebase</strong> et <strong>reCAPTCHA</strong> : connexion (dont l&apos;envoi des codes par SMS et la vérification anti-robot), base de données, stockage des photos, envoi des notifications.</li>
           <li><strong>Vercel</strong> : hébergement du site et statistiques de fréquentation anonymes.</li>
           <li><strong>Brevo</strong> ou <strong>Resend</strong> : envoi des e-mails.</li>
+          <li>
+            <strong>FedaPay</strong>{" "}: le paiement de KoppaFoot Pro, seulement si tu l&apos;achètes. Nous lui transmettons
+            ton prénom, ton nom et ton e-mail, pour ton reçu ; le numéro de ton portefeuille mobile ou de ta carte, tu le
+            tapes sur sa page, et nous ne le voyons ni ne le gardons. Nous conservons la trace du paiement : son montant,
+            sa date, son état.
+          </li>
           <li>
             <strong>YouTube</strong> (Google) : les vidéos des tutoriels, seulement si tu en lances une. Avant, rien ne
             lui est envoyé : la miniature passe par nos serveurs. Au moment où tu appuies sur lecture, la vidéo se charge
