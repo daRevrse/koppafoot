@@ -4,6 +4,7 @@ import {
   LIMITES_GRATUIT, droitActif, estPro, estSansPub, jourDeLome, limitesEnVigueur, type DroitAccorde,
 } from "@/lib/offre";
 import { compterUsage, lireDroits, lireLimitesDepuis, uidAppelant } from "@/lib/offre-server";
+import { formulesPour } from "@/lib/paiement-serveur";
 
 /**
  * GET /api/offre, ce que la page « Mon offre » affiche : le Pro et l'option
@@ -12,6 +13,9 @@ import { compterUsage, lireDroits, lireLimitesDepuis, uidAppelant } from "@/lib/
  *
  * Les casquettes disent quelles lignes concernent la personne : un joueur qui
  * ne gère rien n'a pas à lire un compteur de terrains.
+ *
+ * `formules` : ce que CE compte peut acheter, avec le prix. Vide tant que rien
+ * n'est en vente — et, en bac à sable, pour tout autre qu'un superadmin.
  */
 
 export const dynamic = "force-dynamic";
@@ -30,9 +34,10 @@ export async function GET(req: Request) {
       compterUsage(uid),
       adminDb.collection("users").doc(uid).get().then((s) => s.data() ?? {}),
     ]);
+    const pro = estPro(droits, jour);
     return NextResponse.json({
       jour,
-      estPro: estPro(droits, jour),
+      estPro: pro,
       estSansPub: estSansPub(droits, jour),
       pro: vue(droits?.pro, jour),
       sansPub: vue(droits?.sans_pub, jour),
@@ -45,6 +50,9 @@ export async function GET(req: Request) {
         organisateur: profil.is_organizer === true,
         gerant: profil.is_venue_owner === true,
       },
+      formules: await formulesPour(profil),
+      // Un Pro sans échéance n'a rien à prolonger : la page ne lui vend rien.
+      proIllimite: pro && droits?.pro?.jusqu_au === null,
     });
   } catch (err) {
     console.error("GET /api/offre:", err);
