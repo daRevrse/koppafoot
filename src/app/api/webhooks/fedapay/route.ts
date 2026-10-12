@@ -38,18 +38,30 @@ export async function POST(req: Request) {
   try {
     evenement = JSON.parse(corps);
   } catch {
-    return NextResponse.json({ ok: true, ignore: "corps illisible" });
+    return ignorer("?", "corps illisible");
   }
+  const nom = typeof (evenement as { name?: unknown } | null)?.name === "string" ? (evenement as { name: string }).name : "?";
   const cible = cibleDeLEvenement(evenement);
-  if (!cible) return NextResponse.json({ ok: true, ignore: "hors sujet" });
+  if (!cible) return ignorer(nom, "hors sujet");
 
   try {
     const id = cible.reference ?? (cible.idCollecte !== null ? await paiementParCollecte(cible.idCollecte) : null);
     const etat = id ? await reglerPaiement(id) : null;
-    if (!etat) return NextResponse.json({ ok: true, ignore: "paiement inconnu" });
+    if (!etat) return ignorer(nom, "paiement inconnu");
+    console.info(`[webhooks/fedapay] ${nom} → paiement ${id} : ${etat.statut}`);
     return NextResponse.json({ ok: true, statut: etat.statut });
   } catch (err) {
-    console.error("[webhooks/fedapay]", cible, err);
+    console.error("[webhooks/fedapay]", nom, cible, err);
     return NextResponse.json({ error: "Relecture impossible" }, { status: 500 });
   }
+}
+
+/**
+ * Un événement reçu, signé, dont on ne fait rien. UNE LIGNE AU JOURNAL quand
+ * même, comme pour ceux qu'on traite : le jour où un client dit « j'ai payé
+ * et je n'ai rien », c'est ici qu'on lit si FedaPay a appelé, et pour dire quoi.
+ */
+function ignorer(nom: string, raison: string): NextResponse {
+  console.info(`[webhooks/fedapay] ${nom} → ignoré (${raison})`);
+  return NextResponse.json({ ok: true, ignore: raison });
 }

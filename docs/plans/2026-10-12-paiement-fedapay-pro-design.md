@@ -1,7 +1,7 @@
 # Design : Le paiement mobile, lot 1 — socle FedaPay et vente de KoppaFoot Pro
 
 **Date :** 2026-10-12
-**Statut :** Implémenté sur la branche `feat/paiement-fedapay`, validé en bac à sable le 2026-10-12 : achat, refus puis réussite sur la même collecte, octroi par le webhook (rejoué sans effet), prolongation par le retour sur le site. **Reste :** un webhook envoyé par FedaPay lui-même (il faut une adresse publique : tunnel ou aperçu Vercel), la décision sur les frais (à la charge du client ou du marchand), puis la mise en service réelle (section Mise en service, points 5 à 8). Non fusionné, règles Firestore non déployées.
+**Statut :** Implémenté sur la branche `feat/paiement-fedapay`, validé en bac à sable le 2026-10-12 : achat, refus puis réussite sur la même collecte, octroi par le webhook (rejoué sans effet), prolongation par le retour sur le site. Un webhook envoyé par FedaPay lui-même a aussi été reçu et traité (tunnel). **Reste :** la mise en service réelle (section Mise en service, points 5 à 8), dont le réglage des frais à la charge du marchand. Non fusionné, règles Firestore non déployées.
 
 ## Le problème
 
@@ -45,7 +45,14 @@ Lu le 2026-10-12 sur docs.fedapay.com (collectes, webhooks, méthodes de paiemen
 - **Les frais s'ajoutent pour le client** : 62 FCFA sur 1 500 (4 % en bac à sable). La collecte garde `amount = 1500` ; `amount_debited = 1562` et `fees = 62` portent le reste. La vérification de montant compare `amount`, elle tient. **Décidé le 2026-10-12 : les frais sont à la charge de KoppaFoot**, le client paie le prix affiché, comme les conditions le promettent. Aucun code : c'est un réglage du compte FedaPay (Paramètres d'entreprise > Préférences > onglet Frais, décocher chaque moyen de paiement), à faire en bac à sable et en réel.
 - Le chemin du webhook, joué sur une vraie ligne : refusée puis approuvée sur la même collecte, la ligne passe à `paye`, le Pro court du 12 octobre au 12 novembre, une notification part ; **rejoué, il ne change rien**.
 
-**Reste à constater avec un webhook envoyé par FedaPay lui-même** : le champ de l'événement qui porte la collecte (`entity`, d'après l'exemple de la doc ; la route accepte aussi `object` et `data`, et se replie sur l'identifiant FedaPay), et si FedaPay ajoute ses paramètres à l'adresse de retour avec `&` ou avec un second `?` (la page lit les deux).
+**Constaté avec un webhook envoyé par FedaPay lui-même** (tunnel `loca.lt` vers le serveur de dev, le même soir) :
+- L'événement a quatre clés : `name`, `object`, `entity`, `account`. **La collecte est sous `entity`**, entière, avec `merchant_reference` et `custom_metadata` : la ligne se retrouve par notre référence.
+- La signature faite avec le secret de l'endpoint est acceptée telle que le code la vérifie.
+- **FedaPay réessaie, et dans le désordre.** Les premiers envois ont échoué (tunnel tombé) ; à son retour, `transaction.approved` est arrivé et a réglé la ligne (Pro prolongé d'un mois, une notification), puis `transaction.created`, en retard, pour la même collecte : relue « approved », ligne déjà payée, **rien n'a bougé**. C'est le cas pour lequel la route ne croit pas l'événement.
+- Le règlement complet (relecture chez FedaPay, transaction Firestore, notification, e-mail) a pris 4,5 s : sous les 30 s de `maxDuration`, mais ce n'est pas instantané.
+- La route écrit une ligne au journal par événement reçu, traité ou ignoré.
+
+**Reste à constater** : si FedaPay ajoute ses paramètres à l'adresse de retour avec `&` ou avec un second `?` (la page lit les deux) — aucun paiement de test n'est revenu par la page FedaPay, verrouillée sur le Togo.
 
 ## Décisions
 
