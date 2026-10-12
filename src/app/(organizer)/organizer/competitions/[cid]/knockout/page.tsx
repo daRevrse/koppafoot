@@ -209,7 +209,7 @@ function SourcePicker({
       onChange={(e) => onChange(e.target.value ? parseBracketSlotSourceKey(e.target.value) : null)}
       className="w-full border border-gray-200/70 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 focus:border-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
     >
-      <option value="">, Provenance,</option>
+      <option value="">— Provenance</option>
       {groups.map((g) => (
         <optgroup key={g} label={`Poule ${g}`}>
           {ranks.map((rank) => {

@@ -1854,7 +1854,10 @@ export default function MatchDetailPage() {
                             role === "out" ? "opacity-45" : ""
                           }`}
                         >
-                          <div className="min-w-0 flex-1">
+                          {/* Sur téléphone, le nom prend toute la ligne et les
+                              réglages passent dessous : à côté, il n'en
+                              restait qu'une colonne de quelques lettres. */}
+                          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
                             <p className={`truncate text-sm font-black text-white ${role === "out" ? "line-through decoration-white/40" : ""}`}>
                               {joueur.nom}
                             </p>
@@ -1904,7 +1907,7 @@ export default function MatchDetailPage() {
                               défenseurs que personne n'a désignés. */}
                           <select
                             aria-label={`Poste de ${joueur.nom}`}
-                            className="h-9 border border-white/10 bg-white/10 px-2 text-[10px] font-black uppercase text-white focus:outline-none"
+                            className="h-9 flex-1 border border-white/10 bg-white/10 px-2 text-[10px] font-black uppercase text-white focus:outline-none sm:flex-none"
                             value={poste ?? ""}
                             onChange={(e) => poser({ position: (e.target.value || null) as Poste | null })}
                           >

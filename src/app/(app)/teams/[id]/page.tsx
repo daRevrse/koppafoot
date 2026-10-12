@@ -2331,7 +2331,7 @@ export default function TeamDetailPage() {
                       {request.playerPosition && (
                         <>
                           <span className="text-gray-400">·</span>
-                          <span className="text-sm text-gray-600">{request.playerPosition}</span>
+                          <span className="text-sm text-gray-600">{libellePoste(request.playerPosition, langue)}</span>
                         </>
                       )}
                       {request.playerLevel && (
@@ -2441,7 +2441,7 @@ export default function TeamDetailPage() {
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900">Statut de recrutement</h3>
                 <p className="mt-0.5 text-sm text-gray-500">
-                  {team.isRecruiting ? "L'equipe apparait dans les resultats de recherche" : "L'equipe n'est pas visible pour les joueurs"}
+                  {team.isRecruiting ? "L'équipe apparaît dans les résultats de recherche" : "L'équipe n'est pas visible pour les joueurs"}
                 </p>
               </div>
               <button onClick={handleToggleRecruiting}

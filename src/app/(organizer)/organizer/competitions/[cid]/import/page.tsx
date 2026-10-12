@@ -439,7 +439,7 @@ export default function CompetitionImportPage() {
                 onChange={(e) => setRosterTeamId(e.target.value)}
                 className="w-full border border-gray-200/70 px-4 py-2.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
               >
-                <option value="">, Choisir une équipe,</option>
+                <option value="">— Choisir une équipe</option>
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}

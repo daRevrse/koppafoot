@@ -1220,7 +1220,7 @@ export default function CompetitionSchedulePage() {
                       onChange={(e) => setAdd("homeTeamId", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">, Équipe,</option>
+                      <option value="">— Équipe</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.awayTeamId}>
                           {t.name}{t.group ? ` (${t.group})` : ""}
@@ -1235,7 +1235,7 @@ export default function CompetitionSchedulePage() {
                       onChange={(e) => setAdd("awayTeamId", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">, Équipe,</option>
+                      <option value="">— Équipe</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.homeTeamId}>
                           {t.name}{t.group ? ` (${t.group})` : ""}
