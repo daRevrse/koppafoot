@@ -34,9 +34,19 @@ function mockSnap(chemin: string) {
   return {
     exists: data !== undefined,
     id: chemin.split("/")[1],
+    ref: {
+      id: chemin.split("/")[1],
+      path: chemin,
+      update: async (maj: Doc) => { mockBase.set(chemin, { ...mockBase.get(chemin), ...maj }); },
+    },
     data: () => (data ? { ...data } : undefined),
     get: (champ: string) => data?.[champ],
   };
+}
+
+/** La valeur d'un champ, « pro.jusqu_au » compris. */
+function mockChamp(data: Doc, champ: string): unknown {
+  return champ.split(".").reduce<unknown>((v, cle) => (v && typeof v === "object" ? (v as Doc)[cle] : undefined), data);
 }
 
 function mockRef(chemin: string) {
@@ -62,10 +72,11 @@ jest.mock("@/lib/firebase-admin", () => ({
   adminDb: {
     collection: (nom: string) => ({
       doc: (id?: string) => mockRef(`${nom}/${id ?? mockIdNeuf()}`),
-      where: (champ: string, _operateur: string, valeur: unknown) => {
+      where: (champ: string, operateur: string, valeur: unknown) => {
+        const convient = (v: unknown) => (operateur === "in" ? (valeur as unknown[]).includes(v) : v === valeur);
         const lire = async () => {
           const docs = [...mockBase.entries()]
-            .filter(([chemin, data]) => chemin.startsWith(`${nom}/`) && data[champ] === valeur)
+            .filter(([chemin, data]) => chemin.startsWith(`${nom}/`) && convient(mockChamp(data, champ)))
             .map(([chemin]) => mockSnap(chemin));
           return { docs, empty: docs.length === 0 };
         };
@@ -107,7 +118,11 @@ jest.mock("@/lib/fedapay", () => ({
 
 // `require`, et non `import` : le module tire firebase-admin et next/server,
 // dont la vérification de types de l'application mobile n'a pas les types.
-const { reglerPaiement, demarrerPaiement, formulesPour, paiementParCollecte } = require("@/lib/paiement-serveur") as {
+const {
+  reglerPaiement, demarrerPaiement, formulesPour, paiementParCollecte, reverifierPaiementsOuverts, rappelerEcheancesPro,
+} = require("@/lib/paiement-serveur") as {
+  reverifierPaiementsOuverts: (maintenantMs?: number) => Promise<{ revus: number; payes: number; fermes: number }>;
+  rappelerEcheancesPro: (jour?: string) => Promise<number>;
   reglerPaiement: (id: string) => Promise<{ statut: string; jusquAu: string | null; aVerifier: boolean } | null>;
   demarrerPaiement: (uid: string, formule: unknown, origine: string) => Promise<{ id: string; url: string }>;
   formulesPour: (profil: Doc | undefined) => Promise<{ id: string; mois: number; prix: number }[]>;
@@ -274,6 +289,141 @@ describe("formulesPour", () => {
   it("ne montre rien sans clé FedaPay", async () => {
     mockFedapay.configure = false;
     expect(await formulesPour({ is_superadmin: true })).toEqual([]);
+  });
+});
+
+describe("reverifierPaiementsOuverts", () => {
+  const MAINTENANT = Date.parse("2026-10-13T06:00:00Z");
+  const ilYA = (heures: number) => ({ toMillis: () => MAINTENANT - heures * 3_600_000 });
+
+  it("règle le paiement dont le webhook et le retour ont manqué", async () => {
+    poserLigne({ created_at: ilYA(9) });
+    mockFedapay.lireCollecte.mockResolvedValue(collecte("approved"));
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 1, payes: 1, fermes: 0 });
+    expect(ligne().statut).toBe("paye");
+    expect(pro()?.jusqu_au).toBe(ajouterMois(JOUR, 1));
+  });
+
+  it("laisse ouverte une ligne récente qui n'est pas encore payée", async () => {
+    poserLigne({ created_at: ilYA(2) });
+    mockFedapay.lireCollecte.mockResolvedValue(collecte("pending"));
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 1, payes: 0, fermes: 0 });
+    expect(ligne().statut).toBe("en_attente");
+  });
+
+  it("ferme une ligne de plus de 48 h qui n'a jamais été payée", async () => {
+    poserLigne({ created_at: ilYA(60), statut: "echoue" });
+    mockFedapay.lireCollecte.mockResolvedValue(collecte("declined"));
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 1, payes: 0, fermes: 1 });
+    expect(ligne().statut).toBe("expire");
+    expect(pro()).toBeNull();
+  });
+
+  it("accorde une vieille ligne qui se révèle payée, au lieu de la fermer", async () => {
+    poserLigne({ created_at: ilYA(60) });
+    mockFedapay.lireCollecte.mockResolvedValue(collecte("approved"));
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 1, payes: 1, fermes: 0 });
+    expect(ligne().statut).toBe("paye");
+  });
+
+  it("ne ferme pas une vieille ligne quand FedaPay ne répond pas ce matin-là", async () => {
+    poserLigne({ created_at: ilYA(60) });
+    mockFedapay.lireCollecte.mockRejectedValue(new Error("FedaPay injoignable"));
+    const journal = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 1, payes: 0, fermes: 0 });
+    expect(ligne().statut).toBe("en_attente");
+    journal.mockRestore();
+  });
+
+  it("ne ferme pas une ligne qui porte un écart : l'administration doit la voir", async () => {
+    poserLigne({ created_at: ilYA(60) });
+    mockFedapay.lireCollecte.mockResolvedValue(collecte("approved", { montant: 100 }));
+    const journal = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 1, payes: 0, fermes: 0 });
+    expect(ligne()).toMatchObject({ statut: "en_attente", anomalie: "montant" });
+    journal.mockRestore();
+  });
+
+  it("en réel, ne touche pas aux lignes du bac à sable, même vieilles", async () => {
+    poserLigne({ created_at: ilYA(60), environnement: "sandbox" });
+    mockFedapay.environnement = "live";
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 0, payes: 0, fermes: 0 });
+    expect(mockFedapay.lireCollecte).not.toHaveBeenCalled();
+    expect(ligne().statut).toBe("en_attente");
+  });
+
+  it("ne relit pas une ligne déjà payée", async () => {
+    poserLigne({ created_at: ilYA(5), statut: "paye" });
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 0, payes: 0, fermes: 0 });
+    expect(mockFedapay.lireCollecte).not.toHaveBeenCalled();
+  });
+
+  it("ne fait rien sans clé FedaPay", async () => {
+    poserLigne({ created_at: ilYA(60) });
+    mockFedapay.configure = false;
+
+    expect(await reverifierPaiementsOuverts(MAINTENANT)).toEqual({ revus: 0, payes: 0, fermes: 0 });
+    expect(ligne().statut).toBe("en_attente");
+  });
+});
+
+describe("rappelerEcheancesPro", () => {
+  const AUJOURDHUI = "2026-11-05";
+  const droit = (jusqu_au: string | null) => ({ pro: { depuis: "2026-10-01", jusqu_au, source: "paiement", accorde_par: null, motif: null } });
+  const titres = () => mockNotifier.mock.calls.map(([uid, n]) => `${uid} : ${(n as { title: string }).title}`);
+
+  beforeEach(() => {
+    mockFedapay.environnement = "live";
+    mockBase.set("settings/offre", { prix: { pro_mois: 1500, pro_an: null } });
+    mockBase.set("droits/demain", droit("2026-11-06"));
+    mockBase.set("droits/semaine", droit("2026-11-12"));
+    mockBase.set("droits/plus-tard", droit("2026-11-20"));
+    mockBase.set("droits/sans-fin", droit(null));
+  });
+
+  it("prévient la veille et sept jours avant, et personne d'autre", async () => {
+    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(2);
+    expect(titres().sort()).toEqual(["demain : Ton Pro se termine demain", "semaine : Ton Pro se termine dans 7 jours"]);
+    expect(mockNotifier.mock.calls[0][1]).toMatchObject({ type: "offre", link: "/offre" });
+  });
+
+  it("ne sonne pas deux fois le même jour quand la tâche est rejouée", async () => {
+    await rappelerEcheancesPro(AUJOURDHUI);
+    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    expect(mockNotifier).toHaveBeenCalledTimes(2);
+  });
+
+  it("rappelle de nouveau la veille celui qu'on a prévenu sept jours avant", async () => {
+    await rappelerEcheancesPro(AUJOURDHUI);
+    mockNotifier.mockClear();
+
+    expect(await rappelerEcheancesPro("2026-11-11")).toBe(1);
+    expect(titres()).toEqual(["semaine : Ton Pro se termine demain"]);
+  });
+
+  it("ne rappelle rien en bac à sable", async () => {
+    mockFedapay.environnement = "sandbox";
+    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    expect(mockNotifier).not.toHaveBeenCalled();
+  });
+
+  it("ne rappelle rien quand aucune formule n'est en vente : il n'y aurait rien à prolonger", async () => {
+    mockBase.set("settings/offre", { prix: { pro_mois: null, pro_an: null } });
+    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    expect(mockNotifier).not.toHaveBeenCalled();
+  });
+
+  it("ne rappelle rien sans clé FedaPay", async () => {
+    mockFedapay.configure = false;
+    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
   });
 });
 
