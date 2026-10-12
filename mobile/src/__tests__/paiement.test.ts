@@ -236,3 +236,18 @@ describe("motifAchat", () => {
     expect(motifAchat(12, "sandbox")).toBe("Achat Pro 12 mois (bac à sable)");
   });
 });
+
+// `require`, comme les autres suites qui lisent firestore.rules : la
+// vérification de types de l'application mobile n'a pas ceux de Node.
+const { readFileSync } = require("fs") as { readFileSync: (chemin: string, encodage: "utf8") => string };
+const { join } = require("path") as { join: (...morceaux: string[]) => string };
+
+describe("firestore.rules", () => {
+  it("ferme la collection paiements aux navigateurs", () => {
+    const regles = readFileSync(join(__dirname, "../../../firestore.rules"), "utf8");
+    const bloc = /match \/paiements\/\{paiementId\} \{([^}]*)\}/.exec(regles)?.[1];
+    expect(bloc).toBeDefined();
+    expect(bloc).toContain("allow read, write: if false;");
+    expect((bloc ?? "").match(/allow /g)).toHaveLength(1);
+  });
+});

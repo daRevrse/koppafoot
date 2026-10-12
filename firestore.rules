@@ -693,6 +693,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Les paiements (lib/paiement) : une ligne par tentative d'achat du Pro.
+    // Tout passe par /api/paiements et par le webhook FedaPay, avec le SDK
+    // admin : un navigateur n'a rien à y lire ni à y écrire, et surtout pas
+    // l'état « payé ».
+    match /paiements/{paiementId} {
+      allow read, write: if false;
+    }
+
     // Les clubs (lib/clubs) : réservés à KoppaFoot Pro, endormis quand il
     // s'arrête. L'état se décide à chaque lecture d'après le Pro du
     // propriétaire, et une section demande l'accord de son manager : tout

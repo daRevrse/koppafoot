@@ -1688,7 +1688,10 @@ export type NotificationType =
   | "arbitrage"
   /** Quelqu'un a commenté ma publication dans la Tribune. Envoyée à
    *  l'AUTEUR, jamais à celui qui commente sa propre publication. */
-  | "tribune_comment";
+  | "tribune_comment"
+  /** L'offre du compte : paiement reçu, Pro qui arrive à échéance. Envoyée au
+   *  TITULAIRE. C'est son reçu et son rappel, jamais une annonce. */
+  | "offre";
 
 export interface FirestoreNotification {
   user_id: string;
