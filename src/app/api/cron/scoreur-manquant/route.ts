@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
+import { rappelerEcheancesPro, reverifierPaiementsOuverts } from "@/lib/paiement-serveur";
 import { rappelerLesMatchsDuJour } from "@/lib/rappels-serveur";
 import type { FirestoreMatch } from "@/types";
 
@@ -33,6 +34,12 @@ export const dynamic = "force-dynamic";
  * LA MÊME TÂCHE RAPPELLE LES MATCHS DU JOUR aux convoqués (lib/rappels-
  * serveur) : six heures du matin est aussi la bonne heure pour « tu joues
  * aujourd'hui », et une tâche de plus ne dirait rien que celle-ci ne dise.
+ *
+ * ELLE RATTRAPE AUSSI LES PAIEMENTS (lib/paiement-serveur) : quelqu'un qui a
+ * payé et dont ni le webhook ni le retour sur le site n'ont abouti ne reste
+ * pas sans son Pro plus d'une nuit. Et elle prévient de la fin d'un Pro, sept
+ * jours avant et la veille. Ces deux parties ne font jamais échouer la tâche :
+ * une panne de FedaPay ne doit pas priver un joueur de son rappel de match.
  */
 export async function GET(request: Request) {
   const entete = request.headers.get("authorization");
@@ -81,6 +88,17 @@ export async function GET(request: Request) {
 
     const rappels = await rappelerLesMatchsDuJour();
 
+    const [paiements, echeancesPro] = await Promise.all([
+      reverifierPaiementsOuverts().catch((err) => {
+        console.error("[cron/scoreur-manquant] paiements:", err);
+        return null;
+      }),
+      rappelerEcheancesPro().catch((err) => {
+        console.error("[cron/scoreur-manquant] échéances Pro:", err);
+        return null;
+      }),
+    ]);
+
     return NextResponse.json({
       success: true,
       jour,
@@ -88,6 +106,8 @@ export async function GET(request: Request) {
       relances,
       dejaRelances: ignores.length,
       rappels,
+      paiements,
+      echeancesPro,
     });
   } catch (err) {
     console.error("[cron/scoreur-manquant]", err);
