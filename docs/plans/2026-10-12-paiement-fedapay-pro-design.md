@@ -32,7 +32,14 @@ Lu le 2026-10-12 sur docs.fedapay.com (collectes, webhooks, méthodes de paiemen
 - **Bac à sable** : un seul mode mobile money, `momo_test`. Les numéros `64000001` et `66000001` réussissent, tout autre échoue.
 - **Types de comptes** : un compte « Travailleur indépendant » est plafonné à **10 transactions par semaine** et à 100–300 000 XOF par transaction. Un compte « Business » n'a pas de plafond.
 
-**Non documenté, à constater au premier appel en bac à sable** : l'enveloppe des réponses. La référence d'API montre un objet à plat ; le SDK lit une clé `transaction` après avoir retiré un préfixe de version (`v1/transaction`). Le client accepte donc les trois formes, et la forme réelle sera notée ici dès qu'elle est observée. Même chose pour le champ de l'événement qui porte la collecte (`entity`, d'après l'exemple de la doc).
+**Constaté en bac à sable le 2026-10-12** (les quatre appels du client, joués avec une clé `sk_sandbox_…`) :
+- L'enveloppe des réponses est **`{ "v1/transaction": { … } }`**, que la référence d'API ne montre pas. `deballer` accepte aussi la forme à plat et la clé sans version.
+- `merchant_reference` et `custom_metadata.paiement_id` sont bien renvoyés à la relecture : la vérification « cette collecte est la nôtre » tient sur les deux.
+- `GET /transactions/merchant/{reference}` retrouve la collecte, et répond 404 pour une référence inconnue.
+- Une collecte se crée **sans objet `customer`**, et avec une adresse de retour en `http://localhost:3000`.
+- La page de paiement est servie par `sandbox-process.fedapay.com`. La collecte porte aussi `payment_url` et `payment_token` dès sa création.
+
+**Reste à constater au premier vrai paiement de test** : le champ de l'événement qui porte la collecte (`entity`, d'après l'exemple de la doc ; la route accepte aussi `object` et `data`, et se replie sur l'identifiant FedaPay), et si FedaPay ajoute ses paramètres à l'adresse de retour avec `&` ou avec un second `?` (la page lit les deux).
 
 ## Décisions
 
