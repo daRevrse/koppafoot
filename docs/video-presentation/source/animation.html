@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>KoppaFoot · Présentation</title>
+<!--
+  La vidéo de présentation, 1920 × 1080, environ 2 min 45.
+
+  Un week-end de l'Avenir d'Adakpamé, de l'équipe au palmarès. Les écrans des
+  téléphones sont de vraies captures (outils/p*.mjs, sur les émulateurs) ; le
+  stade, les notifications de l'écran verrouillé, les titres et les cartes de
+  chapitre sont dessinés ici.
+
+  L'image se cale sur la voix off : voix.js donne chaque mot et son instant
+  (outils/transcrire.py), et la fonction mot() place les gestes dessus.
+
+  Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
+  par image (window.allerA(t)), en fait une capture, puis outils/mixage.mjs
+  pose la voix (window.PISTES) et les bruitages (window.SONS). Ouverte telle
+  quelle dans Chromium, la page se joue en temps réel, sans le son.
+-->
+<style>
+@font-face { font-family: "Outfit"; src: url(fonts/outfit.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "DM Sans"; src: url(fonts/dmsans.woff2) format("woff2"); font-weight: 100 1000; }
+
+:root {
+  --vert: #00bf63;
+  --vert-fonce: #00994f;
+  --or: #ffc53d;
+  --rouge: #ff4d5e;
+  --nuit: #04100b;
+  --encre: #111827;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--nuit); }
+body { font-family: "DM Sans", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#scene { position: absolute; inset: 0; overflow: hidden; background: var(--nuit); }
+
+/* ── Le fond des chapitres : la nuit verte, un terrain en filigrane ── */
+#fond { position: absolute; inset: 0;
+  background: radial-gradient(75% 90% at 72% 40%, #0d3a25 0%, #062016 45%, var(--nuit) 100%); }
+#fond svg { position: absolute; inset: 0; width: 1920px; height: 1080px; opacity: .07; }
+#fond svg * { fill: none; stroke: #fff; stroke-width: 3; }
+#halo { position: absolute; left: 1000px; top: -200px; width: 1100px; height: 1100px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 191, 99, .22) 0%, rgba(0, 191, 99, 0) 65%); }
+
+/* ── Le stade, couché en perspective (intro et fin) ── */
+#stade { position: absolute; inset: 0; perspective: 1400px; perspective-origin: 50% 0%; opacity: 0; }
+#plateau { position: absolute; left: 310px; top: 300px; width: 1300px; height: 860px;
+  transform: rotateX(57deg); transform-origin: 50% 30%; }
+#pelouse { position: absolute; inset: 0; border-radius: 6px;
+  background: repeating-linear-gradient(90deg, #1f8a45 0 108px, #1a7a3c 108px 216px);
+  box-shadow: 0 0 0 24px #14582c, 0 0 160px 40px rgba(0, 0, 0, .7); }
+#lignes { position: absolute; inset: 0; width: 1300px; height: 860px; }
+#lignes * { fill: none; stroke: rgba(255, 255, 255, .92); stroke-width: 7; stroke-linecap: round; }
+#lignes .point { fill: rgba(255, 255, 255, .92); stroke: none; }
+#ombre { position: absolute; inset: -30px; background: #020805; opacity: .82; border-radius: 6px; }
+#eclat { position: absolute; inset: 0; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(70% 60% at 50% 50%, rgba(255, 255, 230, .35) 0%, rgba(255, 255, 230, 0) 70%); }
+.mat { position: absolute; width: 0; height: 0; opacity: 0; }
+.mat .cone { position: absolute; left: -420px; top: -420px; width: 840px; height: 840px; border-radius: 50%; mix-blend-mode: screen;
+  background: radial-gradient(circle, rgba(255, 250, 220, .55) 0%, rgba(255, 245, 200, .16) 28%, rgba(255, 245, 200, 0) 62%); }
+.mat .ampoule { position: absolute; left: -26px; top: -14px; width: 52px; height: 28px; border-radius: 6px; background: #fffbe6;
+  box-shadow: 0 0 30px 12px rgba(255, 250, 220, .9), 0 0 90px 30px rgba(255, 240, 180, .5); }
+#voile { position: absolute; inset: 0; background: #000; opacity: 0; }
+#flash { position: absolute; inset: 0; background: #fffbe8; opacity: 0; pointer-events: none; z-index: 90; }
+
+/* ── Les textes ── */
+.centre { position: absolute; left: 0; right: 0; text-align: center; }
+.mot { overflow: hidden; padding-top: 24px; margin-top: -24px; }
+.mot > span { display: inline-block; font-family: "Outfit"; font-weight: 900; text-transform: uppercase; transform: translateY(135%); white-space: nowrap; }
+.gros > span { font-size: 112px; line-height: .98; letter-spacing: -.015em; text-shadow: 0 10px 50px rgba(0, 0, 0, .7); }
+.moyen > span { font-size: 76px; line-height: 1; letter-spacing: -.01em; }
+.vert { color: var(--vert); }
+.gris { color: #7d8f86; }
+.or { color: var(--or); }
+
+.panneau { position: absolute; left: 130px; top: 250px; width: 940px; }
+.panneau .surtitre { font-family: "Outfit"; font-weight: 800; font-size: 30px; letter-spacing: .22em; color: var(--vert); text-transform: uppercase; opacity: 0; }
+.panneau .etape { position: absolute; left: 0; top: 64px; width: 940px; }
+.panneau .etape .ligne { overflow: hidden; padding: 22px 0 4px; margin-top: -22px; }
+.panneau .etape .ligne > span { display: block; font-family: "Outfit"; font-weight: 900; font-size: 92px; line-height: 1; letter-spacing: -.015em; text-transform: uppercase; transform: translateY(135%); white-space: nowrap; }
+.panneau .puces { position: absolute; left: 0; top: 330px; width: 940px; display: flex; flex-wrap: wrap; gap: 18px; }
+.puce { display: inline-flex; align-items: center; gap: 14px; padding: 16px 28px; border-radius: 999px; opacity: 0;
+  background: rgba(255, 255, 255, .08); border: 2px solid rgba(255, 255, 255, .16);
+  font-family: "Outfit"; font-weight: 800; font-size: 36px; color: #fff; white-space: nowrap; }
+.puce.pleine { background: var(--vert); border-color: var(--vert); color: #04100b; }
+.puce.rouge { background: rgba(255, 77, 94, .16); border-color: rgba(255, 77, 94, .7); color: #ffd0d5; }
+.puce .rond { width: 16px; height: 16px; border-radius: 50%; background: currentColor; }
+
+/* ── Les cartes de chapitre ── */
+.carte { position: absolute; inset: 0; z-index: 60; clip-path: inset(0 100% 0 0); background: #03130c; }
+.carte::after { content: ""; position: absolute; inset: 0;
+  background: radial-gradient(60% 80% at 30% 50%, rgba(0, 191, 99, .25), rgba(0, 191, 99, 0) 70%); }
+.carte .numero { position: absolute; left: 130px; top: 230px; font-family: "Outfit"; font-weight: 900; font-size: 420px; line-height: .8;
+  color: transparent; -webkit-text-stroke: 4px rgba(0, 191, 99, .55); z-index: 1; }
+.carte .nom { position: absolute; left: 700px; top: 420px; font-family: "Outfit"; font-weight: 900; font-size: 130px; line-height: .95;
+  text-transform: uppercase; letter-spacing: -.015em; z-index: 1; white-space: nowrap; }
+.carte .quand { position: absolute; left: 706px; top: 590px; font-family: "Outfit"; font-weight: 700; font-size: 44px; color: var(--vert); z-index: 1;
+  letter-spacing: .04em; }
+
+/* ── Les téléphones ── */
+#telephones { position: absolute; inset: 0; }
+.tel { position: absolute; left: 0; top: 0; width: 446px; height: 942px; border-radius: 64px; padding: 30px 16px 16px; opacity: 0;
+  background: linear-gradient(160deg, #1d2024, #0b0b0c 40%);
+  box-shadow: 0 0 0 3px #2b2e33, 0 40px 110px rgba(0, 0, 0, .65), 0 0 90px rgba(0, 191, 99, .16); }
+.tel::before { content: ""; position: absolute; left: 50%; top: 13px; width: 70px; height: 6px; margin-left: -35px; border-radius: 4px; background: #2a2d31; }
+.tel.couche { width: 942px; height: 446px; padding: 16px 16px 16px 30px; }
+.tel.couche::before { left: 13px; top: 50%; width: 6px; height: 70px; margin: -35px 0 0; }
+.ecran { position: relative; width: 414px; height: 896px; border-radius: 46px; overflow: hidden; background: #f4f6fa; }
+.couche .ecran { width: 896px; height: 414px; }
+.ecran img.etat { position: absolute; left: 0; top: 0; width: 414px; opacity: 0; }
+.couche .ecran img.etat { width: 896px; }
+.toucher { position: absolute; width: 0; height: 0; z-index: 30; }
+.toucher .point { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%;
+  background: rgba(255, 255, 255, .55); border: 4px solid rgba(17, 24, 39, .45); transform: scale(0); }
+.toucher .onde { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%; border: 4px solid var(--vert); opacity: 0; }
+.projecteur { position: absolute; z-index: 20; border-radius: 12px; border: 5px solid var(--vert); opacity: 0;
+  box-shadow: 0 0 0 2000px rgba(4, 16, 11, .55), 0 0 36px rgba(0, 191, 99, .65); }
+.ruban { position: absolute; z-index: 10; overflow: hidden; width: 0; }
+.ruban img { position: absolute; width: 414px; }
+.curseur { position: absolute; z-index: 11; width: 3px; background: var(--encre); opacity: 0; }
+
+/* Les notifications : bannière en haut de l'écran, ou pile sur l'écran verrouillé */
+.notif { position: absolute; left: 12px; right: 12px; z-index: 40; padding: 14px 16px; border-radius: 24px;
+  background: rgba(248, 250, 252, .94); color: var(--encre); box-shadow: 0 12px 30px rgba(0, 0, 0, .28); opacity: 0;
+  display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; }
+.notif img { width: 44px; height: 44px; border-radius: 11px; background: #04100b; padding: 5px; }
+.notif .app { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
+.notif .titre { margin-top: 2px; font-size: 18px; font-weight: 800; line-height: 1.2; }
+.notif .corps { margin-top: 2px; font-size: 16px; line-height: 1.3; color: #374151; }
+.verrou { position: absolute; inset: 0; z-index: 35; opacity: 0;
+  background: radial-gradient(120% 70% at 50% 15%, #1d6b45 0%, #0b2f1f 45%, #04100b 100%); }
+.verrou .date { position: absolute; top: 96px; left: 0; right: 0; text-align: center; font-size: 22px; font-weight: 700; color: rgba(255, 255, 255, .85); }
+.verrou .heure { position: absolute; top: 120px; left: 0; right: 0; text-align: center; font-family: "Outfit"; font-weight: 600; font-size: 104px; letter-spacing: -.02em; }
+
+/* Les écussons et le logo, dessinés par-dessus */
+.libre { position: absolute; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="fond">
+    <svg viewBox="0 0 1920 1080"><rect x="80" y="60" width="1760" height="960" rx="4"/><line x1="960" y1="60" x2="960" y2="1020"/>
+      <circle cx="960" cy="540" r="150"/><rect x="80" y="300" width="250" height="480"/><rect x="1590" y="300" width="250" height="480"/></svg>
+    <div id="halo"></div>
+  </div>
+
+  <div id="stade">
+    <div id="plateau">
+      <div id="pelouse"></div>
+      <svg id="lignes" viewBox="0 0 1300 860">
+        <rect x="40" y="40" width="1220" height="780" rx="4" />
+        <line x1="650" y1="40" x2="650" y2="820" />
+        <circle cx="650" cy="430" r="110" />
+        <rect x="40" y="230" width="190" height="400" />
+        <rect x="40" y="340" width="70" height="180" />
+        <rect x="1070" y="230" width="190" height="400" />
+        <rect x="1190" y="340" width="70" height="180" />
+        <circle class="point" cx="650" cy="430" r="9" />
+      </svg>
+      <div id="eclat"></div>
+      <div id="ombre"></div>
+    </div>
+  </div>
+  <div class="mat" style="left:300px;top:330px"><div class="cone"></div><div class="ampoule"></div></div>
+  <div class="mat" style="left:1620px;top:330px"><div class="cone"></div><div class="ampoule"></div></div>
+  <div class="mat" style="left:90px;top:1000px"><div class="cone"></div><div class="ampoule"></div></div>
+  <div class="mat" style="left:1830px;top:1000px"><div class="cone"></div><div class="ampoule"></div></div>
+  <div id="voile"></div>
+
+  <div id="textes"></div>
+  <div id="telephones"></div>
+  <div id="cartes"></div>
+  <div id="flash"></div>
+</div>
+
+<script src="voix.js"></script>
+<script src="cibles.js"></script>
+<script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+// ============================================================
+// Le temps : chaque scène commence avec sa voix.
+// ============================================================
+const ORDRE = ["01-intro", "02-direct", "03-equipe", "04-match", "05-tribune", "06-joueur", "07-competitions", "08-pro", "09-fin"];
+const ECART = 2.0;   // entre deux voix : la carte du chapitre suivant
+const DEB = {};
+{ let t = 1.0; for (const s of ORDRE) { DEB[s] = t; t += VOIX[s].duree + ECART; } }
+const finDe = (s) => DEB[s] + VOIX[s].duree;
+const DUREE = +(finDe("09-fin") + 3.2).toFixed(2);
+
+const norme = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+/** L'instant (en secondes, dans la vidéo) où la voix dit ce mot — la n-ième fois. */
+function mot(scene, texte, n = 1) {
+  const cible = norme(texte);
+  let k = 0;
+  for (const [debut, , m] of VOIX[scene].mots) if (norme(m) === cible && ++k === n) return DEB[scene] + debut;
+  console.warn("mot introuvable :", scene, texte);
+  return DEB[scene];
+}
+const a = (scene, s) => DEB[scene] + s;
+
+const C = window.CIBLES || {};
+const T = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+const $ = (s) => document.querySelector(s);
+const S = 414 / 390;   // pixels vidéo par pixel CSS du téléphone filmé
+const SONS = [];
+const son = (t, nom) => SONS.push({ t: +t.toFixed(3), son: nom });
+function el(tag, cls, parent, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  (parent || $("#textes")).appendChild(e);
+  return e;
+}
+
+// ============================================================
+// Les téléphones
+// ============================================================
+const TEL = {};
+let zEtat = 1;
+/** Un téléphone, caché, posé à sa place. */
+function telephone(id, { x, y, s = 1, couche = false, r = 0 }) {
+  const e = el("div", "tel" + (couche ? " couche" : ""), $("#telephones"), '<div class="ecran"></div>');
+  TEL[id] = { el: e, ecran: e.querySelector(".ecran"), couche, x, y, s };
+  T.set(e, { x, y, scale: s, rotation: r, opacity: 0, transformOrigin: "50% 50%" }, 0);
+  return TEL[id];
+}
+/** Le téléphone arrive (du bas, de la droite, de la gauche). */
+function entrer(id, t, de = "bas", d = 0.8) {
+  const p = TEL[id];
+  const depart = { bas: { y: p.y + 900 }, droite: { x: p.x + 900 }, gauche: { x: p.x - 1200 } }[de];
+  T.fromTo(p.el, { ...depart, opacity: 1 }, { x: p.x, y: p.y, opacity: 1, duration: d, ease: "power4.out", immediateRender: false }, t);
+  son(t, "glisse");
+}
+function sortir(id, t, vers = "bas", d = 0.6) {
+  const p = TEL[id];
+  const arrivee = { bas: { y: p.y + 1000 }, droite: { x: p.x + 1000 }, gauche: { x: p.x - 1300 }, fondu: { opacity: 0 } }[vers];
+  T.to(p.el, { ...arrivee, opacity: vers === "fondu" ? 0 : 1, duration: d, ease: "power3.in" }, t);
+  T.set(p.el, { opacity: 0 }, t + d);
+}
+function deplacer(id, t, cible, d = 0.8) {
+  const p = TEL[id];
+  Object.assign(p, cible);
+  const { s, ...vers } = cible;
+  if (s != null) vers.scale = s;
+  T.to(p.el, { ...vers, duration: d, ease: "power3.inOut" }, t);
+}
+/** Un nouvel écran passe devant le précédent : un fondu, ou un glissé depuis la droite. */
+function montrer(id, nom, t, { d = 0.3, effet = "fondu" } = {}) {
+  const p = TEL[id];
+  const img = el("img", "etat", p.ecran);
+  img.src = `ecrans/${nom}.jpg`;
+  img.style.zIndex = zEtat++;
+  if (effet === "glisse") {
+    T.fromTo(img, { opacity: 1, x: p.couche ? 896 : 414 }, { x: 0, duration: 0.45, ease: "power3.out", immediateRender: false }, t);
+  } else {
+    T.fromTo(img, { opacity: 0 }, { opacity: 1, duration: d, ease: "power1.out", immediateRender: false }, t);
+  }
+  return img;
+}
+/** Un doigt touche l'écran à cet endroit (rectangle en px CSS de la capture). */
+function toucher(id, r, t) {
+  if (!r) return console.warn("cible absente", id, t);
+  const p = TEL[id];
+  const e = el("div", "toucher", p.ecran, '<div class="onde"></div><div class="point"></div>');
+  e.style.left = (r.x + r.w / 2) * S + "px";
+  e.style.top = (r.y + r.h / 2) * S + "px";
+  e.style.zIndex = 900;
+  const pt = e.querySelector(".point"), o = e.querySelector(".onde");
+  T.fromTo(pt, { scale: 0, opacity: 1 }, { scale: 1, duration: 0.16, ease: "back.out(3)", immediateRender: false }, t)
+   .to(pt, { scale: 0.8, duration: 0.1 }, t + 0.2)
+   .to(pt, { opacity: 0, scale: 0.4, duration: 0.22, ease: "power2.in" }, t + 0.38)
+   .fromTo(o, { scale: 0.6, opacity: 0.9 }, { scale: 2.6, opacity: 0, duration: 0.55, ease: "power2.out", immediateRender: false }, t + 0.16);
+  son(t, "toucher");
+}
+/** Un doigt fait glisser un élément de « de » à « vers » (points en px CSS). */
+function glisser(id, de, vers, t, d = 1) {
+  const p = TEL[id];
+  const e = el("div", "toucher", p.ecran, '<div class="point"></div>');
+  e.style.zIndex = 900;
+  const pt = e.querySelector(".point");
+  T.set(e, { x: de.x * S, y: de.y * S }, 0)
+   .fromTo(pt, { scale: 0, opacity: 1 }, { scale: 1, duration: 0.18, immediateRender: false }, t)
+   .to(e, { x: vers.x * S, y: vers.y * S, duration: d, ease: "power2.inOut" }, t + 0.25)
+   .to(pt, { opacity: 0, scale: 0.4, duration: 0.25 }, t + 0.3 + d);
+  son(t, "toucher");
+}
+/** Le reste de l'écran s'assombrit autour d'un rectangle (px CSS). */
+function projecteur(id, r, t, fin) {
+  const p = TEL[id];
+  const e = el("div", "projecteur", p.ecran);
+  e.style.zIndex = 800;
+  const m = 6;
+  Object.assign(e.style, { left: (r.x - m) * S + "px", top: (r.y - m) * S + "px", width: (r.w + 2 * m) * S + "px", height: (r.h + 2 * m) * S + "px" });
+  T.fromTo(e, { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.4, immediateRender: false }, t);
+  if (fin) T.to(e, { opacity: 0, duration: 0.3 }, fin);
+}
+/** Le texte se tape dans un champ : l'écran rempli se découvre de gauche à droite. */
+function taper(id, nomRempli, r, t, d) {
+  const p = TEL[id];
+  const e = el("div", "ruban", p.ecran);
+  e.style.zIndex = 850;
+  Object.assign(e.style, { left: r.x * S + "px", top: r.y * S + "px", height: r.h * S + "px" });
+  const img = el("img", "", e);
+  img.src = `ecrans/${nomRempli}.jpg`;
+  img.style.left = -r.x * S + "px";
+  img.style.top = -r.y * S + "px";
+  T.fromTo(e, { width: 0 }, { width: r.w * S, duration: d, ease: "steps(16)", immediateRender: false }, t);
+  T.set(e, { opacity: 0 }, t + d + 0.4);
+}
+/** Le téléphone vibre (une notification qui compte). */
+function vibrer(id, t) {
+  T.to(TEL[id].el, { rotation: 1.6, duration: 0.05, repeat: 7, yoyo: true, ease: "none" }, t)
+   .set(TEL[id].el, { rotation: 0 }, t + 0.4);
+  son(t, "vibre");
+}
+
+// La notification de KoppaFoot, telle que le téléphone la présente.
+const SYMBOLE = "images/symbole.png";
+function carteNotif(parent, { titre, corps, quand = "maintenant" }) {
+  return el("div", "notif", parent,
+    `<img src="${SYMBOLE}" alt=""><div><div class="app"><span>KoppaFoot</span><span>${quand}</span></div>`
+    + `<div class="titre">${titre}</div><div class="corps">${corps}</div></div>`);
+}
+/** Une bannière descend du haut de l'écran, puis remonte. */
+function banniere(id, n, t, fin) {
+  const e = carteNotif(TEL[id].ecran, n);
+  e.style.top = "14px";
+  e.style.zIndex = 950;
+  T.fromTo(e, { opacity: 1, y: -160 }, { y: 0, duration: 0.5, ease: "back.out(1.4)", immediateRender: false }, t);
+  if (fin) T.to(e, { y: -170, duration: 0.4, ease: "power2.in" }, fin);
+  son(t, "notif");
+}
+/** L'écran verrouillé : l'heure, la date, et les notifications qui s'empilent. */
+function verrouille(id, t, { heure, date }) {
+  const v = el("div", "verrou", TEL[id].ecran, `<div class="date">${date}</div><div class="heure">${heure}</div>`);
+  v.style.zIndex = 940;
+  T.to(v, { opacity: 1, duration: 0.3 }, t);
+  return { v, cartes: [] };
+}
+function empiler(pile, n, t) {
+  const e = carteNotif(pile.v, n);
+  const H = 104;
+  e.style.top = "260px";
+  T.fromTo(e, { opacity: 0, y: -40, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.6)", immediateRender: false }, t);
+  pile.cartes.forEach((c, i) => T.to(c, { y: (pile.cartes.length - i) * H, duration: 0.4 }, t));
+  pile.cartes.push(e);
+  son(t, "notif");
+}
+
+// ============================================================
+// Les textes
+// ============================================================
+/** Le panneau de gauche d'une scène : un surtitre, des titres qui se succèdent, des puces. */
+function panneau(scene, surtitre, etapes, fin) {
+  const p = el("div", "panneau");
+  const st = el("div", "surtitre", p, surtitre);
+  T.to(st, { opacity: 1, duration: 0.4 }, etapes[0][0]);
+  etapes.forEach(([t, lignes], i) => {
+    const e = el("div", "etape", p, lignes.map((l) => `<div class="ligne"><span>${l}</span></div>`).join(""));
+    const spans = e.querySelectorAll(".ligne > span");
+    T.fromTo(spans, { y: "135%" }, { y: "0%", duration: 0.6, stagger: 0.08, immediateRender: false }, t);
+    const suivant = etapes[i + 1]?.[0] ?? fin;
+    T.to(spans, { y: "-135%", duration: 0.35, stagger: 0.05, ease: "power2.in" }, suivant - 0.35);
+  });
+  const puces = el("div", "puces", p);
+  T.to(p, { opacity: 0, duration: 0.3 }, fin);
+  return {
+    puce(texte, t, style = "") {
+      const e = el("div", "puce " + style, puces, texte);
+      T.fromTo(e, { opacity: 0, y: 30, scale: 0.85 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(2)", immediateRender: false }, t);
+      return e;
+    },
+    // Les puces vidées quittent aussi la mise en page : les suivantes repartent de la première place.
+    vider(t) {
+      const parties = [...puces.children];
+      T.to(parties, { opacity: 0, duration: 0.25 }, t).set(parties, { display: "none" }, t + 0.26);
+    },
+  };
+}
+/** Des mots qui montent, centrés. */
+function phrase(lignes, { top, cls = "gros" }, t, fin, stagger = 0.08) {
+  const e = el("div", "centre", null, lignes.map((l) => `<div class="mot ${cls}"><span>${l}</span></div>`).join(""));
+  e.style.top = top + "px";
+  const spans = e.querySelectorAll(".mot > span");
+  T.fromTo(spans, { y: "135%" }, { y: "0%", duration: 0.6, stagger, immediateRender: false }, t);
+  if (fin) T.to(spans, { y: "-135%", duration: 0.35, stagger: 0.04, ease: "power2.in" }, fin);
+  return e;
+}
+/** La carte d'un chapitre, entre deux voix. */
+function carte(numero, nom, quand, t) {
+  const e = el("div", "carte", $("#cartes"), `<div class="numero">${numero}</div><div class="nom">${nom}</div><div class="quand">${quand}</div>`);
+  T.fromTo(e, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.45, ease: "power3.inOut", immediateRender: false }, t)
+   .fromTo(e.querySelector(".nom"), { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, immediateRender: false }, t + 0.15)
+   .fromTo(e.querySelector(".quand"), { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, immediateRender: false }, t + 0.3)
+   .to(e, { clipPath: "inset(0 0% 0 100%)", duration: 0.45, ease: "power3.inOut" }, t + 1.35);
+  son(t, "glisse");
+}
+function image(src, { x, y, w }) {
+  const e = el("img", "libre");
+  e.src = src;
+  Object.assign(e.style, { left: x + "px", top: y + "px", width: w + "px" });
+  return e;
+}
+
+// ============================================================
+// Le stade (intro et fin)
+// ============================================================
+const LIGNES = [...document.querySelectorAll("#lignes *:not(.point)")];
+LIGNES.forEach((l) => { const n = l.getTotalLength(); l.style.strokeDasharray = n; l.style.strokeDashoffset = n; });
+function allumer(t, on = true, d = 0.5) {
+  [...document.querySelectorAll(".mat")].forEach((m, i) => T.to(m, { opacity: on ? 1 : 0, duration: on ? 0.25 : 0.12 }, t + i * (on ? 0.14 : 0.1)));
+  T.to("#ombre", { opacity: on ? 0.18 : 0.82, duration: d }, t + 0.2);
+  T.to("#eclat", { opacity: on ? 1 : 0, duration: d }, t + 0.3);
+}
+
+// ============================================================
+// 01 · Intro : le foot de quartier, et ce qu'il en reste le lundi
+// ============================================================
+T.set("#plateau", { rotationX: 57, transformOrigin: "50% 30%" }, 0);
+{
+  const s = "01-intro";
+  T.to("#stade", { opacity: 1, duration: 0.8 }, 0.1)
+   .to(LIGNES, { strokeDashoffset: 0, duration: 1.4, stagger: 0.06, ease: "power2.inOut" }, 0.2);
+  allumer(0.7);
+  T.to("#plateau", { rotationX: 52, scale: 1.06, duration: 16, ease: "none" }, 0);
+  phrase(["Chaque week-end,", "<span class='vert'>on joue.</span>"], { top: 110 }, mot(s, "chaque"), mot(s, "des") - 0.15);
+  const b = mot(s, "buts"), ar = mot(s, "arrets"), he = mot(s, "heros");
+  phrase(["Des buts."], { top: 140 }, b - 0.1, mot(s, "lundi") - 0.3);
+  phrase(["Des arrêts."], { top: 270 }, ar - 0.1, mot(s, "lundi") - 0.3);
+  phrase(["<span class='or'>Des héros.</span>"], { top: 400 }, he - 0.1, mot(s, "lundi") - 0.3);
+  son(b, "foule");
+  // Le lundi : on éteint.
+  const lundi = mot(s, "lundi");
+  allumer(lundi + 0.2, false);
+  T.to("#voile", { opacity: 0.55, duration: 0.8 }, lundi + 0.3);
+  phrase(["<span class='gris'>Et le lundi…</span>"], { top: 330 }, lundi - 0.1, mot(s, "pas") - 0.2);
+  phrase(["Plus rien."], { top: 470, cls: "moyen" }, mot(s, "plus") - 0.05, mot(s, "pas") - 0.2);
+  phrase(["<span class='gris'>Pas de score.</span>", "<span class='gris'>Pas de trace.</span>"], { top: 360, cls: "moyen" }, mot(s, "pas"), mot(s, "koppafoot") - 0.25, 0.7);
+  // KoppaFoot : la lumière revient.
+  const kf = mot(s, "koppafoot");
+  T.to("#flash", { opacity: 0.85, duration: 0.08 }, kf).to("#flash", { opacity: 0, duration: 0.6 }, kf + 0.08);
+  T.to("#voile", { opacity: 0.35, duration: 0.4 }, kf);
+  allumer(kf, true, 0.3);
+  son(kf, "eclat");
+  const logo = image("images/logo.png", { x: 610, y: 190, w: 700 });
+  T.fromTo(logo, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.7)", immediateRender: false }, kf + 0.05);
+  phrase(["L'application du foot amateur"], { top: 560, cls: "moyen" }, mot(s, "application") - 0.1, mot(s, "viens") - 0.25);
+  const v = mot(s, "viens");
+  T.to(logo, { y: -110, scale: 0.62, duration: 0.6, ease: "power3.inOut" }, v - 0.2);
+  const ava = image("images/ecusson-avenir.png", { x: 880, y: 330, w: 160 });
+  T.fromTo(ava, { opacity: 0, scale: 0.3, rotation: -12 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.7, ease: "back.out(2)", immediateRender: false }, mot(s, "week", 2));
+  phrase(["Un week-end avec", "<span class='vert'>l'Avenir d'Adakpamé</span>"], { top: 540, cls: "moyen" }, v + 0.1, finDe(s) + 0.2);
+  T.to([logo, ava], { opacity: 0, duration: 0.3 }, finDe(s) + 0.25);
+  T.to("#stade", { opacity: 0, duration: 0.5 }, finDe(s) + 0.4);
+  [...document.querySelectorAll(".mat")].forEach((m) => T.to(m, { opacity: 0, duration: 0.3 }, finDe(s) + 0.4));
+  T.to("#voile", { opacity: 0, duration: 0.5 }, finDe(s) + 0.4);
+}
+
+// ============================================================
+// Les écrans et leurs zones (px CSS de la capture), relevés sur les captures
+// ============================================================
+const Z = {
+  affiche: { x: 12, y: 136, w: 366, h: 326 },
+  tableau: { x: 12, y: 488, w: 366, h: 252 },
+  quiGagne: { x: 12, y: 286, w: 366, h: 132 },
+  bandeauEquipe: { x: 0, y: 80, w: 390, h: 188 },
+  enteteAnnonce: { x: 14, y: 248, w: 362, h: 54 },
+  carteAnnonce: { x: 14, y: 398, w: 362, h: 126 },
+  carteMatch: { x: 12, y: 360, w: 366, h: 326 },
+  hommeDuMatch: { x: 12, y: 330, w: 366, h: 92 },
+};
+
+// ============================================================
+// 02 · Le Direct
+// ============================================================
+telephone("A", { x: 1250, y: 70 });
+{
+  const s = "02-direct";
+  carte("01", "Le Direct", "Vendredi soir", finDe("01-intro") + 0.4);
+  const P = panneau(s, "Vendredi soir · Elikem", [
+    [a(s, 0), ["Le", "<span class='vert'>Direct</span>"]],
+    [mot(s, "avant") - 0.1, ["Ton", "<span class='vert'>pronostic</span>"]],
+    [mot(s, "et") - 0.1, ["Suis", "<span class='vert'>le match</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("A", a(s, 0) - 0.1, "bas");
+  montrer("A", "02a-direct", a(s, 0) - 0.1, { d: 0.01 });
+  P.puce("Matchs du moment", mot(s, "matchs"));
+  P.puce("Scores", mot(s, "scores"));
+  P.puce("Buteurs", mot(s, "buteurs"));
+  P.puce("Compétitions", mot(s, "competitions"));
+  projecteur("A", Z.tableau, mot(s, "matchs"), mot(s, "avant") - 0.2);
+  P.vider(mot(s, "avant") - 0.3);
+  projecteur("A", Z.affiche, mot(s, "avant"), mot(s, "pronostic") + 0.6);
+  toucher("A", C["02a-direct"], mot(s, "pronostic") - 0.2);
+  montrer("A", "02b-pronostic", mot(s, "pronostic") + 0.05, { d: 0.2 });
+  P.puce("<span class='rond'></span> Avenir 50 %", mot(s, "pronostic") + 0.3, "pleine");
+  P.vider(mot(s, "et") - 0.3);
+  montrer("A", "02d-fiche", mot(s, "et"), { effet: "glisse" });
+  toucher("A", C["02d-fiche"], mot(s, "suis") - 0.15);
+  montrer("A", "02e-suivi", mot(s, "suis") + 0.05, { d: 0.2 });
+  P.puce("Chaque but, sur ton téléphone", mot(s, "chaque"), "pleine");
+  banniere("A", { titre: "⚽ BUT ! Kafui Mensah (23')", corps: "Avenir d'Adakpamé 1 – 0 Olympique de Tokoin" }, mot(s, "but") - 0.1, finDe(s) + 0.3);
+  vibrer("A", mot(s, "but"));
+  sortir("A", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 03 · Ton équipe
+// ============================================================
+telephone("B", { x: 1250, y: 70 });
+telephone("Y", { x: 760, y: 110, s: 0.92 });
+{
+  const s = "03-equipe";
+  carte("02", "Ton équipe", "Lundi", finDe("02-direct") + 0.4);
+  const P = panneau(s, "Lundi · Edem, manager", [
+    [a(s, 0), ["Crée", "<span class='vert'>ton équipe</span>"]],
+    [mot(s, "il", 2) - 0.1, ["Recrute", "<span class='vert'>dans la Tribune</span>"]],
+    [mot(s, "au") - 0.1, ["Le", "<span class='vert'>mercato</span>"]],
+    [mot(s, "pour") - 0.1, ["Défie", "<span class='vert'>une équipe</span>"]],
+    [mot(s, "le", 4) - 0.1, ["Le match", "<span class='vert'>est calé</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("B", a(s, 0) - 0.1, "bas");
+  montrer("B", "03a-creer-vide", a(s, 0) - 0.1, { d: 0.01 });
+  const nom = C["03b-creer-nom"];
+  if (nom) taper("B", "03b-creer-nom", { x: nom.x, y: nom.y, w: nom.w * 0.62, h: nom.h }, mot(s, "cree"), 1.1);
+  montrer("B", "03b-creer-nom", mot(s, "cree") + 1.5, { d: 0.15 });
+  P.puce("Un nom", mot(s, "nom"));
+  P.puce("Un écusson", mot(s, "ecusson"));
+  montrer("B", "03c-equipe", mot(s, "et") - 0.05, { effet: "glisse" });
+  projecteur("B", Z.bandeauEquipe, mot(s, "et") + 0.4, mot(s, "il", 2) - 0.3);
+  P.vider(mot(s, "il", 2) - 0.3);
+  // Il lui manque un gardien : l'annonce.
+  montrer("B", "03d-parametres", mot(s, "il", 2), { effet: "glisse" });
+  P.puce("Gardien recherché", mot(s, "gardien"), "rouge");
+  toucher("B", C["03d-parametres"], mot(s, "ouvre"));
+  montrer("B", "03e-fenetre-vide", mot(s, "ouvre") + 0.25, { d: 0.2 });
+  toucher("B", C["03e-fenetre-vide"], mot(s, "ouvre") + 0.8);
+  montrer("B", "03f-fenetre-gardien", mot(s, "ouvre") + 1.0, { d: 0.15 });
+  toucher("B", C["03f-fenetre-gardien"], mot(s, "annonce") - 0.1);
+  montrer("B", "03i-annonce", mot(s, "part"), { effet: "glisse" });
+  projecteur("B", Z.enteteAnnonce, mot(s, "sous"), mot(s, "au") - 0.2);
+  P.puce("Signée Edem A. · Manager", mot(s, "sous"), "pleine");
+  P.vider(mot(s, "au") - 0.3);
+  // Le mercato.
+  montrer("B", "03g-mercato", mot(s, "au"), { effet: "glisse" });
+  montrer("B", "03h-selection", mot(s, "invite") - 0.1, { d: 0.25 });
+  toucher("B", C["03h-selection"], mot(s, "invite") + 0.25);
+  P.puce("Invitations", mot(s, "invite"));
+  montrer("B", "03i-annonce", mot(s, "autres") - 0.1, { effet: "glisse" });
+  toucher("B", C["03i-annonce"], mot(s, "demandent"));
+  montrer("B", "03j-demande-envoyee", mot(s, "demandent") + 0.25, { d: 0.2 });
+  P.puce("Demandes d'adhésion", mot(s, "demandent"));
+  montrer("B", "03k-candidature", mot(s, "rejoindre"), { effet: "glisse" });
+  toucher("B", C["03k-candidature"], mot(s, "rejoindre") + 0.55);
+  P.vider(mot(s, "pour") - 0.3);
+  // Le défi.
+  montrer("B", "03m-defi-adversaire", mot(s, "pour"), { effet: "glisse" });
+  toucher("B", C["03m-defi-adversaire"], mot(s, "olympique"));
+  P.puce("Olympique de Tokoin", mot(s, "olympique"));
+  montrer("B", "03n-defi-terrain", mot(s, "olympique") + 0.6, { effet: "glisse" });
+  if (C["03n-defi-terrain"]) projecteur("B", C["03n-defi-terrain"], mot(s, "complexe"), mot(s, "le", 3) - 0.2);
+  P.puce("Complexe sportif de Bè", mot(s, "complexe"));
+  P.puce("Annuaire des terrains", mot(s, "trouve"));
+  P.vider(mot(s, "le", 3) - 0.3);
+  // Le gérant confirme.
+  deplacer("B", mot(s, "le", 3) - 0.4, { x: 1330, s: 0.9 });
+  entrer("Y", mot(s, "le", 3) - 0.3, "gauche");
+  montrer("Y", "03o-gerant-demande", mot(s, "le", 3) - 0.3, { d: 0.01 });
+  toucher("Y", C["03o-gerant-demande"], mot(s, "confirme") + 0.1);
+  P.puce("Yawo, gérant du terrain", mot(s, "gerant"));
+  montrer("B", "03p-match-cale", mot(s, "match") - 0.2, { effet: "glisse" });
+  if (C["03p-match-cale"]) projecteur("B", C["03p-match-cale"], mot(s, "match"), finDe(s) + 0.2);
+  P.puce("Terrain confirmé ✓", mot(s, "cale"), "pleine");
+  sortir("Y", finDe(s) + 0.05, "gauche");
+  sortir("B", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 04 · Jour de match
+// ============================================================
+telephone("E", { x: 1250, y: 70 });                       // Edem
+telephone("K", { x: 760, y: 110, s: 0.92 });               // Komi
+telephone("F", { x: 940, y: 120, couche: true });          // la console d'Afi, couchée
+telephone("L", { x: 1250, y: 70 });                        // Elikem, écran verrouillé
+telephone("M", { x: 1250, y: 70 });                        // la fiche finale
+{
+  const s = "04-match";
+  carte("03", "Jour de match", "Samedi, 16 h", finDe("03-equipe") + 0.4);
+  const P = panneau(s, "Samedi, 16 h · Bè", [
+    [a(s, 0), ["La", "<span class='vert'>composition</span>"]],
+    [mot(s, "komi") - 0.1, ["L'arbitre", "<span class='vert'>est désigné</span>"]],
+    [mot(s, "au") - 0.1, ["La console", "<span class='vert'>du match</span>"]],
+    [mot(s, "elikem") - 0.1, ["Suivi", "<span class='vert'>à distance</span>"]],
+    [mot(s, "coutiflet") - 0.1, ["Coup de sifflet", "<span class='vert'>final</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("E", a(s, 0) - 0.1, "bas");
+  montrer("E", "04a-compo", a(s, 0) - 0.1, { d: 0.01 });
+  const g = C["04a-glisse"];
+  if (g) glisser("E", g.de, g.vers, mot(s, "glissant") - 0.1, 0.9);
+  montrer("E", "04b-compo-glisse", mot(s, "poste"), { d: 0.25 });
+  P.puce("Glisser-déposer", mot(s, "glissant"));
+  montrer("E", "04c-blesse", mot(s, "voit") - 0.1, { effet: "glisse" });
+  P.puce("<span class='rond'></span> Apte", mot(s, "apte"), "pleine");
+  P.puce("<span class='rond'></span> Blessé", mot(s, "blesse"), "rouge");
+  if (C["04c-blesse"]) projecteur("E", C["04c-blesse"], mot(s, "blesse"), mot(s, "komi") - 0.3);
+  P.puce("En forme", mot(s, "forme"));
+  P.vider(mot(s, "komi") - 0.3);
+  // Komi est désigné.
+  deplacer("E", mot(s, "komi") - 0.4, { x: 1330, s: 0.9 });
+  entrer("K", mot(s, "komi") - 0.3, "gauche");
+  montrer("K", "04d-designation", mot(s, "komi") - 0.3, { d: 0.01 });
+  P.puce("Les Sifflets du Golfe", mot(s, "designation"));
+  P.vider(mot(s, "au") - 0.3);
+  sortir("K", mot(s, "au") - 0.4, "gauche");
+  sortir("E", mot(s, "au") - 0.4, "bas");
+  // La console, couchée, au centre.
+  entrer("F", mot(s, "au") - 0.2, "bas");
+  montrer("F", "04f-console-but", mot(s, "au") - 0.2, { d: 0.01 });
+  toucher("F", C["04f-console-but"], mot(s, "saisit"));
+  montrer("F", "04g-console-1-0", mot(s, "saisit") + 0.3, { d: 0.2 });
+  montrer("F", "04j-console-hors-ligne", mot(s, "reseau") - 0.1, { d: 0.25 });
+  P.puce("Hors ligne : la saisie continue", mot(s, "reseau"), "rouge");
+  montrer("F", "04k-console-2-0", mot(s, "butte") - 0.1, { d: 0.25 });
+  P.vider(mot(s, "butte") - 0.2);
+  P.puce("Buts", mot(s, "butte"), "pleine");
+  P.puce("Passes", mot(s, "passe"), "pleine");
+  P.puce("Cartons", mot(s, "carton"), "pleine");
+  P.puce("Remplacements", mot(s, "remplacement"), "pleine");
+  P.vider(mot(s, "elikem") - 0.3);
+  sortir("F", mot(s, "elikem") - 0.4, "bas");
+  // Elikem, chez lui : son téléphone verrouillé se remplit.
+  entrer("L", mot(s, "elikem") - 0.2, "bas");
+  const pile = verrouille("L", mot(s, "elikem") - 0.2, { heure: "16:46", date: "samedi 17 octobre" });
+  empiler(pile, { titre: "🔴 C'est parti !", corps: "Avenir d'Adakpamé – Olympique de Tokoin, coup d'envoi !", quand: "il y a 46 min" }, mot(s, "coup"));
+  empiler(pile, { titre: "⚽ BUT ! Kafui Mensah (23')", corps: "Avenir d'Adakpamé 1 – 0 Olympique de Tokoin", quand: "il y a 23 min" }, mot(s, "but"));
+  vibrer("L", mot(s, "but"));
+  empiler(pile, { titre: "⏸️ Mi-temps", corps: "Avenir d'Adakpamé 1 – 0 Olympique de Tokoin", quand: "maintenant" }, mot(s, "mi"));
+  P.puce("Ne rate rien", mot(s, "rate"), "pleine");
+  // Le coup de sifflet final.
+  const sifflet = mot(s, "coutiflet");
+  P.vider(sifflet - 0.2);
+  son(sifflet, "sifflet");
+  T.to("#flash", { opacity: 0.5, duration: 0.06 }, sifflet).to("#flash", { opacity: 0, duration: 0.5 }, sifflet + 0.06);
+  sortir("L", sifflet - 0.1, "fondu", 0.3);
+  T.set(TEL.M.el, { opacity: 1 }, sifflet);
+  montrer("M", "04n-fiche-finale", sifflet, { d: 0.01 });
+  P.puce("2 – 0", mot(s, "2"), "pleine");
+  // L'homme du match est en tête de la fiche finale : on l'éclaire.
+  projecteur("M", Z.hommeDuMatch, mot(s, "homme") - 0.1, finDe(s) + 0.05);
+  P.puce("Homme du match : Kafui", mot(s, "kafui"), "pleine");
+  P.puce("⚽ ⚽ Deux buts", mot(s, "deux"));
+  P.puce("Meilleure note", mot(s, "meilleure"));
+  son(mot(s, "kafui"), "foule");
+  sortir("M", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 05 · La Tribune
+// ============================================================
+telephone("T", { x: 1250, y: 70 });
+{
+  const s = "05-tribune";
+  carte("04", "La Tribune", "Samedi soir", finDe("04-match") + 0.4);
+  const P = panneau(s, "Samedi soir · Kafui", [
+    [a(s, 0), ["La", "<span class='vert'>Tribune</span>"]],
+    [mot(s, "kafui", 2) - 0.1, ["Il est", "<span class='vert'>prévenu</span>"]],
+    [mot(s, "ici") - 0.1, ["Résultats", "<span class='vert'>et annonces</span>"]],
+    [mot(s, "et", 2) - 0.1, ["Les", "<span class='vert'>Actus</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("T", a(s, 0) - 0.1, "bas");
+  montrer("T", "05a-tribune-ecrit", a(s, 0) - 0.1, { d: 0.01 });
+  toucher("T", C["05a-tribune-ecrit"], mot(s, "victoire") - 0.1);
+  montrer("T", "05b-tribune-publie", mot(s, "victoire") + 0.15, { effet: "glisse" });
+  P.puce("Photo à l'appui", mot(s, "photo"));
+  montrer("T", "05d-tribune-reactions", mot(s, "aime") - 0.1, { d: 0.3 });
+  P.puce("❤ 38 j'aime", mot(s, "aime"), "pleine");
+  P.puce("💬 3 commentaires", mot(s, "commentaires"));
+  P.vider(mot(s, "kafui", 2) - 0.3);
+  banniere("T", { titre: "Afi L. a commenté ta publication", corps: "« Quel doublé Kafui !! 🔥🔥 »" }, mot(s, "prevenu") - 0.2, mot(s, "ici") - 0.4);
+  vibrer("T", mot(s, "prevenu"));
+  P.puce("Notification à chaque commentaire", mot(s, "chaque"), "pleine");
+  P.vider(mot(s, "ici") - 0.3);
+  montrer("T", "05e-tribune-officiel", mot(s, "ici"), { effet: "glisse" });
+  P.puce("Compte officiel KoppaFoot", mot(s, "officiels"));
+  montrer("T", "05f-tribune-annonce", mot(s, "annonces") - 0.15, { effet: "glisse" });
+  P.puce("Les managers qui recrutent", mot(s, "recrutent") - 0.2);
+  P.vider(mot(s, "et", 2) - 0.3);
+  montrer("T", "05g-actus", mot(s, "actus") - 0.1, { effet: "glisse" });
+  P.puce("La presse sportive du jour", mot(s, "presse"));
+  sortir("T", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 06 · Ta fiche de joueur
+// ============================================================
+telephone("J", { x: 1250, y: 70 });
+{
+  const s = "06-joueur";
+  carte("05", "Ta fiche", "Dimanche", finDe("05-tribune") + 0.4);
+  const P = panneau(s, "Dimanche · Kafui", [
+    [a(s, 0), ["Sa", "<span class='vert'>condition</span>"]],
+    [mot(s, "ces") - 0.1, ["Sa", "<span class='vert'>forme</span>"]],
+    [mot(s, "et") - 0.1, ["Le", "<span class='vert'>classement</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("J", a(s, 0) - 0.1, "bas");
+  montrer("J", "06a-forme", a(s, 0) - 0.1, { d: 0.01 });
+  toucher("J", C["06a-forme"], mot(s, "declare"));
+  montrer("J", "06b-condition", mot(s, "declare") + 0.3, { d: 0.25 });
+  P.puce("<span class='rond'></span> Apte", mot(s, "apte"), "pleine");
+  P.puce("<span class='rond'></span> Blessé", mot(s, "blesse"), "rouge");
+  P.puce("De retour samedi", mot(s, "retour"));
+  if (C["06b-condition"]) projecteur("J", C["06b-condition"], mot(s, "apte"), mot(s, "blesse") - 0.1);
+  if (C["06b-condition-blesse"]) projecteur("J", C["06b-condition-blesse"], mot(s, "blesse"), mot(s, "ces") - 0.2);
+  P.vider(mot(s, "ces") - 0.3);
+  montrer("J", "06a-forme", mot(s, "ces"), { d: 0.25 });
+  P.puce("Calculée sur ses matchs", mot(s, "disent"), "pleine");
+  P.vider(mot(s, "et") - 0.3);
+  montrer("J", "06d-classement-haut", mot(s, "et"), { effet: "glisse" });
+  P.puce("Les 5 derniers matchs", mot(s, "5"), "pleine");
+  montrer("J", "06c-classement", mot(s, "derniers") + 0.1, { d: 0.3 });
+  if (C["06c-classement"]) projecteur("J", { ...C["06c-classement"], x: 10, w: 370, y: C["06c-classement"].y - 12, h: C["06c-classement"].h + 24 }, mot(s, "derniers") + 0.4, finDe(s) + 0.2);
+  P.puce("Il se gagne sur le terrain", mot(s, "gagne"));
+  sortir("J", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 07 · Les compétitions
+// ============================================================
+telephone("Q", { x: 1250, y: 70 });
+{
+  const s = "07-competitions";
+  carte("06", "Les compétitions", "Et ensuite ?", finDe("06-joueur") + 0.4);
+  const P = panneau(s, "Kossi, organisateur", [
+    [a(s, 0), ["Les", "<span class='vert'>inscriptions</span>"]],
+    [mot(s, "retirage") - 0.1, ["Poules", "<span class='vert'>et tableau</span>"]],
+    [mot(s, "et") - 0.1, ["La page", "<span class='vert'>publique</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("Q", a(s, 0) - 0.1, "bas");
+  montrer("Q", "07a-coupe", a(s, 0) - 0.1, { d: 0.01 });
+  P.puce("Organisée sur KoppaFoot", mot(s, "organise"));
+  montrer("Q", "07b-inscription", mot(s, "edem") - 0.1, { effet: "glisse" });
+  toucher("Q", C["07b-inscription"], mot(s, "equipe"));
+  P.puce("Avenir d'Adakpamé inscrit", mot(s, "equipe") + 0.1, "pleine");
+  P.vider(mot(s, "retirage") - 0.3);
+  montrer("Q", "07c-poules-vides", mot(s, "retirage") - 0.1, { effet: "glisse" });
+  toucher("Q", C["07c-poules-vides"], mot(s, "poules") - 0.25);
+  montrer("Q", "07d-poules-tirees", mot(s, "poules"), { d: 0.25 });
+  P.puce("Tirage", mot(s, "poules"));
+  montrer("Q", "07e-calendrier", mot(s, "calendrier"), { effet: "glisse" });
+  P.puce("Calendrier", mot(s, "calendrier"));
+  montrer("Q", "07f-tableau", mot(s, "tableau") - 0.1, { effet: "glisse" });
+  P.puce("Tableau final", mot(s, "tableau"));
+  P.vider(mot(s, "et") - 0.3);
+  montrer("Q", "07i-public-resultats", mot(s, "page") - 0.2, { effet: "glisse" });
+  P.puce("Résultats", mot(s, "resultat"), "pleine");
+  montrer("Q", "07g-public-classement", mot(s, "classement") - 0.1, { d: 0.25 });
+  P.puce("Classement", mot(s, "classement"), "pleine");
+  montrer("Q", "07h-public-buteurs", mot(s, "buteur") - 0.1, { d: 0.25 });
+  P.puce("Buteurs", mot(s, "buteur"), "pleine");
+  sortir("Q", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 08 · Pour les pros : les terrains, les marques
+// ============================================================
+telephone("G", { x: 1250, y: 70 });
+telephone("H", { x: 1250, y: 70 });
+{
+  const s = "08-pro";
+  carte("07", "Pour les pros", "Terrains et marques", finDe("07-competitions") + 0.4);
+  const P = panneau(s, "Gérants de terrain · Partenaires", [
+    [a(s, 0), ["Ton terrain", "<span class='vert'>sur KoppaFoot</span>"]],
+    [mot(s, "tu", 3) - 0.1, ["Ta marque", "<span class='vert'>sur KoppaFoot</span>"]],
+  ], finDe(s) + 0.2);
+  entrer("G", a(s, 0) - 0.1, "bas");
+  montrer("G", "08a-annuaire", a(s, 0) - 0.1, { d: 0.01 });
+  P.puce("Annuaire des terrains", mot(s, "reference"));
+  montrer("G", "08b-fiche-terrain", mot(s, "equipes") - 0.2, { effet: "glisse" });
+  P.puce("Les équipes te trouvent", mot(s, "trouvent"));
+  montrer("G", "08c-planning", mot(s, "demandent") - 0.1, { effet: "glisse" });
+  P.puce("Demandes de créneau", mot(s, "creneau"));
+  P.puce("Tu confirmes", mot(s, "confirmes"));
+  montrer("G", "08d-offre", mot(s, "premier") - 0.2, { effet: "glisse" });
+  P.puce("1er terrain gratuit", mot(s, "gratuit"), "pleine");
+  P.vider(mot(s, "tu", 3) - 0.3);
+  sortir("G", mot(s, "tu", 3) - 0.35, "gauche");
+  entrer("H", mot(s, "tu", 3) - 0.2, "droite");
+  montrer("H", "08e-partenaire-direct", mot(s, "tu", 3) - 0.2, { d: 0.01 });
+  P.puce("Le Direct", mot(s, "direct"), "pleine");
+  // L'emplacement de la marque, éclairé sur chaque écran.
+  const zone = (nom, debut, fin) => { if (C[nom]) projecteur("H", C[nom], debut, fin); };
+  zone("08e-partenaire-direct", mot(s, "direct") + 0.1, mot(s, "tribune") - 0.25);
+  montrer("H", "08f-partenaire-tribune", mot(s, "tribune") - 0.1, { effet: "glisse" });
+  P.puce("La Tribune", mot(s, "tribune"), "pleine");
+  zone("08f-partenaire-tribune", mot(s, "tribune") + 0.35, mot(s, "actus") - 0.25);
+  montrer("H", "08g-partenaire-actus", mot(s, "actus") - 0.1, { effet: "glisse" });
+  P.puce("Les Actus", mot(s, "actus"), "pleine");
+  zone("08g-partenaire-actus", mot(s, "actus") + 0.35, finDe(s));
+  sortir("H", finDe(s) + 0.05, "bas");
+}
+
+// ============================================================
+// 09 · Fin
+// ============================================================
+{
+  const s = "09-fin";
+  const t0 = finDe("08-pro") + 0.4;
+  T.to("#stade", { opacity: 1, duration: 0.8 }, t0);
+  T.set(LIGNES, { strokeDashoffset: 0 }, t0);
+  allumer(t0 + 0.2);
+  son(t0 + 0.2, "foule");
+  T.fromTo("#plateau", { rotationX: 57, scale: 1 }, { rotationX: 52, scale: 1.08, duration: 14, ease: "none", immediateRender: false }, t0);
+  T.to("#voile", { opacity: 0.4, duration: 0.6 }, t0 + 0.3);
+  const logo = image("images/logo.png", { x: 680, y: 110, w: 560 });
+  T.fromTo(logo, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.7)", immediateRender: false }, a(s, 0) - 0.1);
+  son(a(s, 0), "eclat");
+  phrase(["Ton équipe."], { top: 410 }, mot(s, "ton") - 0.1);
+  phrase(["Tes matchs."], { top: 520 }, mot(s, "tes") - 0.1);
+  phrase(["<span class='vert'>Ton palmarès.</span>"], { top: 630 }, mot(s, "ton", 2) - 0.1);
+  const url = el("div", "centre libre", null, `<div style="display:inline-block;padding:18px 40px;border-radius:999px;background:var(--vert);color:#04100b;font-family:Outfit;font-weight:900;font-size:52px;letter-spacing:.02em">koppafoot.com</div>`);
+  url.style.top = "790px";
+  T.fromTo(url, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: "back.out(2)", immediateRender: false }, mot(s, "rendez"));
+  const install = el("div", "centre libre", null, `<div style="font-family:Outfit;font-weight:700;font-size:34px;color:#cfe9db">Installe l'application sur ton téléphone</div>`);
+  install.style.top = "900px";
+  T.fromTo(install, { opacity: 0 }, { opacity: 1, duration: 0.5, immediateRender: false }, mot(s, "installe"));
+  T.set({}, {}, DUREE);
+}
+
+// ============================================================
+// Ce que le rendu lit
+// ============================================================
+/** Aller à l'instant t (en secondes) : appelé image par image par outils/rendu.mjs. */
+window.allerA = (t) => { T.seek(t, true); };
+window.DUREE = DUREE;
+window.PISTES = ORDRE.map((s) => ({ fichier: `${s}.mp3`, t: +DEB[s].toFixed(3) }));
+window.SONS = SONS.sort((x, y) => x.t - y.t);
+// Les chapitres YouTube : la carte de chaque chapitre ouvre le sien.
+const NOMS = { "02-direct": "Le Direct", "03-equipe": "Ton équipe", "04-match": "Jour de match", "05-tribune": "La Tribune",
+  "06-joueur": "Ta fiche de joueur", "07-competitions": "Les compétitions", "08-pro": "Pour les terrains et les marques", "09-fin": "Rejoins KoppaFoot" };
+window.CHAPITRES = [["Intro", 0], ...ORDRE.slice(1).map((s, i) => [NOMS[s], +(finDe(ORDRE[i]) + 0.4).toFixed(1)])];
+window.pret = Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))),
+]).then(() => true);
+
+// Ouverte à la main : la page se joue en temps réel.
+if (!navigator.webdriver) window.pret.then(() => T.play(0));
+</script>
+</body>
+</html>

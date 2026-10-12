@@ -292,23 +292,23 @@ Quand les neuf fichiers sont prêts, dépose-les dans `docs/video-presentation/v
 
 **Titre** : KoppaFoot, l'application du foot amateur : un week-end avec l'Avenir d'Adakpamé
 
-**Description** (les chapitres seront recalés sur le montage final) :
+**Description** (chapitres calés sur le montage final, voir [README.md](README.md)) :
 
 ```
 Crée ton équipe, recrute, défie, joue, et garde la trace de chaque match.
 KoppaFoot, c'est l'application du foot amateur : le Direct, les équipes, la console du match, la Tribune, les fiches des joueurs, les compétitions, les terrains.
 
-Les personnes et les équipes de cette vidéo sont fictives.
+Les personnes, les équipes et les marques de cette vidéo sont fictives.
 
 0:00 Intro
-0:16 Le Direct
-0:32 Ton équipe
-1:00 Jour de match
-1:36 La Tribune
-1:57 Ta fiche de joueur
-2:15 Les compétitions
-2:33 Pour les terrains et les marques
-2:49 Rejoins KoppaFoot
+0:15 Le Direct
+0:29 Ton équipe
+0:56 Jour de match
+1:27 La Tribune
+1:46 Ta fiche de joueur
+2:03 Les compétitions
+2:22 Pour les terrains et les marques
+2:37 Rejoins KoppaFoot
 
 👉 https://koppafoot.com
 ```
