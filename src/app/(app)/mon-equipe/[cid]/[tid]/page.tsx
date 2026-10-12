@@ -16,6 +16,8 @@ import {
   photoDeLigneAEnregistrer, effacerPhotoRemplacee,
 } from "@/lib/competition-firestore";
 import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
+import ConfirmationImportClub from "@/components/competition/ConfirmationImportClub";
+import type { ApercuImport, Correspondances } from "@/lib/fusion-import";
 import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
 import { getTeamsByManager } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
@@ -24,8 +26,9 @@ import { POSTES, LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
 
 // ============================================
-// Mon équipe, one competition team. The manager runs the roster, validates
-// the players who claim their line, and reads the squad's stats. The team's
+// Mon équipe, one competition team. The manager runs the roster, imports
+// their club into it (confirming which hand-typed line each player takes
+// over, see ConfirmationImportClub), and reads the squad's stats. The team's
 // name, poule and ownership stay with the organizer (enforced in the rules).
 // ============================================
 
@@ -62,6 +65,8 @@ export default function MyTeamPage() {
   // Club link
   const [clubs, setClubs] = useState<Team[]>([]);
   const [importing, setImporting] = useState(false);
+  // Ce que le manager doit confirmer avant l'import (voir ConfirmationImportClub).
+  const [apercu, setApercu] = useState<{ club: Team; data: ApercuImport } | null>(null);
 
   const reloadTeam = useCallback(async () => {
     const t = await getCompTeam(cid, tid);
@@ -130,7 +135,7 @@ export default function MyTeamPage() {
   // import also writes a `linked_comp_players` row on each player's own user
   // doc, only the admin SDK may do that, which is what makes their personal
   // statistics fill with no claim and no validation.
-  const importClub = async (club: Team) => {
+  const importer = async (club: Team, correspondances: Correspondances) => {
     if (!firebaseUser) return;
     setImporting(true);
     try {
@@ -138,18 +143,29 @@ export default function MyTeamPage() {
       const res = await fetch("/api/competitions/club-import", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ cid, teamId: tid, clubId: club.id }),
+        body: JSON.stringify({ cid, teamId: tid, clubId: club.id, correspondances }),
       });
       const data = await res.json();
+      // Refusé ou accepté, l'aperçu a vécu : un refus veut dire que l'effectif
+      // a bougé depuis, et on ne laisse pas confirmer deux fois le même.
+      setApercu(null);
       if (!res.ok) {
         toast.error(data.error ?? "L'import a échoué");
         return;
       }
       await reloadTeam();
+      const repris: number = data.merged ?? 0;
+      const ajoutes: number = data.added ?? 0;
+      const rattaches: number = data.relinked ?? 0;
+      const s = (n: number) => (n > 1 ? "s" : "");
       toast.success(
-        data.added === 0
+        repris + ajoutes + rattaches === 0
           ? "Effectif déjà à jour"
-          : `${data.added} joueur${data.added > 1 ? "s" : ""} importé${data.added > 1 ? "s" : ""}`,
+          : [
+              repris > 0 ? `${repris} ligne${s(repris)} reprise${s(repris)}` : null,
+              rattaches > 0 ? `${rattaches} joueur${s(rattaches)} rattaché${s(rattaches)}` : null,
+              ajoutes > 0 ? `${ajoutes} joueur${s(ajoutes)} importé${s(ajoutes)}` : null,
+            ].filter(Boolean).join(", "),
       );
     } catch (err) {
       console.error("Error importing club roster:", err);
@@ -157,6 +173,43 @@ export default function MyTeamPage() {
     } finally {
       setImporting(false);
     }
+  };
+
+  // L'import commence par un aperçu. S'il n'y a ni ligne saisie à la main à
+  // reprendre, ni ligne déliée à rattacher de nouveau, il n'y a rien à
+  // confirmer et on importe directement, comme avant. Sinon le manager dit
+  // qui est qui avant que rien ne soit écrit.
+  const ouvrirImport = async (club: Team) => {
+    if (!firebaseUser) return;
+    setImporting(true);
+    let data: ApercuImport;
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch(
+        `/api/competitions/club-import?cid=${cid}&teamId=${tid}&clubId=${club.id}`,
+        { headers: { authorization: `Bearer ${token}` } },
+      );
+      const corps = await res.json();
+      if (!res.ok) {
+        toast.error(corps.error ?? "L'import a échoué");
+        setImporting(false);
+        return;
+      }
+      data = corps as ApercuImport;
+    } catch (err) {
+      console.error("Error previewing club import:", err);
+      toast.error("L'import a échoué");
+      setImporting(false);
+      return;
+    }
+    const aDecider = data.deliees.length > 0
+      || (data.libres.length > 0 && data.propositions.length > 0);
+    if (!aDecider) {
+      await importer(club, {});
+      return;
+    }
+    setApercu({ club, data });
+    setImporting(false);
   };
 
   // Guard: only this team's manager (or an organizer) belongs here.
@@ -293,11 +346,30 @@ export default function MyTeamPage() {
     }
   };
 
-  // Unlinking is a plain roster write, the manager owns the players array.
+  // Unlinking goes through the server, like linking does: the link also
+  // lives on the player's own user doc and on past match sheets, which only
+  // the admin SDK may write. A plain roster write left the player with the
+  // competition, and the line's stats, in « Mes statistiques ».
   const unlink = async (player: CompPlayer) => {
+    if (!firebaseUser) return;
+    // Le geste n'est plus anodin : il retire des matchs et des buts du bilan
+    // de quelqu'un, et c'est un petit lien sous un nom.
+    if (!window.confirm(
+      `Délier le compte de « ${player.name} » ?\n\nSes matchs et ses buts dans cette compétition quittent ses statistiques. La ligne reste dans l'effectif, avec ce qu'elle a joué.`,
+    )) return;
     setSaving(true);
     try {
-      await updateCompPlayer(cid, tid, player.id, { user_id: null });
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/competitions/roster-links", {
+        method: "DELETE",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cid, teamId: tid, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Une erreur est survenue");
+        return;
+      }
       await reloadTeam();
       toast.success("Rattachement retiré");
     } catch (err) {
@@ -387,7 +459,15 @@ export default function MyTeamPage() {
       {tab === "roster" && (
         <div className="space-y-3">
           {/* Club link, avoids typing the same squad into two models. */}
-          {team.claimedByTeamId ? (
+          {apercu ? (
+            <ConfirmationImportClub
+              apercu={apercu.data}
+              clubName={apercu.club.name}
+              busy={importing}
+              onConfirm={(correspondances) => importer(apercu.club, correspondances)}
+              onCancel={() => setApercu(null)}
+            />
+          ) : team.claimedByTeamId ? (
             (() => {
               const club = clubs.find((c) => c.id === team.claimedByTeamId);
               return (
@@ -399,7 +479,7 @@ export default function MyTeamPage() {
                   {club && (
                     <button
                       type="button"
-                      onClick={() => importClub(club)}
+                      onClick={() => ouvrirImport(club)}
                       disabled={importing}
                       className="flex shrink-0 items-center gap-1.5 border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
                     >
@@ -420,14 +500,15 @@ export default function MyTeamPage() {
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
                 Reprends les joueurs de ton équipe plutôt que de tout ressaisir. Ceux qui
                 ont un compte KoppaFoot sont rattachés directement, leurs stats se
-                remplissent sans qu&apos;ils aient à le demander.
+                remplissent sans qu&apos;ils aient à le demander. Si l&apos;organisateur a déjà
+                saisi des joueurs, tu choisis d&apos;abord qui reprend quelle ligne.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {clubs.map((club) => (
                   <button
                     key={club.id}
                     type="button"
-                    onClick={() => importClub(club)}
+                    onClick={() => ouvrirImport(club)}
                     disabled={importing}
                     className="flex items-center gap-1.5 bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
                   >
@@ -630,9 +711,10 @@ export default function MyTeamPage() {
             ))
           )}
           <p className=" bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-500">
-            Quand un joueur clique « C&apos;est moi » sur la page publique de
-            l&apos;équipe, sa demande arrive ici. Une fois validée, ses buts, cartons et
-            matchs joués alimentent ses statistiques personnelles.
+            Tes joueurs sont rattachés à leur compte quand tu importes ton
+            effectif, dans l&apos;onglet Effectif : il n&apos;y a rien à demander de leur
+            côté. Une demande n&apos;arrive ici que si l&apos;administration rattache une
+            ligne à la main.
           </p>
         </div>
       )}
@@ -640,13 +722,14 @@ export default function MyTeamPage() {
       {/* ── Stats ────────────────────────────────── */}
       {tab === "stats" && (
         <div className="overflow-x-auto border border-gray-200/70 bg-white">
-          <table className="w-full min-w-[26rem] text-sm">
+          <table className="w-full min-w-[29rem] text-sm">
             <thead>
               <tr className="border-b border-gray-200/70 text-[11px] font-black uppercase tracking-wide text-gray-400">
                 <th className="px-4 py-3 text-left">Joueur</th>
                 <th className="px-2 py-3 text-center">MJ</th>
                 <th className="px-2 py-3 text-center">Tit.</th>
                 <th className="px-2 py-3 text-center">Buts</th>
+                <th className="px-2 py-3 text-center" title="Passes décisives">PD</th>
                 <th className="px-2 py-3 text-center">🟨</th>
                 <th className="px-4 py-3 text-center">🟥</th>
               </tr>
@@ -670,6 +753,9 @@ export default function MyTeamPage() {
                   </td>
                   <td className="px-2 py-2.5 text-center font-black tabular-nums text-emerald-600">
                     {stats.goals}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-gray-600">
+                    {stats.assists}
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums text-gray-600">
                     {stats.yellowCards}

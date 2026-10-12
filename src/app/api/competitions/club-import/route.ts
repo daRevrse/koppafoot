@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { importClubRoster } from "@/lib/club-import-server";
+import { apercuImport, importClubRoster } from "@/lib/club-import-server";
+import { ImportRefuse, type Correspondances } from "@/lib/fusion-import";
 import type { FirestoreCompetition } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 
@@ -13,66 +14,120 @@ import { estSuperadmin } from "@/lib/admin-api-auth";
  * into their own competition team, unless they are an organizer of that
  * competition or a superadmin acting on a manager's behalf.
  *
- * POST { cid, teamId, clubId }
+ * GET  ?cid&teamId&clubId                       , l'aperçu : qui arrive, et quelle
+ *                                                 ligne déjà saisie chacun peut reprendre.
+ * POST { cid, teamId, clubId, correspondances? }, l'import, avec ce que le manager a confirmé.
  */
+
+async function autoriser(
+  req: NextRequest,
+  ids: { cid?: string | null; teamId?: string | null; clubId?: string | null },
+): Promise<
+  | { error: NextResponse }
+  | { cid: string; teamId: string; clubId: string; competition: FirestoreCompetition }
+> {
+  const { cid, teamId, clubId } = ids;
+  if (!cid || !teamId || !clubId) {
+    return { error: NextResponse.json({ error: "cid, teamId et clubId requis" }, { status: 400 }) };
+  }
+
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { error: NextResponse.json({ error: "Non autorisé" }, { status: 401 }) };
+  }
+  let callerUid: string;
+  try {
+    const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
+    callerUid = decoded.uid;
+  } catch {
+    return { error: NextResponse.json({ error: "Token invalide" }, { status: 401 }) };
+  }
+
+  const compSnap = await adminDb.collection("competitions").doc(cid).get();
+  if (!compSnap.exists) {
+    return { error: NextResponse.json({ error: "Compétition introuvable" }, { status: 404 }) };
+  }
+  const competition = compSnap.data() as FirestoreCompetition;
+
+  const [teamSnap, clubSnap] = await Promise.all([
+    adminDb.collection("competitions").doc(cid).collection("comp_teams").doc(teamId).get(),
+    adminDb.collection("teams").doc(clubId).get(),
+  ]);
+  if (!teamSnap.exists) {
+    return { error: NextResponse.json({ error: "Équipe de compétition introuvable" }, { status: 404 }) };
+  }
+  if (!clubSnap.exists) {
+    return { error: NextResponse.json({ error: "Club introuvable" }, { status: 404 }) };
+  }
+
+  const isTeamManager = teamSnap.data()?.claimed_by_manager_id === callerUid;
+  const isClubManager = clubSnap.data()?.manager_id === callerUid;
+  const isOrganizer = (competition.organizer_ids ?? []).includes(callerUid);
+  let isSuperadmin = false;
+  if (!isOrganizer) {
+    const callerDoc = await adminDb.collection("users").doc(callerUid).get();
+    isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
+  }
+  if (!((isTeamManager && isClubManager) || isOrganizer || isSuperadmin)) {
+    return { error: NextResponse.json({ error: "Accès refusé" }, { status: 403 }) };
+  }
+
+  return { cid, teamId, clubId, competition };
+}
+
+/** Ce que le navigateur a confirmé, relu : des identifiants, rien d'autre. */
+function lireCorrespondances(x: unknown): Correspondances | null {
+  if (x === undefined || x === null) return {};
+  if (typeof x !== "object" || Array.isArray(x)) return null;
+  const entrees = Object.entries(x as Record<string, unknown>);
+  if (entrees.length > 500) return null;
+  const lues: Correspondances = {};
+  for (const [cle, ligne] of entrees) {
+    if (ligne !== null && (typeof ligne !== "string" || ligne.length === 0 || ligne.length > 128)) return null;
+    lues[cle] = ligne;
+  }
+  return lues;
+}
+
+function erreur(err: unknown, ou: string): NextResponse {
+  if (err instanceof ImportRefuse) {
+    return NextResponse.json({ error: err.message }, { status: 409 });
+  }
+  const message = err instanceof Error ? err.message : "";
+  if (message === "TEAM_NOT_FOUND" || message === "CLUB_NOT_FOUND") {
+    return NextResponse.json({ error: "Équipe ou club introuvable" }, { status: 404 });
+  }
+  console.error(`[club-import ${ou}]`, err);
+  return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const q = req.nextUrl.searchParams;
+    const acces = await autoriser(req, { cid: q.get("cid"), teamId: q.get("teamId"), clubId: q.get("clubId") });
+    if ("error" in acces) return acces.error;
+    return NextResponse.json(await apercuImport(acces));
+  } catch (err) {
+    return erreur(err, "GET");
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { cid, teamId, clubId } = (await req.json()) as {
-      cid?: string; teamId?: string; clubId?: string;
+    const corps = (await req.json()) as {
+      cid?: string; teamId?: string; clubId?: string; correspondances?: unknown;
     };
-    if (!cid || !teamId || !clubId) {
-      return NextResponse.json({ error: "cid, teamId et clubId requis" }, { status: 400 });
+    const acces = await autoriser(req, corps);
+    if ("error" in acces) return acces.error;
+
+    const correspondances = lireCorrespondances(corps.correspondances);
+    if (!correspondances) {
+      return NextResponse.json({ error: "Correspondances invalides" }, { status: 400 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
-    let callerUid: string;
-    try {
-      const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
-      callerUid = decoded.uid;
-    } catch {
-      return NextResponse.json({ error: "Token invalide" }, { status: 401 });
-    }
-
-    const compSnap = await adminDb.collection("competitions").doc(cid).get();
-    if (!compSnap.exists) {
-      return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
-    }
-    const competition = compSnap.data() as FirestoreCompetition;
-
-    const [teamSnap, clubSnap] = await Promise.all([
-      adminDb.collection("competitions").doc(cid).collection("comp_teams").doc(teamId).get(),
-      adminDb.collection("teams").doc(clubId).get(),
-    ]);
-    if (!teamSnap.exists) {
-      return NextResponse.json({ error: "Équipe de compétition introuvable" }, { status: 404 });
-    }
-    if (!clubSnap.exists) {
-      return NextResponse.json({ error: "Club introuvable" }, { status: 404 });
-    }
-
-    const isTeamManager = teamSnap.data()?.claimed_by_manager_id === callerUid;
-    const isClubManager = clubSnap.data()?.manager_id === callerUid;
-    const isOrganizer = (competition.organizer_ids ?? []).includes(callerUid);
-    let isSuperadmin = false;
-    if (!isOrganizer) {
-      const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
-    }
-    if (!((isTeamManager && isClubManager) || isOrganizer || isSuperadmin)) {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-    }
-
-    const result = await importClubRoster({ cid, teamId, clubId, competition });
+    const result = await importClubRoster({ ...acces, correspondances });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (message === "TEAM_NOT_FOUND" || message === "CLUB_NOT_FOUND") {
-      return NextResponse.json({ error: "Équipe ou club introuvable" }, { status: 404 });
-    }
-    console.error("[club-import POST]", err);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreur(err, "POST");
   }
 }

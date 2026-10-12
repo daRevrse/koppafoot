@@ -33,9 +33,11 @@ interface GoalRow {
   /** Free text so the field can stay empty (minute is optional). */
   minute: string;
   ownGoal: boolean;
+  /** Le passeur, une ligne de l'effectif de l'équipe qui marque. "" = aucun ou inconnu. */
+  assistId: string;
 }
 
-const emptyGoalRow = (): GoalRow => ({ playerId: "", newName: "", minute: "", ownGoal: false });
+const emptyGoalRow = (): GoalRow => ({ playerId: "", newName: "", minute: "", ownGoal: false, assistId: "" });
 
 /** Fit the scorer lines to a score, keeping what the organizer already typed. */
 function resizeGoalRows(rows: GoalRow[], score: number): GoalRow[] {
@@ -134,6 +136,16 @@ export default function MatchResultModal({
             newName: known ? "" : name,
             minute: e.minute ? String(e.minute) : "",
             ownGoal,
+            // Le passeur noté en console, retrouvé dans l'effectif : par sa
+            // ligne, sinon par son nom. Sans cela, corriger un score effaçait
+            // les passes du match.
+            assistId: ownGoal
+              ? ""
+              : rosterOf(teamId).find((p) =>
+                  e.assistPlayerId
+                    ? p.id === e.assistPlayerId
+                    : !!e.assistPlayerName && rosterNameKey(p.name) === rosterNameKey(e.assistPlayerName),
+                )?.id ?? "",
           };
         });
       const score = (side === "home" ? match.scoreHome : match.scoreAway) ?? 0;
@@ -166,11 +178,15 @@ export default function MatchResultModal({
       prev.map((row, i) => {
         if (i !== index) return row;
         // Flipping "contre son camp" swaps which roster the picker lists, so a
-        // selection made against the old one no longer means anything.
+        // selection made against the old one no longer means anything. Un csc
+        // n'a pas de passeur non plus.
         const reset = patch.ownGoal !== undefined && patch.ownGoal !== row.ownGoal
-          ? { playerId: "" }
+          ? { playerId: "", assistId: "" }
           : {};
-        return { ...row, ...patch, ...reset };
+        const next = { ...row, ...patch, ...reset };
+        // On ne se fait pas la passe à soi-même : choisir comme buteur le
+        // passeur déjà posé retire la passe.
+        return next.assistId && next.assistId === next.playerId ? { ...next, assistId: "" } : next;
       }),
     );
   };
@@ -277,10 +293,18 @@ export default function MatchResultModal({
           playerName = rosterOf(scorerTeamId).find((p) => p.id === row.playerId)?.name ?? null;
         }
         const minute = row.minute.trim() ? parseInt(row.minute, 10) : null;
-        // A line with neither a scorer nor a minute says nothing the score does
-        // not already say, don't write an empty event for it.
-        if (!playerName && minute == null) continue;
-        goals.push({ side, playerId, playerName, minute, ownGoal: row.ownGoal });
+        // Le passeur joue pour l'équipe qui marque, jamais sur un csc.
+        const passeur = row.ownGoal || !row.assistId
+          ? null
+          : rosterOf(scorerTeamId).find((p) => p.id === row.assistId) ?? null;
+        // A line with neither a scorer, a passer nor a minute says nothing the
+        // score does not already say, don't write an empty event for it.
+        if (!playerName && !passeur && minute == null) continue;
+        goals.push({
+          side, playerId, playerName, minute, ownGoal: row.ownGoal,
+          assistPlayerId: passeur?.id ?? null,
+          assistPlayerName: passeur?.name ?? null,
+        });
       }
 
       const choisi = candidats.find((c) => c.playerId === mvpId) ?? null;
@@ -463,7 +487,7 @@ export default function MatchResultModal({
               <div className="mt-6 space-y-4 border-t border-gray-200/70 pt-5">
                 <div className="flex items-center gap-2">
                   <Goal size={15} className="text-emerald-600" />
-                  <h3 className="text-sm font-bold text-gray-900">Buteurs</h3>
+                  <h3 className="text-sm font-bold text-gray-900">Buteurs et passeurs</h3>
                   <span className="text-xs text-gray-400">optionnel</span>
                 </div>
                 <ScorerLines
@@ -617,6 +641,24 @@ function ScorerLines({
                   onChange={(e) => onChange(i, { newName: e.target.value })}
                   className="mt-2 w-full border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
                 />
+              )}
+
+              {/* Le passeur : même effectif que le buteur, sans le buteur
+                  lui-même. Absent sur un csc, qui n'a pas de passe. */}
+              {!row.ownGoal && (
+                <select
+                  value={row.assistId}
+                  onChange={(e) => onChange(i, { assistId: e.target.value })}
+                  aria-label={`Passeur du but ${i + 1} de ${teamName}`}
+                  className="mt-2 w-full border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+                >
+                  <option value="">Sans passe décisive, ou passeur inconnu</option>
+                  {roster.filter((p) => p.id !== row.playerId).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      Passe de {p.number ? `${p.number}. ` : ""}{p.name}
+                    </option>
+                  ))}
+                </select>
               )}
 
               <label className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-gray-500">

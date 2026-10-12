@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   BarChart3, Loader2, Trophy, Target, Shirt, Square, ArrowRight, Info,
-  Users, Clock,
+  Users, Clock, Footprints,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCompetition, listCompMatches } from "@/lib/competition-firestore";
@@ -51,12 +51,12 @@ interface Row {
 }
 
 function StatTile({
-  label, value, Icon, accent,
+  label, value, Icon, accent, className = "",
 }: {
-  label: string; value: number; Icon: typeof Target; accent: string;
+  label: string; value: number; Icon: typeof Target; accent: string; className?: string;
 }) {
   return (
-    <div className=" border border-gray-200/70 bg-white p-4 text-center">
+    <div className={`border border-gray-200/70 bg-white p-4 text-center ${className}`}>
       <Icon size={20} className={`mx-auto ${accent}`} />
       <p className="mt-2 font-display text-2xl font-black text-gray-900">{value}</p>
       <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
@@ -284,10 +284,13 @@ export default function StatsPage() {
       ) : (
         <>
           {/* Career totals */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <StatTile label="Matchs" value={total.matchesPlayed} Icon={Shirt} accent="text-emerald-500" />
+          {/* Sept tuiles : celle des matchs prend deux colonnes sur téléphone et
+              sur tablette, pour que les six autres tombent juste derrière. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            <StatTile label="Matchs" value={total.matchesPlayed} Icon={Shirt} accent="text-emerald-500" className="col-span-2 lg:col-span-1" />
             <StatTile label="Titulaire" value={total.starts} Icon={Users} accent="text-emerald-500" />
             <StatTile label="Buts" value={total.goals} Icon={Target} accent="text-emerald-500" />
+            <StatTile label="Passes déc." value={total.assists} Icon={Footprints} accent="text-emerald-500" />
             <StatTile
               label="Cartons"
               value={total.yellowCards + total.redCards}
@@ -295,8 +298,6 @@ export default function StatsPage() {
               accent={total.redCards > 0 ? "text-red-500" : "text-amber-400"}
             />
             <StatTile label="Minutes" value={total.minutesPlayed} Icon={Clock} accent="text-emerald-500" />
-            {/* Six tuiles : deux colonnes en mobile tombent juste, plus besoin
-                d'en étirer une pour combler un trou. */}
             <StatTile
               label="Homme du match"
               value={total.mvpCount}
@@ -361,6 +362,9 @@ export default function StatsPage() {
                           <span className="text-emerald-600">
                             {row.stats.goals} but{row.stats.goals !== 1 ? "s" : ""}
                           </span>
+                          {row.stats.assists > 0 && (
+                            <span>{row.stats.assists} passe{row.stats.assists !== 1 ? "s" : ""} déc.</span>
+                          )}
                           {row.stats.yellowCards > 0 && (
                             <span className="text-amber-600">{row.stats.yellowCards} 🟨</span>
                           )}
@@ -453,6 +457,9 @@ export default function StatsPage() {
                         {a.goals > 0 && (
                           <span className="text-emerald-600">{a.goals}&nbsp;⚽</span>
                         )}
+                        {a.assists > 0 && (
+                          <span className="text-gray-600" title="Passes décisives">{a.assists}&nbsp;PD</span>
+                        )}
                         {a.yellowCards > 0 && <span>🟨</span>}
                         {a.redCards > 0 && <span>🟥</span>}
                       </span>
@@ -474,8 +481,9 @@ export default function StatsPage() {
             rattrape une journée après coup, il n&apos;y a pas de feuille : les
             buteurs qu&apos;il saisit comptent leur match, sans rôle ni minutes.
             L&apos;homme du match est désigné par le scoreur au coup de sifflet, et
-            peut venir de l&apos;équipe battue. Les passes décisives ne sont pas
-            encore enregistrées en console live.
+            peut venir de l&apos;équipe battue. Une passe décisive compte quand le
+            scoreur a nommé le passeur sur le but : un but saisi sans passeur
+            n&apos;en donne à personne.
           </p>
         </>
       )}

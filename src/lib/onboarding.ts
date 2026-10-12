@@ -318,8 +318,8 @@ export function playerOnboarding(
         href: "/profile", cta: "Set my position", done: !!user.position && !!user.strongFoot,
       },
       {
-        key: "claim", label: "Link yourself to your team",
-        description: "On your team's page, tap “That's me” on your line. Once approved, your stats fill in by themselves.",
+        key: "claim", label: "Get linked to your team in a competition",
+        description: "Your manager does it by entering the team or importing its squad. Your stats then fill in by themselves.",
         href: "/competitions", cta: "Find my team", done: ctx.linkedCount > 0,
       },
     ]);
@@ -332,9 +332,9 @@ export function playerOnboarding(
       href: "/profile", cta: "Renseigner mon poste", done: !!user.position && !!user.strongFoot,
     },
     {
-      key: "claim", label: "Te rattacher à ton équipe",
+      key: "claim", label: "Être rattaché à ton équipe en compétition",
       description:
-        "Sur la page de ton équipe, touche « C'est moi » sur ta ligne. Une fois validé, tes stats se remplissent toutes seules.",
+        "C'est ton manager qui le fait, en inscrivant l'équipe ou en important son effectif. Tes stats se remplissent ensuite toutes seules.",
       href: "/competitions", cta: "Trouver mon équipe", done: ctx.linkedCount > 0,
     },
   ]);

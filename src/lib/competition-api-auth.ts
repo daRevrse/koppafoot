@@ -55,3 +55,24 @@ export async function authorizeOrganizer(
 
   return { callerUid, competition };
 }
+
+/**
+ * Staff of one competition team: an organizer of the competition, the manager
+ * of that team, or a superadmin. These are the people who may decide who a
+ * roster line belongs to — validate a claim, or undo a link.
+ */
+export async function isStaffOf(uid: string, cid: string, teamId: string): Promise<boolean> {
+  const compSnap = await adminDb.collection("competitions").doc(cid).get();
+  if (!compSnap.exists) return false;
+  const competition = compSnap.data() as FirestoreCompetition;
+  if ((competition.organizer_ids ?? []).includes(uid)) return true;
+
+  const teamSnap = await adminDb
+    .collection("competitions").doc(cid)
+    .collection("comp_teams").doc(teamId)
+    .get();
+  if (teamSnap.exists && teamSnap.data()?.claimed_by_manager_id === uid) return true;
+
+  const callerDoc = await adminDb.collection("users").doc(uid).get();
+  return callerDoc.exists && estSuperadmin(callerDoc.data());
+}
