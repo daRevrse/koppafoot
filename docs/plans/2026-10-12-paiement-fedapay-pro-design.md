@@ -57,22 +57,24 @@ Le montant vient toujours de `settings/offre`, lu par le serveur. Le navigateur 
 
 `callback_url` : `APP_URL` (lib/partage) en réel, l'origine de la requête en bac à sable, pour que le retour fonctionne en local et sur un aperçu.
 
-À FedaPay on envoie le prénom, le nom et l'e-mail du compte. **Pas le téléphone** : le numéro du profil n'est pas forcément celui du portefeuille, le client le tape sur la page de paiement.
+FedaPay ajoute `id` et `status` à cette adresse, qui porte déjà un paramètre. S'il les colle avec un second « ? », le nôtre arrive pollué (`XYZ?id=258…`) : la page n'en garde que les vingt premiers caractères, ceux d'un identifiant Firestore (`idPaiementDuRetour`).
+
+À FedaPay on envoie le prénom, le nom et l'e-mail du compte, **et seulement s'ils sont tous là** : un compte créé par SMS n'a pas d'e-mail, et la page de paiement le demandera elle-même. **Jamais le téléphone** : le numéro du profil n'est pas forcément celui du portefeuille, le client le tape sur la page de paiement.
 
 ### Les règles de durée (`nouvelleEcheance`, pure)
 - Acheté le 12 octobre pour 1 mois : Pro du 12 octobre **au 12 novembre inclus**.
 - Racheté alors que le Pro court encore : la période s'ajoute **à la fin en cours** ; `depuis` ne bouge pas.
 - Un Pro expiré repart du jour de l'achat.
 - Un Pro accordé par l'admin avec une échéance se prolonge pareil, et sa `source` devient `"paiement"`.
-- Un Pro accordé **sans échéance** : aucun bouton, et `POST /api/paiements` refuse (`deja_illimite`).
+- Un Pro accordé **sans échéance** : aucun bouton, et `POST /api/paiements` refuse (`deja_illimite`). S'il est accordé entre le clic et le paiement, le règlement **ne l'écrase pas** : la ligne passe à `paye` sans échéance, l'admin la voit « payée sans effet » et rembourse à la main.
 - Fin de mois : le 31 janvier + 1 mois donne le dernier jour de février.
 
 ### Une seule fonction accorde le Pro : `reglerPaiement(id)`
 Appelée par le webhook, par la vérification au retour, par la tâche de 6 h et par le bouton « Revérifier » de l'admin.
 
-1. Lit `paiements/{id}`.
+1. Lit `paiements/{id}`. Une ligne d'un autre environnement que celui du serveur (une ligne du bac à sable vue par la production) est laissée telle quelle : ses collectes vivent sur l'autre serveur FedaPay.
 2. Relit la collecte chez FedaPay, par `fedapay_id` (ou par `merchant_reference` si la ligne ne l'a pas encore), et recopie sur la ligne `fedapay_statut`, `mode`, `frais`, `recu_url`. **Si la ligne est déjà `paye`, on s'arrête là** : son état ne bouge plus, aucun droit n'est réécrit.
-3. Vérifie que la collecte est la nôtre : `merchant_reference` = `id`, `amount` = `montant`, et que la ligne appartient à l'environnement courant. Un écart : aucun octroi, `anomalie` renseignée sur la ligne, visible dans l'admin.
+3. Vérifie que la collecte est la nôtre : `merchant_reference` = `id` (à défaut `custom_metadata.paiement_id`, qu'on envoie aussi), `amount` = `montant`. Un écart : aucun octroi, `anomalie` renseignée sur la ligne, visible dans l'admin.
 4. Traduit l'état FedaPay (`etatDepuisFedapay`, pure) :
 
    | FedaPay | Ligne | Final chez nous |
@@ -112,7 +114,7 @@ Le poste de développement et les aperçus Vercel partagent le Firestore de la p
 | `environnement` | `"sandbox"` ou `"live"`. |
 | `fedapay_id`, `fedapay_statut`, `mode`, `frais`, `recu_url` | Recopiés de la collecte à chaque relecture. |
 | `echeance_avant`, `echeance_apres`, `applique_le` | Ce que le paiement a changé. |
-| `anomalie` | `null`, ou `"montant"`, `"reference"`, `"environnement"`. |
+| `anomalie` | `null`, ou `"montant"`, `"reference"`. |
 | `created_at`, `updated_at` | |
 
 La ligne est écrite **avant** l'appel à FedaPay : si la seconde écriture (celle de `fedapay_id`) échoue, le webhook retrouve quand même la ligne par `merchant_reference`. Si FedaPay refuse la création, la ligne est supprimée et la route répond 502 : rien ne traîne.
@@ -123,9 +125,10 @@ La ligne est écrite **avant** l'appel à FedaPay : si la seconde écriture (cel
 
 | Fichier | Rôle |
 |---|---|
-| `src/lib/paiement.ts` (nouveau) | Pur, partagé avec le navigateur : `FORMULES`, `enVente`, `nouvelleEcheance`, `etatDepuisFedapay`, les types. |
-| `src/lib/fedapay.ts` (nouveau) | Serveur : `creerCollecte`, `lienDePaiement`, `lireCollecte`, `lireCollecteParReference`, et `verifierSignature` (pure). En `fetch`, sans le SDK `fedapay` : il apporte axios 0.28 et une configuration globale (`FedaPay.setApiKey`) pour trois appels. |
+| `src/lib/paiement.ts` (nouveau) | Pur, partagé avec le navigateur : `FORMULES`, `formulesEnVente`, `nouvelleEcheance`, `etatDepuisFedapay`, `deciderReglement`, `idPaiementDuRetour`, les types. |
+| `src/lib/fedapay.ts` (nouveau) | Serveur : `creerCollecte`, `lienDePaiement`, `lireCollecte`, `lireCollecteParReference`, et les aides pures (`deballer`, `normaliserCollecte`, `corpsCollecte`, `signatureValide`, `cibleDeLEvenement`). En `fetch`, sans le SDK `fedapay` : il apporte axios 0.28 et une configuration globale (`FedaPay.setApiKey`) pour trois appels. Aucun import `node:*` : le HMAC est calculé par la route du webhook et passé à `signatureValide`, pour que le fichier reste importable par les tests. |
 | `src/lib/paiement-serveur.ts` (nouveau) | `demarrerPaiement`, `reglerPaiement`, `reverifierPaiementsOuverts`, `rappelerEcheancesPro`. |
+| `scripts/webhook-fedapay.ts` (nouveau) | Outil de dev : envoie un événement signé à une adresse locale, FedaPay ne joignant pas `localhost`. Il ne peut rien accorder : la route relit toujours la collecte. |
 | `src/app/api/paiements/route.ts` (nouveau) | `POST` : démarre un achat. |
 | `src/app/api/paiements/[id]/route.ts` (nouveau) | `GET` : la vérification au retour ; 404 pour tout autre que le titulaire. |
 | `src/app/api/webhooks/fedapay/route.ts` (nouveau) | `POST` : le webhook. |
@@ -146,7 +149,7 @@ La ligne est écrite **avant** l'appel à FedaPay : si la seconde écriture (cel
 `POST /api/paiements` refuse (429) au-delà de 5 tentatives créées par le même compte dans l'heure. Le compte se lit par `where("uid", "==", uid)` et le tri se fait en mémoire : un compte a une poignée de lignes, et on évite un index composé.
 
 ### Les rappels d'échéance
-La tâche de 6 h prévient **7 jours avant** et **la veille** : « Ton Pro se termine le 19 octobre », avec le lien vers Mon offre. Pour tout Pro qui a une échéance, d'où qu'il vienne (un testeur à qui l'admin l'a accordé est le premier client à convaincre), et seulement si une formule est en vente. `rappel_pro_le` sur `droits/{uid}` marque le jour du dernier rappel : une tâche rejouée ne sonne pas deux fois.
+La tâche de 6 h prévient **7 jours avant** et **la veille** : « Ton Pro se termine le 19 octobre », avec le lien vers Mon offre. Pour tout Pro qui a une échéance, d'où qu'il vienne (un testeur à qui l'admin l'a accordé est le premier client à convaincre), et seulement en réel avec une formule en vente : un rappel sans bouton derrière n'apprend rien. `rappel_pro_le` sur `droits/{uid}` marque le jour du dernier rappel : une tâche rejouée ne sonne pas deux fois.
 
 ### Quand ça casse
 
@@ -154,7 +157,7 @@ La tâche de 6 h prévient **7 jours avant** et **la veille** : « Ton Pro se te
 |---|---|
 | Webhook perdu ou en retard | La vérification au retour. |
 | Onglet fermé avant le retour | Le webhook. |
-| Les deux | La tâche de 6 h revérifie les lignes `en_attente`, `echoue` et `annule` de moins de 48 h ; et le bouton « Revérifier » de l'admin. |
+| Les deux | La tâche de 6 h revérifie les lignes `en_attente`, `echoue` et `annule` de moins de 48 h ; et le bouton « Revérifier » de l'admin. Les lignes plus vieilles sont relues une dernière fois puis passées à `expire`, sauf si FedaPay n'a pas répondu ce matin-là : sans cela la liste des lignes ouvertes grossirait sans fin. Une ligne `expire` qui se révélerait payée s'accorde quand même. |
 | FedaPay injoignable au clic | 502, « Paiement indisponible, réessaie », ligne supprimée. |
 | Refusé puis réussi sur la même page | L'état n'était pas final, l'approbation s'applique. |
 | Reçu ou push en échec | N'empêche pas l'octroi. |
@@ -187,7 +190,8 @@ Serveur seulement, aucune `NEXT_PUBLIC_`. Sur Vercel : clés de test sur Preview
 
 ## Vérifications
 
-- `mobile/src/__tests__/paiement.test.ts` (là où tournent les modules partagés) : `nouvelleEcheance` (premier achat, prolongation, Pro expiré, Pro accordé par l'admin, fin de mois, 29 février, 12 mois), `etatDepuisFedapay` (chaque état, un état inconnu), `enVente` (prix vide, prix sous le plancher, prix non entier), `verifierSignature` (bonne, mauvais secret, corps altéré, horodatage trop vieux, en-tête illisible, plusieurs `s=`).
+- `mobile/src/__tests__/paiement.test.ts` (là où tournent les modules partagés) : `nouvelleEcheance` (premier achat, prolongation, Pro expiré, Pro accordé par l'admin, Pro sans échéance, fin de mois, 29 février, 12 mois), `etatDepuisFedapay` (chaque état, un état inconnu), `deciderReglement` (octroi, ligne déjà payée, écart de montant, écart de référence), les prix (vide, sous le plancher, non entier), `idPaiementDuRetour`, `trierLignesOuvertes`, et la règle Firestore de `paiements`.
+- `mobile/src/__tests__/fedapay.test.ts` : `signatureValide` (bonne, mauvais secret, corps altéré, horodatage trop vieux, en-tête illisible, plusieurs `s=`), `deballer` (les trois formes d'enveloppe), `normaliserCollecte`, `corpsCollecte` (client incomplet, jamais de téléphone), `cibleDeLEvenement`.
 - `npx tsc --noEmit`, `npm run lint`, et un seul `npm run build` à la fin (il consomme le quota API-Football).
 - Bac à sable, en local : acheter avec `64000001` → retour → Pro accordé par le chemin « retour » ; acheter avec un autre numéro → « non abouti », aucun droit.
 - Bac à sable, sur un aperçu Vercel : le chemin webhook, puis **rejouer l'événement** depuis le tableau de bord FedaPay et constater que l'échéance n'a pas bougé.
