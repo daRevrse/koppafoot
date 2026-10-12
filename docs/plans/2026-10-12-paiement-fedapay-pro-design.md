@@ -42,7 +42,7 @@ Lu le 2026-10-12 sur docs.fedapay.com (collectes, webhooks, méthodes de paiemen
 **Constaté au premier paiement de test, le même jour** :
 - **Les numéros de test sont béninois, à dix chiffres** : `0164000001` réussit (pays `bj`). `64000001`, tel que la doc l'écrit, est refusé, sous le pays `bj` comme sous `tg`.
 - **La page de paiement verrouille le pays sur celui du compte marchand** (le Togo) et valide le numéro en conséquence : on ne peut pas y saisir un numéro de test, et un vrai numéro togolais y est refusé en bac à sable. Un paiement de test réussi passe donc par l'API « sans redirection » : `POST /v1/momo_test` avec le jeton de la collecte et `phone_number: { number, country }` (le chemin du SDK ; la référence d'API écrit `/v1/transactions/{mode}`). C'est ce que fait `scripts/payer-fedapay-test.ts`.
-- **Les frais s'ajoutent pour le client** : 62 FCFA sur 1 500 (4 % en bac à sable). La collecte garde `amount = 1500` ; `amount_debited = 1562` et `fees = 62` portent le reste. La vérification de montant compare `amount`, elle tient.
+- **Les frais s'ajoutent pour le client** : 62 FCFA sur 1 500 (4 % en bac à sable). La collecte garde `amount = 1500` ; `amount_debited = 1562` et `fees = 62` portent le reste. La vérification de montant compare `amount`, elle tient. **Décidé le 2026-10-12 : les frais sont à la charge de KoppaFoot**, le client paie le prix affiché, comme les conditions le promettent. Aucun code : c'est un réglage du compte FedaPay (Paramètres d'entreprise > Préférences > onglet Frais, décocher chaque moyen de paiement), à faire en bac à sable et en réel.
 - Le chemin du webhook, joué sur une vraie ligne : refusée puis approuvée sur la même collecte, la ligne passe à `paye`, le Pro court du 12 octobre au 12 novembre, une notification part ; **rejoué, il ne change rien**.
 
 **Reste à constater avec un webhook envoyé par FedaPay lui-même** : le champ de l'événement qui porte la collecte (`entity`, d'après l'exemple de la doc ; la route accepte aussi `object` et `data`, et se replie sur l'identifiant FedaPay), et si FedaPay ajoute ses paramètres à l'adresse de retour avec `&` ou avec un second `?` (la page lit les deux).
@@ -196,7 +196,7 @@ Serveur seulement, aucune `NEXT_PUBLIC_`. Sur Vercel : clés de test sur Preview
 2. Déployer `firestore.rules` (`--project koppafoot`).
 3. Dans le tableau de bord FedaPay de test, créer le webhook vers l'adresse d'un aperçu Vercel, événements `transaction.*`, et copier son secret.
 4. Fusionner : rien ne se voit tant que les prix sont vides.
-5. Compte FedaPay réel validé. **Vérifier son type** : « Travailleur indépendant » plafonne à 10 ventes par semaine, il faut « Business » pour vendre sans limite.
+5. Compte FedaPay réel validé. **Vérifier son type** : « Travailleur indépendant » plafonne à 10 ventes par semaine, il faut « Business » pour vendre sans limite. Y régler les **frais à la charge du marchand** (Préférences > Frais) et l'**intitulé du compte** (Paramètres d'entreprise > Compte) : la page de paiement affiche « MARCHAND : Mon compte » tant qu'il n'est pas renommé.
 6. Webhook réel vers **`https://www.koppafoot.com/api/webhooks/fedapay`** — avec `www` : le domaine nu redirige, et un webhook ne suit pas une redirection. Décocher « Désactiver le webhook lorsque l'application génère des erreurs ».
 7. Clés réelles dans Vercel (Production), redéployer.
 8. Saisir les prix. Un vrai paiement, au plus petit prix, par le fondateur. Puis annoncer.
