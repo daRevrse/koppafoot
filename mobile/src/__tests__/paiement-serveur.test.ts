@@ -17,9 +17,15 @@ interface FauxRef { id: string; path: string }
 const mockBase = new Map<string, Doc>();
 const mockFedapay = {
   environnement: "sandbox",
+  configure: true,
+  creerCollecte: jest.fn(),
+  lienDePaiement: jest.fn(),
   lireCollecte: jest.fn(),
   lireCollecteParReference: jest.fn(),
 };
+let mockCompteur = 0;
+/** Un identifiant comme ceux de Firestore : vingt caractères alphanumériques. */
+const mockIdNeuf = () => `Auto${String((mockCompteur += 1)).padStart(16, "0")}`;
 const mockNotifier = jest.fn(async (_uid: string, _n: unknown) => {});
 let mockFile: Promise<unknown> = Promise.resolve();
 
@@ -49,12 +55,22 @@ function mockRef(chemin: string) {
   };
 }
 
-jest.mock("firebase-admin/firestore", () => ({ FieldValue: { serverTimestamp: () => "maintenant" } }));
+jest.mock("firebase-admin/firestore", () => ({
+  FieldValue: { serverTimestamp: () => ({ toMillis: () => Date.now() }) },
+}));
 jest.mock("@/lib/firebase-admin", () => ({
   adminDb: {
     collection: (nom: string) => ({
-      doc: (id: string) => mockRef(`${nom}/${id}`),
-      where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }), get: async () => ({ docs: [] }) }),
+      doc: (id?: string) => mockRef(`${nom}/${id ?? mockIdNeuf()}`),
+      where: (champ: string, _operateur: string, valeur: unknown) => {
+        const lire = async () => {
+          const docs = [...mockBase.entries()]
+            .filter(([chemin, data]) => chemin.startsWith(`${nom}/`) && data[champ] === valeur)
+            .map(([chemin]) => mockSnap(chemin));
+          return { docs, empty: docs.length === 0 };
+        };
+        return { get: lire, limit: () => ({ get: lire }) };
+      },
     }),
     runTransaction: (fn: (tx: unknown) => Promise<unknown>) => {
       const suite = mockFile.then(async () => {
@@ -82,17 +98,20 @@ jest.mock("@/lib/notifier-serveur", () => ({ notifierCompte: (uid: string, n: un
 jest.mock("@/lib/partage", () => ({ APP_URL: "https://www.koppafoot.com" }));
 jest.mock("@/lib/fedapay", () => ({
   environnementFedapay: () => mockFedapay.environnement,
-  fedapayConfigure: () => true,
-  creerCollecte: jest.fn(),
-  lienDePaiement: jest.fn(),
+  fedapayConfigure: () => mockFedapay.configure,
+  creerCollecte: (demande: unknown) => mockFedapay.creerCollecte(demande),
+  lienDePaiement: (id: number) => mockFedapay.lienDePaiement(id),
   lireCollecte: (id: number) => mockFedapay.lireCollecte(id),
   lireCollecteParReference: (reference: string) => mockFedapay.lireCollecteParReference(reference),
 }));
 
 // `require`, et non `import` : le module tire firebase-admin et next/server,
 // dont la vérification de types de l'application mobile n'a pas les types.
-const { reglerPaiement } = require("@/lib/paiement-serveur") as {
+const { reglerPaiement, demarrerPaiement, formulesPour, paiementParCollecte } = require("@/lib/paiement-serveur") as {
   reglerPaiement: (id: string) => Promise<{ statut: string; jusquAu: string | null; aVerifier: boolean } | null>;
+  demarrerPaiement: (uid: string, formule: unknown, origine: string) => Promise<{ id: string; url: string }>;
+  formulesPour: (profil: Doc | undefined) => Promise<{ id: string; mois: number; prix: number }[]>;
+  paiementParCollecte: (idCollecte: number) => Promise<string | null>;
 };
 
 const ID = "AbCdEfGhIjKlMnOpQrSt";
@@ -120,10 +139,150 @@ const unTour = () => new Promise<void>((resoudre) => setTimeout(resoudre, 0));
 beforeEach(() => {
   mockBase.clear();
   mockFedapay.environnement = "sandbox";
+  mockFedapay.configure = true;
+  mockFedapay.creerCollecte.mockReset();
+  mockFedapay.lienDePaiement.mockReset();
   mockFedapay.lireCollecte.mockReset();
   mockFedapay.lireCollecteParReference.mockReset();
   mockNotifier.mockClear();
   mockFile = Promise.resolve();
+});
+
+describe("demarrerPaiement", () => {
+  const ORIGINE = "http://localhost:3000";
+  const URL_PAIEMENT = "https://sandbox-process.fedapay.com/jeton";
+  const lignes = () => [...mockBase.entries()].filter(([chemin]) => chemin.startsWith("paiements/"));
+
+  beforeEach(() => {
+    mockBase.set("settings/offre", { prix: { pro_mois: 1500, pro_an: 15000 } });
+    mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", email: "ama@exemple.test", is_superadmin: true });
+    mockFedapay.creerCollecte.mockResolvedValue(collecte("pending"));
+    mockFedapay.lienDePaiement.mockResolvedValue(URL_PAIEMENT);
+  });
+
+  it("crée la ligne et la collecte au prix du réglage, et rend la page de paiement", async () => {
+    const { id, url } = await demarrerPaiement(UID, "pro_mois", ORIGINE);
+
+    expect(url).toBe(URL_PAIEMENT);
+    expect(mockBase.get(`paiements/${id}`)).toMatchObject({
+      uid: UID, formule: "pro_mois", droit: "pro", montant: 1500, devise: "XOF", statut: "en_attente",
+      environnement: "sandbox", fedapay_id: 258, anomalie: null,
+    });
+    expect(mockFedapay.creerCollecte).toHaveBeenCalledWith({
+      reference: id,
+      description: "KoppaFoot Pro, 1 mois",
+      montant: 1500,
+      retour: `${ORIGINE}/offre?paiement=${id}`,
+      client: { prenom: "Ama", nom: "Koffi", email: "ama@exemple.test" },
+    });
+  });
+
+  it("prend le prix de l'année pour la formule d'un an", async () => {
+    const { id } = await demarrerPaiement(UID, "pro_an", ORIGINE);
+    expect(mockBase.get(`paiements/${id}`)).toMatchObject({ formule: "pro_an", montant: 15000 });
+    expect(mockFedapay.creerCollecte).toHaveBeenCalledWith(expect.objectContaining({ description: "KoppaFoot Pro, 1 an", montant: 15000 }));
+  });
+
+  it("en bac à sable, refuse un compte qui n'est pas superadmin, sans rien écrire", async () => {
+    mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", email: "ama@exemple.test" });
+
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "bac_a_sable" });
+
+    expect(lignes()).toHaveLength(0);
+    expect(mockFedapay.creerCollecte).not.toHaveBeenCalled();
+  });
+
+  it("en réel, vend à tout le monde et ramène toujours sur le site", async () => {
+    mockFedapay.environnement = "live";
+    mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", email: "ama@exemple.test" });
+
+    const { id } = await demarrerPaiement(UID, "pro_mois", "https://faux-site.exemple");
+
+    expect(mockBase.get(`paiements/${id}`)).toMatchObject({ environnement: "live", montant: 1500 });
+    expect(mockFedapay.creerCollecte).toHaveBeenCalledWith(
+      expect.objectContaining({ retour: `https://www.koppafoot.com/offre?paiement=${id}` }),
+    );
+  });
+
+  it("refuse une formule inconnue", async () => {
+    await expect(demarrerPaiement(UID, "sans_pub", ORIGINE)).rejects.toMatchObject({ code: "formule" });
+    await expect(demarrerPaiement(UID, { formule: "pro_mois", montant: 1 }, ORIGINE)).rejects.toMatchObject({ code: "formule" });
+    expect(lignes()).toHaveLength(0);
+  });
+
+  it("refuse une formule sans prix : elle n'est pas en vente", async () => {
+    mockBase.set("settings/offre", { prix: { pro_mois: null, pro_an: 15000 } });
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "pas_en_vente" });
+    expect(mockFedapay.creerCollecte).not.toHaveBeenCalled();
+  });
+
+  it("refuse sans clé FedaPay", async () => {
+    mockFedapay.configure = false;
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "non_configure" });
+  });
+
+  it("refuse de vendre à qui a déjà un Pro sans échéance", async () => {
+    mockBase.set(`droits/${UID}`, { pro: { depuis: "2026-01-01", jusqu_au: null, source: "admin", accorde_par: "admin1", motif: null } });
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "deja_illimite" });
+    expect(lignes()).toHaveLength(0);
+  });
+
+  it("ne laisse aucune ligne quand FedaPay refuse la collecte", async () => {
+    mockFedapay.creerCollecte.mockRejectedValue(new Error("FedaPay 500"));
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "fedapay" });
+    expect(lignes()).toHaveLength(0);
+  });
+
+  it("ne laisse aucune ligne quand le lien de paiement ne vient pas", async () => {
+    mockFedapay.lienDePaiement.mockRejectedValue(new Error("FedaPay 500"));
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "fedapay" });
+    expect(lignes()).toHaveLength(0);
+  });
+
+  it("arrête à la sixième tentative dans l'heure", async () => {
+    for (let i = 0; i < 5; i += 1) await demarrerPaiement(UID, "pro_mois", ORIGINE);
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "trop_de_tentatives" });
+    expect(lignes()).toHaveLength(5);
+  });
+
+  it("ne compte pas les tentatives d'un autre compte", async () => {
+    mockBase.set("users/compte2", { is_superadmin: true });
+    for (let i = 0; i < 5; i += 1) await demarrerPaiement("compte2", "pro_mois", ORIGINE);
+    await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).resolves.toMatchObject({ url: URL_PAIEMENT });
+  });
+});
+
+describe("formulesPour", () => {
+  beforeEach(() => {
+    mockBase.set("settings/offre", { prix: { pro_mois: 1500, pro_an: null } });
+  });
+
+  it("en bac à sable, ne montre rien à un compte ordinaire", async () => {
+    expect(await formulesPour({ user_type: "manager" })).toEqual([]);
+    expect(await formulesPour(undefined)).toEqual([]);
+  });
+
+  it("en bac à sable, montre les formules en vente à un superadmin", async () => {
+    expect(await formulesPour({ is_superadmin: true })).toEqual([{ id: "pro_mois", mois: 1, prix: 1500 }]);
+  });
+
+  it("en réel, les montre à tout le monde", async () => {
+    mockFedapay.environnement = "live";
+    expect(await formulesPour({ user_type: "manager" })).toEqual([{ id: "pro_mois", mois: 1, prix: 1500 }]);
+  });
+
+  it("ne montre rien sans clé FedaPay", async () => {
+    mockFedapay.configure = false;
+    expect(await formulesPour({ is_superadmin: true })).toEqual([]);
+  });
+});
+
+describe("paiementParCollecte", () => {
+  it("retrouve la ligne d'une collecte FedaPay, ou rien", async () => {
+    poserLigne({ fedapay_id: 258 });
+    expect(await paiementParCollecte(258)).toBe(ID);
+    expect(await paiementParCollecte(999)).toBeNull();
+  });
 });
 
 describe("reglerPaiement", () => {

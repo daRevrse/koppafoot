@@ -1,7 +1,7 @@
 # Design : Le paiement mobile, lot 1 — socle FedaPay et vente de KoppaFoot Pro
 
 **Date :** 2026-10-12
-**Statut :** Design validé, à implémenter. Branche `feat/paiement-fedapay`.
+**Statut :** Implémenté sur la branche `feat/paiement-fedapay`, validé en bac à sable le 2026-10-12 : achat, refus puis réussite sur la même collecte, octroi par le webhook (rejoué sans effet), prolongation par le retour sur le site. **Reste :** un webhook envoyé par FedaPay lui-même (il faut une adresse publique : tunnel ou aperçu Vercel), la décision sur les frais (à la charge du client ou du marchand), puis la mise en service réelle (section Mise en service, points 5 à 8). Non fusionné, règles Firestore non déployées.
 
 ## Le problème
 
