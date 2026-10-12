@@ -238,26 +238,29 @@ export async function reglerPaiement(id: string): Promise<EtatPaiement | null> {
     updated_at: FieldValue.serverTimestamp(),
   };
 
-  const decision = deciderReglement(ligne, id, collecte);
-  if (decision.anomalie) {
-    console.error("[paiements] écart avec FedaPay:", id, decision.anomalie, { collecte: collecte.id });
-    await ref.update({ ...suivi, anomalie: decision.anomalie });
-    return vueEtat({ ...ligne, anomalie: decision.anomalie });
-  }
-  if (!decision.accorder) {
-    // Une ligne payée ne change plus d'état : on ne recopie que le suivi.
-    const statut = ligne.statut === "paye" ? "paye" : decision.statut;
-    await ref.update({ ...suivi, statut });
-    return vueEtat({ ...ligne, statut });
-  }
-
+  // TOUT SE DÉCIDE DANS LA TRANSACTION, sur la ligne qu'elle relit. La
+  // collecte, elle, a été lue avant, et peut déjà dater : la page qui
+  // redemande toutes les trois secondes lit « en attente » juste avant
+  // l'approbation, pendant que le webhook lit « approuvée » et règle. Écrite
+  // hors transaction, cette relecture en retard repassait la ligne payée à
+  // « en attente », et la suivante accordait le Pro une seconde fois.
   const jour = jourDeLome();
   const droitsRef = adminDb.collection("droits").doc(ligne.uid);
   const resultat = await adminDb.runTransaction(async (tx) => {
     const [l, d] = await Promise.all([tx.get(ref), tx.get(droitsRef)]);
+    if (!l.exists) return null;
     const courante = l.data() as FirestorePaiement;
-    // Un autre appel a réglé cette ligne entre notre lecture et maintenant.
-    if (courante.statut === "paye") return { accorde: false, jusquAu: courante.echeance_apres };
+
+    const decision = deciderReglement(courante, id, collecte);
+    if (decision.anomalie) {
+      tx.update(ref, { ...suivi, anomalie: decision.anomalie });
+      return { ligne: { ...courante, anomalie: decision.anomalie }, accorde: false };
+    }
+    if (!decision.accorder) {
+      // Une ligne payée le reste (deciderReglement) : seul le suivi bouge.
+      tx.update(ref, { ...suivi, statut: decision.statut });
+      return { ligne: { ...courante, statut: decision.statut }, accorde: false };
+    }
 
     const actuel = (d.data() as FirestoreDroits | undefined)?.pro ?? null;
     const mois = FORMULES[courante.formule].mois;
@@ -268,7 +271,7 @@ export async function reglerPaiement(id: string): Promise<EtatPaiement | null> {
       // ne l'écrase pas. La ligne est payée, sans échéance : l'administration
       // la voit « payée sans effet » et rembourse à la main.
       tx.update(ref, { ...regle, echeance_avant: null, echeance_apres: null });
-      return { accorde: false, jusquAu: null };
+      return { ligne: { ...courante, statut: "paye" as const, echeance_apres: null }, accorde: false };
     }
     const accorde: DroitAccorde = {
       depuis: suite.depuis,
@@ -283,11 +286,17 @@ export async function reglerPaiement(id: string): Promise<EtatPaiement | null> {
       echeance_avant: actuel && droitActif(actuel, jour) ? actuel.jusqu_au : null,
       echeance_apres: suite.jusqu_au,
     });
-    return { accorde: true, jusquAu: suite.jusqu_au };
+    return { ligne: { ...courante, statut: "paye" as const, echeance_apres: suite.jusqu_au }, accorde: true };
   });
+  if (!resultat) return null;
 
-  if (resultat.accorde && resultat.jusquAu) await accuserReception(ligne, resultat.jusquAu, collecte.recuUrl);
-  return vueEtat({ ...ligne, statut: "paye", echeance_apres: resultat.jusquAu });
+  if (resultat.ligne.anomalie && !ligne.anomalie) {
+    console.error("[paiements] écart avec FedaPay:", id, resultat.ligne.anomalie, { collecte: collecte.id });
+  }
+  if (resultat.accorde && resultat.ligne.echeance_apres) {
+    await accuserReception(resultat.ligne, resultat.ligne.echeance_apres, collecte.recuUrl);
+  }
+  return vueEtat(resultat.ligne);
 }
 
 /** La ligne d'une collecte FedaPay, pour un webhook qui n'aurait pas notre référence. */

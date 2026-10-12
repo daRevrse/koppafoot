@@ -239,6 +239,7 @@ describe("motifAchat", () => {
 
 // `require`, comme les autres suites qui lisent firestore.rules : la
 // vérification de types de l'application mobile n'a pas ceux de Node.
+declare const __dirname: string;
 const { readFileSync } = require("fs") as { readFileSync: (chemin: string, encodage: "utf8") => string };
 const { join } = require("path") as { join: (...morceaux: string[]) => string };
 
