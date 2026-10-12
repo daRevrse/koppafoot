@@ -49,6 +49,21 @@ export function cleDeLigneDeCompetition(
   return cleSansCompte(clubId, playerId.slice(PREFIXE_LIGNE_DU_CLUB.length));
 }
 
+/**
+ * La clé d'une ligne d'EFFECTIF de compétition. Deux façons de désigner sa
+ * fiche dans le club : l'identifiant `ghost_<id>` d'une ligne créée par
+ * l'import, ou `club_ghost_id` sur une ligne que l'organisateur avait tapée
+ * et que le manager a rapprochée d'une fiche (voir lib/fusion-import).
+ */
+export function cleDeLaLigne(
+  clubId: string | null | undefined,
+  ligne: { id: string; club_ghost_id?: string | null },
+): string | null {
+  return ligne.club_ghost_id
+    ? cleSansCompte(clubId, ligne.club_ghost_id)
+    : cleDeLigneDeCompetition(clubId, ligne.id);
+}
+
 /** Une clé reçue par la route, relue ; null si elle n'est pas bien formée. */
 export function lireCleSansCompte(cle: string): { clubId: string; ghostId: string } | null {
   const morceaux = cle.split(":");
@@ -64,17 +79,17 @@ export function lireCleSansCompte(cle: string): { clubId: string; ghostId: strin
  *      qui choisit, pas l'organisateur ;
  *   2. la photo posée sur la ligne par l'organisateur ou le manager ;
  *   3. celle de sa fiche dans le club, pour une ligne copiée de l'effectif du
- *      club (`ghost_<id>`).
+ *      club (`ghost_<id>`) ou rapprochée d'une de ses fiches (`club_ghost_id`).
  */
 export function photoDeLaLigne(
-  ligne: { id: string; user_id?: string | null; photo_url?: string | null },
+  ligne: { id: string; user_id?: string | null; photo_url?: string | null; club_ghost_id?: string | null },
   clubId: string | null | undefined,
   photosDesComptes: Record<string, string | null | undefined>,
   photosSansCompte: Record<string, string | null | undefined>,
 ): string | null {
   if (ligne.user_id) return photosDesComptes[ligne.user_id] || null;
   if (ligne.photo_url) return ligne.photo_url;
-  const cle = cleDeLigneDeCompetition(clubId, ligne.id);
+  const cle = cleDeLaLigne(clubId, ligne);
   return (cle && photosSansCompte[cle]) || null;
 }
 

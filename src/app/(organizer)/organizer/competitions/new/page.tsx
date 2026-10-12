@@ -65,6 +65,8 @@ export default function NewCompetitionPage() {
       ...defaultFormat(next),
       team_size: prev.team_size,
       half_duration: prev.half_duration,
+      // Même raison : le régime des changements est une règle du jeu.
+      ...(prev.unlimited_subs !== undefined ? { unlimited_subs: prev.unlimited_subs } : {}),
     }));
   };
 

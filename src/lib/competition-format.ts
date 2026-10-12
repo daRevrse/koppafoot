@@ -134,6 +134,22 @@ export function matchDuration(format: CompetitionFormat): number {
   return halfDuration(format) * 2;
 }
 
+/**
+ * Les changements accordés à chaque équipe, ou `null` quand l'organisateur a
+ * coché « changements illimités ».
+ */
+export function subsMax(format: CompetitionFormat): number | null {
+  return format.unlimited_subs === true ? null : DEFAULT_SUBS_MAX;
+}
+
+/**
+ * Un joueur sorti peut-il revenir ? Seulement en changements illimités : les
+ * deux vont ensemble, on y fait tourner l'effectif comme sur un amical.
+ */
+export function reentryAllowed(format: CompetitionFormat): boolean {
+  return format.unlimited_subs === true;
+}
+
 /** "11v11", la même écriture que les matchs amicaux et les terrains. */
 export function gameTypeLabel(format: CompetitionFormat): string {
   const n = teamSize(format);

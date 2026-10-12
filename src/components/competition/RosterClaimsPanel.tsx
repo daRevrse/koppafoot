@@ -7,9 +7,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { RosterClaim } from "@/types";
 
 // ============================================
-// Pending roster claims for one team, players who clicked "C'est moi" on
-// the public roster. Validating writes `user_id` on the roster line and
-// unlocks that player's personal statistics.
+// Pending roster claims for one team. Players no longer claim their line
+// themselves (see RosterClaimList): a claim only comes from the superadmin
+// repair action. Validating writes `user_id` on the roster line and unlocks
+// that player's personal statistics.
 // Renders nothing when there is nothing to decide.
 // ============================================
 

@@ -19,7 +19,7 @@ import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
 import { useComptesPublics, usePhotosSansCompte } from "@/hooks/usePhotosDesComptes";
-import { cleDeLigneDeCompetition, photoDeLaLigne } from "@/lib/photos-sans-compte";
+import { cleDeLaLigne, photoDeLaLigne } from "@/lib/photos-sans-compte";
 import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import { useMedia } from "@/hooks/useMedia";
 import MatchHero, { type HeroStatus } from "@/components/match/MatchHero";
@@ -272,10 +272,17 @@ export default function PublicCompMatchView() {
   const equipeDuCamp = (teamId: string | null | undefined) =>
     (teamId ? compTeams.find((e) => e.id === teamId) : undefined);
   const clubDe = (teamId: string | null | undefined) => equipeDuCamp(teamId)?.claimedByTeamId ?? null;
+  const ligneDEffectif = (teamId: string | null | undefined, playerId: string) =>
+    equipeDuCamp(teamId)?.players.find((p) => p.id === playerId);
   const photoPoseeSur = (teamId: string | null | undefined, playerId: string) =>
-    equipeDuCamp(teamId)?.players.find((p) => p.id === playerId)?.photo_url ?? null;
+    ligneDEffectif(teamId, playerId)?.photo_url ?? null;
+  // La fiche du club derrière une ligne que le manager a rapprochée à l'import.
+  const ficheDuClubDe = (teamId: string | null | undefined, playerId: string) =>
+    ligneDEffectif(teamId, playerId)?.club_ghost_id ?? null;
   const cleSansCompteDe = (teamId: string | null | undefined, e: { playerId: string; userId?: string | null }) =>
-    e.userId || photoPoseeSur(teamId, e.playerId) ? null : cleDeLigneDeCompetition(clubDe(teamId), e.playerId);
+    e.userId || photoPoseeSur(teamId, e.playerId)
+      ? null
+      : cleDeLaLigne(clubDe(teamId), { id: e.playerId, club_ghost_id: ficheDuClubDe(teamId, e.playerId) });
   const photosSansCompte = usePhotosSansCompte([
     ...(match?.homeLineup ?? []).map((e) => cleSansCompteDe(match?.homeTeamId, e)),
     ...(match?.awayLineup ?? []).map((e) => cleSansCompteDe(match?.awayTeamId, e)),
@@ -447,7 +454,10 @@ export default function PublicCompMatchView() {
   for (const [teamId, lignes] of [[match.homeTeamId, match.homeLineup], [match.awayTeamId, match.awayLineup]] as const) {
     for (const e of lignes) {
       photosParLigne[e.playerId] = photoDeLaLigne(
-        { id: e.playerId, user_id: e.userId, photo_url: photoPoseeSur(teamId, e.playerId) },
+        {
+          id: e.playerId, user_id: e.userId, photo_url: photoPoseeSur(teamId, e.playerId),
+          club_ghost_id: ficheDuClubDe(teamId, e.playerId),
+        },
         clubDe(teamId),
         photosParCompte,
         photosSansCompte,

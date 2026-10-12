@@ -31,12 +31,15 @@
 // n'y figure pas : ce parcours ne sait pas qu'il était là, et le deviner
 // serait inventer.
 //
-// Note on what is NOT here: assists. The live console records goals, cards
-// and substitutions only (`live_state.events.type`), so there is nothing to
-// count. Adding them means adding an assist event to the console first.
+// LES PASSES DÉCISIVES VOYAGENT SUR LE BUT. La console demande le passeur
+// juste après le but (voir `setCompGoalAssist`), et la saisie d'un résultat
+// après coup le propose aussi : il n'y a pas d'événement « passe », seulement
+// `assistPlayerId` sur un but. Un but saisi avant que ce champ existe n'en
+// porte pas, et le compte reste donc partiel sur les compétitions anciennes.
 // ============================================
 
 import { DEFAULT_HALF_DURATION } from "@/lib/competition-format";
+import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import type {
   CompMatch, CompMatchStatus, CompPlayer, LineupEntry, LinkedCompPlayer,
   Match, MatchStatus,
@@ -49,6 +52,8 @@ export interface PlayerStats {
   matchesPlayed: number;
   starts: number;
   goals: number;
+  /** Passes décisives. Voir `estSaPasse`. */
+  assists: number;
   yellowCards: number;
   redCards: number;
   /** Minutes passees sur le terrain. Voir `computeMinutesPlayed`. */
@@ -73,6 +78,7 @@ export const EMPTY_STATS: PlayerStats = {
   matchesPlayed: 0,
   starts: 0,
   goals: 0,
+  assists: 0,
   yellowCards: 0,
   redCards: 0,
   minutesPlayed: 0,
@@ -172,11 +178,29 @@ function priseDePart(
 
   // `teamId` sur l'événement : sans feuille, rien n'a encore prouvé que ce
   // joueur appartient à ce camp. Un csc en est exclu de fait, son événement
-  // étant rangé dans le camp qui en profite.
+  // étant rangé dans le camp qui en profite. Le passeur nommé était là au
+  // même titre que le buteur.
   const nomme = (match.liveState?.events ?? []).some(
-    (e) => e.playerId === playerId && e.teamId === teamId,
+    (e) => (e.playerId === playerId || e.assistPlayerId === playerId) && e.teamId === teamId,
   );
   return nomme ? { role: null } : null;
+}
+
+type Evenement = NonNullable<MatchJoue["liveState"]>["events"][number];
+
+/**
+ * Ce but est-il sur une passe de ce joueur ?
+ *
+ * Mêmes règles que le classement des passeurs (voir
+ * `computePlayerContributions`) : un but refusé par la VAR emporte sa passe,
+ * un but contre son camp n'en a pas, et on ne se sert pas soi-même.
+ */
+function estSaPasse(event: Evenement, playerId: string): boolean {
+  return event.type === "goal"
+    && event.varStatus !== "cancelled"
+    && event.detail !== OWN_GOAL_DETAIL
+    && event.assistPlayerId === playerId
+    && event.playerId !== playerId;
 }
 
 /**
@@ -230,6 +254,7 @@ export function computePlayerStats(
     }
 
     for (const event of match.liveState?.events ?? []) {
+      if (estSaPasse(event, playerId)) stats.assists += 1;
       if (event.playerId !== playerId) continue;
       // A goal disallowed by the VAR is off the scoreboard, it must not sit
       // in a player's tally either.
@@ -327,6 +352,7 @@ export interface PlayerAppearance {
   /** `null` quand le match n'a pas de feuille : voir `priseDePart`. */
   role: "starter" | "substitute" | null;
   goals: number;
+  assists: number;
   yellowCards: number;
   redCards: number;
   /** Minutes jouées sur CE match. Voir `computeMinutesPlayed`. */
@@ -359,11 +385,13 @@ export function computeAppearances(
     const part = priseDePart(match, teamId, isHome, playerId);
     if (!part) continue;
 
-    const events = (match.liveState?.events ?? []).filter((e) => e.playerId === playerId);
+    const tous = match.liveState?.events ?? [];
+    const events = tous.filter((e) => e.playerId === playerId);
     out.push({
       match,
       role: part.role,
       goals: events.filter((e) => e.type === "goal" && e.varStatus !== "cancelled").length,
+      assists: tous.filter((e) => estSaPasse(e, playerId)).length,
       yellowCards: events.filter((e) => e.type === "yellow_card").length,
       redCards: events.filter((e) => e.type === "red_card").length,
       minutes: computeMinutesPlayed(match, teamId, playerId, dureeMatchMin),
@@ -390,6 +418,7 @@ export function computeSquadStats(
     .sort(
       (a, b) =>
         b.stats.goals - a.stats.goals ||
+        b.stats.assists - a.stats.assists ||
         b.stats.matchesPlayed - a.stats.matchesPlayed ||
         a.player.name.localeCompare(b.player.name),
     );
@@ -402,6 +431,7 @@ export function totalStats(rows: PlayerStats[]): PlayerStats {
       matchesPlayed: acc.matchesPlayed + r.matchesPlayed,
       starts: acc.starts + r.starts,
       goals: acc.goals + r.goals,
+      assists: acc.assists + r.assists,
       yellowCards: acc.yellowCards + r.yellowCards,
       redCards: acc.redCards + r.redCards,
       minutesPlayed: acc.minutesPlayed + r.minutesPlayed,

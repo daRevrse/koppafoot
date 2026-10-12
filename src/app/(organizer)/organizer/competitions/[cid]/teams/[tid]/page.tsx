@@ -280,7 +280,7 @@ export default function CompetitionRosterPage() {
         </button>
       </div>
 
-      {/* Pending "C'est moi" requests from players */}
+      {/* Pending roster claims (superadmin repair, see RosterClaimList) */}
       <RosterClaimsPanel cid={cid} teamId={tid} />
 
       {/* Body */}
