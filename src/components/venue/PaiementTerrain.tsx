@@ -67,7 +67,7 @@ export function PaiementTerrain({ venueId, tarif }: { venueId: string; tarif: nu
           Faire payer les frais de réservation dans l&apos;application
           <span className="mt-0.5 block text-[11px] font-semibold leading-relaxed text-gray-500">
             Une fois que tu as confirmé un créneau, l&apos;équipe paie 5 % du prix
-            {exemple > 0 ? ` (${exemple.toLocaleString("fr-FR")} FCFA pour une heure)` : ""} et reçoit un ticket, que tu
+            {exemple > 0 ? ` (${exemple.toLocaleString("fr-FR")} FCFA pour une heure)` : ""}{" "}et reçoit un ticket, que tu
             valides à son arrivée. Elle te règle le reste sur place : ton prix reste ton prix. Si elle ne vient pas ou
             annule, les frais te restent ; si c&apos;est toi qui annules, ils lui sont rendus.
           </span>
