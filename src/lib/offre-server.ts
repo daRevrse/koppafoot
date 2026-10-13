@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import {
-  CODE_LIMITE, LIMITES_GRATUIT, estPro, jourDeLome, limitesEnVigueur, messageLimite,
-  type CleLimite, type FirestoreDroits, type LimiteAtteinte,
+  CODE_LIMITE, LIMITES_GRATUIT, estPro, jourDeLome, koppaFootPlusLeve, limitesEnVigueur, messageLimite, titresDuProfil,
+  type Avantage, type CleLimite, type FirestoreDroits, type LimiteAtteinte, type Titres,
 } from "@/lib/offre";
 
 // ============================================
@@ -13,6 +13,11 @@ import {
 // des documents : les quatre créations limitées (équipe, terrain,
 // compétition, équipe d'une compétition) passent donc par des routes qui
 // appellent ce module, et les règles ferment la création directe.
+//
+// KOPPAFOOT+ NE LÈVE QUE CE QUE LE COMPTE EST. Avoir le droit ne suffit pas :
+// il faut le titre qui va avec (lib/offre, koppaFootPlusLeve). Un joueur
+// organisateur qui a KoppaFoot+ mène autant de compétitions qu'il veut, mais
+// son plafond d'équipes tient. D'où `plusLeve`, que tout passe par lui.
 //
 // Un compte qui ne peut plus créer ne perd rien : la vérification ne regarde
 // que le geste en cours, voir lib/offre.
@@ -30,6 +35,22 @@ export async function lireLimitesDepuis(): Promise<string | null> {
   const snap = await adminDb.collection("settings").doc("offre").get();
   const v = snap.data()?.limites_depuis;
   return typeof v === "string" ? v : null;
+}
+
+/** Ce que le compte est, pour l'offre : manager, organisateur, gérant. */
+export async function lireTitres(uid: string): Promise<Titres> {
+  return titresDuProfil((await adminDb.collection("users").doc(uid).get()).data());
+}
+
+/** Le compte a-t-il le rôle manager ? Le staff d'une équipe ne le donne pas. */
+export async function estManager(uid: string): Promise<boolean> {
+  return (await lireTitres(uid)).manager;
+}
+
+/** KoppaFoot+ lève-t-il cet avantage pour ce compte ? Il faut le droit ET le titre. */
+export async function plusLeve(uid: string, avantage: Avantage, jour: string = jourDeLome()): Promise<boolean> {
+  const [droits, titres] = await Promise.all([lireDroits(uid), lireTitres(uid)]);
+  return estPro(droits, jour) && koppaFootPlusLeve(titres, avantage);
 }
 
 type CleCompte = Exclude<CleLimite, "equipesParCompetition">;
@@ -66,7 +87,7 @@ function jourDe(x: unknown): string | null {
 export async function limiteDeCreation(uid: string, cle: CleCompte): Promise<LimiteAtteinte | null> {
   const jour = jourDeLome();
   if (!limitesEnVigueur(await lireLimitesDepuis(), jour)) return null;
-  if (estPro(await lireDroits(uid), jour)) return null;
+  if (await plusLeve(uid, cle, jour)) return null;
   const usage = (await compterUsage(uid))[cle];
   const max = LIMITES_GRATUIT[cle];
   return usage >= max ? { code: CODE_LIMITE, cle, max } : null;
@@ -77,7 +98,7 @@ export async function limiteDeCreation(uid: string, cle: CleCompte): Promise<Lim
  *
  * Jamais plafonnée si elle est née avant l'entrée en vigueur des limites (on
  * ne bloque pas une compétition qui a démarré sous l'ancienne règle), ni si
- * l'un de ses organisateurs a le Pro.
+ * l'un de ses organisateurs a KoppaFoot+ avec la casquette.
  */
 export async function limiteEquipesDeCompetition(
   cid: string,
@@ -89,8 +110,8 @@ export async function limiteEquipesDeCompetition(
   if (!limitesEnVigueur(depuis, jour) || competition.is_sandbox) return null;
   const nee = jourDe(competition.created_at);
   if (!nee || nee < depuis!) return null;
-  const droits = await Promise.all((competition.organizer_ids ?? []).map(lireDroits));
-  if (droits.some((d) => estPro(d, jour))) return null;
+  const leves = await Promise.all((competition.organizer_ids ?? []).map((o) => plusLeve(o, "equipesParCompetition", jour)));
+  if (leves.some(Boolean)) return null;
   const n = await nombre(adminDb.collection("competitions").doc(cid).collection("comp_teams"));
   const max = LIMITES_GRATUIT.equipesParCompetition;
   return n + ajout > max ? { code: CODE_LIMITE, cle: "equipesParCompetition", max } : null;

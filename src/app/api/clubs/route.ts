@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { estPro, jourDeLome } from "@/lib/offre";
-import { lireDroits, uidAppelant } from "@/lib/offre-server";
+import { estManager, lireDroits, uidAppelant } from "@/lib/offre-server";
 import { couleurValide, type FirestoreClub } from "@/lib/clubs";
 import { clubDuProprietaire, clubs, estEveille, sectionsDuClub, slugLibre } from "@/lib/clubs-serveur";
 
@@ -14,8 +14,8 @@ import { clubDuProprietaire, clubs, estEveille, sectionsDuClub, slugLibre } from
  *        rattacher) et les invitations reçues par ces équipes.
  * POST { nom, ville?, description?, slogan?, couleur? } , créer son club.
  *
- * Créer un club demande KoppaFoot Pro (lib/clubs) ; un compte n'en possède
- * qu'un.
+ * Créer un club demande d'être manager et d'avoir KoppaFoot+ (lib/clubs) ; un
+ * compte n'en possède qu'un.
  */
 
 export const dynamic = "force-dynamic";
@@ -90,6 +90,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       estPro: estPro(droits, jourDeLome()),
+      estManager: await estManager(uid),
       club: vueClub,
       mesEquipes: mesEquipes.map((d) => ({
         id: d.id,
@@ -109,8 +110,14 @@ export async function POST(req: Request) {
   const uid = await uidAppelant(req);
   if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   try {
+    // Un club réunit les équipes d'un manager : ni KoppaFoot+ seul, ni le
+    // rôle seul ne suffisent (lib/offre, « KoppaFoot+ n'agit que pour ce que
+    // le compte est »).
+    if (!(await estManager(uid))) {
+      return NextResponse.json({ error: "Le Club multi-équipes réunit les équipes d'un manager." }, { status: 403 });
+    }
     if (!estPro(await lireDroits(uid), jourDeLome())) {
-      return NextResponse.json({ error: "Le Club multi-équipes fait partie de KoppaFoot Pro." }, { status: 403 });
+      return NextResponse.json({ error: "Le Club multi-équipes fait partie de KoppaFoot+." }, { status: 403 });
     }
     if (await clubDuProprietaire(uid)) {
       return NextResponse.json({ error: "Tu as déjà un club." }, { status: 409 });

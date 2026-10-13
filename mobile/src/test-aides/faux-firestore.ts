@@ -22,9 +22,12 @@ function champ(data: Doc, nom: string): unknown {
   return nom.split(".").reduce<unknown>((v, cle) => (v && typeof v === "object" ? (v as Doc)[cle] : undefined), data);
 }
 
+/** Le dernier segment d'un chemin : l'identifiant du document. */
+const idDe = (chemin: string) => chemin.split("/").pop() ?? "";
+
 function ref(chemin: string) {
   return {
-    id: chemin.split("/")[1],
+    id: idDe(chemin),
     path: chemin,
     get: async () => snap(chemin),
     set: async (data: Doc, options?: { merge?: boolean }) => {
@@ -35,6 +38,8 @@ function ref(chemin: string) {
       base.set(chemin, { ...base.get(chemin), ...data });
     },
     delete: async () => { base.delete(chemin); },
+    // Une sous-collection : « competitions/{id}/comp_teams ».
+    collection: (sous: string) => collectionDe(`${chemin}/${sous}`),
   };
 }
 
@@ -42,7 +47,7 @@ function snap(chemin: string) {
   const data = base.get(chemin);
   return {
     exists: data !== undefined,
-    id: chemin.split("/")[1],
+    id: idDe(chemin),
     ref: ref(chemin),
     data: () => (data ? { ...data } : undefined),
     get: (nom: string) => (data ? champ(data, nom) : undefined),
@@ -52,9 +57,12 @@ function snap(chemin: string) {
 type Filtre = [string, string, unknown];
 
 function requete(collection: string, filtres: Filtre[]) {
+  const prefixe = `${collection}/`;
   const lire = async () => {
     const docs = [...base.entries()]
-      .filter(([chemin, data]) => chemin.startsWith(`${collection}/`) && filtres.every(([nom, op, valeur]) => {
+      // Les documents de CETTE collection, pas ceux de ses sous-collections.
+      .filter(([chemin]) => chemin.startsWith(prefixe) && !chemin.slice(prefixe.length).includes("/"))
+      .filter(([, data]) => filtres.every(([nom, op, valeur]) => {
         const v = champ(data, nom);
         return op === "in" ? (valeur as unknown[]).includes(v) : v === valeur;
       }))
@@ -65,17 +73,26 @@ function requete(collection: string, filtres: Filtre[]) {
     where: (nom: string, op: string, valeur: unknown) => requete(collection, [...filtres, [nom, op, valeur]]),
     limit: () => requete(collection, filtres),
     orderBy: () => requete(collection, filtres),
+    // Le décompte côté serveur de Firestore : `query.count().get()`.
+    count: () => ({
+      get: async () => {
+        const { size } = await lire();
+        return { data: () => ({ count: size }) };
+      },
+    }),
     get: lire,
   };
 }
 
-export const adminDb = {
-  collection: (nom: string) => ({
+function collectionDe(nom: string) {
+  return {
     doc: (id?: string) => ref(`${nom}/${id ?? idNeuf()}`),
-    where: (champNom: string, op: string, valeur: unknown) => requete(nom, [[champNom, op, valeur]]),
-    orderBy: () => requete(nom, []),
-    get: requete(nom, []).get,
-  }),
+    ...requete(nom, []),
+  };
+}
+
+export const adminDb = {
+  collection: collectionDe,
   getAll: async (...refs: FauxRef[]) => refs.map((r) => snap(r.path)),
   runTransaction: <T,>(fn: (tx: unknown) => Promise<T>): Promise<T> => {
     const suite = file.then(async () => {

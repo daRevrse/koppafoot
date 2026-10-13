@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { lireCategorie } from "@/lib/genre";
-import { limiteDeCreation, reponseLimite, uidAppelant } from "@/lib/offre-server";
+import { estManager, limiteDeCreation, reponseLimite, uidAppelant } from "@/lib/offre-server";
 
 /**
  * POST /api/teams, créer une équipe dont l'appelant est le manager.
+ * L'appelant doit avoir le rôle manager : c'est la règle « un joueur ne dirige
+ * pas d'équipe », tenue ici et plus seulement à l'écran.
  *
  * Par le serveur, et plus par le navigateur : l'offre gratuite plafonne le
  * nombre d'équipes qu'on gère (lib/offre), et une règle Firestore ne sait pas
@@ -23,6 +25,12 @@ export async function POST(req: Request) {
   try {
     const uid = await uidAppelant(req);
     if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+    // Un joueur ne dirige pas d'équipe. Seul l'écran le vérifiait : cette
+    // route acceptait n'importe quel compte.
+    if (!(await estManager(uid))) {
+      return NextResponse.json({ error: "Créer une équipe demande le rôle manager." }, { status: 403 });
+    }
 
     const c = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const name = texte(c.name, 80);
