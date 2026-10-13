@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
+import { fedapayConfigure } from "@/lib/fedapay";
 import { adminDb } from "@/lib/firebase-admin";
 import { battementLu } from "@/lib/reglement";
 import { ErreurReservation, appelant } from "@/lib/reservations-server";
@@ -16,6 +17,12 @@ import { ErreurVersement, ecrireCompteVersement, lireCompteVersement } from "@/l
 // versement n'y a pas sa place, il va dans `comptes_versement`, fermée. Et
 // activer le paiement sans tarif ni numéro encaisserait de l'argent qu'on ne
 // saurait ni calculer ni verser.
+//
+// PAS D'ACTIVATION TANT QUE LE PAIEMENT N'EST PAS EN SERVICE. Sans clé FedaPay
+// sur ce serveur, personne ne peut payer : on n'active pas des frais que les
+// équipes ne pourraient pas régler, et l'écran ne les propose pas
+// (`disponible`). Le battement, lui, n'a rien à voir avec l'argent : il se
+// règle toujours.
 // ============================================
 
 export const dynamic = "force-dynamic";
@@ -32,6 +39,8 @@ async function etat(id: string, uid: string) {
   const compte = await lireCompteVersement(uid);
   return {
     actif: v.paiement_app === true,
+    /** Le paiement est en service sur ce serveur : les frais peuvent s'activer. */
+    disponible: fedapayConfigure(),
     numero: compte?.numero ?? null,
     battement: battementLu(v.battement_min),
     tarif: typeof v.price_per_hour === "number" ? v.price_per_hour : 0,
@@ -66,6 +75,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     if (typeof corps.numero === "string" && corps.numero.trim()) await ecrireCompteVersement(uid, corps.numero);
 
+    const dejaActif = snap.data()?.paiement_app === true;
+    if (actif && !dejaActif && !fedapayConfigure()) {
+      throw new ErreurReservation("Le paiement dans l'application n'est pas encore ouvert.", 409);
+    }
     if (actif) {
       const tarif = snap.data()?.price_per_hour;
       if (typeof tarif !== "number" || tarif <= 0) {

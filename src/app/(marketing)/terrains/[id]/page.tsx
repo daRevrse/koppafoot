@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin, ArrowLeft } from "lucide-react";
+import { fedapayConfigure } from "@/lib/fedapay";
 import { adminDb } from "@/lib/firebase-admin";
 import BookingRequest from "@/components/venue/BookingRequest";
 import ContactResponsable from "@/components/venue/ContactResponsable";
@@ -88,7 +89,9 @@ async function readVenue(id: string): Promise<VenueView | null> {
     available: v.available !== false,
     horaires: horairesLus(v.opening_hours),
     battementMin: v.battement_min === 15 || v.battement_min === 30 ? v.battement_min : 0,
-    paiementApp: v.paiement_app === true,
+    // Annoncés seulement si le paiement est en service : on ne promet pas des
+    // frais « à payer dans l'application » que personne ne peut encore payer.
+    paiementApp: v.paiement_app === true && fedapayConfigure(),
   };
 }
 

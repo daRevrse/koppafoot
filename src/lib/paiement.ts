@@ -139,6 +139,21 @@ export function etatDepuisFedapay(statut: string | null | undefined): StatutPaie
 
 export type EnvironnementPaiement = "sandbox" | "live";
 
+/**
+ * Ce compte peut-il payer ? Jamais sans clé FedaPay ; en bac à sable, les
+ * superadmins seuls (le poste de dev et les aperçus écrivent dans la base de
+ * production).
+ *
+ * LA MÊME QUESTION DÉCIDE DE CE QU'ON DEMANDE. Ne rien vendre à qui ne peut
+ * pas payer va de soi ; ne pas le METTRE EN DEMEURE de payer compte autant :
+ * des frais de réservation ouverts pour une équipe qui ne peut pas les régler
+ * lui feraient perdre son créneau au bout de vingt-quatre heures, sans issue
+ * (lib/reglement-serveur).
+ */
+export function paiementOuvert(e: { configure: boolean; environnement: EnvironnementPaiement; superadmin: boolean }): boolean {
+  return e.configure && (e.environnement === "live" || e.superadmin);
+}
+
 /** Ce qui ne colle pas entre la ligne et la collecte relue chez FedaPay. */
 export type AnomaliePaiement = "montant" | "reference";
 

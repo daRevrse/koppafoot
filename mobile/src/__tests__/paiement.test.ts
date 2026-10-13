@@ -1,11 +1,29 @@
 import type { DroitAccorde } from "@/lib/offre";
 import {
   ajouterJours, ajouterMois, deciderReglement, estFormule, etatDepuisFedapay, formulesEnVente, idPaiementDuRetour,
-  joursDeRappel, lirePrix, motifAchat, nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
+  joursDeRappel, lirePrix, motifAchat, nouvelleEcheance, objetDe, paiementOuvert, prixValide, trierLignesOuvertes,
 } from "@/lib/paiement";
 
 // Le module vit côté site (src/lib/paiement) ; il est pur, et c'est ici que
 // la suite de tests des modules partagés tourne.
+
+describe("paiementOuvert", () => {
+  const e = { configure: true, environnement: "live" as const, superadmin: false };
+
+  it("en réel, tout compte peut payer", () => {
+    expect(paiementOuvert(e)).toBe(true);
+  });
+
+  it("sans clé FedaPay, personne", () => {
+    expect(paiementOuvert({ ...e, configure: false })).toBe(false);
+    expect(paiementOuvert({ ...e, configure: false, superadmin: true })).toBe(false);
+  });
+
+  it("en bac à sable, les superadmins seuls", () => {
+    expect(paiementOuvert({ ...e, environnement: "sandbox" })).toBe(false);
+    expect(paiementOuvert({ ...e, environnement: "sandbox", superadmin: true })).toBe(true);
+  });
+});
 
 describe("objetDe", () => {
   it("une ligne d'avant les acomptes est un achat du Pro", () => {

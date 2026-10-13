@@ -11,6 +11,7 @@ type Doc = Record<string, unknown>;
 
 const mockFedapay = {
   environnement: "sandbox",
+  configure: true,
   creerCollecte: jest.fn(),
   lienDePaiement: jest.fn(),
   lireCollecte: jest.fn(),
@@ -33,7 +34,7 @@ jest.mock("@/lib/reservations-server", () => ({
 }));
 jest.mock("@/lib/fedapay", () => ({
   environnementFedapay: () => mockFedapay.environnement,
-  fedapayConfigure: () => true,
+  fedapayConfigure: () => mockFedapay.configure,
   creerCollecte: (demande: unknown) => mockFedapay.creerCollecte(demande),
   lienDePaiement: (id: number) => mockFedapay.lienDePaiement(id),
   lireCollecte: (id: number) => mockFedapay.lireCollecte(id),
@@ -116,6 +117,7 @@ async function payer(): Promise<void> {
 beforeEach(() => {
   vider();
   mockFedapay.environnement = "sandbox";
+  mockFedapay.configure = true;
   mockFedapay.creerCollecte.mockReset();
   mockFedapay.lienDePaiement.mockReset();
   mockFedapay.lireCollecte.mockReset();
@@ -126,6 +128,8 @@ beforeEach(() => {
   base.set("comptes_versement/gerant", { numero: "90123456", pays: "tg", modifie_le: 1 });
   base.set("settings/paiement", { taux_frais: 4 });
   base.set(`bookings/${RESA}`, reservation());
+  // En bac à sable, seul un superadmin peut payer : le demandeur en est un.
+  base.set("users/equipe", { first_name: "Ama", last_name: "Koffi", is_superadmin: true });
 });
 
 describe("suivreReservation : l'ouverture", () => {
@@ -160,6 +164,10 @@ describe("suivreReservation : l'ouverture", () => {
     ["le propriétaire n'a pas donné de numéro de versement", () => base.delete("comptes_versement/gerant")],
     ["la demande date d'avant l'activation des frais", () => base.set("venues/terrain1", terrain({ paiement_app_depuis: 5_000 }))],
     ["le terrain n'a jamais daté l'activation de ses frais", () => base.set("venues/terrain1", terrain({ paiement_app_depuis: undefined }))],
+    // On ne met personne en demeure de payer ce qu'il ne peut pas payer : le
+    // créneau serait libéré au bout de vingt-quatre heures, sans issue.
+    ["FedaPay n'est pas configuré : personne ne pourrait payer", () => { mockFedapay.configure = false; }],
+    ["le paiement n'est ouvert qu'aux superadmins (bac à sable), et le demandeur n'en est pas un", () => base.set("users/equipe", { first_name: "Ama" })],
     ["la réservation attend encore la réponse", () => base.set(`bookings/${RESA}`, reservation({ status: "pending" }))],
     ["c'est un créneau bloqué", () => base.set(`bookings/${RESA}`, reservation({ kind: "blocage", user_id: "gerant" }))],
     ["le propriétaire joue sur son propre terrain", () => base.set(`bookings/${RESA}`, reservation({ user_id: "gerant" }))],
@@ -168,6 +176,13 @@ describe("suivreReservation : l'ouverture", () => {
     expect(await suivreReservation(RESA, { maintenant: J2 })).toBeNull();
     expect(reglement()).toBeUndefined();
     expect(resa().reglement_vu).toBeUndefined();
+  });
+
+  it("en réel, s'ouvre pour un compte ordinaire", async () => {
+    mockFedapay.environnement = "live";
+    base.set("users/equipe", { first_name: "Ama" });
+
+    expect(await suivreReservation(RESA, { maintenant: J2 })).toMatchObject({ acompte: 500, cloture: null });
   });
 
   it("fige le prix : un tarif changé après la confirmation ne touche pas l'acompte", async () => {

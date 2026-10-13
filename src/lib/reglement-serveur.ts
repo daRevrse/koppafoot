@@ -1,7 +1,10 @@
 import { randomInt } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
+import { estSuperadmin } from "@/lib/admin-api-auth";
+import { environnementFedapay, fedapayConfigure } from "@/lib/fedapay";
 import { adminDb } from "@/lib/firebase-admin";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { paiementOuvert } from "@/lib/paiement";
 import type { Effet } from "@/lib/paiement-serveur";
 import {
   acompteDe, battementLu, codeSaisi, debutDuCreneau, echeanceAcompte, etatDuReglement, fenetreDeValidation,
@@ -165,6 +168,16 @@ export async function suivreReservation(
     if (!terrain.payant || acompte === 0) return null;
     // Demandée avant l'activation des frais : elle se règle comme annoncé alors, sur place.
     if (millis(dAbord.created_at) < terrain.depuis) return null;
+    // Personne n'est mis en demeure de payer ce qu'il ne peut pas payer : sans
+    // clé FedaPay, ou en bac à sable pour un compte ordinaire, le créneau
+    // serait libéré au bout de vingt-quatre heures, sans issue. Il se règle
+    // alors sur place, comme sur un terrain sans frais.
+    const demandeur = (await adminDb.collection("users").doc(dAbord.user_id).get()).data();
+    if (!paiementOuvert({
+      configure: fedapayConfigure(),
+      environnement: environnementFedapay(),
+      superadmin: estSuperadmin(demandeur),
+    })) return null;
     ouverture = { prix, acompte, taux: await lireTauxFrais(), battement: terrain.battement, nom: terrain.nom };
   }
 
