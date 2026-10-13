@@ -45,13 +45,13 @@ jest.mock("@/lib/fedapay", () => ({
 // `require`, et non `import` : le module tire firebase-admin et next/server,
 // dont la vérification de types de l'application mobile n'a pas les types.
 const {
-  reglerPaiement, demarrerPaiement, formulesPour, paiementParCollecte, reverifierPaiementsOuverts, rappelerEcheancesPro,
+  reglerPaiement, demarrerPaiement, formulesPour, paiementParCollecte, reverifierPaiementsOuverts, rappelerEcheances,
 } = require("@/lib/paiement-serveur") as {
   reverifierPaiementsOuverts: (maintenantMs?: number) => Promise<{ revus: number; payes: number; fermes: number }>;
-  rappelerEcheancesPro: (jour?: string) => Promise<number>;
+  rappelerEcheances: (jour?: string) => Promise<number>;
   reglerPaiement: (id: string) => Promise<{ statut: string; jusquAu: string | null; aVerifier: boolean } | null>;
   demarrerPaiement: (uid: string, formule: unknown, origine: string) => Promise<{ id: string; url: string }>;
-  formulesPour: (profil: Doc | undefined) => Promise<{ id: string; mois: number; prix: number }[]>;
+  formulesPour: (profil: Doc | undefined, droits?: Doc | null) => Promise<{ id: string; droit: string; mois: number; prix: number }[]>;
   paiementParCollecte: (idCollecte: number) => Promise<string | null>;
 };
 
@@ -75,6 +75,10 @@ function poserLigne(p: Partial<FirestorePaiement> = {}) {
 
 const ligne = () => mockBase.get(`paiements/${ID}`) as unknown as FirestorePaiement;
 const pro = () => (mockBase.get(`droits/${UID}`) as { pro?: DroitAccorde } | undefined)?.pro ?? null;
+const sansPub = () => (mockBase.get(`droits/${UID}`) as { sans_pub?: DroitAccorde } | undefined)?.sans_pub ?? null;
+const PRIX = { pro_mois: 1500, pro_an: 15000, sans_pub_mois: 300, sans_pub_an: 3000 };
+const droitDate = (jusqu_au: string | null): DroitAccorde =>
+  ({ depuis: "2026-01-01", jusqu_au, source: "paiement", accorde_par: null, motif: null });
 const unTour = () => new Promise<void>((resoudre) => setTimeout(resoudre, 0));
 
 beforeEach(() => {
@@ -94,7 +98,7 @@ describe("demarrerPaiement", () => {
   const lignes = () => [...mockBase.entries()].filter(([chemin]) => chemin.startsWith("paiements/"));
 
   beforeEach(() => {
-    mockBase.set("settings/offre", { prix: { pro_mois: 1500, pro_an: 15000 } });
+    mockBase.set("settings/offre", { prix: PRIX });
     mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", email: "ama@exemple.test", is_superadmin: true });
     mockFedapay.creerCollecte.mockResolvedValue(collecte("pending"));
     mockFedapay.lienDePaiement.mockResolvedValue(URL_PAIEMENT);
@@ -132,16 +136,84 @@ describe("demarrerPaiement", () => {
     expect(mockFedapay.creerCollecte).not.toHaveBeenCalled();
   });
 
-  it("en réel, vend à tout le monde et ramène toujours sur le site", async () => {
+  it("en réel, vend KoppaFoot+ à un manager et ramène toujours sur le site", async () => {
     mockFedapay.environnement = "live";
-    mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", email: "ama@exemple.test" });
+    mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", email: "ama@exemple.test", user_type: "manager" });
 
     const { id } = await demarrerPaiement(UID, "pro_mois", "https://faux-site.exemple");
 
-    expect(mockBase.get(`paiements/${id}`)).toMatchObject({ environnement: "live", montant: 1500 });
+    expect(mockBase.get(`paiements/${id}`)).toMatchObject({ environnement: "live", montant: 1500, droit: "pro" });
     expect(mockFedapay.creerCollecte).toHaveBeenCalledWith(
       expect.objectContaining({ retour: `https://www.koppafoot.com/offre?paiement=${id}` }),
     );
+  });
+
+  describe("qui peut acheter quoi", () => {
+    const profil = (p: Doc) => mockBase.set(`users/${UID}`, { first_name: "Ama", last_name: "Koffi", ...p });
+
+    beforeEach(() => { mockFedapay.environnement = "live"; });
+
+    it.each([["un joueur", { user_type: "player" }], ["un arbitre", { user_type: "referee" }], ["un spectateur", { user_type: "user" }]])(
+      "refuse KoppaFoot+ à %s, sans rien écrire",
+      async (_qui, p) => {
+        profil(p);
+        await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).rejects.toMatchObject({ code: "profil" });
+        expect(lignes()).toHaveLength(0);
+        expect(mockFedapay.creerCollecte).not.toHaveBeenCalled();
+      },
+    );
+
+    it("refuse KoppaFoot+ à un joueur membre du staff d'une équipe : le staff n'est pas un manager", async () => {
+      profil({ user_type: "player" });
+      mockBase.set("teams/equipe1", { manager_id: "quelqu-un-d-autre", staff_manager_ids: [UID] });
+      await expect(demarrerPaiement(UID, "pro_an", ORIGINE)).rejects.toMatchObject({ code: "profil" });
+    });
+
+    it("vend KoppaFoot+ à un joueur qui porte une casquette", async () => {
+      profil({ user_type: "player", is_organizer: true });
+      await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).resolves.toMatchObject({ url: URL_PAIEMENT });
+      profil({ user_type: "referee", is_venue_owner: true });
+      await expect(demarrerPaiement(UID, "pro_mois", ORIGINE)).resolves.toMatchObject({ url: URL_PAIEMENT });
+    });
+
+    it("vend « Pas de pubs » à un joueur, à son prix et sous son nom", async () => {
+      profil({ user_type: "player" });
+
+      const { id } = await demarrerPaiement(UID, "sans_pub_mois", ORIGINE);
+
+      expect(mockBase.get(`paiements/${id}`)).toMatchObject({ formule: "sans_pub_mois", droit: "sans_pub", montant: 300 });
+      expect(mockFedapay.creerCollecte).toHaveBeenCalledWith(expect.objectContaining({ description: "Pas de pubs, 1 mois", montant: 300 }));
+    });
+
+    it("vend aussi « Pas de pubs » à un manager", async () => {
+      profil({ user_type: "manager" });
+      await expect(demarrerPaiement(UID, "sans_pub_an", ORIGINE)).resolves.toMatchObject({ url: URL_PAIEMENT });
+    });
+
+    it("refuse « Pas de pubs » à qui a KoppaFoot+ : il le comprend déjà", async () => {
+      profil({ user_type: "manager" });
+      mockBase.set(`droits/${UID}`, { pro: droitDate("2099-12-31") });
+      await expect(demarrerPaiement(UID, "sans_pub_mois", ORIGINE)).rejects.toMatchObject({ code: "deja_compris" });
+      expect(lignes()).toHaveLength(0);
+    });
+
+    it("revend « Pas de pubs » une fois KoppaFoot+ terminé", async () => {
+      profil({ user_type: "player" });
+      mockBase.set(`droits/${UID}`, { pro: droitDate("2026-01-31") });
+      await expect(demarrerPaiement(UID, "sans_pub_mois", ORIGINE)).resolves.toMatchObject({ url: URL_PAIEMENT });
+    });
+
+    it("refuse de prolonger un « Pas de pubs » sans échéance", async () => {
+      profil({ user_type: "player" });
+      mockBase.set(`droits/${UID}`, { sans_pub: droitDate(null) });
+      await expect(demarrerPaiement(UID, "sans_pub_mois", ORIGINE)).rejects.toMatchObject({ code: "deja_illimite" });
+    });
+
+    it("refuse une formule « Pas de pubs » sans prix", async () => {
+      profil({ user_type: "player" });
+      mockBase.set("settings/offre", { prix: { ...PRIX, sans_pub_mois: null } });
+      await expect(demarrerPaiement(UID, "sans_pub_mois", ORIGINE)).rejects.toMatchObject({ code: "pas_en_vente" });
+    });
   });
 
   it("refuse une formule inconnue", async () => {
@@ -193,8 +265,10 @@ describe("demarrerPaiement", () => {
 });
 
 describe("formulesPour", () => {
+  const ids = async (profil: Doc | undefined, droits?: Doc | null) => (await formulesPour(profil, droits)).map((f) => f.id);
+
   beforeEach(() => {
-    mockBase.set("settings/offre", { prix: { pro_mois: 1500, pro_an: null } });
+    mockBase.set("settings/offre", { prix: PRIX });
   });
 
   it("en bac à sable, ne montre rien à un compte ordinaire", async () => {
@@ -202,18 +276,63 @@ describe("formulesPour", () => {
     expect(await formulesPour(undefined)).toEqual([]);
   });
 
-  it("en bac à sable, montre les formules en vente à un superadmin", async () => {
-    expect(await formulesPour({ is_superadmin: true })).toEqual([{ id: "pro_mois", droit: "pro", mois: 1, prix: 1500 }]);
-  });
-
-  it("en réel, les montre à tout le monde", async () => {
-    mockFedapay.environnement = "live";
-    expect(await formulesPour({ user_type: "manager" })).toEqual([{ id: "pro_mois", droit: "pro", mois: 1, prix: 1500 }]);
+  it("en bac à sable, montre les deux offres à un superadmin, chacune avec son droit", async () => {
+    mockBase.set("settings/offre", { prix: { pro_mois: 1500, sans_pub_mois: 300 } });
+    expect(await formulesPour({ is_superadmin: true })).toEqual([
+      { id: "pro_mois", droit: "pro", mois: 1, prix: 1500 },
+      { id: "sans_pub_mois", droit: "sans_pub", mois: 1, prix: 300 },
+    ]);
   });
 
   it("ne montre rien sans clé FedaPay", async () => {
     mockFedapay.configure = false;
     expect(await formulesPour({ is_superadmin: true })).toEqual([]);
+  });
+
+  describe("en réel", () => {
+    beforeEach(() => { mockFedapay.environnement = "live"; });
+
+    it("un manager, un organisateur, un propriétaire voient les deux offres", async () => {
+      const TOUT = ["pro_mois", "pro_an", "sans_pub_mois", "sans_pub_an"];
+      expect(await ids({ user_type: "manager" })).toEqual(TOUT);
+      expect(await ids({ user_type: "player", is_organizer: true })).toEqual(TOUT);
+      expect(await ids({ user_type: "user", is_venue_owner: true })).toEqual(TOUT);
+    });
+
+    it("un joueur, un arbitre, un spectateur ne voient que « Pas de pubs »", async () => {
+      const SANS_PUB = ["sans_pub_mois", "sans_pub_an"];
+      expect(await ids({ user_type: "player" })).toEqual(SANS_PUB);
+      expect(await ids({ user_type: "referee" })).toEqual(SANS_PUB);
+      expect(await ids({ user_type: "user" })).toEqual(SANS_PUB);
+      expect(await ids(undefined)).toEqual(SANS_PUB);
+    });
+
+    it("KoppaFoot+ actif : il se prolonge, et « Pas de pubs » n'est plus proposé", async () => {
+      expect(await ids({ user_type: "manager" }, { pro: droitDate("2099-12-31") })).toEqual(["pro_mois", "pro_an"]);
+    });
+
+    it("un compte hors profil qui a déjà KoppaFoot+ n'a rien à acheter tant qu'il court", async () => {
+      expect(await ids({ user_type: "player" }, { pro: droitDate("2099-12-31") })).toEqual([]);
+    });
+
+    it("le même, une fois KoppaFoot+ terminé, se voit proposer « Pas de pubs »", async () => {
+      expect(await ids({ user_type: "player" }, { pro: droitDate("2026-01-31") })).toEqual(["sans_pub_mois", "sans_pub_an"]);
+    });
+
+    it("un droit sans échéance ne se prolonge pas", async () => {
+      expect(await ids({ user_type: "manager" }, { pro: droitDate(null) })).toEqual([]);
+      expect(await ids({ user_type: "manager" }, { sans_pub: droitDate(null) })).toEqual(["pro_mois", "pro_an"]);
+    });
+
+    it("« Pas de pubs » en cours se prolonge", async () => {
+      expect(await ids({ user_type: "player" }, { sans_pub: droitDate("2099-12-31") })).toEqual(["sans_pub_mois", "sans_pub_an"]);
+    });
+
+    it("une offre sans prix ne se montre pas", async () => {
+      mockBase.set("settings/offre", { prix: { pro_mois: 1500 } });
+      expect(await ids({ user_type: "player" })).toEqual([]);
+      expect(await ids({ user_type: "manager" })).toEqual(["pro_mois"]);
+    });
   });
 });
 
@@ -300,14 +419,14 @@ describe("reverifierPaiementsOuverts", () => {
   });
 });
 
-describe("rappelerEcheancesPro", () => {
+describe("rappelerEcheances", () => {
   const AUJOURDHUI = "2026-11-05";
   const droit = (jusqu_au: string | null) => ({ pro: { depuis: "2026-10-01", jusqu_au, source: "paiement", accorde_par: null, motif: null } });
   const titres = () => mockNotifier.mock.calls.map(([uid, n]) => `${uid} : ${(n as { title: string }).title}`);
 
   beforeEach(() => {
     mockFedapay.environnement = "live";
-    mockBase.set("settings/offre", { prix: { pro_mois: 1500, pro_an: null } });
+    mockBase.set("settings/offre", { prix: { pro_mois: 1500, sans_pub_mois: 300 } });
     mockBase.set("droits/demain", droit("2026-11-06"));
     mockBase.set("droits/semaine", droit("2026-11-12"));
     mockBase.set("droits/plus-tard", droit("2026-11-20"));
@@ -315,40 +434,81 @@ describe("rappelerEcheancesPro", () => {
   });
 
   it("prévient la veille et sept jours avant, et personne d'autre", async () => {
-    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(2);
-    expect(titres().sort()).toEqual(["demain : Ton Pro se termine demain", "semaine : Ton Pro se termine dans 7 jours"]);
+    expect(await rappelerEcheances(AUJOURDHUI)).toBe(2);
+    expect(titres().sort()).toEqual(["demain : Ton KoppaFoot+ se termine demain", "semaine : Ton KoppaFoot+ se termine dans 7 jours"]);
     expect(mockNotifier.mock.calls[0][1]).toMatchObject({ type: "offre", link: "/offre" });
   });
 
   it("ne sonne pas deux fois le même jour quand la tâche est rejouée", async () => {
-    await rappelerEcheancesPro(AUJOURDHUI);
-    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    await rappelerEcheances(AUJOURDHUI);
+    expect(await rappelerEcheances(AUJOURDHUI)).toBe(0);
     expect(mockNotifier).toHaveBeenCalledTimes(2);
   });
 
   it("rappelle de nouveau la veille celui qu'on a prévenu sept jours avant", async () => {
-    await rappelerEcheancesPro(AUJOURDHUI);
+    await rappelerEcheances(AUJOURDHUI);
     mockNotifier.mockClear();
 
-    expect(await rappelerEcheancesPro("2026-11-11")).toBe(1);
-    expect(titres()).toEqual(["semaine : Ton Pro se termine demain"]);
+    expect(await rappelerEcheances("2026-11-11")).toBe(1);
+    expect(titres()).toEqual(["semaine : Ton KoppaFoot+ se termine demain"]);
   });
 
   it("ne rappelle rien en bac à sable", async () => {
     mockFedapay.environnement = "sandbox";
-    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    expect(await rappelerEcheances(AUJOURDHUI)).toBe(0);
     expect(mockNotifier).not.toHaveBeenCalled();
   });
 
   it("ne rappelle rien quand aucune formule n'est en vente : il n'y aurait rien à prolonger", async () => {
     mockBase.set("settings/offre", { prix: { pro_mois: null, pro_an: null } });
-    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    expect(await rappelerEcheances(AUJOURDHUI)).toBe(0);
     expect(mockNotifier).not.toHaveBeenCalled();
   });
 
   it("ne rappelle rien sans clé FedaPay", async () => {
     mockFedapay.configure = false;
-    expect(await rappelerEcheancesPro(AUJOURDHUI)).toBe(0);
+    expect(await rappelerEcheances(AUJOURDHUI)).toBe(0);
+  });
+
+  describe("« Pas de pubs »", () => {
+    const sansPubJusquAu = (jusqu_au: string | null, p: Doc = {}) => ({ sans_pub: droitDate(jusqu_au), ...p });
+
+    it("prévient aussi de sa fin, la veille et sept jours avant", async () => {
+      mockBase.set("droits/joueur-demain", sansPubJusquAu("2026-11-06"));
+      mockBase.set("droits/joueur-semaine", sansPubJusquAu("2026-11-12"));
+
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(4);
+
+      expect(titres().filter((t) => t.startsWith("joueur")).sort()).toEqual([
+        "joueur-demain : Ton option Pas de pubs se termine demain",
+        "joueur-semaine : Ton option Pas de pubs se termine dans 7 jours",
+      ]);
+    });
+
+    it("ne prévient pas quand KoppaFoot+ court encore : la publicité ne revient pas", async () => {
+      mockBase.set("droits/couvert", sansPubJusquAu("2026-11-06", { pro: droitDate("2027-06-30") }));
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(2);
+      expect(titres().some((t) => t.startsWith("couvert"))).toBe(false);
+    });
+
+    it("prévient quand KoppaFoot+ est fini et que seul « Pas de pubs » reste", async () => {
+      mockBase.set("droits/seul", sansPubJusquAu("2026-11-06", { pro: droitDate("2026-09-30") }));
+      await rappelerEcheances(AUJOURDHUI);
+      expect(titres()).toContain("seul : Ton option Pas de pubs se termine demain");
+    });
+
+    it("ne sonne pas deux fois le même jour", async () => {
+      mockBase.set("droits/joueur-demain", sansPubJusquAu("2026-11-06"));
+      await rappelerEcheances(AUJOURDHUI);
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(0);
+    });
+
+    it("ne rappelle que l'offre qui est en vente", async () => {
+      mockBase.set("droits/joueur-demain", sansPubJusquAu("2026-11-06"));
+      mockBase.set("settings/offre", { prix: { pro_mois: 1500 } });
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(2);
+      expect(titres().some((t) => t.startsWith("joueur"))).toBe(false);
+    });
   });
 });
 
@@ -505,5 +665,67 @@ describe("reglerPaiement", () => {
     await reglerPaiement(ID);
     expect(pro()?.jusqu_au).toBe(apresUn);
     expect(mockNotifier).toHaveBeenCalledTimes(1);
+  });
+
+  describe("un achat « Pas de pubs »", () => {
+    const poserSansPub = (p: Partial<FirestorePaiement> = {}) =>
+      poserLigne({ formule: "sans_pub_mois", droit: "sans_pub", montant: 300, ...p });
+    const payee = () => mockFedapay.lireCollecte.mockResolvedValue(collecte("approved", { montant: 300 }));
+
+    it("accorde le droit sans pub, et pas KoppaFoot+", async () => {
+      poserSansPub();
+      payee();
+
+      expect(await reglerPaiement(ID)).toMatchObject({ statut: "paye", jusquAu: ajouterMois(JOUR, 1) });
+
+      expect(sansPub()).toMatchObject({ depuis: JOUR, jusqu_au: ajouterMois(JOUR, 1), source: "paiement" });
+      expect(sansPub()?.motif).toContain("Pas de pubs");
+      expect(pro()).toBeNull();
+      expect(mockNotifier.mock.calls[0][1]).toMatchObject({ type: "offre", link: "/offre" });
+      expect((mockNotifier.mock.calls[0][1] as { body: string }).body).toContain("publicité");
+    });
+
+    it("se prolonge à partir de sa fin en cours", async () => {
+      mockBase.set(`droits/${UID}`, { sans_pub: droitDate("2099-03-15") });
+      poserSansPub();
+      payee();
+
+      await reglerPaiement(ID);
+
+      expect(sansPub()).toMatchObject({ jusqu_au: "2099-04-15" });
+      expect(ligne()).toMatchObject({ echeance_avant: "2099-03-15", echeance_apres: "2099-04-15" });
+    });
+
+    it("réglé deux fois, n'accorde qu'une fois", async () => {
+      poserSansPub();
+      payee();
+
+      await reglerPaiement(ID);
+      await reglerPaiement(ID);
+
+      expect(sansPub()).toMatchObject({ jusqu_au: ajouterMois(JOUR, 1) });
+      expect(mockNotifier).toHaveBeenCalledTimes(1);
+    });
+
+    it("ne touche pas à un KoppaFoot+ que le compte a par ailleurs", async () => {
+      mockBase.set(`droits/${UID}`, { pro: droitDate("2099-12-31") });
+      poserSansPub();
+      payee();
+
+      await reglerPaiement(ID);
+
+      expect(pro()).toMatchObject({ jusqu_au: "2099-12-31" });
+      expect(sansPub()).toMatchObject({ jusqu_au: ajouterMois(JOUR, 1) });
+    });
+  });
+
+  it("accorde KoppaFoot+ même si le compte a perdu son titre entre le clic et le paiement : l'argent est reçu", async () => {
+    mockBase.set(`users/${UID}`, { first_name: "Ama", user_type: "player" });
+    poserLigne();
+    mockFedapay.lireCollecte.mockResolvedValue(collecte("approved"));
+
+    expect(await reglerPaiement(ID)).toMatchObject({ statut: "paye" });
+
+    expect(pro()).toMatchObject({ jusqu_au: ajouterMois(JOUR, 1), source: "paiement" });
   });
 });

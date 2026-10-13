@@ -6,9 +6,12 @@ import {
 } from "@/lib/fedapay";
 import { adminDb } from "@/lib/firebase-admin";
 import { notifierCompte } from "@/lib/notifier-serveur";
-import { droitActif, jourDeLome, type DroitAccorde, type FirestoreDroits } from "@/lib/offre";
 import {
-  FORMULES, ID_PAIEMENT, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, libelleFormule, lirePrix,
+  aDroitAKoppaFootPlus, droitActif, estPro, jourDeLome, titresDuProfil,
+  type DroitAccorde, type DroitOffre, type FirestoreDroits,
+} from "@/lib/offre";
+import {
+  FORMULES, ID_PAIEMENT, NOM_OFFRE, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, libelleFormule, lirePrix,
   motifAchat, nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
   type Collecte, type EnvironnementPaiement, type FirestorePaiement, type FormuleEnVente, type IdFormule,
   type ObjetPaiement, type PrixOffre, type StatutPaiement,
@@ -54,18 +57,36 @@ export async function lirePrixOffre(): Promise<PrixOffre> {
 }
 
 /**
- * Les formules que CE compte peut acheter : aucune sans clé FedaPay, et en
- * bac à sable seulement pour un superadmin.
+ * Les formules que CE compte peut acheter.
+ *
+ * Aucune sans clé FedaPay, et en bac à sable seulement pour un superadmin.
+ * Ensuite, l'offre suit le profil (lib/offre) :
+ *  - KoppaFoot+ : aux managers, organisateurs et propriétaires de terrain ;
+ *  - « Pas de pubs » : à tout le monde, sauf tant que KoppaFoot+ court, qui
+ *    retire déjà la publicité. On ne vend pas deux fois la même chose.
+ * Un droit sans échéance n'a rien à prolonger : sa formule ne se montre pas.
  */
-export async function formulesPour(profil: Record<string, unknown> | undefined): Promise<FormuleEnVente[]> {
+export async function formulesPour(
+  profil: Record<string, unknown> | undefined,
+  droits: Pick<FirestoreDroits, "pro" | "sans_pub"> | null = null,
+): Promise<FormuleEnVente[]> {
   if (!fedapayConfigure()) return [];
   if (environnementFedapay() !== "live" && !estSuperadmin(profil)) return [];
-  return formulesEnVente(await lirePrixOffre());
+
+  const jour = jourDeLome();
+  const plus = aDroitAKoppaFootPlus(titresDuProfil(profil));
+  const plusActif = estPro(droits, jour);
+  return formulesEnVente(await lirePrixOffre()).filter((f) => {
+    const actuel = droits?.[f.droit];
+    if (droitActif(actuel, jour) && actuel?.jusqu_au === null) return false;
+    return f.droit === "pro" ? plus : !plusActif;
+  });
 }
 
 export type RefusPaiement =
   | "formule" | "non_configure" | "bac_a_sable" | "pas_en_vente" | "deja_illimite" | "trop_de_tentatives" | "fedapay"
-  | "reservation" | "deja_paye" | "trop_tard" | "telephone";
+  | "reservation" | "deja_paye" | "trop_tard" | "telephone"
+  | "profil" | "deja_compris";
 
 /** Un achat qui ne peut pas démarrer. `message` est en français ; le navigateur traduit d'après `code`. */
 export class ErreurPaiement extends Error {
@@ -165,25 +186,39 @@ async function ouvrirCollecte(
 }
 
 /**
- * Démarre l'achat du Pro. `origine` : d'où vient la requête, pour le retour
- * en bac à sable (en réel, toujours le site).
+ * Démarre l'achat d'une formule : KoppaFoot+ ou « Pas de pubs ». `origine` :
+ * d'où vient la requête, pour le retour en bac à sable (en réel, toujours le
+ * site).
+ *
+ * L'OFFRE D'UN PROFIL SE DÉCIDE ICI, pas à l'écran. La page ne montre que les
+ * formules du compte (`formulesPour`) ; un appel direct est refusé de même.
  */
 export async function demarrerPaiement(uid: string, formule: unknown, origine: string): Promise<{ id: string; url: string }> {
   if (!estFormule(formule)) throw new ErreurPaiement("formule", "Formule inconnue.");
-  const { profil, environnement } = await verifierAcces(uid, "Le Pro n'est pas encore en vente.");
+  const { droit, mois } = FORMULES[formule];
+  const { profil, environnement } = await verifierAcces(uid, `${NOM_OFFRE[droit]} n'est pas encore en vente.`);
+
+  if (droit === "pro" && !aDroitAKoppaFootPlus(titresDuProfil(profil))) {
+    throw new ErreurPaiement("profil", "KoppaFoot+ est réservé aux managers, organisateurs et propriétaires de terrain.");
+  }
 
   const prix = (await lirePrixOffre())[formule];
   if (!prixValide(prix)) throw new ErreurPaiement("pas_en_vente", "Cette formule n'est pas en vente.");
 
+  const jour = jourDeLome();
   const droits = (await adminDb.collection("droits").doc(uid).get()).data() as FirestoreDroits | undefined;
-  if (nouvelleEcheance(droits?.pro, jourDeLome(), FORMULES[formule].mois) === null) {
-    throw new ErreurPaiement("deja_illimite", "Ton Pro n'a pas d'échéance : il n'y a rien à prolonger.");
+  if (droit === "sans_pub" && estPro(droits, jour)) {
+    throw new ErreurPaiement("deja_compris", "Ton KoppaFoot+ retire déjà la publicité.");
+  }
+  if (nouvelleEcheance(droits?.[droit], jour, mois) === null) {
+    throw new ErreurPaiement("deja_illimite", `${NOM_OFFRE[droit]} est déjà à toi sans échéance : il n'y a rien à prolonger.`);
   }
   await verifierTentatives(uid);
 
   const base = environnement === "live" ? APP_URL : origine;
   return ouvrirCollecte(
-    { uid, objet: "pro", formule, droit: FORMULES[formule].droit, montant: prix, environnement },
+    // L'objet « pro » est l'achat d'une formule, quel que soit son droit.
+    { uid, objet: "pro", formule, droit, montant: prix, environnement },
     libelleFormule(formule),
     (id) => `${base}/offre?paiement=${id}`,
     profil,
@@ -246,8 +281,10 @@ export interface EtatPaiement {
   statut: StatutPaiement;
   /** `null` : le paiement n'achète pas une formule (les frais de réservation d'un terrain). */
   formule: IdFormule | null;
+  /** Ce que la formule accorde ; `null` de même. */
+  droit: DroitOffre | null;
   montant: number;
-  /** L'échéance du Pro après ce paiement ; `null` tant qu'il n'est pas réglé. */
+  /** L'échéance du droit acheté après ce paiement ; `null` tant qu'il n'est pas réglé. */
   jusquAu: string | null;
   /** Un écart entre la ligne et la collecte : l'administration doit regarder. */
   aVerifier: boolean;
@@ -257,28 +294,40 @@ export function vueEtat(ligne: FirestorePaiement): EtatPaiement {
   return {
     statut: ligne.statut,
     formule: ligne.formule,
+    droit: ligne.droit,
     montant: ligne.montant,
     jusquAu: ligne.echeance_apres,
     aVerifier: ligne.anomalie !== null,
   };
 }
 
+/** Ce qu'on dit à qui vient de payer, selon ce qu'il a acheté. */
+const ACCUSE: Record<DroitOffre, (date: string) => string> = {
+  pro: (date) => `Tu as KoppaFoot+ jusqu'au ${date}.`,
+  sans_pub: (date) => `Plus de publicité jusqu'au ${date}.`,
+};
+
 /** Le reçu : cloche, téléphone, e-mail. Ne lève jamais, et ne remet rien en cause. */
-async function accuserReception(ligne: FirestorePaiement, jusquAu: string, recuUrl: string | null): Promise<void> {
+async function accuserReception(
+  ligne: FirestorePaiement,
+  droit: DroitOffre,
+  jusquAu: string,
+  recuUrl: string | null,
+): Promise<void> {
   const profil = (await adminDb.collection("users").doc(ligne.uid).get().catch(() => null))?.data() ?? {};
   const email = typeof profil.email === "string" ? profil.email : null;
   await Promise.allSettled([
     notifierCompte(ligne.uid, {
       type: "offre",
       title: "Paiement reçu",
-      body: `Tu es Pro jusqu'au ${dateLongue(jusquAu)}.`,
+      body: ACCUSE[droit](dateLongue(jusquAu)),
       link: "/offre",
     }),
     email
-      ? sendNotificationEmail(email, "Ton reçu KoppaFoot Pro", recuPaiementHtml({
+      ? sendNotificationEmail(email, `Ton reçu ${NOM_OFFRE[droit]}`, recuPaiementHtml({
           prenom: typeof profil.first_name === "string" ? profil.first_name : "",
-          // Appelé pour un achat du Pro seulement (effetPro) : la formule y est toujours.
-          formule: ligne.formule ? libelleFormule(ligne.formule) : "KoppaFoot Pro",
+          formule: ligne.formule ? libelleFormule(ligne.formule) : NOM_OFFRE[droit],
+          droit,
           montant: ligne.montant,
           jusquAu: dateLongue(jusquAu),
           recuUrl,
@@ -316,16 +365,26 @@ export interface EffetPrepare {
  */
 export type Effet = (tx: FirebaseFirestore.Transaction, ligne: FirestorePaiement, c: ContexteEffet) => Promise<EffetPrepare>;
 
-/** L'achat du Pro : la période s'ajoute à la fin en cours (lib/paiement, nouvelleEcheance). */
-const effetPro: Effet = async (tx, ligne, c) => {
+/**
+ * L'achat d'une formule : sa période s'ajoute à la fin en cours du droit
+ * qu'elle accorde (lib/paiement, nouvelleEcheance).
+ *
+ * LE DROIT VIENT DE LA LIGNE, écrite au clic. On ne revérifie pas ici que le
+ * compte y a encore droit : l'argent est reçu. Un manager devenu joueur entre
+ * le clic et le paiement a son KoppaFoot+, limité à ce que son profil ouvre
+ * (lib/offre) ; garder un paiement sans rien donner serait pire.
+ */
+const effetFormule: Effet = async (tx, ligne, c) => {
+  // Une ligne d'avant les deux offres ne porte que `pro`.
+  const droit: DroitOffre = ligne.droit ?? "pro";
   const droitsRef = adminDb.collection("droits").doc(ligne.uid);
-  const actuel = ((await tx.get(droitsRef)).data() as FirestoreDroits | undefined)?.pro ?? null;
+  const actuel = ((await tx.get(droitsRef)).data() as FirestoreDroits | undefined)?.[droit] ?? null;
   const mois = ligne.formule ? FORMULES[ligne.formule].mois : 0;
   const suite = mois > 0 ? nouvelleEcheance(actuel, c.jour, mois) : null;
   if (!suite) {
-    // Un Pro sans échéance a été accordé entre le clic et le paiement : on
-    // ne l'écrase pas. La ligne est payée, sans échéance : l'administration
-    // la voit « payée sans effet » et rembourse à la main.
+    // Le même droit, sans échéance, a été accordé entre le clic et le
+    // paiement : on ne l'écrase pas. La ligne est payée, sans échéance :
+    // l'administration la voit « payée sans effet » et rembourse à la main.
     return { ecrire: () => {}, champs: { echeance_avant: null, echeance_apres: null }, apres: null };
   }
   const accorde: DroitAccorde = {
@@ -333,19 +392,19 @@ const effetPro: Effet = async (tx, ligne, c) => {
     jusqu_au: suite.jusqu_au,
     source: "paiement",
     accorde_par: null,
-    motif: motifAchat("pro", mois, c.environnement),
+    motif: motifAchat(droit, mois, c.environnement),
   };
   return {
-    ecrire: () => tx.set(droitsRef, { pro: accorde, updated_at: FieldValue.serverTimestamp() }, { merge: true }),
+    ecrire: () => tx.set(droitsRef, { [droit]: accorde, updated_at: FieldValue.serverTimestamp() }, { merge: true }),
     champs: {
       echeance_avant: actuel && droitActif(actuel, c.jour) ? actuel.jusqu_au : null,
       echeance_apres: suite.jusqu_au,
     },
-    apres: () => accuserReception(ligne, suite.jusqu_au, c.collecte.recuUrl),
+    apres: () => accuserReception(ligne, droit, suite.jusqu_au, c.collecte.recuUrl),
   };
 };
 
-export const EFFETS: Record<ObjetPaiement, Effet> = { pro: effetPro, acompte: effetAcompte };
+export const EFFETS: Record<ObjetPaiement, Effet> = { pro: effetFormule, acompte: effetAcompte };
 
 /**
  * Règle un paiement : relit sa collecte chez FedaPay et, si elle est payée,
@@ -471,37 +530,54 @@ export async function reverifierPaiementsOuverts(maintenantMs: number = Date.now
   return { revus: recentes.length + perimees.length, payes, fermes };
 }
 
+const RAPPEL: Record<DroitOffre, { marque: string; nom: string; corps: (date: string) => string }> = {
+  pro: {
+    marque: "rappel_pro_le",
+    nom: "Ton KoppaFoot+",
+    corps: (date) => `KoppaFoot+ court jusqu'au ${date}. Tu peux le prolonger dès maintenant : la période s'ajoute à la fin.`,
+  },
+  sans_pub: {
+    marque: "rappel_sans_pub_le",
+    nom: "Ton option Pas de pubs",
+    corps: (date) => `La publicité reste retirée jusqu'au ${date}. Tu peux prolonger dès maintenant : la période s'ajoute à la fin.`,
+  },
+};
+
 /**
- * La tâche du matin : prévenir que le Pro se termine, sept jours avant et la
- * veille.
+ * Prévient de la fin d'un droit acheté, sept jours avant et la veille. Rend le
+ * nombre de rappels envoyés.
  *
- * POUR TOUT PRO QUI A UNE ÉCHÉANCE, d'où qu'il vienne : celui à qui
- * l'administration l'a fait essayer est le premier à convaincre.
+ * SEULEMENT EN RÉEL, et seulement pour une offre en vente : un rappel qui ne
+ * mène à rien à prolonger n'apprend qu'à ignorer les notifications. Chaque
+ * droit a sa marque du jour : la tâche rejouée ne sonne pas deux fois.
  *
- * SEULEMENT S'IL PEUT LE PROLONGER : en réel, et avec une formule en vente.
- * Un rappel sans bouton derrière n'apprend rien à personne.
- *
- * UNE FOIS PAR JOUR : `rappel_pro_le` marque le passage, pour qu'une tâche
- * rejouée ne sonne pas deux fois.
+ * « PAS DE PUBS » NE SE RAPPELLE PAS SOUS KOPPAFOOT+ : tant qu'il court, la
+ * publicité ne revient pas, il n'y a rien à annoncer.
  */
-export async function rappelerEcheancesPro(jour: string = jourDeLome()): Promise<number> {
+export async function rappelerEcheances(jour: string = jourDeLome()): Promise<number> {
   if (!fedapayConfigure() || environnementFedapay() !== "live") return 0;
-  if (formulesEnVente(await lirePrixOffre()).length === 0) return 0;
+  const enVente = new Set(formulesEnVente(await lirePrixOffre()).map((f) => f.droit));
 
   const { demain, dansSeptJours } = joursDeRappel(jour);
-  const snap = await adminDb.collection("droits").where("pro.jusqu_au", "in", [demain, dansSeptJours]).get();
   let rappels = 0;
-  for (const d of snap.docs) {
-    const fin = (d.data() as FirestoreDroits).pro?.jusqu_au;
-    if (!fin || d.get("rappel_pro_le") === jour) continue;
-    await notifierCompte(d.id, {
-      type: "offre",
-      title: fin === demain ? "Ton Pro se termine demain" : "Ton Pro se termine dans 7 jours",
-      body: `KoppaFoot Pro court jusqu'au ${dateLongue(fin)}. Tu peux le prolonger dès maintenant : la période s'ajoute à la fin.`,
-      link: "/offre",
-    });
-    await d.ref.update({ rappel_pro_le: jour });
-    rappels += 1;
+  for (const droit of ["pro", "sans_pub"] as const) {
+    if (!enVente.has(droit)) continue;
+    const { marque, nom, corps } = RAPPEL[droit];
+    const snap = await adminDb.collection("droits").where(`${droit}.jusqu_au`, "in", [demain, dansSeptJours]).get();
+    for (const d of snap.docs) {
+      const droits = d.data() as FirestoreDroits;
+      const fin = droits[droit]?.jusqu_au;
+      if (!fin || d.get(marque) === jour) continue;
+      if (droit === "sans_pub" && estPro(droits, jour)) continue;
+      await notifierCompte(d.id, {
+        type: "offre",
+        title: `${nom} se termine ${fin === demain ? "demain" : "dans 7 jours"}`,
+        body: corps(dateLongue(fin)),
+        link: "/offre",
+      });
+      await d.ref.update({ [marque]: jour });
+      rappels += 1;
+    }
   }
   return rappels;
 }

@@ -559,7 +559,8 @@ function echapper(texte: string): string {
 // ── Paiement ────────────────────────────────────────────────
 
 /**
- * Le reçu d'un achat du Pro : ce qui a été payé, et jusqu'à quand il court.
+ * Le reçu d'un achat, KoppaFoot+ ou « Pas de pubs » : ce qui a été payé, et
+ * jusqu'à quand il court.
  *
  * IL DIT QUE RIEN NE SE RENOUVELLE. C'est la question que se pose quiconque
  * vient de payer en ligne, et la réponse est une promesse des conditions :
@@ -568,6 +569,7 @@ function echapper(texte: string): string {
 export function recuPaiementHtml(p: {
   prenom: string;
   formule: string;
+  droit: "pro" | "sans_pub";
   montant: number;
   jusquAu: string;
   recuUrl: string | null;
@@ -581,10 +583,11 @@ export function recuPaiementHtml(p: {
     <p style="margin:0 0 12px;color:#475569;">${bonjour}</p>
     <p style="margin:0 0 12px;color:#475569;">
       Nous avons bien reçu <strong>${p.montant.toLocaleString("fr-FR")} FCFA</strong> pour
-      <strong>${echapper(p.formule)}</strong>. Ton Pro court jusqu'au <strong>${echapper(p.jusquAu)}</strong> inclus.
+      <strong>${echapper(p.formule)}</strong>. ${p.droit === "sans_pub" ? "La publicité est retirée" : "Ton KoppaFoot+ court"}
+      jusqu'au <strong>${echapper(p.jusquAu)}</strong> inclus.
     </p>
     <p style="margin:0;color:#475569;">Rien ne se renouvelle tout seul : nous te préviendrons avant la fin.</p>
     ${recu}
-    ${ctaButton("Voir mon offre", `${APP_URL}/offre`)}
+    ${ctaButton("Voir sur KoppaFoot", `${APP_URL}/offre`)}
   `);
 }
