@@ -95,6 +95,97 @@ export function limitesEnVigueur(limitesDepuis: string | null | undefined, jour:
   return Boolean(limitesDepuis) && limitesDepuis! <= jour;
 }
 
+// ─── Ce qu'un compte EST, pour l'offre ──────────────────────
+
+/**
+ * Les titres d'un compte : ce qui lui donne quelque chose à gérer.
+ *
+ * KOPPAFOOT+ N'EST PAS POUR TOUT LE MONDE. Il ne sert qu'à qui gère : des
+ * équipes (le manager), des compétitions (l'organisateur), des terrains (le
+ * propriétaire). Un joueur, un arbitre, un spectateur, un scoreur n'y gagnent
+ * que le retrait de la publicité, qui se vend à part (« Pas de pubs »).
+ */
+export interface Titres {
+  manager: boolean;
+  organisateur: boolean;
+  gerant: boolean;
+}
+
+/** Le profil tel que Firestore le range (`users/{uid}`). */
+export interface ProfilPourOffre {
+  user_type?: unknown;
+  evolution_role?: unknown;
+  is_organizer?: unknown;
+  is_venue_owner?: unknown;
+  is_superadmin?: unknown;
+}
+
+/**
+ * Les titres d'un profil.
+ *
+ * UN MANAGER L'EST PAR SON RÔLE, et par lui seul. Le staff d'une équipe n'en
+ * fait pas un manager : c'est un joueur qu'on aide, avec des limites. Une
+ * équipe à son nom sans le rôle, non plus. Le superadmin organise d'office
+ * (lib/hats).
+ */
+export function titresDuProfil(p: ProfilPourOffre | null | undefined): Titres {
+  return {
+    manager: p?.user_type === "manager" || p?.evolution_role === "manager",
+    organisateur: p?.is_organizer === true || p?.is_superadmin === true || p?.user_type === "superadmin",
+    gerant: p?.is_venue_owner === true,
+  };
+}
+
+/** Les mêmes titres, lus sur le profil que le navigateur tient (`UserProfile`). */
+export function titresDuCompte(u: {
+  userType?: unknown; evolutionRole?: unknown; isOrganizer?: unknown; isVenueOwner?: unknown; isSuperAdmin?: unknown;
+} | null | undefined): Titres {
+  return titresDuProfil({
+    user_type: u?.userType,
+    evolution_role: u?.evolutionRole,
+    is_organizer: u?.isOrganizer,
+    is_venue_owner: u?.isVenueOwner,
+    is_superadmin: u?.isSuperAdmin,
+  });
+}
+
+/** KoppaFoot+ se propose à qui porte au moins un titre. */
+export function aDroitAKoppaFootPlus(t: Titres): boolean {
+  return t.manager || t.organisateur || t.gerant;
+}
+
+/**
+ * L'offre qui donne son nom à l'entrée de menu et à la page : KOPPAFOOT+
+ * (`pro`) pour qui y a droit, « Pas de pubs » (`sans_pub`) pour les autres.
+ * Le menu et la page lisent la même fonction : ils ne peuvent pas se contredire.
+ */
+export function offreAffichee(t: Titres): DroitOffre {
+  return aDroitAKoppaFootPlus(t) ? "pro" : "sans_pub";
+}
+
+/** Ce que KoppaFoot+ peut lever : chaque plafond, et le Club multi-équipes. */
+export type Avantage = CleLimite | "club";
+
+const TITRE_REQUIS: Record<Avantage, keyof Titres> = {
+  equipes: "manager",
+  club: "manager",
+  terrains: "gerant",
+  competitions: "organisateur",
+  equipesParCompetition: "organisateur",
+};
+
+/**
+ * KoppaFoot+ lève-t-il cet avantage pour ce compte ?
+ *
+ * IL N'AGIT QUE POUR CE QUE LE COMPTE EST. Un joueur organisateur qui l'a
+ * mène autant de compétitions qu'il veut, mais il n'a ni équipes au-delà du
+ * plafond, ni club. Les titres se cumulent. Le droit lui-même (`estPro`) se
+ * vérifie à part : ceci ne dit que ce qu'il ouvrirait.
+ */
+export function koppaFootPlusLeve(t: Titres, avantage: Avantage): boolean {
+  return t[TITRE_REQUIS[avantage]];
+}
+
 /** Le code que les routes renvoient quand une limite bloque une création. */
 export const CODE_LIMITE = "limite_offre";
 
