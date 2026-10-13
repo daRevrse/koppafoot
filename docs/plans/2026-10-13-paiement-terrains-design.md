@@ -1,7 +1,7 @@
 # Design : Le paiement mobile, lot 2 — frais de réservation de terrain, ticket et battement
 
 **Date :** 2026-10-13
-**Statut :** Design à valider. Branche `feat/paiement-terrains`, partie de `feat/paiement-fedapay` (le lot 1, non fusionné, dont ce lot réutilise le socle).
+**Statut :** Design validé par le fondateur le 2026-10-13, à implémenter (temps 1). Branche `feat/paiement-terrains`, partie de `feat/paiement-fedapay` (le lot 1, non fusionné, dont ce lot réutilise le socle).
 
 ## Le problème
 
@@ -21,7 +21,9 @@ Un seul circuit d'argent pour les terrains :
 
 Exemple, terrain à 10 000 FCFA : 500 d'acompte dans l'application (plus les frais de paiement), 9 500 en liquide le jour du match.
 
-Ce modèle remplace celui de la vidéo, où les frais s'ajoutaient au tarif et étaient remboursés si le match avait lieu. Ici ils font partie du prix : dans le parcours normal, aucun argent ne retourne vers l'équipe.
+La vidéo, déjà publiée, dit que les frais s'ajoutent au tarif et sont « remboursés si le match a lieu ». Ici ils font partie du prix, et sont déduits de ce que l'équipe règle sur place. **Pour l'équipe c'est le même argent** : payer 500 puis 9 500 revient à payer 10 000 et se faire rendre 500. Mais dans le parcours normal, aucun argent ne retourne vers elle, et c'est ce qui rend le circuit simple.
+
+Le paiement de tout le prix dans l'application, un temps envisagé comme option du gérant, est **écarté** : il ne rapprochait pas le produit de la vidéo, et ramenait vingt fois plus d'argent en transit, un versement du revenu principal du gérant à trois jours, et des frais de paiement sur tout le prix.
 
 ## Ce que le compte FedaPay permet (constaté en bac à sable le 2026-10-13)
 
@@ -139,7 +141,8 @@ Le propriétaire peut aujourd'hui modifier depuis son navigateur n'importe quel 
 - **Conditions** (rôle « Gérant de terrain ») : sur un terrain qui l'a activé, KoppaFoot encaisse les frais de réservation, 5 % du prix, pour le compte du gérant et les lui reverse ; le reste se règle sur place ; KoppaFoot ne prend aucune commission. L'acompte reste acquis au gérant si l'équipe annule ou ne vient pas ; il est rendu si le gérant annule.
 - **Confidentialité** : FedaPay sert aussi aux frais de réservation ; KoppaFoot garde le numéro de versement du gérant.
 - **« La plateforme n'encaisse rien »** est écrit à six endroits (`/terrains`, « Mes terrains », l'accueil de l'inscription propriétaire, deux commentaires, la demande de créneau) : à reprendre.
-- **La vidéo des terrains** décrit l'ancien modèle (frais en plus, remboursés si le match a lieu). Son README doit dire le nouveau ; la vidéo elle-même est à refaire, hors de ce lot.
+- **L'application reprend les mots de la vidéo**, pour qu'elle reste valable sans être refaite. Partout où les frais sont annoncés à l'équipe : « Frais de réservation : 500 FCFA. Remboursés si le match a lieu : ils sont déduits de ce que tu règles sur place. » Au propriétaire : « Ton prix reste ton prix. »
+- **Le README de la vidéo** dit ce que l'application fait réellement, et les deux écarts qui restent : la vidéo montre l'équipe payer avant la confirmation du propriétaire (ici, après), et prend 2 000 FCFA en exemple (ici, 5 % du prix).
 
 ## Ordre de construction
 
