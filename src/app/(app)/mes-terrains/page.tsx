@@ -18,6 +18,7 @@ import { alleger, poidsLisible, REGLAGES } from "@/lib/images";
 import type { Venue, Booking, HorairesOuverture } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
 import { apercuRetrait, lireReglageContact, reglerContact, retirerTerrain } from "@/lib/terrains-client";
+import { PaiementTerrain } from "@/components/venue/PaiementTerrain";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, aujourdhui,
 } from "@/lib/terrains";
@@ -373,7 +374,7 @@ function Formulaire({
         label="Tarif horaire (FCFA)"
         htmlFor="v-prix"
         optionnel
-        aide="Laissé vide, la fiche affiche « prix à convenir ». La plateforme n'encaisse rien : le règlement se fait entre toi et l'équipe."
+        aide="Laissé vide, la fiche affiche « prix à convenir ». Il sert aussi de base aux frais de réservation, si tu les actives : 5 % du prix du créneau."
       >
         <input
           id="v-prix"
@@ -581,6 +582,8 @@ function CarteTerrain({
           Il manque {aCompleter.join(", ")}. Une fiche complète est choisie plus souvent.
         </p>
       )}
+
+      <PaiementTerrain venueId={v.id} tarif={v.pricePerHour} />
     </article>
   );
 }

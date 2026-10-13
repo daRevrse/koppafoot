@@ -46,6 +46,8 @@ export interface TerrainListe {
   fieldSize: string | null;
   fieldSurface: string | null;
   pricePerHour: number;
+  /** Ce que le terrain garde après chaque créneau, en minutes. */
+  battementMin?: number;
   amenities: string[];
   /** La photo principale d'abord, puis la galerie ; vide sans photo. */
   photos: string[];
@@ -333,7 +335,7 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
       // pris, et ceux qui ne prennent pas de demande du tout.
       if (creneau) {
         if (!t.available) return false;
-        const { ouvert, libre } = libreA(t.horaires, t.occupations, creneau);
+        const { ouvert, libre } = libreA(t.horaires, t.occupations, creneau, t.battementMin ?? 0);
         if (!ouvert || !libre) return false;
       }
       if (!besoin) return true;

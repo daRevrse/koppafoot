@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { suivreReservation } from "@/lib/reglement-serveur";
 import {
   ErreurReservation, annoncer, appelant, synchroniserTerrain, type Annonce,
 } from "@/lib/reservations-server";
@@ -48,6 +49,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ cid: st
         mids.slice(i, i + EN_PARALLELE).map(async (mid) => {
           try {
             reservations[mid] = await synchroniserTerrain({ mid, cid }, uid, annonces);
+            // Confirmée sur un terrain qui fait payer ses frais : son règlement s'ouvre.
+            const idReservation = reservations[mid]?.booking_id;
+            if (idReservation) {
+              await suivreReservation(idReservation).catch((err) => console.error("[reglement] suivi du match:", mid, err));
+            }
           } catch (err) {
             // Un refus d'accès vaut pour toute la compétition : on s'arrête.
             if (err instanceof ErreurReservation) throw err;

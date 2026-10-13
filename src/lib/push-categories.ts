@@ -72,6 +72,9 @@ export function categorieDuType(type: NotificationType): PushCategory {
     // L'arbitrage aussi : on t'invite, on te répond, on se désiste — c'est à
     // toi qu'on parle, jamais une annonce.
     case "arbitrage":
+    // Le reçu d'un paiement et le rappel d'une échéance : on parle de ton
+    // argent. Les ranger en annonces les ferait taire chez qui a coupé la pub.
+    case "offre":
       return "perso";
     case "team_activity":
       return "equipe";

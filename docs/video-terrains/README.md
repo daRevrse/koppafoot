@@ -16,29 +16,25 @@ Contrairement aux autres vidéos du dossier `docs/`, celle-ci ne contient **aucu
 | 21,9 – 26,6 s | **4 · Garde tout.** « 0 % de commission » ; le ticket : ton tarif, ce que KoppaFoot prend (0 FCFA), ce qui te revient. Les frais s'ajoutent au tarif. |
 | 26,6 – 30 s | Fin : le stade allumé, logo, « Sans pelouse, pas de match. », « Référence ton terrain », koppafoot.com/terrains, « Ton premier terrain est gratuit » |
 
-## Elle annonce une fonctionnalité à venir
+## Ce que l'application fait, et ce que la vidéo simplifie
 
-La vidéo présente le modèle de réservation voulu :
+La vidéo a été publiée avant la fonctionnalité. L'application fait ce qu'elle promet, à deux raccourcis près.
 
-- l'équipe paie par **paiement mobile** des **frais de réservation**, en plus du tarif ;
-- ces frais lui sont **remboursés si le match a lieu** ;
-- si l'équipe ne vient pas, ils **reviennent au propriétaire** ;
-- KoppaFoot prend **0 % de commission** sur les réservations.
+**Ce qui est vrai tel quel :**
 
-**L'application ne fait pas encore tout cela.** Aujourd'hui, la page `/terrains` dit que « la plateforme n'encaisse rien », et le règlement se fait entre le propriétaire et l'équipe. La vidéo est donc à publier une fois le paiement mobile en service, ou en annonçant « bientôt ». Il faudra aussi mettre la page `/terrains` à jour.
+- l'équipe paie des **frais de réservation** par **paiement mobile** ;
+- si l'équipe ne vient pas, ils **reviennent au propriétaire** : « fini les lapins » ;
+- KoppaFoot prend **0 % de commission**, et « ton prix reste ton prix » ;
+- un terrain se référence gratuitement (`LIMITES_GRATUIT.terrains`, dans `lib/offre`).
 
-Les autres promesses sont déjà dans le produit :
+**« Remboursés si le match a lieu » :** dans l'application, les frais font partie du prix. Si le match a lieu, ils sont déduits de ce que l'équipe règle sur place : pour elle, c'est le même argent. L'application reprend la formule de la vidéo et la précise : « Remboursés si le match a lieu : ils sont déduits de ce que tu règles sur place. »
 
-- l'annuaire filtrable par ville, format et surface ;
-- la demande de créneau que le propriétaire confirme ;
-- un terrain référencé avec l'offre gratuite (`LIMITES_GRATUIT.terrains`, dans `lib/offre`).
+**Les deux raccourcis :**
 
-Deux choix restent faciles à changer :
+- la vidéo montre l'équipe **payer, puis le propriétaire confirmer**. Dans l'application c'est l'inverse : le propriétaire confirme, puis l'équipe paie. Un refus ne déplace ainsi aucun argent ;
+- la vidéo prend **2 000 FCFA** en exemple (`FRAIS`, en haut du script de `source/animation.html`). Dans l'application, les frais valent **5 % du prix du créneau**.
 
-- **Le montant des frais** : 2 000 FCFA dans la vidéo, un exemple. Il est réglé par `FRAIS`, en haut du script de `source/animation.html`.
-- **À qui vont les frais d'une équipe absente** : au propriétaire, en dédommagement du créneau perdu. Si la règle change, il faut modifier la carte « L'équipe ne vient pas » (`#i-non`).
-
-Le terrain des Cocotiers, son tarif, sa note et les équipes du planning sont fictifs. L'Avenir d'Adakpamé et l'Olympique de Tokoin sont ceux des autres vidéos. Aucun opérateur de paiement n'est nommé : l'écran dit « Paiement mobile ».
+Le reste du prix se règle en liquide chez le propriétaire, et un **ticket** (un code et un QR code) prouve sur place que les frais ont été payés. Le détail est dans `docs/plans/2026-10-13-paiement-terrains-design.md`.
 
 ## Ajouter une musique
 

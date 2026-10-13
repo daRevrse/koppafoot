@@ -12,6 +12,8 @@ import { onBookingsByOwner, onVenuesByOwner } from "@/lib/firestore";
 import { agirSurReservation, bloquerCreneau } from "@/lib/reservations-client";
 import { isVenueOwner } from "@/lib/hats";
 import PlanningSemaine from "@/components/venue/PlanningSemaine";
+import { FraisDus } from "@/components/venue/FraisDus";
+import { ValiderTicket } from "@/components/venue/ValiderTicket";
 import type { Booking, PropositionCreneau, Venue } from "@/types";
 import {
   dateLongue, duree, finCreneau, aujourdhui, seChevauchent, jourDe, plusSemaines,
@@ -210,6 +212,17 @@ function Refus({
   );
 }
 
+/** Où en sont les frais de réservation, d'après la copie d'affichage de la réservation. */
+const FRAIS: Record<string, { label: string; ton: Ton }> = {
+  acompte_attendu: { label: "Frais attendus", ton: "attente" },
+  acompte_paye: { label: "Frais payés", ton: "ok" },
+  joue: { label: "Joué · frais dus", ton: "ok" },
+  absent: { label: "Absence · frais dus", ton: "refus" },
+  annule_equipe: { label: "Annulé par l'équipe", ton: "neutre" },
+  annule_proprietaire: { label: "Frais rendus", ton: "neutre" },
+  libere: { label: "Frais non payés", ton: "neutre" },
+};
+
 function Ligne({
   b,
   conflit,
@@ -286,6 +299,9 @@ function Ligne({
           ) : (
             <>
               {blocage ? <Fanion ton="neutre">Bloqué</Fanion> : <Fanion ton={etat.ton}>{etat.label}</Fanion>}
+              {!blocage && b.reglementVu && FRAIS[b.reglementVu] && (
+                <Fanion ton={FRAIS[b.reglementVu].ton}>{FRAIS[b.reglementVu].label}</Fanion>
+              )}
               {b.status === "confirmed" && aVenir && (
                 <button
                   type="button"
@@ -315,6 +331,10 @@ function Ligne({
         <p className="mt-3 border-l-2 border-emerald-500 bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-700">
           {b.message}
         </p>
+      )}
+
+      {(b.reglementVu === "joue" || b.reglementVu === "absent" || b.reglementVu === "annule_equipe") && (
+        <FraisDus reservationId={b.id} />
       )}
 
       {!blocage && <Contact b={b} />}
@@ -535,11 +555,12 @@ export default function ReservationsRecuesPage() {
   const conflits = useMemo(() => {
     const map = new Map<string, Booking>();
     for (const b of attente) {
-      const heurt = confirmees.find((c) => c.venueId === b.venueId && seChevauchent(c, b));
+      const battement = terrains.find((t) => t.id === b.venueId)?.battementMin ?? 0;
+      const heurt = confirmees.find((c) => c.venueId === b.venueId && seChevauchent(c, b, battement));
       if (heurt) map.set(b.id, heurt);
     }
     return map;
-  }, [attente, confirmees]);
+  }, [attente, confirmees, terrains]);
 
   if (authLoading) return <EnCours hauteur="h-[60vh] items-center" />;
   if (!user) return null;
@@ -665,6 +686,8 @@ export default function ReservationsRecuesPage() {
         titre="Réservations reçues"
         compteur={attente.length > 0 ? { valeur: attente.length, libelle: "en attente" } : undefined}
       />
+
+      {terrains.some((t) => t.paiementApp) && <ValiderTicket />}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         {terrains.length > 0 && !blocage ? (

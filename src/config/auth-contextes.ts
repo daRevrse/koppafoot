@@ -41,7 +41,7 @@ export const CONTEXTES_AUTH: Record<string, ContexteAuth> = {
     marque: "MyFields",
     accroche: "Sans pelouse, pas de match",
     promesse:
-      "Référence ton terrain, reçois les demandes de créneau des équipes, et réponds-y. La plateforme n'encaisse rien : le règlement reste entre vous.",
+      "Référence ton terrain, reçois les demandes de créneau des équipes, et réponds-y. KoppaFoot ne prend aucune commission.",
     titreConnexion: "Référencer un terrain",
     phraseConnexion: "Un compte d'abord, la fiche de ton terrain se saisit ensuite.",
     titreInscription: "Référencer un terrain",

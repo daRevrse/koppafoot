@@ -69,7 +69,7 @@ const PREUVES: { Icon: typeof Search; titre: string; corps: string }[] = [
     Icon: Wallet,
     titre: "Payé entre vous",
     corps:
-      "La plateforme n'encaisse rien et ne prend aucune commission. Tu annonces ton tarif, le règlement reste ton affaire.",
+      "KoppaFoot ne prend aucune commission. Tu annonces ton tarif ; si tu le veux, l'équipe paie 5 % de frais de réservation dans l'application pour bloquer son créneau, ils te sont reversés, et le reste se règle chez toi. Ton prix reste ton prix.",
   },
 ];
 

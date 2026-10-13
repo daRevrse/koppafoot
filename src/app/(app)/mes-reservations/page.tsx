@@ -6,7 +6,8 @@ import { CalendarDays, MapPin, Search, Swords, CalendarCheck } from "lucide-reac
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { onBookingsByUser } from "@/lib/firestore";
-import { agirSurReservation } from "@/lib/reservations-client";
+import { agirSurReservation, appeler } from "@/lib/reservations-client";
+import { ReglementEquipe, RetourPaiement, useReglements } from "@/components/venue/ReglementEquipe";
 import type { Booking } from "@/types";
 import { dateLongue, duree, finCreneau, aujourdhui } from "@/lib/terrains";
 import {
@@ -39,6 +40,12 @@ import {
 //
 // LA RÉSERVATION D'UN MATCH NE S'ANNULE PAS ICI. Elle suit le match : c'est
 // en le déplaçant, en changeant de terrain ou en l'annulant qu'on la libère.
+//
+// LES FRAIS DE RÉSERVATION SE PAIENT ICI. Sur un terrain qui les demande, une
+// réservation confirmée affiche ce qu'il reste à payer, puis le ticket à
+// montrer au gérant (voir components/venue/ReglementEquipe). La liste ne lit
+// que la copie d'affichage de la réservation ; les montants et le ticket
+// viennent du serveur.
 // ============================================
 
 const ETATS: Record<string, { label: string; ton: Ton; sens: string }> = {
@@ -58,6 +65,18 @@ export default function MyBookingsPage() {
     if (!user) return;
     return onBookingsByUser(user.uid, setDemandes);
   }, [user]);
+
+  // Les frais de réservation des créneaux confirmés, lus au serveur. Ici et pas
+  // dans `Ligne` : elle est recréée à chaque rendu de la page.
+  const reglements = useReglements(demandes ?? []);
+
+  // Revenu de la page de paiement par le bouton « retour » du navigateur : le
+  // bouton « Payer » ne doit pas rester grisé.
+  useEffect(() => {
+    const revenir = (e: PageTransitionEvent) => { if (e.persisted) setAgit(null); };
+    window.addEventListener("pageshow", revenir);
+    return () => window.removeEventListener("pageshow", revenir);
+  }, []);
 
   const today = aujourdhui();
 
@@ -117,13 +136,33 @@ export default function MyBookingsPage() {
     }
   };
 
+  const payer = async (b: Booking, telephone?: string) => {
+    setAgit(b.id);
+    try {
+      // Le montant n'est pas envoyé : le serveur le lit dans le règlement.
+      const { url } = await appeler<{ url: string }>(
+        "/api/paiements", "POST", { objet: "acompte", reservation: b.id, telephone },
+      );
+      window.location.assign(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Paiement indisponible pour l'instant.");
+      setAgit(null);
+    }
+  };
+
   const Ligne = ({ b, annulable }: { b: Booking; annulable: boolean }) => {
     const base = ETATS[b.status] ?? ETATS.pending;
     // « Annulé » ne dit pas qui : un refus du propriétaire n'est pas un
     // désistement, et le distinguer dit à l'équipe s'il faut chercher ailleurs.
     const etat = b.status !== "cancelled" ? base
       : b.cancelledBy === "proprietaire" ? { ...base, label: "Refusé", sens: "Le propriétaire n'a pas retenu ce créneau." }
-      : b.cancelledBy === "systeme" ? { ...base, label: "Libéré", sens: "Le match a changé : ce créneau s'est libéré." }
+      : b.cancelledBy === "systeme" ? {
+        ...base,
+        label: "Libéré",
+        sens: b.reglementVu === "libere"
+          ? "Les frais de réservation n'ont pas été payés à temps : le créneau s'est libéré."
+          : "Le match a changé : ce créneau s'est libéré.",
+      }
       : { ...base, sens: "Tu as annulé cette demande." };
     const offre = b.status === "cancelled" && b.proposition && b.proposition.date >= today ? b.proposition : null;
     return (
@@ -173,6 +212,14 @@ export default function MyBookingsPage() {
               )}
             </div>
           )}
+          {b.reglementVu && (
+            <ReglementEquipe
+              etat={b.reglementVu}
+              vue={reglements[b.id]}
+              occupe={agit === b.id}
+              onPayer={(telephone) => void payer(b, telephone)}
+            />
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
@@ -201,6 +248,7 @@ export default function MyBookingsPage() {
           { label: "Mes réservations" },
         ]}
       />
+      <RetourPaiement />
 
       <Panneau
         surtitre="Terrains"

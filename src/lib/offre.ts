@@ -1,10 +1,11 @@
 // ============================================
 // L'offre : ce que l'usage gratuit permet, et ce que KoppaFoot Pro lève.
 //
-// DES DROITS AVANT LE PAIEMENT. Rien ne s'achète encore : l'administration
-// accorde le Pro (ou l'option sans pub) à la main, pour une durée, à qui elle
-// veut le faire essayer. Le jour où le paiement mobile money arrivera, il
-// écrira le même document (`source: "paiement"`), et rien d'autre ne changera.
+// UN SEUL DOCUMENT DIT QUI EST PRO, d'où que le droit vienne. L'administration
+// l'accorde à la main (`source: "admin"`), pour une durée, à qui elle veut le
+// faire essayer ; un achat par mobile money écrit le même document
+// (`source: "paiement"`, voir lib/paiement). Rien d'autre ne distingue les
+// deux : les limites, le club, le sans pub lisent ce document et lui seul.
 //
 // CE QUI EST LIMITÉ, ET SEULEMENT ÇA. De la capacité, jamais le droit de
 // jouer : le nombre d'équipes qu'on gère, de terrains qu'on référence, de
@@ -46,7 +47,7 @@ export interface DroitAccorde {
   depuis: string;
   /** Dernière journée, incluse ; `null` = sans échéance. */
   jusqu_au: string | null;
-  /** « admin » aujourd'hui ; « paiement » le jour où l'on encaissera. */
+  /** « admin » : accordé à la main ; « paiement » : acheté (lib/paiement). */
   source: "admin" | "paiement";
   accorde_par: string | null;
   /** Une phrase pour l'administration : « testeur, Coupe de Bè ». */
@@ -67,6 +68,8 @@ export interface FirestoreDroits {
 export interface FirestoreReglageOffre {
   /** À partir de ce jour, les limites s'appliquent ; `null` = pas encore. */
   limites_depuis: string | null;
+  /** Le prix de chaque formule, en XOF ; vide = pas en vente (lib/paiement). */
+  prix?: { pro_mois?: number | null; pro_an?: number | null };
   updated_by: string | null;
   updated_at: unknown;
 }

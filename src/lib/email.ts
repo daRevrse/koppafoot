@@ -555,3 +555,36 @@ function echapper(texte: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+// ── Paiement ────────────────────────────────────────────────
+
+/**
+ * Le reçu d'un achat du Pro : ce qui a été payé, et jusqu'à quand il court.
+ *
+ * IL DIT QUE RIEN NE SE RENOUVELLE. C'est la question que se pose quiconque
+ * vient de payer en ligne, et la réponse est une promesse des conditions :
+ * une période, pas un abonnement.
+ */
+export function recuPaiementHtml(p: {
+  prenom: string;
+  formule: string;
+  montant: number;
+  jusquAu: string;
+  recuUrl: string | null;
+}): string {
+  const bonjour = p.prenom.trim() ? `Bonjour ${echapper(p.prenom.trim())},` : "Bonjour,";
+  const recu = p.recuUrl && p.recuUrl.startsWith("https://")
+    ? `<p style="margin:16px 0 0;"><a href="${echapper(p.recuUrl)}" style="color:#059669;">Le reçu FedaPay</a></p>`
+    : "";
+  return emailLayout(`
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e293b;">Paiement reçu</h2>
+    <p style="margin:0 0 12px;color:#475569;">${bonjour}</p>
+    <p style="margin:0 0 12px;color:#475569;">
+      Nous avons bien reçu <strong>${p.montant.toLocaleString("fr-FR")} FCFA</strong> pour
+      <strong>${echapper(p.formule)}</strong>. Ton Pro court jusqu'au <strong>${echapper(p.jusquAu)}</strong> inclus.
+    </p>
+    <p style="margin:0;color:#475569;">Rien ne se renouvelle tout seul : nous te préviendrons avant la fin.</p>
+    ${recu}
+    ${ctaButton("Voir mon offre", `${APP_URL}/offre`)}
+  `);
+}

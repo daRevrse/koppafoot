@@ -133,3 +133,30 @@ export function buildFirestoreUser(
 
   return base;
 }
+
+/**
+ * Crée le profil d'un compte SI LE SERVEUR DIT QU'IL N'EN A PAS, et le rend.
+ *
+ * « Pas de profil » se décidait sur une lecture ordinaire, qui peut échouer
+ * ou venir du cache de l'appareil : réseau coupé, cache local périmé, SDK
+ * planté dans l'onglet. Le compte était alors envoyé sur le formulaire des
+ * nouveaux inscrits, qui réécrivait le profil entier. Les règles le refusent
+ * (un profil ne réécrit ni son e-mail, ni son rôle, ni sa date de création),
+ * et le compte restait devant un formulaire qu'il ne pouvait pas valider.
+ *
+ * `lireAuServeur` doit lire AU SERVEUR, jamais dans le cache : `null` quand le
+ * profil n'existe pas, une erreur quand le serveur ne répond pas. Dans ce
+ * second cas on ne crée rien : on ne sait pas.
+ */
+export async function garantirProfil<P>(deps: {
+  lireAuServeur: () => Promise<P | null>;
+  creer: () => Promise<void>;
+}): Promise<{ profil: P; cree: boolean }> {
+  const dejaLa = await deps.lireAuServeur();
+  if (dejaLa) return { profil: dejaLa, cree: false };
+
+  await deps.creer();
+  const profil = await deps.lireAuServeur();
+  if (!profil) throw new Error("Le profil n'a pas pu être créé.");
+  return { profil, cree: true };
+}

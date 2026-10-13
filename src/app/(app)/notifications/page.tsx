@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 import {
   Bell, CheckCheck, ChevronRight, Inbox, Loader2, Megaphone,
   Swords, ClipboardCheck, UserPlus, Users, Star, CalendarClock,
-  CalendarPlus, CalendarCheck, MapPin, Flag, MessageCircle,
+  CalendarPlus, CalendarCheck, MapPin, Flag, MessageCircle, Gem,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { Notification, NotificationType } from "@/types";
@@ -42,6 +42,7 @@ const TYPE_META: Record<
   venue_application:     { label: "Terrain",     Icon: MapPin,         tone: "bg-emerald-50 text-emerald-600" },
   arbitrage:             { label: "Arbitrage",   Icon: Flag,           tone: "bg-violet-50 text-violet-600" },
   tribune_comment:       { label: "Tribune",     Icon: MessageCircle,  tone: "bg-primary-50 text-primary-600" },
+  offre:                 { label: "Offre",       Icon: Gem,            tone: "bg-emerald-50 text-emerald-600" },
 };
 
 const FILTERS = [

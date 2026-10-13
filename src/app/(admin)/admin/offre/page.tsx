@@ -6,19 +6,26 @@ import { Loader2, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   BOUTON_CONTOUR, BOUTON_VERT, Carte, Chargement, Chiffre, EnTete, Erreur, MenuActions, Modale, Pastille, Titre, Vide,
+  type Ton,
 } from "@/components/admin/ui";
 import { LIMITES_GRATUIT, limitesEnVigueur, type CleLimite, type DroitOffre } from "@/lib/offre";
+import { ID_FORMULES, PRIX_PLANCHER, type IdFormule, type PrixOffre, type StatutPaiement } from "@/lib/paiement";
 
 // ============================================
 // Admin, l'offre.
 //
-// Deux gestes, tant que rien ne s'achète :
+// Quatre gestes :
 //
 // - FIXER LA DATE D'ENTRÉE EN VIGUEUR des limites de l'offre gratuite. Avant
 //   elle, personne n'est limité. Les conditions d'utilisation promettent de
 //   prévenir : la date se fixe donc à l'avance, et s'annonce.
+// - FIXER LES PRIX du Pro. Une formule est en vente dès qu'elle a un prix ;
+//   vider les deux ferme la vente sur-le-champ.
 // - ACCORDER LE PRO (ou l'option sans pub) à la main, pour une durée, à qui
 //   on veut le faire essayer : un organisateur, un gérant, un club.
+// - SUIVRE LES PAIEMENTS, et revérifier celui d'un client qui dit avoir payé :
+//   la relecture chez FedaPay accorde le Pro si le paiement a bien abouti,
+//   et seulement dans ce cas.
 // ============================================
 
 interface VueDroit {
@@ -36,6 +43,46 @@ interface Compte {
   pro: VueDroit | null;
   sansPub: VueDroit | null;
 }
+
+interface VuePaiement {
+  id: string;
+  nom: string;
+  email: string | null;
+  /** `null` : des frais de réservation de terrain, pas une formule. */
+  formule: IdFormule | null;
+  montant: number;
+  statut: StatutPaiement;
+  environnement: "sandbox" | "live";
+  fedapayStatut: string | null;
+  mode: string | null;
+  anomalie: string | null;
+  echeanceApres: string | null;
+  creeLe: string | null;
+}
+
+interface Donnees {
+  jour: string;
+  limitesDepuis: string | null;
+  prix: PrixOffre;
+  fedapay: { configure: boolean; environnement: "sandbox" | "live" };
+  comptes: Compte[];
+}
+
+const LIBELLE_FORMULE: Record<IdFormule, string> = { pro_mois: "Pro, 1 mois", pro_an: "Pro, 1 an" };
+
+const STATUT_PAIEMENT: Record<StatutPaiement, { label: string; ton: Ton }> = {
+  paye: { label: "Payé", ton: "vert" },
+  en_attente: { label: "En attente", ton: "ambre" },
+  echoue: { label: "Refusé", ton: "gris" },
+  annule: { label: "Annulé", ton: "gris" },
+  expire: { label: "Expiré", ton: "gris" },
+};
+
+/** Les prix rangés, tels qu'on les saisit : vide quand la formule n'est pas en vente. */
+const versSaisie = (prix: PrixOffre): Record<IdFormule, string> => ({
+  pro_mois: prix.pro_mois === null ? "" : String(prix.pro_mois),
+  pro_an: prix.pro_an === null ? "" : String(prix.pro_an),
+});
 
 const LIBELLE_LIMITE: Record<CleLimite, string> = {
   equipes: "Équipes gérées par un manager",
@@ -81,15 +128,18 @@ function PastilleDroit({ nom, droit }: { nom: string; droit: VueDroit | null }) 
 
 export default function AdminOffrePage() {
   const { firebaseUser } = useAuth();
-  const [donnees, setDonnees] = useState<{ jour: string; limitesDepuis: string | null; comptes: Compte[] } | null>(null);
+  const [donnees, setDonnees] = useState<Donnees | null>(null);
+  const [paiements, setPaiements] = useState<VuePaiement[]>([]);
+  const [saisiePrix, setSaisiePrix] = useState<Record<IdFormule, string>>({ pro_mois: "", pro_an: "" });
+  const [revue, setRevue] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [date, setDate] = useState("");
   const [accord, setAccord] = useState<{ compte: string; droit: DroitOffre; duree: string; date: string; motif: string } | null>(null);
   const [envoi, setEnvoi] = useState(false);
 
-  const appel = useCallback(async (method: string, corps?: unknown) => {
+  const appel = useCallback(async (method: string, corps?: unknown, url = "/api/admin/offre") => {
     if (!firebaseUser) throw new Error("Session expirée");
-    const rep = await fetch("/api/admin/offre", {
+    const rep = await fetch(url, {
       method,
       headers: { Authorization: `Bearer ${await firebaseUser.getIdToken()}`, ...(corps ? { "Content-Type": "application/json" } : {}) },
       body: corps ? JSON.stringify(corps) : undefined,
@@ -102,9 +152,14 @@ export default function AdminOffrePage() {
   const charger = useCallback(async () => {
     setErreur(null);
     try {
-      const d = await appel("GET");
+      const [d, p] = await Promise.all([
+        appel("GET") as Promise<Donnees>,
+        appel("GET", undefined, "/api/admin/paiements") as Promise<{ paiements: VuePaiement[] }>,
+      ]);
       setDonnees(d);
       setDate(d.limitesDepuis ?? "");
+      setSaisiePrix(versSaisie(d.prix));
+      setPaiements(p.paiements);
     } catch (e) {
       setErreur(e instanceof Error ? e.message : "Chargement impossible");
     }
@@ -159,17 +214,52 @@ export default function AdminOffrePage() {
     }
   };
 
+  const enregistrerPrix = async () => {
+    const prix: Record<string, number | null> = {};
+    for (const id of ID_FORMULES) {
+      const brut = saisiePrix[id].trim();
+      // Vérifié ici aussi : `Number("abc")` vaut NaN, que JSON écrit `null`,
+      // et le serveur y lirait « pas en vente » sans rien dire.
+      if (brut !== "" && (!/^\d+$/.test(brut) || Number(brut) < PRIX_PLANCHER)) {
+        toast.error(`${LIBELLE_FORMULE[id]} : un nombre entier d'au moins ${PRIX_PLANCHER} FCFA, ou vide.`);
+        return;
+      }
+      prix[id] = brut === "" ? null : Number(brut);
+    }
+    try {
+      await appel("PUT", { prix });
+      toast.success(Object.values(prix).some((p) => p !== null) ? "Prix enregistrés" : "Vente fermée");
+      await charger();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Enregistrement impossible");
+    }
+  };
+
+  const reverifier = async (id: string) => {
+    setRevue(id);
+    try {
+      const etat = (await appel("POST", { id }, "/api/admin/paiements")) as { statut: StatutPaiement };
+      toast.success(etat.statut === "paye" ? "Paiement confirmé, Pro accordé" : `Chez FedaPay : ${STATUT_PAIEMENT[etat.statut].label.toLowerCase()}`);
+      await charger();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Revérification impossible");
+    } finally {
+      setRevue(null);
+    }
+  };
+
   if (erreur) return <Erreur message={erreur} onReessayer={charger} />;
   if (!donnees) return <Chargement />;
 
   const enVigueur = limitesEnVigueur(donnees.limitesDepuis, donnees.jour);
   const joursAvant = date ? Math.round((Date.parse(date) - Date.parse(donnees.jour)) / 864e5) : null;
+  const prixInchanges = ID_FORMULES.every((id) => saisiePrix[id].trim() === versSaisie(donnees.prix)[id]);
 
   return (
     <div className="space-y-6">
       <EnTete
         titre="Offre"
-        sousTitre="Les limites de l'offre gratuite, et les comptes à qui l'on fait essayer KoppaFoot Pro. Rien ne s'achète encore."
+        sousTitre="Les limites de l'offre gratuite, les prix de KoppaFoot Pro, les comptes qui l'ont, et les paiements."
         actions={
           <button
             onClick={() => setAccord({ compte: "", droit: "pro", duree: "3", date: "", motif: "" })}
@@ -236,6 +326,36 @@ export default function AdminOffrePage() {
       </section>
 
       <section>
+        <Titre>Vente de KoppaFoot Pro</Titre>
+        <Carte className="space-y-3 px-4 py-4">
+          <p className="text-sm text-gray-600">
+            {!donnees.fedapay.configure
+              ? <>La clé FedaPay n&apos;est pas configurée : rien n&apos;est en vente, quels que soient les prix.</>
+              : donnees.fedapay.environnement === "live"
+                ? <>Une formule est en vente dès qu&apos;elle a un prix. Vide les deux pour fermer la vente.</>
+                : <><strong>Bac à sable.</strong> Seuls les administrateurs voient les formules, et l&apos;argent est fictif.</>}
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            {ID_FORMULES.map((id) => (
+              <label key={id}>
+                <span className={ETIQUETTE}>{LIBELLE_FORMULE[id]} (FCFA)</span>
+                <input
+                  inputMode="numeric"
+                  value={saisiePrix[id]}
+                  onChange={(e) => setSaisiePrix({ ...saisiePrix, [id]: e.target.value })}
+                  placeholder="Pas en vente"
+                  className={CHAMP}
+                />
+              </label>
+            ))}
+            <button onClick={() => void enregistrerPrix()} disabled={prixInchanges} className={BOUTON_VERT}>
+              Enregistrer
+            </button>
+          </div>
+        </Carte>
+      </section>
+
+      <section>
         <Titre compte={donnees.comptes.length}>Comptes avec un droit</Titre>
         {donnees.comptes.length === 0 ? (
           <Vide titre="Personne pour l'instant" texte="Accorde le Pro à un organisateur ou un gérant pour le lui faire essayer." />
@@ -265,6 +385,48 @@ export default function AdminOffrePage() {
                 />
               </div>
             ))}
+          </Carte>
+        )}
+      </section>
+
+      <section>
+        <Titre compte={paiements.length}>Paiements</Titre>
+        {paiements.length === 0 ? (
+          <Vide titre="Aucun paiement" texte="Les achats du Pro apparaîtront ici, du plus récent au plus ancien." />
+        ) : (
+          <Carte className="divide-y divide-gray-200/70">
+            {paiements.map((p) => {
+              const rembourse = p.statut === "paye" && (p.fedapayStatut ?? "").includes("refunded");
+              const sansEffet = p.statut === "paye" && !p.echeanceApres;
+              const revoir = p.statut !== "paye" && p.environnement === donnees.fedapay.environnement;
+              return (
+                <div key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-2">
+                      <span className="font-black text-gray-900">{p.nom}</span>
+                      <Pastille ton={STATUT_PAIEMENT[p.statut].ton}>{STATUT_PAIEMENT[p.statut].label}</Pastille>
+                      {p.environnement === "sandbox" && <Pastille ton="bleu">Bac à sable</Pastille>}
+                      {p.anomalie && <Pastille ton="rouge">Écart : {p.anomalie}</Pastille>}
+                      {rembourse && <Pastille ton="rouge">Remboursé chez FedaPay</Pastille>}
+                      {sansEffet && <Pastille ton="rouge" title="Le compte avait déjà un Pro sans échéance : à rembourser.">Payé sans effet</Pastille>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {p.formule ? LIBELLE_FORMULE[p.formule] : "Frais de réservation"} · {p.montant.toLocaleString("fr-FR")} FCFA
+                      {p.mode && <> · {p.mode}</>}
+                      {p.creeLe && <> · {new Date(p.creeLe).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</>}
+                      {p.echeanceApres && <> · Pro jusqu&apos;au {jourCourt(p.echeanceApres)}</>}
+                      {" "}· {p.email ?? p.id}
+                    </p>
+                  </div>
+                  {revoir && (
+                    <button onClick={() => void reverifier(p.id)} disabled={revue !== null} className={BOUTON_CONTOUR}>
+                      {revue === p.id && <Loader2 size={14} className="animate-spin" />}
+                      Revérifier
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </Carte>
         )}
       </section>

@@ -1141,6 +1141,15 @@ export interface FirestoreVenue {
   gallery_urls?: string[];
   /** Absent sur les terrains d'avant : aucune contrainte d'horaire. */
   opening_hours?: HorairesOuverture | null;
+  /** Ce que le terrain garde après chaque créneau, en minutes : 0, 15 ou 30. */
+  battement_min?: number;
+  /** Les frais de réservation se paient dans l'application (lib/reglement). */
+  paiement_app?: boolean;
+  /**
+   * Depuis quand, en millisecondes. Les frais ne valent que pour les demandes
+   * faites APRÈS : une équipe paie ce qu'on lui a annoncé en demandant.
+   */
+  paiement_app_depuis?: number;
   created_at: string;
   updated_at: string;
 }
@@ -1166,6 +1175,10 @@ export interface Venue {
    * alors aucune demande n'est refusée pour son heure.
    */
   openingHours: HorairesOuverture | null;
+  /** Ce que le terrain garde après chaque créneau, en minutes : 0, 15 ou 30. */
+  battementMin?: number;
+  /** Les frais de réservation se paient dans l'application (lib/reglement). */
+  paiementApp?: boolean;
   /**
    * Les autres vues du terrain.
    *
@@ -1510,6 +1523,13 @@ export interface FirestoreBooking {
    */
   team_id?: string | null;
   team_name?: string | null;
+  /**
+   * Où en sont les frais de réservation, pour l'affichage des listes :
+   * « acompte_attendu », « acompte_paye », ou la clôture. Une COPIE : la
+   * vérité est dans `reglements/{id}`, fermée aux navigateurs, et le serveur
+   * ne relit jamais ce champ.
+   */
+  reglement_vu?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1538,6 +1558,8 @@ export interface Booking {
   serieId: string | null;
   teamId: string | null;
   teamName: string | null;
+  /** La copie d'affichage de l'état des frais de réservation (voir `reglement_vu`). */
+  reglementVu?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1688,7 +1710,10 @@ export type NotificationType =
   | "arbitrage"
   /** Quelqu'un a commenté ma publication dans la Tribune. Envoyée à
    *  l'AUTEUR, jamais à celui qui commente sa propre publication. */
-  | "tribune_comment";
+  | "tribune_comment"
+  /** L'offre du compte : paiement reçu, Pro qui arrive à échéance. Envoyée au
+   *  TITULAIRE. C'est son reçu et son rappel, jamais une annonce. */
+  | "offre";
 
 export interface FirestoreNotification {
   user_id: string;

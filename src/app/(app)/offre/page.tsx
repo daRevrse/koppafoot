@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { motion } from "motion/react";
-import { Check, Gem } from "lucide-react";
+import { Check, Gem, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 import type { CleLimite } from "@/lib/offre";
+import { idPaiementDuRetour, type FormuleEnVente, type IdFormule, type StatutPaiement } from "@/lib/paiement";
 
 // ============================================
 // Mon offre.
@@ -18,8 +20,13 @@ import type { CleLimite } from "@/lib/offre";
 // pour tout le monde. La date d'entrée en vigueur des limites est dite ici
 // avant d'arriver : c'est la promesse des conditions d'utilisation.
 //
-// Pas de bouton « Payer » : rien ne s'achète encore. Qui veut essayer le Pro
-// écrit à l'équipe, qui l'accorde depuis l'administration.
+// LE PRO S'ACHÈTE ICI, quand il est en vente : une formule, un prix, un bouton
+// qui mène à la page de paiement FedaPay. Tant qu'aucune formule n'a de prix,
+// la page dit « écris-nous », comme avant.
+//
+// AU RETOUR DU PAIEMENT, LA PAGE NE CROIT PAS L'ADRESSE. FedaPay y écrit un
+// `status` qui ne prouve rien ; on n'y lit que l'identifiant de notre
+// paiement, et c'est le serveur qui dit où il en est (lib/paiement-serveur).
 // ============================================
 
 interface VueDroit {
@@ -38,7 +45,18 @@ interface Offre {
   limites: Record<CleLimite, number>;
   usage: Record<"equipes" | "terrains" | "competitions", number>;
   casquettes: { manager: boolean; organisateur: boolean; gerant: boolean };
+  formules: FormuleEnVente[];
+  proIllimite: boolean;
 }
+
+/** Où en est le paiement dont on revient. `aucun` : l'identifiant ne nous dit rien. */
+type Retour =
+  | { etat: "recu"; jusquAu: string | null }
+  | { etat: "echec" | "lent" | "verifier" | "aucun" };
+
+/** Dix fois, toutes les trois secondes : le temps que la confirmation de l'opérateur arrive. */
+const ESSAIS_RETOUR = 10;
+const PAUSE_RETOUR_MS = 3000;
 
 const T = textes(
   {
@@ -72,6 +90,24 @@ const T = textes(
     pasEnVente: "Le Pro n'est pas encore en vente. Pour l'essayer avec ton équipe, ta compétition ou ton terrain, écris-nous.",
     ecrire: "Nous écrire",
     erreur: "Impossible de charger ton offre.",
+    prolonger: "Prolonger mon Pro",
+    prolongerDetail: "La période achetée s'ajoute à la fin de celle en cours.",
+    unMois: "1 mois",
+    unAn: "1 an",
+    parMois: (montant: string) => `soit ${montant} FCFA par mois`,
+    payer: "Payer",
+    redirection: "Redirection…",
+    moyens: "Mobile money ou carte, sur la page de paiement sécurisée de FedaPay. Tu achètes une période : rien ne se renouvelle tout seul.",
+    retourAttente: "Paiement en cours de confirmation…",
+    retourRecu: (date: string) => `Paiement reçu. Tu es Pro jusqu'au ${date}.`,
+    retourRecuSimple: "Paiement reçu.",
+    retourEchec: "Le paiement n'a pas abouti. Tu peux réessayer.",
+    retourLent: "La confirmation tarde. Ton Pro s'activera tout seul dès qu'elle arrive : tu peux fermer cette page.",
+    retourVerifier: "Ce paiement demande une vérification de notre part. Écris-nous, on règle ça.",
+    refusPasEnVente: "Le Pro n'est pas en vente pour l'instant.",
+    refusIllimite: "Ton Pro n'a pas d'échéance : il n'y a rien à prolonger.",
+    refusTentatives: "Trop de tentatives. Réessaie dans une heure.",
+    refusIndisponible: "Paiement indisponible pour l'instant. Réessaie dans un moment.",
   },
   {
     titre: "My plan",
@@ -104,6 +140,24 @@ const T = textes(
     pasEnVente: "Pro isn't on sale yet. To try it with your team, competition or venue, write to us.",
     ecrire: "Write to us",
     erreur: "Couldn't load your plan.",
+    prolonger: "Extend my Pro",
+    prolongerDetail: "The period you buy is added to the end of the current one.",
+    unMois: "1 month",
+    unAn: "1 year",
+    parMois: (montant: string) => `that's ${montant} FCFA a month`,
+    payer: "Pay",
+    redirection: "Redirecting…",
+    moyens: "Mobile money or card, on FedaPay's secure payment page. You buy a period: nothing renews by itself.",
+    retourAttente: "Confirming your payment…",
+    retourRecu: (date: string) => `Payment received. You're Pro until ${date}.`,
+    retourRecuSimple: "Payment received.",
+    retourEchec: "The payment didn't go through. You can try again.",
+    retourLent: "Confirmation is taking a while. Pro will switch on by itself when it arrives: you can close this page.",
+    retourVerifier: "This payment needs a check on our side. Write to us and we'll sort it out.",
+    refusPasEnVente: "Pro isn't on sale right now.",
+    refusIllimite: "Your Pro has no end date: there's nothing to extend.",
+    refusTentatives: "Too many attempts. Try again in an hour.",
+    refusIndisponible: "Payment is unavailable right now. Try again in a moment.",
   },
 );
 
@@ -132,27 +186,148 @@ function Jauge({ libelle, detail, usage, max, illimite }: {
   );
 }
 
+/** Les formules en vente, côte à côte : la durée, le prix, le bouton. */
+function Formules({ formules, enCours, onPayer, locale, libelles }: {
+  formules: FormuleEnVente[];
+  enCours: IdFormule | null;
+  onPayer: (formule: IdFormule) => void;
+  locale: string;
+  libelles: { unMois: string; unAn: string; parMois: (montant: string) => string; payer: string; redirection: string; moyens: string };
+}) {
+  return (
+    <>
+      <div className={`grid gap-px border border-gray-200/70 bg-gray-200/70 ${formules.length > 1 ? "sm:grid-cols-2" : ""}`}>
+        {formules.map((f) => (
+          <div key={f.id} className="flex flex-col gap-3 bg-white p-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+                {f.mois === 12 ? libelles.unAn : libelles.unMois}
+              </p>
+              <p className="mt-1 font-display text-2xl font-black tabular-nums text-gray-900">
+                {f.prix.toLocaleString(locale)}
+                <span className="ml-1 text-sm font-bold text-gray-400">FCFA</span>
+              </p>
+              {f.mois > 1 && (
+                <p className="mt-0.5 text-xs text-gray-500">{libelles.parMois(Math.round(f.prix / f.mois).toLocaleString(locale))}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onPayer(f.id)}
+              disabled={enCours !== null}
+              className="mt-auto inline-flex items-center justify-center gap-2 border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-gray-700 disabled:opacity-50"
+            >
+              {enCours === f.id && <Loader2 size={14} className="animate-spin" />}
+              {enCours === f.id ? libelles.redirection : libelles.payer}
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-gray-500">{libelles.moyens}</p>
+    </>
+  );
+}
+
 export default function OffrePage() {
   const t = useTextes(T);
   const locale = useLocale();
   const { firebaseUser } = useAuth();
   const [offre, setOffre] = useState<Offre | null>(null);
   const [erreur, setErreur] = useState(false);
+  const [achat, setAchat] = useState<IdFormule | null>(null);
+  // Lu une fois, au premier rendu dans le navigateur : le paiement dont on
+  // revient. Tant que l'offre charge, la page n'affiche que son squelette,
+  // côté serveur comme côté navigateur : les deux rendus restent identiques.
+  const [idRetour] = useState(() =>
+    typeof window === "undefined" ? null : idPaiementDuRetour(new URLSearchParams(window.location.search).get("paiement")));
+  const [retour, setRetour] = useState<Retour | null>(null);
+
+  const charger = useCallback(async () => {
+    if (!firebaseUser) return;
+    try {
+      const r = await fetch("/api/offre", { headers: { Authorization: `Bearer ${await firebaseUser.getIdToken()}` } });
+      if (!r.ok) throw new Error(String(r.status));
+      setOffre((await r.json()) as Offre);
+    } catch {
+      setErreur(true);
+    }
+  }, [firebaseUser]);
+
+  useEffect(() => { void charger(); }, [charger]);
 
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || !idRetour) return;
     let vivant = true;
-    firebaseUser.getIdToken()
-      .then((jeton) => fetch("/api/offre", { headers: { Authorization: `Bearer ${jeton}` } }))
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: Offre) => { if (vivant) setOffre(d); })
-      .catch(() => { if (vivant) setErreur(true); });
-    return () => { vivant = false; };
-  }, [firebaseUser]);
+    let minuterie: ReturnType<typeof setTimeout> | undefined;
+    let essais = 0;
+    // L'adresse garde « ?paiement=… » : on l'enlève, pour qu'un rechargement
+    // ne rejoue pas l'attente d'un paiement déjà réglé.
+    window.history.replaceState(null, "", window.location.pathname);
+
+    const verifier = async () => {
+      essais += 1;
+      let etat: { statut?: StatutPaiement; jusquAu?: string | null; aVerifier?: boolean } | null = null;
+      let inconnu = false;
+      try {
+        const r = await fetch(`/api/paiements/${idRetour}`, { headers: { Authorization: `Bearer ${await firebaseUser.getIdToken()}` } });
+        inconnu = r.status === 404;
+        etat = r.ok ? await r.json() : null;
+      } catch {
+        etat = null;
+      }
+      if (!vivant) return;
+      if (inconnu) return setRetour({ etat: "aucun" });
+      if (etat?.aVerifier) return setRetour({ etat: "verifier" });
+      if (etat?.statut === "paye") {
+        setRetour({ etat: "recu", jusquAu: etat.jusquAu ?? null });
+        void charger();
+        return;
+      }
+      if (etat?.statut === "echoue" || etat?.statut === "annule" || etat?.statut === "expire") return setRetour({ etat: "echec" });
+      if (essais >= ESSAIS_RETOUR) return setRetour({ etat: "lent" });
+      minuterie = setTimeout(() => void verifier(), PAUSE_RETOUR_MS);
+    };
+    void verifier();
+    return () => { vivant = false; clearTimeout(minuterie); };
+  }, [firebaseUser, idRetour, charger]);
+
+  // Revenu de la page de paiement par le bouton « retour » du navigateur : la
+  // page ressort du cache telle qu'on l'a quittée, bouton grisé sur
+  // « Redirection… ». On le rend.
+  useEffect(() => {
+    const revenir = (e: PageTransitionEvent) => { if (e.persisted) setAchat(null); };
+    window.addEventListener("pageshow", revenir);
+    return () => window.removeEventListener("pageshow", revenir);
+  }, []);
 
   const date = (jour: string) =>
     new Date(`${jour}T00:00:00`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" });
   const fin = (d: VueDroit | null) => (d?.jusquAu ? t.jusquAu(date(d.jusquAu)) : t.sansEcheance);
+
+  const refus = (code: string): string =>
+    code === "deja_illimite" ? t.refusIllimite
+      : code === "trop_de_tentatives" ? t.refusTentatives
+        : code === "fedapay" || code === "" ? t.refusIndisponible
+          : t.refusPasEnVente;
+
+  const payer = async (formule: IdFormule) => {
+    if (!firebaseUser || achat) return;
+    setAchat(formule);
+    try {
+      const r = await fetch("/api/paiements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await firebaseUser.getIdToken()}` },
+        body: JSON.stringify({ formule }),
+      });
+      const d = (await r.json().catch(() => ({}))) as { url?: string; code?: string };
+      if (!r.ok || typeof d.url !== "string") throw new Error(d.code ?? "");
+      // On quitte la page : le bouton reste sur « Redirection… » jusque-là.
+      window.location.assign(d.url);
+    } catch (e) {
+      toast.error(refus(e instanceof Error ? e.message : ""));
+      setAchat(null);
+    }
+  };
 
   if (erreur) return <p className="mx-auto max-w-2xl py-16 text-center text-sm text-gray-500">{t.erreur}</p>;
   if (!offre) {
@@ -165,6 +340,11 @@ export default function OffrePage() {
 
   const illimite = offre.estPro ? t.illimite : null;
   const { casquettes: c } = offre;
+  const enVente = offre.formules.length > 0 && !offre.proIllimite;
+  const libellesFormules = {
+    unMois: t.unMois, unAn: t.unAn, parMois: t.parMois, payer: t.payer, redirection: t.redirection, moyens: t.moyens,
+  };
+  const etatRetour = retour?.etat ?? (idRetour ? "attente" : "aucun");
   const lignes = [
     c.manager && <Jauge key="e" libelle={t.equipes} usage={offre.usage.equipes} max={offre.limites.equipes} illimite={illimite} />,
     c.gerant && <Jauge key="t" libelle={t.terrains} usage={offre.usage.terrains} max={offre.limites.terrains} illimite={illimite} />,
@@ -195,6 +375,25 @@ export default function OffrePage() {
         <p className="mt-1 text-sm text-gray-500">{t.sousTitre}</p>
       </div>
 
+      {etatRetour !== "aucun" && (
+        <p
+          role="status"
+          className={`flex items-center gap-2 border px-4 py-3 text-sm font-semibold ${
+            etatRetour === "recu" ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+              : etatRetour === "echec" || etatRetour === "verifier" ? "border-amber-500 bg-amber-50 text-amber-900"
+                : "border-gray-200/70 bg-white text-gray-700"
+          }`}
+        >
+          {etatRetour === "attente" && <Loader2 size={16} className="shrink-0 animate-spin" />}
+          {etatRetour === "recu" && <Check size={16} className="shrink-0" />}
+          {etatRetour === "attente" && t.retourAttente}
+          {retour?.etat === "recu" && (retour.jusquAu ? t.retourRecu(date(retour.jusquAu)) : t.retourRecuSimple)}
+          {etatRetour === "echec" && t.retourEchec}
+          {etatRetour === "lent" && t.retourLent}
+          {etatRetour === "verifier" && t.retourVerifier}
+        </p>
+      )}
+
       <section className={`border p-5 ${offre.estPro ? "border-emerald-600 bg-emerald-950 text-white" : "border-gray-200/70 bg-white"}`}>
         <p className="flex items-center gap-2">
           {offre.estPro && <Gem size={18} className="shrink-0 text-emerald-400" />}
@@ -213,6 +412,14 @@ export default function OffrePage() {
         )}
         {!offre.estPro && offre.estSansPub && <p className="mt-1 text-sm text-gray-600">{t.sansPubSeul(fin(offre.sansPub))}</p>}
       </section>
+
+      {offre.estPro && enVente && (
+        <section>
+          <h2 className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">{t.prolonger}</h2>
+          <p className="mb-3 text-sm text-gray-600">{t.prolongerDetail}</p>
+          <Formules formules={offre.formules} enCours={achat} onPayer={(f) => void payer(f)} locale={locale} libelles={libellesFormules} />
+        </section>
+      )}
 
       <section>
         <h2 className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">{t.chezToi}</h2>
@@ -241,13 +448,21 @@ export default function OffrePage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-sm text-gray-500">{t.pasEnVente}</p>
-            <Link
-              href="/aide"
-              className="mt-3 inline-flex items-center border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-gray-700"
-            >
-              {t.ecrire}
-            </Link>
+            {enVente ? (
+              <div className="mt-4">
+                <Formules formules={offre.formules} enCours={achat} onPayer={(f) => void payer(f)} locale={locale} libelles={libellesFormules} />
+              </div>
+            ) : (
+              <>
+                <p className="mt-4 text-sm text-gray-500">{t.pasEnVente}</p>
+                <Link
+                  href="/aide"
+                  className="mt-3 inline-flex items-center border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-gray-700"
+                >
+                  {t.ecrire}
+                </Link>
+              </>
+            )}
           </div>
         </section>
       )}

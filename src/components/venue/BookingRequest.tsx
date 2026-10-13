@@ -12,6 +12,7 @@ import {
   dateLongue, dateCourte, aujourdhui, duree, finCreneau, prixHeure, aUnPrix, seChevauchent,
   horsHoraires, plageDuJour, libellePlage, jourDe,
 } from "@/lib/terrains";
+import { acompteDe, prixDuCreneau } from "@/lib/reglement";
 import {
   Etiquette, Bouton, LienBouton, Pastilles, EnCours, Champ, classeChamp,
 } from "@/components/venue/venue-ui";
@@ -22,7 +23,10 @@ import type { HorairesOuverture, Team } from "@/types";
 //
 // Le geste reste volontairement pauvre : une date, une heure, une durée. Pas
 // de paiement, pas de contrat — la plateforme met les deux parties d'accord
-// sur un moment, le reste se règle entre elles.
+// sur un moment. Sur un terrain qui fait payer ses frais de réservation dans
+// l'application (lib/reglement), la demande reste gratuite : les frais ne se
+// paient qu'une fois le créneau confirmé, et on les annonce ici. Ailleurs,
+// tout se règle entre les deux parties.
 //
 // Une demande naît toujours « en attente ». C'est le propriétaire qui
 // confirme ; la demande passe par le serveur (/api/bookings), qui prévient le
@@ -78,6 +82,8 @@ export default function BookingRequest({
   ownerId = null,
   available,
   pricePerHour = 0,
+  battementMin = 0,
+  paiementApp = false,
   horaires: horairesInitiaux = null,
 }: {
   venueId: string;
@@ -86,6 +92,10 @@ export default function BookingRequest({
   /** L'état au moment du rendu serveur. Sert de valeur de départ, puis est relu. */
   available: boolean;
   pricePerHour?: number;
+  /** Ce que le terrain garde après chaque créneau, en minutes (lib/terrains, seChevauchent). */
+  battementMin?: number;
+  /** Les frais de réservation de ce terrain se paient dans l'application, une fois le créneau confirmé. */
+  paiementApp?: boolean;
   /** Idem : la valeur du rendu serveur, relue au montage. */
   horaires?: HorairesOuverture | null;
 }) {
@@ -168,8 +178,8 @@ export default function BookingRequest({
 
   /** Les créneaux confirmés qui recouvrent celui qu'on est en train de demander. */
   const conflits = useMemo(
-    () => creneaux.filter((c) => seChevauchent(c, { date, time, duration: heures })),
-    [creneaux, date, time, heures],
+    () => creneaux.filter((c) => seChevauchent(c, { date, time, duration: heures }, battementMin)),
+    [creneaux, date, time, heures, battementMin],
   );
 
   /** L'occupation à venir, groupée par jour : une liste plate ne se lit pas. */
@@ -355,7 +365,17 @@ export default function BookingRequest({
                   <strong className="font-black text-gray-900">
                     {(pricePerHour * heures).toLocaleString("fr-FR")} FCFA
                   </strong>
-                  , à régler directement au propriétaire.
+                  {paiementApp ? "." : ", à régler directement au propriétaire."}
+                </p>
+              )}
+              {paiementApp && aUnPrix(pricePerHour) && (
+                <p className="mt-2 border-t border-gray-200/70 pt-2 text-[11px] font-bold leading-relaxed text-gray-600">
+                  Frais de réservation :{" "}
+                  <strong className="font-black text-gray-900">
+                    {acompteDe(prixDuCreneau(pricePerHour, heures)).toLocaleString("fr-FR")} FCFA
+                  </strong>
+                  , à payer dans l&apos;application une fois le créneau confirmé. Remboursés si le match a lieu : ils
+                  sont déduits de ce que tu règles sur place.
                 </p>
               )}
             </div>

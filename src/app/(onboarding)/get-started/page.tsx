@@ -83,8 +83,10 @@ export default function GetStartedPage() {
         ...(roleChoisi ? { evolutionRole: roleChoisi } : {}),
         ...(roleChoisi && genre ? { gender: genre } : {}),
       };
-      await completeProfile(signupData);
-      toast.success("Profil créé !");
+      // `cree: false` : ce compte avait déjà son profil (on est arrivé ici
+      // parce que sa lecture avait échoué). Rien n'a été écrit, il est chargé.
+      const { cree } = await completeProfile(signupData);
+      toast.success(cree ? "Profil créé !" : "Content de te revoir !");
       // Là où l'on allait avant de devoir créer un compte (une candidature,
       // une invitation), sinon l'accueil.
       router.push(destinationDeLURL() ?? "/");

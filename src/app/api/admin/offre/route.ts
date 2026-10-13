@@ -5,18 +5,24 @@ import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import {
   droitActif, jourDeLome, type DroitAccorde, type DroitOffre, type FirestoreDroits,
 } from "@/lib/offre";
+import { environnementFedapay, fedapayConfigure } from "@/lib/fedapay";
+import { ID_FORMULES, PRIX_PLANCHER, lirePrix, prixValide } from "@/lib/paiement";
 
 /**
  * L'offre, côté administration.
  *
- * GET                                    , le réglage et les comptes qui ont un droit.
- * PUT    { limitesDepuis }                , fixer (ou retirer) l'entrée en vigueur des limites.
+ * GET                                    , le réglage, les prix, et les comptes qui ont un droit.
+ * PUT    { limitesDepuis } et/ou { prix } , fixer l'entrée en vigueur des limites, les prix du Pro.
  * POST   { compte, droit, jusquAu, motif } , accorder le Pro ou l'option sans pub.
  * DELETE { uid, droit }                   , retirer un droit.
  *
- * Superadmin seulement. `droits/{uid}` et `settings/offre` ne s'écrivent que
- * par ici (firestore.rules) : c'est la seule porte vers le Pro tant que rien
- * ne s'achète.
+ * Superadmin seulement. `settings/offre` ne s'écrit que par ici ;
+ * `droits/{uid}` s'écrit par ici (à la main) et par un paiement réglé
+ * (lib/paiement-serveur). Les navigateurs n'écrivent ni l'un ni l'autre
+ * (firestore.rules).
+ *
+ * UNE FORMULE EST EN VENTE DÈS QU'ELLE A UN PRIX. Vider un prix la retire de
+ * la vente, sur-le-champ : c'est l'interrupteur.
  */
 
 const DROITS: DroitOffre[] = ["pro", "sans_pub"];
@@ -62,7 +68,13 @@ export async function GET(req: NextRequest) {
         };
       })
       .filter((c) => c.pro || c.sansPub);
-    return NextResponse.json({ jour, limitesDepuis: reglage.data()?.limites_depuis ?? null, comptes });
+    return NextResponse.json({
+      jour,
+      limitesDepuis: reglage.data()?.limites_depuis ?? null,
+      prix: lirePrix(reglage.data()?.prix),
+      fedapay: { configure: fedapayConfigure(), environnement: environnementFedapay() },
+      comptes,
+    });
   } catch (err) {
     console.error("[admin/offre GET]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -73,15 +85,37 @@ export async function PUT(req: NextRequest) {
   const appelant = await exigerSuperadmin(req);
   if (appelant instanceof NextResponse) return appelant;
   try {
-    const { limitesDepuis } = (await req.json()) as { limitesDepuis?: unknown };
-    if (limitesDepuis !== null && !jourValide(limitesDepuis)) {
-      return NextResponse.json({ error: "Date invalide" }, { status: 400 });
+    const corps = (await req.json()) as { limitesDepuis?: unknown; prix?: unknown };
+    const maj: Record<string, unknown> = { updated_by: appelant.uid, updated_at: FieldValue.serverTimestamp() };
+
+    if ("limitesDepuis" in corps) {
+      if (corps.limitesDepuis !== null && !jourValide(corps.limitesDepuis)) {
+        return NextResponse.json({ error: "Date invalide" }, { status: 400 });
+      }
+      maj.limites_depuis = corps.limitesDepuis;
     }
-    await adminDb.collection("settings").doc("offre").set({
-      limites_depuis: limitesDepuis,
-      updated_by: appelant.uid,
-      updated_at: FieldValue.serverTimestamp(),
-    }, { merge: true });
+
+    if ("prix" in corps) {
+      const saisi = (corps.prix && typeof corps.prix === "object" ? corps.prix : {}) as Record<string, unknown>;
+      const prix: Record<string, number | null> = {};
+      for (const id of ID_FORMULES) {
+        const v = saisi[id];
+        if (v === null || v === undefined) prix[id] = null;
+        else if (prixValide(v)) prix[id] = v;
+        else {
+          return NextResponse.json(
+            { error: `Prix invalide : un nombre entier d'au moins ${PRIX_PLANCHER} FCFA, ou vide.` },
+            { status: 400 },
+          );
+        }
+      }
+      maj.prix = prix;
+    }
+
+    if (!("limitesDepuis" in corps) && !("prix" in corps)) {
+      return NextResponse.json({ error: "Rien à enregistrer" }, { status: 400 });
+    }
+    await adminDb.collection("settings").doc("offre").set(maj, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[admin/offre PUT]", err);

@@ -4,13 +4,14 @@ import { DocumentJuridique, Liste, Lien, type SectionJuridique } from "@/compone
 // Les conditions d'utilisation.
 //
 // ELLES REPRENNENT LES PROMESSES DÉJÀ FAITES, sans en retirer une : la
-// gratuité de l'accueil, « La plateforme n'encaisse rien et ne prend aucune
-// commission » de la page des terrains. Un texte juridique qui contredit la
-// vitrine casse la confiance plus vite qu'aucun prix.
+// gratuité de l'accueil, « aucune commission » de la page des terrains. Un
+// texte juridique qui contredit la vitrine casse la confiance plus vite
+// qu'aucun prix.
 //
-// L'AVENIR PAYANT Y EST ÉCRIT HONNÊTEMENT : des options pourront apparaître,
-// annoncées avant, jamais imposées pour finir ce qui est commencé. C'est ce
-// qui permet plus tard des limites d'usage sans trahir personne.
+// CE QUI SE PAIE Y EST ÉCRIT HONNÊTEMENT : KoppaFoot Pro, son prix affiché
+// avant de payer, une période et non un abonnement, rien de prélevé à
+// l'échéance, jamais exigé pour finir ce qui est commencé. C'est ce qui
+// permet des limites d'usage sans trahir personne.
 //
 // À FAIRE VALIDER par un juriste avant publication, et à compléter de
 // l'identité de l'éditeur dès que la société existe.
@@ -21,7 +22,7 @@ export const metadata = {
   description: "Les règles du jeu sur KoppaFoot : ton compte, les rôles, ce qui est interdit, ce qui est gratuit.",
 };
 
-const MIS_A_JOUR = "6 octobre 2026";
+const MIS_A_JOUR = "13 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -47,9 +48,19 @@ const SECTIONS: SectionJuridique[] = [
           et la <Lien href="/confidentialite">politique de confidentialité</Lien>.
         </p>
         <p>
-          L&apos;utilisation de KoppaFoot est gratuite. Si des options payantes apparaissent, elles seront annoncées à
-          l&apos;avance, leur prix sera affiché avant tout paiement, et aucune ne sera exigée pour terminer un match ou une
-          compétition déjà commencés.
+          L&apos;utilisation de KoppaFoot est gratuite. KoppaFoot Pro est une option payante : son prix est affiché avant
+          tout paiement, et elle n&apos;est jamais exigée pour terminer un match ou une compétition déjà commencés.
+        </p>
+        <p>
+          Le Pro s&apos;achète pour une période, un mois ou un an, <strong>sans renouvellement automatique</strong>{" "}: à
+          l&apos;échéance, rien n&apos;est prélevé, et tu es prévenu avant. Le paiement se fait par mobile money ou par
+          carte, sur la page de notre prestataire FedaPay. Une période commencée n&apos;est pas remboursée ; en cas de
+          double paiement ou d&apos;erreur, écris-nous : nous prolongeons ta période ou nous te remboursons.
+        </p>
+        <p>
+          Sur certains terrains, des frais de réservation se paient aussi dans l&apos;application : leur montant, et les
+          frais de paiement qui s&apos;y ajoutent, sont affichés avant tout paiement. Ils font partie du prix du
+          terrain : si le match a lieu, ils sont déduits de ce que tu règles sur place.
         </p>
         <p>
           Jouer, suivre un match, s&apos;inscrire à une compétition et arbitrer restent gratuits. L&apos;offre gratuite peut
@@ -88,7 +99,13 @@ const SECTIONS: SectionJuridique[] = [
         <li><strong>Organisateur</strong> : il fixe le règlement de sa compétition et les frais d&apos;inscription éventuels. Il encaisse lui-même ces frais ; KoppaFoot les affiche sans les encaisser.</li>
         <li><strong>Manager</strong> : il tient son effectif. S&apos;il inscrit des joueurs sans compte, il doit avoir leur accord, et celui des parents pour un mineur.</li>
         <li><strong>Scoreur et arbitre</strong> : ils saisissent fidèlement ce qui s&apos;est passé sur le terrain, ni plus ni moins.</li>
-        <li><strong>Gérant de terrain</strong> : il donne des informations exactes sur son terrain et ses tarifs. Le paiement se règle entre lui et les équipes : la plateforme n&apos;encaisse rien et ne prend aucune commission sur les réservations.</li>
+        <li>
+          <strong>Gérant de terrain</strong>{" "}: il donne des informations exactes sur son terrain et ses tarifs.
+          S&apos;il active les frais de réservation, KoppaFoot encaisse pour son compte 5 % du prix du créneau, payés par
+          l&apos;équipe une fois le créneau confirmé, et les lui reverse ; le reste se règle sur place, entre eux.
+          KoppaFoot ne prend aucune commission. Ces frais restent au gérant si l&apos;équipe annule ou ne se présente
+          pas ; ils sont rendus à l&apos;équipe si c&apos;est le gérant qui annule.
+        </li>
         <li><strong>Joueur et supporter</strong> : ils suivent, jouent, publient, dans le respect des autres.</li>
       </Liste>
     ),
