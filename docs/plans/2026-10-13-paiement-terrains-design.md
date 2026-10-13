@@ -1,7 +1,7 @@
 # Design : Le paiement mobile, lot 2 — frais de réservation de terrain, ticket et battement
 
 **Date :** 2026-10-13
-**Statut :** Design validé par le fondateur le 2026-10-13, à implémenter (temps 1). Branche `feat/paiement-terrains`, partie de `feat/paiement-fedapay` (le lot 1, non fusionné, dont ce lot réutilise le socle).
+**Statut :** Temps 1 implémenté sur `feat/paiement-terrains`, et validé en bac à sable par le fondateur le 2026-10-13 : activation sur un terrain, demande, confirmation, paiement des frais, ticket, validation dans sa fenêtre seulement, somme due. Reste le temps 2 (dépôts automatiques), quand FedaPay les aura activés.
 
 ## Le problème
 
@@ -160,6 +160,13 @@ Le propriétaire peut aujourd'hui modifier depuis son navigateur n'importe quel 
 - Tests purs (`mobile/src/__tests__/reglement.test.ts`) : acompte (arrondi, plancher, prix nul), frais de paiement, échéance (24 h, début du créneau), fenêtre de validation avec et sans battement, clôture, alphabet et longueur du code ; `seChevauchent` avec battement.
 - Tests du serveur, contre le faux Firestore du lot 1 : un acompte réglé crée un seul ticket même réglé deux fois ; un acompte payé après échéance devient un remboursement dû ; la validation refuse un autre propriétaire, un code inconnu, hors fenêtre ; chaque clôture crée la bonne ligne due ; une ligne due ne se règle qu'une fois.
 - Bac à sable : activer sur un terrain de test, confirmer une demande, payer l'acompte avec l'outil de test, voir le ticket, le valider par le code puis par l'adresse du QR, constater la ligne due ; laisser passer une échéance ; annuler côté propriétaire.
+
+## Mise en service
+
+1. **Fusionner ne montre rien.** Tant que le serveur de production n'a pas de clé FedaPay réelle, aucun gérant ne se voit proposer d'activer les frais (seul le battement se règle), aucun règlement ne s'ouvre, et la fiche publique n'annonce rien. La règle est celle du Pro (`paiementOuvert`, lib/paiement) : on ne demande rien à qui ne peut pas payer. Sans elle, une équipe incapable de payer aurait perdu son créneau confirmé au bout de vingt-quatre heures.
+2. **Déployer `firestore.rules` avec la fusion** : les réservations se ferment aux navigateurs, et six collections d'argent naissent fermées.
+3. **Quand les clés réelles seront sur Vercel** (lot 1, « Mise en service », points 5 à 8) : régler le taux des frais de paiement dans `/admin/versements` (à 0, KoppaFoot supporte ceux de FedaPay), et décider du terrain de test du fondateur, dont les frais sont restés activés.
+4. **Les versements se font à la main** depuis `/admin/versements`, jusqu'au temps 2.
 
 ## Hors périmètre
 
