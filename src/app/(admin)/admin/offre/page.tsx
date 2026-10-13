@@ -9,7 +9,9 @@ import {
   type Ton,
 } from "@/components/admin/ui";
 import { LIMITES_GRATUIT, limitesEnVigueur, type CleLimite, type DroitOffre } from "@/lib/offre";
-import { ID_FORMULES, PRIX_PLANCHER, libelleFormule, type IdFormule, type PrixOffre, type StatutPaiement } from "@/lib/paiement";
+import {
+  FORMULES, ID_FORMULES, NOM_OFFRE, PRIX_PLANCHER, libelleFormule, type IdFormule, type PrixOffre, type StatutPaiement,
+} from "@/lib/paiement";
 
 // ============================================
 // Admin, l'offre.
@@ -19,12 +21,12 @@ import { ID_FORMULES, PRIX_PLANCHER, libelleFormule, type IdFormule, type PrixOf
 // - FIXER LA DATE D'ENTRÉE EN VIGUEUR des limites de l'offre gratuite. Avant
 //   elle, personne n'est limité. Les conditions d'utilisation promettent de
 //   prévenir : la date se fixe donc à l'avance, et s'annonce.
-// - FIXER LES PRIX du Pro. Une formule est en vente dès qu'elle a un prix ;
-//   vider les deux ferme la vente sur-le-champ.
-// - ACCORDER LE PRO (ou l'option sans pub) à la main, pour une durée, à qui
+// - FIXER LES PRIX des deux offres, KoppaFoot+ et « Pas de pubs ». Une formule
+//   est en vente dès qu'elle a un prix ; vider un prix la retire sur-le-champ.
+// - ACCORDER KOPPAFOOT+ (ou « Pas de pubs ») à la main, pour une durée, à qui
 //   on veut le faire essayer : un organisateur, un gérant, un club.
 // - SUIVRE LES PAIEMENTS, et revérifier celui d'un client qui dit avoir payé :
-//   la relecture chez FedaPay accorde le Pro si le paiement a bien abouti,
+//   la relecture chez FedaPay accorde le droit acheté si le paiement a bien abouti,
 //   et seulement dans ce cas.
 // ============================================
 
@@ -112,11 +114,12 @@ function echeance(mois: number, depuis: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-function PastilleDroit({ nom, droit }: { nom: string; droit: VueDroit | null }) {
+function PastilleDroit({ offre, droit }: { offre: DroitOffre; droit: VueDroit | null }) {
   if (!droit) return null;
+  const nom = NOM_OFFRE[offre];
   if (!droit.actif) return <Pastille ton="gris">{nom} expiré</Pastille>;
   return (
-    <Pastille ton={nom === "Pro" ? "vert" : "bleu"}>
+    <Pastille ton={offre === "pro" ? "vert" : "bleu"}>
       {nom} {droit.jusquAu ? `jusqu'au ${jourCourt(droit.jusquAu)}` : "sans échéance"}
     </Pastille>
   );
@@ -188,7 +191,7 @@ export default function AdminOffrePage() {
     setEnvoi(true);
     try {
       await appel("POST", { compte: accord.compte, droit: accord.droit, jusquAu, motif: accord.motif });
-      toast.success(accord.droit === "pro" ? "Pro accordé" : "Option sans pub accordée");
+      toast.success(`${NOM_OFFRE[accord.droit]} accordé`);
       setAccord(null);
       await charger();
     } catch (e) {
@@ -199,7 +202,7 @@ export default function AdminOffrePage() {
   };
 
   const retirer = async (c: Compte, droit: DroitOffre) => {
-    const quoi = droit === "pro" ? "le Pro" : "l'option sans pub";
+    const quoi = droit === "pro" ? "KoppaFoot+" : "« Pas de pubs »";
     if (!window.confirm(`Retirer ${quoi} à ${c.nom} ? Ce qu'il a déjà créé reste en place.`)) return;
     try {
       await appel("DELETE", { uid: c.uid, droit });
@@ -235,7 +238,7 @@ export default function AdminOffrePage() {
     setRevue(id);
     try {
       const etat = (await appel("POST", { id }, "/api/admin/paiements")) as { statut: StatutPaiement };
-      toast.success(etat.statut === "paye" ? "Paiement confirmé, Pro accordé" : `Chez FedaPay : ${STATUT_PAIEMENT[etat.statut].label.toLowerCase()}`);
+      toast.success(etat.statut === "paye" ? "Paiement confirmé, droit accordé" : `Chez FedaPay : ${STATUT_PAIEMENT[etat.statut].label.toLowerCase()}`);
       await charger();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Revérification impossible");
@@ -255,7 +258,7 @@ export default function AdminOffrePage() {
     <div className="space-y-6">
       <EnTete
         titre="Offre"
-        sousTitre="Les limites de l'offre gratuite, les prix de KoppaFoot Pro, les comptes qui l'ont, et les paiements."
+        sousTitre="Les limites de l'offre gratuite, les prix de KoppaFoot+ et de « Pas de pubs », les comptes qui les ont, et les paiements."
         actions={
           <button
             onClick={() => setAccord({ compte: "", droit: "pro", duree: "3", date: "", motif: "" })}
@@ -267,8 +270,8 @@ export default function AdminOffrePage() {
       />
 
       <div className="grid grid-cols-3 gap-px border border-gray-200/70 bg-gray-200/70">
-        <Chiffre valeur={chiffres.pro} libelle="Comptes Pro actifs" />
-        <Chiffre valeur={chiffres.sansPub} libelle="Sans pub seul" />
+        <Chiffre valeur={chiffres.pro} libelle="KoppaFoot+ actifs" />
+        <Chiffre valeur={chiffres.sansPub} libelle="Pas de pubs seul" />
         <Chiffre
           valeur={enVigueur ? "Oui" : "Non"}
           libelle="Limites en vigueur"
@@ -322,14 +325,18 @@ export default function AdminOffrePage() {
       </section>
 
       <section>
-        <Titre>Vente de KoppaFoot Pro</Titre>
+        <Titre>Vente des offres</Titre>
         <Carte className="space-y-3 px-4 py-4">
           <p className="text-sm text-gray-600">
             {!donnees.fedapay.configure
               ? <>La clé FedaPay n&apos;est pas configurée : rien n&apos;est en vente, quels que soient les prix.</>
               : donnees.fedapay.environnement === "live"
-                ? <>Une formule est en vente dès qu&apos;elle a un prix. Vide les deux pour fermer la vente.</>
+                ? <>Une formule est en vente dès qu&apos;elle a un prix. Vide un prix pour retirer sa formule de la vente.</>
                 : <><strong>Bac à sable.</strong> Seuls les administrateurs voient les formules, et l&apos;argent est fictif.</>}
+          </p>
+          <p className="text-sm text-gray-600">
+            KoppaFoot+ n&apos;est proposé qu&apos;aux managers, organisateurs et propriétaires de terrain. « Pas de pubs »
+            est proposé à tout le monde, sauf à qui a déjà KoppaFoot+.
           </p>
           <div className="flex flex-wrap items-end gap-2">
             {ID_FORMULES.map((id) => (
@@ -354,7 +361,7 @@ export default function AdminOffrePage() {
       <section>
         <Titre compte={donnees.comptes.length}>Comptes avec un droit</Titre>
         {donnees.comptes.length === 0 ? (
-          <Vide titre="Personne pour l'instant" texte="Accorde le Pro à un organisateur ou un gérant pour le lui faire essayer." />
+          <Vide titre="Personne pour l'instant" texte="Accorde KoppaFoot+ à un manager, un organisateur ou un gérant pour le lui faire essayer." />
         ) : (
           <Carte className="divide-y divide-gray-200/70">
             {donnees.comptes.map((c) => (
@@ -362,8 +369,8 @@ export default function AdminOffrePage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-black text-gray-900">{c.nom}</span>
-                    <PastilleDroit nom="Pro" droit={c.pro} />
-                    <PastilleDroit nom="Sans pub" droit={c.sansPub} />
+                    <PastilleDroit offre="pro" droit={c.pro} />
+                    <PastilleDroit offre="sans_pub" droit={c.sansPub} />
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {c.email ?? c.uid}
@@ -375,8 +382,8 @@ export default function AdminOffrePage() {
                     { label: "Prolonger ou modifier", onClick: () => setAccord({
                       compte: c.email ?? c.uid, droit: c.pro ? "pro" : "sans_pub", duree: "3", date: "", motif: c.pro?.motif ?? c.sansPub?.motif ?? "",
                     }) },
-                    ...(c.pro ? [{ label: "Retirer le Pro", onClick: () => void retirer(c, "pro"), danger: true }] : []),
-                    ...(c.sansPub ? [{ label: "Retirer l'option sans pub", onClick: () => void retirer(c, "sans_pub"), danger: true }] : []),
+                    ...(c.pro ? [{ label: "Retirer KoppaFoot+", onClick: () => void retirer(c, "pro"), danger: true }] : []),
+                    ...(c.sansPub ? [{ label: "Retirer « Pas de pubs »", onClick: () => void retirer(c, "sans_pub"), danger: true }] : []),
                   ]}
                 />
               </div>
@@ -388,7 +395,7 @@ export default function AdminOffrePage() {
       <section>
         <Titre compte={paiements.length}>Paiements</Titre>
         {paiements.length === 0 ? (
-          <Vide titre="Aucun paiement" texte="Les achats du Pro apparaîtront ici, du plus récent au plus ancien." />
+          <Vide titre="Aucun paiement" texte="Les achats apparaîtront ici, du plus récent au plus ancien." />
         ) : (
           <Carte className="divide-y divide-gray-200/70">
             {paiements.map((p) => {
@@ -404,13 +411,13 @@ export default function AdminOffrePage() {
                       {p.environnement === "sandbox" && <Pastille ton="bleu">Bac à sable</Pastille>}
                       {p.anomalie && <Pastille ton="rouge">Écart : {p.anomalie}</Pastille>}
                       {rembourse && <Pastille ton="rouge">Remboursé chez FedaPay</Pastille>}
-                      {sansEffet && <Pastille ton="rouge" title="Le compte avait déjà un Pro sans échéance : à rembourser.">Payé sans effet</Pastille>}
+                      {sansEffet && <Pastille ton="rouge" title="Le compte avait déjà ce droit sans échéance : à rembourser.">Payé sans effet</Pastille>}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-500">
                       {p.formule ? libelleFormule(p.formule) : "Frais de réservation"} · {p.montant.toLocaleString("fr-FR")} FCFA
                       {p.mode && <> · {p.mode}</>}
                       {p.creeLe && <> · {new Date(p.creeLe).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</>}
-                      {p.echeanceApres && <> · Pro jusqu&apos;au {jourCourt(p.echeanceApres)}</>}
+                      {p.echeanceApres && <> · {`${p.formule ? NOM_OFFRE[FORMULES[p.formule].droit] : "Droit"} jusqu'au ${jourCourt(p.echeanceApres)}`}</>}
                       {" "}· {p.email ?? p.id}
                     </p>
                   </div>
@@ -440,13 +447,19 @@ export default function AdminOffrePage() {
               <div className="space-y-1.5 text-sm">
                 <label className="flex items-center gap-2">
                   <input type="radio" checked={accord.droit === "pro"} onChange={() => setAccord({ ...accord, droit: "pro" })} />
-                  KoppaFoot Pro (lève les limites, comprend le sans pub)
+                  KoppaFoot+ (lève les plafonds de ce que le compte gère, retire la publicité)
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" checked={accord.droit === "sans_pub"} onChange={() => setAccord({ ...accord, droit: "sans_pub" })} />
-                  Option sans pub seule
+                  Pas de pubs (retire la publicité, rien d&apos;autre)
                 </label>
               </div>
+              {accord.droit === "pro" && (
+                <p className="mt-2 text-xs text-gray-500">
+                  KoppaFoot+ n&apos;agit que pour ce que le compte est : à un joueur, un arbitre ou un spectateur, il ne
+                  retire que la publicité.
+                </p>
+              )}
             </div>
             <label className="block">
               <span className={ETIQUETTE}>Durée</span>
