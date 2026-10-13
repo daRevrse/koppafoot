@@ -29,13 +29,14 @@ import {
 import {
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useLangue } from "@/i18n";
-import { buildFirestoreUser, firestoreToProfile, providersDepuisFirebase } from "@/lib/profil";
+import { buildFirestoreUser, firestoreToProfile, garantirProfil, providersDepuisFirebase } from "@/lib/profil";
 import type { UserProfile, UserRole, SignupData, FirestoreUser, AuthProvider } from "@/types";
 
 // ============================================
@@ -62,7 +63,14 @@ interface AuthContextType {
   linkEmail: (email: string, password: string) => Promise<void>;
   linkPhone: (confirmation: ConfirmationResult, code: string) => Promise<void>;
   // Onboarding (Google/Phone users without profile)
-  completeProfile: (data: SignupData) => Promise<void>;
+  /** `cree: false` : le compte avait déjà son profil, rien n'a été écrit. */
+  completeProfile: (data: SignupData) => Promise<{ cree: boolean }>;
+  /**
+   * Demande AU SERVEUR si ce compte a un profil, et le charge s'il en a un.
+   * Lève si le serveur ne répond pas : on ne sait alors pas, et il ne faut
+   * pas en conclure que le compte est neuf.
+   */
+  retrouverProfil: () => Promise<boolean>;
   // Common
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -94,6 +102,19 @@ async function createUserProfile(uid: string, data: SignupData, providers: AuthP
 
 async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return null;
+  return firestoreToProfile(uid, snap.data() as FirestoreUser);
+}
+
+/**
+ * Le profil tel que LE SERVEUR le connaît, sans passer par le cache de
+ * l'appareil (lib/firebase le garde sur disque). `fetchUserProfile` suffit
+ * pour afficher, et doit marcher sans réseau ; décider qu'un compte est neuf,
+ * et lui créer un profil, ne se fait que sur cette lecture-ci (lib/profil,
+ * garantirProfil).
+ */
+async function lireProfilAuServeur(uid: string): Promise<UserProfile | null> {
+  const snap = await getDocFromServer(doc(db, "users", uid));
   if (!snap.exists()) return null;
   return firestoreToProfile(uid, snap.data() as FirestoreUser);
 }
@@ -229,10 +250,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // profile straight away; without it the caller must route to
       // /get-started, an authenticated user with no profile is a dead end.
       if (signupData) {
-        await createUserProfile(result.user.uid, {
-          ...signupData,
-          phone: result.user.phoneNumber ?? signupData.phone,
-        }, ["phone"]);
+        await garantirProfil({
+          lireAuServeur: () => lireProfilAuServeur(result.user.uid),
+          creer: () => createUserProfile(result.user.uid, {
+            ...signupData,
+            phone: result.user.phoneNumber ?? signupData.phone,
+          }, ["phone"]),
+        });
         return { isNewUser: false };
       }
       return { isNewUser: true };
@@ -250,10 +274,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // New user via Google, needs profile creation
     if (signupData) {
-      await createUserProfile(result.user.uid, {
-        ...signupData,
-        email: result.user.email ?? signupData.email,
-      }, ["google"]);
+      await garantirProfil({
+        lireAuServeur: () => lireProfilAuServeur(result.user.uid),
+        creer: () => createUserProfile(result.user.uid, {
+          ...signupData,
+          email: result.user.email ?? signupData.email,
+        }, ["google"]),
+      });
     }
     return { isNewUser: !existing };
   }, []);
@@ -301,18 +328,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       auth.currentUser.providerData.map((p) => p.providerId),
     );
 
-    await createUserProfile(auth.currentUser.uid, {
-      ...data,
-      email: data.email ?? auth.currentUser.email ?? undefined,
-      phone: data.phone ?? auth.currentUser.phoneNumber ?? undefined,
-    }, providers);
+    // Jamais par-dessus un profil qui existe : on arrive aussi ici quand la
+    // lecture du profil a échoué, et réécrire un profil est refusé par les
+    // règles (lib/profil, garantirProfil).
+    const compte = auth.currentUser;
+    const { profil, cree } = await garantirProfil({
+      lireAuServeur: () => lireProfilAuServeur(compte.uid),
+      creer: () => createUserProfile(compte.uid, {
+        ...data,
+        email: data.email ?? compte.email ?? undefined,
+        phone: data.phone ?? compte.phoneNumber ?? undefined,
+      }, providers),
+    });
+    profil.emailVerified = compte.emailVerified;
+    setUser(profil);
+    return { cree };
+  }, []);
 
-    // Refresh local state
-    const profile = await fetchUserProfile(auth.currentUser.uid);
-    if (profile) {
-      profile.emailVerified = auth.currentUser.emailVerified;
-    }
-    setUser(profile);
+  const retrouverProfil = useCallback(async (): Promise<boolean> => {
+    const compte = auth.currentUser;
+    if (!compte) return false;
+    const profil = await lireProfilAuServeur(compte.uid);
+    if (!profil) return false;
+    profil.emailVerified = compte.emailVerified;
+    setUser(profil);
+    return true;
   }, []);
 
   // --- Common ---
@@ -372,6 +412,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         confirmPhoneCode,
         loginWithGoogle,
         completeProfile,
+        retrouverProfil,
         linkEmail,
         linkPhone,
         logout,
