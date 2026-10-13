@@ -161,10 +161,15 @@ export function finCreneau(debut: string, h: number): string {
  * Le propriétaire en a besoin au moment de confirmer : accepter deux équipes
  * sur le même samedi 18 h est l'erreur qui coûte un client, et elle ne se
  * voit pas dans une liste triée par date d'arrivée.
+ *
+ * `battementMin` : ce que le terrain garde après chaque créneau. Un match
+ * part en retard, déborde, et l'équipe suivante attend sur le bord : avec
+ * quinze minutes de battement, un 18 h – 19 h occupe jusqu'à 19 h 15.
  */
 export function seChevauchent(
   a: { date: string; time: string; duration: number },
   b: { date: string; time: string; duration: number },
+  battementMin = 0,
 ): boolean {
   if (a.date !== b.date) return false;
   const min = (t: string) => {
@@ -173,7 +178,7 @@ export function seChevauchent(
   };
   const debutA = min(a.time);
   const debutB = min(b.time);
-  return debutA < debutB + b.duration * 60 && debutB < debutA + a.duration * 60;
+  return debutA < debutB + b.duration * 60 + battementMin && debutB < debutA + a.duration * 60 + battementMin;
 }
 
 // ─── Horaires d'ouverture ───────────────────────────────────
@@ -385,10 +390,11 @@ export function libreA(
   horaires: HorairesOuverture | null,
   occupations: Occupation[],
   creneau: Occupation,
+  battementMin = 0,
 ): { ouvert: boolean; libre: boolean } {
   return {
     ouvert: horsHoraires(horaires, creneau) === null,
-    libre: !occupations.some((o) => seChevauchent(o, creneau)),
+    libre: !occupations.some((o) => seChevauchent(o, creneau, battementMin)),
   };
 }
 

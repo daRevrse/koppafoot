@@ -78,6 +78,7 @@ export default function BookingRequest({
   ownerId = null,
   available,
   pricePerHour = 0,
+  battementMin = 0,
   horaires: horairesInitiaux = null,
 }: {
   venueId: string;
@@ -86,6 +87,8 @@ export default function BookingRequest({
   /** L'état au moment du rendu serveur. Sert de valeur de départ, puis est relu. */
   available: boolean;
   pricePerHour?: number;
+  /** Ce que le terrain garde après chaque créneau, en minutes (lib/terrains, seChevauchent). */
+  battementMin?: number;
   /** Idem : la valeur du rendu serveur, relue au montage. */
   horaires?: HorairesOuverture | null;
 }) {
@@ -168,8 +171,8 @@ export default function BookingRequest({
 
   /** Les créneaux confirmés qui recouvrent celui qu'on est en train de demander. */
   const conflits = useMemo(
-    () => creneaux.filter((c) => seChevauchent(c, { date, time, duration: heures })),
-    [creneaux, date, time, heures],
+    () => creneaux.filter((c) => seChevauchent(c, { date, time, duration: heures }, battementMin)),
+    [creneaux, date, time, heures, battementMin],
   );
 
   /** L'occupation à venir, groupée par jour : une liste plate ne se lit pas. */

@@ -535,11 +535,12 @@ export default function ReservationsRecuesPage() {
   const conflits = useMemo(() => {
     const map = new Map<string, Booking>();
     for (const b of attente) {
-      const heurt = confirmees.find((c) => c.venueId === b.venueId && seChevauchent(c, b));
+      const battement = terrains.find((t) => t.id === b.venueId)?.battementMin ?? 0;
+      const heurt = confirmees.find((c) => c.venueId === b.venueId && seChevauchent(c, b, battement));
       if (heurt) map.set(b.id, heurt);
     }
     return map;
-  }, [attente, confirmees]);
+  }, [attente, confirmees, terrains]);
 
   if (authLoading) return <EnCours hauteur="h-[60vh] items-center" />;
   if (!user) return null;

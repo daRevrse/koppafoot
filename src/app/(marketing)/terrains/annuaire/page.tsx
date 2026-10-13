@@ -80,6 +80,7 @@ async function lireTerrains(): Promise<TerrainListe[]> {
         fieldSize: s(v.field_size),
         fieldSurface: s(v.field_surface),
         pricePerHour: n(v.price_per_hour),
+        battementMin: v.battement_min === 15 || v.battement_min === 30 ? v.battement_min : 0,
         amenities: Array.isArray(v.amenities) ? (v.amenities as unknown[]).filter((a): a is string => typeof a === "string") : [],
         photos: photosDuTerrain(v.photo_url, v.gallery_urls),
         available: v.available !== false,

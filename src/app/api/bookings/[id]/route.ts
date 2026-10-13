@@ -159,9 +159,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           .where("venue_id", "==", b.venue_id)
           .where("date", "==", creneau.date)
           .get();
+        const terrain = (await adminDb.collection("venues").doc(b.venue_id).get()).data();
+        const battement = terrain?.battement_min === 15 || terrain?.battement_min === 30 ? terrain.battement_min : 0;
         const libre = !memeJour.docs.some((d) => {
           const x = d.data() as FirestoreBooking;
-          return x.status === "confirmed" && seChevauchent(x, creneau);
+          return x.status === "confirmed" && seChevauchent(x, creneau, battement);
         });
 
         const nouvelle: Omit<FirestoreBooking, "created_at" | "updated_at"> = {

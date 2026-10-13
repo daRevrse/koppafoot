@@ -411,6 +411,8 @@ function toVenue(id: string, d: FirestoreVenue): Venue {
     available: d.available ?? true, photoUrl: d.photo_url ?? null,
     galleryUrls: d.gallery_urls ?? [],
     openingHours: horairesLus(d.opening_hours),
+    battementMin: d.battement_min === 15 || d.battement_min === 30 ? d.battement_min : 0,
+    paiementApp: d.paiement_app === true,
     createdAt: d.created_at, updatedAt: d.updated_at,
   };
 }
@@ -3580,6 +3582,7 @@ function toBooking(id: string, d: FirestoreBooking): Booking {
     contact: d.contact ?? null,
     message: d.message ?? null,
     proposition: d.proposition ?? null,
+    reglementVu: d.reglement_vu ?? null,
     note: d.note ?? null,
     cancelledBy: d.cancelled_by ?? null,
     serieId: d.serie_id ?? null,

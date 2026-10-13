@@ -59,6 +59,10 @@ interface VenueView {
   photos: string[];
   available: boolean;
   horaires: HorairesOuverture | null;
+  /** Ce que le terrain garde après chaque créneau, en minutes. */
+  battementMin: number;
+  /** Les frais de réservation se paient dans l'application (lib/reglement). */
+  paiementApp: boolean;
 }
 
 async function readVenue(id: string): Promise<VenueView | null> {
@@ -83,6 +87,8 @@ async function readVenue(id: string): Promise<VenueView | null> {
     photos: photosDuTerrain(v.photo_url, v.gallery_urls),
     available: v.available !== false,
     horaires: horairesLus(v.opening_hours),
+    battementMin: v.battement_min === 15 || v.battement_min === 30 ? v.battement_min : 0,
+    paiementApp: v.paiement_app === true,
   };
 }
 
@@ -198,6 +204,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
                     ownerId={venue.ownerId}
                     available={venue.available}
                     pricePerHour={venue.pricePerHour}
+                    battementMin={venue.battementMin}
                     horaires={venue.horaires}
                   />
                 </Suspense>
