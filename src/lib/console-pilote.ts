@@ -29,7 +29,8 @@ import {
 } from "@/lib/competition-firestore";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
-  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, teamSize,
+  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, reentryAllowed,
+  subsMax, teamSize,
 } from "@/lib/competition-format";
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
@@ -241,9 +242,10 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       titulairesMax: competition ? teamSize(competition.format) : DEFAULT_TEAM_SIZE,
       dureeMiTempsMin: competition ? halfDuration(competition.format) : DEFAULT_HALF_DURATION,
       // Le reglement d'une competition : cinq changements, et une sortie est
-      // definitive.
-      remplacementsMax: DEFAULT_SUBS_MAX,
-      retourAutorise: false,
+      // definitive — sauf quand l'organisateur a choisi les changements
+      // illimites, qui levent les deux d'un coup.
+      remplacementsMax: competition ? subsMax(competition.format) : DEFAULT_SUBS_MAX,
+      retourAutorise: competition ? reentryAllowed(competition.format) : false,
     }),
 
     effectifs: async (match) => {

@@ -21,7 +21,7 @@ import type { Competition, CompMatch, CompTeam } from "@/types";
 // souvent la majorité dans un tournoi de quartier.
 //
 // LE MINIMUM : la liste, et sous chaque équipe ses joueurs avec matchs
-// joués, buts et cartons — les mêmes chiffres que l'écran du manager (voir
+// joués, buts, passes et cartons — les mêmes chiffres que l'écran du manager (voir
 // computeSquadStats). Le détail reste sur la fiche de l'équipe.
 // ============================================
 
@@ -38,6 +38,8 @@ const T = textes(
     mj: "MJ",
     mjLong: "Matchs joués",
     buts: "Buts",
+    pd: "PD",
+    pdLong: "Passes décisives",
     jaunes: "Cartons jaunes",
     rouges: "Cartons rouges",
   },
@@ -52,6 +54,8 @@ const T = textes(
     mj: "MP",
     mjLong: "Matches played",
     buts: "Goals",
+    pd: "A",
+    pdLong: "Assists",
     jaunes: "Yellow cards",
     rouges: "Red cards",
   },
@@ -110,6 +114,7 @@ function EffectifChiffre({ competition, team, matches, feminin }: {
               <th className="pb-2 text-left font-black">{t.joueur(feminin)}</th>
               <th className="w-10 pb-2 text-center font-black" title={t.mjLong}>{t.mj}</th>
               <th className="w-12 pb-2 text-center font-black">{t.buts}</th>
+              <th className="w-10 pb-2 text-center font-black" title={t.pdLong}>{t.pd}</th>
               <th className="w-8 pb-2 text-center"><Carton couleur="jaune" titre={t.jaunes} /></th>
               <th className="w-8 pb-2 text-center"><Carton couleur="rouge" titre={t.rouges} /></th>
             </tr>
@@ -137,6 +142,9 @@ function EffectifChiffre({ competition, team, matches, feminin }: {
                 <td className="py-2 text-center tabular-nums text-gray-600">{stats.matchesPlayed}</td>
                 <td className={`py-2 text-center font-black tabular-nums ${stats.goals ? "text-emerald-600" : "text-gray-300"}`}>
                   {stats.goals}
+                </td>
+                <td className={`py-2 text-center tabular-nums ${stats.assists ? "font-bold text-gray-700" : "text-gray-300"}`}>
+                  {stats.assists}
                 </td>
                 <td className={`py-2 text-center tabular-nums ${stats.yellowCards ? "text-gray-700" : "text-gray-300"}`}>
                   {stats.yellowCards}

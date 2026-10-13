@@ -5,6 +5,7 @@ import { useAdminApi } from "@/hooks/useAdminApi";
 import Pagination, { usePagination } from "@/components/admin/Pagination";
 import RecordActions from "@/components/admin/RecordActions";
 import LigneMatch, { libelleStatut } from "@/components/admin/LigneMatch";
+import AjouterAmical from "@/components/admin/AjouterAmical";
 import { Carte, Chargement, EnTete, Erreur, Filtres, Recherche, Selecteur, Vide } from "@/components/admin/ui";
 import type { MatchAdmin } from "@/lib/admin-types";
 
@@ -18,6 +19,10 @@ import type { MatchAdmin } from "@/lib/admin-types";
 // « NON CLOS » est un statut d'administration : un amical dont la date est
 // passée et qui attend toujours son coup de sifflet final. C'est ce qu'il faut
 // aller relancer, et le produit l'affiche encore « à venir ».
+//
+// L'AMICAL S'AJOUTE ICI (voir AjouterAmical). Un match de compétition se crée
+// dans le calendrier de sa compétition, où l'administration entre par « Gérer
+// comme l'organisateur ».
 // ============================================
 
 type Filtre = "tous" | "direct" | "a_venir" | "non_clos" | "joues" | "contestes" | "annules";
@@ -67,6 +72,7 @@ export default function AdminMatchesPage() {
       <EnTete
         titre="Matchs"
         sousTitre={data ? `${matchs.filter((m) => m.genre === "amical").length} amicaux, ${matchs.filter((m) => m.genre === "competition").length} matchs de compétition.` : "Lecture…"}
+        actions={<AjouterAmical onDone={recharger} />}
       />
       <Filtres<Filtre>
         valeur={filtre}

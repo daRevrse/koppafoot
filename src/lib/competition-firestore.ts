@@ -653,6 +653,10 @@ export async function updateCompPlayer(
       ...(position ? { position } : {}),
       user_id: userId,
       ...(photo ? { photo_url: photo } : {}),
+      // La fiche du club derrière la ligne (voir lib/fusion-import) : la
+      // perdre à la première correction du nom ferait revenir le doublon à
+      // la prochaine synchronisation.
+      ...(p.club_ghost_id ? { club_ghost_id: p.club_ghost_id } : {}),
     };
   });
   await updateCompTeam(cid, tid, { players });
@@ -1757,6 +1761,12 @@ export interface ResultGoal {
   /** `null` (or 0) = unknown. No real goal is scored at the 0th minute. */
   minute: number | null;
   ownGoal?: boolean;
+  /**
+   * Le passeur, quand l'organisateur le connaît : une ligne de l'effectif de
+   * l'équipe qui marque. Ignoré sur un but contre son camp, qui n'en a pas.
+   */
+  assistPlayerId?: string | null;
+  assistPlayerName?: string | null;
 }
 
 /**
@@ -1825,6 +1835,12 @@ export async function setCompMatchResult(
     player_id: g.ownGoal ? null : g.playerId ?? null,
     player_name: g.playerName ?? null,
     detail: g.ownGoal ? OWN_GOAL_DETAIL : null,
+    // Le passeur voyage sur le but, comme en console (voir `setCompGoalAssist`).
+    // Sans lui, rouvrir la saisie d'un match couvert en direct effaçait les
+    // passes que le scoreur avait notées.
+    ...(!g.ownGoal && g.assistPlayerName
+      ? { assist_player_id: g.assistPlayerId ?? null, assist_player_name: g.assistPlayerName }
+      : {}),
     created_at: now,
   }));
 

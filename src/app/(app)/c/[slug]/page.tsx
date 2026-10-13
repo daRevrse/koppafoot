@@ -18,7 +18,7 @@ import StandingsTab from "@/components/competition/tabs/StandingsTab";
 import BracketTab from "@/components/competition/tabs/BracketTab";
 import ScorersTab from "@/components/competition/tabs/ScorersTab";
 import TeamsTab from "@/components/competition/tabs/TeamsTab";
-import { gameTypeLabel, matchDurationLabel, hasGroupStage, hasKnockout } from "@/lib/competition-format";
+import { gameTypeLabel, matchDurationLabel, hasGroupStage, hasKnockout, reentryAllowed } from "@/lib/competition-format";
 import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
 import MvpDuMatch from "@/components/match/MvpDuMatch";
 import FollowCompetitionButton from "@/components/competition/FollowCompetitionButton";
@@ -73,6 +73,7 @@ const T = textes(
     partagerCompetition: "Partager la compétition",
     partager: "Partager",
     abonnes: (n: number) => `${n} abonné${n > 1 ? "s" : ""}`,
+    changementsIllimites: "Changements illimités",
     /** Une compétition féminine élit sa meilleure joueuse (lib/genre). */
     meilleurJoueur: (categorie: Categorie | null) =>
       categorie === "women" ? "Meilleure joueuse du tournoi" : "Meilleur joueur du tournoi",
@@ -108,6 +109,7 @@ const T = textes(
     partagerCompetition: "Share the competition",
     partager: "Share",
     abonnes: (n: number) => `${n} follower${n === 1 ? "" : "s"}`,
+    changementsIllimites: "Rolling subs",
     meilleurJoueur: () => "Player of the tournament",
     inscriptionsOuvertes: "Registration open",
     tuDiriges: "Running a team? Register it for this competition.",
@@ -365,6 +367,7 @@ export default function PublicCompetitionHome() {
             {competition.venueCity && <span>{competition.venueCity}</span>}
             <span>{gameTypeLabel(competition.format)}</span>
             <span>{matchDurationLabel(competition.format)}</span>
+            {reentryAllowed(competition.format) && <span>{t.changementsIllimites}</span>}
             {followers !== null && followers > 0 && (
               <span className="text-emerald-300">
                 {t.abonnes(followers)}

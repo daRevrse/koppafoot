@@ -1781,6 +1781,13 @@ export interface CompetitionFormat {
    */
   half_duration?: number;
   /**
+   * Changements illimités : plus de plafond par équipe, et un joueur sorti
+   * peut revenir — le régime des tournois à effectif réduit, et celui des
+   * amicaux. Absent ou faux → cinq changements, sortie définitive (voir
+   * subsMax() et reentryAllowed() dans lib/competition-format).
+   */
+  unlimited_subs?: boolean;
+  /**
    * Size of the bracket, in teams. Only read for the types whose final stage
    * is not fed by group qualifiers:
    *  - cup             : how many teams enter round 1
@@ -1926,6 +1933,15 @@ export interface CompPlayer {
    * le rattachement efface celle-ci (voir /api/competitions/roster-claims).
    */
   photo_url?: string | null;
+  /**
+   * La fiche SANS COMPTE du club que cette ligne représente
+   * (`teams/{club}/ghost_players/{id}`), quand le manager l'a confirmé à
+   * l'import : une ligne que l'organisateur avait tapée à la main, et qui
+   * garde son identifiant pour garder ses matchs (voir lib/fusion-import).
+   * Une ligne créée par l'import porte la fiche dans son identifiant
+   * (`ghost_<id>`) et n'a pas besoin de ce champ.
+   */
+  club_ghost_id?: string | null;
 }
 
 // ============================================

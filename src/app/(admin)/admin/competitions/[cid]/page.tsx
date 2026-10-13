@@ -124,6 +124,7 @@ export default function AdminCompetitionDetailPage() {
     TYPES[c.competitionType] ?? c.competitionType,
     f.team_size ? `${f.team_size} contre ${f.team_size}` : null,
     f.half_duration ? `2 × ${f.half_duration} min` : null,
+    f.unlimited_subs ? "changements illimités" : null,
     c.competitionType === "groups_knockout" || c.competitionType === "league" || c.competitionType === "league_playoffs"
       ? `${f.group_count} poule${f.group_count > 1 ? "s" : ""} de ${f.teams_per_group}`
       : null,

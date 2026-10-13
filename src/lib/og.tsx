@@ -255,7 +255,10 @@ function AfficheBanniere({ url }: { url: string }) {
  */
 export async function imageDuMatch(match: MatchPublic | CompMatchPublic | null): Promise<ImageResponse> {
   if (!match) return imageDeMarque();
-  if (match.bannerUrl) return new ImageResponse(<AfficheBanniere url={match.bannerUrl} />, TAILLE_OG);
+  // Téléchargée d'abord, comme les logos : une bannière récente est en WebP,
+  // que Satori laisse noir. Illisible, l'aperçu retombe sur l'affiche dessinée.
+  const banniere = await imageDistante(match.bannerUrl);
+  if (banniere) return new ImageResponse(<AfficheBanniere url={banniere} />, TAILLE_OG);
 
   const officiel = "competition" in match;
   const [{ logo }, logoCompetition, logoHome, logoAway] = await Promise.all([

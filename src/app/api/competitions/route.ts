@@ -44,6 +44,7 @@ function lireFormat(x: unknown): CompetitionFormat | null {
     ...(f.double_round !== undefined ? { double_round: f.double_round === true } : {}),
     ...(f.team_size !== undefined ? { team_size: entier(f.team_size, 1, 11, 11) } : {}),
     ...(f.half_duration !== undefined ? { half_duration: entier(f.half_duration, 1, 90, 45) } : {}),
+    ...(f.unlimited_subs !== undefined ? { unlimited_subs: f.unlimited_subs === true } : {}),
     ...(f.knockout_teams !== undefined ? { knockout_teams: entier(f.knockout_teams, 2, 64, 8) } : {}),
   };
 }

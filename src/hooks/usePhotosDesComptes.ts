@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Genre } from "@/lib/genre";
-import { cleDeLigneDeCompetition, photoDeLaLigne } from "@/lib/photos-sans-compte";
+import { cleDeLaLigne, photoDeLaLigne } from "@/lib/photos-sans-compte";
 
 // ============================================
 // Les photos de profil de quelques comptes, pour une page publique — et leur
@@ -121,12 +121,12 @@ export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record
  * que l'équipe représente (`claimedByTeamId`), s'il y en a un.
  */
 export function usePhotosDesLignes(
-  lignes: { id: string; user_id?: string | null; photo_url?: string | null }[],
+  lignes: { id: string; user_id?: string | null; photo_url?: string | null; club_ghost_id?: string | null }[],
   clubId: string | null | undefined,
 ): Record<string, string | null> {
   const { photos } = useComptesPublics(lignes.map((l) => l.user_id));
   const sansCompte = usePhotosSansCompte(
-    lignes.filter((l) => !l.user_id && !l.photo_url).map((l) => cleDeLigneDeCompetition(clubId, l.id)),
+    lignes.filter((l) => !l.user_id && !l.photo_url).map((l) => cleDeLaLigne(clubId, l)),
   );
   const parLigne: Record<string, string | null> = {};
   for (const l of lignes) parLigne[l.id] = photoDeLaLigne(l, clubId, photos, sansCompte);

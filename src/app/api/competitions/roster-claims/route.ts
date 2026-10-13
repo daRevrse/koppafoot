@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { isStaffOf } from "@/lib/competition-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
 import { effacerVisuelParAdresse } from "@/lib/visuel-serveur";
 import { photoDeLaCompetition } from "@/lib/photos-sans-compte";
@@ -22,6 +22,8 @@ import { photoDeLaCompetition } from "@/lib/photos-sans-compte";
  * GET    ?mine=1                      , the caller's own claims.
  * PATCH  { id, action: accept|reject }, staff decision.
  * DELETE { id }                       , the claimant cancels their request.
+ *
+ * Undoing a validated link is /api/competitions/roster-links.
  */
 
 async function callerUidOf(req: NextRequest): Promise<string | null> {
@@ -33,23 +35,6 @@ async function callerUidOf(req: NextRequest): Promise<string | null> {
   } catch {
     return null;
   }
-}
-
-/** Staff = organizer of the competition, manager of that team, or superadmin. */
-async function isStaffOf(uid: string, cid: string, teamId: string): Promise<boolean> {
-  const compSnap = await adminDb.collection("competitions").doc(cid).get();
-  if (!compSnap.exists) return false;
-  const competition = compSnap.data() as FirestoreCompetition;
-  if ((competition.organizer_ids ?? []).includes(uid)) return true;
-
-  const teamSnap = await adminDb
-    .collection("competitions").doc(cid)
-    .collection("comp_teams").doc(teamId)
-    .get();
-  if (teamSnap.exists && teamSnap.data()?.claimed_by_manager_id === uid) return true;
-
-  const callerDoc = await adminDb.collection("users").doc(uid).get();
-  return callerDoc.exists && estSuperadmin(callerDoc.data());
 }
 
 function toClaimJson(id: string, x: FirebaseFirestore.DocumentData) {

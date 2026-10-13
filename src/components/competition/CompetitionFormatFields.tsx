@@ -2,7 +2,7 @@
 
 import {
   hasGroupStage, hasKnockout, isSingleGroup,
-  halfDuration, matchDuration, teamSize, TEAM_SIZE_OPTIONS,
+  halfDuration, matchDuration, teamSize, DEFAULT_SUBS_MAX, TEAM_SIZE_OPTIONS,
 } from "@/lib/competition-format";
 import type { CompetitionFormat, CompetitionType } from "@/types";
 
@@ -124,6 +124,20 @@ export default function CompetitionFormatFields({
             Match de 2 × {half} min, soit {matchDuration(format)} min de jeu
           </p>
         </div>
+      </div>
+
+      {/* Le régime des changements : la console l'applique sur chaque match. */}
+      <div>
+        <CheckField
+          label="Changements illimités"
+          checked={!!format.unlimited_subs}
+          onChange={(v) => onChange({ unlimited_subs: v })}
+        />
+        <p className="mt-1 pl-7 text-xs text-gray-400">
+          {format.unlimited_subs
+            ? "Aucun plafond, et un joueur sorti peut revenir sur le terrain."
+            : `${DEFAULT_SUBS_MAX} changements par équipe, et une sortie est définitive.`}
+        </p>
       </div>
 
       <div className="border-t border-gray-200/70" />

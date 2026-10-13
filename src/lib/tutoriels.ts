@@ -204,9 +204,9 @@ export const TUTORIELS: Tutoriel[] = [
           lien: { href: "/participations", label: "Mes convocations" },
         },
         {
-          titre: "Rattache-toi en compétition",
-          texte: "Sur la page de ton équipe dans une compétition, touche « C'est moi » sur ta ligne : une fois validé, tes buts et tes notes remplissent tes statistiques.",
-          lien: { href: "/competitions", label: "Trouver mon équipe" },
+          titre: "Joue en compétition",
+          texte: "Rien à demander : quand ton manager inscrit l'équipe ou importe son effectif dans une compétition, ta ligne est rattachée à ton compte, et tes buts, tes passes et tes notes remplissent tes statistiques.",
+          lien: { href: "/competitions", label: "Voir les compétitions" },
         },
         {
           titre: "Suis tes statistiques",
