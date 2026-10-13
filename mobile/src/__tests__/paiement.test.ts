@@ -274,4 +274,20 @@ describe("firestore.rules", () => {
       expect((bloc ?? "").match(/allow /g)).toHaveLength(1);
     },
   );
+
+  // Le statut d'une réservation et l'auteur de son annulation décident à qui
+  // revient un acompte payé (lib/reglement, planReglement). Tant que ses deux
+  // parties pouvaient les écrire depuis leur navigateur, l'une comme l'autre
+  // pouvait dire que c'était l'autre qui avait annulé.
+  it("ne laisse aucune des deux parties écrire une réservation depuis son navigateur", () => {
+    const regles = readFileSync(join(__dirname, "../../../firestore.rules"), "utf8");
+    const bloc = /match \/bookings\/\{bookingId\} \{([\s\S]*?)\n    \}\n/.exec(regles)?.[1] ?? "";
+    // Les commentaires racontent l'ancienne règle : on ne lit que les règles.
+    const code = bloc.split("\n").filter((ligne) => !ligne.trim().startsWith("//")).join("\n");
+
+    expect(code).toContain("allow read:");
+    expect(code).toMatch(/allow create: if false;/);
+    expect(code).toMatch(/allow update, delete: if isSuperAdmin\(\);/);
+    expect(code.match(/allow /g)).toHaveLength(3);
+  });
 });

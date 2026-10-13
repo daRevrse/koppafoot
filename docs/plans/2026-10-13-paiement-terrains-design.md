@@ -99,6 +99,8 @@ Le propriétaire peut aujourd'hui modifier depuis son navigateur n'importe quel 
 | `bookings/{id}` | Gagne `reglement_vu`, une copie d'affichage de l'état (`acompte_attendu`, `acompte_paye`, clôture). **Le serveur ne la relit jamais.** |
 | `settings/paiement` | `taux_frais`, `depots_actifs`. Écrit par l'admin. |
 
+**Les réservations elles-mêmes se ferment aux navigateurs** (constaté à la relecture finale, 2026-10-13). Aucun montant n'y vit, mais leur statut et l'auteur de leur annulation décident à qui revient un acompte payé, et la date de la demande dit si les frais lui sont dus. Les règles laissaient encore le propriétaire écrire n'importe quel champ et le demandeur écrire ce qu'il voulait pourvu que la demande finisse annulée : chacun pouvait dire que l'autre avait annulé. Plus aucun écran n'écrivait là (tout passe par `/api/bookings`) : `bookings` passe en écriture par le serveur seul. **À déployer avec le code, pas avant** : sans le code, rien ne change pour personne ; sans la règle, le circuit d'argent se falsifie.
+
 ## Les pièces
 
 | Fichier | Rôle |

@@ -1527,7 +1527,7 @@ export interface FirestoreBooking {
    * Où en sont les frais de réservation, pour l'affichage des listes :
    * « acompte_attendu », « acompte_paye », ou la clôture. Une COPIE : la
    * vérité est dans `reglements/{id}`, fermée aux navigateurs, et le serveur
-   * ne relit jamais ce champ (le propriétaire peut l'écrire depuis le sien).
+   * ne relit jamais ce champ.
    */
   reglement_vu?: string | null;
   created_at: string;
