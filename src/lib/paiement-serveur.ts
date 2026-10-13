@@ -8,8 +8,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import { notifierCompte } from "@/lib/notifier-serveur";
 import { droitActif, jourDeLome, type DroitAccorde, type FirestoreDroits } from "@/lib/offre";
 import {
-  FORMULES, ID_PAIEMENT, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, lirePrix, motifAchat,
-  nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
+  FORMULES, ID_PAIEMENT, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, libelleFormule, lirePrix,
+  motifAchat, nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
   type Collecte, type EnvironnementPaiement, type FirestorePaiement, type FormuleEnVente, type IdFormule,
   type ObjetPaiement, type PrixOffre, type StatutPaiement,
 } from "@/lib/paiement";
@@ -47,9 +47,6 @@ const millis = (x: unknown): number =>
 /** « 12 novembre 2026 », pour une journée « 2026-11-12 ». */
 const dateLongue = (jour: string): string =>
   new Date(`${jour}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-
-const libelleFormule = (formule: IdFormule): string =>
-  FORMULES[formule].mois === 12 ? "KoppaFoot Pro, 1 an" : "KoppaFoot Pro, 1 mois";
 
 export async function lirePrixOffre(): Promise<PrixOffre> {
   const snap = await adminDb.collection("settings").doc("offre").get();
@@ -336,7 +333,7 @@ const effetPro: Effet = async (tx, ligne, c) => {
     jusqu_au: suite.jusqu_au,
     source: "paiement",
     accorde_par: null,
-    motif: motifAchat(mois, c.environnement),
+    motif: motifAchat("pro", mois, c.environnement),
   };
   return {
     ecrire: () => tx.set(droitsRef, { pro: accorde, updated_at: FieldValue.serverTimestamp() }, { merge: true }),

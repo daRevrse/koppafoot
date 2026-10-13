@@ -110,7 +110,7 @@ describe("demarrerPaiement", () => {
     });
     expect(mockFedapay.creerCollecte).toHaveBeenCalledWith({
       reference: id,
-      description: "KoppaFoot Pro, 1 mois",
+      description: "KoppaFoot+, 1 mois",
       montant: 1500,
       retour: `${ORIGINE}/offre?paiement=${id}`,
       client: { prenom: "Ama", nom: "Koffi", email: "ama@exemple.test" },
@@ -120,7 +120,7 @@ describe("demarrerPaiement", () => {
   it("prend le prix de l'année pour la formule d'un an", async () => {
     const { id } = await demarrerPaiement(UID, "pro_an", ORIGINE);
     expect(mockBase.get(`paiements/${id}`)).toMatchObject({ formule: "pro_an", montant: 15000 });
-    expect(mockFedapay.creerCollecte).toHaveBeenCalledWith(expect.objectContaining({ description: "KoppaFoot Pro, 1 an", montant: 15000 }));
+    expect(mockFedapay.creerCollecte).toHaveBeenCalledWith(expect.objectContaining({ description: "KoppaFoot+, 1 an", montant: 15000 }));
   });
 
   it("en bac à sable, refuse un compte qui n'est pas superadmin, sans rien écrire", async () => {
@@ -203,12 +203,12 @@ describe("formulesPour", () => {
   });
 
   it("en bac à sable, montre les formules en vente à un superadmin", async () => {
-    expect(await formulesPour({ is_superadmin: true })).toEqual([{ id: "pro_mois", mois: 1, prix: 1500 }]);
+    expect(await formulesPour({ is_superadmin: true })).toEqual([{ id: "pro_mois", droit: "pro", mois: 1, prix: 1500 }]);
   });
 
   it("en réel, les montre à tout le monde", async () => {
     mockFedapay.environnement = "live";
-    expect(await formulesPour({ user_type: "manager" })).toEqual([{ id: "pro_mois", mois: 1, prix: 1500 }]);
+    expect(await formulesPour({ user_type: "manager" })).toEqual([{ id: "pro_mois", droit: "pro", mois: 1, prix: 1500 }]);
   });
 
   it("ne montre rien sans clé FedaPay", async () => {
@@ -369,7 +369,7 @@ describe("reglerPaiement", () => {
 
     const fin = ajouterMois(JOUR, 1);
     expect(etat).toMatchObject({ statut: "paye", jusquAu: fin, aVerifier: false });
-    expect(pro()).toEqual({ depuis: JOUR, jusqu_au: fin, source: "paiement", accorde_par: null, motif: "Achat Pro 1 mois (bac à sable)" });
+    expect(pro()).toEqual({ depuis: JOUR, jusqu_au: fin, source: "paiement", accorde_par: null, motif: "Achat KoppaFoot+ 1 mois (bac à sable)" });
     expect(ligne()).toMatchObject({ statut: "paye", echeance_avant: null, echeance_apres: fin, fedapay_statut: "approved", mode: "momo_test", frais: 26 });
     expect(mockNotifier).toHaveBeenCalledTimes(1);
   });

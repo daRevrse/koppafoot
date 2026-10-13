@@ -9,7 +9,7 @@ import {
   type Ton,
 } from "@/components/admin/ui";
 import { LIMITES_GRATUIT, limitesEnVigueur, type CleLimite, type DroitOffre } from "@/lib/offre";
-import { ID_FORMULES, PRIX_PLANCHER, type IdFormule, type PrixOffre, type StatutPaiement } from "@/lib/paiement";
+import { ID_FORMULES, PRIX_PLANCHER, libelleFormule, type IdFormule, type PrixOffre, type StatutPaiement } from "@/lib/paiement";
 
 // ============================================
 // Admin, l'offre.
@@ -68,8 +68,6 @@ interface Donnees {
   comptes: Compte[];
 }
 
-const LIBELLE_FORMULE: Record<IdFormule, string> = { pro_mois: "Pro, 1 mois", pro_an: "Pro, 1 an" };
-
 const STATUT_PAIEMENT: Record<StatutPaiement, { label: string; ton: Ton }> = {
   paye: { label: "Payé", ton: "vert" },
   en_attente: { label: "En attente", ton: "ambre" },
@@ -79,10 +77,8 @@ const STATUT_PAIEMENT: Record<StatutPaiement, { label: string; ton: Ton }> = {
 };
 
 /** Les prix rangés, tels qu'on les saisit : vide quand la formule n'est pas en vente. */
-const versSaisie = (prix: PrixOffre): Record<IdFormule, string> => ({
-  pro_mois: prix.pro_mois === null ? "" : String(prix.pro_mois),
-  pro_an: prix.pro_an === null ? "" : String(prix.pro_an),
-});
+const versSaisie = (prix: Partial<PrixOffre>): Record<IdFormule, string> =>
+  Object.fromEntries(ID_FORMULES.map((id) => [id, prix[id] == null ? "" : String(prix[id])])) as Record<IdFormule, string>;
 
 const LIBELLE_LIMITE: Record<CleLimite, string> = {
   equipes: "Équipes gérées par un manager",
@@ -130,7 +126,7 @@ export default function AdminOffrePage() {
   const { firebaseUser } = useAuth();
   const [donnees, setDonnees] = useState<Donnees | null>(null);
   const [paiements, setPaiements] = useState<VuePaiement[]>([]);
-  const [saisiePrix, setSaisiePrix] = useState<Record<IdFormule, string>>({ pro_mois: "", pro_an: "" });
+  const [saisiePrix, setSaisiePrix] = useState<Record<IdFormule, string>>(() => versSaisie({}));
   const [revue, setRevue] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [date, setDate] = useState("");
@@ -221,7 +217,7 @@ export default function AdminOffrePage() {
       // Vérifié ici aussi : `Number("abc")` vaut NaN, que JSON écrit `null`,
       // et le serveur y lirait « pas en vente » sans rien dire.
       if (brut !== "" && (!/^\d+$/.test(brut) || Number(brut) < PRIX_PLANCHER)) {
-        toast.error(`${LIBELLE_FORMULE[id]} : un nombre entier d'au moins ${PRIX_PLANCHER} FCFA, ou vide.`);
+        toast.error(`${libelleFormule(id)} : un nombre entier d'au moins ${PRIX_PLANCHER} FCFA, ou vide.`);
         return;
       }
       prix[id] = brut === "" ? null : Number(brut);
@@ -338,7 +334,7 @@ export default function AdminOffrePage() {
           <div className="flex flex-wrap items-end gap-2">
             {ID_FORMULES.map((id) => (
               <label key={id}>
-                <span className={ETIQUETTE}>{LIBELLE_FORMULE[id]} (FCFA)</span>
+                <span className={ETIQUETTE}>{libelleFormule(id)} (FCFA)</span>
                 <input
                   inputMode="numeric"
                   value={saisiePrix[id]}
@@ -411,7 +407,7 @@ export default function AdminOffrePage() {
                       {sansEffet && <Pastille ton="rouge" title="Le compte avait déjà un Pro sans échéance : à rembourser.">Payé sans effet</Pastille>}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-500">
-                      {p.formule ? LIBELLE_FORMULE[p.formule] : "Frais de réservation"} · {p.montant.toLocaleString("fr-FR")} FCFA
+                      {p.formule ? libelleFormule(p.formule) : "Frais de réservation"} · {p.montant.toLocaleString("fr-FR")} FCFA
                       {p.mode && <> · {p.mode}</>}
                       {p.creeLe && <> · {new Date(p.creeLe).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</>}
                       {p.echeanceApres && <> · Pro jusqu&apos;au {jourCourt(p.echeanceApres)}</>}

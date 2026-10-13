@@ -21,19 +21,40 @@ import { droitActif, type DroitAccorde, type DroitOffre } from "@/lib/offre";
 // partagent ; ses tests tournent dans mobile/src/__tests__/paiement.test.ts.
 // ============================================
 
-/** Ce qui s'achète : le droit accordé, et pour combien de mois. */
+/**
+ * Ce qui s'achète : le droit accordé, et pour combien de mois.
+ *
+ * DEUX OFFRES. KoppaFoot+ (le droit `pro`) pour qui gère des équipes, des
+ * compétitions ou des terrains ; « Pas de pubs » (le droit `sans_pub`) pour
+ * tout le monde. Qui peut acheter quoi se décide au serveur, sur le profil
+ * (lib/offre, lib/paiement-serveur) : ce catalogue ne dit que ce qui existe.
+ *
+ * Les identifiants `pro_*` gardent l'ancien nom de l'offre : ils sont écrits
+ * dans les paiements déjà faits et dans les références envoyées à FedaPay.
+ */
 export const FORMULES = {
   pro_mois: { droit: "pro", mois: 1 },
   pro_an: { droit: "pro", mois: 12 },
+  sans_pub_mois: { droit: "sans_pub", mois: 1 },
+  sans_pub_an: { droit: "sans_pub", mois: 12 },
 } as const satisfies Record<string, { droit: DroitOffre; mois: number }>;
 
 export type IdFormule = keyof typeof FORMULES;
 
-/** Dans l'ordre où on les montre : le mois avant l'année. */
+/** Dans l'ordre où on les montre : KoppaFoot+ d'abord, le mois avant l'année. */
 export const ID_FORMULES = Object.keys(FORMULES) as IdFormule[];
 
 export function estFormule(x: unknown): x is IdFormule {
   return typeof x === "string" && Object.prototype.hasOwnProperty.call(FORMULES, x);
+}
+
+/** Le nom de chaque offre, tel qu'on le lit. */
+export const NOM_OFFRE: Record<DroitOffre, string> = { pro: "KoppaFoot+", sans_pub: "Pas de pubs" };
+
+/** « KoppaFoot+, 1 mois » : ce qui s'affiche chez FedaPay et sur le reçu. */
+export function libelleFormule(id: IdFormule): string {
+  const { droit, mois } = FORMULES[id];
+  return `${NOM_OFFRE[droit]}, ${mois === 12 ? "1 an" : "1 mois"}`;
 }
 
 /** Le plancher de FedaPay : pas de collecte sous 100 XOF. */
@@ -49,14 +70,16 @@ export function prixValide(x: unknown): x is number {
 /** Les prix tels que rangés, assainis : tout ce qui n'est pas un prix vaut `null`. */
 export function lirePrix(brut: unknown): PrixOffre {
   const p = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
-  return {
-    pro_mois: prixValide(p.pro_mois) ? p.pro_mois : null,
-    pro_an: prixValide(p.pro_an) ? p.pro_an : null,
-  };
+  return Object.fromEntries(ID_FORMULES.map((id) => {
+    const v = p[id];
+    return [id, prixValide(v) ? v : null];
+  })) as PrixOffre;
 }
 
 export interface FormuleEnVente {
   id: IdFormule;
+  /** Ce qu'elle accorde : KoppaFoot+ (`pro`) ou « Pas de pubs » (`sans_pub`). */
+  droit: DroitOffre;
   mois: number;
   prix: number;
 }
@@ -64,7 +87,7 @@ export interface FormuleEnVente {
 export function formulesEnVente(prix: PrixOffre): FormuleEnVente[] {
   return ID_FORMULES.flatMap((id) => {
     const p = prix[id];
-    return prixValide(p) ? [{ id, mois: FORMULES[id].mois, prix: p }] : [];
+    return prixValide(p) ? [{ id, droit: FORMULES[id].droit, mois: FORMULES[id].mois, prix: p }] : [];
   });
 }
 
@@ -281,6 +304,6 @@ export function trierLignesOuvertes<T extends { environnement: EnvironnementPaie
 }
 
 /** Le motif écrit sur le droit, pour l'administration. */
-export function motifAchat(mois: number, environnement: EnvironnementPaiement): string {
-  return `Achat Pro ${mois} mois${environnement === "live" ? "" : " (bac à sable)"}`;
+export function motifAchat(droit: DroitOffre, mois: number, environnement: EnvironnementPaiement): string {
+  return `Achat ${NOM_OFFRE[droit]} ${mois} mois${environnement === "live" ? "" : " (bac à sable)"}`;
 }

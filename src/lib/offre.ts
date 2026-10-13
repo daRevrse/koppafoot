@@ -69,7 +69,7 @@ export interface FirestoreReglageOffre {
   /** À partir de ce jour, les limites s'appliquent ; `null` = pas encore. */
   limites_depuis: string | null;
   /** Le prix de chaque formule, en XOF ; vide = pas en vente (lib/paiement). */
-  prix?: { pro_mois?: number | null; pro_an?: number | null };
+  prix?: Partial<Record<"pro_mois" | "pro_an" | "sans_pub_mois" | "sans_pub_an", number | null>>;
   updated_by: string | null;
   updated_at: unknown;
 }

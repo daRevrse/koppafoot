@@ -1,7 +1,8 @@
 import type { DroitAccorde } from "@/lib/offre";
 import {
-  ajouterJours, ajouterMois, deciderReglement, estFormule, etatDepuisFedapay, formulesEnVente, idPaiementDuRetour,
-  joursDeRappel, lirePrix, motifAchat, nouvelleEcheance, objetDe, paiementOuvert, prixValide, trierLignesOuvertes,
+  ID_FORMULES, NOM_OFFRE, ajouterJours, ajouterMois, deciderReglement, estFormule, etatDepuisFedapay, formulesEnVente,
+  idPaiementDuRetour, joursDeRappel, libelleFormule, lirePrix, motifAchat, nouvelleEcheance, objetDe, paiementOuvert,
+  prixValide, trierLignesOuvertes,
 } from "@/lib/paiement";
 
 // Le module vit côté site (src/lib/paiement) ; il est pur, et c'est ici que
@@ -42,9 +43,11 @@ const droit = (p: Partial<DroitAccorde> = {}): DroitAccorde => ({
 });
 
 describe("estFormule", () => {
-  it("reconnaît les deux formules", () => {
+  it("reconnaît les quatre formules", () => {
     expect(estFormule("pro_mois")).toBe(true);
     expect(estFormule("pro_an")).toBe(true);
+    expect(estFormule("sans_pub_mois")).toBe(true);
+    expect(estFormule("sans_pub_an")).toBe(true);
   });
 
   it("refuse le reste, y compris les propriétés héritées d'un objet", () => {
@@ -70,23 +73,31 @@ describe("prixValide et lirePrix", () => {
   });
 
   it("assainit ce qui est rangé : tout ce qui n'est pas un prix vaut null", () => {
-    expect(lirePrix({ pro_mois: 1500, pro_an: "15000" })).toEqual({ pro_mois: 1500, pro_an: null });
-    expect(lirePrix(undefined)).toEqual({ pro_mois: null, pro_an: null });
-    expect(lirePrix("n'importe quoi")).toEqual({ pro_mois: null, pro_an: null });
+    expect(lirePrix({ pro_mois: 1500, pro_an: "15000", sans_pub_mois: 300 }))
+      .toEqual({ pro_mois: 1500, pro_an: null, sans_pub_mois: 300, sans_pub_an: null });
+    const vide = { pro_mois: null, pro_an: null, sans_pub_mois: null, sans_pub_an: null };
+    expect(lirePrix(undefined)).toEqual(vide);
+    expect(lirePrix("n'importe quoi")).toEqual(vide);
   });
 });
 
 describe("formulesEnVente", () => {
-  it("ne garde que les formules qui ont un prix", () => {
-    expect(formulesEnVente({ pro_mois: 1500, pro_an: null })).toEqual([{ id: "pro_mois", mois: 1, prix: 1500 }]);
+  const AUCUN_PRIX = { pro_mois: null, pro_an: null, sans_pub_mois: null, sans_pub_an: null };
+
+  it("ne garde que les formules qui ont un prix, avec leur droit", () => {
+    expect(formulesEnVente({ ...AUCUN_PRIX, pro_mois: 1500 })).toEqual([{ id: "pro_mois", droit: "pro", mois: 1, prix: 1500 }]);
+    expect(formulesEnVente({ ...AUCUN_PRIX, sans_pub_an: 3000 }))
+      .toEqual([{ id: "sans_pub_an", droit: "sans_pub", mois: 12, prix: 3000 }]);
   });
 
-  it("rend le mois avant l'année", () => {
-    expect(formulesEnVente({ pro_mois: 1500, pro_an: 15000 }).map((f) => f.id)).toEqual(["pro_mois", "pro_an"]);
+  it("les rend dans l'ordre : KoppaFoot+ d'abord, le mois avant l'année", () => {
+    expect(formulesEnVente({ pro_mois: 1500, pro_an: 15000, sans_pub_mois: 300, sans_pub_an: 3000 }).map((f) => f.id))
+      .toEqual(["pro_mois", "pro_an", "sans_pub_mois", "sans_pub_an"]);
+    expect(ID_FORMULES).toEqual(["pro_mois", "pro_an", "sans_pub_mois", "sans_pub_an"]);
   });
 
-  it("ne vend rien tant que les prix sont vides", () => {
-    expect(formulesEnVente({ pro_mois: null, pro_an: null })).toEqual([]);
+  it("ne rend rien quand rien n'a de prix", () => {
+    expect(formulesEnVente(AUCUN_PRIX)).toEqual([]);
   });
 });
 
@@ -262,8 +273,19 @@ describe("trierLignesOuvertes", () => {
 
 describe("motifAchat", () => {
   it("dit la durée, et le bac à sable quand c'en est un", () => {
-    expect(motifAchat(1, "live")).toBe("Achat Pro 1 mois");
-    expect(motifAchat(12, "sandbox")).toBe("Achat Pro 12 mois (bac à sable)");
+    expect(motifAchat("pro", 1, "live")).toBe("Achat KoppaFoot+ 1 mois");
+    expect(motifAchat("pro", 12, "sandbox")).toBe("Achat KoppaFoot+ 12 mois (bac à sable)");
+    expect(motifAchat("sans_pub", 1, "live")).toBe("Achat Pas de pubs 1 mois");
+  });
+});
+
+describe("libelleFormule", () => {
+  it("dit l'offre et la durée, comme on les lit chez FedaPay et sur le reçu", () => {
+    expect(libelleFormule("pro_mois")).toBe("KoppaFoot+, 1 mois");
+    expect(libelleFormule("pro_an")).toBe("KoppaFoot+, 1 an");
+    expect(libelleFormule("sans_pub_mois")).toBe("Pas de pubs, 1 mois");
+    expect(libelleFormule("sans_pub_an")).toBe("Pas de pubs, 1 an");
+    expect(NOM_OFFRE).toEqual({ pro: "KoppaFoot+", sans_pub: "Pas de pubs" });
   });
 });
 
@@ -298,7 +320,9 @@ describe("firestore.rules", () => {
   // parties pouvaient les écrire depuis leur navigateur, l'une comme l'autre
   // pouvait dire que c'était l'autre qui avait annulé.
   it("ne laisse aucune des deux parties écrire une réservation depuis son navigateur", () => {
-    const regles = readFileSync(join(__dirname, "../../../firestore.rules"), "utf8");
+    // Sous Windows, git rend le fichier en fins de ligne CRLF : on lit en LF,
+    // sinon la fin du bloc (« } » seul sur sa ligne) ne se reconnaît pas.
+    const regles = readFileSync(join(__dirname, "../../../firestore.rules"), "utf8").replace(/\r\n/g, "\n");
     const bloc = /match \/bookings\/\{bookingId\} \{([\s\S]*?)\n    \}\n/.exec(regles)?.[1] ?? "";
     // Les commentaires racontent l'ancienne règle : on ne lit que les règles.
     const code = bloc.split("\n").filter((ligne) => !ligne.trim().startsWith("//")).join("\n");
