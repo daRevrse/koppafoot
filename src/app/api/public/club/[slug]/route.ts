@@ -4,8 +4,8 @@ import { clubParSlug, estEveille, vuePublique } from "@/lib/clubs-serveur";
 /**
  * GET /api/public/club/[slug], la page publique d'un club.
  *
- * Éveillé : son identité, son encadrement et ses sections. En sommeil (le Pro
- * de son propriétaire s'est arrêté) : son nom et son état, rien d'autre ; ses
+ * Éveillé : son identité, son encadrement et ses sections. En sommeil (son
+ * propriétaire n'est plus manager avec KoppaFoot+) : son nom et son état, rien d'autre ; ses
  * équipes, elles, restent visibles sur leurs propres fiches.
  *
  * Aucun effectif ici : un club réunit des équipes de jeunes, et la liste de

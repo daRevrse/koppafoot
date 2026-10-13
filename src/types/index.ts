@@ -1711,7 +1711,7 @@ export type NotificationType =
   /** Quelqu'un a commenté ma publication dans la Tribune. Envoyée à
    *  l'AUTEUR, jamais à celui qui commente sa propre publication. */
   | "tribune_comment"
-  /** L'offre du compte : paiement reçu, Pro qui arrive à échéance. Envoyée au
+  /** L'offre du compte : paiement reçu, KoppaFoot+ ou « Pas de pubs » qui arrive à échéance. Envoyée au
    *  TITULAIRE. C'est son reçu et son rappel, jamais une annonce. */
   | "offre";
 

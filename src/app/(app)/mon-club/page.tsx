@@ -12,7 +12,7 @@ import { COULEUR_PAR_DEFAUT, MAX_SECTIONS, MAX_STAFF, SECTIONS_SUGGEREES, type M
 // ============================================
 // Mon club : le créer, le modifier, réunir ses équipes.
 //
-// Deux lecteurs. Le PROPRIÉTAIRE (KoppaFoot Pro) y gère son club : identité,
+// Deux lecteurs. Le PROPRIÉTAIRE (un manager qui a KoppaFoot+) y gère son club : identité,
 // encadrement, sections, invitations. Le MANAGER INVITÉ y trouve les
 // invitations reçues par ses équipes, et décide. La notification d'une
 // invitation mène ici.
@@ -29,7 +29,7 @@ interface MonClub {
   logoUrl: string | null; banniereUrl: string | null; couleur: string; staff: MembreDuClub[];
   sections: SectionPublique[]; invitations: Invitation[]; enSommeil: boolean;
 }
-interface Donnees { estPro: boolean; club: MonClub | null; mesEquipes: MonEquipe[]; invitationsRecues: InvitationRecue[] }
+interface Donnees { estPro: boolean; estManager: boolean; club: MonClub | null; mesEquipes: MonEquipe[]; invitationsRecues: InvitationRecue[] }
 
 const T = textes(
   {
@@ -42,15 +42,17 @@ const T = textes(
     refuser: "Refuser",
     acceptee: "Ton équipe a rejoint le club",
     refusee: "Invitation refusée",
-    proRequis: "Le Club multi-équipes fait partie de KoppaFoot Pro.",
+    proRequis: "Le Club multi-équipes fait partie de KoppaFoot+.",
     proRequisDetail: "Une page de club, l'encadrement commun, et toutes tes équipes réunies. Tes équipes, elles, restent gratuites.",
-    voirOffre: "Voir mon offre",
+    voirOffre: "Voir KoppaFoot+",
+    managerRequis: "Le Club multi-équipes réunit les équipes d'un manager.",
+    managerRequisDetail: "Seul un manager peut en créer un : il y rattache les équipes qu'il gère.",
     creerTitre: "Créer ton Club multi-équipes",
     nom: "Nom du club",
     ville: "Ville",
     creer: "Créer le club",
     cree: "Club créé",
-    sommeil: "Ton club est en sommeil : ton KoppaFoot Pro s'est arrêté. Sa page ne s'affiche plus, rien n'est effacé. Il revit tel quel avec le Pro.",
+    sommeil: "Ton club est en sommeil : il vit tant que tu es manager avec KoppaFoot+. Sa page ne s'affiche plus, rien n'est effacé, et il revit tel quel.",
     voirPage: "Voir la page du club",
     identite: "Identité",
     slogan: "Devise",
@@ -100,15 +102,17 @@ const T = textes(
     refuser: "Decline",
     acceptee: "Your team joined the club",
     refusee: "Invitation declined",
-    proRequis: "The multi-team club is part of KoppaFoot Pro.",
+    proRequis: "The multi-team club is part of KoppaFoot+.",
     proRequisDetail: "A club page, a shared staff, and all your teams together. Your teams themselves stay free.",
-    voirOffre: "See my plan",
+    voirOffre: "See KoppaFoot+",
+    managerRequis: "The multi-team club brings a manager's teams together.",
+    managerRequisDetail: "Only a manager can create one, and attach the teams they manage.",
     creerTitre: "Create your multi-team club",
     nom: "Club name",
     ville: "City",
     creer: "Create the club",
     cree: "Club created",
-    sommeil: "Your club is dormant: your KoppaFoot Pro ended. Its page is hidden, nothing is deleted. It comes back as it was with Pro.",
+    sommeil: "Your club is dormant: it lives as long as you're a manager with KoppaFoot+. Its page is hidden, nothing is deleted, and it comes back as it was.",
     voirPage: "See the club page",
     identite: "Identity",
     slogan: "Motto",
@@ -264,6 +268,11 @@ export default function MonClubPage() {
           agir={agir}
           appel={appel}
         />
+      ) : !d.estManager ? (
+        <section className={`${CARTE} space-y-2`}>
+          <p className="font-display text-lg font-black text-gray-900">{t.managerRequis}</p>
+          <p className="text-sm text-gray-600">{t.managerRequisDetail}</p>
+        </section>
       ) : d.estPro ? (
         <CreationDuClub occupe={occupe} agir={agir} appel={appel} />
       ) : (

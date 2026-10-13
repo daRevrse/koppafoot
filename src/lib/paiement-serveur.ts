@@ -23,7 +23,7 @@ import { effetAcompte, suivreReservation } from "@/lib/reglement-serveur";
 // ============================================
 // Les paiements, côté serveur : démarrer un achat, et le régler.
 //
-// UNE SEULE FONCTION ACCORDE LE PRO : `reglerPaiement`. Le webhook, la
+// UNE SEULE FONCTION ACCORDE UN DROIT ACHETÉ : `reglerPaiement`. Le webhook, la
 // vérification au retour du client, la tâche du matin et le bouton
 // « Revérifier » de l'administration l'appellent tous, et elle ne croit
 // aucun d'eux : elle relit la collecte chez FedaPay, vérifie que c'est la
@@ -33,7 +33,7 @@ import { effetAcompte, suivreReservation } from "@/lib/reglement-serveur";
 //
 // LE BAC À SABLE ÉCRIT DANS LA VRAIE BASE. Le poste de développement et les
 // aperçus partagent le Firestore de la production : avec des clés de test,
-// quiconque trouve une adresse d'aperçu s'offrirait le Pro en monnaie
+// quiconque trouve une adresse d'aperçu s'offrirait KoppaFoot+ en monnaie
 // fictive. Hors `FEDAPAY_ENV=live`, seul un superadmin peut donc acheter, et
 // chaque ligne dit d'où elle vient.
 //
@@ -408,7 +408,7 @@ export const EFFETS: Record<ObjetPaiement, Effet> = { pro: effetFormule, acompte
 
 /**
  * Règle un paiement : relit sa collecte chez FedaPay et, si elle est payée,
- * accorde le Pro. Sans effet la seconde fois.
+ * accorde ce qu'il achète. Sans effet la seconde fois.
  *
  * `null` : la ligne n'existe pas. Lève `ErreurFedapay` si FedaPay ne répond
  * pas : à l'appelant de dire s'il réessaie (le webhook répond 500, FedaPay
@@ -442,7 +442,7 @@ export async function reglerPaiement(id: string): Promise<EtatPaiement | null> {
   // redemande toutes les trois secondes lit « en attente » juste avant
   // l'approbation, pendant que le webhook lit « approuvée » et règle. Écrite
   // hors transaction, cette relecture en retard repassait la ligne payée à
-  // « en attente », et la suivante accordait le Pro une seconde fois.
+  // « en attente », et la suivante accordait le droit une seconde fois.
   const contexte: ContexteEffet = { id, jour: jourDeLome(), environnement, collecte };
   const resultat = await adminDb.runTransaction(async (tx) => {
     const l = await tx.get(ref);
@@ -485,7 +485,7 @@ export async function paiementParCollecte(idCollecte: number): Promise<string | 
  * La tâche du matin : relire les paiements encore ouverts.
  *
  * Le webhook et le retour du client ont pu manquer tous les deux ; quelqu'un
- * qui a payé ne doit pas rester sans son Pro plus d'une nuit. Les lignes de
+ * qui a payé ne doit pas rester sans ce qu'il a acheté plus d'une nuit. Les lignes de
  * plus de 48 h sont relues une dernière fois puis fermées : FedaPay expire une
  * collecte en 24 h, et sans cela la liste des lignes ouvertes ne ferait que
  * grossir.

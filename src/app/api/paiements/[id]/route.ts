@@ -7,7 +7,7 @@ import { reglerPaiement, vueEtat } from "@/lib/paiement-serveur";
 /**
  * GET /api/paiements/{id}, où en est ce paiement ?
  *
- * C'est la vérification au retour du client : la page « Mon offre » l'appelle
+ * C'est la vérification au retour du client : la page de l'offre l'appelle
  * avec l'identifiant lu dans l'adresse. Elle ne lit pas le `status` que
  * FedaPay y a mis (il ne prouve rien) : elle relit la collecte, et règle le
  * paiement s'il est abouti. Le webhook fait la même chose de son côté ; le

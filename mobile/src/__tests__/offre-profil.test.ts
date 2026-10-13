@@ -1,9 +1,19 @@
-import { aDroitAKoppaFootPlus, koppaFootPlusLeve, offreAffichee, titresDuCompte, titresDuProfil } from "@/lib/offre";
+import {
+  aDroitAKoppaFootPlus, koppaFootPlusLeve, messageLimite, offreAffichee, titresDuCompte, titresDuProfil,
+} from "@/lib/offre";
 
 // Le module vit côté site (src/lib/offre) ; il est pur, et c'est ici que la
 // suite de tests des modules partagés tourne.
 
 const AUCUN = { manager: false, organisateur: false, gerant: false };
+
+describe("messageLimite", () => {
+  it("nomme KoppaFoot+ : c'est lui qui lève la limite, pour qui porte le titre", () => {
+    expect(messageLimite("equipes", 2))
+      .toBe("Tu gères déjà 2 équipes, le maximum de l'offre gratuite. KoppaFoot+ lève cette limite.");
+    expect(messageLimite("terrains", 1)).toContain("KoppaFoot+ lève cette limite.");
+  });
+});
 
 describe("titresDuProfil", () => {
   it("un manager l'est par son rôle, quel que soit le champ qui le porte", () => {

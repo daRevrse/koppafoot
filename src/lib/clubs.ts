@@ -8,11 +8,12 @@
 // Aucune donnée d'équipe ni de joueur ne vit dans le club : il ne fait que
 // les désigner.
 //
-// RÉSERVÉ À KOPPAFOOT PRO, ET TANT QU'IL DURE. Le club vit du Pro de son
-// propriétaire. Quand celui-ci s'arrête, le club se met EN SOMMEIL : sa page
-// ne s'affiche plus, ses sections redeviennent des équipes autonomes à
-// l'affichage, mais rien n'est effacé. Le Pro qui revient le réveille tel
-// quel. Aucun match ni aucune compétition ne dépend du club.
+// RÉSERVÉ AUX MANAGERS QUI ONT KOPPAFOOT+, ET TANT QUE ÇA DURE. Le club vit
+// tant que son propriétaire est manager avec KoppaFoot+. Quand l'un ou
+// l'autre s'arrête, le club se met EN SOMMEIL : sa page ne s'affiche plus, ses
+// sections redeviennent des équipes autonomes à l'affichage, mais rien n'est
+// effacé. Il se réveille tel quel dès que les deux sont de nouveau vrais.
+// Aucun match ni aucune compétition ne dépend du club.
 //
 // L'ACCORD DE CHAQUE MANAGER. Le propriétaire rattache ses propres équipes
 // d'un geste ; celle d'un autre manager reçoit une invitation, qu'il accepte
@@ -58,7 +59,7 @@ export interface FirestoreClub {
   logo_url: string | null;
   banniere_url: string | null;
   couleur: string;
-  /** Le compte dont le Pro fait vivre le club. */
+  /** Le compte qui fait vivre le club : un manager, avec KoppaFoot+. */
   proprietaire_id: string;
   staff: MembreDuClub[];
   /** Les équipes rattachées, dans l'ordre de la page. */

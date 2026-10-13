@@ -41,8 +41,8 @@ const T = textes(
     sommeilTitre: "Cette page de club est en sommeil.",
     sommeilVisiteur: "Ses équipes restent visibles sur leurs propres fiches.",
     sommeilProprietaire:
-      "Ton club dort parce que ton KoppaFoot Pro s'est arrêté. Rien n'est effacé : sections, identité et encadrement reviennent tels quels avec le Pro.",
-    voirOffre: "Voir mon offre",
+      "Ton club dort : il vit tant que tu es manager avec KoppaFoot+. Rien n'est effacé : sections, identité et encadrement reviennent tels quels.",
+    voirOffre: "Voir KoppaFoot+",
   },
   {
     accueil: "Home",
@@ -60,8 +60,8 @@ const T = textes(
     sommeilTitre: "This club page is dormant.",
     sommeilVisiteur: "Its teams remain visible on their own pages.",
     sommeilProprietaire:
-      "Your club is dormant because your KoppaFoot Pro ended. Nothing is deleted: sections, identity and staff come back as they were with Pro.",
-    voirOffre: "See my plan",
+      "Your club is dormant: it lives as long as you're a manager with KoppaFoot+. Nothing is deleted: sections, identity and staff come back as they were.",
+    voirOffre: "See KoppaFoot+",
   },
 );
 

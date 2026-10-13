@@ -40,7 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!club) return NextResponse.json({ error: "Club introuvable" }, { status: 404 });
     if (club.proprietaire_id !== uid) return NextResponse.json({ error: "Ce club n'est pas le tien." }, { status: 403 });
     if (!(await estEveille(club))) {
-      return NextResponse.json({ error: "Ton club est en sommeil : il revit avec KoppaFoot Pro." }, { status: 403 });
+      return NextResponse.json({ error: "Ton club est en sommeil : il revit quand tu es manager avec KoppaFoot+." }, { status: 403 });
     }
 
     const c = (await req.json().catch(() => ({}))) as Record<string, unknown>;

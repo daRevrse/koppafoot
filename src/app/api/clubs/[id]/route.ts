@@ -13,7 +13,7 @@ import { effacerVisuels, stockerVisuel, type VisuelEnvoye } from "@/lib/visuel-s
  * DELETE , le dissoudre : ses équipes redeviennent autonomes, rien d'autre
  *          ne bouge (aucune donnée d'équipe ne vit dans le club).
  *
- * Modifier demande un club éveillé, donc le Pro ; dissoudre se fait toujours.
+ * Modifier demande un club éveillé (un propriétaire manager, avec KoppaFoot+) ; dissoudre se fait toujours.
  */
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!club) return NextResponse.json({ error: "Club introuvable" }, { status: 404 });
     if (club.proprietaire_id !== uid) return NextResponse.json({ error: "Ce club n'est pas le tien." }, { status: 403 });
     if (!(await estEveille(club))) {
-      return NextResponse.json({ error: "Ton club est en sommeil : il revit avec KoppaFoot Pro." }, { status: 403 });
+      return NextResponse.json({ error: "Ton club est en sommeil : il revit quand tu es manager avec KoppaFoot+." }, { status: 403 });
     }
 
     const c = (await req.json().catch(() => ({}))) as Record<string, unknown>;

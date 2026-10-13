@@ -11,8 +11,8 @@ import { ErreurLimiteOffre, type CleLimite } from "@/lib/offre";
 // Le message d'une création refusée par une limite de l'offre gratuite.
 //
 // Le serveur dit quelle limite (et son plafond), l'écran le dit dans la
-// langue de la personne, et propose « Mon offre » : ce qu'elle a, ce que le
-// Pro lève. Pas de « Payer » : rien ne s'achète encore.
+// langue de la personne, et mène à la page de l'offre : ce qu'elle a, ce que
+// KoppaFoot+ lève.
 // ============================================
 
 const T = textes(
@@ -23,8 +23,8 @@ const T = textes(
     competitions: (max: number) =>
       `Tu as déjà ${max} compétition${max > 1 ? "s" : ""} en cours, le maximum de l'offre gratuite. Termine-la ou supprime un brouillon.`,
     equipesParCompetition: (max: number) => `Avec l'offre gratuite, une compétition compte au plus ${max} équipes.`,
-    leve: "KoppaFoot Pro lève cette limite.",
-    voir: "Voir mon offre",
+    leve: "KoppaFoot+ lève cette limite.",
+    voir: "Voir KoppaFoot+",
   },
   {
     equipes: (max: number) => `You already manage ${max} team${max > 1 ? "s" : ""}, the free plan's maximum.`,
@@ -32,8 +32,8 @@ const T = textes(
     competitions: (max: number) =>
       `You already run ${max} competition${max > 1 ? "s" : ""}, the free plan's maximum. Finish it or delete a draft.`,
     equipesParCompetition: (max: number) => `On the free plan, a competition has at most ${max} teams.`,
-    leve: "KoppaFoot Pro removes this limit.",
-    voir: "See my plan",
+    leve: "KoppaFoot+ removes this limit.",
+    voir: "See KoppaFoot+",
   },
 );
 

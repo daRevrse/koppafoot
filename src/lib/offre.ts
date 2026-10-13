@@ -1,7 +1,7 @@
 // ============================================
-// L'offre : ce que l'usage gratuit permet, et ce que KoppaFoot Pro lève.
+// L'offre : ce que l'usage gratuit permet, et ce que KoppaFoot+ lève.
 //
-// UN SEUL DOCUMENT DIT QUI EST PRO, d'où que le droit vienne. L'administration
+// UN SEUL DOCUMENT DIT QUI A KOPPAFOOT+, d'où que le droit vienne. L'administration
 // l'accorde à la main (`source: "admin"`), pour une durée, à qui elle veut le
 // faire essayer ; un achat par mobile money écrit le même document
 // (`source: "paiement"`, voir lib/paiement). Rien d'autre ne distingue les
@@ -21,10 +21,10 @@
 // créée avant cette date n'est jamais plafonnée.
 //
 // Module pur : aucun SDK. Le serveur (lib/offre-server, les routes) et le
-// navigateur (la page « Mon offre », les messages de limite) le partagent.
+// navigateur (la page de l'offre, les messages de limite) le partagent.
 // ============================================
 
-/** Ce que l'offre gratuite permet. Le Pro lève chacune de ces limites. */
+/** Ce que l'offre gratuite permet. KoppaFoot+ lève chacune de ces limites, pour qui porte le titre qui va avec. */
 export const LIMITES_GRATUIT = {
   /** Équipes dont on est le manager. */
   equipes: 2,
@@ -38,7 +38,7 @@ export const LIMITES_GRATUIT = {
 
 export type CleLimite = keyof typeof LIMITES_GRATUIT;
 
-/** Les deux droits qu'on accorde : le Pro, et l'option sans pub vendue à part. */
+/** Les deux droits qu'on accorde : KoppaFoot+ (`pro`), et « Pas de pubs » (`sans_pub`), vendu à part. */
 export type DroitOffre = "pro" | "sans_pub";
 
 /** Un droit accordé : depuis quand, jusqu'à quand, par qui et pourquoi. */
@@ -56,7 +56,7 @@ export interface DroitAccorde {
 
 /**
  * Les droits d'un compte — `droits/{uid}`. Écrit par le serveur seulement,
- * lisible par son titulaire (firestore.rules) : on ne s'accorde pas le Pro.
+ * lisible par son titulaire (firestore.rules) : on ne s'accorde pas KoppaFoot+.
  */
 export interface FirestoreDroits {
   pro: DroitAccorde | null;
@@ -85,7 +85,7 @@ export function estPro(droits: Pick<FirestoreDroits, "pro"> | null | undefined, 
   return droitActif(droits?.pro, jour);
 }
 
-/** Sans pub : l'option seule, ou le Pro, qui la comprend. */
+/** Sans pub : « Pas de pubs » seul, ou KoppaFoot+, qui le comprend. */
 export function estSansPub(droits: Pick<FirestoreDroits, "pro" | "sans_pub"> | null | undefined, jour: string): boolean {
   return estPro(droits, jour) || droitActif(droits?.sans_pub, jour);
 }
@@ -205,7 +205,7 @@ export function messageLimite(cle: CleLimite, max: number): string {
     competitions: `Tu as déjà ${max} compétition${pluriel} en cours, le maximum de l'offre gratuite. Termine-la ou supprime un brouillon.`,
     equipesParCompetition: `Avec l'offre gratuite, une compétition compte au plus ${max} équipes.`,
   };
-  return `${quoi[cle]} KoppaFoot Pro lève cette limite.`;
+  return `${quoi[cle]} KoppaFoot+ lève cette limite.`;
 }
 
 /** Côté navigateur : une création refusée par une limite de l'offre. */

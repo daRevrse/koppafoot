@@ -5,7 +5,7 @@ import { droitActif, type DroitAccorde, type DroitOffre } from "@/lib/offre";
 // FedaPay change.
 //
 // UNE PÉRIODE, PAS UN ABONNEMENT. Le mobile money ne prélève pas tout seul :
-// on paie, le Pro court jusqu'à une date, et rien ne se renouvelle. Racheter
+// on paie, le droit court jusqu'à une date, et rien ne se renouvelle. Racheter
 // avant la fin ajoute la période à la fin en cours.
 //
 // LES PRIX SONT UN RÉGLAGE (`settings/offre.prix`), saisi dans
@@ -17,7 +17,7 @@ import { droitActif, type DroitAccorde, type DroitOffre } from "@/lib/offre";
 // relu chez FedaPay que le montant demandé a bien été payé (deciderReglement).
 //
 // Module pur : aucun SDK. Le serveur (lib/paiement-serveur, les routes
-// /api/paiements) et le navigateur (« Mon offre », l'administration) le
+// /api/paiements) et le navigateur (la page de l'offre, l'administration) le
 // partagent ; ses tests tournent dans mobile/src/__tests__/paiement.test.ts.
 // ============================================
 
@@ -108,15 +108,16 @@ export function ajouterJours(jour: string, jours: number): string {
 }
 
 /**
- * Le Pro après un achat de `mois` mois fait ce `jour`.
+ * Un droit (KoppaFoot+ ou « Pas de pubs ») après un achat de `mois` mois fait
+ * ce `jour`.
  *
  * Acheté le 12 octobre pour un mois : jusqu'au 12 novembre inclus. Racheté
- * pendant que le Pro court : la période s'ajoute à la fin en cours, d'où
- * qu'il vienne (un Pro d'essai accordé par l'administration se prolonge
- * pareil). Un Pro expiré repart du jour de l'achat.
+ * pendant qu'il court : la période s'ajoute à la fin en cours, d'où qu'il
+ * vienne (un essai accordé par l'administration se prolonge pareil). Un droit
+ * expiré repart du jour de l'achat.
  *
- * `null` : le Pro court sans échéance, il n'y a rien à prolonger — et surtout
- * rien à écraser par un Pro d'un mois.
+ * `null` : il court sans échéance, il n'y a rien à prolonger — et surtout
+ * rien à écraser par un droit d'un mois.
  */
 export function nouvelleEcheance(
   actuel: DroitAccorde | null | undefined,
@@ -181,17 +182,17 @@ export function paiementOuvert(e: { configure: boolean; environnement: Environne
 export type AnomaliePaiement = "montant" | "reference";
 
 /** Une tentative d'achat — `paiements/{id}`. Écrite par le serveur seul. */
-/** Ce qu'un paiement achète : le Pro, ou les frais de réservation d'un terrain (lib/reglement). */
+/** Ce qu'un paiement achète : une formule (`pro`, quel que soit son droit), ou les frais de réservation d'un terrain (lib/reglement). */
 export type ObjetPaiement = "pro" | "acompte";
 
-/** L'objet d'une ligne ; les lignes d'avant les acomptes n'en portent pas : ce sont des achats du Pro. */
+/** L'objet d'une ligne ; les lignes d'avant les acomptes n'en portent pas : ce sont des achats d'une formule. */
 export function objetDe(l: { objet?: ObjetPaiement | null }): ObjetPaiement {
   return l.objet === "acompte" ? "acompte" : "pro";
 }
 
 export interface FirestorePaiement {
   uid: string;
-  /** Absent d'une ligne d'avant les acomptes : un achat du Pro. */
+  /** Absent d'une ligne d'avant les acomptes : un achat d'une formule. */
   objet?: ObjetPaiement;
   /** La formule et le droit achetés ; `null` pour un acompte. */
   formule: IdFormule | null;

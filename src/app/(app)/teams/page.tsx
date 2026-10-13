@@ -350,7 +350,7 @@ export default function TeamsPage() {
           >
             <ArrowLeftRight size={16} /> Mercato
           </Link>
-          {/* Le club réunit plusieurs équipes (KoppaFoot Pro) ; la page dit
+          {/* Le club réunit plusieurs équipes (KoppaFoot+, pour les managers) ; la page dit
               comment l'obtenir à qui ne l'a pas, et montre les invitations. */}
           {isManager && (
             <Link

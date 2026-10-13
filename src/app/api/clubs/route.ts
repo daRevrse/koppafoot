@@ -9,7 +9,7 @@ import { clubDuProprietaire, clubs, estEveille, sectionsDuClub, slugLibre } from
 /**
  * Le club, côté de celui qui le gère (ou qui y est invité).
  *
- * GET  , ce que l'écran « Mon club » affiche : le Pro, le club qu'on possède
+ * GET  , ce que l'écran « Mon club » affiche : KoppaFoot+, le rôle, le club qu'on possède
  *        (sections, invitations envoyées), les équipes qu'on gère (pour les
  *        rattacher) et les invitations reçues par ces équipes.
  * POST { nom, ville?, description?, slogan?, couleur? } , créer son club.
