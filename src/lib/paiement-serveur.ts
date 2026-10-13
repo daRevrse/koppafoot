@@ -8,12 +8,14 @@ import { adminDb } from "@/lib/firebase-admin";
 import { notifierCompte } from "@/lib/notifier-serveur";
 import { droitActif, jourDeLome, type DroitAccorde, type FirestoreDroits } from "@/lib/offre";
 import {
-  FORMULES, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, lirePrix, motifAchat,
+  FORMULES, ID_PAIEMENT, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, lirePrix, motifAchat,
   nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
   type Collecte, type EnvironnementPaiement, type FirestorePaiement, type FormuleEnVente, type IdFormule,
   type ObjetPaiement, type PrixOffre, type StatutPaiement,
 } from "@/lib/paiement";
 import { APP_URL } from "@/lib/partage";
+import { fraisDePaiement, numeroTogolais } from "@/lib/reglement";
+import { effetAcompte, suivreReservation } from "@/lib/reglement-serveur";
 
 // ============================================
 // Les paiements, côté serveur : démarrer un achat, et le régler.
@@ -65,7 +67,8 @@ export async function formulesPour(profil: Record<string, unknown> | undefined):
 }
 
 export type RefusPaiement =
-  | "formule" | "non_configure" | "bac_a_sable" | "pas_en_vente" | "deja_illimite" | "trop_de_tentatives" | "fedapay";
+  | "formule" | "non_configure" | "bac_a_sable" | "pas_en_vente" | "deja_illimite" | "trop_de_tentatives" | "fedapay"
+  | "reservation" | "deja_paye" | "trop_tard" | "telephone";
 
 /** Un achat qui ne peut pas démarrer. `message` est en français ; le navigateur traduit d'après `code`. */
 export class ErreurPaiement extends Error {
@@ -79,29 +82,22 @@ export class ErreurPaiement extends Error {
 const TENTATIVES_PAR_HEURE = 5;
 
 /**
- * Démarre un achat : la ligne, la collecte chez FedaPay, l'adresse de sa page
- * de paiement. `origine` : d'où vient la requête, pour le retour en bac à
- * sable (en réel, toujours le site).
+ * La clé FedaPay est là, et ce compte a le droit de payer : le bac à sable est
+ * réservé aux superadmins. `ferme` : ce qu'on répond aux autres.
  */
-export async function demarrerPaiement(uid: string, formule: unknown, origine: string): Promise<{ id: string; url: string }> {
-  if (!estFormule(formule)) throw new ErreurPaiement("formule", "Formule inconnue.");
+async function verifierAcces(
+  uid: string,
+  ferme: string,
+): Promise<{ profil: Record<string, unknown>; environnement: EnvironnementPaiement }> {
   if (!fedapayConfigure()) throw new ErreurPaiement("non_configure", "Le paiement n'est pas disponible.");
-
   const environnement = environnementFedapay();
   const profil = (await adminDb.collection("users").doc(uid).get()).data() ?? {};
-  if (environnement !== "live" && !estSuperadmin(profil)) {
-    throw new ErreurPaiement("bac_a_sable", "Le Pro n'est pas encore en vente.");
-  }
+  if (environnement !== "live" && !estSuperadmin(profil)) throw new ErreurPaiement("bac_a_sable", ferme);
+  return { profil, environnement };
+}
 
-  const prix = (await lirePrixOffre())[formule];
-  if (!prixValide(prix)) throw new ErreurPaiement("pas_en_vente", "Cette formule n'est pas en vente.");
-
-  const jour = jourDeLome();
-  const droits = (await adminDb.collection("droits").doc(uid).get()).data() as FirestoreDroits | undefined;
-  if (nouvelleEcheance(droits?.pro, jour, FORMULES[formule].mois) === null) {
-    throw new ErreurPaiement("deja_illimite", "Ton Pro n'a pas d'échéance : il n'y a rien à prolonger.");
-  }
-
+/** Au plus cinq tentatives par compte et par heure. */
+async function verifierTentatives(uid: string): Promise<void> {
   // Un compte a une poignée de lignes : on les lit toutes et on compte en
   // mémoire, ce qui évite un index composé (uid + created_at).
   const miennes = await paiements().where("uid", "==", uid).get();
@@ -109,17 +105,22 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
   if (miennes.docs.filter((d) => millis(d.get("created_at")) > ilYAUneHeure).length >= TENTATIVES_PAR_HEURE) {
     throw new ErreurPaiement("trop_de_tentatives", "Trop de tentatives. Réessaie dans une heure.");
   }
+}
 
+/**
+ * Écrit la ligne, crée la collecte chez FedaPay, rend sa page de paiement.
+ * Si FedaPay refuse, rien ne reste.
+ */
+async function ouvrirCollecte(
+  champs: Pick<FirestorePaiement, "uid" | "objet" | "formule" | "droit" | "montant" | "environnement"> & Partial<FirestorePaiement>,
+  description: string,
+  retour: (id: string) => string,
+  profil: Record<string, unknown>,
+): Promise<{ id: string; url: string }> {
   const ref = paiements().doc();
   const ligne: FirestorePaiement = {
-    uid,
-    objet: "pro",
-    formule,
-    droit: FORMULES[formule].droit,
-    montant: prix,
     devise: "XOF",
     statut: "en_attente",
-    environnement,
     fedapay_id: null,
     fedapay_statut: null,
     mode: null,
@@ -131,6 +132,7 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
     anomalie: null,
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
+    ...champs,
   };
   await ref.set(ligne);
 
@@ -139,9 +141,9 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
   try {
     const collecte = await creerCollecte({
       reference: ref.id,
-      description: libelleFormule(formule),
-      montant: prix,
-      retour: `${environnement === "live" ? APP_URL : origine}/offre?paiement=${ref.id}`,
+      description,
+      montant: ligne.montant,
+      retour: retour(ref.id),
       client: {
         prenom: typeof profil.first_name === "string" ? profil.first_name : "",
         nom: typeof profil.last_name === "string" ? profil.last_name : "",
@@ -163,6 +165,83 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
     .catch((err) => console.error("[paiements] identifiant FedaPay non rangé:", ref.id, err));
 
   return { id: ref.id, url };
+}
+
+/**
+ * Démarre l'achat du Pro. `origine` : d'où vient la requête, pour le retour
+ * en bac à sable (en réel, toujours le site).
+ */
+export async function demarrerPaiement(uid: string, formule: unknown, origine: string): Promise<{ id: string; url: string }> {
+  if (!estFormule(formule)) throw new ErreurPaiement("formule", "Formule inconnue.");
+  const { profil, environnement } = await verifierAcces(uid, "Le Pro n'est pas encore en vente.");
+
+  const prix = (await lirePrixOffre())[formule];
+  if (!prixValide(prix)) throw new ErreurPaiement("pas_en_vente", "Cette formule n'est pas en vente.");
+
+  const droits = (await adminDb.collection("droits").doc(uid).get()).data() as FirestoreDroits | undefined;
+  if (nouvelleEcheance(droits?.pro, jourDeLome(), FORMULES[formule].mois) === null) {
+    throw new ErreurPaiement("deja_illimite", "Ton Pro n'a pas d'échéance : il n'y a rien à prolonger.");
+  }
+  await verifierTentatives(uid);
+
+  const base = environnement === "live" ? APP_URL : origine;
+  return ouvrirCollecte(
+    { uid, objet: "pro", formule, droit: FORMULES[formule].droit, montant: prix, environnement },
+    libelleFormule(formule),
+    (id) => `${base}/offre?paiement=${id}`,
+    profil,
+  );
+}
+
+/**
+ * Démarre le paiement des frais de réservation d'un terrain. Le montant vient
+ * du règlement, figé à la confirmation : jamais de la réservation, jamais du
+ * navigateur.
+ *
+ * PAS DE PAIEMENT SANS NUMÉRO OÙ RENDRE. Si le propriétaire annule, l'acompte
+ * revient à l'équipe par mobile money : il faut savoir où. `telephone` est le
+ * numéro qu'elle donne en payant ; à défaut, celui de sa demande, déjà sur le
+ * règlement. Sans l'un ni l'autre, on n'encaisse pas.
+ */
+export async function demarrerAcompte(
+  uid: string,
+  reservation: unknown,
+  origine: string,
+  telephone?: unknown,
+): Promise<{ id: string; url: string }> {
+  if (typeof reservation !== "string" || !ID_PAIEMENT.test(reservation)) {
+    throw new ErreurPaiement("reservation", "Réservation introuvable.");
+  }
+  const { profil, environnement } = await verifierAcces(uid, "Le paiement n'est pas encore ouvert.");
+
+  // Ouvre le règlement s'il manque, et applique l'échéance si elle est passée.
+  const reg = await suivreReservation(reservation);
+  if (!reg || reg.user_id !== uid) throw new ErreurPaiement("reservation", "Réservation introuvable.");
+  if (reg.paye_le) throw new ErreurPaiement("deja_paye", "Ces frais de réservation sont déjà payés.");
+  if (reg.cloture !== null) throw new ErreurPaiement("trop_tard", "Ce créneau n'est plus réservé : il n'y a plus rien à payer.");
+
+  // Un numéro illisible n'efface pas celui qu'on a déjà.
+  const numero = numeroTogolais(telephone) ?? reg.telephone;
+  if (!numero) {
+    throw new ErreurPaiement("telephone", "Donne le numéro mobile money où te rendre les frais si le propriétaire annule.");
+  }
+  await verifierTentatives(uid);
+  if (numero !== reg.telephone) {
+    await adminDb.collection("reglements").doc(reservation)
+      .update({ telephone: numero, updated_at: FieldValue.serverTimestamp() });
+  }
+
+  const frais = fraisDePaiement(reg.acompte, reg.taux_frais);
+  const base = environnement === "live" ? APP_URL : origine;
+  return ouvrirCollecte(
+    {
+      uid, objet: "acompte", formule: null, droit: null, montant: reg.acompte + frais, environnement,
+      reservation_id: reservation, frais_client: frais,
+    },
+    `Frais de réservation · ${reg.venue_name} · ${dateLongue(reg.date)} à ${reg.time}`,
+    (id) => `${base}/mes-reservations?paiement=${id}`,
+    profil,
+  );
 }
 
 /** Ce que le titulaire apprend de son paiement. */
@@ -269,10 +348,7 @@ const effetPro: Effet = async (tx, ligne, c) => {
   };
 };
 
-/** Un objet dont l'effet n'est pas encore branché : la ligne est payée, rien d'autre ne bouge. */
-const sansEffet: Effet = async () => ({ ecrire: () => {}, champs: {}, apres: null });
-
-export const EFFETS: Record<ObjetPaiement, Effet> = { pro: effetPro, acompte: sansEffet };
+export const EFFETS: Record<ObjetPaiement, Effet> = { pro: effetPro, acompte: effetAcompte };
 
 /**
  * Règle un paiement : relit sa collecte chez FedaPay et, si elle est payée,

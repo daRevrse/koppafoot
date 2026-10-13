@@ -32,6 +32,7 @@ jest.mock("@/lib/admin-api-auth", () => ({ estSuperadmin: (d?: Doc) => d?.is_sup
 jest.mock("@/lib/email", () => ({ recuPaiementHtml: () => "<p>reçu</p>", sendNotificationEmail: jest.fn(async () => {}) }));
 jest.mock("@/lib/notifier-serveur", () => ({ notifierCompte: (uid: string, n: unknown) => mockNotifier(uid, n) }));
 jest.mock("@/lib/partage", () => ({ APP_URL: "https://www.koppafoot.com" }));
+jest.mock("@/lib/reservations-server", () => ({ recopierSurLeMatch: jest.fn(async () => {}), surLeMatch: jest.fn() }));
 jest.mock("@/lib/fedapay", () => ({
   environnementFedapay: () => mockFedapay.environnement,
   fedapayConfigure: () => mockFedapay.configure,

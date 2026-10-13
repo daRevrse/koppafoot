@@ -15,6 +15,10 @@ export const maxDuration = 30;
 
 const STATUT: Record<RefusPaiement, number> = {
   formule: 400,
+  telephone: 400,
+  reservation: 404,
+  deja_paye: 409,
+  trop_tard: 409,
   bac_a_sable: 403,
   pas_en_vente: 409,
   deja_illimite: 409,
