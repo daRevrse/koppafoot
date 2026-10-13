@@ -1,7 +1,7 @@
 # Design : Changer de rôle — accord, fin de KoppaFoot+, gel des équipes
 
 **Date :** 2026-10-13
-**Statut :** Décisions du fondateur du 2026-10-13, première rédaction. Second de deux chantiers : il s'appuie sur `2026-10-13-koppafoot-plus-design.md`, qui doit être livré d'abord. Deux questions restent ouvertes (« À trancher »). Spec à relire avant le plan.
+**Statut :** Décisions du fondateur du 2026-10-13. Second de deux chantiers : il s'appuie sur `2026-10-13-koppafoot-plus-design.md`, qui doit être livré d'abord. Spec à relire avant son plan, qui s'écrira une fois le premier chantier livré.
 
 ## Le problème
 
@@ -62,6 +62,15 @@ Plus personne ne dirige l'équipe, ni son ancien manager, ni son staff :
 - **Sa fiche publique**, avec toute son histoire : matchs joués, résultats, statistiques, effectif. Elle porte la mention « Équipe gelée ».
 - **Ses joueurs** restent dans l'effectif, et chacun peut la quitter.
 - **Rien n'est effacé.**
+
+### Ce que le gel défait autour d'elle
+Décidé par le fondateur le 2026-10-13 :
+
+- **Ses matchs à venir sont annulés.** Un amical programmé, un défi lancé ou accepté : annulés au moment du gel, et l'adversaire est prévenu. Le terrain réservé pour un de ces matchs se libère par le chemin existant, comme pour tout match annulé (et, sur un terrain à frais de réservation, les frais déjà payés restent au propriétaire : c'est l'équipe qui se retire).
+- **L'organisateur d'une compétition en cours où elle est engagée est prévenu**, pour la retirer. Le gel ne touche pas à la compétition lui-même : ses matchs et son classement sont à l'organisateur, c'est lui qui décide du forfait.
+- Les matchs déjà joués ne bougent pas.
+
+L'accord demandé avant de changer de rôle le dit : « 3 matchs à venir seront annulés », « l'organisateur de la Coupe de Bè sera prévenu ».
 
 ### Où ça tient
 Les gestes de gestion d'une équipe passent déjà par une garde commune : `peutGererEquipe` (`lib/team-access`, lue par les écrans et par le serveur) et `equipeGeree` dans les règles Firestore. Le gel se pose là, une fois :
@@ -134,7 +143,6 @@ Une équipe gelée compte toujours parmi les siennes. S'il revient avec plus d'�
 - Supprimer une équipe : inchangé.
 - L'application mobile : elle n'a pas de changement de rôle.
 
-## À trancher
+## À préciser dans le plan
 
-- **Les matchs déjà programmés d'une équipe au moment du gel** (un amical samedi, un défi accepté) : sont-ils annulés, avec l'adversaire prévenu, ou laissés tels quels ?
-- **Une équipe engagée dans une compétition en cours** : ses matchs de compétition sont tenus par l'organisateur. Continue-t-elle la compétition gelée, ou l'organisateur est-il prévenu pour la retirer ?
+Ce que la spec ne peut pas dire sans relire le code, et que le plan devra poser avant d'écrire : la liste exacte des matchs « à venir » d'une équipe (amicaux, défis en attente ou acceptés) et la façon dont chacun s'annule aujourd'hui ; ce qui relie une équipe à une compétition en cours ; par où un joueur quitte une équipe.
