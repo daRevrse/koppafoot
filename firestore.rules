@@ -257,6 +257,37 @@ service cloud.firestore {
         || request.resource.data.gender in ['male', 'female'];
     }
 
+    // À LA CRÉATION, UN PROFIL NE S'ACCORDE RIEN.
+    //
+    // `noProtectedFields`, juste en dessous, garde la MODIFICATION d'un
+    // profil : elle compare ce qu'on écrit à ce qui existe. À la création il
+    // n'existe rien, et la règle ne regardait que l'auteur et son genre. Un
+    // compte ouvert sans passer par l'application pouvait donc écrire son
+    // propre profil avec `is_superadmin: true`, ou `user_type: 'superadmin'`
+    // (le serveur l'accepte aussi), et tenir toute l'administration. Ou se
+    // poser une casquette sans candidature.
+    //
+    // Un profil naît donc avec un rôle ordinaire, actif, sans drapeau ni
+    // suspension. Tout le reste s'obtient par le SDK admin.
+    //
+    // ON TESTE LA VALEUR, pas la présence de la clé : un client qui écrirait
+    // `is_organizer: false` en toutes lettres doit pouvoir s'inscrire.
+    function creationSansPrivilege() {
+      let d = request.resource.data;
+      return d.user_type in ['user', 'player', 'manager', 'referee']
+        && (!('evolution_role' in d)
+            || d.evolution_role == null
+            || d.evolution_role in ['player', 'manager', 'referee'])
+        && d.get('is_superadmin', false) == false
+        && d.get('is_organizer', false) == false
+        && d.get('is_venue_owner', false) == false
+        && d.get('is_scorer', false) == false
+        && d.get('is_active', true) == true
+        && d.get('suspension_reason', null) == null
+        && d.get('suspended_by', null) == null
+        && d.get('suspended_at', null) == null;
+    }
+
     function noProtectedFields() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny([
@@ -322,7 +353,7 @@ service cloud.firestore {
       // des autres règles sur `users` ne sont pas concernés : ils s'évaluent
       // côté serveur.
       allow read: if isOwner(uid) || isSuperAdmin();
-      allow create: if isOwner(uid) && genreValide();
+      allow create: if isOwner(uid) && genreValide() && creationSansPrivilege();
       
       // Only the owner writes their own profile.
       //
