@@ -40,7 +40,7 @@ Le paiement de tout le prix dans l'application, un temps envisagé comme option 
 ### Qui est concerné
 - **Le propriétaire choisit, terrain par terrain.** Dans « Mes terrains », un bloc « Frais de réservation dans l'application » : il l'active et donne le numéro mobile money où être versé. Il faut un tarif horaire. Un terrain qui ne l'active pas continue comme aujourd'hui.
 - **Toutes les réservations** d'un terrain qui l'a activé : demande depuis la fiche, amical, match de compétition. Pas les créneaux que le propriétaire bloque lui-même. Celui qui paie est le demandeur de la réservation.
-- **Pas de rétroactivité.** Les frais ne valent que pour une réservation demandée après leur activation sur le terrain (`paiement_app_depuis`). Une réservation déjà confirmée n'est pas touchée, et une demande en attente au moment de l'activation se confirme sans frais : l'équipe paie ce qu'on lui a annoncé en demandant. (Précisé à l'écriture du plan : sans date d'activation, la première lecture d'une réservation confirmée lui aurait ouvert un règlement, et vingt-quatre heures pour payer ou perdre son créneau.)
+- **Pas de rétroactivité.** Les frais ne valent que pour une réservation demandée après leur activation sur le terrain (`paiement_app_depuis`). Une réservation déjà confirmée n'est pas touchée, et une demande en attente au moment de l'activation se confirme sans frais : l'équipe paie ce qu'on lui a annoncé en demandant. (Précisé à l'écriture du plan et confirmé par le fondateur le 2026-10-13 : sans date d'activation, la première lecture d'une réservation confirmée lui aurait ouvert un règlement, et vingt-quatre heures pour payer ou perdre son créneau.)
 - **Site web seulement** : l'application mobile n'a aucun écran de réservation.
 
 ### L'acompte
@@ -48,6 +48,7 @@ Le paiement de tout le prix dans l'application, un temps envisagé comme option 
 - Arrondi aux 50 FCFA supérieurs, 100 au minimum (le plancher FedaPay). 10 000 → 500 ; 7 500 → 400 ; 1 500 → 100.
 - **Il se paie après le oui du propriétaire.** Un refus ne déplace aucun argent.
 - **Échéance : 24 h après la confirmation, et au plus tard au début du créneau.** Passé ce délai, la réservation est annulée par le système, le créneau libéré, les deux parties prévenues.
+- **Pas de paiement sans numéro où rendre** (décidé par le fondateur le 2026-10-13). Si le propriétaire annule, l'acompte revient à l'équipe par mobile money : il faut un numéro togolais sur le règlement. Une demande faite depuis la fiche du terrain porte déjà un téléphone ; la réservation d'un match n'en porte pas, et l'équipe le donne alors au moment de payer. Sans numéro, l'acompte ne s'encaisse pas.
 - **Frais de paiement en plus, payés par l'équipe**, affichés avant de payer : « Acompte 500 + frais de paiement 20 = 520 ». Ils sont calculés par l'application à un taux réglé dans l'admin (`settings/paiement.taux_frais`, en pour cent, arrondi à l'entier supérieur). Le compte FedaPay reste réglé « frais à la charge du marchand », comme décidé pour le Pro : sinon FedaPay ajouterait les siens par-dessus. Tant que le taux n'est pas réglé il vaut 0 : KoppaFoot supporte alors les frais de FedaPay, et l'admin l'affiche en clair.
 
 ### Le ticket
@@ -72,11 +73,13 @@ Le paiement de tout le prix dans l'application, un temps envisagé comme option 
 | `annule_proprietaire` | Le propriétaire annule après le paiement | **rendu à l'équipe**, hors frais de paiement |
 | `libere` | L'acompte n'est jamais venu | rien n'a été encaissé |
 
+**Un match déplacé ne rend pas l'acompte** (décidé par le fondateur le 2026-10-13). Quand le manager change le terrain ou l'horaire d'un match dont l'acompte est payé, l'ancien créneau est libéré par l'équipe : c'est `annule_equipe`, l'acompte reste au propriétaire, et le nouveau créneau a son propre règlement.
+
 Personne ne déclare l'absence : elle se constate. Et personne n'a intérêt à tricher sur le ticket, le propriétaire touchant l'acompte dans les deux cas. Le ticket donne un historique juste (joué, ou absent), qui servira plus tard à dire la fiabilité d'une équipe.
 
 ### Le versement
 - Chaque somme due devient une ligne `dus` : à qui, combien, pourquoi, et **à partir de quand les fonds sont libérés** (le `to_be_transferred_at` de la collecte).
-- **Chaque matin, un seul dépôt par bénéficiaire** pour ses lignes dues dont les fonds sont libérés. Vers le numéro de versement du propriétaire ; pour un remboursement, vers le téléphone que l'équipe a donné dans sa demande.
+- **Chaque matin, un seul dépôt par bénéficiaire** pour ses lignes dues dont les fonds sont libérés. Vers le numéro de versement du propriétaire ; pour un remboursement, vers le numéro de l'équipe, obligatoire pour payer (voir « L'acompte »).
 - **Tant que FedaPay n'a pas activé les dépôts** (`settings/paiement.depots_actifs` à faux), aucune tentative : les sommes s'accumulent en « dû », visibles du propriétaire et de l'admin.
 - **Un dépôt en échec** laisse la somme due et la signale dans l'admin. L'admin peut toujours **régler à la main** une somme due et la marquer versée : c'est le filet pour un échec, pour un opérateur que FedaPay ne sert pas, et pour l'attente de l'activation.
 - Le propriétaire lit sur chaque réservation : « Acompte dû », « Versé le … ».
@@ -87,7 +90,7 @@ Le propriétaire peut aujourd'hui modifier depuis son navigateur n'importe quel 
 
 | Collection | |
 |---|---|
-| `reglements/{idRéservation}` (nouvelle) | Le dossier d'argent d'une réservation : `owner_id`, `user_id`, `venue_id`, `prix`, `acompte`, `taux_frais`, `echeance`, `fin_fenetre`, `paye_le`, `paiement_id`, `code`, `valide_le`, `cloture`, `clos_le`. |
+| `reglements/{idRéservation}` (nouvelle) | Le dossier d'argent d'une réservation : `owner_id`, `user_id`, `venue_id`, `prix`, `acompte`, `taux_frais`, `telephone` (où rendre l'acompte à l'équipe), `echeance`, `fin_fenetre`, `paye_le`, `paiement_id`, `code`, `valide_le`, `cloture`, `clos_le`. |
 | `paiements/{id}` (lot 1) | Gagne `objet` (`"pro"` ou `"acompte"`, absent = `"pro"`), `reservation_id`, `frais_client`. `montant` reste le total demandé à FedaPay. |
 | `dus/{id}` (nouvelle) | `beneficiaire`, `montant`, `motif` (`"acompte"` ou `"remboursement"`), `reservation_id`, `telephone` (pour un remboursement, celui de la demande), `disponible_le`, `depot_id`, `regle_le`. |
 | `depots/{id}` (nouvelle) | `beneficiaire`, `numero`, `montant`, `etat` (`a_envoyer`, `envoye`, `verse`, `echoue`, `manuel`), `fedapay_id`, `dus` (les lignes réglées), `erreur`. |
@@ -134,7 +137,7 @@ Le propriétaire peut aujourd'hui modifier depuis son navigateur n'importe quel 
 | Le propriétaire oublie de valider un match joué | Clôture `absent`. Il touche l'acompte de toute façon ; seul l'historique est faux. |
 | Le terrain est retiré avec des créneaux payés à venir | Les créneaux confirmés restent (règle actuelle) ; s'il les annule, l'acompte est rendu. |
 | Dépôt refusé, numéro faux, opérateur non servi | La somme reste due, signalée dans l'admin, réglable à la main. |
-| Un remboursement n'a pas de numéro | Idem : dû, signalé, à régler à la main. |
+| Un remboursement n'a pas de numéro | Ne devrait plus arriver, le numéro étant exigé pour payer. S'il manque malgré tout (paiement arrivé sans règlement) : dû, signalé, à régler à la main. |
 
 ## Les textes
 

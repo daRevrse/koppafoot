@@ -22,6 +22,8 @@
 - **Les mots de la vidéo** : à l'équipe, « Remboursés si le match a lieu : ils sont déduits de ce que tu règles sur place. » Au propriétaire, « Ton prix reste ton prix. »
 - **Pas de rétroactivité** : un règlement ne s'ouvre que pour une réservation DEMANDÉE après l'activation des frais sur le terrain (`venues.paiement_app_depuis`, en millisecondes). Une équipe paie ce qu'on lui a annoncé en demandant.
 - **Une somme due s'écrit une fois**, avec `regle_le: null` en toutes lettres : Firestore ne retrouve pas un champ absent, et c'est sur lui que la liste des sommes à verser filtre.
+- **Pas de paiement sans numéro où rendre** : l'acompte ne s'encaisse que si le règlement porte un numéro mobile money togolais pour l'équipe (celui de sa demande, ou celui qu'elle donne en payant). Décidé par le fondateur le 2026-10-13.
+- **Un match déplacé ne rend pas l'acompte** : l'ancien créneau est annulé par l'équipe, l'acompte payé reste au propriétaire. Décidé par le fondateur le 2026-10-13.
 - **Bac à sable** : seul un superadmin peut payer (verrou du lot 1, inchangé).
 - **Tests** : modules purs par `import` dans `mobile/src/__tests__/` ; modules serveur par `require` avec le faux Firestore (`mobile/src/test-aides/faux-firestore.ts`, créé à la tâche 3). Lancer : `(cd mobile && npx jest src/__tests__/<fichier>)`. `(cd mobile && npx tsc --noEmit)` a 3 erreurs préexistantes : n'en ajouter aucune.
 - **Serveur de dev** par `preview_start` (`koppafoot-dev`), jamais par Bash. Un seul `npm run build`, à la fin, serveur arrêté. **Ne jamais appeler la tâche cron en local** : elle notifie de vrais joueurs.
@@ -685,6 +687,13 @@ export interface FirestoreReglement {
   venue_name: string;
   /** Qui joue, tel qu'on le dit au gérant : le nom de l'équipe, sinon celui du demandeur. */
   demandeur: string;
+  /**
+   * Le numéro mobile money où rendre l'acompte à l'équipe si le propriétaire
+   * annule : celui de sa demande, sinon celui qu'elle donne en payant.
+   * OBLIGATOIRE POUR PAYER : on n'encaisse pas un acompte qu'on ne saurait
+   * pas rendre. `null` tant qu'il n'est pas connu.
+   */
+  telephone: string | null;
   /** Le créneau et le prix, FIGÉS à l'ouverture : un tarif changé après coup n'y touche pas. */
   date: string;
   time: string;
@@ -808,6 +817,8 @@ export interface VueReglement {
   /** Le code du ticket : pour l'équipe seule, une fois l'acompte payé. */
   code: string | null;
   valide: boolean;
+  /** Pour l'équipe seule : le numéro où ses frais lui seraient rendus ; `null` s'il reste à donner. */
+  telephone: string | null;
   /** Pour le propriétaire, réservation close : ce qui lui est dû, et quand cela a été versé (`null` : pas encore). */
   du: { montant: number; verseLe: number | null } | null;
 }
@@ -1477,9 +1488,9 @@ export interface FirestoreDu {
   /** « Terrain des Cocotiers · samedi 17 octobre à 18:00 », pour qui lit la liste. */
   libelle: string;
   /**
-   * Pour un remboursement : le téléphone que l'équipe a donné dans sa demande,
-   * où le lui rendre. `null` pour un propriétaire (il a son compte de
-   * versement), et quand la réservation n'en porte pas.
+   * Pour un remboursement : le numéro mobile money de l'équipe, celui du
+   * règlement (lib/reglement). `null` pour un propriétaire, qui a son compte
+   * de versement.
    */
   telephone: string | null;
   /** Quand FedaPay libère les fonds (ISO) ; `null` s'il ne l'a pas dit. */
@@ -1667,7 +1678,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `lireTicket(uid: string, brut: unknown, maintenant?: number): Promise<ResumeTicket>`, `validerTicket(uid: string, brut: unknown, maintenant?: number): Promise<ResumeTicket>`
   - `vuePour(uid: string, idReservation: string): Promise<VueReglement | null>`
   - `suivreReglementsOuverts(maintenant?: number): Promise<{ suivis: number; clos: number }>`
-- Produces (de `@/lib/paiement-serveur`) : `demarrerAcompte(uid: string, reservation: unknown, origine: string): Promise<{ id: string; url: string }>` ; `RefusPaiement` gagne `"reservation" | "deja_paye" | "trop_tard"`.
+- Produces (de `@/lib/paiement-serveur`) : `demarrerAcompte(uid: string, reservation: unknown, origine: string, telephone?: unknown): Promise<{ id: string; url: string }>` ; `RefusPaiement` gagne `"reservation" | "deja_paye" | "trop_tard" | "telephone"`.
 
 - [ ] **Step 1: Écrire les tests**
 
@@ -1729,7 +1740,7 @@ const { suivreReservation, lireTicket, validerTicket, vuePour, suivreReglementsO
 };
 const { reglerPaiement, demarrerAcompte } = require("@/lib/paiement-serveur") as {
   reglerPaiement: (id: string) => Promise<{ statut: string } | null>;
-  demarrerAcompte: (uid: string, reservation: unknown, origine: string) => Promise<{ id: string; url: string }>;
+  demarrerAcompte: (uid: string, reservation: unknown, origine: string, telephone?: unknown) => Promise<{ id: string; url: string }>;
 };
 
 const H = 3_600_000;
@@ -1810,6 +1821,7 @@ describe("suivreReservation : l'ouverture", () => {
 
     expect(r).toMatchObject({
       id: RESA, owner_id: "gerant", user_id: "equipe", venue_name: "Terrain des Cocotiers", demandeur: "Étoile de Bè",
+      telephone: "90112233",
       date: DATE, time: "18:00", duration: 1, prix: 10_000, acompte: 500, taux_frais: 4,
       echeance: J2 + 24 * H, ouvre_validation: DEBUT - H, fin_fenetre: DEBUT + H + 15 * 60_000,
       paye_le: null, paiement_id: null, code: null, valide_le: null, cloture: null,
@@ -2046,6 +2058,32 @@ describe("demarrerAcompte", () => {
     await expect(demarrerAcompte("equipe", RESA, ORIGINE)).rejects.toMatchObject({ code: "deja_paye" });
   });
 
+  it("exige un numéro où rendre les frais quand la réservation n'en porte pas", async () => {
+    // La réservation d'un match n'a pas le téléphone qu'une demande exige.
+    base.set(`bookings/${RESA}`, reservation({ kind: "match", match_id: "match1", contact: null }));
+    await ouvrir();
+    expect(reglement()?.telephone).toBeNull();
+
+    await expect(demarrerAcompte("equipe", RESA, ORIGINE)).rejects.toMatchObject({ code: "telephone" });
+    await expect(demarrerAcompte("equipe", RESA, ORIGINE, "12345")).rejects.toMatchObject({ code: "telephone" });
+    expect(mockFedapay.creerCollecte).not.toHaveBeenCalled();
+
+    await demarrerAcompte("equipe", RESA, ORIGINE, "+228 91 22 33 44");
+
+    expect(reglement()?.telephone).toBe("91223344");
+    expect(mockFedapay.creerCollecte).toHaveBeenCalledTimes(1);
+  });
+
+  it("le numéro donné en payant remplace celui de la demande, un numéro illisible ne l'efface pas", async () => {
+    await ouvrir();
+
+    await demarrerAcompte("equipe", RESA, ORIGINE, "pas un numéro");
+    expect(reglement()?.telephone).toBe("90112233");
+
+    await demarrerAcompte("equipe", RESA, ORIGINE, "99 88 77 66");
+    expect(reglement()?.telephone).toBe("99887766");
+  });
+
   it("refuse en bac à sable un compte qui n'est pas superadmin", async () => {
     await ouvrir();
     base.set("users/equipe", { first_name: "Ama", last_name: "Koffi" });
@@ -2141,9 +2179,12 @@ describe("vuePour", () => {
     const equipe = await vuePour("equipe", RESA);
     const gerant = await vuePour("gerant", RESA);
 
-    expect(equipe).toMatchObject({ role: "equipe", etat: "acompte_paye", acompte: 500, frais: 20, total: 520, reste: 9_500 });
+    expect(equipe).toMatchObject({
+      role: "equipe", etat: "acompte_paye", acompte: 500, frais: 20, total: 520, reste: 9_500, telephone: "90112233",
+    });
     expect(equipe?.code).toBe(reglement()?.code);
-    expect(gerant).toMatchObject({ role: "proprietaire", etat: "acompte_paye", code: null });
+    // Ni le code, ni le numéro de remboursement de l'équipe.
+    expect(gerant).toMatchObject({ role: "proprietaire", etat: "acompte_paye", code: null, telephone: null });
   });
 
   it("dit au propriétaire ce qui lui est dû, puis quand cela a été versé", async () => {
@@ -2192,7 +2233,7 @@ import { notifierCompte } from "@/lib/notifier-serveur";
 import type { Effet } from "@/lib/paiement-serveur";
 import {
   acompteDe, battementLu, codeSaisi, debutDuCreneau, echeanceAcompte, etatDuReglement, fenetreDeValidation,
-  fraisDePaiement, nouveauCode, planReglement, prixDuCreneau,
+  fraisDePaiement, nouveauCode, numeroTogolais, planReglement, prixDuCreneau,
   type Battement, type ClotureReglement, type FirestoreReglement, type ResumeTicket, type VueReglement,
 } from "@/lib/reglement";
 import { recopierSurLeMatch, surLeMatch } from "@/lib/reservations-server";
@@ -2243,11 +2284,14 @@ const quand = (r: { date: string; time: string }): string => `${dateLongue(r.dat
 const instant = (ms: number): string =>
   new Date(ms).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 const libelle = (r: FirestoreReglement): string => `${r.venue_name} · ${quand(r)}`;
-/** Le téléphone donné dans la demande : c'est là qu'on rend un acompte à une équipe. */
-const telephoneDe = (b: FirestoreBooking | null): string | null => {
-  const t = (b as { contact?: { telephone?: unknown } | null } | null)?.contact?.telephone;
-  return typeof t === "string" && t.trim() ? t.trim() : null;
-};
+/**
+ * Le téléphone donné dans la demande, s'il est un numéro mobile money : c'est
+ * là qu'on rendrait son acompte à l'équipe. La réservation d'un match n'en
+ * porte pas : l'équipe le donne alors en payant (paiement-serveur,
+ * demarrerAcompte), et sans lui elle ne paie pas.
+ */
+const telephoneDe = (b: FirestoreBooking | null): string | null =>
+  numeroTogolais((b as { contact?: { telephone?: unknown } | null } | null)?.contact?.telephone);
 
 /**
  * Le terrain fait-il payer ses frais de réservation dans l'application, et
@@ -2373,6 +2417,7 @@ export async function suivreReservation(
         venue_id: resa.venue_id,
         venue_name: resa.venue_name || ouverture.nom,
         demandeur: resa.team_name || resa.user_name || "Une équipe",
+        telephone: telephoneDe(resa),
         date: resa.date,
         time: resa.time,
         duration: resa.duration,
@@ -2408,7 +2453,7 @@ export async function suivreReservation(
           motif: auGerant ? "acompte" : "remboursement",
           reservation_id: id,
           libelle: libelle(reg),
-          telephone: auGerant ? null : telephoneDe(resa),
+          telephone: auGerant ? null : reg.telephone,
           disponible_le: reg.disponible_le,
         })
         : null;
@@ -2463,7 +2508,7 @@ export const effetAcompte: Effet = async (tx, ligne, c) => {
       motif: "remboursement",
       reservation_id: idResa,
       libelle: reg ? libelle(reg) : "Frais de réservation",
-      telephone: telephoneDe(r.exists ? (r.data() as FirestoreBooking) : null),
+      telephone: reg?.telephone ?? null,
       disponible_le: c.collecte.disponibleLe,
     });
     return {
@@ -2609,6 +2654,8 @@ export async function vuePour(uid: string, idReservation: string): Promise<VueRe
     // Le code est à l'équipe : c'est elle qui le montre, le gérant qui le lit.
     code: role === "equipe" && reg.cloture === null ? reg.code : null,
     valide: Boolean(reg.valide_le),
+    // Son numéro de remboursement ne regarde qu'elle.
+    telephone: role === "equipe" ? reg.telephone : null,
     du,
   };
 }
@@ -2636,7 +2683,7 @@ Dans `src/lib/paiement-serveur.ts` :
 
 ```ts
 import { effetAcompte, suivreReservation } from "@/lib/reglement-serveur";
-import { fraisDePaiement } from "@/lib/reglement";
+import { fraisDePaiement, numeroTogolais } from "@/lib/reglement";
 ```
 
 et `ID_PAIEMENT` à l'import de `@/lib/paiement`. (Le fichier a déjà son propre `dateLongue`, « 17 octobre 2026 » : c'est lui qui sert plus bas, ne pas importer celui de `lib/terrains`.)
@@ -2658,7 +2705,7 @@ jest.mock("@/lib/reservations-server", () => ({ recopierSurLeMatch: jest.fn(asyn
 ```ts
 export type RefusPaiement =
   | "formule" | "non_configure" | "bac_a_sable" | "pas_en_vente" | "deja_illimite" | "trop_de_tentatives" | "fedapay"
-  | "reservation" | "deja_paye" | "trop_tard";
+  | "reservation" | "deja_paye" | "trop_tard" | "telephone";
 ```
 
 - sortir de `demarrerPaiement` ce que les deux achats partagent. Remplacer la fonction `demarrerPaiement` entière par :
@@ -2780,8 +2827,18 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
  * Démarre le paiement des frais de réservation d'un terrain. Le montant vient
  * du règlement, figé à la confirmation : jamais de la réservation, jamais du
  * navigateur.
+ *
+ * PAS DE PAIEMENT SANS NUMÉRO OÙ RENDRE. Si le propriétaire annule, l'acompte
+ * revient à l'équipe par mobile money : il faut savoir où. `telephone` est le
+ * numéro qu'elle donne en payant ; à défaut, celui de sa demande, déjà sur le
+ * règlement. Sans l'un ni l'autre, on n'encaisse pas.
  */
-export async function demarrerAcompte(uid: string, reservation: unknown, origine: string): Promise<{ id: string; url: string }> {
+export async function demarrerAcompte(
+  uid: string,
+  reservation: unknown,
+  origine: string,
+  telephone?: unknown,
+): Promise<{ id: string; url: string }> {
   if (typeof reservation !== "string" || !ID_PAIEMENT.test(reservation)) {
     throw new ErreurPaiement("reservation", "Réservation introuvable.");
   }
@@ -2792,7 +2849,17 @@ export async function demarrerAcompte(uid: string, reservation: unknown, origine
   if (!reg || reg.user_id !== uid) throw new ErreurPaiement("reservation", "Réservation introuvable.");
   if (reg.paye_le) throw new ErreurPaiement("deja_paye", "Ces frais de réservation sont déjà payés.");
   if (reg.cloture !== null) throw new ErreurPaiement("trop_tard", "Ce créneau n'est plus réservé : il n'y a plus rien à payer.");
+
+  // Un numéro illisible n'efface pas celui qu'on a déjà.
+  const numero = numeroTogolais(telephone) ?? reg.telephone;
+  if (!numero) {
+    throw new ErreurPaiement("telephone", "Donne le numéro mobile money où te rendre les frais si le propriétaire annule.");
+  }
   await verifierTentatives(uid);
+  if (numero !== reg.telephone) {
+    await adminDb.collection("reglements").doc(reservation)
+      .update({ telephone: numero, updated_at: FieldValue.serverTimestamp() });
+  }
 
   const frais = fraisDePaiement(reg.acompte, reg.taux_frais);
   const base = environnement === "live" ? APP_URL : origine;
@@ -3005,19 +3072,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 - [ ] **Step 3: Payer un acompte, lire un règlement, valider un ticket**
 
-Dans `src/app/api/paiements/route.ts` : importer `demarrerAcompte`, ajouter les trois refus à `STATUT` (`reservation: 404, deja_paye: 409, trop_tard: 409,`), et remplacer les deux lignes du `try` qui lisent le corps et répondent par :
+Dans `src/app/api/paiements/route.ts` : importer `demarrerAcompte`, ajouter les quatre refus à `STATUT` (`reservation: 404, deja_paye: 409, trop_tard: 409, telephone: 400,`), et remplacer les deux lignes du `try` qui lisent le corps et répondent par :
 
 ```ts
-    const corps = (await req.json().catch(() => ({}))) as { formule?: unknown; objet?: unknown; reservation?: unknown };
+    const corps = (await req.json().catch(() => ({}))) as {
+      formule?: unknown; objet?: unknown; reservation?: unknown; telephone?: unknown;
+    };
     const origine = new URL(req.url).origin;
     return NextResponse.json(
       corps.objet === "acompte"
-        ? await demarrerAcompte(uid, corps.reservation, origine)
+        ? await demarrerAcompte(uid, corps.reservation, origine, corps.telephone)
         : await demarrerPaiement(uid, corps.formule, origine),
     );
 ```
 
-Compléter le commentaire d'en-tête de la route : `POST /api/paiements { formule } pour le Pro, { objet: "acompte", reservation } pour les frais de réservation d'un terrain.`
+Compléter le commentaire d'en-tête de la route : `POST /api/paiements { formule } pour le Pro, { objet: "acompte", reservation, telephone? } pour les frais de réservation d'un terrain. `telephone` : le numéro où rendre les frais si le propriétaire annule, obligatoire quand la réservation n'en porte pas.` Lire la route avant de l'éditer : si elle renvoie aussi le `code` du refus au navigateur, ne rien y changer.
 
 Créer `src/app/api/reservations/[id]/reglement/route.ts` :
 
@@ -3350,7 +3419,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces (de `@/components/venue/ReglementEquipe`) :
   - `useReglements(reservations: { id: string; reglementVu?: string | null }[]): Record<string, VueReglement>`
   - `<RetourPaiement />`
-  - `<ReglementEquipe etat vue occupe onPayer />`
+  - `<ReglementEquipe etat vue occupe onPayer />`, où `onPayer: (telephone?: string) => void`
 
 **Une contrainte de la page à connaître.** Dans `mes-reservations/page.tsx`, `Ligne` est un composant défini DANS la page : il est recréé, donc remonté, à chaque rendu de la page. Un composant qui lirait son règlement lui-même le relirait à chaque rendu et clignoterait. Les règlements sont donc lus au niveau de la page (`useReglements`), et `ReglementEquipe` ne fait qu'afficher.
 
@@ -3377,9 +3446,9 @@ import toast from "react-hot-toast";
 import { CreditCard, Ticket } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { idPaiementDuRetour } from "@/lib/paiement";
-import type { VueReglement } from "@/lib/reglement";
+import { numeroTogolais, type VueReglement } from "@/lib/reglement";
 import { appeler } from "@/lib/reservations-client";
-import { Bouton } from "@/components/venue/venue-ui";
+import { Bouton, classeChamp } from "@/components/venue/venue-ui";
 
 // ============================================
 // Les frais de réservation, vus de l'équipe : ce qu'il reste à payer, puis le
@@ -3399,11 +3468,17 @@ import { Bouton } from "@/components/venue/venue-ui";
 // suffit à dire qu'une réservation est close, et comment. Tant qu'elle est
 // ouverte, les montants, l'échéance et le code viennent du serveur, relus
 // chaque fois que la copie change.
+//
+// PAS DE PAIEMENT SANS NUMÉRO OÙ RENDRE. Si le propriétaire annule, les frais
+// reviennent à l'équipe par mobile money. Une demande faite depuis la fiche
+// du terrain porte déjà un téléphone ; la réservation d'un match n'en porte
+// pas, et c'est ici qu'on le demande, avant de payer.
 // ============================================
 
 const fcfa = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
 const instant = (ms: number) =>
   new Date(ms).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+const numeroLisible = (n: string) => n.replace(/(\d{2})(?=\d)/g, "$1 ");
 
 /** Les états où il reste quelque chose à lire au serveur. */
 const OUVERTS = ["acompte_attendu", "acompte_paye"];
@@ -3496,8 +3571,11 @@ export function ReglementEquipe({ etat, vue, occupe, onPayer }: {
   etat: string;
   vue: VueReglement | undefined;
   occupe: boolean;
-  onPayer: () => void;
+  /** `telephone` : le numéro saisi ici, quand la réservation n'en portait pas. */
+  onPayer: (telephone?: string) => void;
 }) {
+  // Local, et non dans la page : chaque frappe y redessinerait la liste.
+  const [numero, setNumero] = useState("");
   const clos = CLOS[etat];
   if (clos) return <p className="mt-2 text-[11px] font-bold leading-relaxed text-gray-500">{clos}</p>;
   if (!vue || vue.role !== "equipe") return null;
@@ -3517,7 +3595,32 @@ export function ReglementEquipe({ etat, vue, occupe, onPayer }: {
             Avec {fcfa(vue.frais)} de frais de paiement, tu paies {fcfa(vue.total)}.
           </p>
         )}
-        <Bouton petit Icon={CreditCard} occupe={occupe} onClick={onPayer} className="mt-2">
+        {vue.telephone ? (
+          <p className="mt-1 text-[11px] text-amber-800">
+            Si le propriétaire annule, ils te sont rendus au {numeroLisible(vue.telephone)}.
+          </p>
+        ) : (
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-amber-900">
+              Numéro mobile money où te rendre les frais si le propriétaire annule
+            </span>
+            <input
+              inputMode="tel"
+              value={numero}
+              onChange={(e) => setNumero(e.target.value)}
+              placeholder="90 12 34 56"
+              className={`${classeChamp} max-w-[14rem]`}
+            />
+          </label>
+        )}
+        <Bouton
+          petit
+          Icon={CreditCard}
+          occupe={occupe}
+          disabled={!vue.telephone && !numeroTogolais(numero)}
+          onClick={() => onPayer(vue.telephone ? undefined : numero)}
+          className="mt-2"
+        >
           Payer {fcfa(vue.total)}
         </Bouton>
       </div>
@@ -3581,11 +3684,13 @@ et `appeler` à l'import de `@/lib/reservations-client` (`import { agirSurReserv
 - à côté de la fonction `prendre`, ajouter :
 
 ```tsx
-  const payer = async (b: Booking) => {
+  const payer = async (b: Booking, telephone?: string) => {
     setAgit(b.id);
     try {
       // Le montant n'est pas envoyé : le serveur le lit dans le règlement.
-      const { url } = await appeler<{ url: string }>("/api/paiements", "POST", { objet: "acompte", reservation: b.id });
+      const { url } = await appeler<{ url: string }>(
+        "/api/paiements", "POST", { objet: "acompte", reservation: b.id, telephone },
+      );
       window.location.assign(url);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Paiement indisponible pour l'instant.");
@@ -3614,7 +3719,7 @@ et `appeler` à l'import de `@/lib/reservations-client` (`import { agirSurReserv
               etat={b.reglementVu}
               vue={reglements[b.id]}
               occupe={agit === b.id}
-              onPayer={() => void payer(b)}
+              onPayer={(telephone) => void payer(b, telephone)}
             />
           )}
 ```
@@ -4196,7 +4301,7 @@ interface Ligne {
   montant: number;
   motif: "acompte" | "remboursement";
   libelle: string;
-  /** Pour un remboursement : le téléphone que l'équipe a donné dans sa demande. */
+  /** Pour un remboursement : le numéro mobile money où rendre ses frais à l'équipe. */
   telephone: string | null;
   disponible_le: string | null;
 }
@@ -4340,7 +4445,7 @@ export default function AdminVersementsPage() {
                       {g.numero
                         ? `Mobile money : ${numeroLisible(g.numero)}`
                         : g.lignes.some((l) => l.telephone)
-                          ? "Pas de compte de versement : rendre au téléphone de la demande, ligne par ligne"
+                          ? "À rendre à l'équipe, au numéro indiqué sur chaque ligne"
                           : "Aucun numéro connu : à lui demander"}
                     </p>
                   </div>
@@ -4464,8 +4569,9 @@ Dans `src/app/(marketing)/confidentialite/page.tsx` : `MIS_A_JOUR` passe à `"13
             <strong>FedaPay</strong>{" "}: le paiement de KoppaFoot Pro et des frais de réservation d&apos;un terrain,
             seulement si tu paies. Nous lui transmettons ton prénom, ton nom et ton e-mail, pour ton reçu ; le numéro de
             ton portefeuille mobile ou de ta carte, tu le tapes sur sa page, et nous ne le voyons ni ne le gardons. Nous
-            conservons la trace du paiement : son montant, sa date, son état. Si tu es gérant de terrain et que tu
-            actives les frais de réservation, nous gardons le numéro mobile money où te les verser.
+            conservons la trace du paiement : son montant, sa date, son état. Pour des frais de réservation, nous gardons
+            aussi un numéro mobile money : celui où les verser au gérant du terrain, et celui où les rendre à
+            l&apos;équipe si le gérant annule.
           </li>
 ```
 
@@ -4594,6 +4700,7 @@ Relancer le serveur de dev. Dans `/admin/versements`, régler le taux à `4`.
 1. Confirmer une autre demande, **ne pas payer**, et constater par le script de lecture (`scratchpad`) ou en base que le règlement porte une échéance. Pour ne pas attendre 24 h : jouer `suivreReservation` avec un `maintenant` futur depuis un script `tsx` jetable, et constater la réservation « annulée par le système », `reglement_vu: "libere"`, aucune ligne due.
 2. Payer une réservation, puis **l'annuler côté gérant** : `/admin/versements` montre une ligne « À rendre à l'équipe ».
 3. Avec un compte non superadmin : « Payer » répond « Le paiement n'est pas encore ouvert. »
+4. Sur la réservation d'un match (amical programmé sur ce terrain, confirmé par le gérant) : le bloc demande le numéro où rendre les frais, « Payer » reste grisé tant qu'il n'est pas un numéro togolais, et le paiement part une fois le numéro donné.
 
 - [ ] **Step 5: Consigner et committer**
 
