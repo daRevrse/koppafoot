@@ -553,15 +553,20 @@ const RAPPEL: Record<DroitOffre, { marque: string; nom: string; corps: (date: st
  *
  * « PAS DE PUBS » NE SE RAPPELLE PAS SOUS KOPPAFOOT+ : tant qu'il court, la
  * publicité ne revient pas, il n'y a rien à annoncer.
+ *
+ * KOPPAFOOT+ NE SE PROLONGE QUE POUR QUI Y A DROIT. Un joueur sans casquette
+ * peut l'avoir (acheté avant la règle, ou accordé à la main), mais sa page ne
+ * lui en vend pas la suite : on ne lui annonce pas un bouton qu'il n'aura
+ * pas. Pour lui, la suite s'appelle « Pas de pubs », et le rappel le dit.
  */
 export async function rappelerEcheances(jour: string = jourDeLome()): Promise<number> {
   if (!fedapayConfigure() || environnementFedapay() !== "live") return 0;
   const enVente = new Set(formulesEnVente(await lirePrixOffre()).map((f) => f.droit));
+  if (enVente.size === 0) return 0;
 
   const { demain, dansSeptJours } = joursDeRappel(jour);
   let rappels = 0;
   for (const droit of ["pro", "sans_pub"] as const) {
-    if (!enVente.has(droit)) continue;
     const { marque, nom, corps } = RAPPEL[droit];
     const snap = await adminDb.collection("droits").where(`${droit}.jusqu_au`, "in", [demain, dansSeptJours]).get();
     for (const d of snap.docs) {
@@ -569,10 +574,16 @@ export async function rappelerEcheances(jour: string = jourDeLome()): Promise<nu
       const fin = droits[droit]?.jusqu_au;
       if (!fin || d.get(marque) === jour) continue;
       if (droit === "sans_pub" && estPro(droits, jour)) continue;
+      const horsProfil = droit === "pro"
+        && !aDroitAKoppaFootPlus(titresDuProfil((await adminDb.collection("users").doc(d.id).get()).data()));
+      // Ce que ce compte pourra acheter ensuite : s'il n'est pas en vente, on se tait.
+      if (!enVente.has(horsProfil ? "sans_pub" : droit)) continue;
       await notifierCompte(d.id, {
         type: "offre",
         title: `${nom} se termine ${fin === demain ? "demain" : "dans 7 jours"}`,
-        body: corps(dateLongue(fin)),
+        body: horsProfil
+          ? `KoppaFoot+ court jusqu'au ${dateLongue(fin)}. Ensuite, la publicité revient : « Pas de pubs » te sera proposé pour la retirer.`
+          : corps(dateLongue(fin)),
         link: "/offre",
       });
       await d.ref.update({ [marque]: jour });

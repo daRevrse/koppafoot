@@ -431,6 +431,8 @@ describe("rappelerEcheances", () => {
     mockBase.set("droits/semaine", droit("2026-11-12"));
     mockBase.set("droits/plus-tard", droit("2026-11-20"));
     mockBase.set("droits/sans-fin", droit(null));
+    // Des managers : KoppaFoot+ leur est proposé, ils peuvent le prolonger.
+    for (const uid of ["demain", "semaine", "plus-tard", "sans-fin"]) mockBase.set(`users/${uid}`, { user_type: "manager" });
   });
 
   it("prévient la veille et sept jours avant, et personne d'autre", async () => {
@@ -508,6 +510,36 @@ describe("rappelerEcheances", () => {
       mockBase.set("settings/offre", { prix: { pro_mois: 1500 } });
       expect(await rappelerEcheances(AUJOURDHUI)).toBe(2);
       expect(titres().some((t) => t.startsWith("joueur"))).toBe(false);
+    });
+  });
+
+  describe("un KoppaFoot+ que le compte ne peut pas prolonger", () => {
+    // Un joueur sans casquette qui a KoppaFoot+ (acheté avant la règle, ou
+    // accordé à la main) : sa page ne lui vend aucune prolongation.
+    const corps = (uid: string) =>
+      (mockNotifier.mock.calls.find(([u]) => u === uid)?.[1] as { body: string } | undefined)?.body ?? "";
+
+    beforeEach(() => {
+      mockBase.set("users/demain", { user_type: "player" });
+    });
+
+    it("ne lui dit pas de prolonger : il annonce « Pas de pubs » pour la suite", async () => {
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(2);
+      expect(corps("demain")).toContain("Pas de pubs");
+      expect(corps("demain")).not.toContain("prolonger");
+      expect(corps("semaine")).toContain("prolonger");
+    });
+
+    it("ne le prévient pas quand « Pas de pubs » n'est pas en vente : il n'y aurait rien à lui proposer", async () => {
+      mockBase.set("settings/offre", { prix: { pro_mois: 1500 } });
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(1);
+      expect(titres()).toEqual(["semaine : Ton KoppaFoot+ se termine dans 7 jours"]);
+    });
+
+    it("le prévient même quand KoppaFoot+ n'est plus en vente, tant que « Pas de pubs » l'est", async () => {
+      mockBase.set("settings/offre", { prix: { sans_pub_mois: 300 } });
+      expect(await rappelerEcheances(AUJOURDHUI)).toBe(1);
+      expect(titres()).toEqual(["demain : Ton KoppaFoot+ se termine demain"]);
     });
   });
 });
