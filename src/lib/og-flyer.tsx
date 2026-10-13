@@ -3,7 +3,7 @@ import { chasseAnton } from "@/lib/anton";
 import type { ButeursDuMatch, Buteur } from "@/lib/buteurs";
 import type { CompMatchPublic, MatchPublic } from "@/lib/match-public";
 import {
-  Camp, chargerRessources, EMERAUDE, Espace, FondEclats, GRIS, NUIT, Pied, quand, TitreFendu,
+  Camp, chargerRessources, EMERAUDE, Espace, FondEclats, GRIS, imageDistante, NUIT, Pied, quand, TitreFendu,
 } from "@/lib/og-da";
 
 // ============================================
@@ -111,6 +111,21 @@ function Surtitre({ texte }: { texte: string }) {
   );
 }
 
+/**
+ * Le terrain, centré même sur deux lignes.
+ *
+ * Satori aligne à gauche un texte qui passe à la ligne : la boîte était bien
+ * centrée, mais une adresse longue lui fait prendre toute la largeur, et sa
+ * deuxième ligne repartait du bord gauche, sous une date centrée.
+ */
+function Lieu({ texte }: { texte: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", maxWidth: LARGEUR_UTILE, textAlign: "center" }}>
+      {texte}
+    </div>
+  );
+}
+
 // ─── Les deux flyers ────────────────────────────────────────
 
 export interface FlyerCamp {
@@ -144,6 +159,10 @@ export interface FlyerMatch {
  * en tête, et pas « MATCH AMICAL ». SANS LOGO, c'est celui de Koppafoot qui
  * s'affiche, et le NOM de la compétition passe au surtitre, devant l'étape :
  * sinon rien sur l'image ne dirait de quelle compétition il s'agit.
+ *
+ * LES LOGOS SONT TÉLÉCHARGÉS ICI (lib/og-da, `imageDistante`), pas laissés à
+ * Satori : il ne lit pas le WebP, le format de tout logo récent, et laissait
+ * leur place vide. « Sans logo » veut donc dire : sans logo LISIBLE.
  */
 export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promise<Response> {
   if (match.status === "live" || match.status === "cancelled") {
@@ -151,16 +170,21 @@ export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promis
   }
 
   const officiel = "competition" in match;
+  const [logoCompetition, logoHome, logoAway] = await Promise.all([
+    officiel ? imageDistante(match.competitionLogo, 640) : null,
+    imageDistante(match.homeTeamLogo, 640),
+    imageDistante(match.awayTeamLogo, 640),
+  ]);
   const m: FlyerMatch = {
     surtitre: !officiel
       ? ""
-      : match.competitionLogo
+      : logoCompetition
         ? match.etape
         : [match.competition, match.etape].filter(Boolean).join(" · "),
     amical: !officiel,
-    logoCompetition: officiel ? match.competitionLogo : null,
-    home: { nom: match.homeTeamName || "À déterminer", logo: match.homeTeamLogo },
-    away: { nom: match.awayTeamName || "À déterminer", logo: match.awayTeamLogo },
+    logoCompetition,
+    home: { nom: match.homeTeamName || "À déterminer", logo: logoHome },
+    away: { nom: match.awayTeamName || "À déterminer", logo: logoAway },
     date: match.date,
     time: match.time,
     lieu: [match.venueName, match.venueCity].filter(Boolean).join(", "),
@@ -227,7 +251,7 @@ function MatchDay({ m, logo }: { m: FlyerMatch; logo: string }) {
           textTransform: "uppercase",
         }}
       >
-        {m.lieu && <div style={{ display: "flex" }}>{m.lieu}</div>}
+        {m.lieu && <Lieu texte={m.lieu} />}
         {jour && <div style={{ display: "flex" }}>{jour}</div>}
         {heure && <div style={{ display: "flex", color: EMERAUDE }}>{heure}</div>}
       </div>
@@ -311,7 +335,7 @@ function ScoreFinal({ m, logo }: { m: FlyerResultat; logo: string }) {
           textTransform: "uppercase",
         }}
       >
-        {m.lieu && <div style={{ display: "flex" }}>{m.lieu}</div>}
+        {m.lieu && <Lieu texte={m.lieu} />}
         {jour && <div style={{ display: "flex", color: GRIS }}>{jour}</div>}
       </div>
 

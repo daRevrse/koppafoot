@@ -78,6 +78,32 @@ export function chargerRessources() {
 const TYPES_IMAGE = /^image\/(png|jpeg|webp|gif)$/;
 
 /**
+ * Le WebP, réencodé en PNG.
+ *
+ * SATORI NE LIT PAS LE WEBP. Une adresse WebP lui fait écrire « Unsupported
+ * image type » et laisser la place vide ; en data URI, il lève et l'image
+ * entière tombe. Or c'est le format que lib/images donne à tout logo et toute
+ * bannière téléversés depuis qu'on les allège avant l'envoi : l'affiche d'une
+ * compétition au logo récent partait sans son logo, les écussons récents
+ * sans écusson.
+ *
+ * `sharp` est chargé à la demande : il vient avec Next, sans être une
+ * dépendance du projet. S'il manque, l'image n'est pas lisible et l'appelant
+ * retombe sur ce qu'il montre sans elle (le logo de Koppafoot, l'initiale).
+ */
+async function webpEnPng(contenu: Buffer, cote: number): Promise<Buffer | null> {
+  try {
+    const { default: sharp } = await import("sharp");
+    return await sharp(contenu)
+      .resize(cote, cote, { fit: "inside", withoutEnlargement: true })
+      .png()
+      .toBuffer();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Un logo distant (écusson, logo de compétition), téléchargé ICI plutôt que
  * laissé à Satori.
  *
@@ -89,15 +115,22 @@ const TYPES_IMAGE = /^image\/(png|jpeg|webp|gif)$/;
  * Seuls les hôtes du Storage du projet sont acceptés (voir `imageSure`) :
  * le champ vient d'un document, et une adresse arbitraire ferait émettre au
  * serveur une requête vers où l'on veut.
+ *
+ * Un WebP repart en PNG (voir `webpEnPng`), à `cote` pixels au plus.
  */
-export async function imageDistante(url: string | null | undefined): Promise<string | null> {
+export async function imageDistante(url: string | null | undefined, cote = 1200): Promise<string | null> {
   const sure = imageSure(url);
   if (!sure) return null;
   try {
     const r = await fetch(sure, { signal: AbortSignal.timeout(4000) });
     const type = r.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
     if (!r.ok || !TYPES_IMAGE.test(type)) return null;
-    return `data:${type};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}`;
+    const contenu = Buffer.from(await r.arrayBuffer());
+    if (type === "image/webp") {
+      const png = await webpEnPng(contenu, cote);
+      return png ? `data:image/png;base64,${png.toString("base64")}` : null;
+    }
+    return `data:${type};base64,${contenu.toString("base64")}`;
   } catch {
     return null;
   }
