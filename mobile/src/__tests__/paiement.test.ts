@@ -263,4 +263,15 @@ describe("firestore.rules", () => {
     expect(bloc).toContain("allow read, write: if false;");
     expect((bloc ?? "").match(/allow /g)).toHaveLength(1);
   });
+
+  it.each(["reglements", "dus", "depots", "comptes_versement", "essais_ticket"])(
+    "ferme la collection %s aux navigateurs",
+    (collection) => {
+      const regles = readFileSync(join(__dirname, "../../../firestore.rules"), "utf8");
+      const bloc = new RegExp(`match /${collection}/\\{[a-zA-Z]+\\} \\{([^}]*)\\}`).exec(regles)?.[1];
+      expect(bloc).toBeDefined();
+      expect(bloc).toContain("allow read, write: if false;");
+      expect((bloc ?? "").match(/allow /g)).toHaveLength(1);
+    },
+  );
 });

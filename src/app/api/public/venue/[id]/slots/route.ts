@@ -16,6 +16,9 @@ import { adminDb } from "@/lib/firebase-admin";
  * Seules les demandes confirmées comptent. Une demande en attente ne bloque
  * rien : le propriétaire arbitre, et deux personnes peuvent parfaitement
  * demander le même samedi soir.
+ *
+ * Une réservation confirmée dont les frais de réservation ne sont pas venus à
+ * temps ne compte plus : son créneau est libre.
  */
 
 export const revalidate = 60;
@@ -34,13 +37,21 @@ export async function GET(
   })();
 
   try {
-    const snap = await adminDb
-      .collection("bookings")
-      .where("venue_id", "==", id)
-      .where("status", "==", "confirmed")
-      .get();
+    const [snap, ouverts] = await Promise.all([
+      adminDb.collection("bookings").where("venue_id", "==", id).where("status", "==", "confirmed").get(),
+      adminDb.collection("reglements").where("venue_id", "==", id).where("cloture", "==", null).get(),
+    ]);
+
+    // Un créneau confirmé dont les frais n'ont pas été payés à temps est déjà
+    // libre, même si personne ne l'a encore libéré (lib/reglement-serveur).
+    // L'échéance se lit dans le règlement, jamais sur la réservation.
+    const maintenant = Date.now();
+    const echus = new Set(ouverts.docs
+      .filter((d) => !d.get("paye_le") && typeof d.get("echeance") === "number" && d.get("echeance") < maintenant)
+      .map((d) => d.id));
 
     const slots = snap.docs
+      .filter((d) => !echus.has(d.id))
       .flatMap((d) => {
         const b = d.data();
         const date = typeof b.date === "string" ? b.date : null;

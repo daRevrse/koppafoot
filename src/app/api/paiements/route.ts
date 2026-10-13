@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { uidAppelant } from "@/lib/appelant";
-import { ErreurPaiement, demarrerPaiement, type RefusPaiement } from "@/lib/paiement-serveur";
+import { ErreurPaiement, demarrerAcompte, demarrerPaiement, type RefusPaiement } from "@/lib/paiement-serveur";
 
 /**
- * POST /api/paiements { formule }, démarrer l'achat du Pro.
+ * POST /api/paiements, démarrer un paiement.
+ *
+ *  - { formule } : l'achat du Pro ;
+ *  - { objet: "acompte", reservation, telephone? } : les frais de réservation
+ *    d'un terrain. `telephone` est le numéro où les rendre si le propriétaire
+ *    annule, obligatoire quand la réservation n'en porte pas.
  *
  * Rend l'adresse de la page de paiement FedaPay ; le navigateur y va. Le corps
- * ne porte que le nom de la formule : le montant est lu par le serveur dans
- * `settings/offre`, jamais reçu du navigateur.
+ * ne porte jamais de montant : le serveur le lit dans `settings/offre` pour
+ * le Pro, dans le règlement de la réservation pour un acompte.
  */
 
 export const dynamic = "force-dynamic";
@@ -31,8 +36,15 @@ export async function POST(req: Request) {
   const uid = await uidAppelant(req);
   if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   try {
-    const { formule } = (await req.json().catch(() => ({}))) as { formule?: unknown };
-    return NextResponse.json(await demarrerPaiement(uid, formule, new URL(req.url).origin));
+    const corps = (await req.json().catch(() => ({}))) as {
+      formule?: unknown; objet?: unknown; reservation?: unknown; telephone?: unknown;
+    };
+    const origine = new URL(req.url).origin;
+    return NextResponse.json(
+      corps.objet === "acompte"
+        ? await demarrerAcompte(uid, corps.reservation, origine, corps.telephone)
+        : await demarrerPaiement(uid, corps.formule, origine),
+    );
   } catch (err) {
     if (err instanceof ErreurPaiement) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: STATUT[err.code] });

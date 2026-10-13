@@ -4,8 +4,20 @@ import { adminDb } from "@/lib/firebase-admin";
 import {
   ErreurReservation, annoncerDemande, appelant, lienDuMatch, notifier, quand, recopierSurLeMatch, surLeMatch,
 } from "@/lib/reservations-server";
+import { suivreReservation, texteAcompteAttendu } from "@/lib/reglement-serveur";
 import { seChevauchent } from "@/lib/terrains";
 import type { FirestoreBooking, PropositionCreneau } from "@/types";
+
+/**
+ * Le règlement des frais de réservation suit la réservation. Ne fait jamais
+ * échouer le geste : la réservation est écrite, et un suivi manqué se
+ * rattrape à la lecture suivante ou le lendemain matin.
+ */
+const suivre = (id: string, annoncer = true) =>
+  suivreReservation(id, { annoncer }).catch((err) => {
+    console.error("[reglement] suivi après un geste:", id, err);
+    return null;
+  });
 
 // ============================================
 // PATCH /api/bookings/[id], répondre à une demande de créneau.
@@ -64,11 +76,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (b.status !== "pending") return deja();
         await ref.update({ status: "confirmed", updated_at: FieldValue.serverTimestamp() });
         if (match) await recopierSurLeMatch(match, surLeMatch(id, b, "confirmed"));
+        // Sur un terrain qui fait payer ses frais, la confirmation ouvre le
+        // règlement : un seul message dit les deux, le oui et ce qu'il reste à faire.
+        const reglement = await suivre(id, false);
+        const pour = b.match_label ? ` pour ${b.match_label}` : "";
         await notifier(b.user_id, {
           type: "booking_answer",
-          title: "Créneau confirmé",
-          body: `${b.venue_name} est à toi le ${quand(b)}${b.match_label ? ` pour ${b.match_label}` : ""}.`,
-          link: lien,
+          title: reglement ? "Créneau confirmé : frais de réservation à payer" : "Créneau confirmé",
+          body: reglement
+            ? `${b.venue_name}, le ${quand(b)}${pour}. ${texteAcompteAttendu(reglement)}`
+            : `${b.venue_name} est à toi le ${quand(b)}${pour}.`,
+          link: reglement ? "/mes-reservations" : lien,
         });
         return NextResponse.json({ ok: true });
       }
@@ -143,6 +161,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             link: "/mes-terrains/reservations",
           });
         }
+        // Des frais déjà payés : ils restent au propriétaire si l'équipe s'en
+        // va, lui sont rendus si c'est lui qui annule (lib/reglement).
+        await suivre(id);
         return NextResponse.json({ ok: true });
       }
 
@@ -195,6 +216,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             telephone: b.contact?.telephone, message: b.message,
           });
         }
+        // Née confirmée sur un terrain qui fait payer ses frais : son règlement s'ouvre.
+        if (libre) await suivre(cree.id);
         return NextResponse.json({ id: cree.id, status: nouvelle.status });
       }
 

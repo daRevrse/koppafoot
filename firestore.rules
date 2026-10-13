@@ -701,6 +701,28 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Les frais de réservation des terrains (lib/reglement) : le dossier
+    // d'argent d'une réservation, ce qui est dû à chacun, ce qui a été versé,
+    // le numéro où verser un propriétaire, et le compteur d'essais de ticket.
+    // Tout passe par des routes, avec le SDK admin. Une réservation, elle,
+    // reste écrite par ses deux parties : c'est pour cela qu'aucun montant ni
+    // aucun état de paiement n'y vit.
+    match /reglements/{reservationId} {
+      allow read, write: if false;
+    }
+    match /dus/{duId} {
+      allow read, write: if false;
+    }
+    match /depots/{depotId} {
+      allow read, write: if false;
+    }
+    match /comptes_versement/{uid} {
+      allow read, write: if false;
+    }
+    match /essais_ticket/{uid} {
+      allow read, write: if false;
+    }
+
     // Les clubs (lib/clubs) : réservés à KoppaFoot Pro, endormis quand il
     // s'arrête. L'état se décide à chaque lecture d'après le Pro du
     // propriétaire, et une section demande l'accord de son manager : tout
