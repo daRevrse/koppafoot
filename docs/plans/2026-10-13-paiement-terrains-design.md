@@ -40,7 +40,7 @@ Le paiement de tout le prix dans l'application, un temps envisagé comme option 
 ### Qui est concerné
 - **Le propriétaire choisit, terrain par terrain.** Dans « Mes terrains », un bloc « Frais de réservation dans l'application » : il l'active et donne le numéro mobile money où être versé. Il faut un tarif horaire. Un terrain qui ne l'active pas continue comme aujourd'hui.
 - **Toutes les réservations** d'un terrain qui l'a activé : demande depuis la fiche, amical, match de compétition. Pas les créneaux que le propriétaire bloque lui-même. Celui qui paie est le demandeur de la réservation.
-- Les réservations confirmées avant l'activation ne sont pas touchées.
+- **Pas de rétroactivité.** Les frais ne valent que pour une réservation demandée après leur activation sur le terrain (`paiement_app_depuis`). Une réservation déjà confirmée n'est pas touchée, et une demande en attente au moment de l'activation se confirme sans frais : l'équipe paie ce qu'on lui a annoncé en demandant. (Précisé à l'écriture du plan : sans date d'activation, la première lecture d'une réservation confirmée lui aurait ouvert un règlement, et vingt-quatre heures pour payer ou perdre son créneau.)
 - **Site web seulement** : l'application mobile n'a aucun écran de réservation.
 
 ### L'acompte
@@ -89,10 +89,10 @@ Le propriétaire peut aujourd'hui modifier depuis son navigateur n'importe quel 
 |---|---|
 | `reglements/{idRéservation}` (nouvelle) | Le dossier d'argent d'une réservation : `owner_id`, `user_id`, `venue_id`, `prix`, `acompte`, `taux_frais`, `echeance`, `fin_fenetre`, `paye_le`, `paiement_id`, `code`, `valide_le`, `cloture`, `clos_le`. |
 | `paiements/{id}` (lot 1) | Gagne `objet` (`"pro"` ou `"acompte"`, absent = `"pro"`), `reservation_id`, `frais_client`. `montant` reste le total demandé à FedaPay. |
-| `dus/{id}` (nouvelle) | `beneficiaire`, `montant`, `motif` (`"acompte"` ou `"remboursement"`), `reservation_id`, `disponible_le`, `depot_id`, `regle_le`. |
+| `dus/{id}` (nouvelle) | `beneficiaire`, `montant`, `motif` (`"acompte"` ou `"remboursement"`), `reservation_id`, `telephone` (pour un remboursement, celui de la demande), `disponible_le`, `depot_id`, `regle_le`. |
 | `depots/{id}` (nouvelle) | `beneficiaire`, `numero`, `montant`, `etat` (`a_envoyer`, `envoye`, `verse`, `echoue`, `manuel`), `fedapay_id`, `dus` (les lignes réglées), `erreur`. |
 | `comptes_versement/{uid}` (nouvelle) | `numero`, `pays`, `modifie_le`. |
-| `venues/{id}` (public) | Gagne `paiement_app` (booléen) et `battement_min`. Rien d'autre. |
+| `venues/{id}` (public) | Gagne `paiement_app` (booléen), `paiement_app_depuis` (quand il a été activé) et `battement_min`. Rien d'autre. |
 | `bookings/{id}` | Gagne `reglement_vu`, une copie d'affichage de l'état (`acompte_attendu`, `acompte_paye`, clôture). **Le serveur ne la relit jamais.** |
 | `settings/paiement` | `taux_frais`, `depots_actifs`. Écrit par l'admin. |
 
