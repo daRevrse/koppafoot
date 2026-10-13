@@ -205,6 +205,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
                     available={venue.available}
                     pricePerHour={venue.pricePerHour}
                     battementMin={venue.battementMin}
+                    paiementApp={venue.paiementApp}
                     horaires={venue.horaires}
                   />
                 </Suspense>
