@@ -24,7 +24,7 @@ export const metadata = {
   description: "Quelles données KoppaFoot collecte, pourquoi, avec qui elles sont partagées, et comment exercer tes droits.",
 };
 
-const MIS_A_JOUR = "12 octobre 2026";
+const MIS_A_JOUR = "13 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -123,10 +123,12 @@ const SECTIONS: SectionJuridique[] = [
           <li><strong>Vercel</strong> : hébergement du site et statistiques de fréquentation anonymes.</li>
           <li><strong>Brevo</strong> ou <strong>Resend</strong> : envoi des e-mails.</li>
           <li>
-            <strong>FedaPay</strong>{" "}: le paiement de KoppaFoot Pro, seulement si tu l&apos;achètes. Nous lui transmettons
-            ton prénom, ton nom et ton e-mail, pour ton reçu ; le numéro de ton portefeuille mobile ou de ta carte, tu le
-            tapes sur sa page, et nous ne le voyons ni ne le gardons. Nous conservons la trace du paiement : son montant,
-            sa date, son état.
+            <strong>FedaPay</strong>{" "}: le paiement de KoppaFoot Pro et des frais de réservation d&apos;un terrain,
+            seulement si tu paies. Nous lui transmettons ton prénom, ton nom et ton e-mail, pour ton reçu ; le numéro de
+            ton portefeuille mobile ou de ta carte, tu le tapes sur sa page, et nous ne le voyons ni ne le gardons. Nous
+            conservons la trace du paiement : son montant, sa date, son état. Pour des frais de réservation, nous gardons
+            aussi un numéro mobile money : celui où les verser au gérant du terrain, et celui où les rendre à
+            l&apos;équipe si le gérant annule.
           </li>
           <li>
             <strong>YouTube</strong> (Google) : les vidéos des tutoriels, seulement si tu en lances une. Avant, rien ne

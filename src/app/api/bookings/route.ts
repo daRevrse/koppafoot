@@ -14,10 +14,11 @@ import type { FirestoreBooking } from "@/types";
 // sur un terrain — et que le propriétaire doit les voir dans la même liste :
 //
 //  - une ÉQUIPE demande un créneau depuis la fiche du terrain. Il lui faut un
-//    téléphone : c'est avec lui que le propriétaire réglera le reste, le
-//    paiement compris, puisque la plateforme n'encaisse rien. Et le créneau
-//    doit tenir dans les horaires d'ouverture, quand le propriétaire en a
-//    posé ;
+//    téléphone : c'est avec lui que le propriétaire réglera le reste.
+//    Seuls les frais de réservation, quand il les a activés, passent par la
+//    plateforme (lib/reglement), et c'est à ce numéro qu'ils sont rendus
+//    s'il annule. Et le créneau doit tenir dans les horaires d'ouverture,
+//    quand le propriétaire en a posé ;
 //  - le PROPRIÉTAIRE bloque un créneau pris ailleurs — un habitué, un appel.
 //    Sans ça, les équipes demandaient des soirs déjà pris, et il refusait à
 //    la main ce que la fiche aurait pu leur dire. Un habitué revient chaque

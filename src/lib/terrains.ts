@@ -84,10 +84,10 @@ export const surfaceCourte = (v: string | null | undefined) =>
 /**
  * Le prix d'une heure, tel qu'on le dit.
  *
- * Zéro n'est pas « 0 FCFA » mais « Prix à convenir » : la plateforme
- * n'encaisse rien, un terrain sans tarif saisi n'est pas gratuit, il n'a
- * simplement pas annoncé son prix. Écrire « 0 FCFA » aurait fabriqué des
- * équipes qui arrivent en pensant ne rien payer.
+ * Zéro n'est pas « 0 FCFA » mais « Prix à convenir » : un terrain sans
+ * tarif saisi n'est pas gratuit, il n'a simplement pas annoncé son prix.
+ * Écrire « 0 FCFA » aurait fabriqué des équipes qui arrivent en pensant ne
+ * rien payer.
  */
 export function prixHeure(montant: number | null | undefined): string {
   if (!montant || montant <= 0) return "Prix à convenir";

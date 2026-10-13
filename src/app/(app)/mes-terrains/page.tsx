@@ -374,7 +374,7 @@ function Formulaire({
         label="Tarif horaire (FCFA)"
         htmlFor="v-prix"
         optionnel
-        aide="Laissé vide, la fiche affiche « prix à convenir ». La plateforme n'encaisse rien : le règlement se fait entre toi et l'équipe."
+        aide="Laissé vide, la fiche affiche « prix à convenir ». Il sert aussi de base aux frais de réservation, si tu les actives : 5 % du prix du créneau."
       >
         <input
           id="v-prix"

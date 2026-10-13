@@ -77,7 +77,7 @@ export async function terrainPayant(
   const tarif = typeof v?.price_per_hour === "number" ? v.price_per_hour : 0;
   const depuis = typeof v?.paiement_app_depuis === "number" ? v.paiement_app_depuis : 0;
   const actif = v?.paiement_app === true && depuis > 0 && tarif > 0 && proprietaire !== null;
-  // Sans numéro où le verser, on n'encaisse rien pour lui.
+  // Sans numéro où le verser, pas d'encaissement pour lui.
   const compte = actif ? await lireCompteVersement(proprietaire!) : null;
   return {
     payant: actif && compte !== null,
