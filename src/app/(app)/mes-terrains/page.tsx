@@ -18,6 +18,7 @@ import { alleger, poidsLisible, REGLAGES } from "@/lib/images";
 import type { Venue, Booking, HorairesOuverture } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
 import { apercuRetrait, lireReglageContact, reglerContact, retirerTerrain } from "@/lib/terrains-client";
+import { PaiementTerrain } from "@/components/venue/PaiementTerrain";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, aujourdhui,
 } from "@/lib/terrains";
@@ -581,6 +582,8 @@ function CarteTerrain({
           Il manque {aCompleter.join(", ")}. Une fiche complète est choisie plus souvent.
         </p>
       )}
+
+      <PaiementTerrain venueId={v.id} tarif={v.pricePerHour} />
     </article>
   );
 }
