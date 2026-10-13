@@ -4,7 +4,7 @@ import Link from "next/link";
 import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ClipboardList, Flag, Gem, Goal, Handshake, LayoutDashboard, LogOut, MapPin, MapPinPlus,
+  ChevronLeft, ClipboardList, Flag, Gem, Goal, HandCoins, Handshake, LayoutDashboard, LogOut, MapPin, MapPinPlus,
   Megaphone, MessageSquareText, Radio, Scale, Send, Shield, ShieldCheck, TrendingUp, Trophy, Users, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,6 +65,7 @@ const NAV: { titre: string | null; entrees: Entree[] }[] = [
     titre: "Réglages",
     entrees: [
       { href: "/admin/offre", label: "Offre", Icone: Gem },
+      { href: "/admin/versements", label: "Versements", Icone: HandCoins },
       { href: "/admin/settings", label: "Administrateurs", Icone: ShieldCheck },
     ],
   },
