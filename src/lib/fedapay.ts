@@ -98,6 +98,7 @@ export function normaliserCollecte(brut: Record<string, unknown>): Collecte | nu
     mode: texte(brut.mode),
     frais: nombre(brut.fees),
     recuUrl: texte(brut.receipt_url),
+    disponibleLe: texte(brut.to_be_transferred_at),
   };
 }
 

@@ -48,7 +48,11 @@ describe("normaliserCollecte", () => {
     expect(normaliserCollecte({
       id: 258, status: "approved", amount: 1500, merchant_reference: ID, mode: "togocel", fees: 26,
       receipt_url: "https://exemple.test/recu", custom_metadata: { paiement_id: ID },
-    })).toEqual({ id: 258, statut: "approved", montant: 1500, reference: ID, mode: "togocel", frais: 26, recuUrl: "https://exemple.test/recu" });
+      to_be_transferred_at: "2026-10-15T19:32:58.962Z",
+    })).toEqual({
+      id: 258, statut: "approved", montant: 1500, reference: ID, mode: "togocel", frais: 26,
+      recuUrl: "https://exemple.test/recu", disponibleLe: "2026-10-15T19:32:58.962Z",
+    });
   });
 
   it("retrouve la référence dans les métadonnées si merchant_reference manque", () => {
@@ -61,7 +65,9 @@ describe("normaliserCollecte", () => {
 
   it("rend les champs absents à null", () => {
     expect(normaliserCollecte({ id: 258, status: "pending", amount: 1500 }))
-      .toEqual({ id: 258, statut: "pending", montant: 1500, reference: null, mode: null, frais: null, recuUrl: null });
+      .toEqual({
+        id: 258, statut: "pending", montant: 1500, reference: null, mode: null, frais: null, recuUrl: null, disponibleLe: null,
+      });
   });
 
   it("refuse ce qui n'est pas une collecte", () => {

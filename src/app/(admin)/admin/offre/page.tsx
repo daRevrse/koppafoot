@@ -48,7 +48,8 @@ interface VuePaiement {
   id: string;
   nom: string;
   email: string | null;
-  formule: IdFormule;
+  /** `null` : des frais de réservation de terrain, pas une formule. */
+  formule: IdFormule | null;
   montant: number;
   statut: StatutPaiement;
   environnement: "sandbox" | "live";
@@ -410,7 +411,7 @@ export default function AdminOffrePage() {
                       {sansEffet && <Pastille ton="rouge" title="Le compte avait déjà un Pro sans échéance : à rembourser.">Payé sans effet</Pastille>}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-500">
-                      {LIBELLE_FORMULE[p.formule]} · {p.montant.toLocaleString("fr-FR")} FCFA
+                      {p.formule ? LIBELLE_FORMULE[p.formule] : "Frais de réservation"} · {p.montant.toLocaleString("fr-FR")} FCFA
                       {p.mode && <> · {p.mode}</>}
                       {p.creeLe && <> · {new Date(p.creeLe).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</>}
                       {p.echeanceApres && <> · Pro jusqu&apos;au {jourCourt(p.echeanceApres)}</>}

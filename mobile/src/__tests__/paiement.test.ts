@@ -1,11 +1,23 @@
 import type { DroitAccorde } from "@/lib/offre";
 import {
   ajouterJours, ajouterMois, deciderReglement, estFormule, etatDepuisFedapay, formulesEnVente, idPaiementDuRetour,
-  joursDeRappel, lirePrix, motifAchat, nouvelleEcheance, prixValide, trierLignesOuvertes,
+  joursDeRappel, lirePrix, motifAchat, nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
 } from "@/lib/paiement";
 
 // Le module vit côté site (src/lib/paiement) ; il est pur, et c'est ici que
 // la suite de tests des modules partagés tourne.
+
+describe("objetDe", () => {
+  it("une ligne d'avant les acomptes est un achat du Pro", () => {
+    expect(objetDe({})).toBe("pro");
+    expect(objetDe({ objet: null })).toBe("pro");
+    expect(objetDe({ objet: "pro" })).toBe("pro");
+  });
+
+  it("reconnaît un acompte", () => {
+    expect(objetDe({ objet: "acompte" })).toBe("acompte");
+  });
+});
 
 const droit = (p: Partial<DroitAccorde> = {}): DroitAccorde => ({
   depuis: "2026-09-01", jusqu_au: null, source: "admin", accorde_par: "admin1", motif: null, ...p,

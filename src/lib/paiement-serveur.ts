@@ -9,8 +9,9 @@ import { notifierCompte } from "@/lib/notifier-serveur";
 import { droitActif, jourDeLome, type DroitAccorde, type FirestoreDroits } from "@/lib/offre";
 import {
   FORMULES, STATUTS_OUVERTS, deciderReglement, estFormule, formulesEnVente, joursDeRappel, lirePrix, motifAchat,
-  nouvelleEcheance, prixValide, trierLignesOuvertes,
-  type FirestorePaiement, type FormuleEnVente, type IdFormule, type PrixOffre, type StatutPaiement,
+  nouvelleEcheance, objetDe, prixValide, trierLignesOuvertes,
+  type Collecte, type EnvironnementPaiement, type FirestorePaiement, type FormuleEnVente, type IdFormule,
+  type ObjetPaiement, type PrixOffre, type StatutPaiement,
 } from "@/lib/paiement";
 import { APP_URL } from "@/lib/partage";
 
@@ -112,6 +113,7 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
   const ref = paiements().doc();
   const ligne: FirestorePaiement = {
     uid,
+    objet: "pro",
     formule,
     droit: FORMULES[formule].droit,
     montant: prix,
@@ -166,7 +168,8 @@ export async function demarrerPaiement(uid: string, formule: unknown, origine: s
 /** Ce que le titulaire apprend de son paiement. */
 export interface EtatPaiement {
   statut: StatutPaiement;
-  formule: IdFormule;
+  /** `null` : le paiement n'achète pas une formule (les frais de réservation d'un terrain). */
+  formule: IdFormule | null;
   montant: number;
   /** L'échéance du Pro après ce paiement ; `null` tant qu'il n'est pas réglé. */
   jusquAu: string | null;
@@ -198,7 +201,8 @@ async function accuserReception(ligne: FirestorePaiement, jusquAu: string, recuU
     email
       ? sendNotificationEmail(email, "Ton reçu KoppaFoot Pro", recuPaiementHtml({
           prenom: typeof profil.first_name === "string" ? profil.first_name : "",
-          formule: libelleFormule(ligne.formule),
+          // Appelé pour un achat du Pro seulement (effetPro) : la formule y est toujours.
+          formule: ligne.formule ? libelleFormule(ligne.formule) : "KoppaFoot Pro",
           montant: ligne.montant,
           jusquAu: dateLongue(jusquAu),
           recuUrl,
@@ -206,6 +210,69 @@ async function accuserReception(ligne: FirestorePaiement, jusquAu: string, recuU
       : null,
   ]);
 }
+
+/** Ce qu'un effet reçoit : la ligne réglée, la collecte relue, le jour. */
+export interface ContexteEffet {
+  id: string;
+  jour: string;
+  environnement: EnvironnementPaiement;
+  collecte: Collecte;
+}
+
+/** Un effet prêt à s'appliquer : ses lectures sont faites, il ne reste qu'à écrire. */
+export interface EffetPrepare {
+  /** Les écritures de l'effet, dans la transaction. */
+  ecrire(): void;
+  /** Ce que l'effet pose sur la ligne de paiement. */
+  champs: Partial<FirestorePaiement>;
+  /** Après la transaction : prévenir. Ne remet rien en cause. */
+  apres: (() => Promise<void>) | null;
+}
+
+/**
+ * Ce qu'un paiement réglé change, selon son objet.
+ *
+ * UN EFFET LIT, PUIS ÉCRIT. Une transaction Firestore veut toutes ses
+ * lectures avant sa première écriture : l'effet fait les siennes en se
+ * préparant, et `reglerPaiement` n'appelle `ecrire` qu'ensuite, avec le
+ * passage de la ligne à « payé ». L'argent reçu et ce qu'il achète tiennent
+ * ainsi dans la même transaction.
+ */
+export type Effet = (tx: FirebaseFirestore.Transaction, ligne: FirestorePaiement, c: ContexteEffet) => Promise<EffetPrepare>;
+
+/** L'achat du Pro : la période s'ajoute à la fin en cours (lib/paiement, nouvelleEcheance). */
+const effetPro: Effet = async (tx, ligne, c) => {
+  const droitsRef = adminDb.collection("droits").doc(ligne.uid);
+  const actuel = ((await tx.get(droitsRef)).data() as FirestoreDroits | undefined)?.pro ?? null;
+  const mois = ligne.formule ? FORMULES[ligne.formule].mois : 0;
+  const suite = mois > 0 ? nouvelleEcheance(actuel, c.jour, mois) : null;
+  if (!suite) {
+    // Un Pro sans échéance a été accordé entre le clic et le paiement : on
+    // ne l'écrase pas. La ligne est payée, sans échéance : l'administration
+    // la voit « payée sans effet » et rembourse à la main.
+    return { ecrire: () => {}, champs: { echeance_avant: null, echeance_apres: null }, apres: null };
+  }
+  const accorde: DroitAccorde = {
+    depuis: suite.depuis,
+    jusqu_au: suite.jusqu_au,
+    source: "paiement",
+    accorde_par: null,
+    motif: motifAchat(mois, c.environnement),
+  };
+  return {
+    ecrire: () => tx.set(droitsRef, { pro: accorde, updated_at: FieldValue.serverTimestamp() }, { merge: true }),
+    champs: {
+      echeance_avant: actuel && droitActif(actuel, c.jour) ? actuel.jusqu_au : null,
+      echeance_apres: suite.jusqu_au,
+    },
+    apres: () => accuserReception(ligne, suite.jusqu_au, c.collecte.recuUrl),
+  };
+};
+
+/** Un objet dont l'effet n'est pas encore branché : la ligne est payée, rien d'autre ne bouge. */
+const sansEffet: Effet = async () => ({ ecrire: () => {}, champs: {}, apres: null });
+
+export const EFFETS: Record<ObjetPaiement, Effet> = { pro: effetPro, acompte: sansEffet };
 
 /**
  * Règle un paiement : relit sa collecte chez FedaPay et, si elle est payée,
@@ -244,58 +311,35 @@ export async function reglerPaiement(id: string): Promise<EtatPaiement | null> {
   // l'approbation, pendant que le webhook lit « approuvée » et règle. Écrite
   // hors transaction, cette relecture en retard repassait la ligne payée à
   // « en attente », et la suivante accordait le Pro une seconde fois.
-  const jour = jourDeLome();
-  const droitsRef = adminDb.collection("droits").doc(ligne.uid);
+  const contexte: ContexteEffet = { id, jour: jourDeLome(), environnement, collecte };
   const resultat = await adminDb.runTransaction(async (tx) => {
-    const [l, d] = await Promise.all([tx.get(ref), tx.get(droitsRef)]);
+    const l = await tx.get(ref);
     if (!l.exists) return null;
     const courante = l.data() as FirestorePaiement;
 
     const decision = deciderReglement(courante, id, collecte);
     if (decision.anomalie) {
       tx.update(ref, { ...suivi, anomalie: decision.anomalie });
-      return { ligne: { ...courante, anomalie: decision.anomalie }, accorde: false };
+      return { ligne: { ...courante, anomalie: decision.anomalie }, apres: null };
     }
     if (!decision.accorder) {
       // Une ligne payée le reste (deciderReglement) : seul le suivi bouge.
       tx.update(ref, { ...suivi, statut: decision.statut });
-      return { ligne: { ...courante, statut: decision.statut }, accorde: false };
+      return { ligne: { ...courante, statut: decision.statut }, apres: null };
     }
 
-    const actuel = (d.data() as FirestoreDroits | undefined)?.pro ?? null;
-    const mois = FORMULES[courante.formule].mois;
-    const suite = nouvelleEcheance(actuel, jour, mois);
-    const regle = { ...suivi, statut: "paye" as const, applique_le: FieldValue.serverTimestamp() };
-    if (!suite) {
-      // Un Pro sans échéance a été accordé entre le clic et le paiement : on
-      // ne l'écrase pas. La ligne est payée, sans échéance : l'administration
-      // la voit « payée sans effet » et rembourse à la main.
-      tx.update(ref, { ...regle, echeance_avant: null, echeance_apres: null });
-      return { ligne: { ...courante, statut: "paye" as const, echeance_apres: null }, accorde: false };
-    }
-    const accorde: DroitAccorde = {
-      depuis: suite.depuis,
-      jusqu_au: suite.jusqu_au,
-      source: "paiement",
-      accorde_par: null,
-      motif: motifAchat(mois, environnement),
-    };
-    tx.set(droitsRef, { pro: accorde, updated_at: FieldValue.serverTimestamp() }, { merge: true });
-    tx.update(ref, {
-      ...regle,
-      echeance_avant: actuel && droitActif(actuel, jour) ? actuel.jusqu_au : null,
-      echeance_apres: suite.jusqu_au,
-    });
-    return { ligne: { ...courante, statut: "paye" as const, echeance_apres: suite.jusqu_au }, accorde: true };
+    const effet = await EFFETS[objetDe(courante)](tx, courante, contexte);
+    effet.ecrire();
+    const regle = { ...suivi, statut: "paye" as const, applique_le: FieldValue.serverTimestamp(), ...effet.champs };
+    tx.update(ref, regle);
+    return { ligne: { ...courante, ...effet.champs, statut: "paye" as const }, apres: effet.apres };
   });
   if (!resultat) return null;
 
   if (resultat.ligne.anomalie && !ligne.anomalie) {
     console.error("[paiements] écart avec FedaPay:", id, resultat.ligne.anomalie, { collecte: collecte.id });
   }
-  if (resultat.accorde && resultat.ligne.echeance_apres) {
-    await accuserReception(resultat.ligne, resultat.ligne.echeance_apres, collecte.recuUrl);
-  }
+  if (resultat.apres) await resultat.apres().catch((err) => console.error("[paiements] après règlement:", id, err));
   return vueEtat(resultat.ligne);
 }
 

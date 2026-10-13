@@ -143,11 +143,26 @@ export type EnvironnementPaiement = "sandbox" | "live";
 export type AnomaliePaiement = "montant" | "reference";
 
 /** Une tentative d'achat — `paiements/{id}`. Écrite par le serveur seul. */
+/** Ce qu'un paiement achète : le Pro, ou les frais de réservation d'un terrain (lib/reglement). */
+export type ObjetPaiement = "pro" | "acompte";
+
+/** L'objet d'une ligne ; les lignes d'avant les acomptes n'en portent pas : ce sont des achats du Pro. */
+export function objetDe(l: { objet?: ObjetPaiement | null }): ObjetPaiement {
+  return l.objet === "acompte" ? "acompte" : "pro";
+}
+
 export interface FirestorePaiement {
   uid: string;
-  formule: IdFormule;
-  droit: DroitOffre;
-  /** En XOF, entier : le prix lu par le serveur au moment du clic. */
+  /** Absent d'une ligne d'avant les acomptes : un achat du Pro. */
+  objet?: ObjetPaiement;
+  /** La formule et le droit achetés ; `null` pour un acompte. */
+  formule: IdFormule | null;
+  droit: DroitOffre | null;
+  /** Pour un acompte : la réservation dont il est l'acompte. */
+  reservation_id?: string | null;
+  /** Pour un acompte : la part de `montant` qui est des frais de paiement. */
+  frais_client?: number;
+  /** En XOF, entier : le total demandé à FedaPay, frais de paiement compris. */
   montant: number;
   devise: "XOF";
   statut: StatutPaiement;
@@ -177,6 +192,8 @@ export interface Collecte {
   mode: string | null;
   frais: number | null;
   recuUrl: string | null;
+  /** Quand FedaPay libère les fonds de cette collecte (ISO) ; `null` s'il ne le dit pas. */
+  disponibleLe: string | null;
 }
 
 export type Reglement =

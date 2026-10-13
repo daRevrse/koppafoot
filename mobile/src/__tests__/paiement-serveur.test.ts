@@ -1,5 +1,6 @@
 import { jourDeLome, type DroitAccorde } from "@/lib/offre";
 import { ajouterMois, type Collecte, type FirestorePaiement } from "@/lib/paiement";
+import { base as mockBase, vider } from "../test-aides/faux-firestore";
 
 // Le serveur des paiements (src/lib/paiement-serveur), joué contre un faux
 // Firestore en mémoire et un faux FedaPay.
@@ -12,9 +13,7 @@ import { ajouterMois, type Collecte, type FirestorePaiement } from "@/lib/paieme
 // dernière suite reproduit.
 
 type Doc = Record<string, unknown>;
-interface FauxRef { id: string; path: string }
 
-const mockBase = new Map<string, Doc>();
 const mockFedapay = {
   environnement: "sandbox",
   configure: true,
@@ -23,86 +22,12 @@ const mockFedapay = {
   lireCollecte: jest.fn(),
   lireCollecteParReference: jest.fn(),
 };
-let mockCompteur = 0;
-/** Un identifiant comme ceux de Firestore : vingt caractères alphanumériques. */
-const mockIdNeuf = () => `Auto${String((mockCompteur += 1)).padStart(16, "0")}`;
 const mockNotifier = jest.fn(async (_uid: string, _n: unknown) => {});
-let mockFile: Promise<unknown> = Promise.resolve();
-
-function mockSnap(chemin: string) {
-  const data = mockBase.get(chemin);
-  return {
-    exists: data !== undefined,
-    id: chemin.split("/")[1],
-    ref: {
-      id: chemin.split("/")[1],
-      path: chemin,
-      update: async (maj: Doc) => { mockBase.set(chemin, { ...mockBase.get(chemin), ...maj }); },
-    },
-    data: () => (data ? { ...data } : undefined),
-    get: (champ: string) => data?.[champ],
-  };
-}
-
-/** La valeur d'un champ, « pro.jusqu_au » compris. */
-function mockChamp(data: Doc, champ: string): unknown {
-  return champ.split(".").reduce<unknown>((v, cle) => (v && typeof v === "object" ? (v as Doc)[cle] : undefined), data);
-}
-
-function mockRef(chemin: string) {
-  return {
-    id: chemin.split("/")[1],
-    path: chemin,
-    get: async () => mockSnap(chemin),
-    set: async (data: Doc, options?: { merge?: boolean }) => {
-      mockBase.set(chemin, options?.merge ? { ...(mockBase.get(chemin) ?? {}), ...data } : { ...data });
-    },
-    update: async (data: Doc) => {
-      if (!mockBase.has(chemin)) throw new Error(`document absent : ${chemin}`);
-      mockBase.set(chemin, { ...mockBase.get(chemin), ...data });
-    },
-    delete: async () => { mockBase.delete(chemin); },
-  };
-}
 
 jest.mock("firebase-admin/firestore", () => ({
   FieldValue: { serverTimestamp: () => ({ toMillis: () => Date.now() }) },
 }));
-jest.mock("@/lib/firebase-admin", () => ({
-  adminDb: {
-    collection: (nom: string) => ({
-      doc: (id?: string) => mockRef(`${nom}/${id ?? mockIdNeuf()}`),
-      where: (champ: string, operateur: string, valeur: unknown) => {
-        const convient = (v: unknown) => (operateur === "in" ? (valeur as unknown[]).includes(v) : v === valeur);
-        const lire = async () => {
-          const docs = [...mockBase.entries()]
-            .filter(([chemin, data]) => chemin.startsWith(`${nom}/`) && convient(mockChamp(data, champ)))
-            .map(([chemin]) => mockSnap(chemin));
-          return { docs, empty: docs.length === 0 };
-        };
-        return { get: lire, limit: () => ({ get: lire }) };
-      },
-    }),
-    runTransaction: (fn: (tx: unknown) => Promise<unknown>) => {
-      const suite = mockFile.then(async () => {
-        const ecritures: (() => void)[] = [];
-        const resultat = await fn({
-          get: async (ref: FauxRef) => mockSnap(ref.path),
-          set: (ref: FauxRef, data: Doc, options?: { merge?: boolean }) => {
-            ecritures.push(() => mockBase.set(ref.path, options?.merge ? { ...(mockBase.get(ref.path) ?? {}), ...data } : { ...data }));
-          },
-          update: (ref: FauxRef, data: Doc) => {
-            ecritures.push(() => mockBase.set(ref.path, { ...mockBase.get(ref.path), ...data }));
-          },
-        });
-        ecritures.forEach((ecrire) => ecrire());
-        return resultat;
-      });
-      mockFile = suite.catch(() => {});
-      return suite;
-    },
-  },
-}));
+jest.mock("@/lib/firebase-admin", () => ({ adminDb: require("../test-aides/faux-firestore").adminDb }));
 jest.mock("@/lib/admin-api-auth", () => ({ estSuperadmin: (d?: Doc) => d?.is_superadmin === true }));
 jest.mock("@/lib/email", () => ({ recuPaiementHtml: () => "<p>reçu</p>", sendNotificationEmail: jest.fn(async () => {}) }));
 jest.mock("@/lib/notifier-serveur", () => ({ notifierCompte: (uid: string, n: unknown) => mockNotifier(uid, n) }));
@@ -134,7 +59,7 @@ const UID = "compte1";
 const JOUR = jourDeLome();
 
 const collecte = (statut: string, p: Partial<Collecte> = {}): Collecte => ({
-  id: 258, statut, montant: 1500, reference: ID, mode: "momo_test", frais: 26, recuUrl: null, ...p,
+  id: 258, statut, montant: 1500, reference: ID, mode: "momo_test", frais: 26, recuUrl: null, disponibleLe: null, ...p,
 });
 
 function poserLigne(p: Partial<FirestorePaiement> = {}) {
@@ -152,7 +77,7 @@ const pro = () => (mockBase.get(`droits/${UID}`) as { pro?: DroitAccorde } | und
 const unTour = () => new Promise<void>((resoudre) => setTimeout(resoudre, 0));
 
 beforeEach(() => {
-  mockBase.clear();
+  vider();
   mockFedapay.environnement = "sandbox";
   mockFedapay.configure = true;
   mockFedapay.creerCollecte.mockReset();
@@ -160,7 +85,6 @@ beforeEach(() => {
   mockFedapay.lireCollecte.mockReset();
   mockFedapay.lireCollecteParReference.mockReset();
   mockNotifier.mockClear();
-  mockFile = Promise.resolve();
 });
 
 describe("demarrerPaiement", () => {
