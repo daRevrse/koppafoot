@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { User, LogOut, LogIn, X, Settings, Gem } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/i18n";
+import { offreAffichee, titresDuCompte } from "@/lib/offre";
 import {
   InviteCard, SupportBlock, InstallBlock,
 } from "@/components/account/AccountExtras";
@@ -160,7 +161,7 @@ export default function AvatarBottomSheet({
               <Settings size={18} className="text-emerald-400" />
               {t("compte.parametres")}
             </Link>
-            {/* L'offre, elle, est celle du COMPTE : seulement connecté. */}
+            {/* L'offre est celle du COMPTE : seulement connecté, et sous le nom de ce qu'il peut avoir (lib/offre). */}
             {user && (
               <Link
                 href="/offre"
@@ -168,7 +169,7 @@ export default function AvatarBottomSheet({
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors"
               >
                 <Gem size={18} className="text-emerald-400" />
-                {t("compte.offre")}
+                {t(offreAffichee(titresDuCompte(user)) === "pro" ? "compte.offrePlus" : "compte.offreSansPub")}
               </Link>
             )}
           </div>

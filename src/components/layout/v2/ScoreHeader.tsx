@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEspaces } from "@/hooks/useEspaces";
 import AvatarBottomSheet from "@/components/layout/AvatarBottomSheet";
 import { useLangue, useT, useTextes } from "@/i18n";
+import { offreAffichee, titresDuCompte } from "@/lib/offre";
 import { VITRINES } from "@/config/vitrines";
 import type { CleTraduction } from "@/i18n/fr";
 import { textes } from "@/i18n/textes";
@@ -471,7 +472,7 @@ function AccountMenu() {
             <Settings size={15} className="shrink-0 text-gray-400" />
             <span className="text-[13px] font-bold text-gray-700">{t("compte.parametres")}</span>
           </Link>
-          {/* L'offre, elle, est celle du COMPTE : seulement connecté. */}
+          {/* L'offre est celle du COMPTE : seulement connecté, et sous le nom de ce qu'il peut avoir (lib/offre). */}
           {user && (
             <Link
               href="/offre"
@@ -479,7 +480,9 @@ function AccountMenu() {
               className="flex items-center gap-2.5 border-t border-gray-200/70 px-4 py-3 text-left transition-colors hover:bg-gray-50"
             >
               <Gem size={15} className="shrink-0 text-gray-400" />
-              <span className="text-[13px] font-bold text-gray-700">{t("compte.offre")}</span>
+              <span className="text-[13px] font-bold text-gray-700">
+                {t(offreAffichee(titresDuCompte(user)) === "pro" ? "compte.offrePlus" : "compte.offreSansPub")}
+              </span>
             </Link>
           )}
 
