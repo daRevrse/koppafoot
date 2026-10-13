@@ -1,7 +1,7 @@
 # Design : KoppaFoot+ et « Pas de pubs », une offre par profil
 
 **Date :** 2026-10-13
-**Statut :** Design validé par le fondateur en conversation le 2026-10-13, puis corrigé par lui le même jour sur deux points (le changement de rôle met fin à KoppaFoot+ ; KoppaFoot+ n'agit que pour ce que le compte est). Spec à relire avant le plan. Branche `feat/koppafoot-plus`, partie de `master` après la fusion du paiement (PR #109).
+**Statut :** Design validé par le fondateur en conversation le 2026-10-13, puis corrigé par lui le même jour. Premier de deux chantiers : celui-ci porte les offres ; le changement de rôle (accord, fin de KoppaFoot+, gel des équipes) a sa propre spec, `2026-10-13-changer-de-role-design.md`, qui s'appuie sur celui-ci. Spec à relire avant le plan. Branche `feat/koppafoot-plus`, partie de `master` après la fusion du paiement (PR #109).
 
 ## Le problème
 
@@ -27,7 +27,7 @@ Le droit « sans pub » existe déjà à part (`droits/{uid}.sans_pub`), mais il
   - **Pas de pubs** : le seul retrait de la publicité. Pour tout le monde, 1 mois ou 1 an.
 - **Managers et casquettes voient les deux offres** ; les autres ne voient que « Pas de pubs ».
 - **KoppaFoot+ est limité à ce que le compte est.** Un joueur qui porte une casquette peut l'avoir, mais il n'agit alors que pour cette casquette.
-- **Changer de rôle met fin à KoppaFoot+**, après accord explicite, sans remboursement.
+- **Changer de rôle met fin à KoppaFoot+**, après accord explicite, sans remboursement, et gèle les équipes du manager : c'est le second chantier.
 - **L'entrée « Mon offre » disparaît** : elle s'appelle « KOPPAFOOT+ » pour les premiers, « Pas de pubs » pour les seconds.
 
 ## Qui a droit à KoppaFoot+
@@ -59,19 +59,9 @@ Trois endroits du serveur changent pour cela :
 - **Le club** : le créer demande d'être manager avec KoppaFoot+ ; il n'est éveillé que tant que son propriétaire l'est (`estEveille`, `lib/clubs-serveur`). Sinon il s'endort, comme aujourd'hui quand le Pro s'arrête : sa page ne s'affiche plus, rien n'est effacé, il revit tel quel.
 - **Créer une équipe demande le rôle manager, côté serveur.** Aujourd'hui seul l'écran le vérifie : `/api/teams` accepte n'importe quel compte. C'est la règle du fondateur, écrite là où elle tient. Un seul écran appelle cette route, et il est déjà réservé aux managers.
 
-## Changer de rôle
+## En attendant le second chantier
 
-Le rôle se change à un seul endroit, l'écran des rôles (`components/roles/ChoixDuRole`), par une écriture du navigateur que les règles autorisent. Rien ne peut donc aujourd'hui y attacher une condition.
-
-- **Le changement de rôle passe par le serveur** (`POST /api/roles`), qui écrit le rôle et ce qui en dépend dans une même transaction.
-- **Le compte a un KoppaFoot+ actif, et le nouveau profil n'y a plus droit** (il n'est plus manager et ne porte aucune casquette) : le serveur refuse tant que l'accord n'est pas donné. L'écran demande : « Changer de rôle met fin à ton KoppaFoot+, qui courait jusqu'au 12 novembre. Il n'est pas remboursé. » Accepté : KoppaFoot+ est résilié et le rôle change, ensemble. Refusé : rien ne change.
-- **Le compte garde une casquette** : KoppaFoot+ continue, pour cette casquette seulement. L'écran le dit avant de changer : « Ton KoppaFoot+ continue pour tes compétitions. Il ne couvrira plus tes équipes ni ton club. » Pas de résiliation.
-- **Résilié veut dire terminé.** Le droit s'arrête la veille, avec son motif ; redevenir manager ne le rend pas, il faut le racheter. Les paiements passés restent au journal.
-- **Quel que soit son origine** : un KoppaFoot+ accordé à la main par l'administration s'arrête de la même façon. Le droit suit le profil.
-- **« Pas de pubs » n'est pas touché** par un changement de rôle.
-- **Le club s'endort** avec le KoppaFoot+ de son propriétaire, ou dès qu'il n'est plus manager.
-
-**Les règles Firestore se ferment d'autant.** Un navigateur n'écrit plus ni `user_type` ni `evolution_role` : sans cela, il suffirait d'écrire son rôle directement pour éviter la question. `evolution_role` n'est aujourd'hui même pas un champ protégé. L'application mobile n'écrit pas de rôle, et l'invitation à reprendre une équipe (`/api/team-manager-invites`) passe déjà par le serveur.
+Le rôle se change encore depuis le navigateur, sans question. Ce chantier-ci suffit pourtant à ce que personne ne garde un avantage qu'il n'a plus à avoir : KoppaFoot+ étant limité au titre du compte, un manager qui devient joueur perd sur-le-champ ses équipes sans plafond et l'éveil de son club. Il lui reste la publicité retirée, jusqu'au terme. L'accord explicite, la résiliation et le gel des équipes arrivent avec le second chantier.
 
 ## Les deux offres
 
@@ -112,15 +102,13 @@ Le rôle se change à un seul endroit, l'écran des rôles (`components/roles/Ch
 
 ## Où ça vit
 
-Aucune collection nouvelle.
+Aucune collection nouvelle, aucune règle Firestore à déployer.
 
 | Donnée | |
 |---|---|
-| `droits/{uid}` | `sans_pub` peut désormais avoir `source: "paiement"`. Un marqueur `rappel_sans_pub_le`, sur le modèle de `rappel_pro_le`. Un `pro` résilié garde sa trace : `jusqu_au` ramené à la veille, et `motif` dit pourquoi. |
+| `droits/{uid}` | `sans_pub` peut désormais avoir `source: "paiement"`. Un marqueur `rappel_sans_pub_le`, sur le modèle de `rappel_pro_le`. |
 | `paiements/{id}` | `formule` peut valoir `sans_pub_mois` ou `sans_pub_an`, `droit` vaut alors `sans_pub`. |
 | `settings/offre.prix` | Quatre clés : `pro_mois`, `pro_an`, `sans_pub_mois`, `sans_pub_an`. |
-| `users/{uid}` | `user_type` et `evolution_role` ne s'écrivent plus que par le serveur. |
-| `firestore.rules` | `evolution_role` rejoint les champs protégés, et la branche qui laissait le titulaire changer de rôle disparaît. **À déployer avec le code**, pas avant : l'écran des rôles en ligne écrit encore par le navigateur. |
 
 **Les noms internes ne bougent pas** : `pro`, `pro_mois`, `pro_an`, `droits.pro`, `estPro`. Les renommer casserait la lecture des droits et des paiements déjà écrits, et les références envoyées à FedaPay.
 
@@ -128,13 +116,10 @@ Aucune collection nouvelle.
 
 | Fichier | Rôle |
 |---|---|
-| `src/lib/offre.ts` | Pur : `offresDuProfil` (ce qu'un profil peut acheter), ce que KoppaFoot+ lève pour un profil, et si un changement de rôle demande une résiliation. Les messages de plafond disent KoppaFoot+. |
+| `src/lib/offre.ts` | Pur : `offresDuProfil` (ce qu'un profil peut acheter) et ce que KoppaFoot+ lève pour un profil. Les messages de plafond disent KoppaFoot+. |
 | `src/lib/offre-server.ts` | Les plafonds ne se lèvent que pour le titre concerné. |
 | `src/lib/paiement.ts` | Le catalogue à quatre formules ; `lirePrix` et `formulesEnVente` les suivent. |
 | `src/lib/paiement-serveur.ts` | `formulesPour` rend les formules du profil ; `demarrerPaiement` refuse une formule hors profil, et « Pas de pubs » sous KoppaFoot+ actif ; l'effet d'un achat écrit le droit de la formule (`pro` ou `sans_pub`) ; l'accusé de réception et les rappels d'échéance couvrent les deux. |
-| `src/lib/roles-serveur.ts` (nouveau) | Changer de rôle : le rôle, ses champs, et la résiliation de KoppaFoot+ s'il le faut, dans une transaction. |
-| `src/app/api/roles/route.ts` (nouveau) | `POST` : changer de rôle. Répond qu'un accord est requis, avec l'échéance perdue, tant qu'il n'est pas donné. |
-| `src/components/roles/ChoixDuRole.tsx` | Appelle la route ; demande l'accord quand le serveur le réclame. |
 | `src/lib/clubs-serveur.ts`, `src/app/api/clubs/route.ts` | Le club : manager avec KoppaFoot+, pour le créer comme pour l'éveiller. |
 | `src/app/api/teams/route.ts` | Créer une équipe demande le rôle manager. |
 | `src/lib/email.ts` | Le reçu dit ce qui a été acheté. |
@@ -145,8 +130,7 @@ Aucune collection nouvelle.
 | `src/app/(app)/mon-club/page.tsx`, `teams/page.tsx`, `clubs/[slug]/page.tsx` | Renommage ; le club pour les managers. |
 | `src/components/layout/AvatarBottomSheet.tsx`, `v2/ScoreHeader.tsx`, `src/i18n/fr.ts`, `en.ts` | L'entrée de menu selon le profil. |
 | `src/components/offre/LimiteOffre.tsx` | Renommage. |
-| `firestore.rules` | Le rôle ne s'écrit plus par le navigateur. |
-| Conditions, confidentialité | Renommage, « Pas de pubs » décrit, la fin de KoppaFoot+ au changement de rôle écrite noir sur blanc, date de mise à jour. |
+| Conditions, confidentialité | Renommage, « Pas de pubs » décrit, KoppaFoot+ dit pour qui il est et ce qu'il lève, date de mise à jour. |
 
 ## Le renommage
 
@@ -159,8 +143,7 @@ Aucune collection nouvelle.
 
 ## Ce qui protège
 
-- **Tout se décide au serveur**, sur le profil qu'il relit : l'offre proposée, l'achat, chaque plafond, le club, le changement de rôle. Les écrans ne font qu'afficher.
-- **Le rôle ne s'écrit plus depuis un navigateur** : c'est ce qui rend la question de la résiliation impossible à éviter.
+- **Tout se décide au serveur**, sur le profil qu'il relit à chaque geste : l'offre proposée, l'achat, chaque plafond, le club. Les écrans ne font qu'afficher. Écrire soi-même son rôle n'y gagne rien : on n'obtient que ce que ce rôle ouvre.
 - **Le montant reste lu au serveur**, dans `settings/offre`, par formule. Rien ne change à `reglerPaiement`, seule porte qui accorde un droit.
 - **La porte du lot précédent tient** : sans clé FedaPay réelle, rien ne se vend ; en bac à sable, les superadmins seuls.
 
@@ -172,28 +155,23 @@ Aucune collection nouvelle.
 | Un joueur membre du staff d'une équipe veut KoppaFoot+ | Refusé de même : le staff n'est pas un manager. |
 | Un joueur organisateur achète KoppaFoot+ | Accepté. Ses compétitions n'ont plus de plafond ; il n'a ni équipes en plus, ni club. |
 | Un compte avec KoppaFoot+ actif appelle l'achat de « Pas de pubs » | Refusé : KoppaFoot+ retire déjà la publicité. |
-| Un manager avec KoppaFoot+ veut devenir joueur | Le serveur demande l'accord. Accepté : KoppaFoot+ s'arrête sans remboursement, le rôle change, son club s'endort. |
-| Le même, s'il est aussi organisateur | Pas de résiliation : KoppaFoot+ continue pour ses compétitions, son club s'endort. |
-| Il redevient manager plus tard | Son KoppaFoot+ résilié ne revient pas. Il peut le racheter. |
+| Un manager avec KoppaFoot+ devient joueur | Son KoppaFoot+ ne couvre plus ses équipes ni son club, qui s'endort ; il ne lui retire plus que la publicité, et ne se prolonge pas. La résiliation avec accord viendra du second chantier. |
+| Le même, s'il est aussi organisateur | KoppaFoot+ continue pour ses compétitions ; son club s'endort. |
+| Il redevient manager | Son KoppaFoot+, s'il court encore, couvre de nouveau ses équipes et son club. |
 | Un joueur avec « Pas de pubs » devient manager | Les deux offres lui sont proposées ; son « Pas de pubs » court toujours. |
 | Un paiement arrive pour une formule à laquelle le compte n'a plus droit (rôle changé entre le clic et le paiement) | L'argent est reçu : le droit est accordé quand même, et il est limité à ce que le profil ouvre. On ne garde pas un paiement sans rien donner. |
 | « Pas de pubs » se termine pendant que KoppaFoot+ est actif | Pas de rappel : la publicité ne revient pas. |
 
 ## Vérifications
 
-- Tests purs : `offresDuProfil` (chaque rôle, chaque casquette, le cumul, le superadmin, le scoreur seul, le joueur membre d'un staff) ; ce que KoppaFoot+ lève pour chaque profil ; quand un changement de rôle demande une résiliation ; le catalogue à quatre formules, `lirePrix`, `formulesEnVente`.
-- Tests du serveur, contre le faux Firestore : les formules proposées à chaque profil ; le refus de KoppaFoot+ hors profil ; le refus de « Pas de pubs » sous KoppaFoot+ actif ; un achat « Pas de pubs » accorde, se prolonge, et rejoué ne change rien ; chaque plafond ne se lève que pour son titre ; le club ne s'éveille que pour un manager ; le changement de rôle sans accord ne change rien, avec accord résilie et change ensemble, avec une casquette ne résilie pas ; les tests du Pro passent sans changer de comportement ; les rappels d'échéance des deux droits.
-- Règles Firestore : `user_type` et `evolution_role` refusés au navigateur.
+- Tests purs : `offresDuProfil` (chaque rôle, chaque casquette, le cumul, le superadmin, le scoreur seul, le joueur membre d'un staff) ; ce que KoppaFoot+ lève pour chaque profil ; le catalogue à quatre formules, `lirePrix`, `formulesEnVente`.
+- Tests du serveur, contre le faux Firestore : les formules proposées à chaque profil ; le refus de KoppaFoot+ hors profil ; le refus de « Pas de pubs » sous KoppaFoot+ actif ; un achat « Pas de pubs » accorde, se prolonge, et rejoué ne change rien ; chaque plafond ne se lève que pour son titre ; le club ne s'éveille que pour un manager ; créer une équipe sans le rôle manager est refusé ; les tests du Pro passent sans changer de comportement ; les rappels d'échéance des deux droits.
 - Le texte compilé des écrans retouchés (espaces, voir la note sur SWC).
-- Bac à sable : un compte joueur voit « Pas de pubs » au menu et sur la page, l'achète avec l'outil de test, et les emplacements des partenaires disparaissent ; un compte manager voit « KOPPAFOOT+ » et les deux offres ; un manager avec KoppaFoot+ qui devient joueur passe par la question, et perd KoppaFoot+ ; un joueur ne peut créer ni club ni équipe.
+- Bac à sable : un compte joueur voit « Pas de pubs » au menu et sur la page, l'achète avec l'outil de test, et les emplacements des partenaires disparaissent ; un compte manager voit « KOPPAFOOT+ » et les deux offres ; un manager avec KoppaFoot+ qui devient joueur voit son club s'endormir ; un joueur ne peut créer ni club ni équipe.
 
 ## Hors périmètre
 
-- L'application mobile : elle n'a ni écran d'offre, ni changement de rôle.
+- **Le changement de rôle** : accord, résiliation de KoppaFoot+, gel des équipes, rôle écrit par le serveur. C'est le second chantier.
+- L'application mobile : elle n'a pas d'écran d'offre.
 - Le staff d'une équipe et ses limites : la règle du fondateur n'est pas touchée.
-- Ce qu'un manager fait de ses équipes avant de changer de rôle (voir « À trancher »).
 - Ce que « Pas de pubs » retire d'affichages aux partenaires : arbitré par le fondateur, qui fixe le prix.
-
-## À trancher
-
-- **Un manager qui a encore des équipes peut-il changer de rôle ?** Aujourd'hui oui, et il les garde : un joueur se retrouve alors à diriger des équipes, ce que la règle du fondateur exclut. Soit le serveur refuse tant qu'il n'a pas confié ou supprimé ses équipes, soit on laisse comme aujourd'hui. Cette spec ne change rien tant que ce n'est pas tranché.
