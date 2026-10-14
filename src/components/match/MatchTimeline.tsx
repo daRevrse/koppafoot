@@ -7,6 +7,7 @@ import {
   penaltyDitParSonBut,
 } from "@/lib/evenements";
 import { joueursDuRemplacement } from "@/lib/recit-du-match";
+import { libelleMinute } from "@/lib/minute-du-match";
 import type { Match } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
 import type { Langue } from "@/i18n/config";
@@ -115,6 +116,11 @@ export interface Deroule {
   score: { home: number; away: number } | null;
   /** La séance de tirs au but, s'il y en a eu une. */
   tab?: { home: number; away: number } | null;
+  /**
+   * La durée d'une mi-temps du format, pour écrire le temps additionnel
+   * « 45+2' » et non « 47' ». Absente : quarante-cinq.
+   */
+  dureeMiTemps?: number;
 }
 
 /** Ce qui n'appartient à aucun camp et se pose au centre. */
@@ -438,8 +444,11 @@ export default function MatchTimeline({
                     couleur du panneau, donc il ne se voit plus dans aucun des
                     deux thèmes, tout en masquant l'axe qui passe derrière —
                     sans lui, le trait barrerait les chiffres. */}
-                <span className="flex h-7 w-7 items-center justify-center bg-white text-[11px] font-black tabular-nums text-gray-500">
-                  {e.minute ? `${e.minute}'` : "·"}
+                {/* `min-w` ET NON `w` : « 45+2' » ne tient pas dans un carré
+                    de vingt-huit pixels, et le temps additionnel s'écrit
+                    ainsi depuis qu'il ne se confond plus avec la 47e. */}
+                <span className="flex h-7 min-w-7 items-center justify-center whitespace-nowrap bg-white px-0.5 text-[11px] font-black tabular-nums text-gray-500">
+                  {e.minute ? libelleMinute(e.period, e.minute, deroule?.dureeMiTemps ?? 45) : "·"}
                 </span>
               </div>
 

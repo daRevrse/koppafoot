@@ -129,6 +129,16 @@ export function halfDuration(format: CompetitionFormat): number {
   return positiveOr(format.half_duration, DEFAULT_HALF_DURATION);
 }
 
+/**
+ * La durée d'une mi-temps pour une compétition QUELCONQUE, y compris celles
+ * qui n'ont pas de format : la pseudo-compétition des amicaux, celles du
+ * monde. Quarante-cinq minutes faute de mieux — la valeur qui, pour la
+ * notation du temps additionnel, ne se trompe jamais plus qu'avant.
+ */
+export function dureeMiTempsDe(c: { format?: CompetitionFormat | null } | null | undefined): number {
+  return c?.format ? halfDuration(c.format) : DEFAULT_HALF_DURATION;
+}
+
 /** Durée totale d'un match, en minutes (deux mi-temps). */
 export function matchDuration(format: CompetitionFormat): number {
   return halfDuration(format) * 2;

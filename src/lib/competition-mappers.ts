@@ -11,6 +11,7 @@
 import { normaliserPoste } from "@/lib/postes";
 import { lireCategorie } from "@/lib/genre";
 import { lireEmplacement } from "@/lib/terrain";
+import { versPossession } from "@/lib/possession";
 import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
@@ -176,6 +177,14 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
         // fichier promet de ne jamais faire.
         createdAt: formatDate(e.created_at),
       })),
+      // LA CONSOLE LES ÉCRIT, ON LES RELIT. Ils manquaient ici seulement — le
+      // convertisseur des amicaux les portait. En compétition, le temps
+      // additionnel annoncé retombait donc à zéro (l'horloge s'arrêtait à
+      // 45:00 malgré « +3 »), la fiche publique n'affichait jamais la
+      // possession, et une console rechargée repartait d'une possession vide
+      // qu'elle réécrivait par-dessus la vraie.
+      possession: d.live_state.possession ? versPossession(d.live_state.possession) : null,
+      addedTime: d.live_state.added_time ?? null,
     } : null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),

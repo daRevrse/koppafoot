@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { liveMinute, type Entry } from "@/lib/direct-shared";
+import { minuteDuDirect, type Entry } from "@/lib/direct-shared";
 import { Ecusson } from "~/components/Ecusson";
 import { couleurs, polices } from "~/theme";
 
@@ -35,7 +35,7 @@ export function LigneMatch({ entree, onPress }: { entree: Entry; onPress: () => 
     >
       <View style={styles.temps}>
         {enDirect ? (
-          <Text style={styles.minute}>{liveMinute(match)}′</Text>
+          <Text style={styles.minute}>{minuteDuDirect(entree, { pause: "MT", avant: "Bientôt" })}</Text>
         ) : (
           <Text style={styles.heure}>{joue ? "Terminé" : match.time ?? "—"}</Text>
         )}

@@ -30,6 +30,7 @@ import {
   type Possession,
 } from "@/lib/possession";
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
+import { libelleMinute } from "@/lib/minute-du-match";
 import { lignesStats } from "@/lib/stats-match";
 import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
 import {
@@ -475,6 +476,17 @@ export default function LiveMatchConsole({
   } = pilote.regles(competition, match);
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
+  /**
+   * Une minute telle qu'on l'écrit : « 45+2' » et non « 47' ». Voir
+   * lib/minute-du-match — la même notation que le fil public et le Direct.
+   */
+  const ecrireMinute = (periode: number | null | undefined, minute: number) =>
+    libelleMinute(periode, minute, halfMinutes);
+  /** La minute du chrono à l'instant, écrite : celle que montrent les questions. */
+  const minuteLue = ecrireMinute(
+    matchBrut?.liveState?.currentPeriod,
+    Math.floor(displayTime / 60000) + 1,
+  );
 
   /**
    * Le verrou qui suit un but.
@@ -1013,7 +1025,7 @@ export default function LiveMatchConsole({
   // mauvais moment doit retrouver sa question, et non un penalty muet pour
   // toujours.
   const [penaltyOuvert, setPenaltyOuvert] = useState<
-    { eventId: string; side: Side; minute: number; issue?: IssuePenalty } | null
+    { eventId: string; side: Side; minute: number; periode: number; issue?: IssuePenalty } | null
   >(null);
 
   const handleVarVerdict = async (event: LiveEvent, status: GoalVarStatus) => {
@@ -1252,7 +1264,7 @@ export default function LiveMatchConsole({
       const newHome = (match.scoreHome ?? 0) + (side === "home" ? 1 : 0);
       const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
       pilote.notifier(
-        { title: `⚽ BUT ! ${entry.name} (${minute}')`, body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}` },
+        { title: `⚽ BUT ! ${entry.name} (${ecrireMinute(period, minute)})`, body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}` },
         competition,
       );
       proposerAnnulation(`⚽ But de ${entry.name}`, goalId);
@@ -1280,7 +1292,7 @@ export default function LiveMatchConsole({
         );
         suivre(pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId)), "La pelouse n'a pas été mise à jour");
         pilote.notifier(
-          { title: `🟥 Expulsion (${minute}')`, body: `${entry.name} (${teamName}), 2e carton jaune` },
+          { title: `🟥 Expulsion (${ecrireMinute(period, minute)})`, body: `${entry.name} (${teamName}), 2e carton jaune` },
           competition,
         );
         proposerAnnulation(`🟥 2e jaune : ${entry.name} exclu`, jauneId);
@@ -1296,7 +1308,7 @@ export default function LiveMatchConsole({
       suivre(pilote.ajouterEvenement({ ...base, id: rougeId, type: "red_card" }), "Le carton n'a pas été enregistré");
       suivre(pilote.poserSurLeTerrain(side, onPitch.filter((id) => id !== entry.playerId)), "La pelouse n'a pas été mise à jour");
       pilote.notifier(
-        { title: `🟥 Carton rouge (${minute}')`, body: `${entry.name} (${teamName})` },
+        { title: `🟥 Carton rouge (${ecrireMinute(period, minute)})`, body: `${entry.name} (${teamName})` },
         competition,
       );
       proposerAnnulation(`🟥 Carton rouge, ${entry.name}`, rougeId);
@@ -1360,7 +1372,9 @@ export default function LiveMatchConsole({
     // et la question part donc immediatement. Elle se referme sans repondre
     // — le scoreur regarde le tir — et le penalty reste alors en attente,
     // visible dans le bandeau jusqu'a ce qu'il dise ce qu'il est devenu.
-    if (type === "penalty") setPenaltyOuvert({ eventId: id, side, minute });
+    if (type === "penalty") {
+      setPenaltyOuvert({ eventId: id, side, minute, periode: match.liveState.currentPeriod ?? 1 });
+    }
     proposerAnnulation(
       `${LIBELLE_EVENEMENT[type]}, ${side === "home" ? match.homeTeamName : match.awayTeamName}`,
       id,
@@ -1440,7 +1454,7 @@ export default function LiveMatchConsole({
       const newAway = (match.scoreAway ?? 0) + (side === "away" ? 1 : 0);
       pilote.notifier(
         {
-          title: `⚽ BUT SUR PENALTY ! ${tireur?.name ?? teamName} (${minute}')`,
+          title: `⚽ BUT SUR PENALTY ! ${tireur?.name ?? teamName} (${ecrireMinute(period, minute)})`,
           body: `${match.homeTeamName} ${newHome} – ${newAway} ${match.awayTeamName}`,
         },
         competition,
@@ -1596,7 +1610,7 @@ export default function LiveMatchConsole({
       [...onPitch.filter((id) => id !== outEntry.playerId), inEntry.playerId],
     ), "La pelouse n'a pas été mise à jour");
     pilote.notifier(
-      { title: `🔄 Changement (${subMinute}')`, body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})` },
+      { title: `🔄 Changement (${ecrireMinute(match.liveState.currentPeriod ?? 1, subMinute)})`, body: `${outEntry.name} → ${inEntry.name} (${subModal.teamName})` },
       competition,
     );
     proposerAnnulation(`🔄 ${outEntry.name} → ${inEntry.name}`, remplacementId);
@@ -2126,6 +2140,7 @@ export default function LiveMatchConsole({
       varPendingId={varPendingId}
       onRetirer={(e) => void retirerEvenement(e.id, true)}
       compact={compact}
+      dureeMiTemps={halfMinutes}
     />
   );
   const statistiques = (
@@ -2389,11 +2404,11 @@ export default function LiveMatchConsole({
                 key={p.id}
                 type="button"
                 onClick={() =>
-                  setPenaltyOuvert({ eventId: p.id, side: cote, minute: p.minute })
+                  setPenaltyOuvert({ eventId: p.id, side: cote, minute: p.minute, periode: p.period })
                 }
                 className="shrink-0 bg-amber-400 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#0b1512] transition-colors hover:bg-amber-300"
               >
-                Penalty {p.minute}&apos; ·{" "}
+                Penalty {ecrireMinute(p.period, p.minute)} ·{" "}
                 {cote === "home" ? match.homeTeamName : match.awayTeamName} — Issue ?
               </button>
             );
@@ -2427,7 +2442,13 @@ export default function LiveMatchConsole({
               </p>
             </div>
           </div>
-          <EventTimeline events={events} homeTeamId={match.homeTeamId} homeTeamName={match.homeTeamName} awayTeamName={match.awayTeamName} />
+          <EventTimeline
+            events={events}
+            homeTeamId={match.homeTeamId}
+            homeTeamName={match.homeTeamName}
+            awayTeamName={match.awayTeamName}
+            dureeMiTemps={halfMinutes}
+          />
         </div>
       ) : (
         <>
@@ -2517,7 +2538,7 @@ export default function LiveMatchConsole({
           <ModaleActionsJoueur
             entry={actions.entry}
             teamName={actions.side === "home" ? match.homeTeamName : match.awayTeamName}
-            minute={Math.floor(displayTime / 60000) + 1}
+            minute={minuteLue}
             isSubmitting={isSubmitting}
             actions={actionsPour(actions.side, actions.entry)}
             note={notes[actions.side].get(actions.entry.playerId)}
@@ -2531,7 +2552,7 @@ export default function LiveMatchConsole({
         {victime && (
           <PlayerPickerModal
             titre={`Faute de ${victime.auteur}`}
-            sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Sur qui ?`}
+            sousTitre={`${minuteLue} · Sur qui ?`}
             teamName={victime.teamName}
             entries={onPitchEntries(victime.side)}
             yellowSet={yellowCardedIds}
@@ -2548,7 +2569,7 @@ export default function LiveMatchConsole({
         {assistPicker && (
           <PlayerPickerModal
             titre="Passe décisive"
-            sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Qui a servi ${assistPicker.scorerName} ?`}
+            sousTitre={`${minuteLue} · Qui a servi ${assistPicker.scorerName} ?`}
             teamName={assistPicker.teamName}
             entries={onPitchEntries(assistPicker.side).filter(
               (e) => e.playerId !== assistPicker.scorerId,
@@ -2569,7 +2590,7 @@ export default function LiveMatchConsole({
         {penaltyOuvert && !penaltyOuvert.issue && (
           <ModaleIssuePenalty
             teamName={penaltyOuvert.side === "home" ? match.homeTeamName : match.awayTeamName}
-            minute={penaltyOuvert.minute}
+            minute={ecrireMinute(penaltyOuvert.periode, penaltyOuvert.minute)}
             // La video-assistance n'existe qu'en competition : ailleurs, le
             // penalty est retire sans qu'on invoque une salle qui n'existe pas.
             varDisponible={pilote.genre === "competition"}
@@ -2592,7 +2613,7 @@ export default function LiveMatchConsole({
         {penaltyOuvert?.issue && (
           <PlayerPickerModal
             titre={RECIT_ISSUE_PENALTY[penaltyOuvert.issue]}
-            sousTitre={`${penaltyOuvert.minute}' · Qui l'a tiré ?`}
+            sousTitre={`${ecrireMinute(penaltyOuvert.periode, penaltyOuvert.minute)} · Qui l'a tiré ?`}
             teamName={penaltyOuvert.side === "home" ? match.homeTeamName : match.awayTeamName}
             entries={onPitchEntries(penaltyOuvert.side)}
             yellowSet={yellowCardedIds}
@@ -2629,7 +2650,7 @@ export default function LiveMatchConsole({
           "sort" in subModal ? (
             <PlayerPickerModal
               titre="Qui entre ?"
-              sousTitre={`${Math.floor(displayTime / 60000) + 1}' · À la place de ${
+              sousTitre={`${minuteLue} · À la place de ${
                 (subModal.side === "home" ? match.homeLineup : match.awayLineup)
                   .find((e) => e.playerId === subModal.sort)?.name ?? "ce joueur"
               }`}
@@ -2643,7 +2664,7 @@ export default function LiveMatchConsole({
           ) : (
             <PlayerPickerModal
               titre="Qui sort ?"
-              sousTitre={`${Math.floor(displayTime / 60000) + 1}' · Pour faire entrer ${
+              sousTitre={`${minuteLue} · Pour faire entrer ${
                 (subModal.side === "home" ? match.homeLineup : match.awayLineup)
                   .find((e) => e.playerId === subModal.entre)?.name ?? "ce joueur"
               }`}
@@ -2981,7 +3002,8 @@ function ModaleIssuePenalty({
   onClose,
 }: {
   teamName: string;
-  minute: number;
+  /** Déjà écrite : « 45+2' ». */
+  minute: string;
   /** La VAR n'existe qu'en competition : ailleurs le penalty est « retiré ». */
   varDisponible: boolean;
   isSubmitting: boolean;
@@ -3027,7 +3049,7 @@ function ModaleIssuePenalty({
         </button>
         <h2 className="text-lg font-black text-gray-900">Penalty</h2>
         <p className="mb-4 mt-0.5 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
-          {teamName} · {minute}&apos; · Que devient-il ?
+          {`${teamName} · ${minute} · Que devient-il ?`}
         </p>
 
         <div className="grid grid-cols-2 gap-2">
@@ -3329,6 +3351,7 @@ function EventTimeline({
   varPendingId,
   onRetirer,
   compact = false,
+  dureeMiTemps,
 }: {
   events: NonNullable<CompMatch["liveState"]>["events"];
   homeTeamId: string | null;
@@ -3341,6 +3364,8 @@ function EventTimeline({
   onRetirer?: (event: LiveEvent) => void;
   /** Plus serré, pour le panneau posé sous les terrains sur grand écran. */
   compact?: boolean;
+  /** La durée d'une mi-temps du format, pour écrire « 45+2' ». */
+  dureeMiTemps: number;
 }) {
   if (events.length === 0) {
     return (
@@ -3388,8 +3413,9 @@ function EventTimeline({
             className="flex items-center gap-3"
           >
             <div
-              className={`flex shrink-0 items-center justify-center border text-xs font-black tabular-nums ${
-                compact ? "h-8 w-8" : "h-10 w-10"
+              // `min-w` : « 45+2' » déborde d'un carré.
+              className={`flex shrink-0 items-center justify-center whitespace-nowrap border px-0.5 text-xs font-black tabular-nums ${
+                compact ? "h-8 min-w-8" : "h-10 min-w-10"
               } ${
                 cancelled
                   ? "border-white/10 text-white/25"
@@ -3399,7 +3425,7 @@ function EventTimeline({
               }`}
             >
               {/* 0 = minute unknown (goal entered after the fact, off-clock). */}
-              {event.minute ? `${event.minute}'` : "–"}
+              {event.minute ? libelleMinute(event.period, event.minute, dureeMiTemps) : "–"}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

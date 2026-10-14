@@ -1,5 +1,5 @@
 import {
-  competitionHref, kickoff, liveMinute, matchHref, ordreDesCompetitions, type Entry,
+  competitionHref, kickoff, matchHref, minuteDuDirect, ordreDesCompetitions, type Entry,
 } from "@/lib/direct-shared";
 import { FRIENDLY_COMPETITION } from "@/lib/friendlies-shared";
 import type { Competition, CompMatch } from "@/types";
@@ -12,25 +12,36 @@ const entree = (c: Competition, m: CompMatch): Entry => ({ competition: c, match
 const DEPART = "2026-09-24T15:00:00.000Z";
 const T0 = new Date(DEPART).getTime();
 
-describe("liveMinute", () => {
+describe("minuteDuDirect", () => {
+  const libelles = { avant: "Bientôt", pause: "MT" };
+  const enDirect = (c: Competition, ls: Partial<NonNullable<CompMatch["liveState"]>>) =>
+    entree(c, match("m", {
+      status: "live",
+      liveState: { currentPeriod: 1, timerStartAt: null, timerOffset: 0, isTimerRunning: false, events: [], ...ls },
+    } as Partial<CompMatch>));
+
   it("compte depuis le coup d'envoi quand le chrono tourne", () => {
-    const m = match("m", {
-      status: "live",
-      liveState: { currentPeriod: 1, timerStartAt: DEPART, timerOffset: 0, isTimerRunning: true, events: [] },
-    } as Partial<CompMatch>);
-    expect(liveMinute(m, T0 + 12 * 60_000 + 5_000)).toBe(13);
+    const e = enDirect(comp("c"), { timerStartAt: DEPART, isTimerRunning: true });
+    expect(minuteDuDirect(e, libelles, T0 + 12 * 60_000 + 5_000)).toBe("13′");
   });
 
-  it("s'arrête sur le décalage quand le chrono est à l'arrêt", () => {
-    const m = match("m", {
-      status: "live",
-      liveState: { currentPeriod: 1, timerStartAt: null, timerOffset: 45 * 60_000, isTimerRunning: false, events: [] },
-    } as Partial<CompMatch>);
-    expect(liveMinute(m, T0)).toBe(46);
+  it("écrit le temps additionnel selon la durée du format", () => {
+    const sept = { ...comp("c"), format: { half_duration: 20 } } as Competition;
+    const e = enDirect(sept, { timerStartAt: DEPART, isTimerRunning: true });
+    expect(minuteDuDirect(e, libelles, T0 + 21 * 60_000)).toBe("20+2′");
   });
 
-  it("vaut 0 sans état de direct", () => {
-    expect(liveMinute(match("m"))).toBe(0);
+  it("dit la pause, et non la 46e", () => {
+    const e = enDirect(comp("c"), { currentPeriod: 2, timerOffset: 45 * 60_000 });
+    expect(minuteDuDirect(e, libelles, T0)).toBe("MT");
+  });
+
+  it("dit l'avant-match tant que le chrono n'a pas tourné", () => {
+    expect(minuteDuDirect(enDirect(comp("c"), {}), libelles, T0)).toBe("Bientôt");
+  });
+
+  it("ne dit rien sans état de direct", () => {
+    expect(minuteDuDirect(entree(comp("c"), match("m")), libelles)).toBe("");
   });
 });
 

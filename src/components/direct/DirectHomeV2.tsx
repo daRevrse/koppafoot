@@ -26,7 +26,7 @@ import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 import { FOOT } from "@/i18n/foot";
 import {
-  competitionHref, competitionSubtitle, entryKey, kickoff, liveMinute, matchHref,
+  competitionHref, competitionSubtitle, entryKey, kickoff, matchHref, minuteDuDirect,
   ordreDesCompetitions, type CompetitionFeed, type Entry,
 } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/lib/friendlies-shared";
@@ -772,7 +772,7 @@ function MatchRow({
           {isLive ? (
             <>
               <span className="text-[11px] font-black tabular-nums text-red-500">
-                {liveMinute(match)}′
+                {minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant })}
               </span>
               <span className="h-1 w-1 animate-pulse rounded-full bg-red-500" />
             </>
@@ -1147,7 +1147,7 @@ function Spotlight({
                         isLive ? "text-red-500" : "text-gray-400"
                       }`}
                     >
-                      {isLive ? `${liveMinute(match)}′` : f.termine}
+                      {isLive ? minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant }) : f.termine}
                     </span>
                     <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="mt-0.5" />
                   </>

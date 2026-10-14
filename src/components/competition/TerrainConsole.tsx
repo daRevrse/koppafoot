@@ -651,7 +651,8 @@ export function ModaleActionsJoueur({
 }: {
   entry: LineupEntry;
   teamName: string;
-  minute: number;
+  /** Déjà écrite : « 45+2' ». Voir lib/minute-du-match. */
+  minute: string;
   isSubmitting: boolean;
   actions: ActionJoueur[];
   /** Sa note à cet instant. Absente quand rien ne la fonde encore. */
@@ -719,7 +720,7 @@ export function ModaleActionsJoueur({
         </div>
 
         <p className="mb-4 mt-3 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
-          {minute}&apos; · Qu&apos;est-ce qu&apos;il vient de faire ?
+          {`${minute} · Qu'est-ce qu'il vient de faire ?`}
         </p>
 
         {/* `content-start` par precaution : une grille dont le conteneur a une

@@ -14,7 +14,8 @@ import { repartirCent } from "@/lib/repartition";
 import { buteursDuMatch } from "@/lib/buteurs";
 import { matchsQuiComptent } from "@/lib/exhibition";
 import { aDesStats, lignesStats } from "@/lib/stats-match";
-import { matchDuration } from "@/lib/competition-format";
+import { DEFAULT_HALF_DURATION, halfDuration, matchDuration } from "@/lib/competition-format";
+import { minuteEnDirect } from "@/lib/minute-du-match";
 import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
@@ -56,6 +57,7 @@ const formatTime = (ms: number) => {
 const T = textes(
   {
     periode: (id: number) => ({ 1: "1ère Mi-temps", 2: "Mi-temps", 3: "2ème Mi-temps", 4: "Terminé" } as Record<number, string>)[id] ?? null,
+    avantMatch: "Coup d'envoi imminent",
     poule: (g: string) => `Poule ${g}`,
     connexion: "Connexion au direct...",
     introuvable: "Match introuvable",
@@ -87,6 +89,7 @@ const T = textes(
   },
   {
     periode: (id: number) => ({ 1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time" } as Record<number, string>)[id] ?? null,
+    avantMatch: "Kick-off soon",
     poule: (g: string) => `Group ${g}`,
     connexion: "Connecting to live...",
     introuvable: "Match not found",
@@ -323,10 +326,25 @@ export default function PublicCompMatchView() {
   // « Terminé » l'emporte sur la période. Un match fini gardait le libellé de
   // la dernière période traversée — « 2ème mi-temps » sur une demi-finale
   // jouée il y a trois jours, qui se lisait comme un match en cours.
+  // LE DIRECT EST OUVERT, LE BALLON PAS ENCORE AU CENTRE : la console a
+  // lancé le match, pas le chrono. On l'affichait « 1ère mi-temps, 00:00 »,
+  // c'est-à-dire un match commencé et figé.
+  const dureeMiTemps = compFormat ? halfDuration(compFormat) : DEFAULT_HALF_DURATION;
+  const minuteDirect = isLive ? minuteEnDirect(match, dureeMiTemps) : null;
+  const avantCoupDEnvoi = minuteDirect?.genre === "avant";
   const periodLabel =
     match.status === "completed"
       ? f.termine
-      : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
+      : avantCoupDEnvoi
+        ? t.avantMatch
+        : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
+  // Le panneau du quatrième arbitre, pour la mi-temps en cours.
+  const periodeEnCours = match.liveState?.currentPeriod;
+  const additionnel = periodeEnCours === 1
+    ? match.liveState?.addedTime?.first ?? null
+    : periodeEnCours === 3
+      ? match.liveState?.addedTime?.second ?? null
+      : null;
   // Competition name plus the round (or poule) this match belongs to.
   const roundLabel = match.stage === "exhibition"
     ? f.matchExhibition
@@ -385,6 +403,7 @@ export default function PublicCompMatchView() {
     tab: match.penaltyHome != null && match.penaltyAway != null
       ? { home: match.penaltyHome, away: match.penaltyAway }
       : null,
+    dureeMiTemps,
   };
   // Les compteurs sont calcules ailleurs, et de la meme facon que sur la
   // fiche d'un amical et dans la console : voir lib/stats-match. Ils etaient
@@ -652,9 +671,10 @@ export default function PublicCompMatchView() {
         time={match.time}
         // Le lieu et la date sont dans l'onglet Infos ; sous l'affiche,
         // les buteurs.
-        buteurs={buteursDuMatch(events, match.homeTeamId)}
+        buteurs={buteursDuMatch(events, match.homeTeamId, undefined, dureeMiTemps)}
         periodLabel={periodLabel}
-        clock={isLive ? formatTime(shownTime) : null}
+        clock={isLive && !avantCoupDEnvoi ? formatTime(shownTime) : null}
+        additionnel={additionnel}
         penaltyHome={match.penaltyHome}
         penaltyAway={match.penaltyAway}
       />

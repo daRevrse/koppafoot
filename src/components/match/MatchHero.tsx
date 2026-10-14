@@ -287,6 +287,12 @@ interface Props {
   periodLabel?: string | null;
   /** Le chrono déjà formaté, « 12:34 ». Rendu seulement si le match est en cours. */
   clock?: string | null;
+  /**
+   * Le temps additionnel annoncé pour la mi-temps en cours, en minutes. Rendu
+   * « +3 » à côté du chrono, comme le panneau du quatrième arbitre ; rien tant
+   * qu'il n'est pas annoncé.
+   */
+  additionnel?: number | null;
   penaltyHome?: number | null;
   penaltyAway?: number | null;
   /** Le match que suit la cloche, et sa compétition s'il en a une. */
@@ -296,7 +302,7 @@ interface Props {
 
 export default function MatchHero({
   fil, context, status, home, away, date, time, buteurs,
-  periodLabel, clock, penaltyHome, penaltyAway, suivi, onShare,
+  periodLabel, clock, additionnel, penaltyHome, penaltyAway, suivi, onShare,
 }: Props) {
   const router = useRouter();
   const { langue } = useLangue();
@@ -343,6 +349,9 @@ export default function MatchHero({
           {clock && (
             <span className="font-mono text-sm font-black leading-none text-emerald-400">
               {clock}
+              {!!additionnel && (
+                <span className="ml-1.5 text-[11px] text-amber-300">+{additionnel}</span>
+              )}
             </span>
           )}
         </span>
@@ -376,7 +385,10 @@ export default function MatchHero({
             {away.score ?? 0}
           </span>
           {isLive && clock ? (
-            <span className="mt-1 font-mono text-[10px] font-black text-emerald-400">{clock}</span>
+            <span className="mt-1 font-mono text-[10px] font-black text-emerald-400">
+              {clock}
+              {!!additionnel && <span className="ml-1 text-amber-300">+{additionnel}</span>}
+            </span>
           ) : (
             <span className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/45">
               {periodLabel || f.termine}
