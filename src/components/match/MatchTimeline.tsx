@@ -126,6 +126,8 @@ export interface Deroule {
    * « 45+2' » et non « 47' ». Absente : quarante-cinq.
    */
   dureeMiTemps?: number;
+  /** La durée d'une prolongation, pour écrire « 105+1' ». Absente : un tiers d'une mi-temps. */
+  dureeProlongation?: number;
 }
 
 /** Ce qui n'appartient à aucun camp et se pose au centre. */
@@ -457,7 +459,7 @@ export default function MatchTimeline({
                     de vingt-huit pixels, et le temps additionnel s'écrit
                     ainsi depuis qu'il ne se confond plus avec la 47e. */}
                 <span className="flex h-7 min-w-7 items-center justify-center whitespace-nowrap bg-white px-0.5 text-[11px] font-black tabular-nums text-gray-500">
-                  {e.minute ? libelleMinute(e.period, e.minute, deroule?.dureeMiTemps ?? 45) : "·"}
+                  {e.minute ? libelleMinute(e.period, e.minute, deroule?.dureeMiTemps ?? 45, "'", deroule?.dureeProlongation) : "·"}
                 </span>
               </div>
 

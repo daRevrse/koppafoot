@@ -14,8 +14,9 @@ import { repartirCent } from "@/lib/repartition";
 import { buteursDuMatch } from "@/lib/buteurs";
 import { matchsQuiComptent } from "@/lib/exhibition";
 import { aDesStats, lignesStats } from "@/lib/stats-match";
-import { DEFAULT_HALF_DURATION, halfDuration, matchDuration } from "@/lib/competition-format";
+import { DEFAULT_HALF_DURATION, extraTimeDuration, halfDuration, matchDuration } from "@/lib/competition-format";
 import { minuteEnDirect } from "@/lib/minute-du-match";
+import { SEANCE_VIDE, etatDeLaSeance } from "@/lib/tirs-au-but";
 import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
@@ -56,7 +57,11 @@ const formatTime = (ms: number) => {
 
 const T = textes(
   {
-    periode: (id: number) => ({ 1: "1ère Mi-temps", 2: "Mi-temps", 3: "2ème Mi-temps", 4: "Terminé" } as Record<number, string>)[id] ?? null,
+    periode: (id: number) => ({
+      1: "1ère Mi-temps", 2: "Mi-temps", 3: "2ème Mi-temps", 4: "Terminé",
+      5: "Pause", 6: "Prolongation", 7: "Pause", 8: "Prolongation", 9: "Tirs au but",
+    } as Record<number, string>)[id] ?? null,
+    tirsAuBut: (score: string) => `Tirs au but · ${score}`,
     avantMatch: "Coup d'envoi imminent",
     interrompu: "Match interrompu",
     poule: (g: string) => `Poule ${g}`,
@@ -89,7 +94,11 @@ const T = textes(
     lettreNul: "N",
   },
   {
-    periode: (id: number) => ({ 1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time" } as Record<number, string>)[id] ?? null,
+    periode: (id: number) => ({
+      1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time",
+      5: "Break", 6: "Extra time", 7: "Break", 8: "Extra time", 9: "Penalties",
+    } as Record<number, string>)[id] ?? null,
+    tirsAuBut: (score: string) => `Penalties · ${score}`,
     avantMatch: "Kick-off soon",
     interrompu: "Match suspended",
     poule: (g: string) => `Group ${g}`,
@@ -333,6 +342,7 @@ export default function PublicCompMatchView() {
   // c'est-à-dire un match commencé et figé.
   const dureeMiTemps = compFormat ? halfDuration(compFormat) : DEFAULT_HALF_DURATION;
   const minuteDirect = isLive ? minuteEnDirect(match, dureeMiTemps) : null;
+  const seanceEnDirect = etatDeLaSeance(match.liveState?.tirsAuBut ?? SEANCE_VIDE);
   const avantCoupDEnvoi = minuteDirect?.genre === "avant";
   const periodLabel =
     match.status === "completed"
@@ -341,7 +351,11 @@ export default function PublicCompMatchView() {
         ? t.avantMatch
         : minuteDirect?.genre === "interrompu"
           ? t.interrompu
-          : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
+          : minuteDirect?.genre === "tirs"
+            // LA SÉANCE SE SUIT EN DIRECT, tir par tir : son score à la
+            // place de la minute.
+            ? t.tirsAuBut(`${seanceEnDirect.score.home}-${seanceEnDirect.score.away}`)
+            : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
   // Le panneau du quatrième arbitre, pour la mi-temps en cours.
   const periodeEnCours = match.liveState?.currentPeriod;
   const additionnel = periodeEnCours === 1
@@ -408,6 +422,7 @@ export default function PublicCompMatchView() {
       ? { home: match.penaltyHome, away: match.penaltyAway }
       : null,
     dureeMiTemps,
+    dureeProlongation: compFormat ? extraTimeDuration(compFormat) : undefined,
   };
   // Les compteurs sont calcules ailleurs, et de la meme facon que sur la
   // fiche d'un amical et dans la console : voir lib/stats-match. Ils etaient
@@ -677,7 +692,7 @@ export default function PublicCompMatchView() {
         // les buteurs.
         buteurs={buteursDuMatch(events, match.homeTeamId, undefined, dureeMiTemps)}
         periodLabel={periodLabel}
-        clock={isLive && !avantCoupDEnvoi ? formatTime(shownTime) : null}
+        clock={isLive && !avantCoupDEnvoi && minuteDirect?.genre !== "tirs" ? formatTime(shownTime) : null}
         additionnel={additionnel}
         penaltyHome={match.penaltyHome}
         penaltyAway={match.penaltyAway}

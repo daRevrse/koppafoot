@@ -21,9 +21,16 @@
  * La minute reglementaire ou s'acheve la periode, ou `null` quand la periode
  * n'en a pas : la pause, la fin du match, une periode inconnue.
  */
-function finReglementaire(periode: number | null | undefined, dureeMiTempsMin: number): number | null {
+function finReglementaire(
+  periode: number | null | undefined,
+  dureeMiTempsMin: number,
+  dureeProlongationMin: number = Math.max(1, Math.round(dureeMiTempsMin / 3)),
+): number | null {
   if (periode === 1) return dureeMiTempsMin;
   if (periode === 3) return dureeMiTempsMin * 2;
+  // Les prolongations : 105' et 120' en 2 × 45. Voir lib/competition-format.
+  if (periode === 6) return dureeMiTempsMin * 2 + dureeProlongationMin;
+  if (periode === 8) return dureeMiTempsMin * 2 + dureeProlongationMin * 2;
   return null;
 }
 
@@ -33,8 +40,10 @@ export function libelleMinute(
   minute: number,
   dureeMiTempsMin: number,
   prime: string = "'",
+  /** La duree d'une prolongation, quand le format en fixe une. */
+  dureeProlongationMin?: number,
 ): string {
-  const fin = finReglementaire(periode, dureeMiTempsMin);
+  const fin = finReglementaire(periode, dureeMiTempsMin, dureeProlongationMin);
   if (fin !== null && minute > fin) return `${fin}+${minute - fin}${prime}`;
   return `${minute}${prime}`;
 }
@@ -57,6 +66,8 @@ export type MinuteEnDirect =
    * s'y arrete, et sans le dire on verrait une minute figee sans raison.
    */
   | { genre: "interrompu" }
+  /** La seance de tirs au but : il n'y a plus de minute. */
+  | { genre: "tirs" }
   | { genre: "jeu"; minute: number; plus: number };
 
 /** Ce que `minuteEnDirect` lit d'un match : son statut et son horloge. */
@@ -88,7 +99,8 @@ export function minuteEnDirect(
   if (!ls) return null;
   if (ls.jeu?.raison === "interruption") return { genre: "interrompu" };
   if (ls.jeu?.raison === "avant") return { genre: "avant" };
-  if (ls.currentPeriod === 2) return { genre: "pause" };
+  if (ls.currentPeriod === 2 || ls.currentPeriod === 5 || ls.currentPeriod === 7) return { genre: "pause" };
+  if (ls.currentPeriod === 9) return { genre: "tirs" };
 
   const offset = ls.timerOffset || 0;
   const tourne = m.status === "live" && !!ls.isTimerRunning && !!ls.timerStartAt;
@@ -106,9 +118,10 @@ export function minuteEnDirect(
 /** La minute en direct, en texte. Les libelles viennent de la page (langue). */
 export function texteMinute(
   m: MinuteEnDirect,
-  libelles: { avant: string; pause: string; interrompu: string },
+  libelles: { avant: string; pause: string; interrompu: string; tirs?: string },
   prime: string = "′",
 ): string {
+  if (m.genre === "tirs") return libelles.tirs ?? "TAB";
   if (m.genre === "avant") return libelles.avant;
   if (m.genre === "pause") return libelles.pause;
   if (m.genre === "interrompu") return libelles.interrompu;

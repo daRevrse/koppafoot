@@ -4,6 +4,7 @@ import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
 import type { Possession, PossessionStockee } from "@/lib/possession";
 import type { Jeu } from "@/lib/etat-du-jeu";
+import type { Seance } from "@/lib/tirs-au-but";
 import type { ConditionJoueur, FirestoreConditionJoueur } from "@/lib/etat-de-forme";
 import type { Emplacement } from "@/lib/terrain";
 
@@ -667,6 +668,8 @@ export interface FirestoreMatch {
      * deduit alors de l'horloge.
      */
     jeu?: Jeu | null;
+    /** La seance de tirs au but, tir par tir. Voir `lib/tirs-au-but`. */
+    tirs_au_but?: Seance | null;
   } | null;
   modification_request?: {
     date: string;
@@ -981,6 +984,8 @@ export interface Match {
     addedTime?: { first: number; second: number } | null;
     /** Voir `FirestoreMatch.live_state.jeu`. */
     jeu?: Jeu | null;
+    /** Voir `FirestoreMatch.live_state.tirs_au_but`. */
+    tirsAuBut?: Seance | null;
   } | null;
   modificationRequest?: MatchModificationRequest | null;
   /** Voir `FirestoreMatch.home_lineup`. */

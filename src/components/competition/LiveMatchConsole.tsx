@@ -31,10 +31,11 @@ import {
 } from "@/lib/possession";
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { libelleMinute } from "@/lib/minute-du-match";
+import { SEANCE_VIDE, TIRS_PAR_EQUIPE, etatDeLaSeance, type Seance, type Tir } from "@/lib/tirs-au-but";
 import {
   JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
-  autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, relancer, reprendreLeMatch,
-  scoreDeForfait, verrou,
+  autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
+  scoreDeForfait, seanceDeTirs, verrou,
   type Jeu, type Transition,
 } from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
@@ -70,11 +71,18 @@ const formatTime = (ms: number) => {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
 
+// Le 4 reste « fin de match » : les matchs déjà joués le portent. Les
+// prolongations et la séance de tirs au but prennent les numéros suivants.
 const PERIODS = [
   { id: 1, label: "1ère Mi-temps" },
   { id: 2, label: "Mi-temps" },
   { id: 3, label: "2ème Mi-temps" },
   { id: 4, label: "Fin de match" },
+  { id: 5, label: "Pause" },
+  { id: 6, label: "Prolongation 1" },
+  { id: 7, label: "Pause" },
+  { id: 8, label: "Prolongation 2" },
+  { id: 9, label: "Tirs au but" },
 ];
 
 type Side = "home" | "away";
@@ -478,7 +486,7 @@ export default function LiveMatchConsole({
   // La compétition arrive une frame après le match, d'où les valeurs par défaut.
   const {
     titulairesMax: startersMax, dureeMiTempsMin: halfMinutes,
-    remplacementsMax, retourAutorise, minimumJoueurs,
+    remplacementsMax, retourAutorise, minimumJoueurs, prolongationMin,
   } = pilote.regles(competition, match);
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
@@ -487,7 +495,12 @@ export default function LiveMatchConsole({
    * lib/minute-du-match — la même notation que le fil public et le Direct.
    */
   const ecrireMinute = (periode: number | null | undefined, minute: number) =>
-    libelleMinute(periode, minute, halfMinutes);
+    libelleMinute(periode, minute, halfMinutes, "'", prolongationMin ?? undefined);
+  /** Une prolongation, en millisecondes de chrono ; zéro sans prolongations. */
+  const etMs = (prolongationMin ?? 0) * 60_000;
+  /** La durée jouée : le temps réglementaire, et les prolongations si on y est. */
+  const dureeJoueeMin = halfMinutes * 2
+    + ((matchBrut?.liveState?.currentPeriod ?? 0) >= 6 ? (prolongationMin ?? 0) * 2 : 0);
   /** La minute du chrono à l'instant, écrite : celle que montrent les questions. */
   const minuteLue = ecrireMinute(
     matchBrut?.liveState?.currentPeriod,
@@ -675,7 +688,9 @@ export default function LiveMatchConsole({
   const cibleDeLaPeriode =
     mitempsEnCours === "first" ? halfMs + minutesAdditionnelles.first * 60_000
       : mitempsEnCours === "second" ? fullMs + minutesAdditionnelles.second * 60_000
-        : null;
+        : match?.liveState?.currentPeriod === 6 ? fullMs + etMs
+          : match?.liveState?.currentPeriod === 8 ? fullMs + 2 * etMs
+            : null;
 
   /**
    * Poser le temps additionnel de la mi-temps en cours.
@@ -831,10 +846,10 @@ export default function LiveMatchConsole({
     // mi-temps reglementaires par defaut : un 7v7 en deux fois vingt minutes
     // aurait vu tout le monde credite de quatre-vingt-dix.
     return {
-      home: notesDuCamp(match, match.homeLineup, faits, match.homeTeamId, halfMinutes * 2),
-      away: notesDuCamp(match, match.awayLineup, faits, match.awayTeamId, halfMinutes * 2),
+      home: notesDuCamp(match, match.homeLineup, faits, match.homeTeamId, dureeJoueeMin),
+      away: notesDuCamp(match, match.awayLineup, faits, match.awayTeamId, dureeJoueeMin),
     };
-  }, [match, halfMinutes]);
+  }, [match, dureeJoueeMin]);
 
   // ---- Le déroulé : coup d'envoi, reprises, mi-temps, interruption ------------
 
@@ -859,8 +874,13 @@ export default function LiveMatchConsole({
       return;
     }
     const t: Transition = { jeu: relancer(jeu, cote) };
+    const periode = match.liveState.currentPeriod ?? 1;
     if (jeu.raison === "mi_temps") {
       t.periode = 3;
+      t.chrono = { demarrer: true };
+    } else if (jeu.raison === "pause") {
+      // Pause → prolongation : 5 → 6, 7 → 8.
+      t.periode = periode + 1;
       t.chrono = { demarrer: true };
     } else if (!match.liveState.isTimerRunning) {
       // Le coup d'envoi, ou un match arrêté par l'ancien bouton « Arrêter ».
@@ -882,6 +902,8 @@ export default function LiveMatchConsole({
       // aussi : entre les deux, « le match reprend » ne disait rien que
       // l'abonné ait besoin de savoir, pour chacun des matchs qu'il suit.
       toast.success("Seconde période");
+    } else if (jeu.raison === "pause") {
+      toast.success(periode === 5 ? "Prolongations" : "Seconde prolongation");
     }
   };
 
@@ -987,7 +1009,9 @@ export default function LiveMatchConsole({
    * début de la période : la seconde mi-temps ne repasse pas sous 45:00.
    */
   const [recalage, setRecalage] = useState<number | null>(null);
-  const debutDePeriode = match?.liveState?.currentPeriod === 3 ? halfMs : 0;
+  const debutDePeriode = {
+    3: halfMs, 6: fullMs, 8: fullMs + etMs,
+  }[match?.liveState?.currentPeriod ?? 1] ?? 0;
   const appliquerRecalage = () => {
     if (recalage === null || !match?.liveState) return;
     const ecoule = Math.max(debutDePeriode, displayTime + recalage);
@@ -1030,7 +1054,10 @@ export default function LiveMatchConsole({
     }
   };
   /** Le camp affiché à gauche, à cet instant du match. */
-  const aGauche: Side = cotesInverses !== ((match?.liveState?.currentPeriod ?? 1) >= 2) ? "away" : "home";
+  // Les équipes changent de côté à la mi-temps, puis entre les deux
+  // prolongations : inversées de la pause jusqu'à la première prolongation.
+  const periodeCotes = match?.liveState?.currentPeriod ?? 1;
+  const aGauche: Side = cotesInverses !== (periodeCotes >= 2 && periodeCotes <= 6) ? "away" : "home";
 
   const [menuOuvert, setMenuOuvert] = useState(false);
 
@@ -1852,21 +1879,57 @@ export default function LiveMatchConsole({
     return true;
   };
 
+  /**
+   * LA FIN DU TEMPS DE JEU, à la 90e ou après les prolongations.
+   *
+   * À égalité en élimination directe, le match ne s'arrête pas : il part en
+   * prolongations si le règlement en prévoit, puis en tirs au but — tir par
+   * tir, dans la console. La séance se saisissait en un chiffre, après coup.
+   */
   const handleFinishClick = async () => {
-    if (!match) return;
-    if (!finPossible()) return;
-    try {
-      await pilote.pauserChrono(fullMs);
-    } catch {
-      // Best-effort clock snap; the finish flow still freezes the clock.
-    }
+    if (!match?.liveState) return;
+    const periode = match.liveState.currentPeriod ?? 3;
     const scoreHome = match.scoreHome ?? 0;
     const scoreAway = match.scoreAway ?? 0;
+    const finDuJeu = periode >= 6 ? fullMs + 2 * etMs : fullMs;
+
     if (match.stage === "knockout" && scoreHome === scoreAway) {
-      setPenaltyHome("");
-      setPenaltyAway("");
-      setShowPenaltyModal(true);
+      if (periode === 3 && prolongationMin) {
+        const ok = await demander({
+          titre: "Égalité : prolongations ?",
+          corps: <>{`Deux périodes de ${prolongationMin} minutes, puis tirs au but s'il le faut.`}</>,
+          action: "Prolongations",
+        });
+        if (!ok) return;
+        appliquer({ jeu: pause(jeu, null), periode: 5, chrono: { arreterA: fullMs } }, "Les prolongations n'ont pas été enregistrées");
+        pilote.notifier(
+          { title: "⏱️ Prolongations", body: `${match.homeTeamName} ${scoreHome} – ${scoreAway} ${match.awayTeamName}` },
+          competition,
+        );
+        return;
+      }
+      const ok = await demander({
+        titre: "Égalité : tirs au but ?",
+        corps: <>La séance se saisit tir par tir, ici même.</>,
+        action: "Tirs au but",
+      });
+      if (!ok) return;
+      appliquer(
+        { jeu: seanceDeTirs(jeu), periode: 9, chrono: { arreterA: finDuJeu }, tirsAuBut: SEANCE_VIDE },
+        "La séance de tirs au but n'a pas été ouverte",
+      );
+      pilote.notifier(
+        { title: "🎯 Tirs au but", body: `${match.homeTeamName} ${scoreHome} – ${scoreAway} ${match.awayTeamName}` },
+        competition,
+      );
       return;
+    }
+
+    if (!finPossible()) return;
+    try {
+      await pilote.pauserChrono(finDuJeu);
+    } catch {
+      // Best-effort clock snap; the finish flow still freezes the clock.
     }
     const ok = await demander({
       titre: "Terminer le match ?",
@@ -1882,6 +1945,37 @@ export default function LiveMatchConsole({
     });
     if (!ok) return;
     setMvpEnAttente({});
+  };
+
+  /** La pause entre les deux prolongations : l'autre équipe engagera. */
+  const sifflerLaPauseDesProlongations = () => {
+    appliquer(
+      { jeu: pause(jeu, jeu.premier ? autre(jeu.premier) : null), periode: 7, chrono: { arreterA: fullMs + etMs } },
+      "La pause n'a pas été enregistrée",
+    );
+    toast.success("Pause");
+  };
+
+  // ---- La séance de tirs au but -----------------------------------------------
+
+  const seance: Seance = match?.liveState?.tirsAuBut ?? SEANCE_VIDE;
+  const etatSeance = etatDeLaSeance(seance);
+  /** Le tireur touché avant l'issue ; facultatif, comme pendant le match. */
+  const [tireur, setTireur] = useState<LineupEntry | null>(null);
+  const poserSeance = (suivante: Seance) =>
+    appliquer({ tirsAuBut: suivante }, "Le tir n'a pas été enregistré");
+  const tirer = (issue: Tir["issue"]) => {
+    if (!etatSeance.prochain) return;
+    poserSeance({
+      ...seance,
+      tirs: [...seance.tirs, {
+        cote: etatSeance.prochain,
+        issue,
+        playerId: tireur?.playerId ?? null,
+        playerName: tireur?.name ?? null,
+      }],
+    });
+    setTireur(null);
   };
 
   const finishMatch = async (
@@ -2445,7 +2539,7 @@ export default function LiveMatchConsole({
   const aDroite = autre(aGauche);
   const scoreDe = (c: Side) => (c === "home" ? match.scoreHome : match.scoreAway) ?? 0;
   /** En période de jeu : ni avant le coup d'envoi, ni à la pause. */
-  const enPeriodeDeJeu = match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3;
+  const enPeriodeDeJeu = [1, 3, 6, 8].includes(match.liveState?.currentPeriod ?? 0);
 
   /**
    * CE QUE LES PASTILLES DES DEUX CAMPS ATTENDENT, ballon mort : qui engage,
@@ -2501,6 +2595,7 @@ export default function LiveMatchConsole({
         );
       case "but":
       case "mi_temps":
+      case "pause":
         return jeu.engage ? (
           <button onClick={() => remettreEnJeu(jeu.engage as Side)} className={BOUTON_VERT}>
             <Play size={10} fill="currentColor" className="shrink-0" />
@@ -2699,7 +2794,18 @@ export default function LiveMatchConsole({
                 Mi-temps
               </button>
             )}
-            {!isCompleted && match.liveState?.currentPeriod === 3 && (
+            {!isCompleted && match.liveState?.currentPeriod === 6 && (
+              <button
+                onClick={sifflerLaPauseDesProlongations}
+                disabled={isSubmitting}
+                className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors disabled:opacity-40 ${
+                  tempsEcoule ? "animate-pulse bg-amber-500 hover:bg-amber-600" : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                Pause
+              </button>
+            )}
+            {!isCompleted && (match.liveState?.currentPeriod === 3 || match.liveState?.currentPeriod === 8) && (
               <button
                 onClick={handleFinishClick}
                 disabled={isSubmitting}
@@ -2858,6 +2964,26 @@ export default function LiveMatchConsole({
               propre rangée au-dessus : elle est passée DANS les onglets du
               terrain, qui portaient déjà les deux mêmes noms d'équipe. Voir
               TerrainConsole. */}
+          {match.liveState?.currentPeriod === 9 ? (
+            <SeanceDeTirs
+              seance={seance}
+              etat={etatSeance}
+              nomDe={nomDe}
+              tireurs={(c) => onPitchEntries(c)}
+              tireur={tireur}
+              onTireur={setTireur}
+              onPremier={(c) => poserSeance({ premier: c, tirs: [] })}
+              onTir={tirer}
+              onAnnuler={() => poserSeance({ ...seance, tirs: seance.tirs.slice(0, -1) })}
+              onValider={() => setMvpEnAttente({ tab: { penaltyHome: etatSeance.score.home, penaltyAway: etatSeance.score.away } })}
+              onSaisieDirecte={() => {
+                setPenaltyHome("");
+                setPenaltyAway("");
+                setShowPenaltyModal(true);
+              }}
+              isSubmitting={isSubmitting}
+            />
+          ) : (
           <div className="flex min-h-0 flex-1">
             <TerrainsFaceAFace
               home={{
@@ -2896,6 +3022,7 @@ export default function LiveMatchConsole({
               )}
             />
           </div>
+          )}
 
           {/* LE TIROIR « PLUS D'INFOS ».
 
@@ -3118,7 +3245,7 @@ export default function LiveMatchConsole({
       <AnimatePresence>
         {mvpEnAttente && match && (
           <ModaleMVP
-            candidats={classerCandidatsMVP(match, pilote.campsEligiblesMVP(), halfMinutes * 2)}
+            candidats={classerCandidatsMVP(match, pilote.campsEligiblesMVP(), dureeJoueeMin)}
             homeTeamId={match.homeTeamId}
             homeTeamName={match.homeTeamName}
             awayTeamName={match.awayTeamName}
@@ -3522,6 +3649,167 @@ function RoleBadge({ role }: { role: SheetRole }) {
     <span className="shrink-0 rounded-full border border-gray-200/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-tighter text-gray-400">
       Hors feuille
     </span>
+  );
+}
+
+/**
+ * LA SÉANCE DE TIRS AU BUT, TIR PAR TIR, à la place des terrains : le jeu est
+ * fini, il ne reste que la séance. Le tirage d'abord — qui tire en premier —,
+ * puis chaque tir : le tireur si on l'a vu (facultatif, un appui), puis
+ * l'issue. L'alternance, la fin anticipée et la mort subite se calculent
+ * (lib/tirs-au-but). Un tir mal saisi s'annule ; une séance manquée se saisit
+ * encore en un score, comme avant.
+ */
+function SeanceDeTirs({
+  seance, etat, nomDe, tireurs, tireur, onTireur, onPremier, onTir, onAnnuler, onValider, onSaisieDirecte,
+  isSubmitting,
+}: {
+  seance: Seance;
+  etat: ReturnType<typeof etatDeLaSeance>;
+  nomDe: (c: Side) => string;
+  tireurs: (c: Side) => LineupEntry[];
+  tireur: LineupEntry | null;
+  onTireur: (e: LineupEntry | null) => void;
+  onPremier: (c: Side) => void;
+  onTir: (issue: Tir["issue"]) => void;
+  onAnnuler: () => void;
+  onValider: () => void;
+  onSaisieDirecte: () => void;
+  isSubmitting: boolean;
+}) {
+  const ligne = (c: Side) => {
+    const siens = seance.tirs.filter((t) => t.cote === c);
+    const cases = Math.max(TIRS_PAR_EQUIPE, siens.length);
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-[11px] font-black uppercase tracking-wide text-white/70">{nomDe(c)}</span>
+        <span className="flex shrink-0 gap-1.5">
+          {Array.from({ length: cases }, (_, i) => {
+            const t = siens[i];
+            return (
+              <span
+                key={i}
+                title={t?.playerName ?? undefined}
+                className={`h-3.5 w-3.5 rounded-full border ${
+                  !t ? "border-white/20" : t.issue === "marque" ? "border-emerald-400 bg-emerald-400" : "border-red-400 bg-red-500/30"
+                }`}
+              />
+            );
+          })}
+        </span>
+      </div>
+    );
+  };
+  const deja = new Set(seance.tirs.map((t) => t.playerId).filter(Boolean));
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-3 py-3 text-white">
+      <div className="w-full max-w-lg space-y-3">
+        <div className="flex items-baseline justify-center gap-3">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">Tirs au but</span>
+          <span className="font-mono text-2xl font-black tabular-nums">
+            {etat.score.home} – {etat.score.away}
+          </span>
+          {etat.mortSubite && !etat.terminee && (
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300">Mort subite</span>
+          )}
+        </div>
+        <div className="space-y-1.5 border border-white/10 bg-white/[0.04] p-3">
+          {ligne("home")}
+          {ligne("away")}
+        </div>
+
+        {!seance.premier ? (
+          <div className="space-y-2">
+            <p className="text-center text-[11px] font-black uppercase tracking-wider text-white/60">
+              Qui tire en premier ?
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["home", "away"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => onPremier(c)}
+                  className="truncate bg-emerald-600 px-3 py-3 text-xs font-black uppercase tracking-wide text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+                >
+                  {nomDe(c)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : etat.terminee && etat.vainqueur ? (
+          <div className="space-y-2 text-center">
+            <p className="text-sm font-black uppercase tracking-wide text-emerald-300">
+              {`${nomDe(etat.vainqueur)} l'emporte aux tirs au but`}
+            </p>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={onValider}
+              className="w-full bg-white py-3 text-xs font-black uppercase tracking-widest text-gray-900 transition-colors hover:bg-gray-100 disabled:opacity-40"
+            >
+              Valider et terminer le match
+            </button>
+          </div>
+        ) : etat.prochain ? (
+          <div className="space-y-2">
+            <p className="text-center text-[11px] font-black uppercase tracking-wider text-white/60">
+              {`Au tour de ${nomDe(etat.prochain)}`}
+              {tireur ? ` · ${tireur.name}` : " · tireur ?"}
+            </p>
+            <div className="flex flex-wrap justify-center gap-1">
+              {tireurs(etat.prochain).map((e) => (
+                <button
+                  key={e.playerId}
+                  type="button"
+                  onClick={() => onTireur(tireur?.playerId === e.playerId ? null : e)}
+                  className={`border px-2 py-1 text-[10px] font-black tabular-nums transition-colors ${
+                    tireur?.playerId === e.playerId
+                      ? "border-white bg-white text-gray-900"
+                      : deja.has(e.playerId) ? "border-white/10 text-white/30" : "border-white/20 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  {e.number ? `${e.number} ` : ""}{nomCourt(e.name)}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {([["marque", "⚽ Marqué", "bg-emerald-600 hover:bg-emerald-500"], ["rate", "👟 Raté", "bg-white/10 hover:bg-white/20"], ["arrete", "🧤 Arrêté", "bg-sky-700 hover:bg-sky-600"]] as const).map(([issue, libelle, ton]) => (
+                <button
+                  key={issue}
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => onTir(issue)}
+                  className={`py-3 text-xs font-black uppercase tracking-wide text-white transition-colors active:scale-95 disabled:opacity-40 ${ton}`}
+                >
+                  {libelle}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-center gap-4 pt-1">
+          {seance.tirs.length > 0 && (
+            <button
+              type="button"
+              onClick={onAnnuler}
+              className="text-[10px] font-black uppercase tracking-widest text-white/50 underline hover:text-white"
+            >
+              Annuler le dernier tir
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onSaisieDirecte}
+            className="text-[10px] font-black uppercase tracking-widest text-white/35 underline hover:text-white"
+          >
+            Saisir le score final directement
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
