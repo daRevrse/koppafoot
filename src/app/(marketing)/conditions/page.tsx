@@ -22,7 +22,7 @@ export const metadata = {
   description: "Les règles du jeu sur KoppaFoot : ton compte, les rôles, ce qui est interdit, ce qui est gratuit.",
 };
 
-const MIS_A_JOUR = "13 octobre 2026";
+const MIS_A_JOUR = "14 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {

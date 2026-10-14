@@ -24,7 +24,7 @@ export const metadata = {
   description: "Quelles données KoppaFoot collecte, pourquoi, avec qui elles sont partagées, et comment exercer tes droits.",
 };
 
-const MIS_A_JOUR = "13 octobre 2026";
+const MIS_A_JOUR = "14 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
