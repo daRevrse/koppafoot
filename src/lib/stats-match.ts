@@ -14,7 +14,7 @@
 // ============================================
 
 import type { TypeEvenement } from "@/lib/evenements";
-import { OWN_GOAL_DETAIL } from "@/lib/evenements";
+import { OWN_GOAL_DETAIL, PENALTY_FOUL_DETAIL } from "@/lib/evenements";
 import { partPossession, SEUIL_PUBLIC_MS, type Possession } from "@/lib/possession";
 
 /** L'evenement tel que les deux fiches et la console le tiennent. */
@@ -122,6 +122,23 @@ export function lignesStats(
   const cadresHome = cadres(homeTeamId, awayTeamId);
   const cadresAway = cadres(awayTeamId, homeTeamId);
 
+  /**
+   * UNE FAUTE EST UN COUP FRANC, POUR L'AUTRE. Le hors-jeu aussi. La console
+   * les faisait saisir a part, et le scoreur presse n'en tapait qu'un : on
+   * lisait « 14 fautes, 3 coups francs », ce qu'aucun match ne produit.
+   *
+   * Le coup franc se CALCULE donc a partir de ce qui l'a provoque, en face,
+   * plus ceux poses au bouton — le scoreur qui n'a pas vu le fautif garde ce
+   * geste. La faute qui a donne un penalty n'en est pas un.
+   */
+  const coupsFrancs = (teamId: string | null, adverse: string | null) =>
+    compte("free_kick", teamId)
+    + faits.filter(
+      (e) =>
+        e.teamId === adverse
+        && (e.type === "offside" || (e.type === "foul" && e.detail !== PENALTY_FOUL_DETAIL)),
+    ).length;
+
   const parts = possession
     ? partPossession(possession, chronoTourne, Date.now(), seuilMs)
     : null;
@@ -143,7 +160,12 @@ export function lignesStats(
     paire("arrets", "Arrêts", "save"),
     paire("corners", "Corners", "corner"),
     paire("penaltys", "Penaltys obtenus", "penalty"),
-    paire("coups_francs", "Coups francs", "free_kick"),
+    {
+      cle: "coups_francs",
+      label: "Coups francs",
+      home: coupsFrancs(homeTeamId, awayTeamId),
+      away: coupsFrancs(awayTeamId, homeTeamId),
+    },
     paire("touches", "Touches", "throw_in"),
     paire("fautes", "Fautes", "foul"),
     paire("hors_jeu", "Hors-jeu", "offside"),
