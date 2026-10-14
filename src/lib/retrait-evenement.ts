@@ -91,6 +91,11 @@ export function planDuRetrait(
       break;
     }
 
+    case "sortie":
+      // Sa sortie n'a pas eu lieu : il est toujours sur la pelouse.
+      remettreSurLaPelouse(cible.playerId);
+      break;
+
     case "substitution": {
       const entrant = cible.playerId;
       const sortant = cible.outPlayerId;

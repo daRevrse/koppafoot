@@ -2160,24 +2160,30 @@ export async function creditGhostMatchStats(matchId: string): Promise<number> {
  * Every other status transition only touches the match document itself and stays
  * here, gated by the match rules.
  */
-export async function updateMatchStatus(matchId: string, status: Match["status"]): Promise<void> {
-  if (status === "completed") {
-    const current = auth.currentUser;
-    if (!current) throw new Error("Connexion requise");
-    const res = await fetch("/api/matches/complete", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${await current.getIdToken()}`,
-      },
-      body: JSON.stringify({ matchId }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: null }));
-      throw new Error(error ?? "Impossible de terminer le match");
-    }
-    return;
+/**
+ * Terminer un amical par le serveur, qui tient les bilans et les statistiques.
+ * `forfaitTeamId` : le match est arrete definitivement, cette equipe etant
+ * tombee sous le minimum de joueurs. Voir la console live.
+ */
+export async function terminerAmical(matchId: string, forfaitTeamId?: string | null): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) throw new Error("Connexion requise");
+  const res = await fetch("/api/matches/complete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await current.getIdToken()}`,
+    },
+    body: JSON.stringify({ matchId, forfaitTeamId: forfaitTeamId ?? null }),
+  });
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({ error: null }));
+    throw new Error(error ?? "Impossible de terminer le match");
   }
+}
+
+export async function updateMatchStatus(matchId: string, status: Match["status"]): Promise<void> {
+  if (status === "completed") return terminerAmical(matchId);
 
   // A plain transition (pending -> upcoming, etc.): only the match document is
   // touched, so it stays client-side under the match rules.

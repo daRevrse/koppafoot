@@ -201,6 +201,27 @@ export function balleApres(type: TypeEvenement, cote: Cote): Cote | null {
   }
 }
 
+/**
+ * Les camps passes sous le minimum de joueurs : le match ne peut plus
+ * continuer pour eux (sept a onze, a proportion du format — voir minPlayers).
+ */
+export function campsSousLeMinimum(surLeTerrain: Record<Cote, number>, minimum: number): Cote[] {
+  return (["home", "away"] as const).filter((c) => surLeTerrain[c] < minimum);
+}
+
+/**
+ * Le score d'un match arrete par le forfait de `forfaitDe` : trois a zero pour
+ * l'adversaire, ou le score du moment s'il lui est plus favorable.
+ */
+export function scoreDeForfait(
+  score: { home: number; away: number },
+  forfaitDe: Cote,
+): { home: number; away: number } {
+  const adverse = autre(forfaitDe);
+  if (score[adverse] - score[forfaitDe] >= 3) return score;
+  return forfaitDe === "home" ? { home: 0, away: 3 } : { home: 3, away: 0 };
+}
+
 /** Ce qu'un geste de la console change a la fois. */
 export interface Transition {
   jeu?: Jeu;

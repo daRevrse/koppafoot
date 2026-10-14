@@ -39,7 +39,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Token invalide" }, { status: 401 });
   }
 
-  const { matchId } = (await req.json().catch(() => ({}))) as { matchId?: string };
+  const { matchId, forfaitTeamId } = (await req.json().catch(() => ({}))) as {
+    matchId?: string;
+    /** L'equipe tombee sous le minimum de joueurs, quand le match est arrete. */
+    forfaitTeamId?: string | null;
+  };
   if (!matchId) {
     return NextResponse.json({ error: "matchId requis" }, { status: 400 });
   }
@@ -240,6 +244,11 @@ export async function POST(req: NextRequest) {
     completed_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
     ...arretDuChrono,
+    // L'ARRÊT DÉFINITIF : le match se termine sur le score du moment, et le
+    // forfait est noté. Seule une des deux équipes du match peut le porter.
+    ...(forfaitTeamId && (forfaitTeamId === match.home_team_id || forfaitTeamId === match.away_team_id)
+      ? { forfeit_by_team_id: forfaitTeamId }
+      : {}),
     // Le verrou anti-double-comptage se pose ici aussi : un amical crédité par
     // le direct ne doit plus pouvoir l'être une seconde fois à la main.
     ...(isGhostMatch && couvertEnDirect

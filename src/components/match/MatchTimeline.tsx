@@ -28,6 +28,7 @@ const T = textes(
     faute: "Faute",
     fautePenalty: "Faute, penalty accordé",
     horsJeu: "Hors-jeu",
+    sortie: "Sort, non remplacé",
     penalty: "Penalty",
     evenement: "Événement",
     changementSr: "Changement :",
@@ -56,6 +57,7 @@ const T = textes(
     faute: "Foul",
     fautePenalty: "Foul, penalty awarded",
     horsJeu: "Offside",
+    sortie: "Off, not replaced",
     penalty: "Penalty",
     evenement: "Event",
     changementSr: "Substitution:",
@@ -155,6 +157,8 @@ function libelle(e: Evt, t: Textes, langue: Langue): string {
       return e.victimPlayerName ? t.fauteSur(e.victimPlayerName) : t.faute;
     case "offside":
       return t.horsJeu;
+    case "sortie":
+      return t.sortie;
     case "penalty": {
       // Le seul des nouveaux qui reste dans le fil : un penalty accordé est
       // un moment du match, pas une ligne de compteur. Et ce qui intéresse

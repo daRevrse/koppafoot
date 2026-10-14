@@ -33,7 +33,8 @@ import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { libelleMinute } from "@/lib/minute-du-match";
 import {
   JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
-  autre, balleApres, interrompre, lireJeu, miTemps, relancer, reprendreLeMatch, verrou,
+  autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, relancer, reprendreLeMatch,
+  scoreDeForfait, verrou,
   type Jeu, type Transition,
 } from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
@@ -477,7 +478,7 @@ export default function LiveMatchConsole({
   // La compétition arrive une frame après le match, d'où les valeurs par défaut.
   const {
     titulairesMax: startersMax, dureeMiTempsMin: halfMinutes,
-    remplacementsMax, retourAutorise,
+    remplacementsMax, retourAutorise, minimumJoueurs,
   } = pilote.regles(competition, match);
   const halfMs = halfMinutes * 60_000;
   const fullMs = halfMs * 2;
@@ -959,6 +960,21 @@ export default function LiveMatchConsole({
     appliquer({ jeu: interrompre(jeu), chrono: { arreterA: displayTime } }, "L'interruption n'a pas été enregistrée");
   };
 
+  /**
+   * LE MINIMUM DE JOUEURS. Une équipe qui tombe dessous — exclusions, sorties
+   * sans remplaçant — ne peut plus jouer : l'arbitre arrête le match. La
+   * console l'interrompt d'elle-même et le dit ; le scoreur reprend s'il
+   * s'agissait d'une erreur de saisie, ou l'organisateur prononce l'arrêt
+   * définitif.
+   */
+  const verifierMinimum = (side: Side, restants: number) => {
+    if (restants >= minimumJoueurs || jeu.raison === "interruption") return;
+    appliquer({ jeu: interrompre(jeu), chrono: { arreterA: displayTime } }, "L'interruption n'a pas été enregistrée");
+    setAlerteMinimumFermee(false);
+    toast.error(`${nomDe(side)} n'a plus que ${restants} joueur${restants > 1 ? "s" : ""}`);
+  };
+  const [alerteMinimumFermee, setAlerteMinimumFermee] = useState(false);
+
   const reprendreApresInterruption = () => {
     appliquer({ jeu: reprendreLeMatch(jeu), chrono: { demarrer: true } }, "La reprise n'a pas été enregistrée");
     toast.success("Le match reprend");
@@ -1428,6 +1444,7 @@ export default function LiveMatchConsole({
           competition,
         );
         proposerAnnulation(`🟥 2e jaune : ${entry.name} exclu`, jauneId);
+        verifierMinimum(side, onPitch.filter((id) => id !== entry.playerId).length);
       } else {
         // UN JAUNE NE SONNE PAS. Pour qui suit une compétition de quarante
         // matchs, c'était un téléphone qui vibre à chaque faute un peu
@@ -1444,6 +1461,17 @@ export default function LiveMatchConsole({
         competition,
       );
       proposerAnnulation(`🟥 Carton rouge, ${entry.name}`, rougeId);
+      verifierMinimum(side, onPitch.filter((id) => id !== entry.playerId).length);
+    } else if (type === "sortie") {
+      // Il quitte la pelouse, personne n'entre : son équipe joue à un de
+      // moins. Jamais notifié — une blessure n'est pas un fait de match pour
+      // qui suit de loin —, mais le minimum de joueurs veille.
+      const sortieId = nouvelIdEvenement();
+      const restants = onPitch.filter((id) => id !== entry.playerId);
+      suivre(pilote.ajouterEvenement({ ...base, id: sortieId, type: "sortie" }), "La sortie n'a pas été enregistrée");
+      suivre(pilote.poserSurLeTerrain(side, restants), "La pelouse n'a pas été mise à jour");
+      proposerAnnulation(`🚑 ${entry.name} sort sans remplaçant`, sortieId);
+      verifierMinimum(side, restants.length);
     } else {
       // Arrêt, faute, hors-jeu : l'historique du match, et rien d'autre.
       //
@@ -1900,6 +1928,52 @@ export default function LiveMatchConsole({
     }
   };
 
+  /**
+   * L'ARRÊT DÉFINITIF, quand une équipe est sous le minimum de joueurs. En
+   * compétition, le forfait donne 3–0 à l'adversaire, ou le score du moment
+   * s'il lui est plus favorable, et le tableau avance comme pour un résultat
+   * joué. En amical, le score du moment reste, le forfait est noté.
+   */
+  const arreterDefinitivement = async (forfaitDe: Side) => {
+    if (!match) return;
+    if (!finPossible()) return;
+    const forfaitTeamId = forfaitDe === "home" ? match.homeTeamId : match.awayTeamId;
+    if (!forfaitTeamId) return;
+    const scoreActuel = { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 };
+    const score = pilote.genre === "competition" ? scoreDeForfait(scoreActuel, forfaitDe) : scoreActuel;
+    const ok = await demander({
+      titre: `Arrêt définitif : forfait de ${nomDe(forfaitDe)} ?`,
+      corps: (
+        <>
+          Score retenu {match.homeTeamName} {score.home} – {score.away} {match.awayTeamName}.
+          {" "}Le match se termine et ne pourra plus reprendre.
+        </>
+      ),
+      action: "Arrêter le match",
+      danger: true,
+    });
+    if (!ok) return;
+    setIsSubmitting(true);
+    try {
+      await pilote.arreterDefinitivement({ forfaitTeamId, score });
+      pilote.notifier(
+        {
+          title: "🛑 Match arrêté",
+          body: `${nomDe(forfaitDe)} n'a plus assez de joueurs. ${match.homeTeamName} ${score.home} – ${score.away} ${match.awayTeamName}`,
+        },
+        competition,
+      );
+      void recalculerLeClassement(firebaseUser);
+      toast.success("Match arrêté");
+      router.push(returnHref);
+    } catch (err) {
+      console.error("Arrêt définitif :", err);
+      toast.error("Erreur technique : " + (err instanceof Error ? err.message : "Inconnue"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handlePenaltySubmit = async () => {
     const ph = Number(penaltyHome);
     const pa = Number(penaltyAway);
@@ -2195,10 +2269,18 @@ export default function LiveMatchConsole({
     const sentOff = new Set(
       events.filter((e) => e.type === "red_card" && e.playerId).map((e) => e.playerId as string),
     );
+    // SANS RETOUR, CELUI QUI EST SORTI NE REVIENT PAS — remplaçant compris. Le
+    // banc reproposait un remplaçant entré puis ressorti, seul le titulaire
+    // était écarté. Une sortie sans remplaçant vaut sortie.
+    const sortis = new Set(
+      events
+        .map((e) => (e.type === "substitution" ? e.outPlayerId : e.type === "sortie" ? e.playerId : null))
+        .filter((id): id is string => !!id),
+    );
     return lineup.filter(
       (e) => !onPitch.has(e.playerId)
         && !sentOff.has(e.playerId)
-        && (retourAutorise || e.role === "substitute"),
+        && (retourAutorise || (e.role === "substitute" && !sortis.has(e.playerId))),
     );
   };
 
@@ -2300,6 +2382,9 @@ export default function LiveMatchConsole({
           openSubModal(side, { sort: entry.playerId });
         },
       },
+      // Blessé, plus de changement ou banc vide : il sort, personne n'entre.
+      // Jamais verrouillée, comme le remplacement : elle arrive ballon mort.
+      { ...evenement("sortie", EMOJI_EVENEMENT.sortie), libelle: "Sortie sans remplaçant" },
     ];
   };
 
@@ -2349,6 +2434,11 @@ export default function LiveMatchConsole({
       )}
     </>
   );
+
+  /** Le camp sous le minimum de joueurs, le match interrompu pour lui. */
+  const campSousLeMinimum = jeu.raison === "interruption"
+    ? campsSousLeMinimum({ home: match.homeOnPitch.length, away: match.awayOnPitch.length }, minimumJoueurs)[0] ?? null
+    : null;
 
   // ---- Le déroulé, tel que le bandeau le montre --------------------------------
 
@@ -3037,6 +3127,58 @@ export default function LiveMatchConsole({
             onChoisir={(c) => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, c); }}
             onPasser={() => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, null); }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* SOUS LE MINIMUM DE JOUEURS : le match est interrompu, et il faut
+          trancher. */}
+      <AnimatePresence>
+        {!isCompleted && campSousLeMinimum && !alerteMinimumFermee && (
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{ maxHeight: "calc(var(--console-h, 100dvh) - 2rem)" }}
+              className="relative w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl"
+            >
+              <h2 className="text-lg font-black text-gray-900">Le match ne peut pas continuer</h2>
+              <p className="mt-1 text-sm font-medium text-gray-500">
+                {`${nomDe(campSousLeMinimum)} n'a plus que ${
+                  (campSousLeMinimum === "home" ? match.homeOnPitch : match.awayOnPitch).length
+                } joueurs sur le terrain, pour un minimum de ${minimumJoueurs}. Le match est interrompu.`}
+              </p>
+              <div className="mt-4 grid gap-2">
+                {isOrganizer ? (
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => void arreterDefinitivement(campSousLeMinimum)}
+                    className="bg-red-600 py-3 text-xs font-black uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+                  >
+                    {`Arrêt définitif · forfait de ${nomDe(campSousLeMinimum)}`}
+                  </button>
+                ) : (
+                  <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                    Seul l&apos;organisateur peut prononcer l&apos;arrêt définitif : appelle-le.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAlerteMinimumFermee(true)}
+                  className="border border-gray-200 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  Erreur de saisie : corriger
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

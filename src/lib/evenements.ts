@@ -30,6 +30,10 @@ export type TypeEvenement =
   | "yellow_card"
   | "red_card"
   | "substitution"
+  // Un joueur quitte le terrain sans etre remplace — blesse, plus de
+  // changement ou banc vide. Son equipe joue a un de moins : c'est ce que le
+  // minimum de joueurs surveille. Jamais notifie.
+  | "sortie"
   // Les reperes de deroule, poses par la console elle-meme.
   | "period_start"
   | "period_end"
@@ -54,7 +58,7 @@ export type TypeEvenement =
  */
 export type TypeEvenementJoueur =
   | "goal" | "yellow_card" | "red_card" | "save" | "foul" | "offside"
-  | "shot" | "shot_on_target";
+  | "shot" | "shot_on_target" | "sortie";
 
 /**
  * Ceux qui n'appartiennent a personne.
@@ -72,7 +76,7 @@ export const EVENEMENTS_EQUIPE: readonly TypeEvenementEquipe[] = [
 
 /** Les mineurs : l'historique du match, et rien d'autre. Aucune notification. */
 const MINEURS = new Set<TypeEvenement>([
-  "save", "foul", "offside", "penalty",
+  "save", "foul", "offside", "penalty", "sortie",
   "shot", "shot_on_target", "corner", "throw_in", "free_kick",
 ]);
 
@@ -104,6 +108,7 @@ export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> =
     yellow_card: "Carton jaune",
     red_card: "Carton rouge",
     substitution: "Remplacement",
+    sortie: "Sortie sans remplaçant",
     period_start: "Début de période",
     period_end: "Fin de période",
     save: "Arrêt",
@@ -121,6 +126,7 @@ export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> =
     yellow_card: "Yellow card",
     red_card: "Red card",
     substitution: "Substitution",
+    sortie: "Off, not replaced",
     period_start: "Start of period",
     period_end: "End of period",
     save: "Save",
@@ -148,6 +154,7 @@ export const EMOJI_EVENEMENT: Record<TypeEvenement, string> = {
   yellow_card: "🟨",
   red_card: "🟥",
   substitution: "🔄",
+  sortie: "🚑",
   period_start: "▶️",
   period_end: "⏸️",
   save: "🧤",

@@ -796,6 +796,11 @@ export interface FirestoreMatch {
   /** Qui a désigné. Sur un amical, c'est souvent un manager en lice. */
   mvp_by?: string | null;
   mvp_at?: string | null;
+  /**
+   * Le match a ete arrete definitivement : l'equipe tombee sous le minimum de
+   * joueurs. Ecrit par /api/matches/complete, voir la console live.
+   */
+  forfeit_by_team_id?: string | null;
   /** @deprecated Lu en repli pour les matchs d'avant les champs par camp. */
   ghost_lineup?: FirestoreLineupEntry[];
   created_at: string;
