@@ -65,8 +65,14 @@ export default function NewCompetitionPage() {
       ...defaultFormat(next),
       team_size: prev.team_size,
       half_duration: prev.half_duration,
-      // Même raison : le régime des changements est une règle du jeu.
+      // Même raison : les changements, le minimum de joueurs et les
+      // prolongations sont des règles du jeu.
       ...(prev.unlimited_subs !== undefined ? { unlimited_subs: prev.unlimited_subs } : {}),
+      ...(prev.subs_max !== undefined ? { subs_max: prev.subs_max } : {}),
+      ...(prev.subs_return !== undefined ? { subs_return: prev.subs_return } : {}),
+      ...(prev.min_players !== undefined ? { min_players: prev.min_players } : {}),
+      ...(prev.extra_time !== undefined ? { extra_time: prev.extra_time } : {}),
+      ...(prev.extra_time_duration !== undefined ? { extra_time_duration: prev.extra_time_duration } : {}),
     }));
   };
 

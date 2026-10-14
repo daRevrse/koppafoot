@@ -145,19 +145,49 @@ export function matchDuration(format: CompetitionFormat): number {
 }
 
 /**
- * Les changements accordés à chaque équipe, ou `null` quand l'organisateur a
- * coché « changements illimités ».
+ * Le foot à effectif réduit — huit joueurs et moins — se joue en changements
+ * illimités et volants : on y fait tourner tout l'effectif. De neuf à onze,
+ * c'est la règle officielle : cinq changements, sortie définitive.
+ */
+const PETIT_FORMAT_MAX = 8;
+
+/**
+ * Les changements accordés à chaque équipe, ou `null` quand ils sont
+ * illimités.
+ *
+ * LE CHOIX DE L'ORGANISATEUR D'ABORD, puis le format. Cinq changements
+ * s'appliquaient à tous les formats, alors qu'en foot à cinq ou à sept on
+ * change sans compter.
  */
 export function subsMax(format: CompetitionFormat): number | null {
-  return format.unlimited_subs === true ? null : DEFAULT_SUBS_MAX;
+  const illimites = format.unlimited_subs ?? teamSize(format) <= PETIT_FORMAT_MAX;
+  return illimites ? null : positiveOr(format.subs_max, DEFAULT_SUBS_MAX);
 }
 
 /**
- * Un joueur sorti peut-il revenir ? Seulement en changements illimités : les
- * deux vont ensemble, on y fait tourner l'effectif comme sur un amical.
+ * Un joueur sorti peut-il revenir ? Le réglage de l'organisateur, sinon :
+ * oui en changements illimités — on y fait tourner l'effectif —, non sinon.
  */
 export function reentryAllowed(format: CompetitionFormat): boolean {
-  return format.unlimited_subs === true;
+  return format.subs_return ?? subsMax(format) === null;
+}
+
+/** Des prolongations à égalité, en élimination directe. Non par défaut. */
+export function extraTime(format: CompetitionFormat): boolean {
+  return format.extra_time === true;
+}
+
+/** La durée d'une prolongation : un tiers d'une mi-temps par défaut (15 en 2 × 45). */
+export function extraTimeDuration(format: CompetitionFormat): number {
+  return positiveOr(format.extra_time_duration, Math.max(1, Math.round(halfDuration(format) / 3)));
+}
+
+/**
+ * Le minimum de joueurs sur le terrain pour que le match continue : la règle
+ * dit sept à onze, on garde la proportion pour les autres formats.
+ */
+export function minPlayers(format: CompetitionFormat): number {
+  return positiveOr(format.min_players, Math.max(1, Math.round((teamSize(format) * 7) / 11)));
 }
 
 /** "11v11", la même écriture que les matchs amicaux et les terrains. */
