@@ -94,7 +94,9 @@ d'affichage suit les côtés.
 
 ## Chrono et notation
 
-Une transition = une écriture (chrono, période, état, possession ensemble).
+Une transition = une écriture (chrono, période et état ensemble). La possession
+suit dans sa propre écriture : elle se suspend et reprend d'elle-même quand le
+ballon change d'état, quel que soit le chemin qui l'a changé.
 Notation : au-delà de la durée réglementaire de la période → `fin+N'`
 (45+1', 90+3', 105+1', 120+2' ; 20+1' en 2×20). Une seule fonction partagée
 (console, notifications, fil public, Direct, mobile).

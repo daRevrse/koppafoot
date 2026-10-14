@@ -8,7 +8,7 @@ import {
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
   MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, Target,
-  ClipboardList, Trash2, WifiOff, CloudUpload,
+  ClipboardList, Trash2, WifiOff, CloudUpload, Ellipsis, ArrowLeftRight, Timer, CloudLightning,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -31,6 +31,11 @@ import {
 } from "@/lib/possession";
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { libelleMinute } from "@/lib/minute-du-match";
+import {
+  JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
+  autre, balleApres, interrompre, lireJeu, miTemps, relancer, reprendreLeMatch, verrou,
+  type Jeu, type Transition,
+} from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
 import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
 import {
@@ -489,40 +494,22 @@ export default function LiveMatchConsole({
   );
 
   /**
-   * Le verrou qui suit un but.
+   * L'ÉTAT DU JEU : ballon en jeu, ou mort et pourquoi. Voir lib/etat-du-jeu.
    *
-   * IL NE PORTAIT QUE SUR LE BUT. Un but tapé deux fois est un score faux, et
-   * le corriger demande une intervention d'organisateur : d'ou soixante
-   * secondes de verrou sur ce bouton-la. Mais le raisonnement vaut pour le
-   * reste, et pour une raison plus simple encore — APRES UN BUT, LE JEU EST
-   * MORT. Celebration, retour au rond central, coup d'envoi : pendant ce
-   * temps-la il ne peut y avoir ni tir, ni corner, ni touche, ni hors-jeu. Ce
-   * qui s'y saisit est un appui en trop, jamais une action.
+   * Il remplace les deux minuteurs qui suivaient un but — quinze secondes de
+   * verrou sur les actions de jeu, soixante sur le bouton But. Ils devinaient
+   * la durée d'une célébration, et se trompaient dans les deux sens : corners
+   * et touches se rouvraient ballon encore mort, et l'équipe qui engageait ne
+   * pouvait pas marquer de la minute. Le ballon est désormais mort jusqu'à
+   * l'engagement, que le scoreur donne d'un geste — et on ne marque pas deux
+   * fois sans engagement entre les deux.
    *
-   * DEUX DUREES, PARCE QUE LES DEUX RISQUES SONT DIFFERENTS. Le but garde ses
-   * soixante secondes : son cout est un score faux. Les actions de jeu n'en
-   * ont que quinze, le temps de la celebration — au-dela le jeu a repris pour
-   * de bon, et continuer a les bloquer ferait perdre de vraies frappes.
-   *
-   * LE CARTON ET LE REMPLACEMENT NE SONT PAS VERROUILLES. Ce sont justement
-   * les deux choses qui arrivent pendant un arret de jeu : un carton pour une
-   * celebration, un changement dans la foulee du but.
+   * LE CARTON ET LE REMPLACEMENT NE SONT JAMAIS VERROUILLÉS. Ce sont justement
+   * les deux choses qui arrivent pendant un arrêt de jeu.
    */
-  const SECONDES_APRES_BUT = 60;
-  const SECONDES_JEU_MORT = 15;
-  const [goalCooldown, setGoalCooldown] = useState(0);
-  useEffect(() => {
-    if (goalCooldown <= 0) return;
-    const t = setTimeout(() => setGoalCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearTimeout(t);
-  }, [goalCooldown]);
-
-  // Un seul decompte pour les deux durees : le jeu est mort pendant les quinze
-  // premieres secondes des soixante. Un second minuteur aurait double l'effet
-  // et l'etat pour la meme information.
-  const secondesJeuMort = Math.max(0, goalCooldown - (SECONDES_APRES_BUT - SECONDES_JEU_MORT));
-  const jeuMort = secondesJeuMort > 0;
-  const apresBut = jeuMort ? `Jeu arrêté (${secondesJeuMort}s)` : null;
+  const jeu: Jeu = match ? lireJeu(match) : JEU_AVANT;
+  /** Pourquoi les actions de jeu sont fermées, ou `null`. */
+  const verrouDuJeu = match?.status === "live" ? verrou(jeu) : null;
 
   // Load both rosters once, before kickoff, for the match-sheet builder. Drafts
   // are seeded from any previously-saved lineup so re-validation overwrites cleanly.
@@ -638,12 +625,17 @@ export default function LiveMatchConsole({
     }
   }, [match?.status]);
 
-  // L'horloge part dans la file de Firestore comme le reste : sans réseau, elle
-  // s'arrête et repart quand même à l'écran. Voir `suivre`.
-  const handlePauseTimer = useCallback(() => {
-    suivre(pilote.pauserChrono(displayTime), "Le chronomètre n'a pas été arrêté");
-    toast.success("Chronomètre arrêté");
-  }, [pilote, displayTime, suivre]);
+  /**
+   * Un geste et tout ce qu'il change — état du jeu, période, chrono — en une
+   * écriture. Elle part dans la file de Firestore comme le reste : sans réseau,
+   * l'écran suit quand même. Voir `suivre`.
+   */
+  const appliquer = (t: Transition, echec: string) => suivre(pilote.transition(t), echec);
+  /** Poser un nouvel état du jeu, s'il change. */
+  const poserJeu = (suivant: Jeu) => {
+    if (JSON.stringify(suivant) === JSON.stringify(jeu)) return;
+    appliquer({ jeu: suivant }, "L'état du jeu n'a pas été enregistré");
+  };
 
   // ---- Le temps additionnel, et la fin de la periode ------------------------
   //
@@ -668,14 +660,16 @@ export default function LiveMatchConsole({
   const minutesDeLaPeriode = mitempsEnCours ? minutesAdditionnelles[mitempsEnCours] : 0;
 
   /**
-   * Ou l'horloge s'arrete toute seule, en millisecondes de chrono.
+   * Quand la période devrait finir, en millisecondes de chrono : la mi-temps
+   * réglementaire PLUS le temps additionnel annoncé.
    *
-   * La mi-temps reglementaire, PLUS le temps additionnel annonce. Sans
-   * annonce, c'est la minute reglementaire tout court : une premiere periode
-   * s'arrete a 45:00, une seconde a 90:00.
+   * L'HORLOGE NE S'Y ARRÊTE PLUS. Le temps additionnel est un minimum, et
+   * l'arbitre siffle quand il veut : l'arrêt automatique coupait la dernière
+   * action, saisie ensuite à une minute figée et sans possession. Passé ce
+   * moment, le bouton de fin de période clignote, et c'est le scoreur qui
+   * siffle avec l'arbitre.
    *
-   * `null` a la pause et apres le coup de sifflet final : il n'y a alors plus
-   * de periode a terminer.
+   * `null` à la pause et après le coup de sifflet final.
    */
   const cibleDeLaPeriode =
     mitempsEnCours === "first" ? halfMs + minutesAdditionnelles.first * 60_000
@@ -686,7 +680,7 @@ export default function LiveMatchConsole({
    * Poser le temps additionnel de la mi-temps en cours.
    *
    * Borne a zero et a quinze : au-dela ce n'est plus un temps additionnel mais
-   * une faute de frappe, et l'horloge s'arreterait un quart d'heure trop tard.
+   * une faute de frappe.
    */
   const poserAdditionnel = (delta: number) => {
     if (!mitempsEnCours) return;
@@ -695,53 +689,17 @@ export default function LiveMatchConsole({
     suivre(pilote.poserTempsAdditionnel(mitempsEnCours, suivant), "Le temps additionnel n'a pas été enregistré");
   };
 
-  // Timer logic, copied verbatim from the referee console. The live_state
-  // shapes are identical (timerStartAt / timerOffset / isTimerRunning), so the
-  // server-clock computation works unchanged; only the pause writer is
-  // retargeted to pauseCompTimer. The `match.status === "live"` guard is a
-  // shipped bug fix (freeze the clock at full time), do NOT regress it.
-  /** La cible deja servie par l'arret automatique. Voir la boucle ci-dessous. */
-  const arretAutoRef = useRef<number | null>(null);
-
+  // L'horloge du serveur : `timerStartAt` + `timerOffset`. La garde
+  // `match.status === "live"` fige l'horloge au coup de sifflet final : ne pas
+  // la retirer.
   useEffect(() => {
     if (!match?.liveState) return;
-
-    const cible = cibleDeLaPeriode;
-    const mitemps = mitempsEnCours;
     let interval: ReturnType<typeof setInterval>;
 
     if (match.status === "live" && match.liveState.isTimerRunning && match.liveState.timerStartAt) {
       const start = new Date(match.liveState.timerStartAt).getTime();
       const offset = match.liveState.timerOffset || 0;
-
-      interval = setInterval(() => {
-        const now = Date.now();
-        const elapsed = now - start + offset;
-        setDisplayTime(elapsed);
-
-        // L'ARRET AUTOMATIQUE EN FIN DE PERIODE.
-        //
-        // Il avait ete retire — « the operator now controls stoppage
-        // manually » — et pour une bonne raison : il tombait a la minute
-        // reglementaire, donc AVANT le temps additionnel, et coupait le match
-        // en plein jeu. Le scoreur devait relancer a chaque fois.
-        //
-        // Il revient parce que la cible n'est plus la minute reglementaire
-        // seule, mais elle PLUS le temps annonce par l'arbitre. Une periode
-        // sans annonce s'arrete a 45:00 ; annoncez trois minutes, elle
-        // s'arrete a 48:00.
-        //
-        // La garde retient la cible deja servie, pas un simple booleen : le
-        // temps que l'arret fasse l'aller-retour par la base, la boucle passe
-        // plusieurs fois ici. Et si le scoreur rallonge apres coup, la cible
-        // change, donc la relance s'arretera bien a la nouvelle.
-        if (cible !== null && elapsed >= cible && arretAutoRef.current !== cible) {
-          arretAutoRef.current = cible;
-          void pilote.pauserChrono(cible).then(() => {
-            toast(mitemps === "first" ? "Fin de la 1re mi-temps" : "Fin du temps réglementaire", { icon: "⏱️" });
-          }).catch(() => {});
-        }
-      }, 100);
+      interval = setInterval(() => setDisplayTime(Date.now() - start + offset), 100);
     } else {
       setDisplayTime(match.liveState.timerOffset || 0);
     }
@@ -749,12 +707,10 @@ export default function LiveMatchConsole({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [match?.liveState, match?.status, cibleDeLaPeriode, mitempsEnCours, pilote]);
+  }, [match?.liveState, match?.status]);
 
-  const handleStartTimer = () => {
-    suivre(pilote.demarrerChrono(), "Le chronomètre n'a pas été lancé");
-    toast.success("Chronomètre lancé");
-  };
+  /** Le temps additionnel annoncé est écoulé : l'arbitre va siffler. */
+  const tempsEcoule = cibleDeLaPeriode !== null && displayTime >= cibleDeLaPeriode;
 
   // ---- La possession de balle ------------------------------------------------
   //
@@ -777,8 +733,13 @@ export default function LiveMatchConsole({
    */
   const DELAI_ECRITURE_POSSESSION = 2500;
 
-  /** Le chrono du match fait autorite : hors jeu, rien ne s'accumule. */
-  const chronoTourne = match?.status === "live" && !!match.liveState?.isTimerRunning;
+  /**
+   * LA POSSESSION NE COMPTE QUE BALLON EN JEU. Elle suivait le chrono, qui
+   * tourne aussi ballon mort : l'équipe qui venait de marquer accumulait
+   * toute la célébration, alors que le ballon revient à celle qui engage.
+   */
+  const ballonEnJeu =
+    match?.status === "live" && !!match.liveState?.isTimerRunning && jeu.balle === "en_jeu";
 
 
   const enAttenteRef = useRef<Possession | null>(null);
@@ -810,39 +771,44 @@ export default function LiveMatchConsole({
     flushRef.current = setTimeout(envoyerPossession, DELAI_ECRITURE_POSSESSION);
   }, [envoyerPossession]);
 
+  /** Ballon en jeu ou non, tel que la possession l'a vu en dernier. */
+  const ballonEnJeuRef = useRef<boolean | null>(null);
+
   // Semee UNE SEULE FOIS. Voir la declaration de `possessionRef` : l'abonnement
   // renvoie ce que la console vient d'ecrire, et le relire ecraserait la
   // bascule qui a eu lieu depuis.
+  //
+  // L'ETAT DU BALLON EST RETENU AU MEME MOMENT. Le match arrive apres le premier
+  // rendu : l'effet ci-dessous, qui attend la possession, ne retenait donc
+  // rien au montage, et prenait le premier vrai changement — le coup d'envoi —
+  // pour une initialisation. La possession ne commencait a compter qu'au
+  // premier appui du scoreur.
   useEffect(() => {
     if (possessionRef.current !== null || !match) return;
     const depart = match.liveState?.possession ?? POSSESSION_VIDE;
     possessionRef.current = depart;
+    ballonEnJeuRef.current = ballonEnJeu;
     setPossession(depart);
-  }, [match]);
+  }, [match, ballonEnJeu]);
 
-  // L'horloge s'arrete, le segment en cours se clot ; elle repart, il reprend.
-  // Un effet plutot que des appels dans chaque bouton : la mi-temps, la reprise,
-  // la pause et la fin de match passent par quatre chemins differents, et il en
-  // manquerait un.
-  const chronoTourneRef = useRef<boolean | null>(null);
+  // Le ballon devient mort, le segment en cours se clot ; il revient en jeu, il
+  // reprend. Un effet plutot que des appels dans chaque bouton : le but, le
+  // penalty, l'arret de jeu, la mi-temps, l'interruption et la fin de match
+  // passent par autant de chemins, et il en manquerait un.
   useEffect(() => {
-    if (possessionRef.current === null) return;
-    if (chronoTourneRef.current === chronoTourne) return;
-    const premierPassage = chronoTourneRef.current === null;
-    chronoTourneRef.current = chronoTourne;
-    // Au montage on ne fait qu'enregistrer l'etat : la console rouverte en
-    // cours de match trouve `since` deja pose, et le reecrire le decalerait.
-    if (premierPassage) return;
+    if (possessionRef.current === null || ballonEnJeuRef.current === null) return;
+    if (ballonEnJeuRef.current === ballonEnJeu) return;
+    ballonEnJeuRef.current = ballonEnJeu;
     const actuel = possessionRef.current;
-    majPossession(chronoTourne ? reprendre(actuel) : suspendre(actuel), true);
-  }, [chronoTourne, majPossession]);
+    majPossession(ballonEnJeu ? reprendre(actuel) : suspendre(actuel), true);
+  }, [ballonEnJeu, majPossession]);
 
   // La derniere bascule part avant que l'ecran ne disparaisse.
   useEffect(() => () => { envoyerPossession(); }, [envoyerPossession]);
 
   const basculerPossession = (side: Side | null) => {
     const actuel = possessionRef.current ?? POSSESSION_VIDE;
-    majPossession(basculer(actuel, side, chronoTourne));
+    majPossession(basculer(actuel, side, ballonEnJeu));
   };
 
   // ---- Les notes ---------------------------------------------------------------
@@ -869,35 +835,188 @@ export default function LiveMatchConsole({
     };
   }, [match, halfMinutes]);
 
-  // Period 1 → half-time: snap the clock to the end of the first half, stop,
-  // move to break (period 2).
-  // LES DEUX ÉCRITURES PARTENT ENSEMBLE, sans s'attendre : Firestore garde
-  // leur ordre. L'une après l'autre, la seconde ne partait qu'à l'accusé de la
-  // première — sans réseau, jamais : le chrono s'arrêtait, la mi-temps restait.
-  const handleHalfTime = () => {
-    suivre(pilote.pauserChrono(halfMs), "Le chronomètre n'a pas été arrêté");
-    suivre(pilote.changerPeriode(2), "La mi-temps n'a pas été enregistrée");
-    {
-      if (match) {
-        pilote.notifier(
-          { title: "⏸️ Mi-temps", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}` },
-          competition,
-        );
-      }
-      toast.success("Mi-temps");
+  // ---- Le déroulé : coup d'envoi, reprises, mi-temps, interruption ------------
+
+  const nomDe = (c: Side) => (c === "home" ? match?.homeTeamName : match?.awayTeamName) ?? "";
+
+  /**
+   * LE BALLON REPART, PAR `cote`.
+   *
+   * C'est le seul geste de reprise, quelle que soit la raison de l'arrêt : un
+   * appui sur la pelouse du camp qui repart, sur sa pastille, ou sur le bouton
+   * central (« Engagement · <équipe> », « Reprise »). Ballon en jeu, le même
+   * appui ne fait que donner le ballon — c'est le geste de toujours.
+   *
+   * Au coup d'envoi et à la reprise de la seconde période, le chrono part avec
+   * le ballon : c'est le même coup de sifflet. Il ne s'arrête jamais sur un
+   * but ou un arrêt de jeu, il n'a donc pas à repartir.
+   */
+  const remettreEnJeu = (cote: Side) => {
+    if (!match?.liveState || match.status !== "live") return;
+    if (jeu.balle === "en_jeu" || jeu.raison === "interruption") {
+      basculerPossession(cote);
+      return;
+    }
+    const t: Transition = { jeu: relancer(jeu, cote) };
+    if (jeu.raison === "mi_temps") {
+      t.periode = 3;
+      t.chrono = { demarrer: true };
+    } else if (!match.liveState.isTimerRunning) {
+      // Le coup d'envoi, ou un match arrêté par l'ancien bouton « Arrêter ».
+      t.chrono = { demarrer: true };
+    }
+    appliquer(t, "La reprise n'a pas été enregistrée");
+    basculerPossession(cote);
+
+    if (jeu.raison === "avant") {
+      // LE PUSH PART AU VRAI COUP D'ENVOI, et non plus à l'ouverture du
+      // direct : « C'est parti ! » sonnait pendant que le chrono attendait.
+      pilote.notifier(
+        { title: "🔴 C'est parti !", body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !` },
+        competition,
+      );
+      toast.success(`Coup d'envoi · ${nomDe(cote)}`);
+    } else if (jeu.raison === "mi_temps") {
+      // PAS DE PUSH À LA REPRISE. La mi-temps en envoie un, le prochain but
+      // aussi : entre les deux, « le match reprend » ne disait rien que
+      // l'abonné ait besoin de savoir, pour chacun des matchs qu'il suit.
+      toast.success("Seconde période");
     }
   };
 
-  // Period 2 (break) → resume where the first half stopped, move to second
-  // half (period 3).
-  const handleResume = () => {
-    suivre(pilote.demarrerChrono(), "Le chronomètre n'a pas été relancé");
-    suivre(pilote.changerPeriode(3), "La reprise n'a pas été enregistrée");
-    // PAS DE PUSH À LA REPRISE. La mi-temps en envoie un, le prochain but
-    // aussi : entre les deux, « le match reprend » ne disait rien que
-    // l'abonné ait besoin de savoir, pour chacun des matchs qu'il suit.
-    toast.success("Reprise du jeu");
+  /** Le scoreur déclare un arrêt de jeu : blessure, bagarre, VAR... */
+  const declarerArretDeJeu = () => poserJeu(arretDeJeu(jeu));
+
+  /**
+   * LA MI-TEMPS, AVEC UNE GARDE ET UN RETOUR.
+   *
+   * Le bouton était disponible dès la première minute, sans confirmation ni
+   * annulation : un appui malheureux à la 12e coupait la première mi-temps
+   * pour de bon. Avant le temps réglementaire, on confirme ; après, on siffle
+   * aussitôt — c'est le geste de l'arbitre, il ne doit pas attendre —, et
+   * « Annuler » reste offert quelques secondes, comme après un but.
+   *
+   * Le chrono revient à la fin réglementaire, pour que la seconde période
+   * démarre au bon endroit. L'état, la période et le chrono partent ensemble.
+   */
+  const sifflerLaMiTemps = async () => {
+    if (!match?.liveState) return;
+    if (displayTime < halfMs) {
+      const ok = await demander({
+        titre: `Siffler la mi-temps à ${minuteLue} ?`,
+        corps: <>Le temps réglementaire n&apos;est pas écoulé.</>,
+        action: "Mi-temps",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    const avant = { jeu, ecoule: displayTime, arreteA: Date.now() };
+    appliquer({ jeu: miTemps(jeu), periode: 2, chrono: { arreterA: halfMs } }, "La mi-temps n'a pas été enregistrée");
+    pilote.notifier(
+      { title: "⏸️ Mi-temps", body: `${match.homeTeamName} ${match.scoreHome ?? 0} – ${match.scoreAway ?? 0} ${match.awayTeamName}` },
+      competition,
+    );
+    toast(
+      (t) => (
+        <span className="flex items-center gap-3">
+          <span className="min-w-0">⏸️ Mi-temps</span>
+          <button
+            type="button"
+            onClick={() => {
+              toast.dismiss(t.id);
+              // Le chrono reprend comme s'il ne s'était jamais arrêté.
+              appliquer(
+                {
+                  jeu: avant.jeu,
+                  periode: 1,
+                  chrono: { demarrer: true, depuis: avant.ecoule + (Date.now() - avant.arreteA) },
+                },
+                "La mi-temps n'a pas été annulée",
+              );
+            }}
+            className="shrink-0 border border-gray-300 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-gray-900 transition-colors hover:bg-gray-100"
+          >
+            Annuler
+          </button>
+        </span>
+      ),
+      { id: "annuler", duration: DUREE_ANNULATION },
+    );
   };
+
+  /**
+   * L'INTERRUPTION : orage, incident. Le seul état où le chrono s'arrête — et
+   * le seul arrêt que le public voit, « Match interrompu ».
+   */
+  const interrompreLeMatch = async () => {
+    const ok = await demander({
+      titre: "Interrompre le match ?",
+      corps: <>Le chrono s&apos;arrête jusqu&apos;à la reprise. Les spectateurs voient « Match interrompu ».</>,
+      action: "Interrompre",
+      danger: true,
+    });
+    if (!ok) return;
+    appliquer({ jeu: interrompre(jeu), chrono: { arreterA: displayTime } }, "L'interruption n'a pas été enregistrée");
+  };
+
+  const reprendreApresInterruption = () => {
+    appliquer({ jeu: reprendreLeMatch(jeu), chrono: { demarrer: true } }, "La reprise n'a pas été enregistrée");
+    toast.success("Le match reprend");
+  };
+
+  /**
+   * RECALER LE CHRONO sur la montre de l'arbitre : un chrono lancé quarante
+   * secondes trop tard restait faux tout le match, et le seul outil —
+   * Arrêter/Lancer — ne savait que creuser le retard. Le décalage est borné au
+   * début de la période : la seconde mi-temps ne repasse pas sous 45:00.
+   */
+  const [recalage, setRecalage] = useState<number | null>(null);
+  const debutDePeriode = match?.liveState?.currentPeriod === 3 ? halfMs : 0;
+  const appliquerRecalage = () => {
+    if (recalage === null || !match?.liveState) return;
+    const ecoule = Math.max(debutDePeriode, displayTime + recalage);
+    const delta = ecoule - displayTime;
+    appliquer(
+      { chrono: { decalage: (match.liveState.timerOffset || 0) + delta } },
+      "Le chrono n'a pas été recalé",
+    );
+    setRecalage(null);
+    toast.success("Chrono recalé");
+  };
+
+  /**
+   * LES CÔTÉS, TELS QUE LE SCOREUR LES VOIT. Domicile était toujours à gauche,
+   * gardien au bord gauche : quand l'équipe à domicile défend en réalité le but
+   * de droite, tout était à l'envers, à chaque action.
+   *
+   * C'est le regard du scoreur, pas un fait du match : le réglage reste sur
+   * l'appareil, par match. Les équipes changent de côté à la mi-temps, l'écran
+   * aussi.
+   */
+  const cleCotes = match ? `koppafoot:console-cotes:${match.competitionId}:${match.id}` : null;
+  const [cotesInverses, setCotesInverses] = useState(false);
+  useEffect(() => {
+    if (!cleCotes) return;
+    try {
+      setCotesInverses(localStorage.getItem(cleCotes) === "1");
+    } catch {
+      // Stockage refusé : domicile à gauche, comme avant.
+    }
+  }, [cleCotes]);
+  const inverserLesCotes = () => {
+    const suivant = !cotesInverses;
+    setCotesInverses(suivant);
+    if (!cleCotes) return;
+    try {
+      localStorage.setItem(cleCotes, suivant ? "1" : "0");
+    } catch {
+      // Voir plus haut.
+    }
+  };
+  /** Le camp affiché à gauche, à cet instant du match. */
+  const aGauche: Side = cotesInverses !== ((match?.liveState?.currentPeriod ?? 1) >= 2) ? "away" : "home";
+
+  const [menuOuvert, setMenuOuvert] = useState(false);
 
   // ----- Match-sheet builder -----
 
@@ -978,11 +1097,9 @@ export default function LiveMatchConsole({
     const homeOnPitch = match.homeLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     const awayOnPitch = match.awayLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     try {
+      // Le direct s'ouvre ; le coup d'envoi, et son push, sont un geste à part
+      // dans la console. Voir `remettreEnJeu`.
       await pilote.lancer({ home: homeOnPitch, away: awayOnPitch });
-      pilote.notifier(
-        { title: "🔴 C'est parti !", body: `${match.homeTeamName} – ${match.awayTeamName}, coup d'envoi !` },
-        competition,
-      );
     } catch {
       toast.error("Erreur technique");
     }
@@ -1191,9 +1308,11 @@ export default function LiveMatchConsole({
     setAssistPicker((a) => (a && ids.includes(a.eventId) ? null : a));
     setVictime((v) => (v && ids.includes(v.eventId) ? null : v));
     setPenaltyOuvert((p) => (p && ids.includes(p.eventId) ? null : p));
-    // Un but retiré rouvre le but tout de suite : c'est souvent pour le
-    // redonner au bon joueur.
-    if (m.liveState.events.some((e) => ids.includes(e.id) && e.type === "goal")) setGoalCooldown(0);
+    // Le but qui avait mis le ballon mort est retiré : la console ne devine pas
+    // ce qui s'est passé, elle passe en arrêt de jeu et le scoreur relance.
+    if (m.liveState.events.some((e) => ids.includes(e.id) && e.type === "goal")) {
+      poserJeu(apresRetraitDuBut(lireJeu(m)));
+    }
     toast(`${quoi} : retiré`, { icon: "↩️" });
   };
 
@@ -1268,7 +1387,8 @@ export default function LiveMatchConsole({
         competition,
       );
       proposerAnnulation(`⚽ But de ${entry.name}`, goalId);
-      setGoalCooldown(SECONDES_APRES_BUT);
+      // Le ballon est mort jusqu'à l'engagement de l'équipe qui a encaissé.
+      poserJeu(apresBut(jeu, side));
       // The goal is on the board; now the optional question.
       setAssistPicker({
         eventId: goalId,
@@ -1322,6 +1442,11 @@ export default function LiveMatchConsole({
       const id = nouvelIdEvenement();
       suivre(pilote.ajouterEvenement({ ...base, id, type }), "L'action n'a pas été enregistrée");
       proposerAnnulation(`${LIBELLE_EVENEMENT[type]}, ${entry.name}`, id);
+      // LA SAISIE DIT OÙ VA LE BALLON : une faute ou un hors-jeu le donnent à
+      // l'adversaire, un tir aussi (six mètres, ou ballon capté), l'arrêt le
+      // laisse au gardien. Le scoreur n'a plus à le dire une seconde fois.
+      const balle = balleApres(type, side);
+      if (balle) basculerPossession(balle);
 
       // La faute a deux acteurs. On la pose d'abord — elle est certaine —
       // puis on demande sa victime, dans le camp d'en face.
@@ -1374,7 +1499,12 @@ export default function LiveMatchConsole({
     // visible dans le bandeau jusqu'a ce qu'il dise ce qu'il est devenu.
     if (type === "penalty") {
       setPenaltyOuvert({ eventId: id, side, minute, periode: match.liveState.currentPeriod ?? 1 });
+      // Le jeu attend le tir.
+      poserJeu(apresPenaltyAccorde(jeu));
     }
+    // La remise en jeu appartient au camp qui l'obtient.
+    const balle = balleApres(type, side);
+    if (balle) basculerPossession(balle);
     proposerAnnulation(
       `${LIBELLE_EVENEMENT[type]}, ${side === "home" ? match.homeTeamName : match.awayTeamName}`,
       id,
@@ -1431,6 +1561,10 @@ export default function LiveMatchConsole({
       valeur: { issue, tireur: tireur ? { playerId: tireur.playerId, playerName: tireur.name } : null },
     });
     setPenaltyOuvert(null);
+    // Marqué : on attend l'engagement adverse. Raté, arrêté ou retiré : le jeu
+    // reprend, ballon à la défense — six mètres, ou ballon capté.
+    if (issue !== "marque" && jeu.raison === "penalty") basculerPossession(autre);
+    poserJeu(apresIssuePenalty(jeu, issue, side));
 
     const echec = issue === "marque"
       ? "Le but n'a pas été enregistré : pose-le sur son buteur"
@@ -1460,7 +1594,6 @@ export default function LiveMatchConsole({
         competition,
       );
       proposerAnnulation(`⚽ But sur penalty${tireur ? `, ${tireur.name}` : ""}`, butId);
-      setGoalCooldown(SECONDES_APRES_BUT);
     } else if (issue === "rate") {
       suivre(pilote.ajouterEvenement({
         type: "shot",
@@ -1931,7 +2064,7 @@ export default function LiveMatchConsole({
             disabled={!lineupsReady}
             className="group relative inline-flex w-full items-center justify-center gap-3 bg-gray-900 px-6 py-4 text-base font-black uppercase tracking-widest text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
           >
-            <span className="relative">Coup d&apos;envoi</span>
+            <span className="relative">Aller au coup d&apos;envoi</span>
             <Flame size={20} className="relative transition-transform group-hover:rotate-12 group-hover:scale-125" />
           </button>
         </div>
@@ -1973,7 +2106,7 @@ export default function LiveMatchConsole({
     match.awayTeamId,
     { home: match.scoreHome ?? 0, away: match.scoreAway ?? 0 },
     possession,
-    chronoTourne,
+    ballonEnJeu,
     // Zéro, comme la pastille du ballon : ce panneau sert au scoreur à
     // vérifier ce qu'il vient de saisir. Voir lignesStats.
     0,
@@ -2075,18 +2208,17 @@ export default function LiveMatchConsole({
       cle: TypeEvenementJoueur,
       emoji: string,
       ton?: ActionJoueur["ton"],
-    ): ActionJoueur => ({ ...evenement(cle, emoji, ton), desactive: apresBut });
+    ): ActionJoueur => ({ ...evenement(cle, emoji, ton), desactive: verrouDuJeu });
 
     return [
       {
         ...evenement("goal", "⚽", "vert"),
-        // Le verrou du but est le plus long des deux : un but tapé deux fois
-        // est un score faux, et le corriger demande une intervention
-        // d'organisateur.
+        // Pas de second but sans engagement entre les deux : c'est l'état du
+        // jeu qui l'interdit, plus un minuteur.
         libelle: "But",
-        desactive: goalCooldown > 0 ? `But marqué (${goalCooldown}s)` : null,
+        desactive: verrouDuJeu,
         onClick: () => {
-          if (goalCooldown > 0) return;
+          if (verrouDuJeu) return;
           void enregistrerAction(side, entry, "goal");
         },
       },
@@ -2165,6 +2297,104 @@ export default function LiveMatchConsole({
     </>
   );
 
+  // ---- Le déroulé, tel que le bandeau le montre --------------------------------
+
+  const aDroite = autre(aGauche);
+  const scoreDe = (c: Side) => (c === "home" ? match.scoreHome : match.scoreAway) ?? 0;
+  /** En période de jeu : ni avant le coup d'envoi, ni à la pause. */
+  const enPeriodeDeJeu = match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3;
+
+  /**
+   * CE QUE LES PASTILLES DES DEUX CAMPS ATTENDENT, ballon mort : qui engage,
+   * ou qui repart. Le camp désigné clignote ; quand personne n'est désigné
+   * (le coup d'envoi, un arrêt de jeu), les deux attendent.
+   */
+  const attente: { cotes: Side[]; libelle: string } | null =
+    jeu.balle === "en_jeu" || jeu.raison === "interruption" || jeu.raison === "penalty"
+      ? null
+      : jeu.raison === "arret"
+        ? { cotes: ["home", "away"], libelle: "Repart" }
+        : { cotes: jeu.engage ? [jeu.engage] : ["home", "away"], libelle: "Engage" };
+
+  const BOUTON_VERT =
+    "flex max-w-[210px] items-center gap-1 bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 active:scale-95";
+  const consigne = (texte: string) => (
+    <span className="flex items-center px-1 text-[9px] font-black uppercase tracking-wider text-amber-300">
+      {texte}
+    </span>
+  );
+  const dernierPenalty = penaltiesEnAttente[penaltiesEnAttente.length - 1];
+
+  /**
+   * LE BOUTON DU DÉROULÉ, un seul à la fois : ce que l'état du jeu attend.
+   * Ballon en jeu, c'est « Arrêt de jeu » — l'ancien « Arrêter », qui
+   * arrêtait le chrono, n'existe plus : la montre de l'arbitre ne s'arrête
+   * pas sur une blessure.
+   */
+  const boutonDuJeu = (() => {
+    if (jeu.balle === "en_jeu") {
+      return enPeriodeDeJeu ? (
+        <button
+          onClick={declarerArretDeJeu}
+          className="flex items-center gap-1 bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95"
+        >
+          <Pause size={10} fill="currentColor" /> Arrêt de jeu
+        </button>
+      ) : null;
+    }
+    switch (jeu.raison) {
+      case "avant":
+        return (
+          <>
+            {consigne("Qui engage ? Touche son équipe")}
+            <button
+              onClick={inverserLesCotes}
+              aria-label="Inverser les côtés"
+              className="flex items-center gap-1 border border-white/15 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-white/70 transition-colors hover:bg-white/10"
+            >
+              <ArrowLeftRight size={10} /> Côtés
+            </button>
+          </>
+        );
+      case "but":
+      case "mi_temps":
+        return jeu.engage ? (
+          <button onClick={() => remettreEnJeu(jeu.engage as Side)} className={BOUTON_VERT}>
+            <Play size={10} fill="currentColor" className="shrink-0" />
+            <span className="truncate">Engagement · {nomDe(jeu.engage)}</span>
+          </button>
+        ) : consigne("Qui engage ? Touche son équipe");
+      case "arret":
+        return possession.side ? (
+          <button onClick={() => remettreEnJeu(possession.side as Side)} className={BOUTON_VERT}>
+            <Play size={10} fill="currentColor" className="shrink-0" /> Reprise
+          </button>
+        ) : consigne("Reprise : touche une équipe");
+      case "penalty":
+        return dernierPenalty ? (
+          <button
+            onClick={() => setPenaltyOuvert({
+              eventId: dernierPenalty.id,
+              side: dernierPenalty.teamId === match.homeTeamId ? "home" : "away",
+              minute: dernierPenalty.minute,
+              periode: dernierPenalty.period,
+            })}
+            className="flex items-center gap-1 bg-amber-400 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0b1512] transition-colors hover:bg-amber-300"
+          >
+            {EMOJI_EVENEMENT.penalty} Penalty · Issue ?
+          </button>
+        ) : consigne("Reprise : touche une équipe");
+      case "interruption":
+        return (
+          <button onClick={reprendreApresInterruption} className={BOUTON_VERT}>
+            <Play size={10} fill="currentColor" className="shrink-0" /> Reprendre le match
+          </button>
+        );
+      default:
+        return null;
+    }
+  })();
+
   // Exit affordance: live → organizer only ("Quitter"); moderator locked out.
   // Completed → everyone gets a normal back control.
   const showQuit = !isCompleted && isOrganizer;
@@ -2233,7 +2463,9 @@ export default function LiveMatchConsole({
           {match.homeTeamName} contre {match.awayTeamName}
         </h1>
 
-        {/* La sortie, et le score du camp de gauche. */}
+        {/* La sortie, et le score du camp de gauche. Le tableau suit les
+            côtés : chacun lit son score au-dessus de son camp, même après
+            l'inversion de la mi-temps. */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {showBack ? (
             <button
@@ -2253,21 +2485,26 @@ export default function LiveMatchConsole({
             </button>
           ) : null}
           <span className="min-w-0 flex-1 truncate text-right text-[10px] font-black uppercase tracking-tight text-white/45">
-            {match.homeTeamName}
+            {nomDe(aGauche)}
           </span>
           <span className="shrink-0 text-2xl font-black leading-none tracking-tighter tabular-nums">
-            {match.scoreHome ?? 0}
+            {scoreDe(aGauche)}
           </span>
         </div>
 
-        {/* Le centre : ce qu'on lit (la minute) et ce qui l'arrête. */}
+        {/* Le centre : ce qu'on lit (la minute) et ce qui fait avancer le
+            match. */}
         <div className="flex shrink-0 flex-col items-center gap-1">
           <div className="flex items-center gap-1.5">
             {!isCompleted && <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-400" />}
             <span className="text-[8px] font-black uppercase tracking-[0.15em] text-emerald-400">
               {isCompleted
                 ? "Terminé"
-                : PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
+                : jeu.raison === "avant"
+                  ? "Avant-match"
+                  : jeu.raison === "interruption"
+                    ? "Interrompu"
+                    : PERIODS.find((p) => p.id === match.liveState?.currentPeriod)?.label || "Match"}
             </span>
             <span className="font-mono text-lg font-black leading-none tracking-tighter tabular-nums text-emerald-400">
               {formatTime(displayTime)}
@@ -2275,28 +2512,11 @@ export default function LiveMatchConsole({
           </div>
 
           <div className="flex items-stretch gap-1">
-            {!isCompleted && (match.liveState?.currentPeriod === 1 || match.liveState?.currentPeriod === 3) && (
-              match.liveState?.isTimerRunning ? (
-                <button
-                  onClick={handlePauseTimer}
-                  className="flex items-center gap-1 bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95"
-                >
-                  <Pause size={10} fill="currentColor" /> Arrêter
-                </button>
-              ) : (
-                <button
-                  onClick={handleStartTimer}
-                  className="flex items-center gap-1 bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 active:scale-95"
-                >
-                  <Play size={10} fill="currentColor" /> Lancer
-                </button>
-              )
-            )}
+            {!isCompleted && boutonDuJeu}
 
-            {/* Le temps additionnel, à côté du bouton qui arrête l'horloge —
-                c'est lui qui dit QUAND elle s'arrêtera. L'arbitre annonce, le
-                scoreur recopie. */}
-            {!isCompleted && mitempsEnCours && (
+            {/* Le temps additionnel. L'arbitre annonce, le scoreur recopie ;
+                passé ce temps, le bouton de fin de période clignote. */}
+            {!isCompleted && mitempsEnCours && jeu.raison !== "avant" && (
               <div className="flex items-stretch border border-white/15">
                 <button
                   type="button"
@@ -2322,33 +2542,29 @@ export default function LiveMatchConsole({
               </div>
             )}
 
-            {/* LE DÉROULÉ N'A JAMAIS QU'UN BOUTON À LA FOIS : mi-temps, ou
-                reprise, ou fin de match. Il occupait un rang entier pour lui
-                seul, dans une carte à cadre, icône et titre — trois
-                décorations pour un bouton qui se nomme déjà. */}
-            {!isCompleted && match.liveState?.currentPeriod === 1 && (
+            {/* LA FIN DE PÉRIODE NE S'IMPOSE PLUS : l'horloge continue au-delà
+                du temps additionnel, et le bouton clignote jusqu'à ce que le
+                scoreur siffle avec l'arbitre. */}
+            {!isCompleted && match.liveState?.currentPeriod === 1 && jeu.raison !== "avant" && (
               <button
-                onClick={handleHalfTime}
+                onClick={() => void sifflerLaMiTemps()}
                 disabled={isSubmitting}
-                className="bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-white/20 disabled:opacity-40"
+                className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors disabled:opacity-40 ${
+                  tempsEcoule ? "animate-pulse bg-amber-500 hover:bg-amber-600" : "bg-white/10 hover:bg-white/20"
+                }`}
               >
                 Mi-temps
-              </button>
-            )}
-            {!isCompleted && match.liveState?.currentPeriod === 2 && (
-              <button
-                onClick={handleResume}
-                disabled={isSubmitting}
-                className="flex items-center gap-1 bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
-              >
-                <Play size={10} fill="currentColor" /> Reprise
               </button>
             )}
             {!isCompleted && match.liveState?.currentPeriod === 3 && (
               <button
                 onClick={handleFinishClick}
                 disabled={isSubmitting}
-                className="flex items-center gap-1 border border-red-400/40 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-40"
+                className={`flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider transition-colors disabled:opacity-40 ${
+                  tempsEcoule
+                    ? "animate-pulse bg-amber-500 text-white hover:bg-amber-600"
+                    : "border border-red-400/40 text-red-300 hover:bg-red-500/15"
+                }`}
               >
                 <CheckCircle2 size={11} /> Fin du match
               </button>
@@ -2356,13 +2572,14 @@ export default function LiveMatchConsole({
           </div>
         </div>
 
-        {/* Le score du camp de droite, et le tiroir de ce qu'on ne saisit pas. */}
+        {/* Le score du camp de droite, et ce qu'on ne saisit pas : le tiroir
+            des compteurs, et le menu des gestes rares. */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="shrink-0 text-2xl font-black leading-none tracking-tighter tabular-nums">
-            {match.scoreAway ?? 0}
+            {scoreDe(aDroite)}
           </span>
           <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-tight text-white/45">
-            {match.awayTeamName}
+            {nomDe(aDroite)}
           </span>
           {!isCompleted && !panneauFixe && (
             <button
@@ -2375,7 +2592,49 @@ export default function LiveMatchConsole({
               <Info size={15} />
             </button>
           )}
+          {!isCompleted && (
+            <button
+              type="button"
+              onClick={() => setMenuOuvert((v) => !v)}
+              aria-expanded={menuOuvert}
+              aria-label="Plus de gestes"
+              className="shrink-0 text-white/45 transition-colors hover:text-white"
+            >
+              <Ellipsis size={16} />
+            </button>
+          )}
         </div>
+
+        {/* LES GESTES RARES, sortis du bandeau où la place manque couchée. */}
+        {!isCompleted && menuOuvert && (
+          <div className="absolute right-1 top-full z-30 mt-1 flex min-w-[190px] flex-col border border-white/15 bg-[#0A0A0B] py-1 shadow-2xl">
+            {enPeriodeDeJeu && jeu.raison !== "avant" && jeu.raison !== "interruption" && (
+              <button
+                type="button"
+                onClick={() => { setMenuOuvert(false); setRecalage(0); }}
+                className="flex items-center gap-2 px-3 py-2 text-left text-[11px] font-black uppercase tracking-wide text-white/80 hover:bg-white/10"
+              >
+                <Timer size={13} className="shrink-0" /> Recaler le chrono
+              </button>
+            )}
+            {enPeriodeDeJeu && jeu.raison !== "avant" && jeu.raison !== "interruption" && (
+              <button
+                type="button"
+                onClick={() => { setMenuOuvert(false); void interrompreLeMatch(); }}
+                className="flex items-center gap-2 px-3 py-2 text-left text-[11px] font-black uppercase tracking-wide text-white/80 hover:bg-white/10"
+              >
+                <CloudLightning size={13} className="shrink-0" /> Interrompre le match
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setMenuOuvert(false); inverserLesCotes(); }}
+              className="flex items-center gap-2 px-3 py-2 text-left text-[11px] font-black uppercase tracking-wide text-white/80 hover:bg-white/10"
+            >
+              <ArrowLeftRight size={13} className="shrink-0" /> Inverser les côtés
+            </button>
+          </div>
+        )}
 
         {/* Les tirs au but d'une phase finale, quand il y en a eu. */}
         {isCompleted && match.penaltyHome != null && match.penaltyAway != null && (
@@ -2474,9 +2733,13 @@ export default function LiveMatchConsole({
               }}
               jaunes={yellowCardedIds}
               ballon={possession.side}
-              parts={partPossession(possession, chronoTourne, Date.now(), 0)}
-              ballonActif={chronoTourne}
-              onBallon={basculerPossession}
+              parts={partPossession(possession, ballonEnJeu, Date.now(), 0)}
+              ballonActif={ballonEnJeu}
+              // Ballon mort, toucher un camp le remet en jeu par lui ; ballon
+              // en jeu, il lui donne le ballon. Voir `remettreEnJeu`.
+              onBallon={(c) => (c === null ? basculerPossession(null) : remettreEnJeu(c))}
+              aGauche={aGauche}
+              attente={attente}
               onJoueur={(side, entry) => setActions({ side, entry })}
               // UNE BARRE PAR CAMP, et non une seule pour « le camp affiché » :
               // le corner de gauche est le corner de gauche, il n'y a plus
@@ -2484,7 +2747,7 @@ export default function LiveMatchConsole({
               actions={(cote) => (
                 <BandeauEquipe
                   isSubmitting={isSubmitting}
-                  desactive={apresBut}
+                  desactive={verrouDuJeu}
                   onEvenement={(type) => void enregistrerEvenementEquipe(cote, type)}
                 />
               )}
@@ -2692,6 +2955,64 @@ export default function LiveMatchConsole({
             onChoisir={(c) => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, c); }}
             onPasser={() => { const t = mvpEnAttente.tab; setMvpEnAttente(null); void finishMatch(t, null); }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* RECALER LE CHRONO sur la montre de l'arbitre. */}
+      <AnimatePresence>
+        {recalage !== null && (
+          <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setRecalage(null)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white p-5 shadow-2xl"
+            >
+              <h2 className="text-lg font-black text-gray-900">Recaler le chrono</h2>
+              <p className="mt-0.5 text-xs font-bold text-gray-400">
+                Ajuste jusqu&apos;à lire la montre de l&apos;arbitre.
+              </p>
+              <p className="my-4 text-center font-mono text-4xl font-black tabular-nums text-gray-900">
+                {formatTime(Math.max(debutDePeriode, displayTime + recalage))}
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {[-60_000, -10_000, 10_000, 60_000].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setRecalage((r) => (r ?? 0) + d)}
+                    className="border border-gray-200 py-3 text-sm font-black tabular-nums text-gray-900 transition-colors hover:bg-gray-50"
+                  >
+                    {d > 0 ? "+" : "−"}{Math.abs(d) >= 60_000 ? "1′" : "10″"}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRecalage(null)}
+                  className="border border-gray-200 py-3 text-xs font-black uppercase tracking-widest text-gray-500 transition-colors hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={appliquerRecalage}
+                  disabled={recalage === 0}
+                  className="bg-gray-900 py-3 text-xs font-black uppercase tracking-widest text-white transition-colors hover:bg-black disabled:opacity-40"
+                >
+                  Appliquer
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

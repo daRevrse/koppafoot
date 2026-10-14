@@ -44,6 +44,7 @@ import {
 } from "@/lib/evenements";
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import type { PossessionStockee } from "@/lib/possession";
+import { JEU_AVANT, champsDeTransition, type Transition } from "@/lib/etat-du-jeu";
 import { synchroniserTerrainsCompetition } from "@/lib/reservations-client";
 import { terrainNomme } from "@/lib/terrains";
 import type { Categorie } from "@/lib/genre";
@@ -1273,6 +1274,9 @@ export async function initLiveCompMatch(cid: string, mid: string): Promise<void>
       timer_offset: 0,
       is_timer_running: false,
       events: [],
+      // Le direct est ouvert, le ballon pas encore au centre : le coup
+      // d'envoi est un geste a part. Voir lib/etat-du-jeu.
+      jeu: JEU_AVANT,
     },
     score_home: 0,
     score_away: 0,
@@ -1335,6 +1339,17 @@ export async function setCompAddedTime(
 ): Promise<void> {
   await updateDoc(compMatchRef(cid, mid), {
     [`live_state.added_time.${mitemps}`]: minutes,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Un geste de la console et tout ce qu'il change, EN UNE ECRITURE : l'etat du
+ * jeu, la periode, le chrono. Voir `champsDeTransition`.
+ */
+export async function transitionCompMatch(cid: string, mid: string, t: Transition): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    ...champsDeTransition(t),
     updated_at: serverTimestamp(),
   });
 }

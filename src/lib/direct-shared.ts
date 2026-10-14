@@ -39,7 +39,7 @@ export type Entry = { match: CompMatch; competition: Competition };
  */
 export function minuteDuDirect(
   e: Entry,
-  libelles: { avant: string; pause: string },
+  libelles: { avant: string; pause: string; interrompu: string },
   maintenant: number = Date.now(),
 ): string {
   const m = minuteEnDirect(e.match, dureeMiTempsDe(e.competition), maintenant);
