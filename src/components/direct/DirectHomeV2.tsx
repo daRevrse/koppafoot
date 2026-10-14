@@ -772,7 +772,7 @@ function MatchRow({
           {isLive ? (
             <>
               <span className="text-[11px] font-black tabular-nums text-red-500">
-                {minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant, interrompu: f.minuteInterrompu })}
+                {minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant, interrompu: f.minuteInterrompu, tirs: f.minuteTirs })}
               </span>
               <span className="h-1 w-1 animate-pulse rounded-full bg-red-500" />
             </>
@@ -1147,7 +1147,7 @@ function Spotlight({
                         isLive ? "text-red-500" : "text-gray-400"
                       }`}
                     >
-                      {isLive ? minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant, interrompu: f.minuteInterrompu }) : f.termine}
+                      {isLive ? minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant, interrompu: f.minuteInterrompu, tirs: f.minuteTirs }) : f.termine}
                     </span>
                     <TirsAuBut home={match.penaltyHome} away={match.penaltyAway} className="mt-0.5" />
                   </>

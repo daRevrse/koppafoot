@@ -280,6 +280,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       possession: d.live_state.possession ? versPossession(d.live_state.possession) : null,
       addedTime: d.live_state.added_time ?? null,
       jeu: d.live_state.jeu ?? null,
+      tirsAuBut: d.live_state.tirs_au_but ?? null,
     } : null,
     mvpPlayerId: d.mvp_player_id ?? null,
     mvpUserId: d.mvp_user_id ?? null,

@@ -23,6 +23,7 @@
 // ============================================
 
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
+import type { Seance } from "@/lib/tirs-au-but";
 
 export type Cote = "home" | "away";
 
@@ -37,6 +38,10 @@ export type RaisonBalleMorte =
   /** Un arret de jeu declare par le scoreur : blessure, bagarre, VAR... */
   | "arret"
   | "mi_temps"
+  /** La pause avant les prolongations, ou entre les deux. */
+  | "pause"
+  /** La seance de tirs au but : le jeu est fini, la console tient la seance. */
+  | "tirs_au_but"
   /** Orage, incident : le seul etat ou le chrono s'arrete aussi. */
   | "interruption";
 
@@ -81,6 +86,10 @@ export function lireJeu(m: MatchAvecHorloge): Jeu {
   if (ls?.jeu) return ls.jeu;
   if (!ls) return JEU_AVANT;
   if (ls.currentPeriod === 2) return { balle: "morte", raison: "mi_temps", engage: null, premier: null };
+  if (ls.currentPeriod === 5 || ls.currentPeriod === 7) {
+    return { balle: "morte", raison: "pause", engage: null, premier: null };
+  }
+  if (ls.currentPeriod === 9) return { balle: "morte", raison: "tirs_au_but", engage: null, premier: null };
   if (ls.isTimerRunning) return { balle: "en_jeu", raison: null, engage: null, premier: null };
   if (!ls.timerOffset) return JEU_AVANT;
   return { balle: "morte", raison: "arret", engage: null, premier: null };
@@ -134,6 +143,19 @@ export function miTemps(j: Jeu): Jeu {
 }
 
 /**
+ * Une pause des prolongations. Avant la premiere, un nouveau tirage au sort
+ * decide qui engage (`engage` nul) ; entre les deux, c'est l'autre equipe.
+ */
+export function pause(j: Jeu, engage: Cote | null): Jeu {
+  return { balle: "morte", raison: "pause", engage, premier: j.premier };
+}
+
+/** Le jeu est fini, la seance de tirs au but commence. */
+export function seanceDeTirs(j: Jeu): Jeu {
+  return { balle: "morte", raison: "tirs_au_but", engage: null, premier: j.premier };
+}
+
+/**
  * Le ballon est remis en jeu par `cote` — un appui sur sa pelouse, ou sur le
  * bouton central de reprise.
  *
@@ -141,8 +163,12 @@ export function miTemps(j: Jeu): Jeu {
  * ainsi : elle a arrete le chrono, et ne se reprend que par son propre bouton.
  */
 export function relancer(j: Jeu, cote: Cote): Jeu {
-  if (j.balle === "en_jeu" || j.raison === "interruption") return j;
-  if (j.raison === "avant") return { balle: "en_jeu", raison: null, engage: null, premier: cote };
+  if (j.balle === "en_jeu" || j.raison === "interruption" || j.raison === "tirs_au_but") return j;
+  // Un coup d'envoi tire au sort — celui du match, ou celui des prolongations :
+  // l'equipe qui engage est retenue, l'autre engagera la periode suivante.
+  if (j.raison === "avant" || (j.raison === "pause" && !j.engage)) {
+    return { balle: "en_jeu", raison: null, engage: null, premier: cote };
+  }
   return EN_JEU(j);
 }
 
@@ -163,6 +189,8 @@ const VERROUS: Record<RaisonBalleMorte, string> = {
   penalty: "Penalty",
   arret: "Arrêt de jeu",
   mi_temps: "Mi-temps",
+  pause: "Pause",
+  tirs_au_but: "Tirs au but",
   interruption: "Match interrompu",
 };
 
@@ -225,6 +253,8 @@ export function scoreDeForfait(
 /** Ce qu'un geste de la console change a la fois. */
 export interface Transition {
   jeu?: Jeu;
+  /** La seance de tirs au but, ecrite tir apres tir. Voir lib/tirs-au-but. */
+  tirsAuBut?: Seance;
   periode?: number;
   chrono?:
     /**
@@ -249,6 +279,7 @@ export interface Transition {
 export function champsDeTransition(t: Transition, maintenant: number = Date.now()): Record<string, unknown> {
   const champs: Record<string, unknown> = {};
   if (t.jeu) champs["live_state.jeu"] = t.jeu;
+  if (t.tirsAuBut) champs["live_state.tirs_au_but"] = t.tirsAuBut;
   if (t.periode !== undefined) champs["live_state.current_period"] = t.periode;
   if (t.chrono && "demarrer" in t.chrono) {
     champs["live_state.is_timer_running"] = true;

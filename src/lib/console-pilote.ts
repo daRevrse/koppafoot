@@ -30,8 +30,8 @@ import {
 import type { Transition } from "@/lib/etat-du-jeu";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
-  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, minPlayers, reentryAllowed,
-  subsMax, teamSize,
+  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, extraTime, extraTimeDuration, halfDuration,
+  minPlayers, reentryAllowed, subsMax, teamSize,
 } from "@/lib/competition-format";
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
 import type { PossessionStockee } from "@/lib/possession";
@@ -79,6 +79,12 @@ export interface ReglesDuJeu {
    * continuer. Sept pour onze, a proportion du format. Voir minPlayers.
    */
   minimumJoueurs: number;
+  /**
+   * La duree d'une prolongation, en minutes, quand le reglement en prevoit a
+   * egalite en elimination directe ; `null` sinon : on passe alors
+   * directement aux tirs au but.
+   */
+  prolongationMin: number | null;
 }
 
 /** Un evenement tel que la console demande de l'ecrire. */
@@ -267,6 +273,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       remplacementsMax: competition ? subsMax(competition.format) : DEFAULT_SUBS_MAX,
       retourAutorise: competition ? reentryAllowed(competition.format) : false,
       minimumJoueurs: minPlayers(competition?.format ?? ({} as Competition["format"])),
+      prolongationMin: competition && extraTime(competition.format) ? extraTimeDuration(competition.format) : null,
     }),
 
     effectifs: async (match) => {
@@ -461,6 +468,8 @@ export function piloteAmical(matchId: string): PiloteConsole {
       remplacementsMax: null,
       retourAutorise: true,
       minimumJoueurs: minPlayers({ team_size: tailleDEquipe(brut?.format) } as Competition["format"]),
+      // Un amical ne se joue pas a elimination directe.
+      prolongationMin: null,
     }),
 
     /**
