@@ -5,14 +5,14 @@ import { ErreurPaiement, demarrerAcompte, demarrerPaiement, type RefusPaiement }
 /**
  * POST /api/paiements, démarrer un paiement.
  *
- *  - { formule } : l'achat du Pro ;
+ *  - { formule } : l'achat d'une formule, KoppaFoot+ ou « Pas de pubs » ;
  *  - { objet: "acompte", reservation, telephone? } : les frais de réservation
  *    d'un terrain. `telephone` est le numéro où les rendre si le propriétaire
  *    annule, obligatoire quand la réservation n'en porte pas.
  *
  * Rend l'adresse de la page de paiement FedaPay ; le navigateur y va. Le corps
  * ne porte jamais de montant : le serveur le lit dans `settings/offre` pour
- * le Pro, dans le règlement de la réservation pour un acompte.
+ * une formule, dans le règlement de la réservation pour un acompte.
  */
 
 export const dynamic = "force-dynamic";
@@ -25,8 +25,10 @@ const STATUT: Record<RefusPaiement, number> = {
   deja_paye: 409,
   trop_tard: 409,
   bac_a_sable: 403,
+  profil: 403,
   pas_en_vente: 409,
   deja_illimite: 409,
+  deja_compris: 409,
   trop_de_tentatives: 429,
   fedapay: 502,
   non_configure: 503,

@@ -9,7 +9,7 @@ import { estSansPub, jourDeLome, type FirestoreDroits } from "@/lib/offre";
 // ============================================
 // Ce compte voit-il les partenaires ?
 //
-// LA PROMESSE DE « MON OFFRE ». Le Pro, et l'option sans pub vendue à part,
+// LA PROMESSE DES DEUX OFFRES. KoppaFoot+, et « Pas de pubs » vendu à part,
 // annoncent « Aucune publicité ». Les emplacements s'affichaient pourtant
 // pour tout le monde : la promesse n'était tenue nulle part.
 //

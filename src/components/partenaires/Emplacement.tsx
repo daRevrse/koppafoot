@@ -39,7 +39,7 @@ import {
 // de droite) : la demande est partagée, une seule par page. Seul l'endroit
 // visible compte des vues.
 //
-// RIEN POUR QUI A PAYÉ POUR NE RIEN VOIR : le Pro et l'option sans pub
+// RIEN POUR QUI A PAYÉ POUR NE RIEN VOIR : KoppaFoot+ et « Pas de pubs »
 // (hooks/useSansPub).
 // ============================================
 

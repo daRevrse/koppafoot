@@ -5,7 +5,7 @@ import { droitActif, type DroitAccorde, type DroitOffre } from "@/lib/offre";
 // FedaPay change.
 //
 // UNE PÉRIODE, PAS UN ABONNEMENT. Le mobile money ne prélève pas tout seul :
-// on paie, le Pro court jusqu'à une date, et rien ne se renouvelle. Racheter
+// on paie, le droit court jusqu'à une date, et rien ne se renouvelle. Racheter
 // avant la fin ajoute la période à la fin en cours.
 //
 // LES PRIX SONT UN RÉGLAGE (`settings/offre.prix`), saisi dans
@@ -17,23 +17,44 @@ import { droitActif, type DroitAccorde, type DroitOffre } from "@/lib/offre";
 // relu chez FedaPay que le montant demandé a bien été payé (deciderReglement).
 //
 // Module pur : aucun SDK. Le serveur (lib/paiement-serveur, les routes
-// /api/paiements) et le navigateur (« Mon offre », l'administration) le
+// /api/paiements) et le navigateur (la page de l'offre, l'administration) le
 // partagent ; ses tests tournent dans mobile/src/__tests__/paiement.test.ts.
 // ============================================
 
-/** Ce qui s'achète : le droit accordé, et pour combien de mois. */
+/**
+ * Ce qui s'achète : le droit accordé, et pour combien de mois.
+ *
+ * DEUX OFFRES. KoppaFoot+ (le droit `pro`) pour qui gère des équipes, des
+ * compétitions ou des terrains ; « Pas de pubs » (le droit `sans_pub`) pour
+ * tout le monde. Qui peut acheter quoi se décide au serveur, sur le profil
+ * (lib/offre, lib/paiement-serveur) : ce catalogue ne dit que ce qui existe.
+ *
+ * Les identifiants `pro_*` gardent l'ancien nom de l'offre : ils sont écrits
+ * dans les paiements déjà faits et dans les références envoyées à FedaPay.
+ */
 export const FORMULES = {
   pro_mois: { droit: "pro", mois: 1 },
   pro_an: { droit: "pro", mois: 12 },
+  sans_pub_mois: { droit: "sans_pub", mois: 1 },
+  sans_pub_an: { droit: "sans_pub", mois: 12 },
 } as const satisfies Record<string, { droit: DroitOffre; mois: number }>;
 
 export type IdFormule = keyof typeof FORMULES;
 
-/** Dans l'ordre où on les montre : le mois avant l'année. */
+/** Dans l'ordre où on les montre : KoppaFoot+ d'abord, le mois avant l'année. */
 export const ID_FORMULES = Object.keys(FORMULES) as IdFormule[];
 
 export function estFormule(x: unknown): x is IdFormule {
   return typeof x === "string" && Object.prototype.hasOwnProperty.call(FORMULES, x);
+}
+
+/** Le nom de chaque offre, tel qu'on le lit. */
+export const NOM_OFFRE: Record<DroitOffre, string> = { pro: "KoppaFoot+", sans_pub: "Pas de pubs" };
+
+/** « KoppaFoot+, 1 mois » : ce qui s'affiche chez FedaPay et sur le reçu. */
+export function libelleFormule(id: IdFormule): string {
+  const { droit, mois } = FORMULES[id];
+  return `${NOM_OFFRE[droit]}, ${mois === 12 ? "1 an" : "1 mois"}`;
 }
 
 /** Le plancher de FedaPay : pas de collecte sous 100 XOF. */
@@ -49,14 +70,16 @@ export function prixValide(x: unknown): x is number {
 /** Les prix tels que rangés, assainis : tout ce qui n'est pas un prix vaut `null`. */
 export function lirePrix(brut: unknown): PrixOffre {
   const p = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
-  return {
-    pro_mois: prixValide(p.pro_mois) ? p.pro_mois : null,
-    pro_an: prixValide(p.pro_an) ? p.pro_an : null,
-  };
+  return Object.fromEntries(ID_FORMULES.map((id) => {
+    const v = p[id];
+    return [id, prixValide(v) ? v : null];
+  })) as PrixOffre;
 }
 
 export interface FormuleEnVente {
   id: IdFormule;
+  /** Ce qu'elle accorde : KoppaFoot+ (`pro`) ou « Pas de pubs » (`sans_pub`). */
+  droit: DroitOffre;
   mois: number;
   prix: number;
 }
@@ -64,7 +87,7 @@ export interface FormuleEnVente {
 export function formulesEnVente(prix: PrixOffre): FormuleEnVente[] {
   return ID_FORMULES.flatMap((id) => {
     const p = prix[id];
-    return prixValide(p) ? [{ id, mois: FORMULES[id].mois, prix: p }] : [];
+    return prixValide(p) ? [{ id, droit: FORMULES[id].droit, mois: FORMULES[id].mois, prix: p }] : [];
   });
 }
 
@@ -85,15 +108,16 @@ export function ajouterJours(jour: string, jours: number): string {
 }
 
 /**
- * Le Pro après un achat de `mois` mois fait ce `jour`.
+ * Un droit (KoppaFoot+ ou « Pas de pubs ») après un achat de `mois` mois fait
+ * ce `jour`.
  *
  * Acheté le 12 octobre pour un mois : jusqu'au 12 novembre inclus. Racheté
- * pendant que le Pro court : la période s'ajoute à la fin en cours, d'où
- * qu'il vienne (un Pro d'essai accordé par l'administration se prolonge
- * pareil). Un Pro expiré repart du jour de l'achat.
+ * pendant qu'il court : la période s'ajoute à la fin en cours, d'où qu'il
+ * vienne (un essai accordé par l'administration se prolonge pareil). Un droit
+ * expiré repart du jour de l'achat.
  *
- * `null` : le Pro court sans échéance, il n'y a rien à prolonger — et surtout
- * rien à écraser par un Pro d'un mois.
+ * `null` : il court sans échéance, il n'y a rien à prolonger — et surtout
+ * rien à écraser par un droit d'un mois.
  */
 export function nouvelleEcheance(
   actuel: DroitAccorde | null | undefined,
@@ -158,17 +182,17 @@ export function paiementOuvert(e: { configure: boolean; environnement: Environne
 export type AnomaliePaiement = "montant" | "reference";
 
 /** Une tentative d'achat — `paiements/{id}`. Écrite par le serveur seul. */
-/** Ce qu'un paiement achète : le Pro, ou les frais de réservation d'un terrain (lib/reglement). */
+/** Ce qu'un paiement achète : une formule (`pro`, quel que soit son droit), ou les frais de réservation d'un terrain (lib/reglement). */
 export type ObjetPaiement = "pro" | "acompte";
 
-/** L'objet d'une ligne ; les lignes d'avant les acomptes n'en portent pas : ce sont des achats du Pro. */
+/** L'objet d'une ligne ; les lignes d'avant les acomptes n'en portent pas : ce sont des achats d'une formule. */
 export function objetDe(l: { objet?: ObjetPaiement | null }): ObjetPaiement {
   return l.objet === "acompte" ? "acompte" : "pro";
 }
 
 export interface FirestorePaiement {
   uid: string;
-  /** Absent d'une ligne d'avant les acomptes : un achat du Pro. */
+  /** Absent d'une ligne d'avant les acomptes : un achat d'une formule. */
   objet?: ObjetPaiement;
   /** La formule et le droit achetés ; `null` pour un acompte. */
   formule: IdFormule | null;
@@ -281,6 +305,6 @@ export function trierLignesOuvertes<T extends { environnement: EnvironnementPaie
 }
 
 /** Le motif écrit sur le droit, pour l'administration. */
-export function motifAchat(mois: number, environnement: EnvironnementPaiement): string {
-  return `Achat Pro ${mois} mois${environnement === "live" ? "" : " (bac à sable)"}`;
+export function motifAchat(droit: DroitOffre, mois: number, environnement: EnvironnementPaiement): string {
+  return `Achat ${NOM_OFFRE[droit]} ${mois} mois${environnement === "live" ? "" : " (bac à sable)"}`;
 }

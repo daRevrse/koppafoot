@@ -12,8 +12,8 @@ import { ID_FORMULES, PRIX_PLANCHER, lirePrix, prixValide } from "@/lib/paiement
  * L'offre, côté administration.
  *
  * GET                                    , le réglage, les prix, et les comptes qui ont un droit.
- * PUT    { limitesDepuis } et/ou { prix } , fixer l'entrée en vigueur des limites, les prix du Pro.
- * POST   { compte, droit, jusquAu, motif } , accorder le Pro ou l'option sans pub.
+ * PUT    { limitesDepuis } et/ou { prix } , fixer l'entrée en vigueur des limites, les prix des formules.
+ * POST   { compte, droit, jusquAu, motif } , accorder KoppaFoot+ ou « Pas de pubs ».
  * DELETE { uid, droit }                   , retirer un droit.
  *
  * Superadmin seulement. `settings/offre` ne s'écrit que par ici ;

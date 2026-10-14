@@ -8,7 +8,7 @@ import { DocumentJuridique, Liste, Lien, type SectionJuridique } from "@/compone
 // texte juridique qui contredit la vitrine casse la confiance plus vite
 // qu'aucun prix.
 //
-// CE QUI SE PAIE Y EST ÉCRIT HONNÊTEMENT : KoppaFoot Pro, son prix affiché
+// CE QUI SE PAIE Y EST ÉCRIT HONNÊTEMENT : KoppaFoot+ et « Pas de pubs », leur prix affiché
 // avant de payer, une période et non un abonnement, rien de prélevé à
 // l'échéance, jamais exigé pour finir ce qui est commencé. C'est ce qui
 // permet des limites d'usage sans trahir personne.
@@ -22,7 +22,7 @@ export const metadata = {
   description: "Les règles du jeu sur KoppaFoot : ton compte, les rôles, ce qui est interdit, ce qui est gratuit.",
 };
 
-const MIS_A_JOUR = "13 octobre 2026";
+const MIS_A_JOUR = "14 octobre 2026";
 
 const SECTIONS: SectionJuridique[] = [
   {
@@ -48,14 +48,24 @@ const SECTIONS: SectionJuridique[] = [
           et la <Lien href="/confidentialite">politique de confidentialité</Lien>.
         </p>
         <p>
-          L&apos;utilisation de KoppaFoot est gratuite. KoppaFoot Pro est une option payante : son prix est affiché avant
-          tout paiement, et elle n&apos;est jamais exigée pour terminer un match ou une compétition déjà commencés.
+          L&apos;utilisation de KoppaFoot est gratuite. Deux options payantes existent : <strong>KoppaFoot+</strong>,
+          pour ceux qui gèrent des équipes, des compétitions ou des terrains, et <strong>Pas de pubs</strong>, pour
+          tout le monde. Leur prix est affiché avant tout paiement, et aucune n&apos;est jamais exigée pour terminer
+          un match ou une compétition déjà commencés.
         </p>
         <p>
-          Le Pro s&apos;achète pour une période, un mois ou un an, <strong>sans renouvellement automatique</strong>{" "}: à
-          l&apos;échéance, rien n&apos;est prélevé, et tu es prévenu avant. Le paiement se fait par mobile money ou par
-          carte, sur la page de notre prestataire FedaPay. Une période commencée n&apos;est pas remboursée ; en cas de
-          double paiement ou d&apos;erreur, écris-nous : nous prolongeons ta période ou nous te remboursons.
+          KoppaFoot+ n&apos;est proposé qu&apos;aux managers, aux organisateurs et aux propriétaires de terrain, et il
+          n&apos;agit que pour ce que ton compte est : il lève le plafond d&apos;équipes et ouvre le Club
+          multi-équipes à un manager, lève les plafonds de compétitions à un organisateur, et le plafond de terrains
+          à un propriétaire. Il retire aussi la publicité. « Pas de pubs » retire la publicité, et rien
+          d&apos;autre ; il n&apos;est pas proposé tant que KoppaFoot+ court, qui le comprend déjà.
+        </p>
+        <p>
+          L&apos;une comme l&apos;autre s&apos;achète pour une période, un mois ou un an,{" "}
+          <strong>sans renouvellement automatique</strong>{" "}: à l&apos;échéance, rien n&apos;est prélevé, et tu es
+          prévenu avant. Le paiement se fait par mobile money ou par carte, sur la page de notre prestataire FedaPay.
+          Une période commencée n&apos;est pas remboursée ; en cas de double paiement ou d&apos;erreur, écris-nous :
+          nous prolongeons ta période ou nous te remboursons.
         </p>
         <p>
           Sur certains terrains, des frais de réservation se paient aussi dans l&apos;application : leur montant, et les
@@ -65,13 +75,14 @@ const SECTIONS: SectionJuridique[] = [
         <p>
           Jouer, suivre un match, s&apos;inscrire à une compétition et arbitrer restent gratuits. L&apos;offre gratuite peut
           en revanche limiter ce que tu gères : le nombre d&apos;équipes, de terrains ou de compétitions en cours, et la taille
-          d&apos;une compétition. Ces limites sont détaillées sur la page « Mon offre », annoncées au moins un mois avant
+          d&apos;une compétition. Ces limites sont détaillées sur la page « KOPPAFOOT+ » de ton compte, annoncées au moins un mois avant
           d&apos;entrer en vigueur, et ne retirent jamais ce qui existe déjà : elles empêchent seulement de créer au-delà.
         </p>
         <p>
-          Le Club multi-équipes, qui réunit plusieurs équipes sous un même club, fait partie de KoppaFoot Pro. S&apos;il
-          s&apos;arrête, le club se met en sommeil : sa page ne s&apos;affiche plus, mais rien n&apos;est effacé, et ses
-          équipes continuent comme des équipes autonomes, avec tout leur historique.
+          Le Club multi-équipes, qui réunit plusieurs équipes sous un même club, est réservé aux managers qui ont
+          KoppaFoot+. Si l&apos;un ou l&apos;autre s&apos;arrête, le club se met en sommeil : sa page ne
+          s&apos;affiche plus, mais rien n&apos;est effacé, et ses équipes continuent comme des équipes autonomes,
+          avec tout leur historique.
         </p>
       </>
     ),
@@ -161,7 +172,7 @@ const SECTIONS: SectionJuridique[] = [
         Certaines pages peuvent présenter des marques : un partenaire, par exemple le sponsor d&apos;une compétition, ou des
         annonces qui se relaient dans un même espace. Elles sont toujours signalées comme telles, par la mention
         « Partenaire » ou « Annonce ». Leurs offres relèvent d&apos;elles seules ; KoppaFoot ne vend pas tes données pour les
-        afficher. Avec KoppaFoot Pro ou l&apos;option sans pub, aucune ne s&apos;affiche.
+        afficher. Avec KoppaFoot+ ou « Pas de pubs », aucune ne s&apos;affiche.
       </p>
     ),
   },

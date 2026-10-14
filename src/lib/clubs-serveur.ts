@@ -1,7 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { slugify } from "@/lib/competition-format";
-import { estPro, jourDeLome } from "@/lib/offre";
-import { lireDroits } from "@/lib/offre-server";
+import { plusLeve } from "@/lib/offre-server";
 import type { ClubDeLEquipe, ClubPublic, FirestoreClub, SectionPublique } from "@/lib/clubs";
 
 // ============================================
@@ -9,9 +8,10 @@ import type { ClubDeLEquipe, ClubPublic, FirestoreClub, SectionPublique } from "
 //
 // `clubs/{id}` est fermé aux navigateurs (firestore.rules) : tout passe par
 // les routes /api/clubs (gestion) et /api/public/club (la page). C'est ici
-// que se décide l'état ÉVEILLÉ ou EN SOMMEIL, à chaque lecture, d'après le Pro
-// du propriétaire : aucun traitement planifié n'a à endormir un club, et un
-// Pro qui revient le réveille à la lecture suivante.
+// que se décide l'état ÉVEILLÉ ou EN SOMMEIL, à chaque lecture, d'après ce
+// qu'est son propriétaire (manager, avec KoppaFoot+) : aucun traitement
+// planifié n'a à endormir un club, et il se réveille à la lecture suivante dès
+// que les deux sont de nouveau vrais.
 // ============================================
 
 export const clubs = () => adminDb.collection("clubs");
@@ -38,9 +38,13 @@ export async function clubDeLEquipeBrut(equipeId: string): Promise<(FirestoreClu
   return snap.empty ? null : { id: snap.docs[0].id, ...(snap.docs[0].data() as FirestoreClub) };
 }
 
-/** Le club vit-il ? Oui tant que son propriétaire a le Pro. */
+/**
+ * Le club vit-il ? Oui tant que son propriétaire est manager et a KoppaFoot+.
+ * L'un sans l'autre, il s'endort : sa page ne s'affiche plus, rien n'est
+ * effacé, il revit tel quel.
+ */
 export async function estEveille(club: Pick<FirestoreClub, "proprietaire_id">): Promise<boolean> {
-  return estPro(await lireDroits(club.proprietaire_id), jourDeLome());
+  return plusLeve(club.proprietaire_id, "club");
 }
 
 /** Une adresse libre : « etoile-de-be », sinon « etoile-de-be-2 »… */

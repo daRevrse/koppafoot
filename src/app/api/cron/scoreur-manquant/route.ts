@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
-import { rappelerEcheancesPro, reverifierPaiementsOuverts } from "@/lib/paiement-serveur";
+import { rappelerEcheances, reverifierPaiementsOuverts } from "@/lib/paiement-serveur";
 import { rappelerLesMatchsDuJour } from "@/lib/rappels-serveur";
 import { suivreReglementsOuverts } from "@/lib/reglement-serveur";
 import type { FirestoreMatch } from "@/types";
@@ -38,8 +38,9 @@ export const dynamic = "force-dynamic";
  *
  * ELLE RATTRAPE AUSSI LES PAIEMENTS (lib/paiement-serveur) : quelqu'un qui a
  * payé et dont ni le webhook ni le retour sur le site n'ont abouti ne reste
- * pas sans son Pro plus d'une nuit. Et elle prévient de la fin d'un Pro, sept
- * jours avant et la veille. Ces deux parties ne font jamais échouer la tâche :
+ * pas sans ce qu'il a acheté plus d'une nuit. Et elle prévient de la fin de
+ * KoppaFoot+ ou de « Pas de pubs », sept jours avant et la veille. Ces deux
+ * parties ne font jamais échouer la tâche :
  * une panne de FedaPay ne doit pas priver un joueur de son rappel de match.
  *
  * ET ELLE SUIT LES FRAIS DE RÉSERVATION DES TERRAINS (lib/reglement-serveur) :
@@ -94,13 +95,13 @@ export async function GET(request: Request) {
 
     const rappels = await rappelerLesMatchsDuJour();
 
-    const [paiements, echeancesPro] = await Promise.all([
+    const [paiements, echeances] = await Promise.all([
       reverifierPaiementsOuverts().catch((err) => {
         console.error("[cron/scoreur-manquant] paiements:", err);
         return null;
       }),
-      rappelerEcheancesPro().catch((err) => {
-        console.error("[cron/scoreur-manquant] échéances Pro:", err);
+      rappelerEcheances().catch((err) => {
+        console.error("[cron/scoreur-manquant] échéances:", err);
         return null;
       }),
     ]);
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
       dejaRelances: ignores.length,
       rappels,
       paiements,
-      echeancesPro,
+      echeances,
       reglements,
     });
   } catch (err) {

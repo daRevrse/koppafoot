@@ -1,7 +1,7 @@
 // ============================================
-// L'offre : ce que l'usage gratuit permet, et ce que KoppaFoot Pro lève.
+// L'offre : ce que l'usage gratuit permet, et ce que KoppaFoot+ lève.
 //
-// UN SEUL DOCUMENT DIT QUI EST PRO, d'où que le droit vienne. L'administration
+// UN SEUL DOCUMENT DIT QUI A KOPPAFOOT+, d'où que le droit vienne. L'administration
 // l'accorde à la main (`source: "admin"`), pour une durée, à qui elle veut le
 // faire essayer ; un achat par mobile money écrit le même document
 // (`source: "paiement"`, voir lib/paiement). Rien d'autre ne distingue les
@@ -21,10 +21,10 @@
 // créée avant cette date n'est jamais plafonnée.
 //
 // Module pur : aucun SDK. Le serveur (lib/offre-server, les routes) et le
-// navigateur (la page « Mon offre », les messages de limite) le partagent.
+// navigateur (la page de l'offre, les messages de limite) le partagent.
 // ============================================
 
-/** Ce que l'offre gratuite permet. Le Pro lève chacune de ces limites. */
+/** Ce que l'offre gratuite permet. KoppaFoot+ lève chacune de ces limites, pour qui porte le titre qui va avec. */
 export const LIMITES_GRATUIT = {
   /** Équipes dont on est le manager. */
   equipes: 2,
@@ -38,7 +38,7 @@ export const LIMITES_GRATUIT = {
 
 export type CleLimite = keyof typeof LIMITES_GRATUIT;
 
-/** Les deux droits qu'on accorde : le Pro, et l'option sans pub vendue à part. */
+/** Les deux droits qu'on accorde : KoppaFoot+ (`pro`), et « Pas de pubs » (`sans_pub`), vendu à part. */
 export type DroitOffre = "pro" | "sans_pub";
 
 /** Un droit accordé : depuis quand, jusqu'à quand, par qui et pourquoi. */
@@ -56,7 +56,7 @@ export interface DroitAccorde {
 
 /**
  * Les droits d'un compte — `droits/{uid}`. Écrit par le serveur seulement,
- * lisible par son titulaire (firestore.rules) : on ne s'accorde pas le Pro.
+ * lisible par son titulaire (firestore.rules) : on ne s'accorde pas KoppaFoot+.
  */
 export interface FirestoreDroits {
   pro: DroitAccorde | null;
@@ -69,7 +69,7 @@ export interface FirestoreReglageOffre {
   /** À partir de ce jour, les limites s'appliquent ; `null` = pas encore. */
   limites_depuis: string | null;
   /** Le prix de chaque formule, en XOF ; vide = pas en vente (lib/paiement). */
-  prix?: { pro_mois?: number | null; pro_an?: number | null };
+  prix?: Partial<Record<"pro_mois" | "pro_an" | "sans_pub_mois" | "sans_pub_an", number | null>>;
   updated_by: string | null;
   updated_at: unknown;
 }
@@ -85,7 +85,7 @@ export function estPro(droits: Pick<FirestoreDroits, "pro"> | null | undefined, 
   return droitActif(droits?.pro, jour);
 }
 
-/** Sans pub : l'option seule, ou le Pro, qui la comprend. */
+/** Sans pub : « Pas de pubs » seul, ou KoppaFoot+, qui le comprend. */
 export function estSansPub(droits: Pick<FirestoreDroits, "pro" | "sans_pub"> | null | undefined, jour: string): boolean {
   return estPro(droits, jour) || droitActif(droits?.sans_pub, jour);
 }
@@ -93,6 +93,97 @@ export function estSansPub(droits: Pick<FirestoreDroits, "pro" | "sans_pub"> | n
 /** Les limites s'appliquent-elles ce jour-là ? */
 export function limitesEnVigueur(limitesDepuis: string | null | undefined, jour: string): boolean {
   return Boolean(limitesDepuis) && limitesDepuis! <= jour;
+}
+
+// ─── Ce qu'un compte EST, pour l'offre ──────────────────────
+
+/**
+ * Les titres d'un compte : ce qui lui donne quelque chose à gérer.
+ *
+ * KOPPAFOOT+ N'EST PAS POUR TOUT LE MONDE. Il ne sert qu'à qui gère : des
+ * équipes (le manager), des compétitions (l'organisateur), des terrains (le
+ * propriétaire). Un joueur, un arbitre, un spectateur, un scoreur n'y gagnent
+ * que le retrait de la publicité, qui se vend à part (« Pas de pubs »).
+ */
+export interface Titres {
+  manager: boolean;
+  organisateur: boolean;
+  gerant: boolean;
+}
+
+/** Le profil tel que Firestore le range (`users/{uid}`). */
+export interface ProfilPourOffre {
+  user_type?: unknown;
+  evolution_role?: unknown;
+  is_organizer?: unknown;
+  is_venue_owner?: unknown;
+  is_superadmin?: unknown;
+}
+
+/**
+ * Les titres d'un profil.
+ *
+ * UN MANAGER L'EST PAR SON RÔLE, et par lui seul. Le staff d'une équipe n'en
+ * fait pas un manager : c'est un joueur qu'on aide, avec des limites. Une
+ * équipe à son nom sans le rôle, non plus. Le superadmin organise d'office
+ * (lib/hats).
+ */
+export function titresDuProfil(p: ProfilPourOffre | null | undefined): Titres {
+  return {
+    manager: p?.user_type === "manager" || p?.evolution_role === "manager",
+    organisateur: p?.is_organizer === true || p?.is_superadmin === true || p?.user_type === "superadmin",
+    gerant: p?.is_venue_owner === true,
+  };
+}
+
+/** Les mêmes titres, lus sur le profil que le navigateur tient (`UserProfile`). */
+export function titresDuCompte(u: {
+  userType?: unknown; evolutionRole?: unknown; isOrganizer?: unknown; isVenueOwner?: unknown; isSuperAdmin?: unknown;
+} | null | undefined): Titres {
+  return titresDuProfil({
+    user_type: u?.userType,
+    evolution_role: u?.evolutionRole,
+    is_organizer: u?.isOrganizer,
+    is_venue_owner: u?.isVenueOwner,
+    is_superadmin: u?.isSuperAdmin,
+  });
+}
+
+/** KoppaFoot+ se propose à qui porte au moins un titre. */
+export function aDroitAKoppaFootPlus(t: Titres): boolean {
+  return t.manager || t.organisateur || t.gerant;
+}
+
+/**
+ * L'offre qui donne son nom à l'entrée de menu et à la page : KOPPAFOOT+
+ * (`pro`) pour qui y a droit, « Pas de pubs » (`sans_pub`) pour les autres.
+ * Le menu et la page lisent la même fonction : ils ne peuvent pas se contredire.
+ */
+export function offreAffichee(t: Titres): DroitOffre {
+  return aDroitAKoppaFootPlus(t) ? "pro" : "sans_pub";
+}
+
+/** Ce que KoppaFoot+ peut lever : chaque plafond, et le Club multi-équipes. */
+export type Avantage = CleLimite | "club";
+
+const TITRE_REQUIS: Record<Avantage, keyof Titres> = {
+  equipes: "manager",
+  club: "manager",
+  terrains: "gerant",
+  competitions: "organisateur",
+  equipesParCompetition: "organisateur",
+};
+
+/**
+ * KoppaFoot+ lève-t-il cet avantage pour ce compte ?
+ *
+ * IL N'AGIT QUE POUR CE QUE LE COMPTE EST. Un joueur organisateur qui l'a
+ * mène autant de compétitions qu'il veut, mais il n'a ni équipes au-delà du
+ * plafond, ni club. Les titres se cumulent. Le droit lui-même (`estPro`) se
+ * vérifie à part : ceci ne dit que ce qu'il ouvrirait.
+ */
+export function koppaFootPlusLeve(t: Titres, avantage: Avantage): boolean {
+  return t[TITRE_REQUIS[avantage]];
 }
 
 /** Le code que les routes renvoient quand une limite bloque une création. */
@@ -114,7 +205,7 @@ export function messageLimite(cle: CleLimite, max: number): string {
     competitions: `Tu as déjà ${max} compétition${pluriel} en cours, le maximum de l'offre gratuite. Termine-la ou supprime un brouillon.`,
     equipesParCompetition: `Avec l'offre gratuite, une compétition compte au plus ${max} équipes.`,
   };
-  return `${quoi[cle]} KoppaFoot Pro lève cette limite.`;
+  return `${quoi[cle]} KoppaFoot+ lève cette limite.`;
 }
 
 /** Côté navigateur : une création refusée par une limite de l'offre. */
