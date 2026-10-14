@@ -1795,12 +1795,28 @@ export interface CompetitionFormat {
    */
   half_duration?: number;
   /**
-   * Changements illimités : plus de plafond par équipe, et un joueur sorti
-   * peut revenir — le régime des tournois à effectif réduit, et celui des
-   * amicaux. Absent ou faux → cinq changements, sortie définitive (voir
-   * subsMax() et reentryAllowed() dans lib/competition-format).
+   * Changements illimités : plus de plafond par équipe — le régime des
+   * tournois à effectif réduit, et celui des amicaux. ABSENT, il dépend du
+   * format : illimités à huit joueurs et moins, cinq au-delà (voir subsMax()
+   * dans lib/competition-format).
    */
   unlimited_subs?: boolean;
+  /** Le plafond de changements quand ils ne sont pas illimités : 3 ou 5. Absent → 5. */
+  subs_max?: number;
+  /**
+   * Un joueur sorti peut-il revenir ? Absent → oui en changements
+   * illimités, non sinon. Voir reentryAllowed().
+   */
+  subs_return?: boolean;
+  /** Des prolongations à égalité en élimination directe. Absent → non, tirs au but directs. */
+  extra_time?: boolean;
+  /** La durée d'UNE prolongation, en minutes. Absent → un tiers d'une mi-temps. */
+  extra_time_duration?: number;
+  /**
+   * Le minimum de joueurs sur le terrain pour qu'un match continue. Absent →
+   * sept pour onze, à proportion du format. Voir minPlayers().
+   */
+  min_players?: number;
   /**
    * Size of the bracket, in teams. Only read for the types whose final stage
    * is not fed by group qualifiers:

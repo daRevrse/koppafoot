@@ -2,7 +2,8 @@
 
 import {
   hasGroupStage, hasKnockout, isSingleGroup,
-  halfDuration, matchDuration, teamSize, DEFAULT_SUBS_MAX, TEAM_SIZE_OPTIONS,
+  halfDuration, matchDuration, teamSize, TEAM_SIZE_OPTIONS,
+  extraTime, extraTimeDuration, minPlayers, reentryAllowed, subsMax,
 } from "@/lib/competition-format";
 import type { CompetitionFormat, CompetitionType } from "@/types";
 
@@ -126,19 +127,70 @@ export default function CompetitionFormatFields({
         </div>
       </div>
 
-      {/* Le régime des changements : la console l'applique sur chaque match. */}
-      <div>
-        <CheckField
-          label="Changements illimités"
-          checked={!!format.unlimited_subs}
-          onChange={(v) => onChange({ unlimited_subs: v })}
+      {/* LES RÈGLES DU MATCH, que la console applique sur chaque rencontre.
+          Leurs valeurs par défaut suivent le format — illimités et volants à
+          huit et moins, cinq et définitifs au-delà — et l'organisateur les
+          change ici. */}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Changements</label>
+          <select
+            className={numberClass}
+            value={subsMax(format) === null ? "illimites" : String(subsMax(format))}
+            onChange={(e) =>
+              onChange(
+                e.target.value === "illimites"
+                  ? { unlimited_subs: true }
+                  : { unlimited_subs: false, subs_max: parseInt(e.target.value, 10) },
+              )
+            }
+          >
+            <option value="3">3 par équipe</option>
+            <option value="5">5 par équipe</option>
+            <option value="illimites">Illimités</option>
+          </select>
+          <div className="mt-2">
+            <CheckField
+              label="Un joueur sorti peut revenir"
+              checked={reentryAllowed(format)}
+              onChange={(v) => onChange({ subs_return: v })}
+            />
+          </div>
+        </div>
+        <NumberField
+          label="Minimum de joueurs sur le terrain"
+          hint="En dessous, l'arbitre arrête le match et l'équipe perd par forfait"
+          min={1}
+          value={minPlayers(format)}
+          onChange={(v) => onChange({ min_players: Math.min(size, Math.max(1, v)) })}
         />
-        <p className="mt-1 pl-7 text-xs text-gray-400">
-          {format.unlimited_subs
-            ? "Aucun plafond, et un joueur sorti peut revenir sur le terrain."
-            : `${DEFAULT_SUBS_MAX} changements par équipe, et une sortie est définitive.`}
-        </p>
       </div>
+
+      {/* Les prolongations n'ont de sens qu'en élimination directe. */}
+      {knockout && (
+        <div>
+          <CheckField
+            label="Prolongations en cas d'égalité"
+            checked={extraTime(format)}
+            onChange={(v) => onChange({ extra_time: v })}
+          />
+          {extraTime(format) ? (
+            <div className="mt-3 max-w-xs pl-7">
+              <NumberField
+                label="Durée d'une prolongation (min)"
+                hint={`2 × ${extraTimeDuration(format)} min, puis tirs au but`}
+                min={1}
+                value={extraTimeDuration(format)}
+                onChange={(v) => onChange({ extra_time_duration: v })}
+              />
+            </div>
+          ) : (
+            <p className="mt-1 pl-7 text-xs text-gray-400">
+              À égalité, le match passe directement aux tirs au but.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="border-t border-gray-200/70" />
 

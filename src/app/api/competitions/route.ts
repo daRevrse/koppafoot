@@ -45,6 +45,11 @@ function lireFormat(x: unknown): CompetitionFormat | null {
     ...(f.team_size !== undefined ? { team_size: entier(f.team_size, 1, 11, 11) } : {}),
     ...(f.half_duration !== undefined ? { half_duration: entier(f.half_duration, 1, 90, 45) } : {}),
     ...(f.unlimited_subs !== undefined ? { unlimited_subs: f.unlimited_subs === true } : {}),
+    ...(f.subs_max !== undefined ? { subs_max: entier(f.subs_max, 1, 20, 5) } : {}),
+    ...(f.subs_return !== undefined ? { subs_return: f.subs_return === true } : {}),
+    ...(f.extra_time !== undefined ? { extra_time: f.extra_time === true } : {}),
+    ...(f.extra_time_duration !== undefined ? { extra_time_duration: entier(f.extra_time_duration, 1, 30, 15) } : {}),
+    ...(f.min_players !== undefined ? { min_players: entier(f.min_players, 1, 11, 7) } : {}),
     ...(f.knockout_teams !== undefined ? { knockout_teams: entier(f.knockout_teams, 2, 64, 8) } : {}),
   };
 }

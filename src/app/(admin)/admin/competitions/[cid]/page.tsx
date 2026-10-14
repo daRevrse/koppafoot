@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, ExternalLink, EyeOff, Loader2, Mail, Phone, Settings } from "lucide-react";
 import toast from "react-hot-toast";
+import { extraTime, extraTimeDuration, subsMax } from "@/lib/competition-format";
 import { useAdminApi } from "@/hooks/useAdminApi";
 import { setCompetitionValidated } from "@/lib/admin-firestore";
 import { useATraiter } from "@/components/admin/ATraiterContext";
@@ -124,7 +125,8 @@ export default function AdminCompetitionDetailPage() {
     TYPES[c.competitionType] ?? c.competitionType,
     f.team_size ? `${f.team_size} contre ${f.team_size}` : null,
     f.half_duration ? `2 × ${f.half_duration} min` : null,
-    f.unlimited_subs ? "changements illimités" : null,
+    subsMax(f) === null ? "changements illimités" : `${subsMax(f)} changements`,
+    extraTime(f) ? `prolongations 2 × ${extraTimeDuration(f)} min` : null,
     c.competitionType === "groups_knockout" || c.competitionType === "league" || c.competitionType === "league_playoffs"
       ? `${f.group_count} poule${f.group_count > 1 ? "s" : ""} de ${f.teams_per_group}`
       : null,
