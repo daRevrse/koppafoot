@@ -4,6 +4,7 @@ import { auNomDuClub, formeDuClub, type MatchDate, type Resultat } from "@/lib/b
 import { amicalVersCompMatch } from "@/lib/friendlies-shared";
 import { toCompetition, toCompMatch, toCompTeam } from "@/lib/competition-mappers";
 import { computeStandings } from "@/lib/poules";
+import { estExhibition, matchsQuiComptent } from "@/lib/exhibition";
 import { normaliserPoste } from "@/lib/postes";
 import { lireButeursRenseignes } from "@/lib/buteurs";
 import {
@@ -90,7 +91,9 @@ function vuDuClub(
     id: m.id,
     lien,
     competition,
-    etape: competition ? (m.group ? `Groupe ${m.group}` : m.round ? TOURS[m.round] : null) : null,
+    etape: competition
+      ? estExhibition(m) ? "Exhibition" : m.group ? `Groupe ${m.group}` : m.round ? TOURS[m.round] : null
+      : null,
     groupe: competition ? (m.group ?? null) : null,
     tour: competition && !m.group ? (m.round ?? null) : null,
     date: m.date,
@@ -229,7 +232,9 @@ export async function ficheDuClub(teamId: string, club: Doc): Promise<FicheDuClu
         const nous = new Set(nosEquipes.docs.map((t) => t.id));
         const lienCompetition = `/c/${competition.slug}`;
 
-        pourBilan.push(...auNomDuClub(tous.map(pourLeBilan), nous, teamId));
+        // Le bilan ne compte pas les exhibitions ; la liste des matchs, si :
+        // le match a été joué, et on le montre (voir lib/exhibition).
+        pourBilan.push(...auNomDuClub(matchsQuiComptent(tous).map(pourLeBilan), nous, teamId));
         for (const m of tous) {
           const estANous = (!!m.homeTeamId && nous.has(m.homeTeamId)) || (!!m.awayTeamId && nous.has(m.awayTeamId));
           const statut = statutPublicCompetition(m.status);
@@ -238,7 +243,7 @@ export async function ficheDuClub(teamId: string, club: Doc): Promise<FicheDuClu
             nom: competition.name,
             lien: lienCompetition,
           }));
-          pourMeneurs.push({
+          if (!estExhibition(m)) pourMeneurs.push({
             nous: [...nous],
             status: m.status,
             feuilles: [...m.homeLineup, ...m.awayLineup].map((e) => ({

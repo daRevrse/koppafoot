@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Check, ChevronRight, Users, LayoutGrid, Calendar, GitBranch, ShieldCheck, type LucideIcon } from "lucide-react";
 import { hasGroupStage, hasKnockout, isSingleGroup } from "@/lib/competition-format";
+import { matchsQuiComptent } from "@/lib/exhibition";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 
 // ============================================
@@ -30,7 +31,7 @@ interface Step {
 }
 
 export default function OrganizerProgress({
-  competition, teams, matches, loading,
+  competition, teams: toutes, matches: tous, loading,
 }: {
   competition: Competition;
   teams: CompTeam[];
@@ -40,6 +41,10 @@ export default function OrganizerProgress({
   const cid = competition.id;
   const type = competition.competitionType;
   const base = `/organizer/competitions/${cid}`;
+  // Le parcours du tournoi : une équipe invitée n'a pas de poule à recevoir,
+  // un match d'exhibition ne programme pas le tournoi (lib/exhibition).
+  const teams = toutes.filter((t) => !t.invitee);
+  const matches = matchsQuiComptent(tous);
 
   const dated = matches.filter((m) => m.date != null).length;
   const knockoutDrawn = matches.some((m) => m.stage === "knockout");

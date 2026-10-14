@@ -112,7 +112,12 @@ export async function limiteEquipesDeCompetition(
   if (!nee || nee < depuis!) return null;
   const leves = await Promise.all((competition.organizer_ids ?? []).map((o) => plusLeve(o, "equipesParCompetition", jour)));
   if (leves.some(Boolean)) return null;
-  const n = await nombre(adminDb.collection("competitions").doc(cid).collection("comp_teams"));
+  // Les équipes invitées n'en font pas partie (voir lib/exhibition). Compter
+  // « toutes, moins les invitées » : une requête `!=` écarterait aussi les
+  // équipes sans le champ, c'est-à-dire presque toutes.
+  const equipes = adminDb.collection("competitions").doc(cid).collection("comp_teams");
+  const [toutes, invitees] = await Promise.all([nombre(equipes), nombre(equipes.where("invitee", "==", true))]);
+  const n = toutes - invitees;
   const max = LIMITES_GRATUIT.equipesParCompetition;
   return n + ajout > max ? { code: CODE_LIMITE, cle: "equipesParCompetition", max } : null;
 }

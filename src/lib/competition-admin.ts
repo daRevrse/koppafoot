@@ -194,7 +194,9 @@ export async function getCompetitionLanding(slug: string): Promise<CompetitionLa
 
     return {
       competition,
-      teams: teamsSnap.docs.map((d) => {
+      // Les équipes du tournoi : une équipe invitée, venue pour un match
+      // d'exhibition, ne compte pas dans « 12 équipes » (voir lib/exhibition).
+      teams: teamsSnap.docs.filter((d) => d.data().invitee !== true).map((d) => {
         const data = d.data() as { name?: string; logo_url?: string | null };
         return {
           id: d.id,

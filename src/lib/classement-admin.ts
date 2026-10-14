@@ -14,6 +14,7 @@
 // ============================================
 
 import { adminDb } from "@/lib/firebase-admin";
+import { estExhibition } from "@/lib/exhibition";
 import { getPublicCompetitions } from "@/lib/competition-admin";
 import { toCompMatch } from "@/lib/competition-mappers";
 import { matchDuration } from "@/lib/competition-format";
@@ -62,7 +63,8 @@ export async function matchsDeLaPlateforme(): Promise<MatchDeLaPlateforme[]> {
         .collection("competitions").doc(c.id)
         .collection("comp_matches").where("status", "==", "completed").get();
       const dureeMatchMin = matchDuration(c.format);
-      return snap.docs.map((d) => ({
+      // Un match d'exhibition ne classe personne (voir lib/exhibition).
+      return snap.docs.filter((d) => !estExhibition(d.data() as FirestoreCompMatch)).map((d) => ({
         ...toCompMatch(d.id, d.data() as FirestoreCompMatch),
         dureeMatchMin,
         lien: `/c/${c.slug}/matches/${d.id}`,

@@ -37,6 +37,7 @@ import type {
 } from "@/types";
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
+import { estExhibition } from "./exhibition";
 import { listGrantedCompetitionIds } from "./staff-access";
 import {
   OWN_GOAL_DETAIL, nouvelIdEvenement, type IssuePenalty, type TypeEvenement,
@@ -373,7 +374,11 @@ export async function duplicateCompetition(
 
 export async function createCompTeam(
   cid: string,
-  input: { name: string; shortName: string; color: string; logoUrl?: string | null; group?: string | null },
+  input: {
+    name: string; shortName: string; color: string; logoUrl?: string | null; group?: string | null;
+    /** Une équipe invitée, pour un match d'exhibition : sans poule, hors quota. */
+    invitee?: boolean;
+  },
 ): Promise<string> {
   // Par le serveur : l'offre gratuite plafonne la taille d'une compétition
   // (lib/offre).
@@ -382,7 +387,8 @@ export async function createCompTeam(
     shortName: input.shortName,
     color: input.color,
     logoUrl: input.logoUrl ?? null,
-    group: input.group ?? null,
+    group: input.invitee ? null : input.group ?? null,
+    ...(input.invitee ? { invitee: true } : {}),
   });
 }
 
@@ -1045,6 +1051,9 @@ export async function generateGroupFixtures(cid: string): Promise<void> {
   // Group assigned teams by their group letter.
   const groups = new Map<string, CompTeam[]>();
   for (const team of teams) {
+    // Une équipe invitée ne joue que des exhibitions : sans cette ligne, un
+    // championnat à poule unique la prendrait, puisqu'il ne regarde pas la poule.
+    if (team.invitee) continue;
     // On a single-group competition there are no poules to compose, so an
     // unassigned team belongs to the one and only group.
     const letter = singleGroup ? SINGLE_GROUP_LETTER : team.group;
@@ -1942,6 +1951,8 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
   const byKey = new Map<string, TopScorer>();
 
   for (const match of matches) {
+    // Un but de match d'exhibition ne fait pas un buteur du tournoi.
+    if (estExhibition(match)) continue;
     const events = match.liveState?.events ?? [];
     for (const event of events) {
       if (event.type !== "goal") continue;
@@ -2028,6 +2039,7 @@ export function computePlayerContributions(matches: CompMatch[]): PlayerContribu
   };
 
   for (const match of matches) {
+    if (estExhibition(match)) continue;
     for (const event of match.liveState?.events ?? []) {
       if (event.type !== "goal") continue;
       if (event.varStatus === "cancelled") continue;

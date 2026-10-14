@@ -299,7 +299,7 @@ export default function CompetitionDashboardPage() {
 
       {/* The payoff first: a competition here produces a public page, and
           that page is what fills the competition. */}
-      <CompetitionShareCard competition={competition} teamCount={teams.length} />
+      <CompetitionShareCard competition={competition} teamCount={teams.filter((t) => !t.invitee).length} />
 
       {/* Then the sequence, what is done, what is next. */}
       <OrganizerProgress

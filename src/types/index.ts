@@ -1757,7 +1757,14 @@ export type CompetitionStatus =
  *  - league_playoffs : one single group then a bracket on the top N
  */
 export type CompetitionType = "cup" | "league" | "groups_knockout" | "league_playoffs";
-export type CompMatchStage = "group" | "knockout";
+/**
+ * `exhibition` : un match joué dans le cadre de la compétition sans en faire
+ * partie — un match de gala avant la finale, une équipe de partenaires contre
+ * les anciens. Il a son direct, ses feuilles et sa fiche, et ne compte NULLE
+ * PART : ni classement, ni tableau, ni buteurs, ni statistiques des joueurs
+ * (voir lib/exhibition).
+ */
+export type CompMatchStage = "group" | "knockout" | "exhibition";
 export type CompMatchRound = "round_of_16" | "quarter" | "semi" | "final" | "third_place";
 export type CompMatchStatus = "scheduled" | "live" | "completed" | "cancelled";
 
@@ -2107,6 +2114,12 @@ export interface FirestoreCompTeam {
   disqualified?: boolean;
   disqualified_at?: string | null;
   disqualified_reason?: string | null;
+  /**
+   * Une ÉQUIPE INVITÉE : elle ne joue que des matchs d'exhibition. Jamais de
+   * poule, jamais dans la génération du calendrier, et elle ne compte pas dans
+   * la taille de la compétition (voir lib/offre-server).
+   */
+  invitee?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -2127,6 +2140,8 @@ export interface CompTeam {
   disqualified: boolean;
   disqualifiedAt: string | null;
   disqualifiedReason: string | null;
+  /** Voir `FirestoreCompTeam.invitee`. */
+  invitee: boolean;
   createdAt: string;
   updatedAt: string;
 }

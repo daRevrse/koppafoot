@@ -375,7 +375,14 @@ export default function CompetitionTeamsPage() {
             transition={{ delay: 0.05 }}
             className="mt-0.5 text-sm text-gray-500"
           >
-            {teams.length} équipe{teams.length !== 1 ? "s" : ""} inscrite{teams.length !== 1 ? "s" : ""}
+            {(() => {
+              // Les invitées à part : elles ne jouent que des exhibitions.
+              const invitees = teams.filter((t) => t.invitee).length;
+              const n = teams.length - invitees;
+              return `${n} équipe${n !== 1 ? "s" : ""} inscrite${n !== 1 ? "s" : ""}${
+                invitees > 0 ? ` · ${invitees} invitée${invitees > 1 ? "s" : ""}` : ""
+              }`;
+            })()}
           </motion.p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -453,6 +460,14 @@ export default function CompetitionTeamsPage() {
                   {team.group && (
                     <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                       Poule {team.group}
+                    </span>
+                  )}
+                  {team.invitee && (
+                    <span
+                      title="Équipe invitée : elle ne joue que des matchs d'exhibition, hors poule et hors quota."
+                      className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700"
+                    >
+                      Invitée
                     </span>
                   )}
                   {team.disqualified && (
