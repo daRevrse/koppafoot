@@ -32,6 +32,7 @@ const T = textes(
       `${n} ${feminin ? "joueuse" : "joueur"}${n > 1 ? "s" : ""}`,
     groupe: (g: string) => `Groupe ${g}`,
     disqualifiee: "Disqualifiée",
+    invitee: "Invitée",
     effectifNonCommunique: "Effectif non communiqué.",
     fiche: "Fiche de l'équipe",
     joueur: (feminin: boolean) => (feminin ? "Joueuse" : "Joueur"),
@@ -48,6 +49,7 @@ const T = textes(
     joueurs: (n: number) => `${n} player${n === 1 ? "" : "s"}`,
     groupe: (g: string) => `Group ${g}`,
     disqualifiee: "Disqualified",
+    invitee: "Guest team",
     effectifNonCommunique: "Squad not provided.",
     fiche: "Team page",
     joueur: () => "Player",
@@ -180,7 +182,8 @@ export default function TeamsTab({ competition, matches, teams }: {
   // plusieurs : « Groupe A » sur toutes les lignes d'un championnat ne dit rien.
   const rangees = useMemo(
     () => [...teams].sort((a, b) =>
-      (a.group ?? "").localeCompare(b.group ?? "") || a.name.localeCompare(b.name)),
+      Number(a.invitee) - Number(b.invitee)
+      || (a.group ?? "").localeCompare(b.group ?? "") || a.name.localeCompare(b.name)),
     [teams],
   );
   const plusieursGroupes = new Set(teams.map((e) => e.group).filter(Boolean)).size > 1;
@@ -214,6 +217,11 @@ export default function TeamsTab({ competition, matches, teams }: {
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] font-bold text-gray-400">
                   {plusieursGroupes && team.group && <span>{t.groupe(team.group)}</span>}
                   <span>{t.joueurs(team.players.length, feminin)}</span>
+                  {team.invitee && (
+                    <span className="bg-sky-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-sky-700">
+                      {t.invitee}
+                    </span>
+                  )}
                   {team.disqualified && (
                     <span className="bg-red-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-600">
                       {t.disqualifiee}

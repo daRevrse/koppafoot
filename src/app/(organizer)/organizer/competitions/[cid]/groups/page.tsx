@@ -31,7 +31,8 @@ export default function CompetitionGroupsPage() {
     if (!cid) return;
     const unsubCompetition = onCompetition(cid, setCompetition);
     const unsubTeams = onCompTeams(cid, (next) => {
-      setTeams(next);
+      // Une équipe invitée ne joue que des exhibitions : jamais de poule.
+      setTeams(next.filter((t) => !t.invitee));
       setLoading(false);
     });
     return () => {

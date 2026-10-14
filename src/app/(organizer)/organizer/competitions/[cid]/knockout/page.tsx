@@ -283,7 +283,8 @@ export default function CompetitionKnockoutPage() {
       setGroupMatches(next.filter((m) => m.stage === "group"));
       setLoading(false);
     });
-    const unsubTeams = onCompTeams(cid, setTeams);
+    // Une équipe invitée ne joue que des exhibitions : jamais dans le tableau.
+    const unsubTeams = onCompTeams(cid, (next) => setTeams(next.filter((t) => !t.invitee)));
     return () => {
       unsubCompetition();
       unsubMatches();

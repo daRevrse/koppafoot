@@ -1280,6 +1280,7 @@ function Spotlight({
 
 /** "Groupe A" for group matches, the round label for knockout. */
 function stageTagLabel(match: CompMatch, f: (typeof FOOT)["fr"]): string | null {
+  if (match.stage === "exhibition") return f.exhibition;
   if (match.group) return f.groupe(match.group);
   if (match.round) return f.tour(match.round);
   return null;

@@ -18,8 +18,10 @@ import type { CompPlayer } from "@/types";
  * Mêmes conditions que la règle qu'elle remplace : un organisateur de la
  * compétition, ou l'administration. Les modérateurs n'ajoutent pas d'équipe.
  *
- * Corps : une équipe { name, shortName, color, logoUrl?, group?, players? }
- * → { id } ; ou { equipes: [...] } → { ids }, tout ou rien.
+ * Corps : une équipe { name, shortName, color, logoUrl?, group?, players?, invitee? }
+ * → { id } ; ou { equipes: [...] } → { ids }, tout ou rien. `invitee` : une
+ * équipe invitée, pour un match d'exhibition (voir lib/exhibition), sans
+ * poule et hors quota.
  */
 
 export const dynamic = "force-dynamic";
@@ -50,12 +52,15 @@ function lireEquipe(x: unknown) {
   const name = texte(c.name, 80);
   if (!name) return null;
   const players = lireJoueurs(c.players);
+  // Une équipe invitée ne joue que des exhibitions : jamais de poule.
+  const invitee = c.invitee === true;
   return {
     name,
     short_name: texte(c.shortName, 6) || name.slice(0, 3).toUpperCase(),
     color: texte(c.color, 32) || "#059669",
     logo_url: texte(c.logoUrl, 1000) || null,
-    group: texte(c.group, 40) || null,
+    group: invitee ? null : texte(c.group, 40) || null,
+    ...(invitee ? { invitee: true } : {}),
     ...(players.length ? { players } : {}),
   };
 }
@@ -87,7 +92,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ cid: st
       return NextResponse.json({ error: "Le nom de l'équipe est requis" }, { status: 400 });
     }
 
-    const limite = await limiteEquipesDeCompetition(cid, competition, equipes.length);
+    // Les équipes invitées ne comptent pas dans la taille de la compétition :
+    // inviter les partenaires à un match de gala n'agrandit pas le tournoi.
+    const duTournoi = equipes.filter((e) => !e!.invitee).length;
+    const limite = duTournoi > 0 ? await limiteEquipesDeCompetition(cid, competition, duTournoi) : null;
     if (limite) return reponseLimite(limite);
 
     const lot = adminDb.batch();

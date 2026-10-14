@@ -35,6 +35,9 @@ export const FOOT = textes(
     /** « Quarts de finale » : la colonne d'un tableau. */
     tours: (r: CompMatchRound) => TOURS_FR[r]?.[1] ?? "",
     groupe: (g: string) => `Groupe ${g}`,
+    /** L'étiquette d'un match d'exhibition (voir lib/exhibition), à la place de la poule ou du tour. */
+    exhibition: "Exhibition",
+    matchExhibition: "Match d'exhibition",
     enDirect: "En direct",
     termine: "Terminé",
     /** La colonne étroite d'une ligne de score. */
@@ -57,6 +60,8 @@ export const FOOT = textes(
     tour: (r: CompMatchRound) => TOURS_EN[r]?.[0] ?? "",
     tours: (r: CompMatchRound) => TOURS_EN[r]?.[1] ?? "",
     groupe: (g: string) => `Group ${g}`,
+    exhibition: "Exhibition",
+    matchExhibition: "Exhibition match",
     enDirect: "Live",
     termine: "Full time",
     fin: "FT",

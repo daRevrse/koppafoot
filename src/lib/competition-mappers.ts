@@ -80,6 +80,7 @@ export function toCompTeam(id: string, competitionId: string, d: FirestoreCompTe
     disqualified: d.disqualified ?? false,
     disqualifiedAt: d.disqualified_at ?? null,
     disqualifiedReason: d.disqualified_reason ?? null,
+    invitee: d.invitee === true,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };

@@ -1,4 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin";
+import { estExhibition } from "@/lib/exhibition";
+import type { CompMatchStage } from "@/types";
 import {
   bilanDuClub, compteDansLeBilan, type BilanClub, type MatchPourBilan,
 } from "@/lib/bilan-club";
@@ -106,7 +108,9 @@ async function enCompetition(teamId: string): Promise<MatchDate[]> {
           .collection("comp_matches")
           .where("status", "==", "completed")
           .get();
-        return auNomDuClub(termines.docs.map((d) => versBilan(d.data())), nous, teamId);
+        // Un match d'exhibition ne compte pas au bilan (voir lib/exhibition).
+        const officiels = termines.docs.filter((d) => !estExhibition(d.data() as { stage?: CompMatchStage }));
+        return auNomDuClub(officiels.map((d) => versBilan(d.data())), nous, teamId);
       }),
   );
   return parts.flat();

@@ -112,8 +112,10 @@ function StatusPill({ status }: { status: CompMatch["status"] }) {
   );
 }
 
-// Small stage tag: "Groupe A" for group matches, the round label for knockout.
+// Small stage tag: "Groupe A" for group matches, the round label for knockout,
+// « Exhibition » for a match played alongside the competition.
 function stageTag(match: CompMatch, f: (typeof FOOT)["fr"]): string | null {
+  if (match.stage === "exhibition") return f.exhibition;
   if (match.group) return f.groupe(match.group);
   if (match.round) return f.tour(match.round);
   return null;
@@ -138,8 +140,10 @@ export default function CalendarTab({ competition, matches }: {
   const filters = useMemo(() => {
     const groups = new Set<string>();
     let hasKnockout = false;
+    let hasExhibition = false;
     for (const m of matches) {
-      if (m.group) groups.add(m.group);
+      if (m.stage === "exhibition") hasExhibition = true;
+      else if (m.group) groups.add(m.group);
       else if (m.round) hasKnockout = true;
     }
     const sorted = [...groups].sort();
@@ -147,12 +151,14 @@ export default function CalendarTab({ competition, matches }: {
       { key: "all", label: t.tous },
       ...sorted.map((g) => ({ key: `group:${g}`, label: t.poule(g) })),
       ...(hasKnockout ? [{ key: "knockout", label: t.phaseFinale }] : []),
+      ...(hasExhibition ? [{ key: "exhibition", label: f.exhibition }] : []),
     ];
-  }, [matches, t]);
+  }, [matches, t, f]);
 
   const filteredMatches = useMemo(() => {
     if (groupFilter === "all") return matches;
     if (groupFilter === "knockout") return matches.filter((m) => !m.group && m.round);
+    if (groupFilter === "exhibition") return matches.filter((m) => m.stage === "exhibition");
     if (groupFilter.startsWith("group:")) {
       const g = groupFilter.slice("group:".length);
       return matches.filter((m) => m.group === g);

@@ -23,6 +23,7 @@
 // ============================================
 
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
+import { estExhibition } from "@/lib/exhibition";
 import type { Poste } from "@/lib/postes";
 import {
   DUREE_MATCH_DEFAUT, computeMinutesPlayed, computePlayerStats, type MatchJoue,
@@ -296,6 +297,8 @@ export function classerCandidatsMVPCompetition(
   const ordonnes = [...matches].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
 
   for (const m of ordonnes) {
+    // Un homme du match d'exhibition n'en est pas un pour le tournoi.
+    if (estExhibition(m)) continue;
     const playerId = m.mvpPlayerId;
     if (!playerId) continue;
     const name = m.mvpPlayerName;

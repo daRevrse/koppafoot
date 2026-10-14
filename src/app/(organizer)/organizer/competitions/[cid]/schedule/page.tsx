@@ -17,6 +17,7 @@ import {
   scheduleCompMatch,
   updateCompMatch,
   createCompMatch,
+  createCompTeam,
   describeBracketSlotSource,
 } from "@/lib/competition-firestore";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
@@ -80,10 +81,31 @@ const ROUND_SHORT: Record<CompMatchRound, string> = {
  */
 interface Section {
   id: string;
-  kind: "group" | "knockout";
+  kind: "group" | "knockout" | "exhibition";
   badge: string;
   title: string;
   matches: CompMatch[];
+}
+
+/** Les couleurs d'un bloc : ambre pour les poules, violet pour la phase finale, bleu ciel pour l'exhibition. */
+const COULEURS_BLOC: Record<Section["kind"], { actif: string; pastille: string }> = {
+  group: { actif: "bg-amber-500 text-white shadow-amber-200", pastille: "bg-amber-100 text-amber-700" },
+  knockout: { actif: "bg-purple-600 text-white shadow-purple-200", pastille: "bg-purple-100 text-purple-700" },
+  exhibition: { actif: "bg-sky-600 text-white shadow-sky-200", pastille: "bg-sky-100 text-sky-700" },
+};
+
+/**
+ * Le choix « nouvelle équipe invitée » dans les listes d'un match d'exhibition.
+ * Une équipe invitée (Team des partenaires, sélection des anciens…) ne joue
+ * que des exhibitions : jamais de poule, hors quota (voir lib/exhibition).
+ */
+const NOUVELLE_INVITEE = "__nouvelle_invitee__";
+
+/** « Team Coopération Allemande » → « TCA » ; un seul mot → ses trois premières lettres. */
+function sigle(nom: string): string {
+  const mots = nom.trim().split(/\s+/).filter(Boolean);
+  const initiales = mots.map((m) => m[0]).join("").slice(0, 3);
+  return (initiales.length >= 2 ? initiales : nom.trim().slice(0, 3)).toUpperCase();
 }
 
 export default function CompetitionSchedulePage() {
@@ -98,9 +120,12 @@ export default function CompetitionSchedulePage() {
   // "Add match" modal.
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
-    stage: "group" as "group" | "knockout",
+    stage: "group" as "group" | "knockout" | "exhibition",
     homeTeamId: "",
     awayTeamId: "",
+    /** Le nom d'une équipe invitée à créer, quand le camp vaut NOUVELLE_INVITEE. */
+    homeNewName: "",
+    awayNewName: "",
     group: "",
     round: "final" as CompMatchRound,
     date: "",
@@ -222,6 +247,14 @@ export default function CompetitionSchedulePage() {
     [matches],
   );
 
+  const exhibitionMatches = useMemo(
+    () => matches.filter((m) => m.stage === "exhibition"),
+    [matches],
+  );
+
+  /** Les équipes du tournoi : une équipe invitée ne joue ni en poule ni en phase finale. */
+  const equipesDuTournoi = useMemo(() => teams.filter((t) => !t.invitee), [teams]);
+
   // Seed row state from match values whenever matches change, without clobbering
   // edits the user has already started (only fill rows we haven't seeded yet).
   useEffect(() => {
@@ -286,8 +319,21 @@ export default function CompetitionSchedulePage() {
       });
     }
 
+    // Les exhibitions en dernier : elles accompagnent le tournoi, elles n'en
+    // sont pas une étape.
+    if (exhibitionMatches.length > 0) {
+      out.push({
+        id: "X",
+        kind: "exhibition",
+        badge: "EX",
+        title: "Matchs d'exhibition",
+        matches: [...exhibitionMatches].sort((a, b) =>
+          `${a.date ?? "9"}${a.time ?? ""}`.localeCompare(`${b.date ?? "9"}${b.time ?? ""}`)),
+      });
+    }
+
     return out;
-  }, [groupMatches, knockoutMatches]);
+  }, [groupMatches, knockoutMatches, exhibitionMatches]);
 
   const [selectedSection, setSelectedSection] = useState<string>("ALL");
   const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
@@ -429,6 +475,8 @@ export default function CompetitionSchedulePage() {
       stage,
       homeTeamId: "",
       awayTeamId: "",
+      homeNewName: "",
+      awayNewName: "",
       group: "",
       round: "final",
       date: "",
@@ -443,6 +491,13 @@ export default function CompetitionSchedulePage() {
   const setAdd = <K extends keyof typeof addForm>(key: K, value: (typeof addForm)[K]) => {
     setAddForm((prev) => {
       const next = { ...prev, [key]: value };
+      // Une équipe invitée ne joue que des exhibitions : changer d'étape vide
+      // un camp qui en portait une.
+      if (key === "stage" && value !== "exhibition") {
+        const invitee = (id: string) => id === NOUVELLE_INVITEE || !!teams.find((t) => t.id === id)?.invitee;
+        if (invitee(prev.homeTeamId)) next.homeTeamId = "";
+        if (invitee(prev.awayTeamId)) next.awayTeamId = "";
+      }
       // Auto-fill the poule from the home team's group when not set manually.
       if (key === "homeTeamId" && !prev.group) {
         const g = teams.find((t) => t.id === value)?.group;
@@ -461,11 +516,24 @@ export default function CompetitionSchedulePage() {
   };
 
   const handleAddMatch = async () => {
+    const exhibition = addForm.stage === "exhibition";
+    const nouvelleDom = exhibition && addForm.homeTeamId === NOUVELLE_INVITEE;
+    const nouvelleExt = exhibition && addForm.awayTeamId === NOUVELLE_INVITEE;
+    const nomDom = addForm.homeNewName.trim();
+    const nomExt = addForm.awayNewName.trim();
     if (!addForm.homeTeamId || !addForm.awayTeamId) {
       toast.error("Choisis les deux équipes");
       return;
     }
-    if (addForm.homeTeamId === addForm.awayTeamId) {
+    if ((nouvelleDom && !nomDom) || (nouvelleExt && !nomExt)) {
+      toast.error("Donne un nom à l'équipe invitée");
+      return;
+    }
+    if (
+      nouvelleDom && nouvelleExt
+        ? nomDom.toLowerCase() === nomExt.toLowerCase()
+        : addForm.homeTeamId === addForm.awayTeamId
+    ) {
       toast.error("Une équipe ne peut pas jouer contre elle-même");
       return;
     }
@@ -493,11 +561,16 @@ export default function CompetitionSchedulePage() {
     const knockout = addForm.stage === "knockout";
     setAddingMatch(true);
     try {
+      // Les équipes invitées d'abord : le match les désigne par leur identifiant.
+      const inviter = (nom: string) =>
+        createCompTeam(cid, { name: nom, shortName: sigle(nom), color: "#0284c7", invitee: true });
+      const homeTeamId = nouvelleDom ? await inviter(nomDom) : addForm.homeTeamId;
+      const awayTeamId = nouvelleExt ? await inviter(nomExt) : addForm.awayTeamId;
       const { terrain } = await createCompMatch(cid, {
         stage: addForm.stage,
-        homeTeamId: addForm.homeTeamId,
-        awayTeamId: addForm.awayTeamId,
-        group: knockout ? null : addForm.group.trim() || null,
+        homeTeamId,
+        awayTeamId,
+        group: knockout || exhibition ? null : addForm.group.trim() || null,
         round: knockout ? addForm.round : null,
         date: addForm.date || null,
         time: addForm.time || null,
@@ -972,14 +1045,18 @@ export default function CompetitionSchedulePage() {
                 {knockoutMatches.length} en phase finale
               </>
             )}
+            {exhibitionMatches.length > 0 && (
+              <>
+                {` · ${exhibitionMatches.length} d'exhibition`}
+              </>
+            )}
           </motion.p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={openAdd}
-            disabled={teams.length < 2}
-            title={teams.length < 2 ? "Ajoute au moins deux équipes d'abord" : "Ajouter un match"}
+            title="Ajouter un match"
             className="flex items-center gap-2 bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-primary-200 transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={16} />
@@ -1070,27 +1147,19 @@ export default function CompetitionSchedulePage() {
                 </button>
                 {sections.map((section) => {
                   const isSelected = selectedSection === section.id;
-                  const knockout = section.kind === "knockout";
+                  const couleurs = COULEURS_BLOC[section.kind];
                   return (
                     <button
                       key={section.id}
                       type="button"
                       onClick={() => setSelectedSection(section.id)}
                       className={`flex shrink-0 items-center gap-2 px-4 py-2 text-xs font-bold transition-all ${
-                        isSelected
-                          ? knockout
-                            ? "bg-purple-600 text-white shadow-purple-200"
-                            : "bg-amber-500 text-white shadow-amber-200"
-                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        isSelected ? couleurs.actif : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                       }`}
                     >
                       <span
                         className={`flex h-5 min-w-5 items-center justify-center px-1 text-[11px] font-black ${
-                          isSelected
-                            ? "bg-white/20 text-white"
-                            : knockout
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-amber-100 text-amber-700"
+                          isSelected ? "bg-white/20 text-white" : couleurs.pastille
                         }`}
                       >
                         {section.badge}
@@ -1115,6 +1184,7 @@ export default function CompetitionSchedulePage() {
 
           {visibleSections.map((section, si) => {
             const knockout = section.kind === "knockout";
+            const exhibition = section.kind === "exhibition";
             const ids = section.matches.map((m) => m.id);
             const toutDeplie = ids.length > 0 && ids.every((id) => deplies.has(id));
             return (
@@ -1128,10 +1198,10 @@ export default function CompetitionSchedulePage() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-gray-200/70 bg-gray-50/70 px-5 py-3">
                   <span
                     className={`flex h-7 min-w-7 items-center justify-center px-1 text-sm font-bold ${
-                      knockout ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700"
+                      COULEURS_BLOC[section.kind].pastille
                     }`}
                   >
-                    {knockout ? <GitBranch size={15} /> : section.badge}
+                    {knockout ? <GitBranch size={15} /> : exhibition ? <Sparkles size={15} /> : section.badge}
                   </span>
                   <h2 className="text-sm font-bold text-gray-900">{section.title}</h2>
                   {knockout && (
@@ -1191,23 +1261,19 @@ export default function CompetitionSchedulePage() {
               </div>
 
               <div className="space-y-4">
-                {/* Phase, a poule match or a final-phase one */}
-                <div className="flex items-center gap-2">
-                  {(["group", "knockout"] as const).map((stage) => (
+                {/* Phase : un match de poule, de phase finale, ou d'exhibition */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {(["group", "knockout", "exhibition"] as const).map((stage) => (
                     <button
                       key={stage}
                       type="button"
                       onClick={() => setAdd("stage", stage)}
                       className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all ${
-                        addForm.stage === stage
-                          ? stage === "knockout"
-                            ? "bg-purple-600 text-white shadow-purple-200"
-                            : "bg-amber-500 text-white shadow-amber-200"
-                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        addForm.stage === stage ? COULEURS_BLOC[stage].actif : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                       }`}
                     >
-                      {stage === "knockout" ? <GitBranch size={14} /> : <Calendar size={14} />}
-                      {stage === "knockout" ? "Phase finale" : "Poule"}
+                      {stage === "knockout" ? <GitBranch size={14} /> : stage === "exhibition" ? <Sparkles size={14} /> : <Calendar size={14} />}
+                      {stage === "knockout" ? "Phase finale" : stage === "exhibition" ? "Exhibition" : "Poule"}
                     </button>
                   ))}
                 </div>
@@ -1221,12 +1287,27 @@ export default function CompetitionSchedulePage() {
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
                       <option value="">, Équipe,</option>
-                      {teams.map((t) => (
+                      {(addForm.stage === "exhibition" ? teams : equipesDuTournoi).map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.awayTeamId}>
-                          {t.name}{t.group ? ` (${t.group})` : ""}
+                          {t.name}{t.invitee ? " (invitée)" : t.group ? ` (${t.group})` : ""}
                         </option>
                       ))}
+                      {addForm.stage === "exhibition" && (
+                        <option value={NOUVELLE_INVITEE}>+ Nouvelle équipe invitée…</option>
+                      )}
                     </select>
+                    {addForm.homeTeamId === NOUVELLE_INVITEE && (
+                      <input
+                        type="text"
+                        autoFocus
+                        maxLength={80}
+                        aria-label="Nom de l'équipe invitée"
+                        placeholder="Nom de l'équipe invitée"
+                        value={addForm.homeNewName}
+                        onChange={(e) => setAdd("homeNewName", e.target.value)}
+                        className="mt-2 w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Extérieur</label>
@@ -1236,17 +1317,32 @@ export default function CompetitionSchedulePage() {
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
                       <option value="">, Équipe,</option>
-                      {teams.map((t) => (
+                      {(addForm.stage === "exhibition" ? teams : equipesDuTournoi).map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.homeTeamId}>
-                          {t.name}{t.group ? ` (${t.group})` : ""}
+                          {t.name}{t.invitee ? " (invitée)" : t.group ? ` (${t.group})` : ""}
                         </option>
                       ))}
+                      {addForm.stage === "exhibition" && (
+                        <option value={NOUVELLE_INVITEE}>+ Nouvelle équipe invitée…</option>
+                      )}
                     </select>
+                    {addForm.awayTeamId === NOUVELLE_INVITEE && (
+                      <input
+                        type="text"
+                        autoFocus
+                        maxLength={80}
+                        aria-label="Nom de l'équipe invitée"
+                        placeholder="Nom de l'équipe invitée"
+                        value={addForm.awayNewName}
+                        onChange={(e) => setAdd("awayNewName", e.target.value)}
+                        className="mt-2 w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      />
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div className="col-span-1">
+                  <div className={addForm.stage === "exhibition" ? "hidden" : "col-span-1"}>
                     {addForm.stage === "knockout" ? (
                       <>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Tour</label>
@@ -1349,6 +1445,15 @@ export default function CompetitionSchedulePage() {
                     );
                   })()}
                 </div>
+
+                {addForm.stage === "exhibition" && (
+                  <p className="border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] text-sky-800">
+                    Un match d&apos;exhibition se joue en marge du tournoi : il a son direct et sa fiche,
+                    mais ne compte ni au classement, ni au tableau, ni aux buteurs. Une équipe invitée
+                    n&apos;entre dans aucune poule et ne compte pas dans la taille de la compétition ;
+                    son effectif se renseigne dans Équipes, comme les autres.
+                  </p>
+                )}
 
                 {addForm.stage === "knockout" && (
                   <p className=" border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">

@@ -203,7 +203,9 @@ export const getCompMatchPublic = cache(
         // MÊME FILTRE QUE LA BANNIÈRE, pour la même raison : le flyer pose ce
         // logo dans un `<img>` que Satori va télécharger depuis le serveur.
         competitionLogo: banniereSure(comp.logo_url),
-        etape: d.group ? `Groupe ${d.group}` : d.round ? (TOURS[d.round as CompMatchRound] ?? "") : "",
+        etape: d.stage === "exhibition"
+          ? "Match d'exhibition"
+          : d.group ? `Groupe ${d.group}` : d.round ? (TOURS[d.round as CompMatchRound] ?? "") : "",
         homeTeamName: d.home_team_name ?? "",
         awayTeamName: d.away_team_name ?? "",
         status: d.status ?? "scheduled",

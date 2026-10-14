@@ -175,7 +175,9 @@ function compVersAdmin(c: CompetitionLue, id: string, d: Doc): MatchAdmin {
     genre: "competition",
     lien: c.lien.startsWith("/c/") ? `${c.lien}/matches/${id}` : c.lien,
     competition: { id: c.id, nom: c.nom, lien: c.lien },
-    etape: texte(d.group) ? `Groupe ${d.group}` : d.round ? TOURS[d.round as CompMatchRound] ?? null : null,
+    etape: d.stage === "exhibition"
+      ? "Exhibition"
+      : texte(d.group) ? `Groupe ${d.group}` : d.round ? TOURS[d.round as CompMatchRound] ?? null : null,
     domicile: { nom: texte(d.home_team_name) ?? "À désigner", logo: texte(d.home_team_logo), clubId: club(d.home_team_id) },
     exterieur: { nom: texte(d.away_team_name) ?? "À désigner", logo: texte(d.away_team_logo), clubId: club(d.away_team_id) },
     date: texte(d.date),

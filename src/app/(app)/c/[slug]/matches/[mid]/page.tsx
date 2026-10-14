@@ -12,6 +12,7 @@ import {
 import { derniersResultats } from "@/lib/forme";
 import { repartirCent } from "@/lib/repartition";
 import { buteursDuMatch } from "@/lib/buteurs";
+import { matchsQuiComptent } from "@/lib/exhibition";
 import { aDesStats, lignesStats } from "@/lib/stats-match";
 import { matchDuration } from "@/lib/competition-format";
 import { notesDuCamp } from "@/lib/notes";
@@ -327,11 +328,13 @@ export default function PublicCompMatchView() {
       ? f.termine
       : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
   // Competition name plus the round (or poule) this match belongs to.
-  const roundLabel = match.round
-    ? f.tour(match.round)
-    : match.group
-      ? t.poule(match.group)
-      : null;
+  const roundLabel = match.stage === "exhibition"
+    ? f.matchExhibition
+    : match.round
+      ? f.tour(match.round)
+      : match.group
+        ? t.poule(match.group)
+        : null;
 
   /**
    * Partager le match.
@@ -419,8 +422,9 @@ export default function PublicCompMatchView() {
   const clubDuCamp = (teamId: string | null): string | null =>
     (teamId ? compTeams.find((e) => e.id === teamId)?.claimedByTeamId : null) ?? null;
 
-  const enPhaseFinale = match.stage !== "group";
-  const standings = compFormat && !enPhaseFinale
+  // Ni la phase finale ni un match d'exhibition n'ont de poule à montrer.
+  const enPoule = match.stage === "group";
+  const standings = compFormat && enPoule
     ? computeStandings(compMatches, compTeams, compFormat)
     : [];
   const poule = pouleDuMatch(standings, match.homeTeamId, match.awayTeamId);
@@ -441,8 +445,10 @@ export default function PublicCompMatchView() {
 
   // La forme des deux equipes, avant ce match : sous leur nom dans le
   // tableau, et en detail dans l'onglet Infos.
-  const formeDom = derniersResultats(compMatches, match.homeTeamId, match);
-  const formeExt = derniersResultats(compMatches, match.awayTeamId, match);
+  // Une exhibition n'entre pas dans la forme (lib/exhibition).
+  const officiels = matchsQuiComptent(compMatches);
+  const formeDom = derniersResultats(officiels, match.homeTeamId, match);
+  const formeExt = derniersResultats(officiels, match.awayTeamId, match);
 
   // CE QUE LE MATCH A FAIT DE CHACUN, pour le terrain et l'homme du match.
   // Voir lib/recit-du-match.

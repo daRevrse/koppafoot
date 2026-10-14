@@ -38,10 +38,11 @@
 // porte pas, et le compte reste donc partiel sur les compétitions anciennes.
 // ============================================
 
+import { estExhibition } from "@/lib/exhibition";
 import { DEFAULT_HALF_DURATION } from "@/lib/competition-format";
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import type {
-  CompMatch, CompMatchStatus, CompPlayer, LineupEntry, LinkedCompPlayer,
+  CompMatch, CompMatchStage, CompMatchStatus, CompPlayer, LineupEntry, LinkedCompPlayer,
   Match, MatchStatus,
 } from "@/types";
 
@@ -131,6 +132,8 @@ export interface MatchJoue {
   mvpPlayerName?: string | null;
   mvpTeamId?: string | null;
   liveState?: Match["liveState"];
+  /** L'étape d'un match de compétition. Un match d'exhibition ne compte pas (lib/exhibition). */
+  stage?: CompMatchStage | null;
 }
 
 /**
@@ -234,6 +237,7 @@ export function computePlayerStats(
   const stats: PlayerStats = { ...EMPTY_STATS };
 
   for (const match of matches) {
+    if (estExhibition(match)) continue;
     const isHome = match.homeTeamId === teamId;
     const isAway = match.awayTeamId === teamId;
     if (!isHome && !isAway) continue;
@@ -377,7 +381,7 @@ export function computeAppearances(
   const out: PlayerAppearance[] = [];
 
   for (const match of matches) {
-    if (match.status !== "completed") continue;
+    if (match.status !== "completed" || estExhibition(match)) continue;
     const isHome = match.homeTeamId === teamId;
     const isAway = match.awayTeamId === teamId;
     if (!isHome && !isAway) continue;

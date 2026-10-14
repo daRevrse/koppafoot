@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { computeTopScorers } from "@/lib/competition-firestore";
+import { matchsQuiComptent } from "@/lib/exhibition";
 import type { CompMatch, CompTeam } from "@/types";
 import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
@@ -158,9 +159,11 @@ export default function CompetitionRail({ matches, teams }: {
     return map;
   }, [teams]);
 
-  const scorers = useMemo(() => computeTopScorers(matches).slice(0, 5), [matches]);
-  const assisters = useMemo(() => computeTopAssisters(matches).slice(0, 5), [matches]);
-  const form = useMemo(() => computeForm(matches, teams).slice(0, 5), [matches, teams]);
+  // Un match d'exhibition ne fait ni buteur, ni passeur, ni forme (lib/exhibition).
+  const officiels = useMemo(() => matchsQuiComptent(matches), [matches]);
+  const scorers = useMemo(() => computeTopScorers(officiels).slice(0, 5), [officiels]);
+  const assisters = useMemo(() => computeTopAssisters(officiels).slice(0, 5), [officiels]);
+  const form = useMemo(() => computeForm(officiels, teams).slice(0, 5), [officiels, teams]);
 
   // Avant le premier match, les trois blocs seraient vides.
   if (scorers.length === 0 && assisters.length === 0 && form.length === 0) return null;
