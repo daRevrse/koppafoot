@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import type { Competition } from "@/types";
+import CompetitionQrCode from "./CompetitionQrCode";
 
 // ============================================
 // CompetitionShareCard, the payoff, shown to the organizer.
@@ -104,7 +105,8 @@ export default function CompetitionShareCard({
           </button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <CompetitionQrCode competition={competition} />
           <Link
             href={path}
             className="flex items-center gap-1.5 border-2 border-emerald-100 bg-white px-3 py-2.5 text-sm font-bold text-emerald-700 transition-colors hover:border-emerald-300"
