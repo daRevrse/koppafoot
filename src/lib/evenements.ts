@@ -280,6 +280,15 @@ export function penaltyDitParSonBut(e: { type: TypeEvenement; detail?: string | 
 export const PENALTY_GOAL_DETAIL = "pen";
 
 /**
+ * La faute qui a donne un penalty, et non un coup franc.
+ *
+ * Une faute vaut un coup franc pour l'adversaire — c'est ainsi que les
+ * compteurs les comptent (voir `lignesStats`). Celle-ci a donne un penalty :
+ * elle reste une faute de son auteur, mais n'est le coup franc de personne.
+ */
+export const PENALTY_FOUL_DETAIL = "penalty";
+
+/**
  * L'identifiant d'un événement de match, tiré côté client.
  *
  * La console le choisit elle-même avant d'écrire : elle peut ainsi raccrocher

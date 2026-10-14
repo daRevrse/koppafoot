@@ -20,7 +20,7 @@ import { normaliserPoste } from "@/lib/postes";
 import { gardienDe } from "@/lib/terrain";
 import {
   EMOJI_EVENEMENT, EVENEMENTS_EQUIPE, ISSUES_PENALTY, LIBELLE_EVENEMENT,
-  LIBELLE_ISSUE_PENALTY, PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY,
+  LIBELLE_ISSUE_PENALTY, PENALTY_FOUL_DETAIL, PENALTY_GOAL_DETAIL, RECIT_ISSUE_PENALTY,
   demandeUneVictime, estStatistique, issuePenalty, nouvelIdEvenement, penaltyDitParSonBut,
   penaltyEnAttente, type IssuePenalty, type TypeEvenementEquipe,
   type TypeEvenementJoueur,
@@ -1145,6 +1145,17 @@ export default function LiveMatchConsole({
     { eventId: string; side: Side; minute: number; periode: number; issue?: IssuePenalty } | null
   >(null);
 
+  /**
+   * AVANT L'ISSUE, LA FAUTE. Un penalty vient toujours d'une faute — ou d'une
+   * main — d'un défenseur, et s'accompagne souvent d'un carton : la console ne
+   * demandait ni l'un ni l'autre. Deux questions, chacune facultative, posées
+   * au moment où le scoreur regarde encore son téléphone : qui a fait la
+   * faute, puis quel carton. Vient ensuite l'issue, comme avant.
+   */
+  const [fautePenalty, setFautePenalty] = useState<
+    { eventId: string; side: Side; minute: number; periode: number; fautif?: LineupEntry } | null
+  >(null);
+
   const handleVarVerdict = async (event: LiveEvent, status: GoalVarStatus) => {
     if (!match) return;
     // Une décision de VAR se prend sur l'état du serveur (voir
@@ -1308,6 +1319,7 @@ export default function LiveMatchConsole({
     setAssistPicker((a) => (a && ids.includes(a.eventId) ? null : a));
     setVictime((v) => (v && ids.includes(v.eventId) ? null : v));
     setPenaltyOuvert((p) => (p && ids.includes(p.eventId) ? null : p));
+    setFautePenalty((f) => (f && ids.includes(f.eventId) ? null : f));
     // Le but qui avait mis le ballon mort est retiré : la console ne devine pas
     // ce qui s'est passé, elle passe en arrêt de jeu et le scoreur relance.
     if (m.liveState.events.some((e) => ids.includes(e.id) && e.type === "goal")) {
@@ -1498,7 +1510,7 @@ export default function LiveMatchConsole({
     // — le scoreur regarde le tir — et le penalty reste alors en attente,
     // visible dans le bandeau jusqu'a ce qu'il dise ce qu'il est devenu.
     if (type === "penalty") {
-      setPenaltyOuvert({ eventId: id, side, minute, periode: match.liveState.currentPeriod ?? 1 });
+      setFautePenalty({ eventId: id, side, minute, periode: match.liveState.currentPeriod ?? 1 });
       // Le jeu attend le tir.
       poserJeu(apresPenaltyAccorde(jeu));
     }
@@ -1638,6 +1650,47 @@ export default function LiveMatchConsole({
           : "Penalty retiré",
       );
     }
+  };
+
+  /** Les deux questions de la faute sont passées : place à l'issue du penalty. */
+  const ouvrirIssuePenalty = (f: { eventId: string; side: Side; minute: number; periode: number }) => {
+    setFautePenalty(null);
+    setPenaltyOuvert({ eventId: f.eventId, side: f.side, minute: f.minute, periode: f.periode });
+  };
+
+  /**
+   * L'auteur de la faute, dans le camp qui défend. Une faute ordinaire de son
+   * auteur — elle compte dans ses fautes —, marquée « penalty » pour ne pas
+   * compter comme un coup franc. Voir PENALTY_FOUL_DETAIL.
+   */
+  const poserFautifPenalty = (entry: LineupEntry) => {
+    if (!fautePenalty || !match?.liveState) return;
+    const cote = autre(fautePenalty.side);
+    const teamId = cote === "home" ? match.homeTeamId : match.awayTeamId;
+    if (!teamId) return;
+    suivre(pilote.ajouterEvenement({
+      id: nouvelIdEvenement(),
+      type: "foul",
+      side: cote,
+      team_id: teamId,
+      period: fautePenalty.periode,
+      minute: fautePenalty.minute,
+      player_id: entry.playerId,
+      player_name: entry.name,
+      detail: PENALTY_FOUL_DETAIL,
+    }), "La faute n'a pas été enregistrée");
+    setFautePenalty({ ...fautePenalty, fautif: entry });
+  };
+
+  /**
+   * Le carton du fautif, ou aucun. Il passe par le circuit de tous les
+   * cartons : un second jaune y vaut l'exclusion, la pelouse et le push
+   * suivent.
+   */
+  const sanctionnerPenalty = (carton: "yellow_card" | "red_card" | null) => {
+    if (!fautePenalty?.fautif) return;
+    if (carton) enregistrerAction(autre(fautePenalty.side), fautePenalty.fautif, carton);
+    ouvrirIssuePenalty(fautePenalty);
   };
 
   /**
@@ -2846,6 +2899,35 @@ export default function LiveMatchConsole({
         )}
       </AnimatePresence>
 
+      {/* LA FAUTE DU PENALTY : qui l'a commise, puis quel carton. Chaque
+          question se passe ; fermer saute directement à l'issue. */}
+      <AnimatePresence>
+        {fautePenalty && !fautePenalty.fautif && (
+          <PlayerPickerModal
+            titre="Penalty · Faute de qui ?"
+            sousTitre={`${ecrireMinute(fautePenalty.periode, fautePenalty.minute)} · Pour ${nomDe(fautePenalty.side)}`}
+            teamName={nomDe(autre(fautePenalty.side))}
+            entries={onPitchEntries(autre(fautePenalty.side))}
+            yellowSet={yellowCardedIds}
+            isSubmitting={isSubmitting}
+            onPick={poserFautifPenalty}
+            onClose={() => ouvrirIssuePenalty(fautePenalty)}
+            ignorer="Je ne sais pas"
+            onIgnorer={() => ouvrirIssuePenalty(fautePenalty)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {fautePenalty?.fautif && (
+          <ModaleCartonPenalty
+            fautif={fautePenalty.fautif}
+            dejaAverti={yellowCardedIds.has(fautePenalty.fautif.playerId)}
+            isSubmitting={isSubmitting}
+            onCarton={sanctionnerPenalty}
+          />
+        )}
+      </AnimatePresence>
+
       {/* CE QU'UN PENALTY EST DEVENU, EN DEUX TEMPS : l'issue, puis le
           tireur. Le retrait par la VAR saute la seconde question — il n'y a
           pas eu de tir, donc pas de tireur. */}
@@ -3302,6 +3384,70 @@ function RoleBadge({ role }: { role: SheetRole }) {
 }
 
 /**
+ * LE CARTON DU FAUTIF, juste après l'avoir nommé : c'est le moment où l'arbitre
+ * le sort. Trois réponses, dont « aucun », qui est la plus fréquente. Un
+ * joueur déjà averti voit son jaune annoncé pour ce qu'il est : une exclusion.
+ */
+function ModaleCartonPenalty({
+  fautif, dejaAverti, isSubmitting, onCarton,
+}: {
+  fautif: LineupEntry;
+  dejaAverti: boolean;
+  isSubmitting: boolean;
+  onCarton: (carton: "yellow_card" | "red_card" | null) => void;
+}) {
+  return (
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => onCarton(null)}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        style={{ maxHeight: "calc(var(--console-h, 100dvh) - 2rem)" }}
+        className="relative w-full max-w-md overflow-y-auto bg-white p-4 shadow-2xl sm:p-7"
+      >
+        <h2 className="text-lg font-black text-gray-900">Carton ?</h2>
+        <p className="mb-4 mt-0.5 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
+          {`${fautif.name} · faute sur le penalty`}
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => onCarton(null)}
+            className="border border-gray-200/70 bg-gray-50 px-3 py-3 text-sm font-black uppercase tracking-tight text-gray-600 transition-colors hover:bg-gray-100 active:scale-95 disabled:opacity-40"
+          >
+            Aucun
+          </button>
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => onCarton("yellow_card")}
+            className="border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black uppercase tracking-tight text-amber-700 transition-colors hover:bg-amber-100 active:scale-95 disabled:opacity-40"
+          >
+            🟨 {dejaAverti ? "2e jaune" : "Jaune"}
+          </button>
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => onCarton("red_card")}
+            className="border border-red-200 bg-red-50 px-3 py-3 text-sm font-black uppercase tracking-tight text-red-700 transition-colors hover:bg-red-100 active:scale-95 disabled:opacity-40"
+          >
+            🟥 Rouge
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/**
  * LA QUESTION QU'UN PENALTY POSE, ET QU'IL FAUT BIEN POSER.
  *
  * Elle s'ouvre d'elle-meme des que le penalty est accorde, parce que c'est le
@@ -3725,7 +3871,9 @@ function EventTimeline({
           ? event.detail === PENALTY_GOAL_DETAIL ? "But sur penalty" : "But"
           : issue
             ? RECIT_ISSUE_PENALTY[issue]
-            : LIBELLE_EVENEMENT[event.type];
+            : event.type === "foul" && event.detail === PENALTY_FOUL_DETAIL
+              ? "Faute · penalty"
+              : LIBELLE_EVENEMENT[event.type];
         return (
           <motion.div
             key={event.id}

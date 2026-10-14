@@ -2,6 +2,7 @@
 
 import { Goal, ArrowDown, ArrowRightLeft, ArrowUp, Flag, Hand, AlertTriangle, Target } from "lucide-react";
 import { OWN_GOAL_DETAIL } from "@/lib/competition-firestore";
+import { PENALTY_FOUL_DETAIL } from "@/lib/evenements";
 import {
   PENALTY_GOAL_DETAIL, RECITS_ISSUE_PENALTY, estStatistique, issuePenalty,
   penaltyDitParSonBut,
@@ -25,6 +26,7 @@ const T = textes(
     arret: "Arrêt",
     fauteSur: (victime: string) => `Faute sur ${victime}`,
     faute: "Faute",
+    fautePenalty: "Faute, penalty accordé",
     horsJeu: "Hors-jeu",
     penalty: "Penalty",
     evenement: "Événement",
@@ -52,6 +54,7 @@ const T = textes(
     arret: "Save",
     fauteSur: (victime: string) => `Foul on ${victime}`,
     faute: "Foul",
+    fautePenalty: "Foul, penalty awarded",
     horsJeu: "Offside",
     penalty: "Penalty",
     evenement: "Event",
@@ -147,6 +150,8 @@ function libelle(e: Evt, t: Textes, langue: Langue): string {
     case "foul":
       // La faute se lit avec sa victime : « Faute sur Mensah » raconte
       // l'action, « Faute » ne dit que la moitié de ce qui s'est passé.
+      // Celle qui a donne un penalty le dit : c'est elle qui l'explique.
+      if (e.detail === PENALTY_FOUL_DETAIL) return t.fautePenalty;
       return e.victimPlayerName ? t.fauteSur(e.victimPlayerName) : t.faute;
     case "offside":
       return t.horsJeu;
