@@ -13,6 +13,8 @@
 import type { Competition, CompMatch } from "@/types";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import { isWorldComp } from "@/lib/world-board-shared";
+import { dureeMiTempsDe } from "@/lib/competition-format";
+import { minuteEnDirect, texteMinute } from "@/lib/minute-du-match";
 
 /** One competition with ALL its fixtures, the Direct feed reads across them. */
 export interface CompetitionFeed {
@@ -24,19 +26,24 @@ export interface CompetitionFeed {
 export type Entry = { match: CompMatch; competition: Competition };
 
 /**
- * Live minute off the shared live_state clock (same math as LiveMatchConsole).
+ * La minute d'un match en cours, en texte : « 13′ », « 45+2′ », « MT ».
  *
- * `maintenant` n'existe que pour les tests : l'horloge du match est celle du
- * serveur (`timerStartAt` + `timerOffset`), jamais un compteur local.
+ * Lue sur l'horloge du serveur (`timerStartAt` + `timerOffset`), jamais sur un
+ * compteur local ; `maintenant` n'existe que pour les tests. La notation et ses
+ * deux cas particuliers — la pause et l'avant-match — vivent dans
+ * lib/minute-du-match ; d'ici vient seulement la duree d'une mi-temps, que la
+ * competition de la ligne connait.
+ *
+ * Vide pour un match sans horloge : un match du monde, dont la minute vient
+ * d'ailleurs.
  */
-export function liveMinute(m: CompMatch, maintenant: number = Date.now()): number {
-  const ls = m.liveState;
-  if (!ls) return 0;
-  if (m.status === "live" && ls.isTimerRunning && ls.timerStartAt) {
-    const elapsed = maintenant - new Date(ls.timerStartAt).getTime() + (ls.timerOffset || 0);
-    return Math.floor(elapsed / 60000) + 1;
-  }
-  return Math.floor((ls.timerOffset || 0) / 60000) + 1;
+export function minuteDuDirect(
+  e: Entry,
+  libelles: { avant: string; pause: string },
+  maintenant: number = Date.now(),
+): string {
+  const m = minuteEnDirect(e.match, dureeMiTempsDe(e.competition), maintenant);
+  return m ? texteMinute(m, libelles) : "";
 }
 
 /** Second line of a competition header, the "country" line of the model. */

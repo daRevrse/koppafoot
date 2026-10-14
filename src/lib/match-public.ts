@@ -2,7 +2,8 @@ import { cache } from "react";
 import { adminDb } from "@/lib/firebase-admin";
 import { buteursDuMatch, buteursRenseignes, lireButeursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
 import { imageSure } from "@/lib/image-sure";
-import type { CompMatchRound, FirestoreMatch } from "@/types";
+import { dureeMiTempsDe } from "@/lib/competition-format";
+import type { CompMatchRound, CompetitionFormat, FirestoreMatch } from "@/types";
 
 // ============================================
 // Ce qu'un match montre AVANT que le navigateur exécute quoi que ce soit.
@@ -78,16 +79,18 @@ function buteursDesEvenements(
   evenements: EvenementBrut[] | undefined,
   homeTeamId: string | null,
   nomDe?: (e: { teamId: string; playerName?: string }) => string,
+  dureeMiTempsMin?: number,
 ): ButeursDuMatch {
   const evts = (evenements ?? []).map((e) => ({
     type: e.type,
+    period: e.period,
     minute: e.minute,
     teamId: e.team_id,
     playerName: e.player_name,
     detail: e.detail,
     varStatus: e.var_status ?? null,
   }));
-  return buteursDuMatch(evts, homeTeamId, nomDe);
+  return buteursDuMatch(evts, homeTeamId, nomDe, dureeMiTempsMin);
 }
 
 /**
@@ -196,7 +199,9 @@ export const getCompMatchPublic = cache(
       if (!snap.exists) return null;
 
       const d = snap.data() ?? {};
-      const comp = compDoc.data() as { name?: string; logo_url?: string | null };
+      const comp = compDoc.data() as {
+        name?: string; logo_url?: string | null; format?: CompetitionFormat | null;
+      };
       return {
         id: snap.id,
         competition: comp.name ?? "",
@@ -221,7 +226,10 @@ export const getCompMatchPublic = cache(
         awayTeamLogo: d.away_team_logo ?? null,
         bannerUrl: banniereSure(d.banner_url),
         format: "",
-        buteurs: buteursDesEvenements(d.live_state?.events, d.home_team_id ?? null),
+        // La duree du format, pour que le flyer ecrive « 20+1' » comme la fiche.
+        buteurs: buteursDesEvenements(
+          d.live_state?.events, d.home_team_id ?? null, undefined, dureeMiTempsDe(comp),
+        ),
         penaltyHome: d.penalty_home ?? null,
         penaltyAway: d.penalty_away ?? null,
       };

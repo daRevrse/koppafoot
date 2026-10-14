@@ -44,6 +44,12 @@ export const FOOT = textes(
     fin: "Fin",
     aVenir: "À venir",
     miTemps: "Mi-temps",
+    /**
+     * La minute d'un match en direct, quand il n'y en a pas : la pause, et le
+     * direct ouvert avant le coup d'envoi. Voir lib/minute-du-match.
+     */
+    minutePause: "MT",
+    minuteAvant: "Bientôt",
     annule: "Annulé",
     reporte: "Reporté",
     aProgrammer: "À programmer",
@@ -67,6 +73,8 @@ export const FOOT = textes(
     fin: "FT",
     aVenir: "Upcoming",
     miTemps: "Half-time",
+    minutePause: "HT",
+    minuteAvant: "Soon",
     annule: "Cancelled",
     reporte: "Postponed",
     aProgrammer: "To be scheduled",

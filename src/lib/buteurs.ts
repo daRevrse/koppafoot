@@ -1,4 +1,5 @@
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
+import { libelleMinute } from "@/lib/minute-du-match";
 import type { Match, RecordedScorer } from "@/types";
 
 // ============================================
@@ -26,7 +27,15 @@ import type { Match, RecordedScorer } from "@/types";
 type Evt = Pick<
   NonNullable<Match["liveState"]>["events"][number],
   "type" | "minute" | "teamId" | "playerName" | "detail" | "varStatus"
-> & { assistPlayerName?: string | null };
+> & {
+  assistPlayerName?: string | null;
+  /**
+   * La periode, pour ecrire le temps additionnel « 45+2' » et le ranger avant
+   * la seconde mi-temps. Absente d'un evenement lu sans elle : la minute
+   * s'ecrit alors telle quelle, comme avant.
+   */
+  period?: number | null;
+};
 
 export interface Buteur {
   nom: string;
@@ -53,12 +62,18 @@ export function buteursDuMatch(
   homeTeamId: string | null,
   /** Le nom à afficher, quand la page le sait mieux que l'événement. */
   nomDe?: (e: Evt) => string,
+  /** La duree d'une mi-temps du format, pour la notation 45+N. */
+  dureeMiTempsMin: number = 45,
 ): ButeursDuMatch {
   const camps: ButeursDuMatch = { home: [], away: [] };
   const buts = events
     .filter((e) => e.type === "goal" && e.varStatus !== "cancelled")
     // Une minute inconnue (0) passe en dernier : elle ne précède rien.
-    .sort((a, b) => (a.minute || Infinity) - (b.minute || Infinity));
+    // LA PÉRIODE D'ABORD : le but de 45+2 est stocké « 47 », et passait sinon
+    // après celui de la 46e, marqué en seconde mi-temps.
+    .sort((a, b) =>
+      (a.minute ? a.period ?? 0 : Infinity) - (b.minute ? b.period ?? 0 : Infinity)
+      || (a.minute || Infinity) - (b.minute || Infinity));
 
   for (const e of buts) {
     const nom = (nomDe ? nomDe(e) : e.playerName ?? "").trim();
@@ -71,7 +86,7 @@ export function buteursDuMatch(
       liste.push(buteur);
     }
     buteur.nombre += 1;
-    if (e.minute) buteur.minutes.push(`${e.minute}'`);
+    if (e.minute) buteur.minutes.push(libelleMinute(e.period, e.minute, dureeMiTempsMin));
     const passeur = e.assistPlayerName?.trim();
     if (passeur && !csc && !buteur.passeurs.includes(passeur)) buteur.passeurs.push(passeur);
   }
