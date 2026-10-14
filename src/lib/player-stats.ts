@@ -327,6 +327,14 @@ export function computeMinutesPlayed(
       continue;
     }
 
+    // Sorti sans etre remplace : sa montre s'arrete, et repart s'il revient
+    // par un changement (un amical le permet).
+    if (e.type === "sortie" && e.playerId === playerId && depuis !== null) {
+      total += minute - depuis;
+      depuis = null;
+      continue;
+    }
+
     if (e.type === "red_card" && e.playerId === playerId && depuis !== null) {
       return Math.max(0, minute - depuis + total);
     }

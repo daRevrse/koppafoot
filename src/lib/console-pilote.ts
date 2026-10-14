@@ -30,7 +30,7 @@ import {
 import type { Transition } from "@/lib/etat-du-jeu";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
-  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, reentryAllowed,
+  DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, minPlayers, reentryAllowed,
   subsMax, teamSize,
 } from "@/lib/competition-format";
 import type { IssuePenalty, TypeEvenement } from "@/lib/evenements";
@@ -43,7 +43,7 @@ import {
   compositionTypePour,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
   setMatchAddedTime, setMatchPenaltyOutcome, retirerEvenementsAmical,
-  ecrituresEnvoyees, transitionMatch,
+  ecrituresEnvoyees, transitionMatch, terminerAmical,
 } from "@/lib/firestore";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import type {
@@ -74,6 +74,11 @@ export interface ReglesDuJeu {
    * feuille, donc un titulaire sorti n'y reparaissait jamais.
    */
   retourAutorise: boolean;
+  /**
+   * Le minimum de joueurs sur le terrain : en dessous, le match ne peut pas
+   * continuer. Sept pour onze, a proportion du format. Voir minPlayers.
+   */
+  minimumJoueurs: number;
 }
 
 /** Un evenement tel que la console demande de l'ecrire. */
@@ -152,6 +157,14 @@ export interface PiloteConsole {
    * l'etat du jeu, la periode, le chrono. Voir `lib/etat-du-jeu`.
    */
   transition(t: Transition): Promise<void>;
+
+  /**
+   * L'ARRET DEFINITIF : une equipe est tombee sous le minimum de joueurs.
+   * En competition, le score est celui du forfait (voir `scoreDeForfait`) et le
+   * match se termine comme un resultat joue — le tableau avance. En amical, il
+   * se termine sur le score du moment, le forfait note.
+   */
+  arreterDefinitivement(a: { forfaitTeamId: string; score: { home: number; away: number } }): Promise<void>;
 
   /**
    * Poser la possession de balle.
@@ -253,6 +266,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       // illimites, qui levent les deux d'un coup.
       remplacementsMax: competition ? subsMax(competition.format) : DEFAULT_SUBS_MAX,
       retourAutorise: competition ? reentryAllowed(competition.format) : false,
+      minimumJoueurs: minPlayers(competition?.format ?? ({} as Competition["format"])),
     }),
 
     effectifs: async (match) => {
@@ -309,6 +323,14 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
 
     terminer: (tab) => finishCompMatch(cid, mid, tab),
     transition: (t) => transitionCompMatch(cid, mid, t),
+    arreterDefinitivement: async ({ forfaitTeamId, score }) => {
+      await updateCompMatch(cid, mid, {
+        score_home: score.home,
+        score_away: score.away,
+        forfeit_by_team_id: forfaitTeamId,
+      });
+      await finishCompMatch(cid, mid);
+    },
     poserPossession: (p) => setCompPossession(cid, mid, p),
     poserTempsAdditionnel: (mt, min) => setCompAddedTime(cid, mid, mt, min),
 
@@ -438,6 +460,7 @@ export function piloteAmical(matchId: string): PiloteConsole {
       // organise un amical — faire jouer tout le monde.
       remplacementsMax: null,
       retourAutorise: true,
+      minimumJoueurs: minPlayers({ team_size: tailleDEquipe(brut?.format) } as Competition["format"]),
     }),
 
     /**
@@ -531,6 +554,8 @@ export function piloteAmical(matchId: string): PiloteConsole {
     },
 
     transition: (t) => transitionMatch(matchId, t),
+    // Le score du moment reste : seul le forfait est note.
+    arreterDefinitivement: ({ forfaitTeamId }) => terminerAmical(matchId, forfaitTeamId),
     poserPossession: (p) => setMatchPossession(matchId, p),
     poserTempsAdditionnel: (mt, min) => setMatchAddedTime(matchId, mt, min),
     poserMVP: (mvp, parUid) => setMatchMVP(matchId, mvp, parUid),
