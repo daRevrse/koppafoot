@@ -56,6 +56,7 @@ import { tailleEffectif, totalJoueurs, quotaMinimum, ghostOpponentLineup } from 
 import { nouvelIdEvenement, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import { versPossession, type PossessionStockee } from "@/lib/possession";
+import { JEU_AVANT, champsDeTransition, type Transition } from "@/lib/etat-du-jeu";
 import { lireEmplacement, type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
 import { enBase64 } from "@/lib/images";
@@ -278,6 +279,7 @@ export function toMatch(id: string, d: FirestoreMatch): Match {
       })),
       possession: d.live_state.possession ? versPossession(d.live_state.possession) : null,
       addedTime: d.live_state.added_time ?? null,
+      jeu: d.live_state.jeu ?? null,
     } : null,
     mvpPlayerId: d.mvp_player_id ?? null,
     mvpUserId: d.mvp_user_id ?? null,
@@ -2738,9 +2740,20 @@ export async function initLiveMatch(matchId: string): Promise<void> {
       timer_offset: 0,
       is_timer_running: false,
       events: [],
+      // Le direct est ouvert, le ballon pas encore au centre : le coup
+      // d'envoi est un geste a part. Voir lib/etat-du-jeu.
+      jeu: JEU_AVANT,
     },
     score_home: 0,
     score_away: 0,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/** Jumelle de `transitionCompMatch` : un geste de la console, en une ecriture. */
+export async function transitionMatch(matchId: string, t: Transition): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    ...champsDeTransition(t),
     updated_at: serverTimestamp(),
   });
 }

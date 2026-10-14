@@ -86,6 +86,14 @@ describe("minuteEnDirect", () => {
     expect(minuteEnDirect(m, 45, DEPART + 46 * 60_000 + 30_000)).toEqual({ genre: "jeu", minute: 45, plus: 2 });
   });
 
+  it("dit « interrompu » pendant une interruption", () => {
+    const m = enDirect({
+      currentPeriod: 1, isTimerRunning: false, timerStartAt: null, timerOffset: 30 * 60_000,
+      jeu: { balle: "morte", raison: "interruption", engage: null, premier: "home" },
+    });
+    expect(minuteEnDirect(m, 45)).toEqual({ genre: "interrompu" });
+  });
+
   it("lit une horloge arrêtée en cours de période", () => {
     const m = enDirect({ currentPeriod: 3, isTimerRunning: false, timerStartAt: null, timerOffset: 91 * 60_000 });
     expect(minuteEnDirect(m, 45)).toEqual({ genre: "jeu", minute: 90, plus: 2 });
@@ -93,9 +101,10 @@ describe("minuteEnDirect", () => {
 });
 
 describe("texteMinute", () => {
-  const libelles = { avant: "Bientôt", pause: "MT" };
+  const libelles = { avant: "Bientôt", pause: "MT", interrompu: "Interrompu" };
 
-  it("écrit le jeu, la pause et l'avant-match", () => {
+  it("écrit le jeu, la pause, l'avant-match et l'interruption", () => {
+    expect(texteMinute({ genre: "interrompu" }, libelles)).toBe("Interrompu");
     expect(texteMinute({ genre: "jeu", minute: 12, plus: 0 }, libelles)).toBe("12′");
     expect(texteMinute({ genre: "jeu", minute: 45, plus: 2 }, libelles)).toBe("45+2′");
     expect(texteMinute({ genre: "pause" }, libelles)).toBe("MT");

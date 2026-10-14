@@ -13,7 +13,7 @@ const DEPART = "2026-09-24T15:00:00.000Z";
 const T0 = new Date(DEPART).getTime();
 
 describe("minuteDuDirect", () => {
-  const libelles = { avant: "Bientôt", pause: "MT" };
+  const libelles = { avant: "Bientôt", pause: "MT", interrompu: "Interrompu" };
   const enDirect = (c: Competition, ls: Partial<NonNullable<CompMatch["liveState"]>>) =>
     entree(c, match("m", {
       status: "live",

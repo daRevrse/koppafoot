@@ -35,7 +35,7 @@ export function LigneMatch({ entree, onPress }: { entree: Entry; onPress: () => 
     >
       <View style={styles.temps}>
         {enDirect ? (
-          <Text style={styles.minute}>{minuteDuDirect(entree, { pause: "MT", avant: "Bientôt" })}</Text>
+          <Text style={styles.minute}>{minuteDuDirect(entree, { pause: "MT", avant: "Bientôt", interrompu: "Interrompu" })}</Text>
         ) : (
           <Text style={styles.heure}>{joue ? "Terminé" : match.time ?? "—"}</Text>
         )}

@@ -86,6 +86,7 @@ const T = textes(
   {
     periode: (id: number) => PERIODS.find((p) => p.id === id)?.label,
     avantMatch: "Coup d'envoi imminent",
+    interrompu: "Match interrompu",
     chargement: "Chargement du terrain...",
     introuvable: "Match non trouvé",
     partageDirect: (affiche: string, score: string) => `${affiche}, ${score} en direct sur KoppaFoot`,
@@ -113,6 +114,7 @@ const T = textes(
   {
     periode: (id: number) => ({ 1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time" } as Record<number, string>)[id],
     avantMatch: "Kick-off soon",
+    interrompu: "Match suspended",
     chargement: "Loading the pitch...",
     introuvable: "Match not found",
     partageDirect: (affiche: string, score: string) => `${affiche}, ${score} live on KoppaFoot`,
@@ -931,7 +933,8 @@ export default function MatchDetailPage() {
   // Le direct ouvert avant le coup d'envoi, et le panneau du temps
   // additionnel : voir la fiche d'un match de compétition. Un amical ne
   // stocke pas de durée, la mi-temps réglementaire fait foi.
-  const avantCoupDEnvoi = isLive && minuteEnDirect(match, DEFAULT_HALF_DURATION)?.genre === "avant";
+  const genreDirect = isLive ? minuteEnDirect(match, DEFAULT_HALF_DURATION)?.genre : null;
+  const avantCoupDEnvoi = genreDirect === "avant";
   const additionnel = match.liveState?.currentPeriod === 1
     ? match.liveState?.addedTime?.first ?? null
     : match.liveState?.currentPeriod === 3
@@ -1063,7 +1066,9 @@ export default function MatchDetailPage() {
             ? f.termine
             : avantCoupDEnvoi
               ? t.avantMatch
-              : t.periode(match.liveState?.currentPeriod ?? 0)
+              : genreDirect === "interrompu"
+                ? t.interrompu
+                : t.periode(match.liveState?.currentPeriod ?? 0)
         }
         clock={isLive && match.liveState && !avantCoupDEnvoi ? formatTime(displayTime) : null}
         additionnel={additionnel}

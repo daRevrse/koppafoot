@@ -58,6 +58,7 @@ const T = textes(
   {
     periode: (id: number) => ({ 1: "1ère Mi-temps", 2: "Mi-temps", 3: "2ème Mi-temps", 4: "Terminé" } as Record<number, string>)[id] ?? null,
     avantMatch: "Coup d'envoi imminent",
+    interrompu: "Match interrompu",
     poule: (g: string) => `Poule ${g}`,
     connexion: "Connexion au direct...",
     introuvable: "Match introuvable",
@@ -90,6 +91,7 @@ const T = textes(
   {
     periode: (id: number) => ({ 1: "1st half", 2: "Half-time", 3: "2nd half", 4: "Full time" } as Record<number, string>)[id] ?? null,
     avantMatch: "Kick-off soon",
+    interrompu: "Match suspended",
     poule: (g: string) => `Group ${g}`,
     connexion: "Connecting to live...",
     introuvable: "Match not found",
@@ -337,7 +339,9 @@ export default function PublicCompMatchView() {
       ? f.termine
       : avantCoupDEnvoi
         ? t.avantMatch
-        : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
+        : minuteDirect?.genre === "interrompu"
+          ? t.interrompu
+          : t.periode(match.liveState?.currentPeriod ?? 0) || f.aVenir;
   // Le panneau du quatrième arbitre, pour la mi-temps en cours.
   const periodeEnCours = match.liveState?.currentPeriod;
   const additionnel = periodeEnCours === 1

@@ -107,6 +107,7 @@ function etatDuDirect(v: unknown): Match["liveState"] {
       ? versPossession(ls.possession as PossessionStockee)
       : null,
     addedTime: (ls.added_time ?? null) as NonNullable<Match["liveState"]>["addedTime"],
+    jeu: (ls.jeu ?? null) as NonNullable<Match["liveState"]>["jeu"],
   };
 }
 

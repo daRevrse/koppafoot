@@ -50,6 +50,7 @@ export const FOOT = textes(
      */
     minutePause: "MT",
     minuteAvant: "Bientôt",
+    minuteInterrompu: "Interrompu",
     annule: "Annulé",
     reporte: "Reporté",
     aProgrammer: "À programmer",
@@ -75,6 +76,7 @@ export const FOOT = textes(
     miTemps: "Half-time",
     minutePause: "HT",
     minuteAvant: "Soon",
+    minuteInterrompu: "Suspended",
     annule: "Cancelled",
     reporte: "Postponed",
     aProgrammer: "To be scheduled",

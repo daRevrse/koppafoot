@@ -420,6 +420,7 @@ function Pelouse({
  */
 export default function TerrainsFaceAFace({
   home, away, jaunes, ballon, parts, ballonActif, onBallon, onJoueur, actions,
+  aGauche = "home", attente = null,
 }: {
   home: CoteTerrain;
   away: CoteTerrain;
@@ -435,6 +436,18 @@ export default function TerrainsFaceAFace({
   onJoueur: (cote: Cote, entry: LineupEntry) => void;
   /** Corner, coup franc, touche, penalty — rendus une fois PAR CAMP. */
   actions: (cote: Cote) => React.ReactNode;
+  /**
+   * Le camp affiché à gauche. Domicile l'était toujours ; le scoreur place
+   * désormais les équipes comme il les voit, et elles changent de côté à la
+   * mi-temps. Voir la console.
+   */
+  aGauche?: Cote;
+  /**
+   * Ballon mort : les camps attendus pour le remettre en jeu, et le mot que
+   * porte leur pastille (« Engage », « Repart »). Un appui sur la pastille
+   * d'un camp attendu le relance, il ne retire jamais le ballon.
+   */
+  attente?: { cotes: Cote[]; libelle: string } | null;
 }) {
   const tenueHome = home.couleurs ?? COULEURS_PAR_DEFAUT;
   const tenueAway = away.couleurs ?? COULEURS_PAR_DEFAUT;
@@ -453,10 +466,12 @@ export default function TerrainsFaceAFace({
       // s'arretaient aux deux tiers de l'ecran, le dernier tiers restant noir.
       className="flex h-full min-h-0 w-full"
     >
-      {(["home", "away"] as const).map((k) => {
+      {([aGauche, aGauche === "home" ? "away" : "home"] as const).map((k, i) => {
         const e = k === "home" ? home : away;
-        const miroir = k === "away";
+        // Le camp de droite est le miroir de celui de gauche, quel qu'il soit.
+        const miroir = i === 1;
         const aLeBallon = ballon === k;
+        const attendu = !!attente?.cotes.includes(k);
         // Tant que personne n'a le ballon, personne n'attend : les deux
         // moities gardent le vert d'avant. Voir PELOUSE_EN_ATTENTE.
         const enAttente = ballon !== null && !aLeBallon;
@@ -489,18 +504,23 @@ export default function TerrainsFaceAFace({
                 // retenir le camp sans rien lui compter, et le decompte
                 // reprend au coup de sifflet. Desactivee, elle ne faisait
                 // rien sans dire pourquoi.
-                onClick={() => onBallon(aLeBallon ? null : k)}
+                onClick={() => onBallon(aLeBallon && !attendu ? null : k)}
                 className={`flex shrink-0 items-center gap-1 px-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                  aLeBallon ? "bg-emerald-600 text-white" : "text-white/40 hover:text-white/80"
+                  attendu
+                    ? "animate-pulse bg-amber-400 text-[#0b1512]"
+                    : aLeBallon ? "bg-emerald-600 text-white" : "text-white/40 hover:text-white/80"
                 }`}
               >
                 <span aria-hidden className="text-xs leading-none">⚽</span>
                 {/* Elle se NOMME tant qu'elle n'a pas de chiffre : un tiret
-                    apres un appui se lit comme un bouton casse. */}
+                    apres un appui se lit comme un bouton casse. Ballon mort,
+                    elle dit ce qu'on attend d'elle. */}
                 <span className="tabular-nums">
-                  {part !== null ? `${part}%` : aLeBallon ? "balle" : "ballon"}
+                  {attendu && attente
+                    ? attente.libelle
+                    : part !== null ? `${part}%` : aLeBallon ? "balle" : "ballon"}
                 </span>
-                {!ballonActif && aLeBallon && <span className="opacity-60">⏸</span>}
+                {!ballonActif && aLeBallon && !attendu && <span className="opacity-60">⏸</span>}
               </button>
 
               {/* SUR UN SEUL RANG. « Domicile » vivait au-dessus du nom, et
@@ -544,7 +564,7 @@ export default function TerrainsFaceAFace({
                   onJoueur={(entry) => onJoueur(k, entry)}
                   // Chacun defend son bord et attaque vers le milieu de
                   // l'ecran : c'est la disposition d'une affiche de match.
-                  sens={k === "home" ? "droite" : "gauche"}
+                  sens={miroir ? "gauche" : "droite"}
                   couleurs={k === "home" ? tenueHome : tenueAway}
                   formation={e.formation ?? null}
                   // UN LISERÉ CLAIR, pour deux raisons : les deux équipes
@@ -552,7 +572,7 @@ export default function TerrainsFaceAFace({
                   // maillot se fond dans la pelouse. Voir
                   // `seFondDansLaPelouse` : on ne recolore jamais une équipe.
                   contour={
-                    (memeTon && miroir)
+                    (memeTon && k === "away")
                     || seFondDansLaPelouse((k === "home" ? tenueHome : tenueAway).maillot, [PELOUSE, PELOUSE_EN_ATTENTE])
                       ? "#f8fafc"
                       : undefined

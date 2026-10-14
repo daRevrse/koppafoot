@@ -3,6 +3,7 @@ import type { Categorie, Genre } from "@/lib/genre";
 import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
 import type { Possession, PossessionStockee } from "@/lib/possession";
+import type { Jeu } from "@/lib/etat-du-jeu";
 import type { ConditionJoueur, FirestoreConditionJoueur } from "@/lib/etat-de-forme";
 import type { Emplacement } from "@/lib/terrain";
 
@@ -655,13 +656,17 @@ export interface FirestoreMatch {
      * Il ne se deduit de rien. Le chrono de la console monte en continu, il ne
      * sait pas ce qui s'est arrete pendant le jeu : seul l'arbitre annonce
      * « trois minutes », et le scoreur le recopie. C'est aussi ce qui decide
-     * ou l'horloge s'arrete toute seule — voir `cibleDeLaPeriode` dans la
-     * console.
+     * quand le bouton de fin de periode se met a clignoter dans la console.
      *
-     * Absent des matchs joues avant lui : zero, donc arret a la minute
-     * reglementaire.
+     * Absent des matchs joues avant lui : zero.
      */
     added_time?: { first: number; second: number } | null;
+    /**
+     * L'etat du jeu : ballon en jeu ou mort, et pourquoi. Voir
+     * `lib/etat-du-jeu`. Absent des matchs lances avant lui : `lireJeu` le
+     * deduit alors de l'horloge.
+     */
+    jeu?: Jeu | null;
   } | null;
   modification_request?: {
     date: string;
@@ -969,6 +974,8 @@ export interface Match {
     possession?: Possession | null;
     /** Voir `FirestoreMatch.live_state.added_time`. */
     addedTime?: { first: number; second: number } | null;
+    /** Voir `FirestoreMatch.live_state.jeu`. */
+    jeu?: Jeu | null;
   } | null;
   modificationRequest?: MatchModificationRequest | null;
   /** Voir `FirestoreMatch.home_lineup`. */

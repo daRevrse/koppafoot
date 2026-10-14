@@ -52,6 +52,11 @@ export function libelleMinute(
 export type MinuteEnDirect =
   | { genre: "avant" }
   | { genre: "pause" }
+  /**
+   * Orage, incident : le seul arret de jeu qui se montre au public. Le chrono
+   * s'y arrete, et sans le dire on verrait une minute figee sans raison.
+   */
+  | { genre: "interrompu" }
   | { genre: "jeu"; minute: number; plus: number };
 
 /** Ce que `minuteEnDirect` lit d'un match : son statut et son horloge. */
@@ -62,6 +67,8 @@ interface HorlogeDuMatch {
     isTimerRunning?: boolean | null;
     timerStartAt?: string | null;
     timerOffset?: number | null;
+    /** L'etat du jeu, quand la console l'a pose. Voir lib/etat-du-jeu. */
+    jeu?: { raison: string | null } | null;
   } | null;
 }
 
@@ -79,6 +86,8 @@ export function minuteEnDirect(
 ): MinuteEnDirect | null {
   const ls = m.liveState;
   if (!ls) return null;
+  if (ls.jeu?.raison === "interruption") return { genre: "interrompu" };
+  if (ls.jeu?.raison === "avant") return { genre: "avant" };
   if (ls.currentPeriod === 2) return { genre: "pause" };
 
   const offset = ls.timerOffset || 0;
@@ -97,10 +106,11 @@ export function minuteEnDirect(
 /** La minute en direct, en texte. Les libelles viennent de la page (langue). */
 export function texteMinute(
   m: MinuteEnDirect,
-  libelles: { avant: string; pause: string },
+  libelles: { avant: string; pause: string; interrompu: string },
   prime: string = "′",
 ): string {
   if (m.genre === "avant") return libelles.avant;
   if (m.genre === "pause") return libelles.pause;
+  if (m.genre === "interrompu") return libelles.interrompu;
   return m.plus > 0 ? `${m.minute}+${m.plus}${prime}` : `${m.minute}${prime}`;
 }

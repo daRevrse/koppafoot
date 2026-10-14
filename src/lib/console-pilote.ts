@@ -25,8 +25,9 @@ import {
   initLiveCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
   finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
-  setCompPenaltyOutcome, retirerCompEvenements,
+  setCompPenaltyOutcome, retirerCompEvenements, transitionCompMatch,
 } from "@/lib/competition-firestore";
+import type { Transition } from "@/lib/etat-du-jeu";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
 import {
   DEFAULT_HALF_DURATION, DEFAULT_SUBS_MAX, DEFAULT_TEAM_SIZE, halfDuration, reentryAllowed,
@@ -42,7 +43,7 @@ import {
   compositionTypePour,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
   setMatchAddedTime, setMatchPenaltyOutcome, retirerEvenementsAmical,
-  ecrituresEnvoyees,
+  ecrituresEnvoyees, transitionMatch,
 } from "@/lib/firestore";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import type {
@@ -145,6 +146,12 @@ export interface PiloteConsole {
   changerPeriode(periode: number): Promise<void>;
   poserSurLeTerrain(side: Cote, ids: string[]): Promise<void>;
   terminer(tab?: { penaltyHome: number; penaltyAway: number }): Promise<void>;
+
+  /**
+   * Un geste de la console et tout ce qu'il change, en une seule ecriture :
+   * l'etat du jeu, la periode, le chrono. Voir `lib/etat-du-jeu`.
+   */
+  transition(t: Transition): Promise<void>;
 
   /**
    * Poser la possession de balle.
@@ -301,6 +308,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       updateCompMatch(cid, mid, { [side === "home" ? "home_on_pitch" : "away_on_pitch"]: ids }),
 
     terminer: (tab) => finishCompMatch(cid, mid, tab),
+    transition: (t) => transitionCompMatch(cid, mid, t),
     poserPossession: (p) => setCompPossession(cid, mid, p),
     poserTempsAdditionnel: (mt, min) => setCompAddedTime(cid, mid, mt, min),
 
@@ -522,6 +530,7 @@ export function piloteAmical(matchId: string): PiloteConsole {
       await updateMatchStatus(matchId, "completed");
     },
 
+    transition: (t) => transitionMatch(matchId, t),
     poserPossession: (p) => setMatchPossession(matchId, p),
     poserTempsAdditionnel: (mt, min) => setMatchAddedTime(matchId, mt, min),
     poserMVP: (mvp, parUid) => setMatchMVP(matchId, mvp, parUid),

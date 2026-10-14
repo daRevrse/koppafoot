@@ -185,6 +185,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
       // qu'elle réécrivait par-dessus la vraie.
       possession: d.live_state.possession ? versPossession(d.live_state.possession) : null,
       addedTime: d.live_state.added_time ?? null,
+      jeu: d.live_state.jeu ?? null,
     } : null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
