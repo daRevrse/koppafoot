@@ -2289,7 +2289,7 @@ export default function MatchDetailPage() {
              <h3 className="text-lg sm:text-xl font-black text-gray-900 border-b border-gray-200/70 pb-3 sm:pb-4 mb-3 sm:mb-4">Validation Finale de la Feuille de Match</h3>
              <p className="text-gray-500 text-xs sm:text-sm">
                Le match est terminé. Valide le score final et les évènements
-               {arbitreANoter ? <>, et noter l&apos;arbitre,</> : null} pour clore officiellement la rencontre.
+               {arbitreANoter ? <>, puis note l&apos;arbitre,</> : null} pour clore officiellement la rencontre.
              </p>
              <div className="mt-4 p-3 sm:p-4 bg-amber-50 border border-amber-100">
                <p className="text-[11px] font-bold text-amber-700 flex items-start sm:items-center gap-2">
