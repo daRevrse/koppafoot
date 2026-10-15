@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, ChevronLeft, MapPin, Upload,
   Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock, Goal,
-  GitBranch, ChevronsDownUp, ChevronsUpDown,
+  GitBranch, ChevronsDownUp, ChevronsUpDown, Trash2,
 } from "lucide-react";
 import {
   onCompetition,
@@ -18,6 +18,7 @@ import {
   updateCompMatch,
   createCompMatch,
   createCompTeam,
+  deleteCompMatch,
   describeBracketSlotSource,
 } from "@/lib/competition-firestore";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
@@ -27,6 +28,8 @@ import { AvisTerrain, EtatTerrain, RefusDuTerrain } from "@/components/venue/ven
 import { uploadMatchBanner } from "@/lib/storage";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import MatchResultModal from "@/components/competition/MatchResultModal";
+import { useConfirmation } from "@/components/ui/socle";
+import { raisonDeNePasSupprimer } from "@/lib/suppression-match";
 import type { Competition, CompMatch, CompMatchRound, CompTeam, Venue } from "@/types";
 import toast from "react-hot-toast";
 
@@ -114,6 +117,9 @@ export default function CompetitionSchedulePage() {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [teams, setTeams] = useState<CompTeam[]>([]);
+  /** Le match en cours de suppression, pour son bouton. */
+  const [suppressionId, setSuppressionId] = useState<string | null>(null);
+  const { demander, Dialogue } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
@@ -698,6 +704,41 @@ export default function CompetitionSchedulePage() {
     return { label: source ? describeBracketSlotSource(source) : "À déterminer", pending: true };
   };
 
+  /**
+   * SUPPRIMER UN MATCH du calendrier : un doublon, un match ajouté par
+   * erreur. Refusé, en le disant, pour un match en direct, déjà joué, ou
+   * relié au tableau final — voir lib/suppression-match.
+   */
+  const supprimerMatch = async (match: CompMatch) => {
+    const raison = raisonDeNePasSupprimer(match, matches);
+    if (raison) {
+      toast.error(raison);
+      return;
+    }
+    const affiche = `${sideName(match, "home").label} vs ${sideName(match, "away").label}`;
+    const ok = await demander({
+      titre: `Supprimer ${affiche} ?`,
+      corps: (
+        <>
+          Le match disparaît du calendrier
+          {match.venueId || match.venueBooking ? ", et le créneau réservé au terrain est libéré." : "."}
+        </>
+      ),
+      action: "Supprimer",
+      danger: true,
+    });
+    if (!ok) return;
+    setSuppressionId(match.id);
+    try {
+      await deleteCompMatch(cid, match.id);
+      toast.success("Match supprimé");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Le match n'a pas pu être supprimé");
+    } finally {
+      setSuppressionId(null);
+    }
+  };
+
   // One schedulable match: teams, status badges, inline date/heure/stade/ville.
   const renderMatchRow = (match: CompMatch) => {
     const row = rows[match.id] ?? LIGNE_VIDE;
@@ -810,6 +851,16 @@ export default function CompetitionSchedulePage() {
               {completed ? "Console" : "Console live"}
               <ChevronRight size={14} />
             </Link>
+            <button
+              type="button"
+              onClick={() => void supprimerMatch(match)}
+              disabled={suppressionId === match.id}
+              aria-label="Supprimer le match"
+              title="Supprimer le match"
+              className="inline-flex items-center px-2 py-1 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+            >
+              {suppressionId === match.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            </button>
           </div>
         </div>
 
@@ -1653,6 +1704,8 @@ export default function CompetitionSchedulePage() {
           </div>
         )}
       </AnimatePresence>
+
+      <Dialogue />
     </div>
   );
 }

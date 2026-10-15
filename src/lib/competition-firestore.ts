@@ -46,6 +46,7 @@ import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import type { PossessionStockee } from "@/lib/possession";
 import { JEU_AVANT, champsDeTransition, type Transition } from "@/lib/etat-du-jeu";
 import { synchroniserTerrainsCompetition } from "@/lib/reservations-client";
+import { raisonDeNePasSupprimer } from "@/lib/suppression-match";
 import { terrainNomme } from "@/lib/terrains";
 import type { Categorie } from "@/lib/genre";
 
@@ -2584,6 +2585,24 @@ export async function createKnockoutBracket(
   }
 
   await batch.commit();
+}
+
+/**
+ * Supprimer un match du calendrier.
+ *
+ * La regle vit dans lib/suppression-match, et elle est relue ici sur l'etat
+ * du serveur : un match passe en direct ou joue depuis l'ouverture de la page
+ * ne doit pas partir sur la foi d'un ecran perime.
+ */
+export async function deleteCompMatch(cid: string, mid: string): Promise<void> {
+  const matchs = await listCompMatches(cid);
+  const match = matchs.find((m) => m.id === mid);
+  if (!match) return;
+  const raison = raisonDeNePasSupprimer(match, matchs);
+  if (raison) throw new Error(raison);
+  await deleteDoc(compMatchRef(cid, mid));
+  // Le creneau qu'il tenait se libere chez le proprietaire du terrain.
+  if (match.venueId || match.venueBooking) await synchroniserTerrainsCompetition(cid, [mid]);
 }
 
 /**
