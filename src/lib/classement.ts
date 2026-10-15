@@ -35,9 +35,15 @@
 // dire : deux homonymes fusionnent, et un joueur dont on ecrit le nom de deux
 // facons se dedouble. La revendication de ligne d'effectif est la sortie de
 // ce probleme, pas ce module.
+//
+// UN JOUEUR SANS COMPTE EST CLASSE, un adversaire hors plateforme non. Le
+// premier est quelqu'un — une competition entiere peut n'en compter aucun
+// autre. Le second est un « Joueur 9 » genere a la creation d'un amical, et
+// tous les « Joueur 9 » de la plateforme, classes au nom, n'en feraient qu'un.
 // ============================================
 
 import { normaliserPoste } from "@/lib/postes";
+import { estLigneHorsPlateforme } from "@/lib/effectif-match";
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import { moyennePonderee, notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
@@ -104,8 +110,9 @@ export type LigneJoueurPubliee = LigneJoueur & {
   mouvementNote: number | null;
   mouvementContribution: number | null;
   /**
-   * La photo de profil, relevée au calcul (voir lib/classement-admin). Absente
-   * d'une ligne sans compte, qui garde ses initiales.
+   * La photo, relevée au calcul (voir lib/classement-admin) : celle du profil
+   * pour un compte, celle que son organisateur ou son club a posée pour un
+   * joueur sans compte. Absente, la ligne garde ses initiales.
    */
   photo?: string | null;
 };
@@ -152,6 +159,19 @@ export type MatchAClasser = CompMatch & {
   dureeMatchMin?: number;
 };
 
+/**
+ * Ou retrouver un joueur SANS COMPTE : la ligne de sa feuille la plus recente.
+ *
+ * Sa photo n'est pas sur un profil. Elle est posee sur sa ligne d'effectif, ou
+ * sur sa fiche de club (voir lib/photos-sans-compte), et c'est l'appelant qui
+ * va la lire : ce module ne lit rien.
+ */
+export interface LigneSansCompte {
+  competitionId: string;
+  teamId: string | null;
+  playerId: string;
+}
+
 export interface Classements {
   /** Tout le monde, gardiens compris, a la note. */
   parNote: LigneJoueur[];
@@ -159,6 +179,11 @@ export interface Classements {
   parContribution: LigneJoueur[];
   /** Combien de matchs ont nourri le calcul, pour savoir s'il vaut quelque chose. */
   matchsRetenus: number;
+  /**
+   * La ligne de chaque joueur sans compte, par cle. Un compte n'y figure pas :
+   * sa photo est celle de son profil.
+   */
+  lignesSansCompte: Map<string, LigneSansCompte>;
 }
 
 function cleDe(entry: Pick<LineupEntry, "userId" | "name">): string | null {
@@ -228,6 +253,7 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
   // etant parcourus du plus recent au plus ancien, on s'arrete a cinq.
   const vus = new Map<string, number>();
   const cumuls = new Map<string, Cumul>();
+  const lignesSansCompte = new Map<string, LigneSansCompte>();
   let matchsRetenus = 0;
 
   for (const match of termines) {
@@ -278,6 +304,7 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
       let notes: Map<string, NoteJoueur> | null = null;
 
       for (const entry of camp.entries) {
+        if (estLigneHorsPlateforme(entry.playerId)) continue;
         const cle = cleDe(entry);
         if (!cle) continue;
         const deja = vus.get(cle) ?? 0;
@@ -291,6 +318,10 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
         if (cumul.nom === "" && entry.name.trim() !== "") cumul.nom = entry.name.trim();
         if (!cumul.uid && entry.userId) cumul.uid = entry.userId;
         if (!cumul.equipe && camp.equipe) cumul.equipe = camp.equipe;
+        // La premiere ligne vue est la plus recente, comme le club ci-dessus.
+        if (!entry.userId && !lignesSansCompte.has(cle)) {
+          lignesSansCompte.set(cle, { competitionId: match.competitionId, teamId: camp.teamId, playerId: entry.playerId });
+        }
 
         const poste = normaliserPoste(entry.position);
         if (poste) cumul.posteConnu = true;
@@ -368,7 +399,7 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
     .sort((a, b) => b.total - a.total || b.buts - a.buts || a.nom.localeCompare(b.nom))
     .slice(0, TAILLE_CLASSEMENT);
 
-  return { parNote, parContribution, matchsRetenus };
+  return { parNote, parContribution, matchsRetenus, lignesSansCompte };
 }
 
 /**

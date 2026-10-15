@@ -21,13 +21,17 @@ import { matchDuration } from "@/lib/competition-format";
 import { calculerClassements, fusionnerClassements } from "@/lib/classement";
 import type { MatchPourForme } from "@/lib/etat-de-forme";
 import type {
-  ClassementsPublies, ContributionDirecte, LigneJoueurPubliee, MatchAClasser,
+  ClassementsPublies, ContributionDirecte, LigneJoueurPubliee, LigneSansCompte, MatchAClasser,
 } from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
 import { lireButeursRenseignes } from "@/lib/buteurs";
-import type { FirestoreCompMatch, FirestoreMatch, LineupEntry } from "@/types";
+import { cleDeLaLigne, cleSansCompte } from "@/lib/photos-sans-compte";
+import type { FirestoreCompMatch, FirestoreCompTeam, FirestoreMatch, LineupEntry } from "@/types";
 
 const DOC = "rankings/top_players";
+
+/** La « compétition » sous laquelle un amical passe au calcul (voir `amicalEnCompMatch`). */
+const AMICAL = "friendly";
 
 const VIDE: ClassementsPublies = {
   joueurs: [], matchsRetenus: 0, calculeLe: null,
@@ -131,7 +135,7 @@ function contributionsDirectes(d: FirestoreMatch): ContributionDirecte[] {
 function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
   return {
     id,
-    competitionId: "friendly",
+    competitionId: AMICAL,
     status: "completed",
     date: d.date ?? null,
     time: d.time ?? null,
@@ -203,6 +207,79 @@ async function photosDesJoueurs(uids: string[]): Promise<Map<string, string>> {
 }
 
 /**
+ * Les photos des joueurs classés SANS COMPTE, par clé de classement.
+ *
+ * Leur visage n'est pas sur un profil. La ligne de leur feuille la plus
+ * récente dit où le chercher (voir `LigneSansCompte`), dans le même ordre que
+ * les fiches de match (voir `photoDeLaLigne`) :
+ *
+ *   - en COMPÉTITION, la photo posée sur la ligne d'effectif, sinon celle de
+ *     la fiche du club que l'équipe représente ;
+ *   - sur un AMICAL, la ligne est la fiche du club elle-même.
+ *
+ * Un buteur sans compte d'un match renseigné après coup n'a pas de ligne de
+ * feuille : il garde ses initiales jusqu'à son premier match tenu à la console.
+ *
+ * Même régime que les comptes : relevées au calcul, et un échec laisse les
+ * initiales sans empêcher la publication.
+ */
+async function photosSansCompte(lignes: [string, LigneSansCompte][]): Promise<Map<string, string>> {
+  const photos = new Map<string, string>();
+  if (lignes.length === 0) return photos;
+  try {
+    // Les effectifs de compétition d'abord : ils portent la photo de ligne, et
+    // le club dont il faudra peut-être lire la fiche.
+    const chemin = (l: LigneSansCompte) => `competitions/${l.competitionId}/comp_teams/${l.teamId}`;
+    const chemins = [...new Set(
+      lignes.filter(([, l]) => l.competitionId !== AMICAL && l.teamId).map(([, l]) => chemin(l)),
+    )];
+    const equipes = new Map(
+      (chemins.length ? await adminDb.getAll(...chemins.map((c) => adminDb.doc(c))) : [])
+        .map((d) => [d.ref.path, d.data() as FirestoreCompTeam | undefined]),
+    );
+
+    // Pour chacun : la photo déjà posée sur sa ligne, ou la fiche de club
+    // (`<club>:<fiche>`, voir lib/photos-sans-compte) où la lire.
+    const fiches = new Map<string, string>();
+    for (const [cle, l] of lignes) {
+      if (l.competitionId === AMICAL) {
+        const fiche = cleSansCompte(l.teamId, l.playerId);
+        if (fiche) fiches.set(cle, fiche);
+        continue;
+      }
+      const equipe = equipes.get(chemin(l));
+      const ligne = equipe?.players?.find((p) => p.id === l.playerId);
+      // Une ligne revendiquée depuis le match montre le profil de son compte,
+      // que la feuille ne connaît pas : elle garde ses initiales.
+      if (!ligne || ligne.user_id) continue;
+      if (ligne.photo_url) {
+        photos.set(cle, ligne.photo_url);
+        continue;
+      }
+      const fiche = cleDeLaLigne(equipe?.claimed_by_team_id, ligne);
+      if (fiche) fiches.set(cle, fiche);
+    }
+
+    const aLire = [...new Set(fiches.values())];
+    if (aLire.length) {
+      // Les deux identifiants d'une clé ont été vérifiés à sa fabrication.
+      const docs = await adminDb.getAll(...aLire.map((f) => {
+        const [clubId, ghostId] = f.split(":");
+        return adminDb.doc(`teams/${clubId}/ghost_players/${ghostId}`);
+      }));
+      const parFiche = new Map(docs.map((d, i) => [aLire[i], d.get("photo_url") as unknown]));
+      for (const [cle, fiche] of fiches) {
+        const url = parFiche.get(fiche);
+        if (typeof url === "string" && url) photos.set(cle, url);
+      }
+    }
+  } catch (err) {
+    console.error("photosSansCompte failed:", err);
+  }
+  return photos;
+}
+
+/**
  * Recalcule et publie. Rendu : ce qui vient d'être écrit.
  *
  * Idempotent : deux appels de suite donnent le même classement. Le second
@@ -215,7 +292,7 @@ export async function recalculerClassements(
   dejaLus?: MatchDeLaPlateforme[],
 ): Promise<ClassementsPublies> {
   const matchs = dejaLus ?? await matchsDeLaPlateforme();
-  const { parNote, parContribution, matchsRetenus } = calculerClassements(matchs);
+  const { parNote, parContribution, matchsRetenus, lignesSansCompte } = calculerClassements(matchs);
 
   const ref = adminDb.doc(DOC);
   const avant = (await ref.get()).data() as
@@ -226,10 +303,19 @@ export async function recalculerClassements(
     { parNote, parContribution },
     { note: avant?.cles_note ?? [], contribution: avant?.cles_contribution ?? [] },
   );
-  const photos = await photosDesJoueurs(joueurs.flatMap((l) => (l.uid ? [l.uid] : [])));
+  const [photos, photosDesSansCompte] = await Promise.all([
+    photosDesJoueurs(joueurs.flatMap((l) => (l.uid ? [l.uid] : []))),
+    photosSansCompte(joueurs.flatMap((l) => {
+      const ligne = l.uid ? undefined : lignesSansCompte.get(l.cle);
+      return ligne ? [[l.cle, ligne] as [string, LigneSansCompte]] : [];
+    })),
+  ]);
 
   const publie: ClassementsPublies = {
-    joueurs: joueurs.map((l) => ({ ...l, photo: (l.uid && photos.get(l.uid)) || null })),
+    joueurs: joueurs.map((l) => ({
+      ...l,
+      photo: (l.uid ? photos.get(l.uid) : photosDesSansCompte.get(l.cle)) || null,
+    })),
     matchsRetenus,
     calculeLe: new Date().toISOString(),
   };

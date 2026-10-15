@@ -42,6 +42,17 @@ export function quotaMinimum(format: string | undefined): number {
   return Math.max(2, n <= 7 ? n - 2 : n - 3);
 }
 
+/** Le préfixe des lignes générées par `ghostOpponentLineup`. */
+const PREFIXE_HORS_PLATEFORME = "ext-";
+
+/**
+ * Cette ligne de feuille est-elle l'un de ces « Joueur 9 » générés ? Personne
+ * derrière : ni forme à suivre, ni place au classement, où tous les
+ * « Joueur 9 » de la plateforme, classés au nom, n'en feraient qu'un.
+ */
+export const estLigneHorsPlateforme = (playerId: string | null | undefined): boolean =>
+  !!playerId?.startsWith(PREFIXE_HORS_PLATEFORME);
+
 /**
  * L'onze d'un adversaire hors plateforme, SANS RIEN ÉCRIRE EN BASE.
  *
@@ -68,7 +79,7 @@ export function ghostOpponentLineup(format: string, feminin = false): LineupEntr
     lignes.push({
       // Suffixe aléatoire : deux matchs du même jour ne doivent pas partager
       // un identifiant de joueur, la timeline les confondrait.
-      playerId: `ext-${Math.random().toString(36).slice(2, 8)}-${numero}`,
+      playerId: `${PREFIXE_HORS_PLATEFORME}${Math.random().toString(36).slice(2, 8)}-${numero}`,
       name: `${feminin ? "Joueuse" : "Joueur"} ${numero}`,
       number: numero,
       role: "starter",

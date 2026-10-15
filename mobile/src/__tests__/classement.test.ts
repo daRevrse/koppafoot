@@ -103,6 +103,55 @@ describe("calculerClassements", () => {
     const { parNote } = calculerClassements(sansPoste);
     expect(parNote.find((l) => l.cle === "uid:U2")!.gardien).toBe(true);
   });
+
+  it("n'invente personne avec l'adversaire hors plateforme d'un amical", () => {
+    // Chaque amical contre un adversaire hors plateforme lui génère son onze,
+    // « Joueur 1 » à « Joueur N », sous des identifiants neufs (voir
+    // ghostOpponentLineup). Classés au nom, tous les « Joueur 9 » de la
+    // plateforme n'en feraient qu'un.
+    const amicaux = [1, 2, 3].map((i) => match(i, {
+      awayTeamId: "", awayTeamName: "Les Inconnus",
+      awayLineup: [ligne(`ext-a${i}-9`, null, null, "Joueur 9")],
+      liveState: {
+        currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+        events: [
+          ev({ type: "goal", teamId: "A", playerId: "L1", minute: 20 }),
+          ev({ type: "goal", teamId: "", playerId: `ext-a${i}-9`, minute: 70 }),
+        ],
+      },
+    }));
+    const { parNote, parContribution } = calculerClassements(amicaux);
+    expect([...parNote, ...parContribution].map((l) => l.cle)).not.toContain("nom:joueur 9");
+    // Le camp qui a un vrai effectif, lui, est classé comme d'habitude.
+    expect(parContribution.map((l) => l.cle)).toEqual(["uid:U1"]);
+    expect(parNote.map((l) => l.cle)).toContain("uid:U1");
+  });
+
+  it("classe un joueur sans compte à son nom, et dit où retrouver sa ligne", () => {
+    // Une compétition entièrement composée de joueurs sans compte doit remplir
+    // le classement comme une autre. Leur photo, posée sur la ligne d'effectif
+    // ou sur la fiche du club, se retrouve par la ligne de la feuille.
+    const sansCompte = [1, 2, 3].map((i) => {
+      const id = i === 3 ? "ghost_k" : "S1";
+      return match(i, {
+        competitionId: i === 3 ? "c2" : "c",
+        homeTeamId: i === 3 ? "A2" : "A",
+        homeLineup: [ligne("L1", "U1", "forward", "Buteur"), ligne(id, null, "forward", "Kossi Owens ")],
+        liveState: {
+          currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+          events: [ev({ type: "goal", teamId: i === 3 ? "A2" : "A", playerId: id, minute: 20 })],
+        },
+      });
+    });
+    const { parContribution, lignesSansCompte } = calculerClassements(sansCompte);
+    const kossi = parContribution.find((l) => l.cle === "nom:kossi owens")!;
+    expect(kossi.uid).toBeNull();
+    expect(kossi.buts).toBe(3);
+    // La plus récente, celle du club qu'on affiche sous son nom.
+    expect(lignesSansCompte.get("nom:kossi owens")).toEqual({ competitionId: "c2", teamId: "A2", playerId: "ghost_k" });
+    // Un compte n'en a pas besoin : sa photo est celle de son profil.
+    expect(lignesSansCompte.has("uid:U1")).toBe(false);
+  });
 });
 
 describe("fusionnerClassements et classementPar", () => {
