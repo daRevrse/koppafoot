@@ -27,6 +27,7 @@
 import { cleDuJour } from "@/lib/dates";
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import { FENETRE } from "@/lib/classement";
+import { estLigneHorsPlateforme } from "@/lib/effectif-match";
 import { moyennePonderee, notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT, type MatchJoue } from "@/lib/player-stats";
 import type { LineupEntry } from "@/types";
@@ -329,13 +330,6 @@ export const cleFormeCompte = (uid: string) => `uid:${uid}`;
 export const cleFormeLigne = (teamId: string, playerId: string) => `ligne:${teamId}:${playerId}`;
 
 /**
- * Les lignes d'un adversaire hors plateforme : des « Joueur 1 », « Joueur 2 »
- * générés à la création du match, avec un identifiant neuf à chaque fois
- * (voir `ghostOpponentLineup`). Personne derrière, et aucune forme à suivre.
- */
-const LIGNE_HORS_PLATEFORME = "ext-";
-
-/**
  * La clé d'une ligne de feuille, ou `null` quand sa forme ne se publie pas.
  *
  * UNE LIGNE SANS COMPTE NE SE SUIT QUE SUR UN AMICAL. Là, c'est un joueur
@@ -350,7 +344,9 @@ function cleDe(
   amical: boolean,
 ): string | null {
   if (entry.userId) return cleFormeCompte(entry.userId);
-  if (!amical || !teamId || !entry.playerId || entry.playerId.startsWith(LIGNE_HORS_PLATEFORME)) return null;
+  // Les « Joueur 1 », « Joueur 2 » d'un adversaire hors plateforme, générés à
+  // la création du match : personne derrière, aucune forme à suivre.
+  if (!amical || !teamId || !entry.playerId || estLigneHorsPlateforme(entry.playerId)) return null;
   return cleFormeLigne(teamId, entry.playerId);
 }
 
