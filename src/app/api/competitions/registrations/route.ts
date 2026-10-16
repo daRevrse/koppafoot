@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { estProprietaire, peutConfigurer, staffDeLaCompetition } from "@/lib/competition-api-auth";
 import { FieldValue } from "firebase-admin/firestore";
 import { importClubRoster } from "@/lib/club-import-server";
 import { announceCompetitionEvent } from "@/lib/tribune-server";
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     // Awaited: this runs as a serverless function, so a promise still in
     // flight when the response returns is dropped when the instance freezes.
     await Promise.allSettled(
-      (competition.organizer_ids ?? []).map((uid) =>
+      staffDeLaCompetition(competition).map((uid) =>
         notifierCompte(uid, {
           type: "join_request",
           title: "Nouvelle inscription",
@@ -257,11 +257,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
     }
     const competition = compSnap.data() as FirestoreCompetition;
-    if (!(competition.organizer_ids ?? []).includes(callerUid)) {
-      const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      if (!estSuperadmin(callerDoc.data())) {
-        return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-      }
+    if (!(await peutConfigurer(callerUid, competition))) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
     // Default stays pending-only, the decision panel wants nothing else.
@@ -269,10 +266,17 @@ export async function GET(req: NextRequest) {
     const base = adminDb
       .collection("competition_registrations")
       .where("competition_id", "==", cid);
-    const snap = await (req.nextUrl.searchParams.get("status") === "all"
-      ? base.get()
-      : base.where("status", "==", "pending").get());
-    return NextResponse.json({ registrations: snap.docs.map((d) => toJson(d.id, d.data())) });
+    const [snap, peutEncaisser] = await Promise.all([
+      req.nextUrl.searchParams.get("status") === "all"
+        ? base.get()
+        : base.where("status", "==", "pending").get(),
+      // Le modérateur voit qui a payé ; le cocher reste au propriétaire.
+      estProprietaire(callerUid, competition),
+    ]);
+    return NextResponse.json({
+      registrations: snap.docs.map((d) => toJson(d.id, d.data())),
+      peutEncaisser,
+    });
   } catch (err) {
     console.error("[registrations GET]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -334,11 +338,15 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
     }
     const competition = compSnap.data() as FirestoreCompetition;
-    if (!(competition.organizer_ids ?? []).includes(callerUid)) {
-      const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      if (!estSuperadmin(callerDoc.data())) {
-        return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-      }
+    // Décider d'une inscription, c'est configurer : organisateurs et
+    // modérateurs. Dire qu'une équipe a payé ses frais, c'est l'argent, qui
+    // reste au propriétaire.
+    const argent = action === "mark_paid" || action === "mark_unpaid";
+    const autorise = argent
+      ? await estProprietaire(callerUid, competition)
+      : await peutConfigurer(callerUid, competition);
+    if (!autorise) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
     if (action === "release") {

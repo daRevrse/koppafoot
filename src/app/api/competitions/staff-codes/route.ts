@@ -15,7 +15,7 @@ import type { FirestoreStaffCode } from "@/types";
 //
 // Codes live in a top-level `staff_codes/{CODE}` collection that Firestore
 // rules make unreadable to every client: a code is a secret, and the only way
-// to see one is through this route, as an organizer of its competition.
+// to see one is through this route, as an organizer or a moderator of its competition.
 // ============================================
 
 const MAX_CODES_PER_COMPETITION = 50;
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "cid requis" }, { status: 400 });
     }
 
-    const authResult = await authorizeOrganizer(req, cid);
+    const authResult = await authorizeOrganizer(req, cid, { moderateurs: true });
     if ("error" in authResult) return authResult.error;
 
     const snap = await adminDb
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       expiresIso = d.toISOString();
     }
 
-    const authResult = await authorizeOrganizer(req, cid);
+    const authResult = await authorizeOrganizer(req, cid, { moderateurs: true });
     if ("error" in authResult) return authResult.error;
     const { callerUid, competition } = authResult;
 
@@ -163,7 +163,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "cid et code requis" }, { status: 400 });
     }
 
-    const authResult = await authorizeOrganizer(req, cid);
+    const authResult = await authorizeOrganizer(req, cid, { moderateurs: true });
     if ("error" in authResult) return authResult.error;
 
     const codeId = normalizeStaffCode(code);

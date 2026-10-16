@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { apercuImport, importClubRoster } from "@/lib/club-import-server";
 import { ImportRefuse, type Correspondances } from "@/lib/fusion-import";
 import type { FirestoreCompetition } from "@/types";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { peutConfigurer } from "@/lib/competition-api-auth";
 
 /**
  * Import a manager's club squad into their competition team.
@@ -11,8 +11,8 @@ import { estSuperadmin } from "@/lib/admin-api-auth";
  * The copy itself lives in lib/club-import-server so that accepting a
  * registration lands a squad in exactly the same state. This route only
  * carries the authorization: the caller must run BOTH sides, their own club
- * into their own competition team, unless they are an organizer of that
- * competition or a superadmin acting on a manager's behalf.
+ * into their own competition team, unless they configure that competition
+ * (organizer, moderator) or are a superadmin acting on a manager's behalf.
  *
  * GET  ?cid&teamId&clubId                       , l'aperçu : qui arrive, et quelle
  *                                                 ligne déjà saisie chacun peut reprendre.
@@ -62,13 +62,7 @@ async function autoriser(
 
   const isTeamManager = teamSnap.data()?.claimed_by_manager_id === callerUid;
   const isClubManager = clubSnap.data()?.manager_id === callerUid;
-  const isOrganizer = (competition.organizer_ids ?? []).includes(callerUid);
-  let isSuperadmin = false;
-  if (!isOrganizer) {
-    const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-    isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
-  }
-  if (!((isTeamManager && isClubManager) || isOrganizer || isSuperadmin)) {
+  if (!((isTeamManager && isClubManager) || await peutConfigurer(callerUid, competition))) {
     return { error: NextResponse.json({ error: "Accès refusé" }, { status: 403 }) };
   }
 

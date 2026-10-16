@@ -3,8 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendNotificationEmail, teamManagerInviteHtml } from "@/lib/email";
 import { APP_URL } from "@/lib/partage";
-import type { FirestoreCompetition } from "@/types";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { authorizeOrganizer } from "@/lib/competition-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
 
 
@@ -24,42 +23,9 @@ import { notifierCompte } from "@/lib/notifier-serveur";
  * DELETE { id }                 , revoke a pending invite.
  */
 
-async function authorize(
-  req: NextRequest,
-  cid: string,
-): Promise<
-  | { error: NextResponse }
-  | { callerUid: string; competition: FirestoreCompetition }
-> {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { error: NextResponse.json({ error: "Non autorisé" }, { status: 401 }) };
-  }
-  let callerUid: string;
-  try {
-    const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
-    callerUid = decoded.uid;
-  } catch {
-    return { error: NextResponse.json({ error: "Token invalide" }, { status: 401 }) };
-  }
-
-  const compSnap = await adminDb.collection("competitions").doc(cid).get();
-  if (!compSnap.exists) {
-    return { error: NextResponse.json({ error: "Compétition introuvable" }, { status: 404 }) };
-  }
-  const competition = compSnap.data() as FirestoreCompetition;
-
-  const isOrganizer = (competition.organizer_ids ?? []).includes(callerUid);
-  let isSuperadmin = false;
-  if (!isOrganizer) {
-    const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-    isSuperadmin = callerDoc.exists && estSuperadmin(callerDoc.data());
-  }
-  if (!isOrganizer && !isSuperadmin) {
-    return { error: NextResponse.json({ error: "Accès refusé" }, { status: 403 }) };
-  }
-
-  return { callerUid, competition };
+/** Organisateurs et modérateurs : confier une équipe, c'est configurer. */
+function authorize(req: NextRequest, cid: string) {
+  return authorizeOrganizer(req, cid, { moderateurs: true });
 }
 
 /**

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { uidAppelant } from "@/lib/appelant";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { peutConfigurer } from "@/lib/competition-api-auth";
 import { effacerVisuelParAdresse } from "@/lib/visuel-serveur";
 import { cheminDeLAdresse, photoDeLaCompetition } from "@/lib/photos-sans-compte";
 import type { CompPlayer, FirestoreCompetition } from "@/types";
@@ -39,12 +39,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ cid: 
     if (!competition.exists) return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
     const equipes = await competition.ref.collection("comp_teams").get();
 
-    let autorise = ((competition.data() as FirestoreCompetition).organizer_ids ?? []).includes(uid)
-      || equipes.docs.some((d) => d.get("claimed_by_manager_id") === uid);
-    if (!autorise) {
-      const appelant = await adminDb.collection("users").doc(uid).get();
-      autorise = appelant.exists && estSuperadmin(appelant.data());
-    }
+    const autorise = equipes.docs.some((d) => d.get("claimed_by_manager_id") === uid)
+      || await peutConfigurer(uid, competition.data() as FirestoreCompetition);
     if (!autorise) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
     const chemin = cheminDeLAdresse(url);

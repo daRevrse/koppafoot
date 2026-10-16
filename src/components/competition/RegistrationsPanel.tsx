@@ -26,6 +26,9 @@ export default function RegistrationsPanel({
   const { firebaseUser } = useAuth();
   const [registrations, setRegistrations] = useState<CompetitionRegistration[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  // L'argent reste au propriétaire : un modérateur voit qui a payé, sans
+  // pouvoir le cocher. C'est le serveur qui le dit, il est le seul à juger.
+  const [peutEncaisser, setPeutEncaisser] = useState(false);
 
   const load = useCallback(async () => {
     if (!firebaseUser) return;
@@ -35,8 +38,12 @@ export default function RegistrationsPanel({
         headers: { authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
-      const data = (await res.json()) as { registrations: CompetitionRegistration[] };
+      const data = (await res.json()) as {
+        registrations: CompetitionRegistration[];
+        peutEncaisser?: boolean;
+      };
       setRegistrations(data.registrations ?? []);
+      setPeutEncaisser(data.peutEncaisser === true);
     } catch {
       // Non-blocking, the team list below still renders.
     }
@@ -201,7 +208,8 @@ export default function RegistrationsPanel({
                   <button
                     type="button"
                     onClick={() => act(reg, paid ? "mark_unpaid" : "mark_paid")}
-                    disabled={busy === reg.id}
+                    disabled={busy === reg.id || !peutEncaisser}
+                    title={peutEncaisser ? undefined : "Seul le propriétaire de la compétition coche les frais"}
                     className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-50 ${
                       paid
                         ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"

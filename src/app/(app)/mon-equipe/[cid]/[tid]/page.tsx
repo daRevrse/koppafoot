@@ -24,6 +24,7 @@ import { computeSquadStats } from "@/lib/player-stats";
 import { matchDuration } from "@/lib/competition-format";
 import { POSTES, LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
+import { gereLaCompetition } from "@/lib/hats";
 
 // ============================================
 // Mon équipe, one competition team. The manager runs the roster, imports
@@ -212,11 +213,10 @@ export default function MyTeamPage() {
     setImporting(false);
   };
 
-  // Guard: only this team's manager (or an organizer) belongs here.
+  // Guard: only this team's manager (or the competition's staff) belongs here.
   useEffect(() => {
     if (loading || !user || !team || !competition) return;
-    const allowed =
-      team.claimedByManagerId === user.uid || competition.organizerIds.includes(user.uid);
+    const allowed = team.claimedByManagerId === user.uid || gereLaCompetition(user, competition);
     if (!allowed) router.replace("/mon-equipe");
   }, [loading, user, team, competition, router]);
 

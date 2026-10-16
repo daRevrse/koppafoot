@@ -192,6 +192,21 @@ export async function listCompetitionsByOrganizer(uid: string): Promise<Competit
     .filter((c) => !c.isSandbox);
 }
 
+/**
+ * Les compétitions où l'on est modérateur : on les configure sans en être
+ * propriétaire (voir lib/hats). Pas d'`orderBy`, donc pas d'index composite :
+ * on trie en mémoire, un compte modère quelques compétitions, pas cent.
+ */
+export async function listCompetitionsCoOrganisees(uid: string): Promise<Competition[]> {
+  const snap = await getDocs(
+    query(collection(db, "competitions"), where("moderator_ids", "array-contains", uid)),
+  );
+  return snap.docs
+    .map((d) => toCompetition(d.id, d.data() as FirestoreCompetition))
+    .filter((c) => !c.isSandbox)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 /** The caller's live-console training sandbox, if they have created one. */
 export async function getSandboxCompetition(uid: string): Promise<Competition | null> {
   const q = query(
