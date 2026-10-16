@@ -1337,7 +1337,7 @@ export default function CompetitionSchedulePage() {
                       onChange={(e) => setAdd("homeTeamId", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">, Équipe,</option>
+                      <option value="">Choisir une équipe</option>
                       {(addForm.stage === "exhibition" ? teams : equipesDuTournoi).map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.awayTeamId}>
                           {t.name}{t.invitee ? " (invitée)" : t.group ? ` (${t.group})` : ""}
@@ -1367,7 +1367,7 @@ export default function CompetitionSchedulePage() {
                       onChange={(e) => setAdd("awayTeamId", e.target.value)}
                       className="w-full border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                     >
-                      <option value="">, Équipe,</option>
+                      <option value="">Choisir une équipe</option>
                       {(addForm.stage === "exhibition" ? teams : equipesDuTournoi).map((t) => (
                         <option key={t.id} value={t.id} disabled={t.id === addForm.homeTeamId}>
                           {t.name}{t.invitee ? " (invitée)" : t.group ? ` (${t.group})` : ""}
