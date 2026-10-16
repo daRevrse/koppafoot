@@ -19,7 +19,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "cid et uid requis" }, { status: 400 });
     }
 
-    const authResult = await authorizeOrganizer(req, cid);
+    const authResult = await authorizeOrganizer(req, cid, { moderateurs: true });
     if ("error" in authResult) return authResult.error;
 
     const ref = adminDb

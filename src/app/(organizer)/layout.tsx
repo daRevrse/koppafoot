@@ -1,11 +1,12 @@
 "use client";
 
-import { isOrganizer } from "@/lib/hats";
+import { gereLaCompetition, isOrganizer } from "@/lib/hats";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getCompetition } from "@/lib/competition-firestore";
 import { Loader2 } from "lucide-react";
-import { ROLE_REDIRECTS } from "@/types";
+import { ROLE_REDIRECTS, type Competition } from "@/types";
 import ScoreShell from "@/components/layout/v2/ScoreShell";
 import AuthRequired from "@/components/auth/AuthRequired";
 
@@ -17,25 +18,58 @@ function isLiveConsole(pathname: string): boolean {
   return pathname.endsWith("/live");
 }
 
+/**
+ * La compétition dont parle l'adresse, `/organizer/competitions/{cid}/…`, ou
+ * `null` ailleurs dans l'espace (l'accueil, la création).
+ */
+function competitionDuChemin(pathname: string): string | null {
+  const m = /^\/organizer\/competitions\/([^/]+)/.exec(pathname);
+  return m && m[1] !== "new" ? m[1] : null;
+}
+
 export default function OrganizerLayout({ children }: { children: React.ReactNode }) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  // DEUX PORTES. L'accueil et la création demandent la casquette
+  // d'organisateur. Les écrans d'UNE compétition demandent d'en faire partie
+  // — organisateur, modérateur, ou l'administration (voir lib/hats) — avec
+  // ou sans casquette : un modérateur configure la compétition qu'on lui a
+  // confiée, sans avoir à candidater comme organisateur.
+  //
+  // La garde de la compétition vit ici, une fois, plutôt que dans chaque
+  // page : la moitié d'entre elles n'en avaient pas, et s'ouvraient à tout
+  // organisateur, ses écritures refusées une à une par les règles.
+  const cid = competitionDuChemin(pathname);
+  const [lue, setLue] = useState<{ cid: string; competition: Competition | null } | null>(null);
+  const competition = lue && lue.cid === cid ? lue.competition : undefined;
+
+  useEffect(() => {
+    if (!cid || !firebaseUser) return;
+    let annule = false;
+    getCompetition(cid)
+      .then((c) => { if (!annule) setLue({ cid, competition: c }); })
+      .catch(() => { if (!annule) setLue({ cid, competition: null }); });
+    return () => { annule = true; };
+  }, [cid, firebaseUser]);
+
   // Superadmins run the organizer screens too, the sidebar offers them the
   // entry, so the guard has to agree or the link dead-ends.
-  const allowed = isOrganizer(user);
+  const allowed = cid ? gereLaCompetition(user, competition) : isOrganizer(user);
+  const decide = !cid || competition !== undefined;
 
   useEffect(() => {
     if (loading) return;
     if (!firebaseUser) return;   // asked in place, see AuthRequired
     if (!user) { router.replace("/get-started"); return; }
+    if (!decide) return;
     if (!allowed) {
-      router.replace(ROLE_REDIRECTS[user.userType] ?? "/");
+      router.replace(isOrganizer(user) ? "/organizer" : ROLE_REDIRECTS[user.userType] ?? "/");
     }
-  }, [user, firebaseUser, loading, allowed, router]);
+  }, [user, firebaseUser, loading, allowed, decide, router]);
 
-  if (loading) {
+  if (loading || (firebaseUser && user && !decide)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 size={32} className="animate-spin text-primary-600" />

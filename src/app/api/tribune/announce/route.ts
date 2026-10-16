@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { peutConfigurer } from "@/lib/competition-api-auth";
 import { announceCompetitionEvent, type CompetitionEvent } from "@/lib/tribune-server";
 import type { FirestoreCompetition } from "@/types";
 
@@ -60,12 +60,10 @@ export async function POST(req: NextRequest) {
     }
     const competition = compSnap.data() as FirestoreCompetition;
 
-    // Only the people who run the competition may speak about it officially.
-    if (!(competition.organizer_ids ?? []).includes(callerUid)) {
-      const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-      if (!estSuperadmin(callerDoc.data())) {
-        return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-      }
+    // Only the people who run the competition may speak about it officially:
+    // its organizers and moderators, who flip the same statuses.
+    if (!(await peutConfigurer(callerUid, competition))) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
     // A sandbox is one user practising on fake data, it has no business

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Trophy, ArrowLeft, Loader2, Pencil, Save, X, Copy, Trash2, AlertTriangle,
+  Trophy, ArrowLeft, ArrowRightLeft, Loader2, Pencil, Save, X, Copy, Trash2, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -28,7 +28,7 @@ import type { Categorie } from "@/lib/genre";
 import type {
   Competition, CompetitionFormat, CompetitionStatus, CompTeam, CompMatch,
 } from "@/types";
-import { gereLaCompetition } from "@/lib/hats";
+import { gereLaCompetition, isOrganizer, possedeLaCompetition } from "@/lib/hats";
 
 const STATUS_CONFIG: Record<CompetitionStatus, { label: string; color: string; bg: string }> = {
   draft: { label: "Brouillon", color: "text-gray-600", bg: "bg-gray-100" },
@@ -148,8 +148,14 @@ export default function CompetitionDashboardPage() {
         // Nothing to accept means nothing can be required.
         require_rules_acceptance:
           fRequireRules && Boolean(fRulesText.trim() || fRulesUrl.trim()),
-        entry_fee: fEntryFee.trim() ? Number(fEntryFee) : null,
-        entry_fee_currency: fFeeCurrency.trim() || "FCFA",
+        // L'argent reste au propriétaire : un modérateur n'envoie pas ces
+        // champs, que les règles lui refusent.
+        ...(possedeLaCompetition(user, competition)
+          ? {
+              entry_fee: fEntryFee.trim() ? Number(fEntryFee) : null,
+              entry_fee_currency: fFeeCurrency.trim() || "FCFA",
+            }
+          : {}),
       };
       if (fLogoFile) patch.logo_url = await uploadCompetitionLogo(competition.id, fLogoFile);
       if (fBannerFile) patch.banner_url = await uploadCompetitionBanner(competition.id, fBannerFile);
@@ -245,18 +251,25 @@ export default function CompetitionDashboardPage() {
   }
 
   const statusConf = STATUS_CONFIG[competition.status] ?? STATUS_CONFIG.draft;
+  // Le propriétaire, ou un modérateur qui configure tout le reste (lib/hats).
+  const proprietaire = possedeLaCompetition(user, competition);
+  // La duplication crée une compétition au nom de celui qui la lance : elle
+  // demande la casquette d'organisateur, comme la création.
+  const peutDupliquer = isOrganizer(user);
 
   const type = competition.competitionType;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Back link */}
+      {/* Un modérateur sans casquette n'a pas d'accueil organisateur : il
+          vient de l'espace live, il y retourne. */}
       <Link
-        href="/organizer"
+        href={isOrganizer(user) ? "/organizer" : `/live-ops/${competition.id}`}
         className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-primary-600"
       >
         <ArrowLeft size={16} />
-        Mes compétitions
+        {isOrganizer(user) ? "Mes compétitions" : "Espace live"}
       </Link>
 
       {/* Header */}
@@ -296,6 +309,21 @@ export default function CompetitionDashboardPage() {
           <span className="hidden sm:inline">Modifier</span>
         </button>
       </motion.div>
+
+      {/* Un transfert de propriété attend la réponse de celui qui regarde :
+          la décision se prend sur la page Staff, on la lui montre ici. */}
+      {user && competition.transfert?.versUid === user.uid && (
+        <Link
+          href={`/organizer/competitions/${competition.id}/staff`}
+          className="flex items-center gap-3 border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm transition-colors hover:bg-amber-50"
+        >
+          <ArrowRightLeft size={16} className="shrink-0 text-amber-500" />
+          <span className="min-w-0 flex-1 font-semibold text-gray-900">
+            On te propose de devenir propriétaire de cette compétition.
+          </span>
+          <span className="shrink-0 text-xs font-bold text-amber-700">Répondre</span>
+        </Link>
+      )}
 
       {/* The payoff first: a competition here produces a public page, and
           that page is what fills the competition. */}
@@ -371,31 +399,39 @@ export default function CompetitionDashboardPage() {
       )}
 
       {/* Danger zone */}
-      <div className=" border border-gray-200/70 bg-white p-5">
-        <p className="text-sm font-bold text-gray-900">Actions</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleDuplicate}
-            disabled={duplicating}
-            className="flex items-center gap-2 border border-gray-200/70 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-          >
-            {duplicating ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
-            Dupliquer
-          </button>
-          <button
-            type="button"
-            onClick={() => { setDeleteConfirm(""); setDeleteOpen(true); }}
-            className="flex items-center gap-2 border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
-          >
-            <Trash2 size={15} />
-            Supprimer
-          </button>
+      {(peutDupliquer || proprietaire) && (
+        <div className=" border border-gray-200/70 bg-white p-5">
+          <p className="text-sm font-bold text-gray-900">Actions</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {peutDupliquer && (
+              <button
+                type="button"
+                onClick={handleDuplicate}
+                disabled={duplicating}
+                className="flex items-center gap-2 border border-gray-200/70 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              >
+                {duplicating ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
+                Dupliquer
+              </button>
+            )}
+            {proprietaire && (
+              <button
+                type="button"
+                onClick={() => { setDeleteConfirm(""); setDeleteOpen(true); }}
+                className="flex items-center gap-2 border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+              >
+                <Trash2 size={15} />
+                Supprimer
+              </button>
+            )}
+          </div>
+          {peutDupliquer && (
+            <p className="mt-2 text-xs text-gray-400">
+              La duplication reprend le type, le format et les équipes, sans le calendrier ni les résultats.
+            </p>
+          )}
         </div>
-        <p className="mt-2 text-xs text-gray-400">
-          La duplication reprend le type, le format et les équipes, sans le calendrier ni les résultats.
-        </p>
-      </div>
+      )}
 
       {/* Delete confirmation */}
       <AnimatePresence>
@@ -598,26 +634,37 @@ export default function CompetitionDashboardPage() {
                     Frais d&apos;inscription{" "}
                     <span className="font-normal text-gray-400">(optionnel)</span>
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      value={fEntryFee}
-                      onChange={(e) => setFEntryFee(e.target.value)}
-                      placeholder="0"
-                      className="w-full border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={fFeeCurrency}
-                      onChange={(e) => setFFeeCurrency(e.target.value)}
-                      className="w-28 border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    />
-                  </div>
-                  <p className="mt-1.5 text-xs text-gray-400">
-                    Suivi manuel : KoppaFoot n&apos;encaisse rien, tu coches qui a payé.
-                  </p>
+                  {!proprietaire ? (
+                    <p className="text-xs text-gray-500">
+                      {competition.entryFee
+                        ? `${competition.entryFee} ${competition.entryFeeCurrency}, `
+                        : "Aucuns frais, "}
+                      fixés par le propriétaire de la compétition.
+                    </p>
+                  ) : (
+                    <>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        value={fEntryFee}
+                        onChange={(e) => setFEntryFee(e.target.value)}
+                        placeholder="0"
+                        className="w-full border border-gray-200/70 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={fFeeCurrency}
+                        onChange={(e) => setFFeeCurrency(e.target.value)}
+                        className="w-28 border border-gray-200/70 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                      />
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-400">
+                      Suivi manuel : KoppaFoot n&apos;encaisse rien, tu coches qui a payé.
+                    </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-1">

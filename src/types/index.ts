@@ -1837,6 +1837,15 @@ export interface CompetitionFormat {
   knockout_teams?: number;
 }
 
+/** Voir `FirestoreCompetition.transfert` et lib/transfert-competition. */
+export interface FirestoreTransfert {
+  /** Le modérateur à qui la compétition est proposée. */
+  vers_uid: string;
+  /** Le propriétaire (ou l'administration) qui l'a proposée. */
+  par_uid: string;
+  le: string;
+}
+
 export interface FirestoreCompetition {
   name: string;
   slug: string;
@@ -1862,6 +1871,12 @@ export interface FirestoreCompetition {
   mvp_awarded_at?: string | null;
   moderator_ids: string[];
   created_by: string;
+  /**
+   * LE TRANSFERT DE PROPRIÉTÉ EN ATTENTE : le propriétaire a proposé sa
+   * compétition à l'un de ses modérateurs, qui n'a pas encore répondu.
+   * Écrit par /api/competitions/transfert seul ; absent ou `null` sinon.
+   */
+  transfert?: FirestoreTransfert | null;
   /**
    * Une compétition validée par l'administration.
    *
@@ -1932,6 +1947,8 @@ export interface Competition {
   mvpAwardedAt?: string | null;
   moderatorIds: string[];
   createdBy: string;
+  /** Voir `FirestoreCompetition.transfert`. */
+  transfert: { versUid: string; parUid: string; le: string } | null;
   /** Voir `FirestoreCompetition.is_validated`. */
   isValidated: boolean;
   status: CompetitionStatus;

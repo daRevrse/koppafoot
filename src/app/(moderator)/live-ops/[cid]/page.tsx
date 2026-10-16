@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ChevronLeft, ChevronRight, Radio, ShieldCheck } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Radio, Settings, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { onCompetition, onCompMatches } from "@/lib/competition-firestore";
 import { getStaffGrant } from "@/lib/staff-access";
@@ -81,7 +81,20 @@ export default function LiveOpsCompetition() {
       <Link href="/live-ops" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900">
         <ChevronLeft size={16} /> Mes compétitions
       </Link>
-      <h1 className="font-display text-2xl font-extrabold text-gray-900">{competition.name}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-extrabold text-gray-900">{competition.name}</h1>
+        {/* Organisateurs et modérateurs configurent la compétition ; un code
+            d'accès ne donne que le direct (lib/hats). */}
+        {gereLaCompetition(user, competition) && (
+          <Link
+            href={`/organizer/competitions/${cid}`}
+            className="flex shrink-0 items-center gap-2 border border-gray-200/70 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <Settings size={15} />
+            Configurer
+          </Link>
+        )}
+      </div>
 
       {grant && (
         <div className="flex items-start gap-2.5 border border-emerald-200 bg-emerald-50 px-4 py-3">

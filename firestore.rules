@@ -47,6 +47,28 @@ service cloud.firestore {
       return isAuthenticated() && exists(p) && request.auth.uid in get(p).data.get('moderator_ids', []);
     }
 
+    // Ceux qui configurent une compétition : ses organisateurs et ses
+    // modérateurs. Ce qui reste au propriétaire se lit sur la compétition
+    // elle-même, champ par champ (voir champsDuProprietaire).
+    function configureLaCompetition(cid) {
+      return isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin();
+    }
+
+    // QUI DIRIGE LA COMPÉTITION, ET CE QUE L'ADMINISTRATION EN A DIT. Écrit
+    // par le serveur seul (SDK admin) : la création, le transfert, la liste
+    // des modérateurs, la validation. Sans cette garde, un organisateur se
+    // validait lui-même et sortait du compte de l'offre gratuite en
+    // réécrivant `created_by` ; un modérateur se serait fait propriétaire.
+    function champsDuServeurCompetition() {
+      return ['organizer_ids', 'moderator_ids', 'created_by', 'is_validated',
+              'is_sandbox', 'transfert'];
+    }
+
+    // L'argent reste au propriétaire.
+    function champsDuProprietaire() {
+      return ['entry_fee', 'entry_fee_currency'];
+    }
+
     // ── Staff access codes ────────────────────────────────
     // A redeemed code writes competitions/{cid}/staff_grants/{uid}. That doc
     // is what lets a volunteer with no role on the platform run the live
@@ -942,7 +964,15 @@ service cloud.firestore {
       // la création passe par /api/competitions, qui vérifie la limite
       // avec le SDK admin. Modifier et supprimer restent ici.
       allow create: if false;
-      allow update, delete: if isOrganizerOf(cid) || isSuperAdmin();
+      allow update: if isSuperAdmin()
+                    || (isOrganizerOf(cid)
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                              .hasAny(champsDuServeurCompetition()))
+                    || (isModeratorOf(cid)
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                              .hasAny(champsDuServeurCompetition().concat(champsDuProprietaire())));
+      // Supprimer reste au propriétaire.
+      allow delete: if isOrganizerOf(cid) || isSuperAdmin();
 
       match /comp_teams/{tid} {
         allow read: if true;
@@ -950,11 +980,12 @@ service cloud.firestore {
         // l'ajout passe par /api/competitions/{cid}/teams (ou par
         // l'acceptation d'une inscription), qui comptent les équipes.
         allow create: if false;
-        allow delete: if isOrganizerOf(cid) || isSuperAdmin();
+        allow delete: if configureLaCompetition(cid);
         // The team's manager runs their own squad: roster, kit colour, crest.
         // Everything that decides the competition itself — the team's name,
-        // its poule, who manages it — stays with the organizer.
-        allow update: if isOrganizerOf(cid) || isSuperAdmin()
+        // its poule, who manages it — stays with the organizer and the
+        // moderators.
+        allow update: if configureLaCompetition(cid)
                       || (isTeamManagerOf(cid, tid) && managerEditableTeamFields());
       }
       match /comp_matches/{mid} {
@@ -964,13 +995,12 @@ service cloud.firestore {
         // `venue_booking` recopie la réponse du propriétaire du terrain : seul
         // /api/competitions/[cid]/terrain l'écrit, avec le SDK admin, comme
         // sur un amical (voir toucheAuxChampsDuServeur).
-        allow create: if (isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin())
+        allow create: if configureLaCompetition(cid)
                       && !('venue_booking' in request.resource.data);
-        allow delete: if isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin();
+        allow delete: if configureLaCompetition(cid);
         // Updating is what covering a match means (score, clock, events), so
         // it also opens to a live, in-scope access-code holder.
-        allow update: if (isOrganizerOf(cid) || isModeratorOf(cid) || isSuperAdmin()
-                      || hasStaffGrantFor(cid, mid))
+        allow update: if (configureLaCompetition(cid) || hasStaffGrantFor(cid, mid))
                       && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['venue_booking']);
       }
 
@@ -978,7 +1008,7 @@ service cloud.firestore {
       // rules, so denying every client write here means a holder can neither
       // widen their own scope nor un-revoke themselves.
       match /staff_grants/{gid} {
-        allow read: if isOrganizerOf(cid) || isSuperAdmin()
+        allow read: if configureLaCompetition(cid)
                     || (isAuthenticated() && resource.data.uid == request.auth.uid);
         allow write: if false;
       }

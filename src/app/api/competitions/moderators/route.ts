@@ -141,6 +141,10 @@ export async function DELETE(req: NextRequest) {
 
     await adminDb.collection("competitions").doc(cid).update({
       moderator_ids: FieldValue.arrayRemove(uid),
+      // Un transfert proposé à ce modérateur ne tient plus : il ne pourrait
+      // plus l'accepter (voir lib/transfert-competition), autant ne pas
+      // laisser la proposition affichée.
+      ...(authResult.competition.transfert?.vers_uid === uid ? { transfert: null } : {}),
       updated_at: FieldValue.serverTimestamp(),
     });
 

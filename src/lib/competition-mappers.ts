@@ -42,6 +42,9 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     mvpAwardedAt: d.mvp_awarded_at ?? null,
     moderatorIds: d.moderator_ids ?? [],
     createdBy: d.created_by,
+    transfert: d.transfert
+      ? { versUid: d.transfert.vers_uid, parUid: d.transfert.par_uid, le: d.transfert.le }
+      : null,
     status: d.status,
     isValidated: d.is_validated ?? true,
     // Pre-dates competition types: every existing competition is a group
