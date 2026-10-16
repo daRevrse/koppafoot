@@ -12,7 +12,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getCompetition, getCompTeam, listCompMatches,
-  addCompPlayer, updateCompPlayer, removeCompPlayer,
+  addCompPlayer, modifierLigne, removeCompPlayer,
   photoDeLigneAEnregistrer, effacerPhotoRemplacee,
 } from "@/lib/competition-firestore";
 import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
@@ -24,6 +24,7 @@ import { computeSquadStats } from "@/lib/player-stats";
 import { matchDuration } from "@/lib/competition-format";
 import { POSTES, LIBELLE_POSTE, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompPlayer, CompTeam, RosterClaim, Team } from "@/types";
+import { estLigneDossard } from "@/lib/dossards";
 
 // ============================================
 // Mon équipe, one competition team. The manager runs the roster, imports
@@ -281,8 +282,10 @@ export default function MyTeamPage() {
       const photo_url = await photoDeLigneAEnregistrer(cid, {
         fichier: fPhoto, avant: editing?.photo_url, gardee: fPhotoUrl,
       });
+      let reecrits = 0;
       if (editing) {
-        await updateCompPlayer(cid, tid, editing.id, {
+        // Un dossard qu'on nomme : ses matchs déjà joués suivent (lib/dossards).
+        reecrits = await modifierLigne(cid, tid, editing, {
           name,
           number: fNumber.trim(),
           position: fPosition.trim(),
@@ -298,7 +301,11 @@ export default function MyTeamPage() {
       }
       await effacerPhotoRemplacee(cid, editing?.photo_url, photo_url);
       await reloadTeam();
-      toast.success(editing ? "Joueur modifié" : "Joueur ajouté");
+      toast.success(
+        reecrits > 0
+          ? `Nom enregistré, et reporté sur ${reecrits} match${reecrits > 1 ? "s" : ""} déjà joué${reecrits > 1 ? "s" : ""}`
+          : editing ? "Joueur modifié" : "Joueur ajouté",
+      );
       closeEditor();
     } catch (err) {
       console.error("Error saving player:", err);
@@ -634,6 +641,17 @@ export default function MyTeamPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>
+                    {/* Un dossard de la feuille de secours, tant qu'on ne
+                        l'a pas nommé (lib/dossards). */}
+                    {estLigneDossard(player.id) && (
+                      <button
+                        type="button"
+                        onClick={() => openEdit(player)}
+                        className="mt-0.5 inline-block text-[10px] font-black uppercase tracking-wide text-amber-600 hover:text-amber-700"
+                      >
+                        À nommer
+                      </button>
+                    )}
                     {player.user_id && (
                       <button
                         type="button"
