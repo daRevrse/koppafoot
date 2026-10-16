@@ -73,7 +73,7 @@ const T = textes(
     partagerCompetition: "Partager la compétition",
     partager: "Partager",
     abonnes: (n: number) => `${n} abonné${n > 1 ? "s" : ""}`,
-    changementsIllimites: "Changements illimités",
+    // changementsIllimites: "Changements illimités",
     /** Une compétition féminine élit sa meilleure joueuse (lib/genre). */
     meilleurJoueur: (categorie: Categorie | null) =>
       categorie === "women" ? "Meilleure joueuse du tournoi" : "Meilleur joueur du tournoi",
@@ -109,7 +109,7 @@ const T = textes(
     partagerCompetition: "Share the competition",
     partager: "Share",
     abonnes: (n: number) => `${n} follower${n === 1 ? "" : "s"}`,
-    changementsIllimites: "Rolling subs",
+    // changementsIllimites: "Rolling subs",
     meilleurJoueur: () => "Player of the tournament",
     inscriptionsOuvertes: "Registration open",
     tuDiriges: "Running a team? Register it for this competition.",
@@ -200,7 +200,7 @@ export default function PublicCompetitionHome() {
       fetch(`/api/competitions/${comp.id}/followers`)
         .then((r) => (r.ok ? r.json() : { count: 0 }))
         .then((d) => { if (!cancelled) setFollowers(d.count ?? 0); })
-        .catch(() => {});
+        .catch(() => { });
     })();
 
     return () => {
@@ -367,7 +367,7 @@ export default function PublicCompetitionHome() {
             {competition.venueCity && <span>{competition.venueCity}</span>}
             <span>{gameTypeLabel(competition.format)}</span>
             <span>{matchDurationLabel(competition.format)}</span>
-            {reentryAllowed(competition.format) && <span>{t.changementsIllimites}</span>}
+            {/* {reentryAllowed(competition.format) && <span>{t.changementsIllimites}</span>} */}
             {followers !== null && followers > 0 && (
               <span className="text-emerald-300">
                 {t.abonnes(followers)}
@@ -436,26 +436,25 @@ export default function PublicCompetitionHome() {
           une colonne, c'est un trou. */}
       <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-6">
         <div className="min-w-0 border border-gray-200/70 bg-white">
-        <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
-          {TABS.map((o) => (
-            <button
-              key={o.id}
-              onClick={() => selectTab(o.id)}
-              className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${
-                tab === o.id
-                  ? "border-gray-900 text-gray-900"
-                  : "border-transparent text-gray-400 hover:text-gray-700"
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+          <div className="flex gap-7 overflow-x-auto border-b border-gray-200/70 px-5">
+            {TABS.map((o) => (
+              <button
+                key={o.id}
+                onClick={() => selectTab(o.id)}
+                className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${tab === o.id
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                  }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
 
-        <div className="p-5">
-          {tab === "calendar" && <CalendarTab competition={competition} matches={matches} />}
-          {tab === "standings" && <StandingsTab competition={competition} matches={matches} teams={teams} />}
-          {tab === "bracket" && <BracketTab competition={competition} matches={matches} />}
+          <div className="p-5">
+            {tab === "calendar" && <CalendarTab competition={competition} matches={matches} />}
+            {tab === "standings" && <StandingsTab competition={competition} matches={matches} teams={teams} />}
+            {tab === "bracket" && <BracketTab competition={competition} matches={matches} />}
             {tab === "scorers" && <ScorersTab competition={competition} matches={matches} teams={teams} />}
             {tab === "teams" && <TeamsTab competition={competition} matches={matches} teams={teams} />}
           </div>
