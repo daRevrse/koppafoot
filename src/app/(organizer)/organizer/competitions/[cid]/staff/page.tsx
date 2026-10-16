@@ -23,7 +23,8 @@ import type {
   Competition, CompMatch, CompTeam, StaffGrant, StaffScope,
 } from "@/types";
 import toast from "react-hot-toast";
-import { gereLaCompetition } from "@/lib/hats";
+import { gereLaCompetition, possedeLaCompetition } from "@/lib/hats";
+import TransfertPropriete from "@/components/competition/TransfertPropriete";
 
 interface ModeratorRow {
   uid: string;
@@ -409,6 +410,9 @@ export default function CompetitionStaffPage() {
     );
   }
 
+  // Le modérateur configure tout, codes d'accès compris ; nommer et retirer
+  // les modérateurs reste au propriétaire (lib/hats).
+  const proprietaire = possedeLaCompetition(user, competition);
   const activeCodes = codes.filter((c) => !c.revoked);
   const revokedCodes = codes.filter((c) => c.revoked);
   const activeGrants = grants.filter((g) => isGrantActive(g));
@@ -439,8 +443,8 @@ export default function CompetitionStaffPage() {
           transition={{ delay: 0.05 }}
           className="mt-0.5 max-w-xl text-sm text-gray-500"
         >
-          Deux façons de confier la saisie live : un code d&apos;accès, limité à ce que tu
-          décides, ou une invitation par e-mail pour un membre de confiance.
+          Un code d&apos;accès confie la saisie live, limitée à ce que tu décides. Un
+          modérateur, invité par e-mail, co-organise toute la compétition.
         </motion.p>
       </div>
 
@@ -641,38 +645,41 @@ export default function CompetitionStaffPage() {
             Modérateurs
           </h2>
           <p className="mt-0.5 text-xs text-gray-500">
-            Accès complet au live de la compétition, pour un membre qui a déjà un compte
-            KoppaFoot. Sans accès à la configuration.
+            Configurent la compétition et tiennent son direct, pour un membre qui a déjà un
+            compte KoppaFoot. Supprimer la compétition, gérer les modérateurs, la transférer et
+            les frais d&apos;inscription restent au propriétaire.
           </p>
         </div>
 
-        <form
-          onSubmit={handleAdd}
-          className="flex flex-col gap-3 border border-gray-200/70 bg-white p-4 sm:flex-row sm:items-center"
-        >
-          <div className="relative flex-1">
-            <Mail
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="email"
-              placeholder="e-mail du modérateur"
-              className="w-full border border-gray-200/70 py-2.5 pl-9 pr-4 text-sm focus:border-primary-500 focus:outline-none"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={submitting}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex shrink-0 items-center justify-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black disabled:opacity-50"
+        {proprietaire && (
+          <form
+            onSubmit={handleAdd}
+            className="flex flex-col gap-3 border border-gray-200/70 bg-white p-4 sm:flex-row sm:items-center"
           >
-            {submitting ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-            Ajouter
-          </button>
-        </form>
+            <div className="relative flex-1">
+              <Mail
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="email"
+                placeholder="e-mail du modérateur"
+                className="w-full border border-gray-200/70 py-2.5 pl-9 pr-4 text-sm focus:border-primary-500 focus:outline-none"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex shrink-0 items-center justify-center gap-2 bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black disabled:opacity-50"
+            >
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+              Ajouter
+            </button>
+          </form>
+        )}
 
         {loadingMods ? (
           <div className="flex items-center justify-center py-10">
@@ -702,19 +709,21 @@ export default function CompetitionStaffPage() {
                         {fullName || "Membre"}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(mod.uid)}
-                      disabled={removingUid === mod.uid}
-                      aria-label={`Retirer ${fullName || "ce modérateur"}`}
-                      className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                    >
-                      {removingUid === mod.uid ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={16} />
-                      )}
-                    </button>
+                    {proprietaire && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(mod.uid)}
+                        disabled={removingUid === mod.uid}
+                        aria-label={`Retirer ${fullName || "ce modérateur"}`}
+                        className="shrink-0 p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {removingUid === mod.uid ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    )}
                   </motion.div>
                 );
               })}
@@ -722,6 +731,13 @@ export default function CompetitionStaffPage() {
           </div>
         )}
       </motion.section>
+
+      {/* ── Ownership transfer ───────────────────────────── */}
+      <TransfertPropriete
+        competition={competition}
+        moderateurs={moderators}
+        proprietaire={proprietaire}
+      />
 
       {/* ── Create-code modal ────────────────────────────── */}
       <AnimatePresence>

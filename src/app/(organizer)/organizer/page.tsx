@@ -9,7 +9,8 @@ import {
   Trophy, Plus, Loader2, Calendar, ChevronRight, Pencil, Check, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { listCompetitionsByOrganizer } from "@/lib/competition-firestore";
+import { listCompetitionsByOrganizer, listCompetitionsCoOrganisees } from "@/lib/competition-firestore";
+import { accorder } from "@/lib/genre";
 import { COMPETITION_TYPE_LABELS } from "@/lib/competition-format";
 import type { Competition, CompetitionStatus } from "@/types";
 import toast from "react-hot-toast";
@@ -121,14 +122,65 @@ function OrganizerNameField() {
   );
 }
 
+/** Une compétition de la liste, qu'on en soit propriétaire ou modérateur. */
+function CarteCompetition({ comp }: { comp: Competition }) {
+  const statusConf = STATUS_CONFIG[comp.status] ?? STATUS_CONFIG.draft;
+  const dateRange = formatDateRange(comp.startDate, comp.endDate);
+  return (
+    <Link
+      href={`/organizer/competitions/${comp.id}`}
+      className="group flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
+    >
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50">
+        {comp.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={comp.logoUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Trophy size={20} className="text-amber-500" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-bold text-gray-900">{comp.name}</p>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusConf.bg} ${statusConf.color}`}
+          >
+            {statusConf.label}
+          </span>
+        </div>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600">
+            {COMPETITION_TYPE_LABELS[comp.competitionType]}
+          </span>
+          {dateRange && (
+            <span className="flex items-center gap-1.5">
+              <Calendar size={12} />
+              {dateRange}
+            </span>
+          )}
+        </p>
+      </div>
+      <ChevronRight
+        size={18}
+        className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
+      />
+    </Link>
+  );
+}
+
 export default function OrganizerHomePage() {
   const { user } = useAuth();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
+  // Celles d'un autre, où l'on est modérateur : on les configure aussi.
+  const [coOrganisees, setCoOrganisees] = useState<Competition[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    listCompetitionsCoOrganisees(user.uid)
+      .then((comps) => { if (!cancelled) setCoOrganisees(comps); })
+      .catch((err) => console.error("Error loading co-organized competitions:", err));
     listCompetitionsByOrganizer(user.uid)
       .then((comps) => {
         if (!cancelled) setCompetitions(comps);
@@ -208,58 +260,36 @@ export default function OrganizerHomePage() {
         </motion.div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {competitions.map((comp, i) => {
-            const statusConf = STATUS_CONFIG[comp.status] ?? STATUS_CONFIG.draft;
-            const dateRange = formatDateRange(comp.startDate, comp.endDate);
-            return (
-              <motion.div
-                key={comp.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <Link
-                  href={`/organizer/competitions/${comp.id}`}
-                  className="group flex items-center gap-4 border border-gray-200/70 bg-white p-4 transition-all hover:border-gray-200/70"
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50">
-                    {comp.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={comp.logoUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Trophy size={20} className="text-amber-500" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-bold text-gray-900">{comp.name}</p>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusConf.bg} ${statusConf.color}`}
-                      >
-                        {statusConf.label}
-                      </span>
-                    </div>
-                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600">
-                        {COMPETITION_TYPE_LABELS[comp.competitionType]}
-                      </span>
-                      {dateRange && (
-                        <span className="flex items-center gap-1.5">
-                          <Calendar size={12} />
-                          {dateRange}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <ChevronRight
-                    size={18}
-                    className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500"
-                  />
-                </Link>
-              </motion.div>
-            );
-          })}
+          {competitions.map((comp, i) => (
+            <motion.div
+              key={comp.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+            >
+              <CarteCompetition comp={comp} />
+            </motion.div>
+          ))}
         </div>
+      )}
+
+      {!loading && coOrganisees.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-gray-900">
+              Où tu es {accorder(user?.gender, "modérateur", "modératrice")}
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Tu les configures comme leur propriétaire, sauf la suppression, le staff, le
+              transfert et les frais d&apos;inscription.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {coOrganisees.map((comp) => (
+              <CarteCompetition key={comp.id} comp={comp} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

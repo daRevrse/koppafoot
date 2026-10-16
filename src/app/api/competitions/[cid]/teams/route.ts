@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { estSuperadmin } from "@/lib/admin-api-auth";
+import { peutConfigurer } from "@/lib/competition-api-auth";
 import { limiteEquipesDeCompetition, reponseLimite, uidAppelant } from "@/lib/offre-server";
-import type { CompPlayer } from "@/types";
+import type { CompPlayer, FirestoreCompetition } from "@/types";
 
 /**
  * POST /api/competitions/[cid]/teams, ajouter des équipes à une compétition :
@@ -74,11 +74,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ cid: st
     const compRef = adminDb.collection("competitions").doc(cid);
     const compSnap = await compRef.get();
     if (!compSnap.exists) return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
-    const competition = compSnap.data()!;
-    const organisateur = Array.isArray(competition.organizer_ids) && competition.organizer_ids.includes(uid);
-    if (!organisateur) {
-      const profil = (await adminDb.collection("users").doc(uid).get()).data();
-      if (!estSuperadmin(profil)) return NextResponse.json({ error: "Réservé aux organisateurs" }, { status: 403 });
+    const competition = compSnap.data()! as FirestoreCompetition;
+    if (!(await peutConfigurer(uid, competition))) {
+      return NextResponse.json({ error: "Réservé aux organisateurs et aux modérateurs" }, { status: 403 });
     }
 
     const corps = (await req.json().catch(() => ({}))) as Record<string, unknown>;

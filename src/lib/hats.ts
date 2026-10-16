@@ -44,15 +44,34 @@ export function isSuperAdmin(user: Hatted | null | undefined): boolean {
 
 /**
  * Tient l'espace organisateur de CETTE compétition : l'un de ses
- * organisateurs, ou l'administration.
+ * organisateurs, l'un de ses modérateurs, ou l'administration.
  *
  * Chaque page de l'espace vérifiait seulement la liste des organisateurs, et
  * renvoyait les autres sur /organizer. L'administration, qui n'y figure pas,
  * y était renvoyée aussitôt : « Gérer comme l'organisateur », depuis sa fiche
  * d'une compétition, ne menait nulle part. Les règles Firestore et les routes
  * serveur l'acceptaient pourtant déjà ; il n'y avait que cette garde-là.
+ *
+ * LES MODÉRATEURS CONFIGURENT AUSSI, sans casquette d'organisateur : un
+ * tournoi se prépare à plusieurs, et le modérateur n'avait que le direct.
+ * Ce qu'il ne fait pas — supprimer, gérer les modérateurs, transférer,
+ * l'argent — se lit dans `possedeLaCompetition`.
  */
 export function gereLaCompetition(
+  user: (Hatted & { uid?: string }) | null | undefined,
+  competition: { organizerIds: string[]; moderatorIds?: string[] } | null | undefined,
+): boolean {
+  if (!user || !competition) return false;
+  if (possedeLaCompetition(user, competition)) return true;
+  return !!user.uid && (competition.moderatorIds ?? []).includes(user.uid);
+}
+
+/**
+ * Le propriétaire de CETTE compétition (ou l'administration) : le seul à la
+ * supprimer, à nommer ou retirer ses modérateurs, à la transférer, et à
+ * toucher aux frais d'inscription.
+ */
+export function possedeLaCompetition(
   user: (Hatted & { uid?: string }) | null | undefined,
   competition: { organizerIds: string[] } | null | undefined,
 ): boolean {
