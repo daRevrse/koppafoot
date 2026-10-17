@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useAdminApi } from "@/hooks/useAdminApi";
+import { DirectMaintenantAdmin } from "@/components/audience/AudienceAdmin";
 import { useATraiter } from "@/components/admin/ATraiterContext";
 import LigneMatch from "@/components/admin/LigneMatch";
 import {
@@ -76,6 +77,9 @@ export default function AdminDashboard() {
           </Carte>
         )}
       </section>
+
+      {/* Les spectateurs du moment, quand un match est en cours (lib/audience). */}
+      <DirectMaintenantAdmin />
 
       {erreur && <Erreur message={erreur} onReessayer={recharger} />}
       {chargement ? (

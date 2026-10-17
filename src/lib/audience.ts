@@ -29,6 +29,23 @@ export const FENETRE_MAINTENANT_MS = 2 * 60_000;
 /** Combien de jours on garde le détail par appareil avant de le résumer (lot 4). */
 export const RETENTION_JOURS = 30;
 
+/**
+ * Le premier jour de collecte. Avant lui il n'y a rien, et un écran doit le
+ * dire : un chiffre faible la première semaine n'est pas un tournoi sans public.
+ */
+export const DEBUT_MESURE = "20261017";
+
+/** « 17 octobre 2026 », pour dire depuis quand on mesure. */
+export function jourLisible(jour: string): string {
+  const d = new Date(Date.UTC(Number(jour.slice(0, 4)), Number(jour.slice(4, 6)) - 1, Number(jour.slice(6, 8))));
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+/** « 16:42 », l'heure de Lomé d'une minute du mur. */
+export function heureDeMinute(minute: number): string {
+  return new Date(minute * 60_000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+}
+
 // ---- Les cibles -----------------------------------------------------------------
 
 export const cibleCompetition = (cid: string): string => `comp-${cid}`;
@@ -121,6 +138,8 @@ export interface SessionLue {
   connecte: boolean;
   /** Le dernier signe de vie, en millisecondes. */
   derniereMs: number | null;
+  /** La compétition d'un match de compétition, `null` pour un amical ou une page de compétition. */
+  cid: string | null;
 }
 
 /** Une session écrite par un navigateur, relue sans lui faire confiance. */
@@ -138,6 +157,7 @@ export function lireSession(brut: Record<string, unknown>): SessionLue | null {
     via: lireVia(typeof brut.via === "string" ? brut.via : null),
     connecte: brut.connecte === true,
     derniereMs: typeof derniere?.toMillis === "function" ? derniere.toMillis() : null,
+    cid: typeof brut.cid === "string" && brut.cid ? brut.cid : null,
   };
 }
 
@@ -245,4 +265,104 @@ export function lirePeriode(brut: string | null | undefined): Periode {
 export function debutDePeriode(periode: Periode, aujourdhui: string = jourAudience()): string | null {
   if (periode === "tout") return null;
   return jourMoins(aujourdhui, periode === "7j" ? 6 : 29);
+}
+
+// ---- Ce que lisent les écrans et le rapport ---------------------------------------
+//
+// Calculé par lib/audience-serveur, une fois pour l'administration, la page
+// des organisateurs et le PDF.
+
+export interface MatchAudience {
+  cible: string;
+  mid: string;
+  cid: string | null;
+  /** « FC Alpha – Beta Club ». */
+  affiche: string;
+  date: string | null;
+  heure: string | null;
+  statut: string;
+  visites: number;
+  pic: PointDeCourbe | null;
+  tempsMoyenMin: number;
+  /** Spectateurs du moment, quand le match est en cours ; 0 sinon. */
+  maintenant: number;
+}
+
+export interface JourDeCompetition {
+  jour: string;
+  /** Visites des pages de la compétition. */
+  pages: number;
+  /** Visites des fiches de ses matchs. */
+  matchs: number;
+}
+
+export interface AudienceDeCompetition {
+  cid: string;
+  nom: string;
+  slug: string;
+  logo: string | null;
+  organisateur: string | null;
+  periode: Periode;
+  /** Le premier jour compté : le début de la période, ou celui de la mesure s'il est plus récent. */
+  depuis: string;
+  parJour: JourDeCompetition[];
+  provenance: Record<Via, number>;
+  matchs: MatchAudience[];
+  totaux: {
+    visitesPages: number;
+    visitesMatchs: number;
+    /** Le plus haut pic de spectateurs simultanés, et le match où il a eu lieu. */
+    pic: (PointDeCourbe & { mid: string; affiche: string }) | null;
+    tempsMoyenMin: number;
+    /** Part des visites venues de l'appli, de 0 à 1. */
+    partAppli: number;
+    /** Part des visites faites avec un compte connecté, de 0 à 1. */
+    partConnectee: number;
+    abonnes: number;
+    maintenant: number;
+  };
+}
+
+export interface ButSurLaCourbe {
+  /** Minute du mur où le but a été saisi. */
+  minute: number;
+  /** « 67' Kossi ». */
+  libelle: string;
+  cote: "home" | "away";
+}
+
+export interface AudienceDeMatch {
+  cible: string;
+  mid: string;
+  cid: string | null;
+  affiche: string;
+  date: string | null;
+  heure: string | null;
+  statut: string;
+  competition: { nom: string; slug: string } | null;
+  resume: ResumeAudience;
+  maintenant: number;
+  buts: ButSurLaCourbe[];
+}
+
+export interface DirectAudience {
+  total: number;
+  matchs: { cible: string; mid: string; cid: string | null; affiche: string; spectateurs: number }[];
+}
+
+export interface PanoramaAudience {
+  periode: Periode;
+  depuis: string;
+  visitesCompetitions: number;
+  visitesMatchs: number;
+  provenance: Record<Via, number>;
+  competitions: { cid: string; nom: string; visites: number; visitesMatchs: number; pic: number }[];
+  matchs: MatchAudience[];
+  direct: DirectAudience;
+}
+
+/** Le premier jour compté d'une période : jamais avant le début de la mesure. */
+export function depuisDePeriode(periode: Periode, aujourdhui: string = jourAudience()): string {
+  const debut = debutDePeriode(periode, aujourdhui);
+  return !debut || debut < DEBUT_MESURE ? DEBUT_MESURE : debut;
 }

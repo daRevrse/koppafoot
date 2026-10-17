@@ -1,5 +1,5 @@
 import {
-  appareilDuJour, cibleCompetition, cibleMatch, courbe, debutDePeriode, idSession, jourAudience,
+  appareilDuJour, cibleCompetition, cibleMatch, courbe, debutDePeriode, heureDeMinute, idSession, jourAudience, jourLisible,
   jourMoins, lireCible, lirePeriode, lireSession, lireVia, minuteDe, nouvelAppareil, pic, resumer,
   spectateursMaintenant, tempsMoyen, visitesParJour, type SessionLue,
 } from "@/lib/audience";
@@ -8,7 +8,7 @@ import {
 // la suite de tests des modules partagés tourne.
 
 const s = (p: Partial<SessionLue>): SessionLue => ({
-  jour: "20261017", vues: 1, minutes: [], via: "autre", connecte: false, derniereMs: null, ...p,
+  jour: "20261017", vues: 1, minutes: [], via: "autre", connecte: false, derniereMs: null, cid: null, ...p,
 });
 
 describe("les cibles", () => {
@@ -39,6 +39,11 @@ describe("le temps", () => {
   it("compte la minute du mur", () => {
     expect(minuteDe(120_000)).toBe(2);
     expect(minuteDe(179_999)).toBe(2);
+  });
+
+  it("se lit en français, à l'heure de Lomé", () => {
+    expect(jourLisible("20261017")).toBe("17 octobre 2026");
+    expect(heureDeMinute(minuteDe(Date.parse("2026-10-17T16:42:30Z")))).toBe("16:42");
   });
 
   it("borne les périodes", () => {
@@ -85,7 +90,7 @@ describe("lireVia et lireSession", () => {
       jour: "20261017", vues: 3, minutes: [10, "x", 11], via: "pirate", connecte: "oui",
       derniere: { toMillis: () => 42 },
     });
-    expect(lue).toEqual({ jour: "20261017", vues: 3, minutes: [10, 11], via: "autre", connecte: false, derniereMs: 42 });
+    expect(lue).toEqual({ jour: "20261017", vues: 3, minutes: [10, 11], via: "autre", connecte: false, derniereMs: 42, cid: null });
     expect(lireSession({ jour: "hier" })).toBeNull();
   });
 });

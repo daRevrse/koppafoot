@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAdminApi } from "@/hooks/useAdminApi";
+import { PanoramaAdmin } from "@/components/audience/AudienceAdmin";
 import { Carte, Chargement, Chiffre, EnTete, Erreur, Titre, ilYA } from "@/components/admin/ui";
 import type { TableauDeBord } from "@/lib/admin-types";
 
@@ -65,6 +66,9 @@ export default function AdminStatsPage() {
           <Chiffre valeur={data.competitions.enCours} libelle="Compétitions en cours" detail={`sur ${data.competitions.total}`} />
         </div>
       </section>
+
+      {/* Qui regarde les compétitions et les matchs (lib/audience). */}
+      <PanoramaAdmin />
 
       <div className="grid gap-8 lg:grid-cols-2">
         <section>
