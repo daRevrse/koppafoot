@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useAudience } from "@/lib/audience-client";
+import { cibleCompetition, avecVia } from "@/lib/audience";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -131,6 +133,8 @@ export default function PublicTeamPage() {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [teams, setTeams] = useState<CompTeam[]>([]);
   const [matches, setMatches] = useState<CompMatch[]>([]);
+  // Une page de la compétition : elle compte dans son audience (lib/audience).
+  useAudience(competition ? cibleCompetition(competition.id) : null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   // Only judge "team introuvable" once teams have actually arrived from Firestore.
@@ -324,7 +328,7 @@ export default function PublicTeamPage() {
     const resultat = await partagerLien({
       title: team.name,
       text: `${team.name} · ${competition.name}`,
-      url: lienAbsolu(`/c/${slug}/teams/${tid}`),
+      url: avecVia(lienAbsolu(`/c/${slug}/teams/${tid}`), "partage"),
     });
     if (resultat === "copie") toast.success(t.lienCopie);
     else if (resultat === "echec") toast.error(t.partageEchoue);

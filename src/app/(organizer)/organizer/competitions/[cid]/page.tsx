@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy, ArrowLeft, ArrowRightLeft, Loader2, Pencil, Save, X, Copy, Trash2, AlertTriangle,
+  BarChart3, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -328,6 +329,22 @@ export default function CompetitionDashboardPage() {
       {/* The payoff first: a competition here produces a public page, and
           that page is what fills the competition. */}
       <CompetitionShareCard competition={competition} teamCount={teams.filter((t) => !t.invitee).length} />
+
+      {/* Ce que le partage a donné : qui regarde, et le rapport à envoyer
+          aux sponsors (voir lib/audience). */}
+      <Link
+        href={`/organizer/competitions/${competition.id}/statistiques`}
+        className="flex items-center gap-3 border border-gray-200/70 bg-white px-5 py-4 transition-colors hover:bg-gray-50"
+      >
+        <BarChart3 size={18} className="shrink-0 text-primary-600" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-gray-900">Statistiques</span>
+          <span className="block text-xs text-gray-500">
+            Visites, spectateurs en direct, rapport PDF pour tes sponsors.
+          </span>
+        </span>
+        <ChevronRight size={16} className="shrink-0 text-gray-300" />
+      </Link>
 
       {/* Then the sequence, what is done, what is next. */}
       <OrganizerProgress

@@ -5,6 +5,7 @@ import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { Download, QrCode, X } from "lucide-react";
 import { lienAbsolu } from "@/lib/partage";
 import type { Competition } from "@/types";
+import { avecVia } from "@/lib/audience";
 
 // ============================================
 // Le QR code d'une compétition, pour ce qui s'imprime.
@@ -86,7 +87,7 @@ export default function CompetitionQrCode({ competition }: { competition: Compet
             </div>
 
             <div className="flex justify-center border border-gray-200/70 bg-white p-4">
-              <QRCodeSVG value={url} size={224} level="M" marginSize={2} title={`QR code de ${competition.name}`} />
+              <QRCodeSVG value={avecVia(url, "qr")} size={224} level="M" marginSize={2} title={`QR code de ${competition.name}`} />
             </div>
             <p className="mt-2 truncate text-center font-mono text-xs font-bold text-gray-500">
               {url.replace(/^https?:\/\//, "")}
@@ -116,7 +117,7 @@ export default function CompetitionQrCode({ competition }: { competition: Compet
                 pour rester lisible imprimée en grand. Jamais affichée. */}
             <QRCodeCanvas
               ref={toile}
-              value={url}
+              value={avecVia(url, "qr")}
               size={COTE_IMAGE}
               level="M"
               marginSize={4}

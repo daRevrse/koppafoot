@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, ExternalLink, EyeOff, Loader2, Mail, Phone, Se
 import toast from "react-hot-toast";
 import { extraTime, extraTimeDuration, subsMax } from "@/lib/competition-format";
 import { useAdminApi } from "@/hooks/useAdminApi";
+import { AudienceAdminDeCompetition } from "@/components/audience/AudienceAdmin";
 import { setCompetitionValidated } from "@/lib/admin-firestore";
 import { useATraiter } from "@/components/admin/ATraiterContext";
 import MiniEcusson from "@/components/match/MiniEcusson";
@@ -297,6 +298,9 @@ export default function AdminCompetitionDetailPage() {
           )}
         </aside>
       </div>
+
+      {/* Qui regarde la compétition, comme le voit son staff (lib/audience). */}
+      <AudienceAdminDeCompetition cid={c.id} />
     </div>
   );
 }

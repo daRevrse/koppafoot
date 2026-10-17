@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { COLLECTION_VALIDATIONS } from "@/lib/validation-server";
+import { resumerLAudience } from "@/lib/audience-serveur";
 import type { FirestoreMatchValidation } from "@/types";
 
 export const maxDuration = 60; // 1 minute max duration
@@ -72,10 +73,24 @@ export async function GET(request: Request) {
     }
     if (ops > 0) await batch.commit();
 
+    // LA MÊME NUIT, LE RÉSUMÉ DE L'AUDIENCE (lib/audience-serveur) : les jours
+    // terminés passent dans le résumé, le détail de plus de trente jours
+    // s'efface. Une tâche de plus n'aurait rien dit de plus, et la formule
+    // gratuite de Vercel n'en accepte que deux. Isolé : une panne de la mesure
+    // ne doit pas empêcher de valider un match.
+    let audience: { cibles: number; purgees: number } | { erreur: string };
+    try {
+      audience = await resumerLAudience();
+    } catch (err) {
+      console.error("Audience rollup failed:", err);
+      audience = { erreur: err instanceof Error ? err.message : String(err) };
+    }
+
     return NextResponse.json({
       success: true,
       message: validees > 0 ? `${validees} match(s) validé(s) tacitement` : "Aucun match à valider",
       count: validees,
+      audience,
     });
   } catch (error) {
     console.error("Error in auto-validate cron:", error);

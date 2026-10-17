@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useAudience } from "@/lib/audience-client";
+import { cibleMatch, avecVia } from "@/lib/audience";
 import { useParams, useRouter } from "next/navigation";
 
 import { motion, AnimatePresence } from "motion/react";
@@ -154,6 +156,9 @@ export default function MatchDetailPage() {
   const f = useTextes(FOOT);
   
   const [match, setMatch] = useState<Match | null>(null);
+  // L'audience de l'amical (lib/audience) : la visite, puis chaque minute de
+  // direct page visible.
+  useAudience(match ? cibleMatch(match.id) : null, { direct: match?.status === "live" });
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
   const [myTeam, setMyTeam] = useState<Team | null>(null);
@@ -819,7 +824,7 @@ export default function MatchDetailPage() {
     const resultat = await partagerLien({
       title: affiche,
       text,
-      url: lienAbsolu(`/matches/${match.id}`),
+      url: avecVia(lienAbsolu(`/matches/${match.id}`), "partage"),
       // Préparée au chargement, voir plus haut : la chercher ici coûterait
       // l'activation utilisateur, donc le partage lui-même.
       fichier: afficheDuMatch.current,

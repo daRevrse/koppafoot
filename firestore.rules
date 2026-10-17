@@ -1020,6 +1020,59 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ============================================
+    // La mesure d'audience (voir lib/audience).
+    //
+    // UN DOCUMENT PAR APPAREIL, PAR JOUR ET PAR PAGE : chaque navigateur
+    // n'écrit que le sien, visiteurs sans compte compris — c'est tout le
+    // public d'un match. Rien ne se lit d'ici : le serveur agrège avec le SDK
+    // admin. Les règles ne vérifient que la forme : un compteur public peut
+    // être gonflé par quelqu'un de décidé, c'est accepté (voir la spec).
+    // ============================================
+    function sessionAudience(cible, session) {
+      let d = request.resource.data;
+      return cible.matches('^(comp|match)-[A-Za-z0-9]{1,40}$')
+        && session.matches('^[0-9]{8}_[a-z0-9]{16}$')
+        && d.keys().hasOnly(['jour', 'vues', 'premiere', 'derniere', 'minutes', 'via', 'connecte', 'cid'])
+        && d.jour == session.split('_')[0]
+        && d.derniere == request.time
+        && d.vues is int
+        && d.minutes is list && d.minutes.size() <= 300
+        && d.via in ['app', 'qr', 'partage', 'autre']
+        && d.connecte is bool
+        && (!('cid' in d) || (d.cid is string && d.cid.size() <= 40));
+    }
+
+    // Une minute ajoutée tombe à trois minutes au plus de l'heure du serveur.
+    // Une écriture qui n'ajoute qu'une vue ne vérifie rien : sa dernière minute
+    // peut dater de l'après-midi.
+    function minuteAjouteeValide(avant) {
+      let m = request.resource.data.minutes;
+      return m.size() == avant
+        || (m[m.size() - 1] is int
+            && math.abs(m[m.size() - 1] - request.time.toMillis() / 60000) <= 3);
+    }
+
+    match /audience/{cible} {
+      // Le résumé : écrit par la tâche quotidienne, lu par le serveur.
+      allow read, write: if false;
+
+      match /sessions/{session} {
+        allow read, delete: if false;
+        allow create: if sessionAudience(cible, session)
+                      && request.resource.data.vues == 1
+                      && request.resource.data.premiere == request.time
+                      && request.resource.data.minutes.size() <= 1
+                      && minuteAjouteeValide(0);
+        allow update: if sessionAudience(cible, session)
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['vues', 'derniere', 'minutes'])
+                      && request.resource.data.vues in [resource.data.vues, resource.data.vues + 1]
+                      && request.resource.data.minutes.size() <= resource.data.minutes.size() + 1
+                      && minuteAjouteeValide(resource.data.minutes.size());
+      }
+    }
+
     // Les partenaires (sponsors). Fermés aux navigateurs, dans les deux sens :
     // le document porte ses compteurs et l'adresse de destination, que la page
     // n'a pas à lire, et seule l'administration les écrit. Tout passe par les

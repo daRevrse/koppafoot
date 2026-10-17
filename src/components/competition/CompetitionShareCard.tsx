@@ -8,6 +8,7 @@ import {
 import { copierDansLePressePapier, lienAbsolu, partagerLien } from "@/lib/partage";
 import type { Competition } from "@/types";
 import CompetitionQrCode from "./CompetitionQrCode";
+import { avecVia } from "@/lib/audience";
 
 // ============================================
 // CompetitionShareCard, the payoff, shown to the organizer.
@@ -68,7 +69,8 @@ export default function CompetitionShareCard({
         ? `${competition.name}, c'est fini. Les résultats sur KoppaFoot :`
         : `Suis ${competition.name} en direct sur KoppaFoot :`;
 
-    const resultat = await partagerLien({ title: competition.name, text, url });
+    // Marqué : la mesure d'audience reconnaît ce qui vient d'un partage (lib/audience).
+    const resultat = await partagerLien({ title: competition.name, text, url: avecVia(url, "partage") });
     if (resultat === "copie") {
       setFeedback("copied");
       setTimeout(() => setFeedback(null), 2500);
