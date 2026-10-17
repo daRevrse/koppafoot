@@ -375,3 +375,108 @@ export function depuisDePeriode(periode: Periode, aujourdhui: string = jourAudie
   const debut = debutDePeriode(periode, aujourdhui);
   return !debut || debut < DEBUT_MESURE ? DEBUT_MESURE : debut;
 }
+
+// ---- Le résumé quotidien (lot 4) ---------------------------------------------------
+//
+// Le détail par appareil se garde RETENTION_JOURS jours. Chaque nuit, la tâche
+// planifiée recopie dans `audience/{cible}` ce qu'il faut pour toujours : les
+// visites jour par jour, et la courbe d'un match. Puis elle efface les
+// sessions trop vieilles. Les lectures combinent les deux : les sessions pour
+// les jours récents, le résumé pour les autres.
+
+export interface JourStocke {
+  visites: number;
+  vues: number;
+  connectees: number;
+  via: Record<Via, number>;
+}
+
+/** Ce que porte `audience/{cible}`, écrit par le serveur seul. */
+export interface ResumeStocke {
+  par_jour?: Record<string, JourStocke>;
+  /** Minute du mur → spectateurs, pour un match. */
+  courbe?: Record<string, number> | null;
+  temps_moyen?: number | null;
+  /** Abonnés d'une compétition, photographiés chaque nuit. */
+  abonnes?: Record<string, number>;
+}
+
+/**
+ * Le résumé à écrire, à partir des sessions encore là et du résumé déjà
+ * stocké. Les jours terminés seulement : aujourd'hui n'est pas fini. Un jour
+ * déjà résumé et dont les sessions sont encore là est recalculé, ce qui rend la
+ * tâche rejouable sans compter deux fois.
+ */
+export function resumeAStocker(
+  sessions: SessionLue[],
+  existant: ResumeStocke | null,
+  aujourdhui: string,
+): Pick<ResumeStocke, "par_jour" | "courbe" | "temps_moyen"> {
+  const parJour: Record<string, JourStocke> = { ...(existant?.par_jour ?? {}) };
+  const recalcules = new Set<string>();
+  for (const s of sessions) {
+    if (s.jour >= aujourdhui) continue;
+    if (!recalcules.has(s.jour)) {
+      recalcules.add(s.jour);
+      parJour[s.jour] = { visites: 0, vues: 0, connectees: 0, via: Object.fromEntries(VIAS.map((v) => [v, 0])) as Record<Via, number> };
+    }
+    const j = parJour[s.jour];
+    j.visites += 1;
+    j.vues += s.vues;
+    if (s.connecte) j.connectees += 1;
+    j.via[s.via] += 1;
+  }
+  // La courbe d'un match se joue sur une soirée : tant qu'il reste des minutes
+  // en sessions, elles font foi ; une fois purgées, la courbe stockée reste.
+  const points = courbe(sessions);
+  const courbeStockee = points.length > 0
+    ? Object.fromEntries(points.map((p) => [String(p.minute), p.spectateurs]))
+    : existant?.courbe ?? null;
+  return {
+    par_jour: parJour,
+    courbe: courbeStockee,
+    temps_moyen: points.length > 0 ? tempsMoyen(sessions) : existant?.temps_moyen ?? null,
+  };
+}
+
+/**
+ * Ce que montre un écran : les sessions pour les jours encore détaillés, le
+ * résumé pour les jours plus anciens (à partir de `depuis`). Les deux ne se
+ * recouvrent jamais : un jour qui a encore ses sessions ne se lit pas dans le
+ * résumé.
+ */
+export function avecLeResume(
+  sessions: SessionLue[],
+  stocke: ResumeStocke | null,
+  depuis: string,
+): ResumeAudience {
+  const r = resumer(sessions);
+  if (!stocke) return r;
+  const joursDetailles = new Set(sessions.map((s) => s.jour));
+  const anciens = Object.entries(stocke.par_jour ?? {})
+    .filter(([jour]) => jour >= depuis && !joursDetailles.has(jour));
+  const parJour = [...r.parJour];
+  const provenance = { ...r.provenance };
+  let visites = r.visites;
+  let vues = r.vues;
+  let connectees = r.connectees;
+  for (const [jour, j] of anciens) {
+    parJour.push({ jour, visites: j.visites, vues: j.vues });
+    visites += j.visites;
+    vues += j.vues;
+    connectees += j.connectees;
+    for (const v of VIAS) provenance[v] += j.via?.[v] ?? 0;
+  }
+  parJour.sort((a, b) => a.jour.localeCompare(b.jour));
+
+  let points = r.courbe;
+  let moyen = r.tempsMoyenMin;
+  if (points.length === 0 && stocke.courbe) {
+    points = Object.entries(stocke.courbe)
+      .map(([m, n]) => ({ minute: Number(m), spectateurs: n }))
+      .filter((p) => Number.isInteger(p.minute))
+      .sort((a, b) => a.minute - b.minute);
+    moyen = stocke.temps_moyen ?? 0;
+  }
+  return { visites, vues, parJour, provenance, connectees, courbe: points, pic: pic(points), tempsMoyenMin: moyen };
+}

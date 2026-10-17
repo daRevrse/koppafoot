@@ -4,21 +4,23 @@ import { amicalVersCompMatch } from "@/lib/friendlies-shared";
 import { getDirectFeed } from "@/lib/competition-admin";
 import { getPublicFriendlies } from "@/lib/friendlies-admin";
 import {
-  cibleCompetition, cibleMatch, depuisDePeriode, jourAudience, jourMoins, lireCible, lireSession,
-  minuteDe, resumer, spectateursMaintenant, VIAS,
+  avecLeResume, cibleCompetition, cibleMatch, depuisDePeriode, jourAudience, jourMoins, lireCible,
+  lireSession, minuteDe, resumeAStocker, RETENTION_JOURS, spectateursMaintenant, tempsMoyen, VIAS,
   type AudienceDeCompetition, type AudienceDeMatch, type ButSurLaCourbe, type DirectAudience,
-  type JourDeCompetition, type MatchAudience, type PanoramaAudience, type Periode, type SessionLue,
-  type Via,
+  type JourDeCompetition, type MatchAudience, type PanoramaAudience, type Periode, type ResumeAudience,
+  type ResumeStocke, type SessionLue, type Via,
 } from "@/lib/audience";
 import type { CompMatch, FirestoreCompMatch, FirestoreCompetition } from "@/types";
 
 // ============================================
 // La mesure d'audience, côté serveur : les chiffres que montrent
 // l'administration, la page Statistiques des organisateurs et le rapport PDF,
-// calculés ici une fois, à partir des sessions (voir lib/audience).
+// calculés ici une fois (voir lib/audience).
 //
-// TOUT SE CALCULE À LA LECTURE, à l'échelle d'aujourd'hui. Le résumé
-// quotidien (lot 4) prendra le relais pour le passé.
+// UNE LECTURE, DEUX SOURCES : les sessions pour les jours encore détaillés,
+// le résumé de `audience/{cible}` pour les jours dont la tâche de nuit a purgé
+// le détail (`resumerLAudience`, plus bas). `avecLeResume` les assemble sans
+// jamais compter un jour deux fois.
 // ============================================
 
 const sessions = (cible: string) => adminDb.collection("audience").doc(cible).collection("sessions");
@@ -27,6 +29,25 @@ const sessions = (cible: string) => adminDb.collection("audience").doc(cible).co
 export async function sessionsDe(cible: string, depuis: string): Promise<SessionLue[]> {
   const snap = await sessions(cible).where("jour", ">=", depuis).get();
   return snap.docs.map((d) => lireSession(d.data())).filter((s): s is SessionLue => s != null);
+}
+
+/** Le résumé stocké d'une cible, avec la compétition d'un match qu'il retient. */
+type Stocke = ResumeStocke & { cid?: string | null };
+
+interface Lu {
+  sessions: SessionLue[];
+  resume: ResumeAudience;
+  stocke: Stocke | null;
+}
+
+/** Ce qu'on sait d'une cible depuis un jour : ses sessions, et son résumé pour le reste. */
+async function lire(cible: string, depuis: string): Promise<Lu> {
+  const [lues, doc] = await Promise.all([
+    sessionsDe(cible, depuis),
+    adminDb.collection("audience").doc(cible).get(),
+  ]);
+  const stocke = doc.exists ? (doc.data() as Stocke) : null;
+  return { sessions: lues, resume: avecLeResume(lues, stocke, depuis), stocke };
 }
 
 const affiche = (m: Pick<CompMatch, "homeTeamName" | "awayTeamName">) =>
@@ -58,8 +79,7 @@ function butsDe(match: CompMatch): ButSurLaCourbe[] {
   return buts.sort((a, b) => a.minute - b.minute);
 }
 
-function audienceDUnMatch(match: CompMatch, cid: string | null, lues: SessionLue[]): MatchAudience {
-  const r = resumer(lues);
+function audienceDUnMatch(match: CompMatch, cid: string | null, lu: Lu): MatchAudience {
   return {
     cible: cibleMatch(match.id),
     mid: match.id,
@@ -68,10 +88,10 @@ function audienceDUnMatch(match: CompMatch, cid: string | null, lues: SessionLue
     date: match.date,
     heure: match.time,
     statut: match.status,
-    visites: r.visites,
-    pic: r.pic,
-    tempsMoyenMin: r.tempsMoyenMin,
-    maintenant: match.status === "live" ? spectateursMaintenant(lues) : 0,
+    visites: lu.resume.visites,
+    pic: lu.resume.pic,
+    tempsMoyenMin: lu.resume.tempsMoyenMin,
+    maintenant: match.status === "live" ? spectateursMaintenant(lu.sessions) : 0,
   };
 }
 
@@ -87,9 +107,9 @@ export async function audienceDeMatch(mid: string, cid: string | null): Promise<
   const match = await lireMatch(mid, cid);
   if (!match) return null;
   const cible = cibleMatch(mid);
-  const [lues, competition] = await Promise.all([
+  const [lu, competition] = await Promise.all([
     // Un match se joue sur un jour, deux s'il passe minuit : tout ce qu'on a.
-    sessionsDe(cible, "00000000"),
+    lire(cible, "00000000"),
     cid ? adminDb.collection("competitions").doc(cid).get() : Promise.resolve(null),
   ]);
   const c = competition?.exists ? (competition.data() as FirestoreCompetition) : null;
@@ -102,8 +122,8 @@ export async function audienceDeMatch(mid: string, cid: string | null): Promise<
     heure: match.time,
     statut: match.status,
     competition: c ? { nom: c.name, slug: c.slug } : null,
-    resume: resumer(lues),
-    maintenant: match.status === "live" ? spectateursMaintenant(lues) : 0,
+    resume: lu.resume,
+    maintenant: match.status === "live" ? spectateursMaintenant(lu.sessions) : 0,
     buts: butsDe(match),
   };
 }
@@ -123,28 +143,38 @@ export async function audienceDeCompetition(cid: string, periode: Periode): Prom
 
   const matchs = matchsSnap.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch));
   const [pages, ...parMatch] = await Promise.all([
-    sessionsDe(cibleCompetition(cid), depuis),
-    ...matchs.map((m) => sessionsDe(cibleMatch(m.id), depuis)),
+    lire(cibleCompetition(cid), depuis),
+    ...matchs.map((m) => lire(cibleMatch(m.id), depuis)),
   ]);
-
   const audiences = matchs.map((m, i) => audienceDUnMatch(m, cid, parMatch[i]));
-  const toutesLesSessionsDeMatch = parMatch.flat();
-  const toutes = [...pages, ...toutesLesSessionsDeMatch];
 
   const parJour = new Map<string, JourDeCompetition>();
-  const noter = (jour: string, cle: "pages" | "matchs") => {
-    const j = parJour.get(jour) ?? { jour, pages: 0, matchs: 0 };
-    j[cle] += 1;
-    parJour.set(jour, j);
+  const noter = (r: ResumeAudience, cle: "pages" | "matchs") => {
+    for (const j of r.parJour) {
+      const e = parJour.get(j.jour) ?? { jour: j.jour, pages: 0, matchs: 0 };
+      e[cle] += j.visites;
+      parJour.set(j.jour, e);
+    }
   };
-  for (const s of pages) noter(s.jour, "pages");
-  for (const s of toutesLesSessionsDeMatch) noter(s.jour, "matchs");
+  noter(pages.resume, "pages");
+  for (const lu of parMatch) noter(lu.resume, "matchs");
 
+  const tous = [pages, ...parMatch];
   const provenance = provenanceVide();
-  for (const s of toutes) provenance[s.via] += 1;
+  for (const lu of tous) for (const v of VIAS) provenance[v] += lu.resume.provenance[v];
+  const visites = tous.reduce((n, lu) => n + lu.resume.visites, 0);
+  const connectees = tous.reduce((n, lu) => n + lu.resume.connectees, 0);
+  const visitesMatchs = parMatch.reduce((n, lu) => n + lu.resume.visites, 0);
+
+  // Le temps moyen se calcule sur les spectateurs eux-mêmes quand leurs
+  // sessions sont encore là ; une fois purgées, sur la moyenne de chaque match.
+  const sessionsDeDirect = parMatch.flatMap((lu) => lu.sessions).filter((s) => s.minutes.length > 0);
+  const moyennes = audiences.map((a) => a.tempsMoyenMin).filter((t) => t > 0);
+  const tempsMoyenMin = sessionsDeDirect.length > 0
+    ? tempsMoyen(sessionsDeDirect)
+    : moyennes.length > 0 ? Math.round((moyennes.reduce((a, b) => a + b, 0) / moyennes.length) * 10) / 10 : 0;
 
   const meilleur = [...audiences].filter((a) => a.pic).sort(parSuivi)[0] ?? null;
-  const resumeMatchs = resumer(toutesLesSessionsDeMatch);
 
   return {
     cid,
@@ -158,12 +188,12 @@ export async function audienceDeCompetition(cid: string, periode: Periode): Prom
     provenance,
     matchs: audiences.filter((a) => a.visites > 0).sort(parSuivi),
     totaux: {
-      visitesPages: pages.length,
-      visitesMatchs: toutesLesSessionsDeMatch.length,
+      visitesPages: pages.resume.visites,
+      visitesMatchs,
       pic: meilleur?.pic ? { ...meilleur.pic, mid: meilleur.mid, affiche: meilleur.affiche } : null,
-      tempsMoyenMin: resumeMatchs.tempsMoyenMin,
-      partAppli: toutes.length > 0 ? provenance.app / toutes.length : 0,
-      partConnectee: toutes.length > 0 ? toutes.filter((s) => s.connecte).length / toutes.length : 0,
+      tempsMoyenMin,
+      partAppli: visites > 0 ? provenance.app / visites : 0,
+      partConnectee: visites > 0 ? connectees / visites : 0,
       abonnes: abonnes.data().count ?? 0,
       maintenant: audiences.reduce((n, a) => n + a.maintenant, 0),
     },
@@ -200,34 +230,35 @@ export async function directMaintenant(): Promise<DirectAudience> {
 
 export async function panorama(periode: Periode): Promise<PanoramaAudience> {
   const depuis = depuisDePeriode(periode);
-  // Les cibles mesurées : leurs documents n'existent pas (seules leurs
-  // sessions existent), et `listDocuments` les rend quand même.
+  // Les cibles mesurées. Avant la première nuit de résumé, leurs documents
+  // n'existent pas (seules leurs sessions existent) : `listDocuments` les rend
+  // quand même.
   const refs = await adminDb.collection("audience").listDocuments();
-  const lues = await Promise.all(refs.map(async (ref) => ({ cible: ref.id, sessions: await sessionsDe(ref.id, depuis) })));
+  const lues = await Promise.all(refs.map(async (ref) => ({ cible: ref.id, lu: await lire(ref.id, depuis) })));
 
   const provenance = provenanceVide();
   let visitesCompetitions = 0;
   let visitesMatchs = 0;
   const parCompetition = new Map<string, { visites: number; visitesMatchs: number; pic: number }>();
-  const matchsAvecCid: { mid: string; cid: string | null; sessions: SessionLue[] }[] = [];
+  const desMatchs: { mid: string; cid: string | null; lu: Lu }[] = [];
 
-  for (const { cible, sessions: s } of lues) {
+  for (const { cible, lu } of lues) {
     const c = lireCible(cible);
-    if (!c || s.length === 0) continue;
-    for (const x of s) provenance[x.via] += 1;
+    if (!c || lu.resume.visites === 0) continue;
+    for (const v of VIAS) provenance[v] += lu.resume.provenance[v];
     if (c.genre === "competition") {
-      visitesCompetitions += s.length;
+      visitesCompetitions += lu.resume.visites;
       const e = parCompetition.get(c.id) ?? { visites: 0, visitesMatchs: 0, pic: 0 };
-      e.visites += s.length;
+      e.visites += lu.resume.visites;
       parCompetition.set(c.id, e);
     } else {
-      visitesMatchs += s.length;
-      const cid = s.find((x) => x.cid)?.cid ?? null;
-      matchsAvecCid.push({ mid: c.id, cid, sessions: s });
+      visitesMatchs += lu.resume.visites;
+      const cid = lu.sessions.find((x) => x.cid)?.cid ?? lu.stocke?.cid ?? null;
+      desMatchs.push({ mid: c.id, cid, lu });
       if (cid) {
         const e = parCompetition.get(cid) ?? { visites: 0, visitesMatchs: 0, pic: 0 };
-        e.visitesMatchs += s.length;
-        e.pic = Math.max(e.pic, resumer(s).pic?.spectateurs ?? 0);
+        e.visitesMatchs += lu.resume.visites;
+        e.pic = Math.max(e.pic, lu.resume.pic?.spectateurs ?? 0);
         parCompetition.set(cid, e);
       }
     }
@@ -240,13 +271,13 @@ export async function panorama(periode: Periode): Promise<PanoramaAudience> {
     ? await adminDb.getAll(...topCompetitions.map(([cid]) => adminDb.collection("competitions").doc(cid)))
     : [];
 
-  const topMatchs = matchsAvecCid
-    .map((m) => ({ ...m, resume: resumer(m.sessions) }))
-    .sort((a, b) => (b.resume.pic?.spectateurs ?? 0) - (a.resume.pic?.spectateurs ?? 0) || b.resume.visites - a.resume.visites)
+  const topMatchs = desMatchs
+    .sort((a, b) => (b.lu.resume.pic?.spectateurs ?? 0) - (a.lu.resume.pic?.spectateurs ?? 0)
+      || b.lu.resume.visites - a.lu.resume.visites)
     .slice(0, 5);
   const matchs = (await Promise.all(topMatchs.map(async (m) => {
     const match = await lireMatch(m.mid, m.cid);
-    return match ? audienceDUnMatch(match, m.cid, m.sessions) : null;
+    return match ? audienceDUnMatch(match, m.cid, m.lu) : null;
   }))).filter((m): m is MatchAudience => m != null);
 
   return {
@@ -263,4 +294,54 @@ export async function panorama(periode: Periode): Promise<PanoramaAudience> {
     matchs,
     direct: await directMaintenant(),
   };
+}
+
+// ---- La tâche de nuit ----------------------------------------------------------------
+
+/**
+ * Résumer, puis purger. Chaque nuit (voir /api/cron/auto-validate) : les jours
+ * terminés passent dans `audience/{cible}` — visites, provenance, courbe d'un
+ * match —, le nombre d'abonnés de chaque compétition mesurée est photographié,
+ * et les sessions de plus de RETENTION_JOURS jours sont effacées.
+ *
+ * REJOUABLE : un jour déjà résumé dont les sessions sont encore là est
+ * recalculé, jamais additionné (voir `resumeAStocker`).
+ */
+export async function resumerLAudience(aujourdhui: string = jourAudience()): Promise<{ cibles: number; purgees: number }> {
+  const limite = jourMoins(aujourdhui, RETENTION_JOURS);
+  const refs = await adminDb.collection("audience").listDocuments();
+  let purgees = 0;
+
+  for (const ref of refs) {
+    const cible = lireCible(ref.id);
+    if (!cible) continue;
+    const [snap, doc] = await Promise.all([ref.collection("sessions").get(), ref.get()]);
+    const lues = snap.docs.map((d) => lireSession(d.data())).filter((s): s is SessionLue => s != null);
+    const existant = doc.exists ? (doc.data() as Stocke) : null;
+
+    const resume: Stocke = {
+      ...resumeAStocker(lues, existant, aujourdhui),
+      ...(cible.genre === "match" ? { cid: lues.find((s) => s.cid)?.cid ?? existant?.cid ?? null } : {}),
+    };
+    if (cible.genre === "competition") {
+      const abonnes = await adminDb.collection("users")
+        .where("followed_competition_ids", "array-contains", cible.id).count().get();
+      resume.abonnes = { ...(existant?.abonnes ?? {}), [aujourdhui]: abonnes.data().count ?? 0 };
+    }
+    await ref.set({ ...resume, maj_le: new Date().toISOString() }, { merge: true });
+
+    // Le détail s'efface APRÈS le résumé : une tâche interrompue entre les deux
+    // garde ses sessions, et la nuit suivante les résume à nouveau.
+    const anciennes = snap.docs.filter((d) => {
+      const jour = d.get("jour");
+      return typeof jour === "string" && jour < limite;
+    });
+    for (let i = 0; i < anciennes.length; i += 400) {
+      const lot = adminDb.batch();
+      for (const d of anciennes.slice(i, i + 400)) lot.delete(d.ref);
+      await lot.commit();
+    }
+    purgees += anciennes.length;
+  }
+  return { cibles: refs.length, purgees };
 }

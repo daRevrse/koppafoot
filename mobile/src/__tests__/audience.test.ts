@@ -1,5 +1,5 @@
 import {
-  appareilDuJour, cibleCompetition, cibleMatch, courbe, debutDePeriode, heureDeMinute, idSession, jourAudience, jourLisible,
+  appareilDuJour, avecLeResume, resumeAStocker, cibleCompetition, cibleMatch, courbe, debutDePeriode, heureDeMinute, idSession, jourAudience, jourLisible,
   jourMoins, lireCible, lirePeriode, lireSession, lireVia, minuteDe, nouvelAppareil, pic, resumer,
   spectateursMaintenant, tempsMoyen, visitesParJour, type SessionLue,
 } from "@/lib/audience";
@@ -145,5 +145,56 @@ describe("la lecture", () => {
     expect(r).toMatchObject({ visites: 3, vues: 7, connectees: 1, tempsMoyenMin: 3 });
     expect(r.provenance).toEqual({ app: 1, qr: 1, partage: 0, autre: 1 });
     expect(r.pic).toEqual({ minute: 101, spectateurs: 2 });
+  });
+});
+
+describe("le résumé quotidien", () => {
+  const vieilles = [
+    s({ jour: "20261017", vues: 2, minutes: [100, 101], via: "app", connecte: true }),
+    s({ jour: "20261017", minutes: [101] }),
+    s({ jour: "20261018", via: "qr" }),
+  ];
+
+  it("résume les jours terminés, pas aujourd'hui", () => {
+    const r = resumeAStocker(vieilles, null, "20261018");
+    expect(Object.keys(r.par_jour!)).toEqual(["20261017"]);
+    expect(r.par_jour!["20261017"]).toEqual({ visites: 2, vues: 3, connectees: 1, via: { app: 1, qr: 0, partage: 0, autre: 1 } });
+    expect(r.courbe).toEqual({ "100": 1, "101": 2 });
+  });
+
+  it("se rejoue sans compter deux fois", () => {
+    const une = resumeAStocker(vieilles, null, "20261019");
+    const deux = resumeAStocker(vieilles, { ...une }, "20261019");
+    expect(deux.par_jour).toEqual(une.par_jour);
+  });
+
+  it("garde la courbe d'un match une fois ses sessions purgées", () => {
+    expect(resumeAStocker([], { courbe: { "5": 3 }, temps_moyen: 12 }, "20261119"))
+      .toMatchObject({ courbe: { "5": 3 }, temps_moyen: 12 });
+  });
+
+  it("relit les jours purgés dans le résumé, les jours récents dans les sessions", () => {
+    const stocke = {
+      par_jour: {
+        "20261001": { visites: 4, vues: 9, connectees: 1, via: { app: 4, qr: 0, partage: 0, autre: 0 } },
+        "20261017": { visites: 99, vues: 99, connectees: 99, via: { app: 99, qr: 0, partage: 0, autre: 0 } },
+      },
+    };
+    const r = avecLeResume(vieilles, stocke, "20260901");
+    // Le 17 a encore ses sessions : le résumé de ce jour-là ne compte pas.
+    expect(r.visites).toBe(3 + 4);
+    expect(r.parJour.map((j) => j.jour)).toEqual(["20261001", "20261017", "20261018"]);
+    expect(r.provenance.app).toBe(1 + 4);
+  });
+
+  it("ne relit pas un jour antérieur à la période", () => {
+    const stocke = { par_jour: { "20261001": { visites: 4, vues: 9, connectees: 0, via: { app: 0, qr: 0, partage: 0, autre: 4 } } } };
+    expect(avecLeResume([], stocke, "20261010").visites).toBe(0);
+  });
+
+  it("reprend la courbe stockée d'un match purgé", () => {
+    const r = avecLeResume([], { courbe: { "10": 2, "11": 5 }, temps_moyen: 30 }, "20260901");
+    expect(r.pic).toEqual({ minute: 11, spectateurs: 5 });
+    expect(r.tempsMoyenMin).toBe(30);
   });
 });

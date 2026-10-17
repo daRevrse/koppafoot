@@ -310,8 +310,10 @@ spectateur.
    d'index, les quatre écrans de l'administration et la page Statistiques des
    organisateurs.
 3. **Le rapport PDF** : la route du rapport, ses deux dépendances, le bouton.
-4. **Le résumé et la purge** : une tâche quotidienne (`/api/cron/audience`, à
-   côté des deux existantes) résume la veille dans `audience/{cible}`, garde la
+4. **Le résumé et la purge** : chaque nuit, dans la tâche de 3 h
+   (`/api/cron/auto-validate`, qui l'isole dans son propre `try` — la formule
+   gratuite de Vercel n'accepte que deux tâches, déjà prises), le serveur
+   résume les jours terminés dans `audience/{cible}`, garde la
    courbe des matchs terminés, photographie le nombre d'abonnés de chaque
    compétition (sa courbe, qu'on n'a pas aujourd'hui), et supprime les sessions
    de plus de 30 jours. Les écrans et le rapport lisent alors le résumé pour le
