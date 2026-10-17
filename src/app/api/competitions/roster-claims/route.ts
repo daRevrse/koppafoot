@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
-import { isStaffOf } from "@/lib/competition-api-auth";
 import { estLigneDossard } from "@/lib/dossards";
 import { isStaffOf, staffDeLaCompetition } from "@/lib/competition-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
