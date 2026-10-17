@@ -101,3 +101,79 @@ describe("lireEmplacement", () => {
     expect(lireEmplacement(null)).toBeNull();
   });
 });
+
+describe("disposerSurTerrain, une feuille où seuls quelques-uns ont un poste", () => {
+  // Le gardien déclaré, les dix autres sans poste : c'est la feuille ordinaire
+  // en production, où deux lignes sur trois n'ont pas de poste.
+  const sansPoste = (n: number, depuis = 2) =>
+    Array.from({ length: n }, (_, i) => ligne(`j${depuis + i}`, null));
+  // Le rang se lit sur l'axe du jeu : terrain couché vers la droite, x = 180 - 40 i.
+  const RANG: Record<number, string> = { 180: "A", 140: "?", 100: "M", 60: "D", 20: "G" };
+  const parRang = (titulaires: LineupEntry[]) => {
+    const { places } = disposerSurTerrain(titulaires, titulaires.length, "droite");
+    const out: Record<string, string[]> = {};
+    for (const p of places) (out[RANG[p.x]] ??= []).push(p.entry?.playerId ?? "-");
+    return out;
+  };
+
+  it("répartit ceux sans poste sur le dispositif, et non sur un seul rang", () => {
+    const rangs = parRang([ligne("g", "goalkeeper"), ...sansPoste(10)]);
+    expect(rangs).toEqual({
+      G: ["g"],
+      D: ["j2", "j3", "j4", "j5"],
+      M: ["j6", "j7", "j8"],
+      A: ["j9", "j10", "j11"],
+    });
+  });
+
+  it("laisse aux pastilles de la console couchée une taille qu'on touche", () => {
+    const { ecart, rayonMax } = disposerSurTerrain(
+      [ligne("g", "goalkeeper"), ...sansPoste(10)], 11, "droite",
+    );
+    // Un rang de quatre au plus : 24 unités d'écart, comme une feuille complète.
+    expect(ecart).toBeGreaterThanOrEqual(24);
+    expect(rayonMax).toBeGreaterThan(5);
+  });
+
+  it("leur laisse leur « ? », sans leur inventer de poste", () => {
+    const { places } = disposerSurTerrain([ligne("g", "goalkeeper"), ...sansPoste(10)], 11, "droite");
+    expect(places.find((p) => p.entry?.playerId === "g")?.etiquette).toBe("G");
+    expect(places.filter((p) => p.etiquette === "?")).toHaveLength(10);
+  });
+
+  it("ne déplace pas ceux qui ont dit où ils jouent", () => {
+    const rangs = parRang([
+      ligne("g", "goalkeeper"), ligne("x1", null), ligne("d1", "defender"),
+      ligne("x2", null), ligne("a1", "forward"), ...sansPoste(6, 3),
+    ]);
+    expect(rangs.D).toEqual(["x1", "d1", "x2", "j3"]);
+    expect(rangs.A).toEqual(["a1", "j7", "j8"]);
+    expect(rangs.G).toEqual(["g"]);
+  });
+
+  it("garde un rang trop chargé plutôt que de déplacer un poste déclaré", () => {
+    const milieux = Array.from({ length: 5 }, (_, i) => ligne(`m${i}`, "midfielder"));
+    const rangs = parRang([ligne("g", "goalkeeper"), ...milieux, ...sansPoste(5)]);
+    expect(rangs.M).toEqual(["m0", "m1", "m2", "m3", "m4"]);
+    expect(rangs.D).toEqual(["j2", "j3", "j4", "j5"]);
+    expect(rangs.A).toEqual(["j6"]);
+  });
+
+  it("ne met personne au but d'office", () => {
+    const rangs = parRang([ligne("d1", "defender"), ...sansPoste(4)]);
+    expect(rangs.G).toBeUndefined();
+    expect(rangs.D).toEqual(["d1", "j2"]);
+  });
+
+  it("garde la ligne « ? » tant qu'elle reste une ligne", () => {
+    const rangs = parRang([
+      ligne("g", "goalkeeper"),
+      ...["d1", "d2", "d3", "d4"].map((id) => ligne(id, "defender")),
+      ...["m1", "m2", "m3"].map((id) => ligne(id, "midfielder")),
+      ...["a1", "a2"].map((id) => ligne(id, "forward")),
+      ligne("x", null),
+    ]);
+    expect(rangs["?"]).toEqual(["x"]);
+    expect(rangs.A).toEqual(["a1", "a2"]);
+  });
+});

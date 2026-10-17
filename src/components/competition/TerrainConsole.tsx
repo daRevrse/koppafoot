@@ -293,7 +293,10 @@ function Pelouse({
                 extérieur du trait retombe précisément sur `r`, et la géométrie
                 reste celle que la disposition a calculée. */}
             <circle
-              cx={place.x} cy={place.y} r={r - (contour ? 0.7 * c.echelle : 0)}
+              // Jamais negatif : un rang tres charge (huit milieux declares)
+              // laisse moins de rayon que le liseré n'en retire, et le
+              // navigateur refuse alors de dessiner la pastille.
+              cx={place.x} cy={place.y} r={Math.max(0.5 * c.echelle, r - (contour ? 0.7 * c.echelle : 0))}
               fill={fond}
               stroke={contour ?? "#052e16"}
               strokeWidth={(contour ? 1.4 : 0.5) * c.echelle}
