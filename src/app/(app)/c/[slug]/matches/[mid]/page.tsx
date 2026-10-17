@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAudience } from "@/lib/audience-client";
+import { useMessagesDuTchat } from "@/lib/tchat-client";
+import { ongletTchatVisible } from "@/lib/tchat";
+import TchatDuMatch from "@/components/match/TchatDuMatch";
+import { useAuth } from "@/contexts/AuthContext";
+import { isSuperAdmin } from "@/lib/hats";
 import { cibleMatch, avecVia } from "@/lib/audience";
 import { useParams } from "next/navigation";
 import { Loader2, SearchX } from "lucide-react";
@@ -86,8 +91,8 @@ const T = textes(
     stats: "Stats",
     direct: "Direct",
     competition: "Compétition",
-    onglet: (id: "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h") => ({
-      feed: "Fil", infos: "Infos", lineups: "Compo", stats: "Stats", standings: "Classement", h2h: "H2H",
+    onglet: (id: "feed" | "tchat" | "infos" | "lineups" | "stats" | "standings" | "h2h") => ({
+      feed: "Fil", tchat: "Tchat", infos: "Infos", lineups: "Compo", stats: "Stats", standings: "Classement", h2h: "H2H",
     })[id],
     faceAFace: (n: number) => `Face-à-face, ${n} rencontre${n > 1 ? "s" : ""}`,
     victoiresDe: (n: number, equipe: string) => `${n} victoire${n > 1 ? "s" : ""} de ${equipe}`,
@@ -123,8 +128,8 @@ const T = textes(
     stats: "Stats",
     direct: "Live",
     competition: "Competition",
-    onglet: (id: "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h") => ({
-      feed: "Feed", infos: "Info", lineups: "Line-ups", stats: "Stats", standings: "Table", h2h: "H2H",
+    onglet: (id: "feed" | "tchat" | "infos" | "lineups" | "stats" | "standings" | "h2h") => ({
+      feed: "Feed", tchat: "Chat", infos: "Info", lineups: "Line-ups", stats: "Stats", standings: "Table", h2h: "H2H",
     })[id],
     faceAFace: (n: number) => `Head-to-head, ${n} meeting${n === 1 ? "" : "s"}`,
     victoiresDe: (n: number, equipe: string) => `${n} win${n === 1 ? "" : "s"} for ${equipe}`,
@@ -134,7 +139,7 @@ const T = textes(
   },
 );
 
-type Onglet = "feed" | "infos" | "lineups" | "stats" | "standings" | "h2h";
+type Onglet = "feed" | "tchat" | "infos" | "lineups" | "stats" | "standings" | "h2h";
 
 // L'ecusson, la date longue et les colonnes de composition vivaient ici. Ils
 // sont passes dans MatchHero et MatchLineups, qui les rendent a l'identique
@@ -151,6 +156,12 @@ export default function PublicCompMatchView() {
   // L'audience du match (lib/audience) : la visite, puis chaque minute de
   // direct page visible. Mesurée une fois la compétition connue.
   useAudience(cid ? cibleMatch(mid) : null, { direct: match?.status === "live", cid });
+  // Le tchat du direct (lib/tchat) : écouté dès que la compétition est
+  // connue, pour savoir s'il y a de quoi relire une fois le match fini.
+  const messagesDuTchat = useMessagesDuTchat(cid ? mid : null);
+  const { user } = useAuth();
+  /** Organisateurs et modérateurs : ils suppriment un message du tchat. */
+  const [compStaff, setCompStaff] = useState<string[]>([]);
   const [compName, setCompName] = useState<string | null>(null);
   const [compLogo, setCompLogo] = useState<string | null>(null);
   /**
@@ -194,6 +205,7 @@ export default function PublicCompMatchView() {
       setCompFormat(competition.format);
       setCompSlug(competition.slug ?? slug);
       setCompCategorie(competition.category ?? null);
+      setCompStaff([...competition.organizerIds, ...competition.moderatorIds]);
       unsub = onCompMatch(competition.id, mid, (m) => {
         if (cancelled) return;
         if (!m) setNotFound(true);
@@ -567,6 +579,8 @@ export default function PublicCompMatchView() {
   const ongletParDefaut: Onglet = isLive || hasStats || match.mvpPlayerName ? "feed" : "infos";
   const TABS = [
     { id: "feed" as const, label: t.onglet("feed"), on: deroule.commence || events.length > 0 },
+    // Le tchat pendant le direct, puis en lecture seule s'il y a de quoi relire.
+    { id: "tchat" as const, label: t.onglet("tchat"), on: ongletTchatVisible(match.status, messagesDuTchat?.length ?? 0) },
     { id: "infos" as const, label: t.onglet("infos"), on: true },
     // Toujours present, meme sans compo : l'onglet dit alors qu'elle est a
     // venir. Le faire disparaitre laissait croire que la fonction n'existe
@@ -758,7 +772,17 @@ export default function PublicCompMatchView() {
 
         {activeTab === "feed" && fil}
 
-        {activeTab !== "infos" && activeTab !== "feed" && (
+        {activeTab === "tchat" && cid && (
+          <TchatDuMatch
+            mid={mid}
+            cid={cid}
+            statut={match.status}
+            messages={messagesDuTchat ?? []}
+            peutModerer={!!user && (isSuperAdmin(user) || compStaff.includes(user.uid))}
+          />
+        )}
+
+        {activeTab !== "infos" && activeTab !== "feed" && activeTab !== "tchat" && (
           <div className="bg-white p-4 sm:p-5">
             {/* Les compteurs. Le rendu est partagé avec la fiche d'un
                 amical et avec la console : voir MatchStats. */}

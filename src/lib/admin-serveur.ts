@@ -69,11 +69,13 @@ const compter = (q: FirebaseFirestore.Query) =>
  * et il y en a toujours peu.
  */
 export async function compterATraiter(): Promise<ATraiter> {
-  const [organisateurs, scoreurs, terrains, signalements, retours, contestes, aValider] = await Promise.all([
+  const [organisateurs, scoreurs, terrains, signalementsTribune, signalementsTchat, retours, contestes, aValider] = await Promise.all([
     compter(adminDb.collection("organizer_applications").where("status", "==", "pending")),
     compter(adminDb.collection("scorer_applications").where("status", "==", "pending")),
     compter(adminDb.collection("venue_applications").where("status", "==", "pending")),
     compter(adminDb.collection("post_reports").where("status", "==", "pending")),
+    // Les messages du tchat signalés attendent dans la même page (lib/tchat).
+    compter(adminDb.collection("chat_reports").where("status", "==", "pending")),
     compter(adminDb.collection("feedback").where("handled", "==", false)),
     adminDb.collection("match_validations").where("status", "==", "contested").get()
       .then((s) => s.docs.filter((d) => !d.data().arbitrage).length).catch(() => 0),
@@ -83,7 +85,7 @@ export async function compterATraiter(): Promise<ATraiter> {
   ]);
   return {
     ...A_TRAITER_VIDE,
-    organisateurs, scoreurs, terrains, signalements, retours,
+    organisateurs, scoreurs, terrains, signalements: signalementsTribune + signalementsTchat, retours,
     contestations: contestes, competitions: aValider,
   };
 }

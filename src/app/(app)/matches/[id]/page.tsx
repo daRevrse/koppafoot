@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAudience } from "@/lib/audience-client";
+import { useMessagesDuTchat } from "@/lib/tchat-client";
+import { ongletTchatVisible } from "@/lib/tchat";
+import TchatDuMatch from "@/components/match/TchatDuMatch";
+import { isSuperAdmin } from "@/lib/hats";
 import { cibleMatch, avecVia } from "@/lib/audience";
 import { useParams, useRouter } from "next/navigation";
 
@@ -103,7 +107,7 @@ const T = textes(
     amicaux: "Amicaux",
     matchAmical: "Match amical",
     defi: "Défi",
-    onglet: (id: "feed" | "infos" | "stats" | "squad") => ({ feed: "Fil", infos: "Infos", stats: "Stats", squad: "Compo" })[id],
+    onglet: (id: "feed" | "tchat" | "infos" | "stats" | "squad") => ({ feed: "Fil", tchat: "Tchat", infos: "Infos", stats: "Stats", squad: "Compo" })[id],
     matchAnnule: "Match annulé",
     pasCommence: "Le match n'a pas encore commencé",
     coupDEnvoi: (jour: string, heure: string | null, lieu: string | null) =>
@@ -131,7 +135,7 @@ const T = textes(
     amicaux: "Friendlies",
     matchAmical: "Friendly",
     defi: "Challenge",
-    onglet: (id: "feed" | "infos" | "stats" | "squad") => ({ feed: "Feed", infos: "Info", stats: "Stats", squad: "Line-ups" })[id],
+    onglet: (id: "feed" | "tchat" | "infos" | "stats" | "squad") => ({ feed: "Feed", tchat: "Chat", infos: "Info", stats: "Stats", squad: "Line-ups" })[id],
     matchAnnule: "Match cancelled",
     pasCommence: "The match hasn't started yet",
     coupDEnvoi: (jour: string, heure: string | null, lieu: string | null) =>
@@ -159,6 +163,9 @@ export default function MatchDetailPage() {
   // L'audience de l'amical (lib/audience) : la visite, puis chaque minute de
   // direct page visible.
   useAudience(match ? cibleMatch(match.id) : null, { direct: match?.status === "live" });
+  // Le tchat du direct (lib/tchat), écouté pour savoir aussi s'il y a de quoi
+  // relire une fois le match fini.
+  const messagesDuTchat = useMessagesDuTchat(match ? match.id : null);
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
   const [myTeam, setMyTeam] = useState<Team | null>(null);
@@ -174,7 +181,7 @@ export default function MatchDetailPage() {
    * `null` tant qu'on n'a rien choisi : l'onglet affiché suit alors le match
    * (voir `activeTab`, plus bas).
    */
-  const [choixOnglet, setChoixOnglet] = useState<"feed" | "infos" | "squad" | "stats" | null>(null);
+  const [choixOnglet, setChoixOnglet] = useState<"feed" | "tchat" | "infos" | "squad" | "stats" | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
   const [inviting, setInviting] = useState(false);
   const [lineupMode, setLineupMode] = useState(false);
@@ -989,7 +996,11 @@ export default function MatchDetailPage() {
   })();
   // Stats a disparu (aucun fait saisi) alors qu'il était ouvert : on ne
   // laisse pas la page sur un panneau muet.
-  const activeTab = ongletDemande === "stats" && !hasStats ? "feed" : ongletDemande;
+  // Le tchat aussi, quand il n'a plus lieu d'être (lib/tchat).
+  const tchatVisible = ongletTchatVisible(match.status, messagesDuTchat?.length ?? 0);
+  const activeTab = (ongletDemande === "stats" && !hasStats) || (ongletDemande === "tchat" && !tchatVisible)
+    ? "feed"
+    : ongletDemande;
 
   // Les buteurs, sous l'affiche. Un match renseigné n'a pas de direct : ses
   // buteurs sont ceux que la saisie a nommés, tous du camp qui l'a saisi.
@@ -1094,6 +1105,8 @@ export default function MatchDetailPage() {
         tabs={[
           // Des libellés courts : la rangée doit tenir sur un téléphone.
           { id: "feed", label: t.onglet("feed") },
+          // Le tchat pendant le direct, puis en lecture seule s'il y a de quoi relire.
+          ...(tchatVisible ? [{ id: "tchat", label: t.onglet("tchat") }] : []),
           { id: "infos", label: t.onglet("infos") },
           // Absent tant que rien n'a été saisi : un onglet qui n'affiche que
           // « Buts 0 – 0 » promet une lecture qu'il n'a pas.
@@ -1491,6 +1504,21 @@ export default function MatchDetailPage() {
                 </div>
               )}
             </motion.div>
+          )}
+
+          {activeTab === "tchat" && (
+            <TchatDuMatch
+              mid={match.id}
+              cid={null}
+              statut={match.status}
+              messages={messagesDuTchat ?? []}
+              // Les managers, leur staff et ceux qui couvrent le match (le
+              // serveur refait le contrôle, voir lib/tchat-serveur).
+              peutModerer={!!user && (
+                isManager || user.uid === match.managerId || user.uid === match.awayManagerId
+                || (match.moderatorIds ?? []).includes(user.uid) || isSuperAdmin(user)
+              )}
+            />
           )}
 
           {activeTab === "stats" && (
