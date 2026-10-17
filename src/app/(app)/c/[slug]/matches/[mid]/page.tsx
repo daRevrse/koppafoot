@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useAudience } from "@/lib/audience-client";
+import { cibleMatch, avecVia } from "@/lib/audience";
 import { useParams } from "next/navigation";
 import { Loader2, SearchX } from "lucide-react";
 import toast from "react-hot-toast";
@@ -146,6 +148,9 @@ export default function PublicCompMatchView() {
   const { slug, mid } = useParams() as { slug: string; mid: string };
   const [match, setMatch] = useState<CompMatch | null>(null);
   const [cid, setCid] = useState<string | null>(null);
+  // L'audience du match (lib/audience) : la visite, puis chaque minute de
+  // direct page visible. Mesurée une fois la compétition connue.
+  useAudience(cid ? cibleMatch(mid) : null, { direct: match?.status === "live", cid });
   const [compName, setCompName] = useState<string | null>(null);
   const [compLogo, setCompLogo] = useState<string | null>(null);
   /**
@@ -394,7 +399,7 @@ export default function PublicCompMatchView() {
     const resultat = await partagerLien({
       title: affiche,
       text: texte,
-      url: lienAbsolu(`/c/${compSlug}/matches/${match.id}`),
+      url: avecVia(lienAbsolu(`/c/${compSlug}/matches/${match.id}`), "partage"),
       // Préparée au chargement, voir plus haut : la chercher ici coûterait
       // l'activation utilisateur, donc le partage lui-même.
       fichier: afficheDuMatch.current,

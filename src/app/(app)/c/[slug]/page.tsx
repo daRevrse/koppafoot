@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAudience } from "@/lib/audience-client";
+import { cibleCompetition, avecVia } from "@/lib/audience";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -152,6 +154,8 @@ export default function PublicCompetitionHome() {
   const [matches, setMatches] = useState<CompMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [followers, setFollowers] = useState<number | null>(null);
+  // L'audience de la compétition (lib/audience) : une visite par appareil et par jour.
+  useAudience(competition ? cibleCompetition(competition.id) : null);
   const [teams, setTeams] = useState<CompTeam[]>([]);
   // L'onglet vit dans l'URL (?tab=) sans etre une route : le lien reste
   // partageable, mais tout est servi par la meme page. Lu sur window comme
@@ -270,7 +274,7 @@ export default function PublicCompetitionHome() {
         competition.status === "registration"
           ? t.partageInscriptions(competition.name, ville)
           : t.partageSuivre(competition.name, ville),
-      url: lienAbsolu(`/c/${competition.slug}`),
+      url: avecVia(lienAbsolu(`/c/${competition.slug}`), "partage"),
     });
     if (resultat === "copie") toast.success(t.lienCopie);
     else if (resultat === "echec") toast.error(t.partageEchoue);

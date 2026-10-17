@@ -157,6 +157,7 @@ const SECTIONS: SectionJuridique[] = [
           <li><strong>Un cookie de session</strong>, valable une heure et renouvelé tant que tu restes connecté : il permet au site de te reconnaître.</li>
           <li><strong>Un cookie de langue</strong>, qui retient le français ou l&apos;anglais pendant un an.</li>
           <li><strong>Le stockage local de ton navigateur</strong>, pour des préférences d&apos;affichage : thème, rappels déjà vus, invitation à installer l&apos;application.</li>
+          <li><strong>Un identifiant de mesure d&apos;audience</strong>, tiré au hasard et remplacé chaque jour. Il sert à compter les visites des pages de compétitions et de matchs, et combien de personnes suivent un match en direct. Il n&apos;est relié ni à ton compte, ni à ton adresse IP, ni d&apos;un jour à l&apos;autre.</li>
         </Liste>
         <p>
           Aucun cookie publicitaire ni de pistage d&apos;un site à l&apos;autre. Les statistiques de fréquentation fonctionnent
@@ -182,6 +183,10 @@ const SECTIONS: SectionJuridique[] = [
           sans eux.
         </p>
         <p>Les messages envoyés à l&apos;équipe sont conservés pour pouvoir y donner suite.</p>
+        <p>
+          La mesure d&apos;audience garde le détail de chaque visite trente jours, puis seulement des totaux par jour et par
+          match, sans aucun identifiant.
+        </p>
       </>
     ),
   },

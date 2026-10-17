@@ -1,0 +1,248 @@
+// ============================================
+// La mesure d'audience, la partie pure.
+//
+// Combien de visites ont reçu les pages d'une compétition et chaque fiche de
+// match, combien de personnes suivaient un direct à chaque minute. Voir
+// docs/superpowers/specs/2026-10-16-mesure-audience-design.md.
+//
+// UN DOCUMENT PAR APPAREIL, PAR JOUR ET PAR PAGE CIBLE :
+// `audience/{cible}/sessions/{jour}_{appareil}`. Chaque appareil n'écrit que
+// le sien, aucun compteur partagé ne sature. L'identifiant d'appareil change
+// chaque jour : rien ne relie deux journées, ni une visite à un compte.
+//
+// Aucun SDK ici : le navigateur (lib/audience-client), le serveur
+// (lib/audience-serveur) et la suite de tests partagée s'en servent.
+// ============================================
+
+import { jourDeLome } from "@/lib/jour";
+
+/** D'où vient une visite : l'appli, un QR code, un lien partagé depuis KoppaFoot, ou autre. */
+export type Via = "app" | "qr" | "partage" | "autre";
+export const VIAS: readonly Via[] = ["app", "qr", "partage", "autre"] as const;
+
+/** Les minutes de direct qu'une session retient, au plus : un match prolongé tient en 150. */
+export const MINUTES_MAX = 300;
+
+/** Un spectateur compte « maintenant » si son dernier signe de vie date de moins que ça. */
+export const FENETRE_MAINTENANT_MS = 2 * 60_000;
+
+/** Combien de jours on garde le détail par appareil avant de le résumer (lot 4). */
+export const RETENTION_JOURS = 30;
+
+// ---- Les cibles -----------------------------------------------------------------
+
+export const cibleCompetition = (cid: string): string => `comp-${cid}`;
+export const cibleMatch = (mid: string): string => `match-${mid}`;
+
+/** Ce que désigne une cible, ou `null` si elle n'a pas la forme attendue. */
+export function lireCible(cible: string): { genre: "competition" | "match"; id: string } | null {
+  const m = /^(comp|match)-([A-Za-z0-9]{1,40})$/.exec(cible);
+  if (!m) return null;
+  return { genre: m[1] === "comp" ? "competition" : "match", id: m[2] };
+}
+
+// ---- Le temps -------------------------------------------------------------------
+
+/** Le jour en `AAAAMMJJ`, à l'heure de Lomé comme le reste du produit (voir lib/jour). */
+export const jourAudience = (date: Date = new Date()): string => jourDeLome(date).replace(/-/g, "");
+
+/** La minute du mur : minutes depuis l'époque Unix. */
+export const minuteDe = (ms: number): number => Math.floor(ms / 60_000);
+
+/** Le jour `AAAAMMJJ` qui précède `jour` de `n` jours. */
+export function jourMoins(jour: string, n: number): string {
+  const d = new Date(Date.UTC(Number(jour.slice(0, 4)), Number(jour.slice(4, 6)) - 1, Number(jour.slice(6, 8))));
+  d.setUTCDate(d.getUTCDate() - n);
+  return jourAudience(d);
+}
+
+// ---- L'appareil du jour ---------------------------------------------------------
+
+const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+const RE_APPAREIL = /^[a-z0-9]{16}$/;
+
+export function nouvelAppareil(alea: () => number = Math.random): string {
+  let s = "";
+  for (let i = 0; i < 16; i++) s += ALPHABET[Math.floor(alea() * ALPHABET.length)];
+  return s;
+}
+
+/** Ce que le navigateur garde dans son stockage local (`koppafoot:audience`). */
+export interface AppareilStocke {
+  jour: string;
+  appareil: string;
+  /** Les cibles dont la session du jour existe déjà : on l'incrémente au lieu de la créer. */
+  cibles: string[];
+}
+
+/**
+ * L'appareil de ce jour : celui du stockage s'il date d'aujourd'hui, un neuf
+ * sinon. Un identifiant d'hier ne sert jamais une seconde journée.
+ */
+export function appareilDuJour(
+  stocke: unknown,
+  jour: string,
+  nouveau: () => string = nouvelAppareil,
+): AppareilStocke {
+  const s = stocke as Partial<AppareilStocke> | null;
+  if (s && s.jour === jour && typeof s.appareil === "string" && RE_APPAREIL.test(s.appareil)) {
+    return {
+      jour,
+      appareil: s.appareil,
+      cibles: Array.isArray(s.cibles) ? s.cibles.filter((c): c is string => typeof c === "string").slice(-200) : [],
+    };
+  }
+  return { jour, appareil: nouveau(), cibles: [] };
+}
+
+export const idSession = (jour: string, appareil: string): string => `${jour}_${appareil}`;
+
+/**
+ * Un lien vers une page mesurée, marqué de sa provenance : le bouton de
+ * partage, le QR code, l'appli. C'est ce que `lireVia` relit à l'arrivée.
+ */
+export function avecVia(url: string, via: Exclude<Via, "autre">): string {
+  return `${url}${url.includes("?") ? "&" : "?"}via=${via}`;
+}
+
+/** Le `?via=` que posent nos propres liens ; tout le reste est « autre ». */
+export function lireVia(param: string | null | undefined): Via {
+  return VIAS.includes(param as Via) ? (param as Via) : "autre";
+}
+
+// ---- La lecture -----------------------------------------------------------------
+
+/** Une session telle que le serveur la lit (lib/audience-serveur). */
+export interface SessionLue {
+  jour: string;
+  vues: number;
+  minutes: number[];
+  via: Via;
+  connecte: boolean;
+  /** Le dernier signe de vie, en millisecondes. */
+  derniereMs: number | null;
+}
+
+/** Une session écrite par un navigateur, relue sans lui faire confiance. */
+export function lireSession(brut: Record<string, unknown>): SessionLue | null {
+  const jour = typeof brut.jour === "string" && /^[0-9]{8}$/.test(brut.jour) ? brut.jour : null;
+  if (!jour) return null;
+  const minutes = Array.isArray(brut.minutes)
+    ? brut.minutes.filter((m): m is number => Number.isInteger(m)).slice(0, MINUTES_MAX)
+    : [];
+  const derniere = brut.derniere as { toMillis?: () => number } | null | undefined;
+  return {
+    jour,
+    vues: Number.isInteger(brut.vues) && (brut.vues as number) > 0 ? (brut.vues as number) : 1,
+    minutes,
+    via: lireVia(typeof brut.via === "string" ? brut.via : null),
+    connecte: brut.connecte === true,
+    derniereMs: typeof derniere?.toMillis === "function" ? derniere.toMillis() : null,
+  };
+}
+
+export interface JourDeVisites {
+  jour: string;
+  visites: number;
+  vues: number;
+}
+
+/** Visites et vues jour par jour, dans l'ordre. */
+export function visitesParJour(sessions: SessionLue[]): JourDeVisites[] {
+  const parJour = new Map<string, JourDeVisites>();
+  for (const s of sessions) {
+    const j = parJour.get(s.jour) ?? { jour: s.jour, visites: 0, vues: 0 };
+    j.visites += 1;
+    j.vues += s.vues;
+    parJour.set(s.jour, j);
+  }
+  return [...parJour.values()].sort((a, b) => a.jour.localeCompare(b.jour));
+}
+
+export interface PointDeCourbe {
+  /** Minute du mur, voir `minuteDe`. */
+  minute: number;
+  /** Appareils dont la page était visible pendant cette minute. */
+  spectateurs: number;
+}
+
+/**
+ * La courbe d'un direct, minute par minute. Une minute sans personne au
+ * milieu du match y figure à zéro : un trou dans la courbe dit quelque chose.
+ */
+export function courbe(sessions: SessionLue[]): PointDeCourbe[] {
+  const parMinute = new Map<number, number>();
+  for (const s of sessions) {
+    for (const m of new Set(s.minutes)) parMinute.set(m, (parMinute.get(m) ?? 0) + 1);
+  }
+  if (parMinute.size === 0) return [];
+  const minutes = [...parMinute.keys()];
+  const debut = Math.min(...minutes);
+  const fin = Math.max(...minutes);
+  const points: PointDeCourbe[] = [];
+  for (let m = debut; m <= fin; m++) points.push({ minute: m, spectateurs: parMinute.get(m) ?? 0 });
+  return points;
+}
+
+/** Le pic de spectateurs simultanés, et sa première minute. */
+export function pic(points: PointDeCourbe[]): PointDeCourbe | null {
+  let meilleur: PointDeCourbe | null = null;
+  for (const p of points) if (p.spectateurs > 0 && (!meilleur || p.spectateurs > meilleur.spectateurs)) meilleur = p;
+  return meilleur;
+}
+
+/** Le temps moyen passé sur un direct, en minutes, parmi ceux qui l'ont suivi. */
+export function tempsMoyen(sessions: SessionLue[]): number {
+  const suivis = sessions.map((s) => new Set(s.minutes).size).filter((n) => n > 0);
+  if (suivis.length === 0) return 0;
+  return Math.round((suivis.reduce((a, b) => a + b, 0) / suivis.length) * 10) / 10;
+}
+
+/**
+ * Les spectateurs du moment : ceux dont la dernière minute de direct est
+ * récente. La minute et non le dernier signe de vie : rouvrir la fiche d'un
+ * match fini fait un signe de vie, pas un spectateur.
+ */
+export function spectateursMaintenant(sessions: SessionLue[], maintenantMs: number = Date.now()): number {
+  const seuil = minuteDe(maintenantMs - FENETRE_MAINTENANT_MS);
+  return sessions.filter((s) => s.minutes.length > 0 && Math.max(...s.minutes) >= seuil).length;
+}
+
+export interface ResumeAudience {
+  visites: number;
+  vues: number;
+  parJour: JourDeVisites[];
+  provenance: Record<Via, number>;
+  /** Visites faites avec un compte connecté. */
+  connectees: number;
+  courbe: PointDeCourbe[];
+  pic: PointDeCourbe | null;
+  tempsMoyenMin: number;
+}
+
+/** Tout ce qu'un écran ou un rapport montre d'une cible, à partir de ses sessions. */
+export function resumer(sessions: SessionLue[]): ResumeAudience {
+  const provenance = Object.fromEntries(VIAS.map((v) => [v, 0])) as Record<Via, number>;
+  for (const s of sessions) provenance[s.via] += 1;
+  const points = courbe(sessions);
+  return {
+    visites: sessions.length,
+    vues: sessions.reduce((a, s) => a + s.vues, 0),
+    parJour: visitesParJour(sessions),
+    provenance,
+    connectees: sessions.filter((s) => s.connecte).length,
+    courbe: points,
+    pic: pic(points),
+    tempsMoyenMin: tempsMoyen(sessions),
+  };
+}
+
+/** Le premier jour d'une période d'affichage, `null` pour « depuis le début ». */
+export type Periode = "7j" | "30j" | "tout";
+export function lirePeriode(brut: string | null | undefined): Periode {
+  return brut === "7j" || brut === "tout" ? brut : "30j";
+}
+export function debutDePeriode(periode: Periode, aujourdhui: string = jourAudience()): string | null {
+  if (periode === "tout") return null;
+  return jourMoins(aujourdhui, periode === "7j" ? 6 : 29);
+}

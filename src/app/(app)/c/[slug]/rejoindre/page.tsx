@@ -9,6 +9,8 @@ import CompetitionJoinCta from "@/components/competition/CompetitionJoinCta";
 import { LOCALE, type Langue } from "@/i18n/config";
 import { textes } from "@/i18n/textes";
 import { langueServeur } from "@/i18n/serveur";
+import { MesureAudience } from "@/lib/audience-client";
+import { cibleCompetition } from "@/lib/audience";
 
 // ============================================
 // The join page, the link an organizer sends to fill a competition.
@@ -142,6 +144,8 @@ export default async function JoinCompetitionPage({ params }: PageProps<"/c/[slu
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      {/* Une page de la compétition : elle compte dans son audience (lib/audience). */}
+      <MesureAudience cible={cibleCompetition(competition.id)} />
       {/* ---- Affiche ---- */}
       <div className="relative overflow-hidden">
         {competition.bannerUrl ? (
