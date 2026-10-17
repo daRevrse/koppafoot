@@ -15,6 +15,12 @@
 // la barre avancer entre deux ecritures : il refait le meme calcul, a la
 // seconde pres, sans rien demander au serveur.
 //
+// LES PASSES VIVENT ICI AUSSI, et pour la meme raison. Le scoreur les tape sur
+// la meme bascule : un appui sur le camp qui a DEJA le ballon ne change rien a
+// la possession, c'est une passe de plus. Deux compteurs, ecrits avec la
+// possession dans la meme fenetre — jamais un evenement par passe, il y en a
+// trois ou quatre cents dans un match.
+//
 // LE CHRONO DU MATCH FAIT AUTORITE. Une possession ne court que pendant le
 // jeu : a la mi-temps, sur une blessure, apres le coup de sifflet final, le
 // segment en cours est clos et rien ne s'accumule. Sans cette regle, une
@@ -34,6 +40,12 @@ export interface PossessionStockee {
    * c'est ce qui empeche la possession de courir a la mi-temps.
    */
   since: string | null;
+  /**
+   * Les passes comptees, par camp. Absentes des matchs joues avant qu'on les
+   * compte : elles se lisent alors comme zero, et la ligne ne s'affiche pas.
+   */
+  home_passes?: number;
+  away_passes?: number;
 }
 
 /** La meme chose, dans le vocabulaire du reste de l'application. */
@@ -42,10 +54,12 @@ export interface Possession {
   awayMs: number;
   side: "home" | "away" | null;
   since: string | null;
+  homePasses: number;
+  awayPasses: number;
 }
 
 export const POSSESSION_VIDE: Possession = {
-  homeMs: 0, awayMs: 0, side: null, since: null,
+  homeMs: 0, awayMs: 0, side: null, since: null, homePasses: 0, awayPasses: 0,
 };
 
 export function versPossession(d: PossessionStockee | null | undefined): Possession {
@@ -55,6 +69,8 @@ export function versPossession(d: PossessionStockee | null | undefined): Possess
     awayMs: d.away_ms ?? 0,
     side: d.side ?? null,
     since: d.since ?? null,
+    homePasses: d.home_passes ?? 0,
+    awayPasses: d.away_passes ?? 0,
   };
 }
 
@@ -64,6 +80,8 @@ export function versStockage(p: Possession): PossessionStockee {
     away_ms: Math.round(p.awayMs),
     side: p.side,
     since: p.since,
+    home_passes: p.homePasses,
+    away_passes: p.awayPasses,
   };
 }
 
@@ -163,6 +181,7 @@ export function basculer(
   if (side === p.side) return p;
   const { homeMs, awayMs } = totauxPossession(p, chronoTourne, maintenant);
   return {
+    ...p,
     homeMs,
     awayMs,
     side,
@@ -175,11 +194,58 @@ export function basculer(
 /** L'horloge s'arrete : le segment en cours est clos, le camp est retenu. */
 export function suspendre(p: Possession, maintenant: number = Date.now()): Possession {
   const { homeMs, awayMs } = totauxPossession(p, true, maintenant);
-  return { homeMs, awayMs, side: p.side, since: null };
+  return { ...p, homeMs, awayMs, since: null };
 }
 
 /** L'horloge repart : le camp retenu reprend son decompte. */
 export function reprendre(p: Possession, maintenant: number = Date.now()): Possession {
   if (!p.side) return { ...p, since: null };
   return { ...p, since: new Date(maintenant).toISOString() };
+}
+
+/**
+ * L'ecart en dessous duquel deux appuis sur le meme camp ne font qu'une passe.
+ *
+ * UN DOIGT QUI TREMBLE N'EST PAS UNE PASSE. Sur un ecran de telephone tenu
+ * debout au bord du terrain, un appui ferme en donne parfois deux a quelques
+ * centiemes d'ecart. Une demi-seconde reste en dessous de la passe la plus
+ * rapide qu'un scoreur puisse suivre : une remise en une touche, vue puis
+ * tapee, prend deja plus que ca.
+ */
+export const ECART_MIN_PASSE_MS = 500;
+
+/**
+ * Le nombre de passes a partir duquel la ligne « Passes » s'affiche, EN PUBLIC.
+ *
+ * Une dizaine, pour la meme raison que le seuil de la possession : « Passes
+ * 2 – 0 » ne raconte pas le match, il raconte un scoreur qui a touche deux
+ * fois la bascule. La console, elle, montre la ligne des la premiere passe —
+ * le scoreur verifie que son geste compte.
+ */
+export const SEUIL_PUBLIC_PASSES = 10;
+
+/**
+ * Un appui sur la moitie de terrain de `side`.
+ *
+ * Sur l'autre camp, le ballon change de camp (voir basculer). Sur le camp qui
+ * l'a deja, c'est une passe de plus pour lui — ballon en jeu seulement : apres
+ * un but, a la mi-temps ou sur un arret, l'appui ne compte rien.
+ *
+ * `dernierAppui` est l'heure du dernier appui RETENU (une bascule ou une
+ * passe), pas du dernier appui tout court : une rafale de tremblements ne doit
+ * pas repousser indefiniment la passe suivante. Voir ECART_MIN_PASSE_MS.
+ */
+export function appuyer(
+  p: Possession,
+  side: "home" | "away",
+  ballonEnJeu: boolean,
+  maintenant: number = Date.now(),
+  dernierAppui: number | null = null,
+): Possession {
+  if (side !== p.side) return basculer(p, side, ballonEnJeu, maintenant);
+  if (!ballonEnJeu) return p;
+  if (dernierAppui !== null && maintenant - dernierAppui < ECART_MIN_PASSE_MS) return p;
+  return side === "home"
+    ? { ...p, homePasses: p.homePasses + 1 }
+    : { ...p, awayPasses: p.awayPasses + 1 };
 }

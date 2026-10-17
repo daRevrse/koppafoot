@@ -15,7 +15,7 @@
 
 import type { TypeEvenement } from "@/lib/evenements";
 import { OWN_GOAL_DETAIL, PENALTY_FOUL_DETAIL } from "@/lib/evenements";
-import { partPossession, SEUIL_PUBLIC_MS, type Possession } from "@/lib/possession";
+import { partPossession, SEUIL_PUBLIC_MS, SEUIL_PUBLIC_PASSES, type Possession } from "@/lib/possession";
 
 /** L'evenement tel que les deux fiches et la console le tiennent. */
 export interface FaitCompte {
@@ -75,6 +75,12 @@ export function lignesStats(
    * conclu, a raison, que quelque chose ne marche pas.
    */
   seuilMs: number = SEUIL_PUBLIC_MS,
+  /**
+   * Le nombre de passes, les deux camps ensemble, a partir duquel la ligne
+   * « Passes » s'affiche. La console passe zero, pour la meme raison que
+   * `seuilMs`. Voir SEUIL_PUBLIC_PASSES.
+   */
+  seuilPasses: number = SEUIL_PUBLIC_PASSES,
 ): LigneStat[] {
   const compte = (type: TypeEvenement, teamId: string | null) =>
     faits.filter((e) => e.type === type && e.teamId === teamId).length;
@@ -143,6 +149,13 @@ export function lignesStats(
     ? partPossession(possession, chronoTourne, Date.now(), seuilMs)
     : null;
 
+  // LES PASSES VIENNENT DE LA BASCULE, pas des evenements : voir appuyer
+  // (lib/possession). Sous le seuil, la ligne disparait — elle n'est pas
+  // « 0 – 0 », elle n'a pas ete tenue.
+  const passes = possession && possession.homePasses + possession.awayPasses >= Math.max(1, seuilPasses)
+    ? { home: possession.homePasses, away: possession.awayPasses }
+    : null;
+
   const lignes: LigneStat[] = [
     // Le score vient du tableau d'affichage, JAMAIS de la somme des buts d'une
     // equipe : un but contre son camp est porte par celle qui le concede.
@@ -158,6 +171,10 @@ export function lignesStats(
     },
     { cle: "cadres", label: "Tirs cadrés", home: cadresHome, away: cadresAway },
     paire("arrets", "Arrêts", "save"),
+    // Apres les tirs, en tete de ce qui raconte le rythme. Jamais en pour
+    // cent de passes reussies : un changement de camp n'est pas toujours une
+    // passe ratee — une touche, une faute, un tir arrete le changent aussi.
+    ...(passes ? [{ cle: "passes", label: "Passes", home: passes.home, away: passes.away }] : []),
     paire("corners", "Corners", "corner"),
     paire("penaltys", "Penaltys obtenus", "penalty"),
     {
@@ -183,7 +200,7 @@ export function lignesStats(
  * Y a-t-il de quoi montrer un onglet Stats ?
  *
  * Le score seul ne suffit pas : « Buts 0 – 0 » est un onglet vide deguise.
- * Il faut au moins un fait saisi, ou une possession mesuree.
+ * Il faut au moins un fait saisi, une possession mesuree, ou assez de passes.
  */
 export function aDesStats(
   faits: FaitCompte[],
@@ -191,5 +208,6 @@ export function aDesStats(
   chronoTourne: boolean,
 ): boolean {
   if (possession && partPossession(possession, chronoTourne)) return true;
+  if (possession && possession.homePasses + possession.awayPasses >= SEUIL_PUBLIC_PASSES) return true;
   return faits.some((e) => e.type !== "period_start" && e.type !== "period_end");
 }

@@ -1407,6 +1407,8 @@ export async function setCompPossession(
     "live_state.possession.away_ms": p.away_ms,
     "live_state.possession.side": p.side,
     "live_state.possession.since": p.since,
+    "live_state.possession.home_passes": p.home_passes ?? 0,
+    "live_state.possession.away_passes": p.away_passes ?? 0,
     updated_at: serverTimestamp(),
   });
 }

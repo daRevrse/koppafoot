@@ -176,6 +176,10 @@ function Pelouse({
    * geste rare — un ballon qui n'est a personne est une situation, pas une
    * action de jeu.
    *
+   * L'HERBE DU CAMP QUI A DEJA LE BALLON COMPTE UNE PASSE. Le geste ne
+   * changeait rien, il devient le compteur : le ballon reste ou il est, et son
+   * camp a fait une passe de plus. Voir `appuyer` (lib/possession).
+   *
    * Et c'est bien la PELOUSE, pas le camp : les onze pastilles gardent leur
    * appui a elles. C'est ce qui separe ce geste de celui qu'on avait ecarte
    * — voir TerrainsFaceAFace.
@@ -409,7 +413,8 @@ function Pelouse({
  * ELLE DONNE, ELLE NE BASCULE PAS. La pastille du bandeau, elle, bascule :
  * un second appui retire le ballon a tout le monde. L'herbe ne sait dire
  * qu'une chose — « il est de ce cote » — et c'est ce qu'on veut d'un geste
- * qu'on fait vingt fois par mi-temps sans regarder.
+ * qu'on fait vingt fois par mi-temps sans regarder. Sur le camp qui a deja le
+ * ballon, elle dit « encore une passe », et le compteur du bandeau monte.
  *
  * CE QUI REND LE GESTE SUR : la moitie qui attend s'assombrit (voir
  * `PELOUSE_EN_ATTENTE`). Un appui parti trop loin se voit donc a l'instant ou
@@ -419,7 +424,7 @@ function Pelouse({
  * pas propose.
  */
 export default function TerrainsFaceAFace({
-  home, away, jaunes, ballon, parts, ballonActif, onBallon, onJoueur, actions,
+  home, away, jaunes, ballon, parts, passes = null, ballonActif, onBallon, onJoueur, actions,
   aGauche = "home", attente = null,
 }: {
   home: CoteTerrain;
@@ -430,6 +435,12 @@ export default function TerrainsFaceAFace({
   ballon: Cote | null;
   /** Les parts de possession à l'instant, `null` tant que rien n'est mesuré. */
   parts: { home: number; away: number } | null;
+  /**
+   * Les passes comptees, par camp. Un appui sur l'herbe du camp qui a le
+   * ballon en ajoute une : sans ce chiffre sous les yeux, le geste serait
+   * muet, et le scoreur ne saurait pas s'il compte.
+   */
+  passes?: { home: number; away: number } | null;
   /** Faux quand le chrono ne tourne pas : rien ne s'accumule, la pastille le dit. */
   ballonActif: boolean;
   onBallon: (c: Cote | null) => void;
@@ -476,6 +487,7 @@ export default function TerrainsFaceAFace({
         // moities gardent le vert d'avant. Voir PELOUSE_EN_ATTENTE.
         const enAttente = ballon !== null && !aLeBallon;
         const part = parts ? (k === "home" ? parts.home : parts.away) : null;
+        const nbPasses = passes ? (k === "home" ? passes.home : passes.away) : 0;
 
         return (
           <section
@@ -537,6 +549,13 @@ export default function TerrainsFaceAFace({
                 <span className="min-w-0 truncate text-[11px] font-black uppercase tracking-wide text-white">
                   {e.name}
                 </span>
+                {/* Vers le milieu, comme le nom : le nom se tronque, le
+                    compteur jamais. */}
+                {nbPasses > 0 && (
+                  <span className="shrink-0 text-[9px] font-bold tabular-nums text-white/50">
+                    {nbPasses} {nbPasses > 1 ? "passes" : "passe"}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -579,8 +598,8 @@ export default function TerrainsFaceAFace({
                   }
                   enAttente={enAttente}
                   // DONNER, et non basculer : voir `onPelouse`. Un appui sur
-                  // l'herbe du camp qui tient deja le ballon ne fait donc
-                  // rien, ce dont `basculer` se charge (lib/possession).
+                  // l'herbe du camp qui tient deja le ballon compte une
+                  // passe, ce dont `appuyer` se charge (lib/possession).
                   onPelouse={() => onBallon(k)}
                 />
               </div>
