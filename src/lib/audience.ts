@@ -41,6 +41,15 @@ export function jourLisible(jour: string): string {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 }
 
+/**
+ * Un nombre à la française, une décimale au plus : « 62,3 », « 1 284 ». Les
+ * espaces insécables deviennent des espaces simples : le rapport PDF n'a pas
+ * leur glyphe dans la police Outfit.
+ */
+export function nombreFr(x: number): string {
+  return x.toLocaleString("fr-FR", { maximumFractionDigits: 1 }).replace(/[  ]/g, " ");
+}
+
 /** « 16:42 », l'heure de Lomé d'une minute du mur. */
 export function heureDeMinute(minute: number): string {
   return new Date(minute * 60_000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });

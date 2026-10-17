@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, Loader2, Radio } from "lucide-react";
 import { useAdminApi } from "@/hooks/useAdminApi";
-import { heureDeMinute, type AudienceDeCompetition, type AudienceDeMatch, type Periode } from "@/lib/audience";
+import { heureDeMinute, nombreFr, type AudienceDeCompetition, type AudienceDeMatch, type Periode } from "@/lib/audience";
 import { BarresParJour, CeQueCaCompte, CourbeDuDirect, Provenance } from "@/components/audience/Graphiques";
 
 // ============================================
@@ -91,16 +91,16 @@ export default function PanneauAudienceCompetition({
       )}
 
       <div className="grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-3">
-        <Tuile libelle="Visites des pages" valeur={t.visitesPages} />
-        <Tuile libelle="Visites des matchs" valeur={t.visitesMatchs} />
+        <Tuile libelle="Visites des pages" valeur={nombreFr(t.visitesPages)} />
+        <Tuile libelle="Visites des matchs" valeur={nombreFr(t.visitesMatchs)} />
         <Tuile
           libelle="Pic de spectateurs simultanés"
-          valeur={t.pic?.spectateurs ?? 0}
+          valeur={nombreFr(t.pic?.spectateurs ?? 0)}
           detail={t.pic ? `${t.pic.affiche}, à ${heureDeMinute(t.pic.minute)}` : "Aucun direct suivi"}
         />
-        <Tuile libelle="Temps moyen sur un direct" valeur={`${t.tempsMoyenMin} min`} />
+        <Tuile libelle="Temps moyen sur un direct" valeur={`${nombreFr(t.tempsMoyenMin)} min`} />
         <Tuile libelle="Venues de l'appli" valeur={pourcent(t.partAppli)} detail={`${pourcent(t.partConnectee)} avec un compte`} />
-        <Tuile libelle="Abonnés" valeur={t.abonnes} detail="aujourd'hui" />
+        <Tuile libelle="Abonnés" valeur={nombreFr(t.abonnes)} detail="aujourd'hui" />
       </div>
 
       <Section titre="Visites par jour">
@@ -131,8 +131,8 @@ export default function PanneauAudienceCompetition({
                     </p>
                   </div>
                   <div className="hidden shrink-0 text-right text-xs tabular-nums text-gray-500 sm:block">
-                    <p><span className="font-bold text-gray-900">{m.visites}</span> visites</p>
-                    <p>{m.tempsMoyenMin} min en moyenne</p>
+                    <p><span className="font-bold text-gray-900">{nombreFr(m.visites)}</span> visites</p>
+                    <p>{nombreFr(m.tempsMoyenMin)} min en moyenne</p>
                   </div>
                   <div className="w-20 shrink-0 text-right">
                     <p className="text-sm font-black tabular-nums text-gray-900">{m.pic?.spectateurs ?? 0}</p>

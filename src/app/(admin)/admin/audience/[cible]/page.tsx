@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useAdminApi } from "@/hooks/useAdminApi";
 import { Carte, Chargement, Chiffre, EnTete, Erreur } from "@/components/admin/ui";
-import { DEBUT_MESURE, heureDeMinute, type AudienceDeMatch } from "@/lib/audience";
+import { DEBUT_MESURE, heureDeMinute, nombreFr, type AudienceDeMatch } from "@/lib/audience";
 import { CeQueCaCompte, CourbeDuDirect, Provenance } from "@/components/audience/Graphiques";
 
 // ============================================
@@ -36,7 +36,7 @@ export default function AudienceDUnMatch() {
       <div className="grid grid-cols-2 gap-px border border-gray-200/70 bg-gray-200/70 sm:grid-cols-4">
         <Chiffre valeur={r.visites} libelle="Visites" detail={`${r.vues} vues`} />
         <Chiffre valeur={r.pic?.spectateurs ?? 0} libelle="Pic simultané" detail={r.pic ? `à ${heureDeMinute(r.pic.minute)}` : undefined} />
-        <Chiffre valeur={`${r.tempsMoyenMin} min`} libelle="Temps moyen en direct" />
+        <Chiffre valeur={`${nombreFr(r.tempsMoyenMin)} min`} libelle="Temps moyen en direct" />
         <Chiffre valeur={data.maintenant} libelle="Maintenant" detail={data.statut === "live" ? "en direct" : "match non commencé ou fini"} />
       </div>
       <Carte className="p-4">
