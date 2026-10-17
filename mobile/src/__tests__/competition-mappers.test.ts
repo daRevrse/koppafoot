@@ -27,7 +27,18 @@ describe("toCompMatch, l'horloge du direct", () => {
     const m = toCompMatch("m", brut({
       possession: { home_ms: 120_000, away_ms: 60_000, side: "home", since: null },
     }));
-    expect(m.liveState?.possession).toEqual({ homeMs: 120_000, awayMs: 60_000, side: "home", since: null });
+    // Un match d'avant le comptage des passes : elles se lisent comme zéro.
+    expect(m.liveState?.possession).toEqual({
+      homeMs: 120_000, awayMs: 60_000, side: "home", since: null, homePasses: 0, awayPasses: 0,
+    });
+  });
+
+  it("relit les passes", () => {
+    const m = toCompMatch("m", brut({
+      possession: { home_ms: 0, away_ms: 0, side: "away", since: null, home_passes: 41, away_passes: 17 },
+    }));
+    expect(m.liveState?.possession?.homePasses).toBe(41);
+    expect(m.liveState?.possession?.awayPasses).toBe(17);
   });
 
   it("relit le temps additionnel annoncé", () => {

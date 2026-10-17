@@ -1363,6 +1363,26 @@ export async function initLiveCompMatch(cid: string, mid: string): Promise<void>
 }
 
 /**
+ * LE DIRECT SE REFERME, AVANT LE COUP D'ENVOI : le scoreur retourne aux
+ * feuilles. Le match redevient ce qu'il etait avant `initLiveCompMatch` — a
+ * venir, sans score ni etat du direct —, et les feuilles restent telles
+ * qu'elles ont ete validees : c'est pour les retoucher qu'on revient.
+ *
+ * La console ne le propose que tant que personne n'a engage, chrono jamais
+ * parti et aucun fait saisi : il n'y a rien a perdre. Meme remise a zero que
+ * le bac a sable (voir /api/live-training).
+ */
+export async function rouvrirFeuillesCompMatch(cid: string, mid: string): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    status: "scheduled",
+    live_state: null,
+    score_home: null,
+    score_away: null,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
  * Start (or resume) the match clock. Mirrors `startMatchTimer` exactly:
  * `timer_start_at` is stored as an ISO string so the live view's
  * `new Date(timerStartAt).getTime()` resolves correctly.
@@ -1407,6 +1427,8 @@ export async function setCompPossession(
     "live_state.possession.away_ms": p.away_ms,
     "live_state.possession.side": p.side,
     "live_state.possession.since": p.since,
+    "live_state.possession.home_passes": p.home_passes ?? 0,
+    "live_state.possession.away_passes": p.away_passes ?? 0,
     updated_at: serverTimestamp(),
   });
 }

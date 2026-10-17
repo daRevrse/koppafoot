@@ -6,6 +6,7 @@ import {
   heureDeMinute, jourAudience, jourLisible, nombreFr,
   type AudienceDeCompetition, type AudienceDeMatch,
 } from "@/lib/audience";
+import { couvertureLisible, parMatchLisible, titreDuRecord, type StatsDeJeu } from "@/lib/stats-competition";
 
 // ============================================
 // Le rapport d'audience d'une compétition, en PDF.
@@ -13,6 +14,11 @@ import {
 // L'organisateur l'envoie tel quel à un sponsor, sur WhatsApp : une page A4,
 // lisible sans personne pour l'expliquer — et sans y voir plus qu'il ne dit,
 // d'où le pied de page sur ce que les chiffres comptent.
+//
+// UNE SECONDE PAGE, LE JEU : les totaux des matchs et leurs records
+// (lib/stats-competition), les mêmes que l'onglet « Le jeu » de l'espace
+// organisateur. Un sponsor demande combien de gens ont regardé, puis ce
+// qu'ils ont vu.
 //
 // DESSINÉ PAR pdf-lib, sans navigateur ni capture d'écran : rectangles,
 // lignes et texte, à partir des mêmes séries que l'écran (lib/audience-serveur).
@@ -100,6 +106,94 @@ const periodeLisible = (a: AudienceDeCompetition) =>
 
 function titreDeSection(page: PDFPage, p: Polices, texte: string, y: number) {
   page.drawText(texte.toLocaleUpperCase("fr-FR"), { x: MARGE, y, size: 9, font: p.noire, color: ENCRE });
+}
+
+/** L'en-tête d'une page : le logo, le surtitre, le nom, une ligne de contexte, la marque. */
+function enTete(
+  page: PDFPage, p: Polices,
+  { surtitre, nom, sousTitre, logo, marque }: {
+    surtitre: string; nom: string; sousTitre: string; logo: PDFImage | null; marque: PDFImage | null;
+  },
+) {
+  const y = HAUTEUR - MARGE;
+  let xTitre = MARGE;
+  if (logo) {
+    const t = logo.scaleToFit(46, 46);
+    page.drawImage(logo, { x: MARGE, y: y - 46, width: t.width, height: t.height });
+    xTitre = MARGE + 58;
+  }
+  if (marque) {
+    const t = marque.scaleToFit(96, 22);
+    page.drawImage(marque, { x: LARGEUR - MARGE - t.width, y: y - t.height, width: t.width, height: t.height });
+  }
+  page.drawText(surtitre, { x: xTitre, y: y - 9, size: 8, font: p.noire, color: MATCHS });
+  page.drawText(tenir(nom, p.noire, 20, LARGEUR - MARGE - xTitre - 110), { x: xTitre, y: y - 30, size: 20, font: p.noire, color: ENCRE });
+  page.drawText(tenir(sousTitre, p.moyenne, 9.5, LARGEUR - MARGE - xTitre), { x: xTitre, y: y - 45, size: 9.5, font: p.moyenne, color: GRIS });
+}
+
+/** Ce que les chiffres comptent, puis la date du rapport. */
+function piedDePage(page: PDFPage, p: Polices, note: string) {
+  let yNote = MARGE + 30;
+  page.drawLine({ start: { x: MARGE, y: yNote + 12 }, end: { x: LARGEUR - MARGE, y: yNote + 12 }, thickness: 0.5, color: TRAIT });
+  for (const ligne of couper(note, p.moyenne, 7, LARGEUR - 2 * MARGE)) {
+    page.drawText(ligne, { x: MARGE, y: yNote, size: 7, font: p.moyenne, color: GRIS_CLAIR });
+    yNote -= 9.5;
+  }
+  const genere = `Généré le ${jourLisible(jourAudience())} · koppafoot.com`;
+  page.drawText(genere, { x: MARGE, y: MARGE - 8, size: 7, font: p.grasse, color: GRIS });
+}
+
+/**
+ * LA PAGE DU JEU : les totaux en tuiles, quatre par ligne, puis le match qui
+ * détient chaque record. La phrase de couverture en sous-titre, avant tout
+ * chiffre — voir couvertureLisible.
+ */
+function pageDuJeu(
+  page: PDFPage, p: Polices, a: AudienceDeCompetition, jeu: StatsDeJeu,
+  logo: PDFImage | null, marque: PDFImage | null,
+) {
+  enTete(page, p, { surtitre: "LE JEU", nom: a.nom, sousTitre: couvertureLisible(jeu), logo, marque });
+  let y = HAUTEUR - MARGE - 70;
+
+  titreDeSection(page, p, "Les totaux", y);
+  y -= 12;
+  const parLigne = 4;
+  const lTuile = (LARGEUR - 2 * MARGE - (parLigne - 1) * 8) / parLigne;
+  const hTuile = 56;
+  jeu.totaux.forEach((t, i) => {
+    const x = MARGE + (i % parLigne) * (lTuile + 8);
+    const yt = y - Math.floor(i / parLigne) * (hTuile + 8);
+    page.drawRectangle({ x, y: yt - hTuile, width: lTuile, height: hTuile, color: FOND });
+    page.drawText(nombreFr(t.total), { x: x + 10, y: yt - 26, size: 20, font: p.noire, color: ENCRE });
+    page.drawText(tenir(t.label, p.moyenne, 8, lTuile - 20), { x: x + 10, y: yt - 39, size: 8, font: p.moyenne, color: GRIS });
+    page.drawText(`${parMatchLisible(t.parMatch)} par match`, { x: x + 10, y: yt - 49, size: 7, font: p.moyenne, color: GRIS_CLAIR });
+  });
+  y -= Math.ceil(jeu.totaux.length / parLigne) * (hTuile + 8) + 26;
+
+  if (jeu.records.length > 0) {
+    titreDeSection(page, p, "Les records", y);
+    y -= 16;
+    const colonnes = [
+      { titre: "Record", x: MARGE, l: 150 },
+      { titre: "Match", x: MARGE + 160, l: 290 },
+    ];
+    for (const c of colonnes) page.drawText(c.titre, { x: c.x, y, size: 7.5, font: p.grasse, color: GRIS_CLAIR });
+    const titreNombre = "Nombre";
+    page.drawText(titreNombre, { x: LARGEUR - MARGE - p.grasse.widthOfTextAtSize(titreNombre, 7.5), y, size: 7.5, font: p.grasse, color: GRIS_CLAIR });
+    y -= 6;
+    for (const r of jeu.records) {
+      if (y < MARGE + 70) break;
+      page.drawLine({ start: { x: MARGE, y }, end: { x: LARGEUR - MARGE, y }, thickness: 0.5, color: TRAIT });
+      y -= 13;
+      page.drawText(tenir(titreDuRecord(r.label), p.moyenne, 8.5, colonnes[0].l), { x: colonnes[0].x, y, size: 8.5, font: p.moyenne, color: GRIS });
+      page.drawText(tenir(r.affiche, p.grasse, 8.5, colonnes[1].l), { x: colonnes[1].x, y, size: 8.5, font: p.grasse, color: ENCRE });
+      const n = nombreFr(r.n);
+      page.drawText(n, { x: LARGEUR - MARGE - p.noire.widthOfTextAtSize(n, 9), y, size: 9, font: p.noire, color: MATCHS });
+      y -= 6;
+    }
+  }
+
+  piedDePage(page, p, "Les totaux additionnent les fiches des matchs, calculées comme sur KoppaFoot. Les buts comptent tous les matchs joués, au score ; le reste, les matchs suivis en direct sur la console, et les tirs les seuls matchs où des tirs ont été saisis. Les matchs d'exhibition et les forfaits ne comptent pas. Un record demande au moins deux faits.");
 }
 
 function barresParJour(page: PDFPage, p: Polices, a: AudienceDeCompetition, haut: number, hauteur: number) {
@@ -192,11 +286,17 @@ function courbe(page: PDFPage, p: Polices, m: AudienceDeMatch, haut: number, hau
 
 /**
  * Le rapport. `plusSuivi` : l'audience détaillée du match au plus haut pic,
- * pour sa courbe ; `null` quand aucun direct n'a été suivi.
+ * pour sa courbe ; `null` quand aucun direct n'a été suivi. `jeu` : les
+ * statistiques de jeu, sur une seconde page ; aucune avant le premier match
+ * joué.
  */
-export async function rapportAudience(a: AudienceDeCompetition, plusSuivi: AudienceDeMatch | null): Promise<Uint8Array> {
+export async function rapportAudience(
+  a: AudienceDeCompetition,
+  plusSuivi: AudienceDeMatch | null,
+  jeu: StatsDeJeu | null = null,
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`Audience · ${a.nom}`);
+  doc.setTitle(`Statistiques · ${a.nom}`);
   doc.setAuthor("KoppaFoot");
   doc.setCreator("KoppaFoot");
   const p = await lirePolices(doc);
@@ -208,20 +308,8 @@ export async function rapportAudience(a: AudienceDeCompetition, plusSuivi: Audie
   let y = HAUTEUR - MARGE;
 
   // ---- L'en-tête
-  let xTitre = MARGE;
-  if (logo) {
-    const t = logo.scaleToFit(46, 46);
-    page.drawImage(logo, { x: MARGE, y: y - 46, width: t.width, height: t.height });
-    xTitre = MARGE + 58;
-  }
-  if (marque) {
-    const t = marque.scaleToFit(96, 22);
-    page.drawImage(marque, { x: LARGEUR - MARGE - t.width, y: y - t.height, width: t.width, height: t.height });
-  }
-  page.drawText("RAPPORT D'AUDIENCE", { x: xTitre, y: y - 9, size: 8, font: p.noire, color: MATCHS });
-  page.drawText(tenir(a.nom, p.noire, 20, LARGEUR - MARGE - xTitre - 110), { x: xTitre, y: y - 30, size: 20, font: p.noire, color: ENCRE });
   const sousTitre = [a.organisateur ? `Organisé par ${a.organisateur}` : null, `Audience ${periodeLisible(a)}`].filter(Boolean).join(" · ");
-  page.drawText(tenir(sousTitre, p.moyenne, 9.5, LARGEUR - MARGE - xTitre), { x: xTitre, y: y - 45, size: 9.5, font: p.moyenne, color: GRIS });
+  enTete(page, p, { surtitre: "RAPPORT D'AUDIENCE", nom: a.nom, sousTitre, logo, marque });
   y -= 70;
 
   // ---- Les chiffres clés, trois par ligne
@@ -297,15 +385,9 @@ export async function rapportAudience(a: AudienceDeCompetition, plusSuivi: Audie
   }
 
   // ---- Ce que les chiffres comptent
-  const note = `Mesuré par KoppaFoot depuis le ${jourLisible(a.depuis)}. On compte des appareils, pas des personnes : une visite est un appareil, un jour, une page. Un spectateur en direct est un appareil dont la page du match était à l'écran pendant la minute ; un écran éteint ou un onglet en arrière-plan ne compte pas. Aucune donnée personnelle n'est utilisée.`;
-  let yNote = MARGE + 30;
-  page.drawLine({ start: { x: MARGE, y: yNote + 12 }, end: { x: LARGEUR - MARGE, y: yNote + 12 }, thickness: 0.5, color: TRAIT });
-  for (const ligne of couper(note, p.moyenne, 7, LARGEUR - 2 * MARGE)) {
-    page.drawText(ligne, { x: MARGE, y: yNote, size: 7, font: p.moyenne, color: GRIS_CLAIR });
-    yNote -= 9.5;
-  }
-  const genere = `Généré le ${jourLisible(jourAudience())} · koppafoot.com`;
-  page.drawText(genere, { x: MARGE, y: MARGE - 8, size: 7, font: p.grasse, color: GRIS });
+  piedDePage(page, p, `Mesuré par KoppaFoot depuis le ${jourLisible(a.depuis)}. On compte des appareils, pas des personnes : une visite est un appareil, un jour, une page. Un spectateur en direct est un appareil dont la page du match était à l'écran pendant la minute ; un écran éteint ou un onglet en arrière-plan ne compte pas. Aucune donnée personnelle n'est utilisée.`);
+
+  if (jeu && jeu.joues > 0) pageDuJeu(doc.addPage([LARGEUR, HAUTEUR]), p, a, jeu, logo, marque);
 
   return doc.save();
 }

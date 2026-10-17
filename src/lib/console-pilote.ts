@@ -22,7 +22,7 @@
 
 import {
   onCompMatch, onCompetition, getCompTeam, setCompMatchLineup,
-  initLiveCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
+  initLiveCompMatch, rouvrirFeuillesCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
   finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
   setCompPenaltyOutcome, retirerCompEvenements, transitionCompMatch, ajouterDossards,
@@ -39,7 +39,7 @@ import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import {
   onMatchLive, getParticipationsForMatch, getGhostPlayersByTeam, getTeamById,
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
-  setMatchFoulVictim, initLiveMatch, startMatchTimer, pauseMatchTimer,
+  setMatchFoulVictim, initLiveMatch, rouvrirFeuillesMatch, startMatchTimer, pauseMatchTimer,
   compositionTypePour,
   updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
   setMatchAddedTime, setMatchPenaltyOutcome, retirerEvenementsAmical,
@@ -160,6 +160,12 @@ export interface PiloteConsole {
   ajouterDossards?(side: Cote, numeros: number[]): Promise<CompPlayer[]>;
 
   lancer(surLeTerrain: { home: string[]; away: string[] }): Promise<void>;
+  /**
+   * Le contraire de `lancer`, tant que personne n'a engage : le direct se
+   * referme et le match redevient a venir, feuilles comprises. Voir
+   * `rouvrirFeuillesCompMatch`.
+   */
+  revenirAuxFeuilles(): Promise<void>;
   demarrerChrono(): Promise<void>;
   pauserChrono(offsetMs: number): Promise<void>;
   changerPeriode(periode: number): Promise<void>;
@@ -329,6 +335,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       await initLiveCompMatch(cid, mid);
       await updateCompMatch(cid, mid, { home_on_pitch: home, away_on_pitch: away });
     },
+    revenirAuxFeuilles: () => rouvrirFeuillesCompMatch(cid, mid),
 
     demarrerChrono: () => startCompTimer(cid, mid),
     pauserChrono: (ms) => pauseCompTimer(cid, mid, ms),
@@ -560,6 +567,7 @@ export function piloteAmical(matchId: string): PiloteConsole {
       await setMatchOnPitch(matchId, "home", home);
       await setMatchOnPitch(matchId, "away", away);
     },
+    revenirAuxFeuilles: () => rouvrirFeuillesMatch(matchId),
 
     demarrerChrono: () => startMatchTimer(matchId),
     pauserChrono: (ms) => pauseMatchTimer(matchId, ms),

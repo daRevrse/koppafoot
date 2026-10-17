@@ -17,7 +17,10 @@
 // marquee « ? », plutot que d'etre repartis d'office en 4-3-3 — ce qui
 // afficherait quatre defenseurs que personne n'a declares. Si PERSONNE n'a de
 // poste, en revanche, cette ligne unique serait un tas informe : on retombe
-// alors sur le 4-3-3 par ordre de feuille, l'ancien comportement.
+// alors sur le 4-3-3 par ordre de feuille, l'ancien comportement. Et des
+// qu'elle depasse la ligne la plus large du dispositif — le gardien seul
+// declare, dix « ? » —, ceux sans poste comblent les places libres en gardant
+// leur « ? » (voir rangsMixtes).
 //
 // L'EMPLACEMENT CHOISI PAR LE MANAGER PASSE AVANT TOUT LE RESTE. Le poste
 // dit sur quelle LIGNE un joueur joue, jamais a quelle place de la ligne : un
@@ -396,6 +399,69 @@ function rangsParDefaut(
 }
 
 /**
+ * Les rangs d'une feuille ou une PARTIE seulement des titulaires a un poste.
+ *
+ * CEUX SANS POSTE ONT LEUR LIGNE, « ? », TANT QU'ELLE RESTE UNE LIGNE : voir
+ * l'en-tete, on n'invente pas de defenseurs. Mais la feuille la plus courante
+ * en production declare le gardien et personne d'autre, et la ligne « ? »
+ * portait alors dix joueurs — le tas informe que le repli evite quand
+ * PERSONNE n'a de poste. Dans la console couchee il coutait plus cher encore :
+ * dix pastilles sur un meme travers n'avaient plus que trois quarts d'unite de
+ * rayon, invisibles, et un rayon negatif sous un liseré.
+ *
+ * AU-DELA DE LA LIGNE LA PLUS LARGE DU DISPOSITIF, ceux sans poste comblent
+ * donc les places que le dispositif de cette taille laisse libres, de la
+ * defense vers l'attaque et dans l'ordre de la feuille — comme la troisieme
+ * passe de rangsDeFormation. Ce qui reste rejoint le milieu. Ceux qui ont dit
+ * ou ils jouent ne bougent pas, et personne n'est mis au but d'office : le
+ * gardien est le seul poste qu'on ne devine pas.
+ */
+function rangsMixtes(
+  titulaires: LineupEntry[],
+  taille: number,
+): { ligne: (typeof LIGNES)[number]; index: number; joueurs: LineupEntry[] }[] {
+  const duPoste = (poste: Poste | null) =>
+    titulaires.filter((e) => normaliserPoste(e.position) === poste);
+  const [d, m, a] = dispositif(Math.max(taille, titulaires.length));
+  const sansPoste = duPoste(null);
+
+  if (sansPoste.length <= Math.max(d, m, a, 1)) {
+    return LIGNES
+      .map((ligne, index) => ({ ligne, index, joueurs: duPoste(ligne.poste) }))
+      .filter((r) => r.joueurs.length > 0);
+  }
+
+  const parPoste: Record<Poste, LineupEntry[]> = {
+    goalkeeper: duPoste("goalkeeper"),
+    defender: duPoste("defender"),
+    midfielder: duPoste("midfielder"),
+    forward: duPoste("forward"),
+  };
+  const places: Record<Exclude<Poste, "goalkeeper">, number> = { defender: d, midfielder: m, forward: a };
+  const restants = [...sansPoste];
+  for (const poste of ["defender", "midfielder", "forward"] as const) {
+    while (parPoste[poste].length < places[poste] && restants.length > 0) {
+      parPoste[poste].push(restants.shift() as LineupEntry);
+    }
+  }
+  parPoste.midfielder.push(...restants);
+
+  // L'ordre de la feuille, a l'interieur de chaque rang : c'est le seul
+  // indice qu'on ait sur qui joue a gauche. Voir disposerSurTerrain.
+  const ordre = new Map(titulaires.map((e, i) => [e, i] as const));
+  const dansLOrdre = (joueurs: LineupEntry[]) =>
+    [...joueurs].sort((x, y) => (ordre.get(x) ?? 0) - (ordre.get(y) ?? 0));
+
+  return LIGNES
+    .map((ligne, index) => ({
+      ligne,
+      index,
+      joueurs: ligne.poste ? dansLOrdre(parPoste[ligne.poste]) : [],
+    }))
+    .filter((r) => r.joueurs.length > 0);
+}
+
+/**
  * LES LIGNES D'UNE FORMATION, GARNIES AVEC CETTE FEUILLE.
  *
  * TROIS PASSES, ET L'ORDRE COMPTE.
@@ -592,11 +658,7 @@ export function disposerSurTerrain(
   // sens d'attaque sans changer, la geometrie se chargeant de le poser.
   const rangs = connus.length === 0
     ? rangsParDefaut(titulaires, taille)
-    : LIGNES.map((ligne, i) => ({
-        ligne,
-        index: i,
-        joueurs: titulaires.filter((e) => normaliserPoste(e.position) === ligne.poste),
-      })).filter((r) => r.joueurs.length > 0);
+    : rangsMixtes(titulaires, taille);
 
   const largeurTravers = g.traversMax - g.traversMin;
   const plusCharge = Math.max(...rangs.map((r) => r.joueurs.length));
@@ -609,7 +671,12 @@ export function disposerSurTerrain(
       places.push({
         ...g.place(g.rang(index), traverses[i]),
         entry: entry ?? null,
-        etiquette: ligne.etiquette,
+        // Celui qui n'a pas de poste garde son « ? » jusque dans le rang ou
+        // rangsMixtes l'a mis : le rang dit ou on l'a range, pas ce qu'il a
+        // declare. Le repli ou PERSONNE n'a de poste garde ses lettres.
+        etiquette: connus.length > 0 && entry && normaliserPoste(entry.position) === null
+          ? "?"
+          : ligne.etiquette,
         emplacement: null,
       });
     });

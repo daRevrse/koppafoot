@@ -2711,6 +2711,8 @@ export async function setMatchPossession(
     "live_state.possession.away_ms": p.away_ms,
     "live_state.possession.side": p.side,
     "live_state.possession.since": p.since,
+    "live_state.possession.home_passes": p.home_passes ?? 0,
+    "live_state.possession.away_passes": p.away_passes ?? 0,
     updated_at: serverTimestamp(),
   });
 }
@@ -2753,6 +2755,24 @@ export async function initLiveMatch(matchId: string): Promise<void> {
     },
     score_home: 0,
     score_away: 0,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Jumelle de `rouvrirFeuillesCompMatch` : le direct se referme avant le coup
+ * d'envoi, et l'amical redevient « a venir ».
+ *
+ * « A VENIR » MEME S'IL ETAIT REPORTE. Un amical reporte qu'on lance est en
+ * train de se jouer a sa nouvelle date : quand le scoreur retourne aux
+ * feuilles, il est sur le point d'etre joue, pas reporte.
+ */
+export async function rouvrirFeuillesMatch(matchId: string): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    status: "upcoming",
+    live_state: null,
+    score_home: null,
+    score_away: null,
     updated_at: serverTimestamp(),
   });
 }

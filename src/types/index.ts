@@ -1924,6 +1924,11 @@ export interface FirestoreCompetition {
   /** null or 0 → free entry, and the fee block never renders. */
   entry_fee?: number | null;
   entry_fee_currency?: string;
+  /**
+   * Les statistiques de jeu (lib/stats-competition) se montrent aussi sur la
+   * page publique. Absent ou faux : seul le staff les voit, dans son espace.
+   */
+  stats_publiques?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -1967,6 +1972,8 @@ export interface Competition {
   requireRulesAcceptance: boolean;
   entryFee: number | null;
   entryFeeCurrency: string;
+  /** Voir FirestoreCompetition.stats_publiques. */
+  statsPubliques: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -64,6 +64,8 @@ export function toCompetition(id: string, d: FirestoreCompetition): Competition 
     requireRulesAcceptance: d.require_rules_acceptance ?? false,
     entryFee: d.entry_fee ?? null,
     entryFeeCurrency: d.entry_fee_currency ?? "FCFA",
+    // Le staff seul, tant que l'organisateur n'a rien décidé.
+    statsPubliques: d.stats_publiques ?? false,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
