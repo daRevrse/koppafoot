@@ -1053,6 +1053,28 @@ service cloud.firestore {
             && math.abs(m[m.size() - 1] - request.time.toMillis() / 60000) <= 3);
     }
 
+    // ============================================
+    // Le tchat d'un match en direct (voir lib/tchat).
+    //
+    // LES MESSAGES SE LISENT SANS COMPTE, comme le match. Ils ne s'écrivent
+    // que par /api/matches/[mid]/tchat : le serveur signe chaque message du
+    // nom du compte, tient le débit d'un message toutes les cinq secondes,
+    // refuse un compte suspendu et un match qui n'est pas en direct — rien de
+    // cela ne se vérifie dans une règle. Le reste du tchat (qui a écrit quand,
+    // de quel match il parle) ne se lit pas d'ici. `chat_reports`, sans
+    // règle, est fermé : l'administration le lit par le SDK admin.
+    // ============================================
+    match /match_chats/{mid} {
+      allow read, write: if false;
+      match /messages/{messageId} {
+        allow read: if true;
+        allow write: if false;
+      }
+      match /auteurs/{uid} {
+        allow read, write: if false;
+      }
+    }
+
     match /audience/{cible} {
       // Le résumé : écrit par la tâche quotidienne, lu par le serveur.
       allow read, write: if false;
