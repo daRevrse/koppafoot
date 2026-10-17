@@ -1214,6 +1214,46 @@ export default function LiveMatchConsole({
     }
   };
 
+  /**
+   * RETOUR AUX FEUILLES, tant que personne n'a engagé.
+   *
+   * « Aller au coup d'envoi » ouvre le direct, et il n'y avait plus de chemin
+   * vers les feuilles : un titulaire qui se blesse à l'échauffement, un numéro
+   * mal saisi, et le scoreur n'avait plus que les remplacements — qui comptent
+   * dans le quota du match. Avant le coup d'envoi, rien n'est encore arrivé :
+   * le direct se referme, le match redevient à venir, et l'atelier se rouvre
+   * sur les feuilles telles qu'elles ont été validées.
+   *
+   * La possession en attente d'écriture est jetée AVANT : partie après, elle
+   * recréerait un état du direct sur un match qui n'en a plus.
+   */
+  const handleRevenirAuxFeuilles = async () => {
+    const ok = await demander({
+      titre: "Revenir aux feuilles ?",
+      corps: (
+        <>
+          Le direct se referme : le match redevient « à venir » le temps de
+          retoucher les feuilles, puis tu relances comme avant.
+        </>
+      ),
+      action: "Revenir aux feuilles",
+    });
+    if (!ok) return;
+    if (flushRef.current) {
+      clearTimeout(flushRef.current);
+      flushRef.current = null;
+    }
+    enAttenteRef.current = null;
+    possessionRef.current = POSSESSION_VIDE;
+    setPossession(POSSESSION_VIDE);
+    try {
+      await pilote.revenirAuxFeuilles();
+      setRevoirLesFeuilles(true);
+    } catch {
+      toast.error("Le retour aux feuilles n'a pas été enregistré");
+    }
+  };
+
   // Organizer quit during live: navigate back — after saying what it means.
   // Rien ne se perd (le match vit en base, le chrono continue), mais plus
   // personne ne saisit : c'était la raison du bandeau permanent.
@@ -2654,6 +2694,16 @@ export default function LiveMatchConsole({
         return (
           <>
             {consigne("Qui engage ? Touche son équipe")}
+            {/* Tant que rien n'est arrivé : chrono jamais parti, aucun fait.
+                Après le premier engagement, ce sont les remplacements. */}
+            {events.length === 0 && !match.liveState?.isTimerRunning && !match.liveState?.timerOffset && (
+              <button
+                onClick={handleRevenirAuxFeuilles}
+                className="flex items-center gap-1 border border-white/15 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-white/70 transition-colors hover:bg-white/10"
+              >
+                <ClipboardList size={10} /> Feuilles
+              </button>
+            )}
             <button
               onClick={inverserLesCotes}
               aria-label="Inverser les côtés"
