@@ -127,6 +127,23 @@ describe("calculerClassements", () => {
     expect(parNote.map((l) => l.cle)).toContain("uid:U1");
   });
 
+  it("écarte un dossard de la feuille de secours tant qu'on ne l'a pas nommé", () => {
+    // « N°9 » ne nomme personne (voir lib/dossards). Nommé, sa ligne
+    // change d'identifiant et entre au classement comme une autre.
+    const avec = (id: string, nom: string) => [1, 2, 3].map((i) => match(i, {
+      homeLineup: [ligne("L1", "U1", "forward", "Buteur"), ligne(id, null, "forward", nom)],
+      liveState: {
+        currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+        events: [ev({ type: "goal", teamId: "A", playerId: id, minute: 20 })],
+      },
+    }));
+    const anonyme = calculerClassements(avec("dos-A-9", "N°9"));
+    expect([...anonyme.parNote, ...anonyme.parContribution].map((l) => l.cle)).not.toContain("nom:n°9");
+
+    const nomme = calculerClassements(avec("k3j9x0p2a", "Kossi"));
+    expect(nomme.parContribution.find((l) => l.cle === "nom:kossi")!.buts).toBe(3);
+  });
+
   it("classe un joueur sans compte à son nom, et dit où retrouver sa ligne", () => {
     // Une compétition entièrement composée de joueurs sans compte doit remplir
     // le classement comme une autre. Leur photo, posée sur la ligne d'effectif

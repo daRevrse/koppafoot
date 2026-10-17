@@ -42,6 +42,7 @@ import { listGrantedCompetitionIds } from "./staff-access";
 import {
   OWN_GOAL_DETAIL, nouvelIdEvenement, type IssuePenalty, type TypeEvenement,
 } from "@/lib/evenements";
+import { estLigneDossard } from "@/lib/dossards";
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import type { PossessionStockee } from "@/lib/possession";
 import { JEU_AVANT, champsDeTransition, type Transition } from "@/lib/etat-du-jeu";
@@ -572,6 +573,67 @@ export async function syncTeamToMatches(
 // ============================================
 // Roster (players live on the comp_team doc as a small array, read-modify-write)
 // ============================================
+
+/** Un appel à /api/competitions/dossards, au nom de qui est connecté. */
+async function routeDesDossards<T>(method: "POST" | "PATCH", corps: unknown): Promise<T> {
+  const utilisateur = auth.currentUser;
+  if (!utilisateur) throw new Error("Connecte-toi pour continuer.");
+  const res = await fetch("/api/competitions/dossards", {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${await utilisateur.getIdToken()}` },
+    body: JSON.stringify(corps),
+  });
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? "Une erreur est survenue");
+  return data;
+}
+
+/**
+ * Les dossards mis sur une feuille entrent dans l'effectif de l'équipe (voir
+ * lib/dossards). Par le serveur : un scoreur venu avec un code d'accès tient
+ * le match, pas l'effectif. Rend les lignes réellement ajoutées.
+ */
+export async function ajouterDossards(
+  cid: string, mid: string, side: "home" | "away", numeros: number[],
+): Promise<CompPlayer[]> {
+  const { lignes } = await routeDesDossards<{ lignes: CompPlayer[] }>("POST", { cid, mid, side, numeros });
+  return lignes;
+}
+
+/**
+ * Nommer un dossard : « N°9 » devient Kossi sur l'effectif ET sur
+ * chaque match de la compétition où il a joué. Rend le nombre de matchs
+ * réécrits.
+ */
+export async function nommerDossard(
+  cid: string, teamId: string, playerId: string, nom: string,
+): Promise<{ id: string; matchsReecrits: number }> {
+  return routeDesDossards("PATCH", { cid, teamId, playerId, nom });
+}
+
+/**
+ * Modifier une ligne d'effectif depuis l'un des deux écrans d'équipe
+ * (organisateur, manager). Pour un dossard qu'on nomme, le nom passe par le
+ * serveur, qui réécrit les matchs joués et change l'identifiant de la ligne ;
+ * le reste (numéro, poste, photo) s'enregistre ensuite comme pour toute ligne.
+ * Rend le nombre de matchs réécrits, 0 pour une ligne ordinaire.
+ */
+export async function modifierLigne(
+  cid: string,
+  tid: string,
+  ligne: Pick<CompPlayer, "id" | "name">,
+  patch: Parameters<typeof updateCompPlayer>[3],
+): Promise<number> {
+  let id = ligne.id;
+  let matchsReecrits = 0;
+  if (estLigneDossard(ligne.id) && patch.name && patch.name.trim() !== ligne.name) {
+    const nomme = await nommerDossard(cid, tid, ligne.id, patch.name.trim());
+    id = nomme.id;
+    matchsReecrits = nomme.matchsReecrits;
+  }
+  await updateCompPlayer(cid, tid, id, patch);
+  return matchsReecrits;
+}
 
 /**
  * Returns the created player's id. The dossard is optional: a scorer typed
@@ -1994,6 +2056,10 @@ export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
       // scored it plays for the other side, crediting them here would rank
       // them under an opponent's colours. Not a scorer.
       if (event.detail === OWN_GOAL_DETAIL) continue;
+      // Un dossard que personne n'a nommé n'est personne : « N°9 »
+      // en tête du classement des buteurs ne nommerait aucun joueur (voir
+      // lib/dossards). Ses buts y entrent dès qu'on le nomme.
+      if (estLigneDossard(event.playerId)) continue;
 
       const name = (event.playerName ?? "").trim();
       let key: string;
@@ -2079,12 +2145,18 @@ export function computePlayerContributions(matches: CompMatch[]): PlayerContribu
       // plays for the other side, skip the pair entirely.
       if (event.detail === OWN_GOAL_DETAIL) continue;
 
+      // Les dossards pas encore nommés restent dehors, comme au classement
+      // des buteurs ; la passe d'un vrai joueur vers l'un d'eux compte.
       const scorerName = (event.playerName ?? "").trim();
-      const scorerKey = keyFor(event.teamId, event.playerId, scorerName);
+      const scorerKey = estLigneDossard(event.playerId)
+        ? null
+        : keyFor(event.teamId, event.playerId, scorerName);
       if (scorerKey) credit(scorerKey, event.teamId, scorerName, "goals");
 
       const passerName = (event.assistPlayerName ?? "").trim();
-      const passerKey = keyFor(event.teamId, event.assistPlayerId, passerName);
+      const passerKey = estLigneDossard(event.assistPlayerId)
+        ? null
+        : keyFor(event.teamId, event.assistPlayerId, passerName);
       // A player cannot assist their own goal.
       if (passerKey && passerKey !== scorerKey) {
         credit(passerKey, event.teamId, passerName, "assists");

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { CompPlayer, FirestoreCompetition, LinkedCompPlayer } from "@/types";
+import { estLigneDossard } from "@/lib/dossards";
 import { isStaffOf, staffDeLaCompetition } from "@/lib/competition-api-auth";
 import { notifierCompte } from "@/lib/notifier-serveur";
 import { effacerVisuelParAdresse } from "@/lib/visuel-serveur";
@@ -88,6 +89,15 @@ export async function POST(req: NextRequest) {
     if (player.user_id) {
       return NextResponse.json(
         { error: "Cette ligne est déjà rattachée à un compte." },
+        { status: 409 },
+      );
+    }
+    // « N°9 » ne nomme personne : n'importe qui pourrait s'y dire, et
+    // récupérer les buts d'un autre. L'équipe le nomme d'abord (voir
+    // lib/dossards), la ligne se revendique ensuite comme les autres.
+    if (estLigneDossard(player.id)) {
+      return NextResponse.json(
+        { error: "Ce joueur n'a pas encore de nom : demande à ton équipe de le nommer d'abord." },
         { status: 409 },
       );
     }

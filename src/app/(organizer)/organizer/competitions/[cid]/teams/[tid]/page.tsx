@@ -12,7 +12,7 @@ import {
   onCompetition,
   onCompTeams,
   addCompPlayer,
-  updateCompPlayer,
+  modifierLigne,
   removeCompPlayer,
   photoDeLigneAEnregistrer,
   effacerPhotoRemplacee,
@@ -24,6 +24,7 @@ import { POSTES, LIBELLE_POSTE, libellePoste, normaliserPoste } from "@/lib/post
 import type { Competition, CompTeam, CompPlayer } from "@/types";
 import toast from "react-hot-toast";
 import { gereLaCompetition } from "@/lib/hats";
+import { estLigneDossard } from "@/lib/dossards";
 
 // Le <select> ECRIT la forme canonique et AFFICHE le francais. Il ecrivait le
 // francais dans les deux roles, ce qui donnait trois vocabulaires en base pour
@@ -160,10 +161,14 @@ export default function CompetitionRosterPage() {
         fichier: photo, avant: editing?.photo_url, gardee: photoUrl,
       });
       if (editing) {
-        await updateCompPlayer(cid, tid, editing.id, {
+        const reecrits = await modifierLigne(cid, tid, editing, {
           name, number, position, ...(photo_url !== undefined ? { photo_url } : {}),
         });
-        toast.success("Joueur mis à jour");
+        toast.success(
+          reecrits > 0
+            ? `Nom enregistré, et reporté sur ${reecrits} match${reecrits > 1 ? "s" : ""} déjà joué${reecrits > 1 ? "s" : ""}`
+            : "Joueur mis à jour",
+        );
       } else {
         await addCompPlayer(cid, tid, { name, number, position: position || undefined, photo_url });
         toast.success("Joueur ajouté");
@@ -336,6 +341,17 @@ export default function CompetitionRosterPage() {
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-gray-900">{player.name}</p>
+                {/* Un dossard de la feuille de secours : ses buts n'entrent
+                    dans les classements qu'une fois nommé (lib/dossards). */}
+                {estLigneDossard(player.id) && (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(player)}
+                    className="mt-0.5 mr-2 inline-block text-[11px] font-bold text-amber-600 hover:text-amber-700"
+                  >
+                    À nommer
+                  </button>
+                )}
                 {libellePoste(player.position) && (
                   <span className="mt-0.5 inline-block text-xs font-medium text-gray-500">
                     {libellePoste(player.position)}

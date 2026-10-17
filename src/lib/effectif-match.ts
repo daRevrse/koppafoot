@@ -8,6 +8,7 @@
 // ============================================
 
 import type { LineupEntry } from "@/types";
+import { estLigneDossard } from "@/lib/dossards";
 
 /**
  * LE NvN D'UN MATCH, LU DANS SON FORMAT, plutôt que cherché dans une table.
@@ -49,9 +50,12 @@ const PREFIXE_HORS_PLATEFORME = "ext-";
  * Cette ligne de feuille est-elle l'un de ces « Joueur 9 » générés ? Personne
  * derrière : ni forme à suivre, ni place au classement, où tous les
  * « Joueur 9 » de la plateforme, classés au nom, n'en feraient qu'un.
+ *
+ * Les dossards de la feuille de secours en sont aussi, tant que personne ne
+ * les a nommés (voir lib/dossards).
  */
 export const estLigneHorsPlateforme = (playerId: string | null | undefined): boolean =>
-  !!playerId?.startsWith(PREFIXE_HORS_PLATEFORME);
+  !!playerId?.startsWith(PREFIXE_HORS_PLATEFORME) || estLigneDossard(playerId);
 
 /**
  * L'onze d'un adversaire hors plateforme, SANS RIEN ÉCRIRE EN BASE.
