@@ -9,6 +9,7 @@ import { useATraiter } from "@/components/admin/ATraiterContext";
 import {
   BOUTON_CONTOUR, BOUTON_DANGER, Carte, Chargement, EnTete, Erreur, Vide, ilYA,
 } from "@/components/admin/ui";
+import SignalementsDuTchat from "@/components/tchat/SignalementsDuTchat";
 
 // ============================================
 // Les signalements de la Tribune.
@@ -59,7 +60,7 @@ export default function AdminSignalementsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <EnTete titre="Signalements" sousTitre="Les publications de la Tribune signalées par les membres." />
+      <EnTete titre="Signalements" sousTitre="Les publications de la Tribune et les messages du tchat signalés par les membres." />
       {erreur && <Erreur message={erreur} onReessayer={recharger} />}
       {chargement ? (
         <Chargement />
@@ -101,6 +102,9 @@ export default function AdminSignalementsPage() {
           ))}
         </ul>
       )}
+
+      {/* Les messages du tchat des matchs en direct (lib/tchat). */}
+      <SignalementsDuTchat onTraite={rafraichir} />
     </div>
   );
 }
