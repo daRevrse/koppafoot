@@ -11,6 +11,7 @@ import type { Competition, CompMatch, CompMatchRound } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 import { FOOT } from "@/i18n/foot";
+import AffichesPhaseFinale from "@/components/competition/AffichesPhaseFinale";
 
 // ============================================
 // Helpers
@@ -209,6 +210,15 @@ export default function BracketTab({ competition, matches }: {
 
 const isEmpty = columns.length === 0 && !thirdPlace;
 
+  // Les affiches se redessinent quand un résultat de la phase finale change.
+  const versionDesAffiches = useMemo(
+    () => matches
+      .filter((m) => m.round)
+      .map((m) => `${m.id}:${m.status}:${m.scoreHome ?? ""}:${m.scoreAway ?? ""}:${m.winnerTeamId ?? ""}`)
+      .join("|"),
+    [matches],
+  );
+
   return (
     <div className="space-y-6 pb-20">
       {isEmpty ? (
@@ -222,6 +232,9 @@ const isEmpty = columns.length === 0 && !thirdPlace;
         </div>
       ) : (
         <div className="space-y-8">
+          {/* Le tableau et le champion en affiches, à partager (lib/og-phase-finale). */}
+          <AffichesPhaseFinale slug={slug} nom={competition.name} version={versionDesAffiches} />
+
           {/* Bracket: horizontal-scrolling columns, one per round. */}
           <div className="-mx-4 overflow-x-auto px-4 pb-2">
             <div className="flex min-w-max gap-5">

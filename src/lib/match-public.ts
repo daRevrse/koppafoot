@@ -65,6 +65,8 @@ export interface CompMatchPublic extends MatchPublic {
   competitionLogo: string | null;
   /** « Groupe A », « Quart de finale » ; vide quand le match n'a ni l'un ni l'autre. */
   etape: string;
+  /** Le tour d'un match de phase finale, `null` ailleurs : la finale a sa propre affiche. */
+  tour: CompMatchRound | null;
 }
 
 type EvenementBrut = NonNullable<FirestoreMatch["live_state"]>["events"][number];
@@ -211,6 +213,7 @@ export const getCompMatchPublic = cache(
         etape: d.stage === "exhibition"
           ? "Match d'exhibition"
           : d.group ? `Groupe ${d.group}` : d.round ? (TOURS[d.round as CompMatchRound] ?? "") : "",
+        tour: d.stage === "knockout" && d.round && d.round in TOURS ? (d.round as CompMatchRound) : null,
         homeTeamName: d.home_team_name ?? "",
         awayTeamName: d.away_team_name ?? "",
         status: d.status ?? "scheduled",

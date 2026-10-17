@@ -40,7 +40,7 @@ import {
 export const TAILLE_FLYER = { width: 1080, height: 1350 };
 
 /** L'épaisseur du cadre d'éclats autour de la carte. */
-const CADRE = 60;
+export const CADRE = 60;
 
 // ─── Le cadre ───────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ const CADRE = 60;
  * Le cadre d'éclats (lib/og-da), et en tête de carte le logo : celui de la
  * compétition quand elle en a un, sinon celui de Koppafoot.
  */
-function Cadre({ logo, logoCompetition, children }: {
+export function Cadre({ logo, logoCompetition, children }: {
   logo: string;
   logoCompetition: string | null;
   children: React.ReactNode;
@@ -73,7 +73,7 @@ function Cadre({ logo, logoCompetition, children }: {
 // ─── Les briques ────────────────────────────────────────────
 
 /** La largeur utile de la carte, cadre et marges déduits. */
-const LARGEUR_UTILE = TAILLE_FLYER.width - 2 * CADRE - 2 * 56;
+export const LARGEUR_UTILE = TAILLE_FLYER.width - 2 * CADRE - 2 * 56;
 
 /**
  * Le titre, fendu en diagonale comme sur la référence, à la plus grande taille
@@ -81,15 +81,15 @@ const LARGEUR_UTILE = TAILLE_FLYER.width - 2 * CADRE - 2 * 56;
  * passe à la ligne — « SCORE » d'un côté, « FINAL » de l'autre — au lieu de
  * rétrécir.
  */
-function Titre({ texte }: { texte: "MATCHDAY" | "SCORE FINAL" }) {
+export function Titre({ texte, max = 204 }: { texte: string; max?: number }) {
   const chasse = chasseAnton(texte);
   // 24 px de marge : le second morceau est decale et ne doit pas toucher le bord.
-  const taille = Math.min(204, Math.floor((LARGEUR_UTILE - 24) / chasse));
+  const taille = Math.min(max, Math.floor((LARGEUR_UTILE - 24) / chasse));
   return <TitreFendu texte={texte} chasse={chasse} taille={taille} />;
 }
 
 /** Le petit surtitre au-dessus du titre, en vert : la journée, le tour. */
-function Surtitre({ texte }: { texte: string }) {
+export function Surtitre({ texte }: { texte: string }) {
   return (
     <div
       style={{
@@ -134,6 +134,11 @@ export interface FlyerCamp {
 }
 
 export interface FlyerMatch {
+  /**
+   * Le titre de l'annonce. « LA FINALE » pour une finale : c'est le match de
+   * la saison, il ne s'annonce pas comme une journée de poule.
+   */
+  titre: "MATCHDAY" | "LA FINALE";
   /** Au-dessus du titre : « JOURNÉE 3 », « MATCH RETOUR ». Vide, rien. */
   surtitre: string;
   /**
@@ -175,12 +180,15 @@ export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promis
     imageDistante(match.homeTeamLogo, 640),
     imageDistante(match.awayTeamLogo, 640),
   ]);
+  const finale = officiel && match.tour === "final";
   const m: FlyerMatch = {
+    titre: finale ? "LA FINALE" : "MATCHDAY",
+    // Pas « FINALE » au surtitre d'une finale : son titre le dit déjà.
     surtitre: !officiel
       ? ""
       : logoCompetition
-        ? match.etape
-        : [match.competition, match.etape].filter(Boolean).join(" · "),
+        ? finale ? "" : match.etape
+        : [match.competition, finale ? "" : match.etape].filter(Boolean).join(" · "),
     amical: !officiel,
     logoCompetition,
     home: { nom: match.homeTeamName || "À déterminer", logo: logoHome },
@@ -221,7 +229,7 @@ function MatchDay({ m, logo }: { m: FlyerMatch; logo: string }) {
   return (
     <Cadre logo={logo} logoCompetition={m.logoCompetition}>
       {m.surtitre ? <Surtitre texte={m.surtitre} /> : <div style={{ display: "flex", height: 30 }} />}
-      <Titre texte="MATCHDAY" />
+      <Titre texte={m.titre} />
       {m.amical && <Espace texte="Match amical" />}
 
       {/* Au milieu de la place qui reste, pas colles au titre : le bloc des
