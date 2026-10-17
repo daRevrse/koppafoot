@@ -34,6 +34,7 @@ import type {
   BracketSlotSource, Competition, CompMatch, CompMatchRound, CompTeam,
 } from "@/types";
 import toast from "react-hot-toast";
+import AffichesPhaseFinale from "@/components/competition/AffichesPhaseFinale";
 
 // ============================================
 // Helpers
@@ -854,6 +855,17 @@ export default function CompetitionKnockoutPage() {
           </div>
         )}
       </div>
+
+      {/* Le tableau et le champion en affiches, à partager (lib/og-phase-finale). */}
+      {hasKnockout && competition?.slug && (
+        <AffichesPhaseFinale
+          slug={competition.slug}
+          nom={competition.name}
+          version={matches
+            .map((m) => `${m.id}:${m.status}:${m.scoreHome ?? ""}:${m.scoreAway ?? ""}:${m.winnerTeamId ?? ""}`)
+            .join("|")}
+        />
+      )}
 
       {/* What is wrong with the drawing as it stands */}
       {hasKnockout && designWarnings.length > 0 && (
