@@ -8,7 +8,7 @@ import {
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
   MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, Target,
-  ClipboardList, Trash2, WifiOff, CloudUpload, Ellipsis, ArrowLeftRight, Timer, CloudLightning,
+  ClipboardList, Trash2, WifiOff, CloudUpload, Ellipsis, ArrowLeftRight, Timer, CloudLightning, Shirt,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -49,6 +49,7 @@ import { useMedia } from "@/hooks/useMedia";
 import MatchStats from "@/components/match/MatchStats";
 import TerrainsFaceAFace, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
 import { nomCourt } from "@/components/match/TerrainCompo";
+import { estLigneDossard, lignesDeSecours } from "@/lib/dossards";
 import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
@@ -371,6 +372,12 @@ export default function LiveMatchConsole({
   const [homeRoster, setHomeRoster] = useState<CompPlayer[] | null>(null);
   const [awayRoster, setAwayRoster] = useState<CompPlayer[] | null>(null);
   const [rostersLoading, setRostersLoading] = useState(false);
+  // Les lignes que l'effectif de chaque équipe porte vraiment. Un dossard tiré
+  // dans la console (voir lib/dossards) n'y est pas encore : la validation de
+  // la feuille l'y fait entrer, et seulement s'il y figure.
+  const [enBase, setEnBase] = useState<{ home: Set<string>; away: Set<string> }>(
+    () => ({ home: new Set(), away: new Set() }),
+  );
 
   // Per-side match-sheet drafts (playerId -> role). Seeded from any saved lineup.
   const [homeSheet, setHomeSheet] = useState<Record<string, SheetRole>>({});
@@ -593,6 +600,7 @@ export default function LiveMatchConsole({
         ]);
         if (cancelled) return;
         setCompoTypes(compos);
+        setEnBase({ home: new Set(home.map((p) => p.id)), away: new Set(away.map((p) => p.id)) });
         setHomeRoster(fusionnerCompoAuRoster(home, compos.home));
         setAwayRoster(fusionnerCompoAuRoster(away, compos.away));
       } catch {
@@ -1084,6 +1092,26 @@ export default function LiveMatchConsole({
     setter((prev) => ({ ...prev, [playerId]: next }));
   };
 
+  /**
+   * LA FEUILLE DE SECOURS : « N°1 » à « N°25 », sauf les numéros
+   * que l'effectif porte déjà. Rien ne s'écrit ici — le scoreur coche ceux
+   * qu'il voit sur le terrain, et seuls ceux-là entrent dans l'effectif, à la
+   * validation. L'équipe les nommera après le match (voir lib/dossards).
+   */
+  const tirerDossards = (side: Side) => {
+    const teamId = side === "home" ? match?.homeTeamId : match?.awayTeamId;
+    const roster = side === "home" ? homeRoster : awayRoster;
+    if (!teamId || !roster) return;
+    const lignes = lignesDeSecours(teamId, roster);
+    if (lignes.length === 0) return;
+    (side === "home" ? setHomeRoster : setAwayRoster)([...roster, ...lignes]);
+  };
+  const dossardsRestants = (side: Side) => {
+    const teamId = side === "home" ? match?.homeTeamId : match?.awayTeamId;
+    const roster = side === "home" ? homeRoster : awayRoster;
+    return !!teamId && !!roster && lignesDeSecours(teamId, roster).length > 0;
+  };
+
   const handleValidateSheet = async (side: Side) => {
     if (!match) return;
     const roster = side === "home" ? homeRoster : awayRoster;
@@ -1126,6 +1154,27 @@ export default function LiveMatchConsole({
 
     setSavingSide(side);
     try {
+      // Les dossards cochés entrent d'abord dans l'effectif : une feuille qui
+      // désignerait une ligne absente de l'équipe ne pourrait plus être
+      // nommée après coup.
+      const nouveaux = entries.filter((e) => estLigneDossard(e.playerId) && !enBase[side].has(e.playerId));
+      if (nouveaux.length > 0 && pilote.ajouterDossards) {
+        let lignes: CompPlayer[];
+        try {
+          lignes = await pilote.ajouterDossards(side, nouveaux.map((e) => Number(e.number)));
+        } catch (err) {
+          // Le message vient de la route, en français, et dit quoi faire.
+          toast.error(err instanceof Error && err.message ? err.message : "Les dossards n'ont pas pu être enregistrés");
+          return;
+        }
+        const recus = new Set(lignes.map((l) => l.id));
+        const manquant = nouveaux.find((e) => !recus.has(e.playerId));
+        if (manquant) {
+          toast.error(`Le n°${manquant.number} vient d'être donné à un joueur de l'effectif. Recharge la console.`);
+          return;
+        }
+        setEnBase((prev) => ({ ...prev, [side]: new Set([...prev[side], ...recus]) }));
+      }
       await pilote.poserFeuille(side, entries, true);
       toast.success("Feuille validée");
     } catch {
@@ -2249,6 +2298,7 @@ export default function LiveMatchConsole({
                 saving={savingSide === "home"}
                 onToggle={(pid) => toggleSheetRole("home", pid)}
                 onValidate={() => handleValidateSheet("home")}
+                onDossards={pilote.ajouterDossards && dossardsRestants("home") ? () => tirerDossards("home") : undefined}
               />
             </div>
             <div className={sheetSide === "away" ? "" : "hidden md:block"}>
@@ -2264,6 +2314,7 @@ export default function LiveMatchConsole({
                 saving={savingSide === "away"}
                 onToggle={(pid) => toggleSheetRole("away", pid)}
                 onValidate={() => handleValidateSheet("away")}
+                onDossards={pilote.ajouterDossards && dossardsRestants("away") ? () => tirerDossards("away") : undefined}
               />
             </div>
           </div>
@@ -3499,6 +3550,7 @@ function LineupBuilder({
   onToggle,
   onValidate,
   depuisLaCompoType,
+  onDossards,
 }: {
   side: Side;
   teamName: string;
@@ -3513,6 +3565,11 @@ function LineupBuilder({
   onValidate: () => void;
   /** La feuille affichee vient de la composition type du club, pas du match. */
   depuisLaCompoType: boolean;
+  /**
+   * Tirer la feuille de secours au dossard (voir lib/dossards). Absent quand
+   * il n'y a plus de numéro libre, ou hors compétition.
+   */
+  onDossards?: () => void;
 }) {
   const accentText = accent === "primary" ? "text-emerald-700" : "text-amber-500";
   const validateCls =
@@ -3560,8 +3617,26 @@ function LineupBuilder({
       )}
 
       {roster.length === 0 ? (
-        <div className="mt-4 border border-dashed border-gray-200/70 px-4 py-10 text-center text-xs font-bold leading-relaxed text-gray-400">
-          Effectif vide, ajoute les joueurs dans la config de l&apos;équipe
+        <div className="mt-4 border border-dashed border-gray-200/70 px-4 py-8 text-center">
+          <p className="text-xs font-bold leading-relaxed text-gray-400">
+            Effectif vide : personne n&apos;a saisi les joueurs de cette équipe.
+          </p>
+          {onDossards && (
+            <>
+              <button
+                type="button"
+                onClick={onDossards}
+                className="mt-4 inline-flex items-center justify-center gap-2 bg-gray-900 px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition-colors hover:bg-black active:scale-95"
+              >
+                <Shirt size={15} />
+                Feuille de secours au dossard
+              </button>
+              <p className="mx-auto mt-2 max-w-xs text-[11px] font-semibold leading-snug text-gray-400">
+                Coche les numéros que tu vois sur les maillots. L&apos;équipe donnera leurs
+                noms après le match.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -3601,6 +3676,16 @@ function LineupBuilder({
               );
             })}
           </div>
+          {onDossards && (
+            <button
+              type="button"
+              onClick={onDossards}
+              className="mb-3 flex w-full items-center justify-center gap-1.5 py-1 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 underline transition-colors hover:text-gray-900"
+            >
+              <Shirt size={13} />
+              Compléter au dossard
+            </button>
+          )}
           <button
             onClick={onValidate}
             disabled={saving}

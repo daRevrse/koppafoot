@@ -24,6 +24,7 @@
 
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import { estExhibition } from "@/lib/exhibition";
+import { estLigneDossard } from "@/lib/dossards";
 import type { Poste } from "@/lib/postes";
 import {
   DUREE_MATCH_DEFAUT, computeMinutesPlayed, computePlayerStats, type MatchJoue,
@@ -162,6 +163,9 @@ export function classerCandidatsMVP(
     const sien = cote === "home" ? scoreAway : scoreHome;
 
     for (const entry of lineup) {
+      // Un dossard pas encore nommé n'est personne : on ne couronne pas
+      // « N°9 » (voir lib/dossards).
+      if (estLigneDossard(entry.playerId)) continue;
       const bareme = entry.position ? PAR_POSTE[entry.position] : POSTE_NEUTRE;
 
       // Le socle et la cage se comptent en fraction de match jouée. Un temps
@@ -300,7 +304,7 @@ export function classerCandidatsMVPCompetition(
     // Un homme du match d'exhibition n'en est pas un pour le tournoi.
     if (estExhibition(m)) continue;
     const playerId = m.mvpPlayerId;
-    if (!playerId) continue;
+    if (!playerId || estLigneDossard(playerId)) continue;
     const name = m.mvpPlayerName;
     const teamId = m.mvpTeamId;
     if (!name || !teamId) continue;

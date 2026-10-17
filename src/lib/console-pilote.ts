@@ -25,7 +25,7 @@ import {
   initLiveCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
   finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
-  setCompPenaltyOutcome, retirerCompEvenements, transitionCompMatch,
+  setCompPenaltyOutcome, retirerCompEvenements, transitionCompMatch, ajouterDossards,
 } from "@/lib/competition-firestore";
 import type { Transition } from "@/lib/etat-du-jeu";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
@@ -150,6 +150,14 @@ export interface PiloteConsole {
    */
   couleurs(match: CompMatch): Promise<{ home: string | null; away: string | null }>;
   poserFeuille(side: Cote, entries: LineupEntry[], prete: boolean): Promise<void>;
+  /**
+   * LA FEUILLE DE SECOURS AU DOSSARD (voir lib/dossards) : les dossards mis
+   * sur la feuille entrent dans l'effectif de l'équipe, avant la feuille
+   * elle-même. Une compétition seulement : un amical n'a pas d'effectif de
+   * compétition, et son adversaire hors plateforme a déjà ses « Joueur 1 ».
+   * Absent, la console n'offre pas la feuille de secours.
+   */
+  ajouterDossards?(side: Cote, numeros: number[]): Promise<CompPlayer[]>;
 
   lancer(surLeTerrain: { home: string[]; away: string[] }): Promise<void>;
   demarrerChrono(): Promise<void>;
@@ -293,6 +301,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
     },
 
     poserFeuille: (side, entries, prete) => setCompMatchLineup(cid, mid, side, entries, prete),
+    ajouterDossards: (side, numeros) => ajouterDossards(cid, mid, side, numeros),
 
     /**
      * Une équipe de compétition n'est reliée à un club de la plateforme que si
