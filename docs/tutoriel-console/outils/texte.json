@@ -1,0 +1,297 @@
+{
+ "01": {
+  "duree": 26.358,
+  "morceaux": [
+   {
+    "texte": "Demain, c'est toi qui tiens\nle direct de ton match.",
+    "debut": 0.0,
+    "fin": 2.51
+   },
+   {
+    "texte": "En cinq minutes, on voit\ntout : les feuilles de match,",
+    "debut": 2.51,
+    "fin": 4.33
+   },
+   {
+    "texte": "le coup d'envoi, ce qu'on saisit\npendant le jeu, et la fin du match.",
+    "debut": 4.33,
+    "fin": 9.01
+   },
+   {
+    "texte": "Pour ouvrir la console, va\ndans ton espace organisateur,",
+    "debut": 9.01,
+    "fin": 12.17
+   },
+   {
+    "texte": "ouvre ta compétition, puis son calendrier.",
+    "debut": 12.17,
+    "fin": 14.82
+   },
+   {
+    "texte": "Sur ton match, appuie sur « Console live ».",
+    "debut": 14.82,
+    "fin": 17.73
+   },
+   {
+    "texte": "Avant de commencer, trois réflexes : un\ntéléphone bien chargé, tenu à l'horizontale,",
+    "debut": 17.73,
+    "fin": 22.66
+   },
+   {
+    "texte": "et surtout, ne quitte pas cette\npage avant le coup de sifflet final.",
+    "debut": 22.66,
+    "fin": 26.36
+   }
+  ]
+ },
+ "02": {
+  "duree": 32.914,
+  "morceaux": [
+   {
+    "texte": "Première étape : les feuilles de match.",
+    "debut": 0.0,
+    "fin": 2.33
+   },
+   {
+    "texte": "En haut, choisis l'équipe : Domicile ou Extérieur.",
+    "debut": 2.33,
+    "fin": 6.05
+   },
+   {
+    "texte": "Touche un joueur une fois : il est titulaire.",
+    "debut": 6.05,
+    "fin": 8.83
+   },
+   {
+    "texte": "Une deuxième fois : il passe remplaçant.",
+    "debut": 8.83,
+    "fin": 11.22
+   },
+   {
+    "texte": "Une troisième fois : il est absent.",
+    "debut": 11.22,
+    "fin": 13.24
+   },
+   {
+    "texte": "Le compteur des titulaires te dit\nquand la feuille est complète.",
+    "debut": 13.24,
+    "fin": 16.16
+   },
+   {
+    "texte": "Appuie alors sur « Valider la feuille »,\npuis fais pareil pour l'autre équipe.",
+    "debut": 16.16,
+    "fin": 20.42
+   },
+   {
+    "texte": "Une équipe n'a saisi aucun joueur ?",
+    "debut": 20.42,
+    "fin": 22.34
+   },
+   {
+    "texte": "Utilise la « Feuille de secours au dossard » :",
+    "debut": 22.34,
+    "fin": 24.67
+   },
+   {
+    "texte": "coche les numéros que tu vois sur les maillots,\nl'équipe donnera les noms après le match.",
+    "debut": 24.67,
+    "fin": 28.96
+   },
+   {
+    "texte": "Quand les deux feuilles sont validées,\nappuie sur « Aller au coup d'envoi ».",
+    "debut": 28.96,
+    "fin": 32.91
+   }
+  ]
+ },
+ "03": {
+  "duree": 19.226,
+  "morceaux": [
+   {
+    "texte": "Te voilà au bord du terrain,\njuste avant le coup d'envoi.",
+    "debut": 0.0,
+    "fin": 2.96
+   },
+   {
+    "texte": "Avec le bouton « Côtés », place les deux\néquipes comme tu les vois depuis ta place.",
+    "debut": 2.96,
+    "fin": 7.18
+   },
+   {
+    "texte": "Un joueur oublié, une erreur sur la feuille ?",
+    "debut": 7.18,
+    "fin": 9.55
+   },
+   {
+    "texte": "Le bouton « Feuilles » t'y ramène,\ntant que personne n'a engagé.",
+    "debut": 9.55,
+    "fin": 12.88
+   },
+   {
+    "texte": "Au coup de sifflet, touche l'équipe\nqui engage : le chrono démarre,",
+    "debut": 12.88,
+    "fin": 15.29
+   },
+   {
+    "texte": "et les supporters reçoivent la\nnotification du coup d'envoi.",
+    "debut": 15.29,
+    "fin": 19.23
+   }
+  ]
+ },
+ "04": {
+  "duree": 16.353,
+  "morceaux": [
+   {
+    "texte": "Pendant le match, suis le ballon.",
+    "debut": 0.0,
+    "fin": 1.9
+   },
+   {
+    "texte": "Touche l'herbe, pas un joueur, du côté de\nl'équipe qui l'a : c'est la possession.",
+    "debut": 1.9,
+    "fin": 6.21
+   },
+   {
+    "texte": "Le ballon change de camp ?",
+    "debut": 6.21,
+    "fin": 7.6
+   },
+   {
+    "texte": "Touche l'autre moitié du terrain.",
+    "debut": 7.6,
+    "fin": 9.36
+   },
+   {
+    "texte": "Et chaque nouvel appui du\nmême côté compte une passe.",
+    "debut": 9.36,
+    "fin": 12.57
+   },
+   {
+    "texte": "Pas besoin d'être parfait : ces\nchiffres se lisent sur tout le match.",
+    "debut": 12.57,
+    "fin": 16.35
+   }
+  ]
+ },
+ "05": {
+  "duree": 32.836,
+  "morceaux": [
+   {
+    "texte": "Pour une action, touche le joueur concerné,\npuis choisis : but, tir cadré, tir,",
+    "debut": 0.0,
+    "fin": 5.76
+   },
+   {
+    "texte": "arrêt pour le gardien, hors-jeu, faute,\ncarton jaune, carton rouge, ou remplacement.",
+    "debut": 5.76,
+    "fin": 12.16
+   },
+   {
+    "texte": "Après un but, tu peux indiquer le passeur décisif.",
+    "debut": 12.16,
+    "fin": 15.46
+   },
+   {
+    "texte": "Sous le nom de chaque équipe, quatre boutons :\ncorner, coup franc, touche et penalty.",
+    "debut": 15.46,
+    "fin": 19.67
+   },
+   {
+    "texte": "Un joueur au sol ?",
+    "debut": 19.67,
+    "fin": 21.27
+   },
+   {
+    "texte": "Appuie sur « Arrêt de jeu », puis\nsur « Reprise » quand le jeu repart.",
+    "debut": 21.27,
+    "fin": 26.38
+   },
+   {
+    "texte": "Et si tu t'es trompé, touche le\npetit « i » en haut de l'écran :",
+    "debut": 26.38,
+    "fin": 29.65
+   },
+   {
+    "texte": "tu retrouves la liste des événements,\net tu peux retirer le mauvais.",
+    "debut": 29.65,
+    "fin": 32.84
+   }
+  ]
+ },
+ "06": {
+  "duree": 18.521,
+  "morceaux": [
+   {
+    "texte": "À la pause, appuie sur\n« Mi-temps », puis confirme.",
+    "debut": 0.0,
+    "fin": 3.57
+   },
+   {
+    "texte": "Pour la reprise, touche l'équipe qui engage\nla seconde période : le chrono repart.",
+    "debut": 3.57,
+    "fin": 8.26
+   },
+   {
+    "texte": "À la fin, appuie sur « Fin\ndu match », puis confirme.",
+    "debut": 8.26,
+    "fin": 11.89
+   },
+   {
+    "texte": "Il te reste à désigner l'homme du\nmatch, ou à terminer sans le désigner.",
+    "debut": 11.89,
+    "fin": 15.69
+   },
+   {
+    "texte": "Le score final part aussitôt\nsur la fiche du match.",
+    "debut": 15.69,
+    "fin": 18.52
+   }
+  ]
+ },
+ "07": {
+  "duree": 17.476,
+  "morceaux": [
+   {
+    "texte": "Un dernier conseil : tu n'es\npas obligé de tout faire seul.",
+    "debut": 0.0,
+    "fin": 3.53
+   },
+   {
+    "texte": "Dans ton espace organisateur, ouvre\nta compétition, puis « Staff ».",
+    "debut": 3.53,
+    "fin": 7.9
+   },
+   {
+    "texte": "Saisis l'adresse e-mail d'un membre qui a déjà\nun compte KoppaFoot, et appuie sur « Ajouter ».",
+    "debut": 7.9,
+    "fin": 13.07
+   },
+   {
+    "texte": "Ton modérateur peut alors configurer la\ncompétition et tenir la console à ta place.",
+    "debut": 13.07,
+    "fin": 17.48
+   }
+  ]
+ },
+ "08": {
+  "duree": 10.684,
+  "morceaux": [
+   {
+    "texte": "Avant demain, entraîne-toi : dans l'espace\n« Console live », ouvre le « Match d'entraînement ».",
+    "debut": 0.0,
+    "fin": 5.17
+   },
+   {
+    "texte": "Rien de ce que tu y fais n'est publié, et tu\npeux recommencer autant de fois que tu veux.",
+    "debut": 5.17,
+    "fin": 9.67
+   },
+   {
+    "texte": "Bon match !",
+    "debut": 9.67,
+    "fin": 10.68
+   }
+  ]
+ }
+}

@@ -1,0 +1,10 @@
+# Les rushs (enregistrements d'écran) et la voix off : trop lourds, et ils
+# montrent des données réelles que la vidéo finale a coupées.
+sources/
+# Les essais d'un chapitre.
+rendu/
+# Les planches et repères de travail : des captures des rushs, dont certaines
+# montrent une adresse e-mail personnelle proposée par le clavier.
+outils/planches/
+outils/reperes/
+__pycache__/
