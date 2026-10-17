@@ -5,14 +5,18 @@ import { peutConfigurer } from "@/lib/competition-api-auth";
 import { jourAudience, lirePeriode } from "@/lib/audience";
 import { audienceDeCompetition, audienceDeMatch } from "@/lib/audience-serveur";
 import { rapportAudience } from "@/lib/rapport-audience";
-import type { FirestoreCompetition } from "@/types";
+import { toCompMatch } from "@/lib/competition-mappers";
+import { statsDeJeu } from "@/lib/stats-competition";
+import type { FirestoreCompetition, FirestoreCompMatch } from "@/types";
 
 /**
  * GET /api/competitions/[cid]/audience/rapport?periode=7j|30j|tout
  *
  * Le rapport d'audience en PDF, pour le staff de la compétition et
  * l'administration — le même contrôle que la page Statistiques. Un vrai
- * fichier, qui part tel quel sur WhatsApp (voir lib/rapport-audience).
+ * fichier, qui part tel quel sur WhatsApp (voir lib/rapport-audience). Sa
+ * seconde page porte les statistiques de jeu, sur toute la compétition : la
+ * période ne vaut que pour l'audience.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -33,11 +37,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ cid: str
     if (!audience) return NextResponse.json({ error: "Compétition introuvable" }, { status: 404 });
     // La courbe du match au plus haut pic : `matchs` est déjà trié du plus suivi au moins suivi.
     const premier = audience.matchs.find((m) => m.pic);
-    const plusSuivi = premier ? await audienceDeMatch(premier.mid, cid) : null;
+    const [plusSuivi, matchs] = await Promise.all([
+      premier ? audienceDeMatch(premier.mid, cid) : Promise.resolve(null),
+      compSnap.ref.collection("comp_matches").where("status", "==", "completed").get(),
+    ]);
+    const jeu = statsDeJeu(matchs.docs.map((d) => toCompMatch(d.id, d.data() as FirestoreCompMatch)));
 
-    const pdf = await rapportAudience(audience, plusSuivi);
+    const pdf = await rapportAudience(audience, plusSuivi, jeu);
     const jour = jourAudience();
-    const nom = `audience-${audience.slug || cid}-${jour.slice(0, 4)}-${jour.slice(4, 6)}-${jour.slice(6, 8)}.pdf`;
+    const nom = `statistiques-${audience.slug || cid}-${jour.slice(0, 4)}-${jour.slice(4, 6)}-${jour.slice(6, 8)}.pdf`;
     return new NextResponse(Buffer.from(pdf), {
       headers: {
         "Content-Type": "application/pdf",

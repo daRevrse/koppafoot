@@ -19,6 +19,8 @@ import CalendarTab from "@/components/competition/tabs/CalendarTab";
 import StandingsTab from "@/components/competition/tabs/StandingsTab";
 import BracketTab from "@/components/competition/tabs/BracketTab";
 import ScorersTab from "@/components/competition/tabs/ScorersTab";
+import PanneauStatsDeJeu from "@/components/competition/PanneauStatsDeJeu";
+import { statsDeJeu } from "@/lib/stats-competition";
 import TeamsTab from "@/components/competition/tabs/TeamsTab";
 import { gameTypeLabel, matchDurationLabel, hasGroupStage, hasKnockout, reentryAllowed } from "@/lib/competition-format";
 import RegisterTeamButton from "@/components/competition/RegisterTeamButton";
@@ -44,7 +46,7 @@ import Emplacement from "@/components/partenaires/Emplacement";
  * « Équipes » est toujours là, avant « Buteurs » : qui joue se lit avant
  * qui marque, et pendant les inscriptions la liste montre qui est déjà là.
  */
-const TAB_IDS = ["calendar", "standings", "bracket", "teams", "scorers"] as const;
+const TAB_IDS = ["calendar", "standings", "bracket", "teams", "scorers", "stats"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 // Status → label + accent, reusing the mapping style from the organizer landing.
@@ -63,6 +65,7 @@ const T = textes(
     playOffs: "Play-offs",
     tableau: "Tableau",
     buteurs: "Buteurs",
+    stats: "Stats",
     equipes: "Équipes",
     partageInscriptions: (nom: string, ville: string | null) =>
       `${nom}${ville ? ` à ${ville}` : ""} : les inscriptions sont ouvertes.`,
@@ -99,6 +102,7 @@ const T = textes(
     playOffs: "Play-offs",
     tableau: "Bracket",
     buteurs: "Top scorers",
+    stats: "Stats",
     equipes: "Teams",
     partageInscriptions: (nom: string, ville: string | null) =>
       `${nom}${ville ? ` in ${ville}` : ""}: registration is open.`,
@@ -239,6 +243,11 @@ export default function PublicCompetitionHome() {
   // Memes conditions que l'ancienne barre d'onglets : un classement n'a de
   // sens qu'avec une phase de groupes, un tableau qu'avec une phase finale.
   const type = competition.competitionType ?? null;
+  // LES STATISTIQUES DE JEU, SI L'ORGANISATEUR LES A PUBLIÉES. Ce sont des
+  // chiffres de staff (voir l'onglet « Le jeu » de son espace) : rien ne
+  // s'affiche tant qu'il ne l'a pas décidé, ni avant le premier match joué.
+  const stats = competition.statsPubliques ? statsDeJeu(matches) : null;
+  const statsVisibles = !!stats && stats.joues > 0;
   const TABS: { id: TabId; label: string }[] = [
     { id: "calendar", label: t.calendrier },
     ...(type === null || hasGroupStage(type) ? [{ id: "standings" as TabId, label: t.classement }] : []),
@@ -247,7 +256,11 @@ export default function PublicCompetitionHome() {
       : []),
     { id: "teams", label: t.equipes },
     { id: "scorers", label: t.buteurs },
+    ...(statsVisibles ? [{ id: "stats" as TabId, label: t.stats }] : []),
   ];
+  // Un lien « ?tab=stats » vers une compétition qui ne les publie pas (ou
+  // plus) ouvre le calendrier, plutôt qu'un onglet vide sans titre.
+  const onglet: TabId = tab === "stats" && !statsVisibles ? "calendar" : tab;
 
   /** Change d'onglet et met l'URL a jour sans recharger ni empiler d'entree. */
   const selectTab = (id: TabId) => {
@@ -445,7 +458,7 @@ export default function PublicCompetitionHome() {
               <button
                 key={o.id}
                 onClick={() => selectTab(o.id)}
-                className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${tab === o.id
+                className={`shrink-0 whitespace-nowrap border-b-2 py-4 text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${onglet === o.id
                     ? "border-gray-900 text-gray-900"
                     : "border-transparent text-gray-400 hover:text-gray-700"
                   }`}
@@ -456,11 +469,14 @@ export default function PublicCompetitionHome() {
           </div>
 
           <div className="p-5">
-            {tab === "calendar" && <CalendarTab competition={competition} matches={matches} />}
-            {tab === "standings" && <StandingsTab competition={competition} matches={matches} teams={teams} />}
-            {tab === "bracket" && <BracketTab competition={competition} matches={matches} />}
-            {tab === "scorers" && <ScorersTab competition={competition} matches={matches} teams={teams} />}
-            {tab === "teams" && <TeamsTab competition={competition} matches={matches} teams={teams} />}
+            {onglet === "calendar" && <CalendarTab competition={competition} matches={matches} />}
+            {onglet === "standings" && <StandingsTab competition={competition} matches={matches} teams={teams} />}
+            {onglet === "bracket" && <BracketTab competition={competition} matches={matches} />}
+            {onglet === "scorers" && <ScorersTab competition={competition} matches={matches} teams={teams} />}
+            {onglet === "teams" && <TeamsTab competition={competition} matches={matches} teams={teams} />}
+            {onglet === "stats" && stats && (
+              <PanneauStatsDeJeu stats={stats} lienDuMatch={(mid) => `/c/${competition.slug}/matches/${mid}`} />
+            )}
           </div>
         </div>
 
