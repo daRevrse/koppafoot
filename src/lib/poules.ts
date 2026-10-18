@@ -1,4 +1,5 @@
 import type { CompMatch, CompTeam, CompetitionFormat } from "@/types";
+import { pointsDeCartons } from "@/lib/cartons";
 
 // ============================================
 // Les classements de poule, purs.
@@ -18,6 +19,29 @@ export interface StandingRow {
   goalsAgainst: number;
   goalDiff: number;
   points: number;
+  /**
+   * Les points de cartons reçus en poule (un jaune 1, un rouge 3), voir
+   * lib/cartons. Le moins passe devant, à égalité parfaite seulement.
+   */
+  cartons: number;
+}
+
+/**
+ * L'ordre d'un classement de poule, et celui des meilleurs n-ièmes : points,
+ * différence de buts, buts marqués, cartons (le moins devant), puis le nom.
+ *
+ * UNE SEULE FONCTION POUR LES DEUX, et c'est voulu : la règle de la
+ * compétition qui départage deux troisièmes d'une même poule départage aussi
+ * les troisièmes de poules différentes.
+ */
+export function comparerLignes(a: StandingRow, b: StandingRow): number {
+  return (
+    b.points - a.points ||
+    b.goalDiff - a.goalDiff ||
+    b.goalsFor - a.goalsFor ||
+    a.cartons - b.cartons ||
+    a.team.name.localeCompare(b.team.name, "fr")
+  );
 }
 
 export interface GroupStanding {
@@ -35,10 +59,12 @@ export interface GroupStanding {
  * crashing.
  *
  * Within a group, rows are ordered by points desc, then goal difference desc,
- * then goals-for desc, then team name asc (locale-aware).
+ * then goals-for desc, then card points asc, then team name asc (locale-aware).
+ * See `comparerLignes`.
  *
  * NOTE: head-to-head tiebreak is intentionally NOT implemented for v1; the
- * agreed v1 ordering is points -> goal difference -> goals-for -> name.
+ * agreed v1 ordering is points -> goal difference -> goals-for -> name, with
+ * the cards added before the name (rule of the G2 competition, 2026-10-18).
  */
 export function computeStandings(
   matches: CompMatch[],
@@ -59,6 +85,7 @@ export function computeStandings(
       goalsAgainst: 0,
       goalDiff: 0,
       points: 0,
+      cartons: 0,
     });
   }
 
@@ -77,6 +104,9 @@ export function computeStandings(
 
     home.played += 1;
     away.played += 1;
+    const faits = match.liveState?.events ?? [];
+    home.cartons += pointsDeCartons(faits, match.homeTeamId);
+    away.cartons += pointsDeCartons(faits, match.awayTeamId);
     home.goalsFor += sh;
     home.goalsAgainst += sa;
     away.goalsFor += sa;
@@ -114,13 +144,7 @@ export function computeStandings(
     .sort((a, b) => a.localeCompare(b))
     .map((group) => ({
       group,
-      rows: (byGroup.get(group) as StandingRow[]).sort(
-        (a, b) =>
-          b.points - a.points ||
-          b.goalDiff - a.goalDiff ||
-          b.goalsFor - a.goalsFor ||
-          a.team.name.localeCompare(b.team.name),
-      ),
+      rows: (byGroup.get(group) as StandingRow[]).sort(comparerLignes),
     }));
 }
 

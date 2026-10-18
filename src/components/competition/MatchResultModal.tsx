@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Loader2, X, Trophy, Goal } from "lucide-react";
+import { Loader2, X, Trophy, Goal, Plus } from "lucide-react";
 import {
   setCompMatchResult,
   ensureCompPlayers,
   rosterNameKey,
   OWN_GOAL_DETAIL,
+  type ResultCard,
   type ResultGoal,
 } from "@/lib/competition-firestore";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
@@ -38,6 +39,24 @@ interface GoalRow {
 }
 
 const emptyGoalRow = (): GoalRow => ({ playerId: "", newName: "", minute: "", ownGoal: false, assistId: "" });
+
+/**
+ * Un carton de la saisie : un joueur d'un camp, jaune ou rouge.
+ *
+ * Les cartons comptent au classement (voir lib/cartons) : un match qu'on n'a
+ * pas pu diffuser en a besoin autant que de son score.
+ */
+interface CardRow {
+  side: "home" | "away";
+  couleur: "jaune" | "rouge";
+  /** "" = joueur inconnu, NEW_PLAYER = créé depuis `newName`, sinon une ligne d'effectif. */
+  playerId: string;
+  newName: string;
+  minute: string;
+  /** Recopiés d'un carton posé en console, voir ResultCard. */
+  period?: number;
+  detail?: string | null;
+}
 
 /** Fit the scorer lines to a score, keeping what the organizer already typed. */
 function resizeGoalRows(rows: GoalRow[], score: number): GoalRow[] {
@@ -90,6 +109,7 @@ export default function MatchResultModal({
   const [penaltyAway, setPenaltyAway] = useState("");
   const [homeGoalRows, setHomeGoalRows] = useState<GoalRow[]>([]);
   const [awayGoalRows, setAwayGoalRows] = useState<GoalRow[]>([]);
+  const [cardRows, setCardRows] = useState<CardRow[]>([]);
   const [saving, setSaving] = useState(false);
   // La ligne d'effectif couronnée, "" pour personne. Voir `ChoixHommeDuMatch`.
   const [mvpId, setMvpId] = useState("");
@@ -154,6 +174,31 @@ export default function MatchResultModal({
 
     setHomeGoalRows(rowsFor("home"));
     setAwayGoalRows(rowsFor("away"));
+    // Les cartons déjà posés, en console ou à une saisie précédente : les
+    // rouvrir les montre, et enregistrer les remplace tous.
+    setCardRows(
+      (match.liveState?.events ?? [])
+        .filter((e) => e.type === "yellow_card" || e.type === "red_card")
+        .map((e) => {
+          const side: "home" | "away" = e.teamId === match.awayTeamId ? "away" : "home";
+          const name = (e.playerName ?? "").trim();
+          const known =
+            e.playerId ??
+            rosterOf(side === "home" ? match.homeTeamId : match.awayTeamId).find(
+              (p) => rosterNameKey(p.name) === rosterNameKey(name),
+            )?.id ??
+            "";
+          return {
+            side,
+            couleur: e.type === "yellow_card" ? "jaune" : "rouge",
+            playerId: known || (name ? NEW_PLAYER : ""),
+            newName: known ? "" : name,
+            minute: e.minute ? String(e.minute) : "",
+            period: e.period,
+            detail: e.detail ?? null,
+          } satisfies CardRow;
+        }),
+    );
     // Rouvrir la saisie montre la désignation déjà faite, plutôt qu'un champ
     // vide qui laisserait croire qu'il n'y en a pas.
     setMvpId(match.mvpPlayerId ?? "");
@@ -190,6 +235,9 @@ export default function MatchResultModal({
       }),
     );
   };
+
+  const updateCardRow = (index: number, patch: Partial<CardRow>) =>
+    setCardRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
   const handleSave = async () => {
     if (!match) return;
@@ -241,7 +289,7 @@ export default function MatchResultModal({
       })),
     ];
 
-    for (const { row } of lines) {
+    for (const { row } of [...lines, ...cardRows.map((row) => ({ row }))]) {
       if (!row.minute.trim()) continue;
       const min = parseInt(row.minute, 10);
       if (isNaN(min) || min < 1 || min > 130) {
@@ -249,7 +297,10 @@ export default function MatchResultModal({
         return;
       }
     }
-    if (lines.some((l) => l.row.playerId === NEW_PLAYER && !l.row.newName.trim())) {
+    if (
+      lines.some((l) => l.row.playerId === NEW_PLAYER && !l.row.newName.trim())
+      || cardRows.some((c) => c.playerId === NEW_PLAYER && !c.newName.trim())
+    ) {
       toast.error("Nom manquant pour un nouveau joueur");
       return;
     }
@@ -263,11 +314,16 @@ export default function MatchResultModal({
       // Create the missing roster lines first, one write per team, so two
       // new scorers in the same squad never race each other.
       const namesByTeam = new Map<string, string[]>();
-      for (const { row, scorerTeamId } of lines) {
-        if (row.playerId !== NEW_PLAYER || !scorerTeamId) continue;
+      const teamOf = (side: "home" | "away") => (side === "home" ? match.homeTeamId : match.awayTeamId);
+      const nouveaux = [
+        ...lines.map(({ row, scorerTeamId }) => ({ row, teamId: scorerTeamId })),
+        ...cardRows.map((row) => ({ row, teamId: teamOf(row.side) })),
+      ];
+      for (const { row, teamId } of nouveaux) {
+        if (row.playerId !== NEW_PLAYER || !teamId) continue;
         const name = row.newName.trim();
         if (!name) continue;
-        namesByTeam.set(scorerTeamId, [...(namesByTeam.get(scorerTeamId) ?? []), name]);
+        namesByTeam.set(teamId, [...(namesByTeam.get(teamId) ?? []), name]);
       }
       const createdIds = new Map<string, string>(); // `${teamId}::${nameKey}` -> playerId
       let createdCount = 0;
@@ -307,6 +363,28 @@ export default function MatchResultModal({
         });
       }
 
+      // Chaque carton compte, même sans joueur connu : il pèse sur l'équipe.
+      const cards: ResultCard[] = cardRows.map((row) => {
+        const teamId = teamOf(row.side);
+        const name = row.playerId === NEW_PLAYER
+          ? row.newName.trim() || null
+          : row.playerId
+            ? rosterOf(teamId).find((p) => p.id === row.playerId)?.name ?? null
+            : null;
+        const playerId = row.playerId === NEW_PLAYER
+          ? (teamId ? createdIds.get(`${teamId}::${rosterNameKey(row.newName.trim())}`) ?? null : null)
+          : row.playerId || null;
+        return {
+          side: row.side,
+          couleur: row.couleur,
+          playerId,
+          playerName: name,
+          minute: row.minute.trim() ? parseInt(row.minute, 10) : null,
+          period: row.period,
+          detail: row.detail ?? null,
+        };
+      });
+
       const choisi = candidats.find((c) => c.playerId === mvpId) ?? null;
       await setCompMatchResult(
         cid,
@@ -320,6 +398,7 @@ export default function MatchResultModal({
           mvp: choisi
             ? { playerId: choisi.playerId, userId: choisi.userId, name: choisi.name, teamId: choisi.teamId }
             : null,
+          cards,
         },
         user?.uid,
       );
@@ -413,7 +492,7 @@ export default function MatchResultModal({
             </div>
             <p className="mb-1 text-sm text-gray-500">
               {completed ? (
-                <>Corrige le score ou complète les buteurs.</>
+                <>Corrige le score ou complète les buteurs et les cartons.</>
               ) : (
                 <>Le match sera marqué comme <strong>terminé</strong>.</>
               )}
@@ -513,6 +592,34 @@ export default function MatchResultModal({
               </div>
             )}
 
+            {/* Les cartons, qui départagent au classement. Toujours visibles,
+                même à 0–0 : un match sans but peut en avoir. */}
+            <div className="mt-6 space-y-3 border-t border-gray-200/70 pt-5">
+              <div className="flex items-center gap-2">
+                <span className="h-3.5 w-2.5 bg-amber-400" aria-hidden />
+                <h3 className="text-sm font-bold text-gray-900">Cartons</h3>
+                <span className="text-xs text-gray-400">comptent au classement</span>
+              </div>
+              {(["home", "away"] as const).map((side) => (
+                <CardLines
+                  key={side}
+                  teamName={side === "home" ? match.homeTeamName : match.awayTeamName}
+                  roster={rosterOf(side === "home" ? match.homeTeamId : match.awayTeamId)}
+                  rows={cardRows.map((row, index) => ({ row, index })).filter(({ row }) => row.side === side)}
+                  onChange={updateCardRow}
+                  onRemove={(index) => setCardRows((prev) => prev.filter((_, i) => i !== index))}
+                  onAdd={() => setCardRows((prev) => [
+                    ...prev,
+                    { side, couleur: "jaune", playerId: "", newName: "", minute: "" },
+                  ])}
+                />
+              ))}
+              <p className="text-[11px] text-gray-400">
+                À égalité parfaite, l&apos;équipe qui a reçu le moins de cartons passe devant
+                (un jaune compte 1, un rouge 3). Un joueur absent de l&apos;effectif y est ajouté.
+              </p>
+            </div>
+
             {/* L'homme du match. Sous les buteurs : il se désigne une fois qu'on
                 sait qui a marqué, et il reste facultatif — un organisateur qui
                 n'était pas au stade n'a aucune raison de trancher. */}
@@ -572,6 +679,107 @@ export default function MatchResultModal({
         </div>
       )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Les cartons d'un camp : une ligne par carton, la couleur, le joueur, la minute.
+ */
+function CardLines({
+  teamName,
+  roster,
+  rows,
+  onChange,
+  onRemove,
+  onAdd,
+}: {
+  teamName: string;
+  roster: CompPlayer[];
+  /** Les lignes de ce camp, avec leur rang dans la liste de tous les cartons. */
+  rows: { row: CardRow; index: number }[];
+  onChange: (index: number, patch: Partial<CardRow>) => void;
+  onRemove: (index: number) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">{teamName}</p>
+      <div className="space-y-2">
+        {rows.map(({ row, index }) => (
+          <div key={index} className="border border-gray-200/70 bg-gray-50/50 p-2.5">
+            <div className="flex items-center gap-2">
+              {/* La couleur, en deux boutons : un jaune et un rouge se
+                  distinguent d'un coup d'œil, un menu ne le permettrait pas. */}
+              <div className="flex shrink-0 overflow-hidden border border-gray-200/70" role="radiogroup" aria-label="Couleur du carton">
+                {(["jaune", "rouge"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={row.couleur === c}
+                    aria-label={c === "jaune" ? "Carton jaune" : "Carton rouge"}
+                    onClick={() => onChange(index, { couleur: c })}
+                    className={`flex h-8 w-8 items-center justify-center transition-colors ${
+                      row.couleur === c ? "bg-gray-900" : "bg-white hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className={`h-4 w-3 ${c === "jaune" ? "bg-amber-400" : "bg-red-600"} ${row.couleur === c ? "" : "opacity-40"}`} />
+                  </button>
+                ))}
+              </div>
+              <select
+                value={row.playerId}
+                onChange={(e) => onChange(index, { playerId: e.target.value })}
+                aria-label={`Joueur sanctionné de ${teamName}`}
+                className="min-w-0 flex-1 border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              >
+                <option value="">Joueur inconnu</option>
+                {roster.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.number ? `${p.number}. ` : ""}{p.name}
+                  </option>
+                ))}
+                <option value={NEW_PLAYER}>＋ Nouveau joueur…</option>
+              </select>
+              <input
+                type="number"
+                min={1}
+                max={130}
+                placeholder="min"
+                value={row.minute}
+                onChange={(e) => onChange(index, { minute: e.target.value })}
+                aria-label="Minute du carton"
+                className="w-16 shrink-0 border border-gray-200/70 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                aria-label="Retirer ce carton"
+                className="shrink-0 p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            {row.playerId === NEW_PLAYER && (
+              <input
+                type="text"
+                placeholder={`Nom du joueur (ajouté à l'effectif de ${teamName})`}
+                value={row.newName}
+                onChange={(e) => onChange(index, { newName: e.target.value })}
+                className="mt-2 w-full border border-gray-200/70 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              />
+            )}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-primary-600 hover:text-primary-700"
+        >
+          <Plus size={14} /> Ajouter un carton
+        </button>
+      </div>
+    </div>
   );
 }
 
