@@ -1894,6 +1894,31 @@ export interface ResultGoal {
 }
 
 /**
+ * Un carton saisi après le match, avec le score et les buteurs.
+ *
+ * Il compte au classement (voir lib/cartons) : la compétition départage ses
+ * égalités parfaites aux cartons, et un match qu'on n'a pas pu diffuser ne
+ * doit pas en sortir sans les siens.
+ */
+export interface ResultCard {
+  /** Le camp du joueur sanctionné. */
+  side: "home" | "away";
+  couleur: "jaune" | "rouge";
+  /** La ligne d'effectif, `null` quand on ne sait pas qui. */
+  playerId: string | null;
+  playerName: string | null;
+  /** `null` = inconnue. */
+  minute: number | null;
+  /**
+   * Ce que la console savait d'un carton qu'elle a posé : sa période, et sa
+   * marque de second jaune. Recopiés tels quels, pour que corriger un
+   * résultat ne les efface pas.
+   */
+  period?: number;
+  detail?: string | null;
+}
+
+/**
  * Write a final result, score AND scorers, on a match that was never run
  * through the live console (a date the organizer is catching up on).
  *
@@ -1936,6 +1961,12 @@ export async function setCompMatchResult(
      * seconde échoue.
      */
     mvp?: { playerId: string; userId: string | null; name: string; teamId: string } | null;
+    /**
+     * Les cartons du match, quand la saisie les donne : ils REMPLACENT tous
+     * ceux du match, comme les buteurs remplacent les buts. Absent : on n'y
+     * touche pas.
+     */
+    cards?: ResultCard[];
   },
   parUid?: string,
 ): Promise<void> {
@@ -1971,10 +2002,27 @@ export async function setCompMatchResult(
   // Unknown minutes (0) sort last so the feed still reads chronologically.
   goalEvents.sort((a, b) => (a.minute || Infinity) - (b.minute || Infinity));
 
+  const cardEvents: StoredCompEvent[] = (input.cards ?? []).map((c) => ({
+    id: Math.random().toString(36).substring(2, 11),
+    type: c.couleur === "jaune" ? "yellow_card" : "red_card",
+    period: c.period ?? 0,
+    minute: c.minute ?? 0,
+    team_id: (c.side === "home" ? d.home_team_id : d.away_team_id) ?? "",
+    player_id: c.playerId ?? null,
+    player_name: c.playerName ?? null,
+    detail: c.detail ?? null,
+    created_at: now,
+  }));
+  cardEvents.sort((a, b) => (a.minute || Infinity) - (b.minute || Infinity));
+  const remplaceLesCartons = input.cards !== undefined;
+
   // Keep whatever a live session recorded, in its original order, and append
-  // the rebuilt goals. Sorting the merged list would scramble period markers.
-  const kept = (d.live_state?.events ?? []).filter((e) => e.type !== "goal");
-  const events = [...kept, ...goalEvents];
+  // the rebuilt goals (and cards). Sorting the merged list would scramble
+  // period markers.
+  const kept = (d.live_state?.events ?? []).filter(
+    (e) => e.type !== "goal" && !(remplaceLesCartons && (e.type === "yellow_card" || e.type === "red_card")),
+  );
+  const events = [...kept, ...goalEvents, ...cardEvents];
 
   // Same rules as `finishCompMatch`: regulation score first, then the shootout
   // on a knockout tie. Any other level score (a group draw, or a knockout the
@@ -2040,7 +2088,7 @@ export async function setCompMatchResult(
 // Les classements de poule vivent dans lib/poules : purs, ils servent aussi
 // au serveur, qui ne doit pas tirer le SDK client avec ce fichier. Ils sont
 // réexportés ici pour ne rien casser chez ceux qui les importaient d'ici.
-import { computeStandings, type StandingRow, type GroupStanding } from "./poules";
+import { comparerLignes, computeStandings, type StandingRow, type GroupStanding } from "./poules";
 export { computeStandings, type StandingRow, type GroupStanding };
 
 export interface TopScorer {
@@ -2553,7 +2601,8 @@ export function parseBracketSlotSourceKey(key: string): BracketSlotSource | null
 /**
  * The teams that finished `rank`-th in their group, ranked against each other,
  * the repêchage ladder. Ordered by points, then goal difference, then goals
- * scored, then name, matching `computeStandings`'s within-group ordering.
+ * scored, then cards (fewest first), then name: `comparerLignes`, the very
+ * ordering of a group table.
  *
  * Comparing across groups is only fair when the groups are the same size; the
  * caller decides whether that holds (the format's `teams_per_group` says so).
@@ -2562,13 +2611,7 @@ export function rankedBestOfRank(standings: GroupStanding[], rank: number): Stan
   const rows = standings
     .map((standing) => standing.rows[rank - 1])
     .filter((row): row is StandingRow => row != null);
-  return rows.sort(
-    (a, b) =>
-      b.points - a.points ||
-      b.goalDiff - a.goalDiff ||
-      b.goalsFor - a.goalsFor ||
-      a.team.name.localeCompare(b.team.name, "fr"),
-  );
+  return rows.sort(comparerLignes);
 }
 
 /**
