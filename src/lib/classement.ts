@@ -24,7 +24,9 @@
 // remplacant qui n'est pas entre y figure quand meme : la feuille est la seule
 // trace qu'on ait de qui etait la. Il n'a en revanche pas de note — il n'a
 // pas assez joue pour en meriter une —, et ce match-la ne compte pas dans sa
-// moyenne.
+// moyenne. Un camp de competition SANS feuille, dont l'organisateur a saisi le
+// resultat apres coup, est represente par les joueurs que ses evenements
+// nomment (voir `nommesSansFeuille`).
 //
 // L'IDENTITE EST LE COMPTE. `player_id` designe une ligne d'effectif, propre a
 // une equipe dans une competition : le meme homme inscrit dans deux clubs y
@@ -157,6 +159,16 @@ export type MatchAClasser = CompMatch & {
    * mi-temps par defaut.
    */
   dureeMatchMin?: number;
+  /**
+   * Le compte derriere chaque ligne d'effectif de la competition, `null` pour
+   * une ligne jamais revendiquee. C'est ce qui ouvre le repli d'un camp SANS
+   * FEUILLE (voir `nommesSansFeuille`), et ce qui y donne son identite au
+   * joueur : la feuille recopie le compte a sa validation, un evenement non.
+   *
+   * Absent sur un amical. Son parcours apres coup est `contributionsDirectes`,
+   * et ses evenements n'y designent pas des lignes d'effectif.
+   */
+  comptesDesLignes?: Record<string, string | null>;
 };
 
 /**
@@ -190,6 +202,45 @@ function cleDe(entry: Pick<LineupEntry, "userId" | "name">): string | null {
   if (entry.userId) return `uid:${entry.userId}`;
   const nom = entry.name.trim().toLowerCase();
   return nom === "" ? null : `nom:${nom}`;
+}
+
+type Fait = NonNullable<CompMatch["liveState"]>["events"][number];
+
+/** Ce que le classement lit d'une ligne de feuille. */
+type LigneDuCamp = Pick<LineupEntry, "playerId" | "name" | "userId" | "position">;
+
+/**
+ * La feuille qu'un camp n'a pas : les joueurs que ses evenements nomment.
+ *
+ * Une journee de competition rattrapee par l'organisateur (voir
+ * `setCompMatchResult`) n'a que le score, les buteurs, les passeurs et les
+ * cartons. Sur un camp qui n'avait pas valide sa feuille, ils etaient les
+ * seuls a le representer, et le classement les ignorait : un doublé saisi
+ * apres coup ne comptait pour personne. Ceux-la, on sait qu'ils etaient la.
+ * C'est la regle des statistiques du joueur (voir `priseDePart` dans
+ * lib/player-stats), et le classement doit dire la meme chose que sa fiche.
+ *
+ * Un csc nomme un joueur D'EN FACE, range dans le camp qui en profite : il n'y
+ * entre pas.
+ */
+function nommesSansFeuille(
+  faits: Fait[],
+  teamId: string | null,
+  comptes: Record<string, string | null>,
+): LigneDuCamp[] {
+  const nommes = new Map<string, LigneDuCamp>();
+  const nommer = (playerId: string | null | undefined, nom: string | null | undefined) => {
+    if (!playerId || nommes.has(playerId)) return;
+    // Ni role ni poste : une saisie apres match ne dit pas qui a commence, ni
+    // ou.
+    nommes.set(playerId, { playerId, name: nom ?? "", userId: comptes[playerId] ?? null });
+  };
+  for (const f of faits) {
+    if (!teamId || f.teamId !== teamId) continue;
+    if (!(f.type === "goal" && f.detail === OWN_GOAL_DETAIL)) nommer(f.playerId, f.playerName);
+    nommer(f.assistPlayerId, f.assistPlayerName);
+  }
+  return [...nommes.values()];
 }
 
 /** Le plus recent d'abord. Une date manquante passe en dernier. */
@@ -303,7 +354,15 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
       // depend du match entier —, et seulement si quelqu'un en a besoin.
       let notes: Map<string, NoteJoueur> | null = null;
 
-      for (const entry of camp.entries) {
+      // Sans feuille, les joueurs nommes en tiennent lieu, et personne n'y est
+      // NOTE : on ne note pas ce qu'on n'a pas vu, comme pour un amical
+      // renseigne apres coup.
+      const sansFeuille = camp.entries.length === 0 && !!match.comptesDesLignes;
+      const lignes: LigneDuCamp[] = sansFeuille
+        ? nommesSansFeuille(faits, camp.teamId, match.comptesDesLignes ?? {})
+        : camp.entries;
+
+      for (const entry of lignes) {
         if (estLigneHorsPlateforme(entry.playerId)) continue;
         const cle = cleDe(entry);
         if (!cle) continue;
@@ -330,10 +389,14 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
           if (camp.encaisses === 0) cumul.cleanSheets += 1;
         }
 
-        notes ??= notesDuCamp(
-          match, camp.entries, faits, camp.teamId, match.dureeMatchMin ?? DUREE_MATCH_DEFAUT,
-        );
-        cumul.notes.push(notes.get(entry.playerId)?.note ?? null);
+        if (sansFeuille) {
+          cumul.notes.push(null);
+        } else {
+          notes ??= notesDuCamp(
+            match, camp.entries, faits, camp.teamId, match.dureeMatchMin ?? DUREE_MATCH_DEFAUT,
+          );
+          cumul.notes.push(notes.get(entry.playerId)?.note ?? null);
+        }
 
         cumuls.set(cle, cumul);
         // La feuille peut porter deux fois le meme identifiant si un effectif

@@ -53,6 +53,7 @@ import { estLigneDossard, lignesDeSecours } from "@/lib/dossards";
 import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
+import { demanderLeRecalculDuClassement } from "@/lib/classement-client";
 
 /** One entry of the live feed. */
 type LiveEvent = NonNullable<CompMatch["liveState"]>["events"][number];
@@ -111,25 +112,6 @@ interface AssistPickerState {
   teamName: string;
   scorerId: string;
   scorerName: string;
-}
-
-/**
- * Demande au serveur de refaire le classement des joueurs.
- *
- * Silencieuse de bout en bout : l'appelant n'attend rien et ne veut rien
- * savoir. Le calcul se refait au match suivant de toute façon.
- */
-async function recalculerLeClassement(fbUser: { getIdToken: () => Promise<string> } | null) {
-  if (!fbUser) return;
-  try {
-    const token = await fbUser.getIdToken();
-    await fetch("/api/rankings/rebuild", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  } catch {
-    // Voir plus haut : rien à faire, et surtout rien à dire au scoreur.
-  }
 }
 
 /**
@@ -272,7 +254,7 @@ export default function LiveMatchConsole({
   returnHref: string;
 }) {
   const router = useRouter();
-  const { user, firebaseUser } = useAuth();
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [competition, setCompetition] = useState<Competition | null>(null);
@@ -2117,7 +2099,7 @@ export default function LiveMatchConsole({
       // le seul moment où il change. En arrière-plan et SANS BLOQUER — un
       // classement en retard d'un match est un désagrément, un coup de sifflet
       // final qui échoue est une perte.
-      void recalculerLeClassement(firebaseUser);
+      demanderLeRecalculDuClassement();
       toast.success("Match terminé !");
       router.push(returnHref);
     } catch (err) {
@@ -2163,7 +2145,7 @@ export default function LiveMatchConsole({
         },
         competition,
       );
-      void recalculerLeClassement(firebaseUser);
+      demanderLeRecalculDuClassement();
       toast.success("Match arrêté");
       router.push(returnHref);
     } catch (err) {

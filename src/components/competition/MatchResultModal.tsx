@@ -12,6 +12,7 @@ import {
   type ResultGoal,
 } from "@/lib/competition-firestore";
 import { notifierAbonnesDuMatch } from "@/lib/match-notify";
+import { demanderLeRecalculDuClassement } from "@/lib/classement-client";
 import { classerCandidatsMVPSaisie, type CandidatMVPSaisie } from "@/lib/mvp";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Competition, CompMatch, CompPlayer, CompTeam } from "@/types";
@@ -402,6 +403,11 @@ export default function MatchResultModal({
         },
         user?.uid,
       );
+
+      // Le classement des joueurs, comme au coup de sifflet de la console :
+      // à chaque saisie, première ou correction, puisque l'une et l'autre
+      // changent ses buteurs.
+      demanderLeRecalculDuClassement();
 
       // Announce the result to the competition's and the match's followers,
       // this is the match the live console never ran, so nobody has heard
