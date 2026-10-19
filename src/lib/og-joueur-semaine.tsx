@@ -1,5 +1,7 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { chargerRessources } from "@/lib/og-da";
 
 // ============================================
@@ -28,7 +30,7 @@ export interface DonneesAffiche {
   /** Le nom tel que l'administration l'a validé ; mis en capitales au rendu. */
   nom: string;
   numeroSemaine: number;
-  /** Une data URI JPEG ou PNG, déjà préparée (`preparerPhoto`) ; null : ses initiales. */
+  /** Une data URI JPEG ou PNG, déjà préparée (`preparerPhoto`), et AUTORISÉE ; null : l'avatar. */
   photo: string | null;
   /** Ses matchs, du plus ancien au plus récent. */
   lignes: { jour: string; competition: string; equipe: string; ecusson: string | null; affiche: string; detail: string }[];
@@ -117,9 +119,22 @@ function tailleEcusson(n: number, hauteurPhoto: number, vertical: boolean): numb
   return Math.min(vertical ? 92 : 88, Math.floor((place - 22 * (n - 1)) / Math.max(1, n)));
 }
 
-/** « KA » pour « KODJO AMEGAN » : ce qu'on montre faute de photo. */
-function initiales(nom: string): string {
-  return nom.trim().split(/\s+/).slice(0, 2).map((m) => m[0] ?? "").join("").toUpperCase() || "?";
+let avatar: Promise<string> | null = null;
+
+/**
+ * L'AVATAR, À LA PLACE D'UNE PHOTO QUI N'EST PAS AUTORISÉE : une silhouette
+ * de footballeur au maillot vert, sans visage ni carnation, la même pour tous
+ * (voir lib/consentement-image). Jamais des initiales : le propriétaire veut
+ * un vrai avatar. Lu une fois par instance, et passé en PNG, que Satori lit
+ * sans surprise.
+ */
+function chargerAvatar(): Promise<string> {
+  // LE CHEMIN ÉCRIT EN ENTIER, comme dans lib/og-da : un chemin calculé ferait
+  // embarquer tout le projet dans la fonction serveur.
+  avatar ??= readFile(join(process.cwd(), "assets/joueur-semaine/avatar.svg"))
+    .then((svg) => sharp(svg).png().toBuffer())
+    .then((png) => `data:image/png;base64,${png.toString("base64")}`);
+  return avatar;
 }
 
 /**
@@ -195,8 +210,8 @@ function lignesAffichees(lignes: DonneesAffiche["lignes"]): (DonneesAffiche["lig
   return [...lignes.slice(-(MAX_LIGNES - 1)), { autres: lignes.length - (MAX_LIGNES - 1) }];
 }
 
-function Affiche({ d, format, logoKf, couche }: {
-  d: DonneesAffiche; format: FormatAffiche; logoKf: string;
+function Affiche({ d, format, logoKf, avatarPng, couche }: {
+  d: DonneesAffiche; format: FormatAffiche; logoKf: string; avatarPng: string;
   /** Un seul élément, pour la vidéo. Absent : l'affiche entière. */
   couche?: string;
 }) {
@@ -233,13 +248,13 @@ function Affiche({ d, format, logoKf, couche }: {
       )}
       {/* Le bloc noir de droite, derrière le bandeau : il s'arrête avec le nom. */}
       {voir("blocDroite") && <Img src={blocNoir} top={p.y + p.h - 120} left={p.x + p.w - 188} width={280} height={120 + b.h + ETIQUETTE} />}
-      {/* La photo sur son rectangle sombre, ou ses initiales. */}
+      {/* La photo autorisée sur son rectangle sombre, ou l'avatar. */}
       {voir("photo") && (
-        <div style={{ position: "absolute", top: p.y, left: p.x, width: p.w, height: p.h, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: PHOTO_FOND }}>
+        <div style={{ position: "absolute", top: p.y, left: p.x, width: p.w, height: p.h, display: "flex", overflow: "hidden", backgroundColor: PHOTO_FOND }}>
           {d.photo ? (
             <Img src={d.photo} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center top" />
           ) : (
-            <div style={{ display: "flex", fontFamily: "Anton", fontSize: 260, color: "#ffffff", opacity: 0.9 }}>{initiales(d.nom)}</div>
+            <Img src={avatarPng} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center 30%" />
           )}
           <div style={{ position: "absolute", bottom: 0, left: 0, width: p.w, height: 150, backgroundImage: `linear-gradient(180deg, rgba(43,43,43,0), ${PHOTO_FOND})` }} />
         </div>
@@ -322,7 +337,7 @@ function Affiche({ d, format, logoKf, couche }: {
 export async function afficheJoueurSemaine(d: DonneesAffiche, format: FormatAffiche): Promise<Buffer> {
   const { fonts, logo } = await chargerRessources();
   const H = format === "vertical" ? 1920 : 1350;
-  const r = new ImageResponse(<Affiche d={d} format={format} logoKf={logo} />, { width: W, height: H, fonts });
+  const r = new ImageResponse(<Affiche d={d} format={format} logoKf={logo} avatarPng={await chargerAvatar()} />, { width: W, height: H, fonts });
   return Buffer.from(await r.arrayBuffer());
 }
 
@@ -343,9 +358,10 @@ export function clesDesCalques(d: DonneesAffiche): string[] {
  */
 export async function calquesJoueurSemaine(d: DonneesAffiche): Promise<CalqueVideo[]> {
   const { fonts, logo } = await chargerRessources();
+  const avatarPng = await chargerAvatar();
   const calques: CalqueVideo[] = [];
   for (const cle of clesDesCalques(d)) {
-    const r = new ImageResponse(<Affiche d={d} format="vertical" logoKf={logo} couche={cle} />, { width: W, height: 1920, fonts });
+    const r = new ImageResponse(<Affiche d={d} format="vertical" logoKf={logo} avatarPng={avatarPng} couche={cle} />, { width: W, height: 1920, fonts });
     const png = Buffer.from(await r.arrayBuffer());
     if (cle === "fond") {
       calques.push({ cle, png: `data:image/png;base64,${png.toString("base64")}`, left: 0, top: 0, w: W, h: 1920 });
