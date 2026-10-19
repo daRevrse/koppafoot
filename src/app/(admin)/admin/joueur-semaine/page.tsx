@@ -327,7 +327,7 @@ export default function AdminJoueurSemainePage() {
                 {donnees.classement.dossards.length > 1 ? "s" : ""} : {donnees.classement.dossards.slice(0, 8)
                   .map((d) => `${d.nom} (${d.equipe}, ${d.buts} but${d.buts > 1 ? "s" : ""}${d.passes ? `, ${d.passes} passe${d.passes > 1 ? "s" : ""}` : ""})`)
                   .join(" · ")}
-                {donnees.classement.dossards.length > 8 ? "…" : ""}. Les faire nommer par leur organisateur pour qu&apos;ils comptent.
+                {donnees.classement.dossards.length > 8 ? " …" : "."} Les faire nommer par leur organisateur pour qu&apos;ils comptent.
               </p>
             )}
           </Carte>
