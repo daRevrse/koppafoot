@@ -4,7 +4,7 @@ import Link from "next/link";
 import SymboleKoppafoot from "@/components/marque/SymboleKoppafoot";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ClipboardList, Flag, Gem, Goal, HandCoins, Handshake, LayoutDashboard, LogOut, MapPin, MapPinPlus,
+  Award, ChevronLeft, ClipboardList, Flag, Gem, Goal, HandCoins, Handshake, LayoutDashboard, LogOut, MapPin, MapPinPlus,
   Megaphone, MessageSquareText, Radio, Scale, Send, Shield, ShieldCheck, TrendingUp, Trophy, Users, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,6 +59,7 @@ const NAV: { titre: string | null; entrees: Entree[] }[] = [
       { href: "/admin/tribune", label: "Tribune", Icone: Megaphone },
       { href: "/admin/messages", label: "Messages", Icone: Send },
       { href: "/admin/partenaires", label: "Partenaires", Icone: Handshake },
+      { href: "/admin/joueur-semaine", label: "Joueur de la semaine", Icone: Award },
     ],
   },
   {
