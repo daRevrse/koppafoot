@@ -96,6 +96,32 @@ export function photoAutorisee(s: SujetImage, jour: string): string | null {
   return etatDuConsentement(s, jour) === "oui" ? s.photo : null;
 }
 
+/**
+ * La réponse à montrer dans le champ photo d'un joueur sans compte : celle
+ * donnée pour CETTE photo, ou null (pas encore de réponse pour elle).
+ */
+export function reponsePourLaPhoto(photo: string | null | undefined, consentement: unknown): ReponseConsentement | null {
+  const c = lireConsentement(consentement);
+  return photo && c && c.photo === photo ? c.reponse : null;
+}
+
+/**
+ * Ce qu'il faut ranger sur la ligne ou la fiche à l'enregistrement. La
+ * réponse donnée vaut pour la photo finale ; sans réponse, l'ancienne reste si
+ * la photo n'a pas changé, et tombe sinon ; sans photo, rien.
+ */
+export function consentementAEnregistrer({ photo, reponse, ancien, par }: {
+  photo: string | null | undefined;
+  reponse: ReponseConsentement | null;
+  ancien: unknown;
+  par: string;
+}): ConsentementImage | null {
+  if (!photo) return null;
+  if (reponse) return consentementPour(photo, reponse, par);
+  const c = lireConsentement(ancien);
+  return c && c.photo === photo ? c : null;
+}
+
 /** Faut-il poser la question au joueur ? Une photo, pas mineur, et pas de réponse pour CETTE photo. */
 export function aDemanderAuJoueur(s: SujetImage, jour: string): boolean {
   return etatDuConsentement(s, jour) === "aucun" && !!s.photo;

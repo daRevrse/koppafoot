@@ -7,7 +7,8 @@
  */
 import assert from "node:assert/strict";
 import {
-  aDemanderAuJoueur, consentementPour, estMineur, etatDuConsentement, lireConsentement, photoAutorisee,
+  aDemanderAuJoueur, consentementAEnregistrer, consentementPour, estMineur, etatDuConsentement, lireConsentement,
+  photoAutorisee, reponsePourLaPhoto,
 } from "@/lib/consentement-image";
 
 let echecs = 0;
@@ -102,6 +103,34 @@ cas("une réponse sans photo est rejetée", () => {
 
 cas("une réponse complète se lit", () => {
   assert.deepEqual(lireConsentement(oui()), oui());
+});
+
+console.log("\nLa photo d'un joueur sans compte");
+
+cas("la réponse affichée est celle donnée pour cette photo-là", () => {
+  assert.equal(reponsePourLaPhoto(PHOTO, oui()), "oui");
+  assert.equal(reponsePourLaPhoto(AUTRE, oui(PHOTO)), null);
+  assert.equal(reponsePourLaPhoto(null, oui()), null);
+  assert.equal(reponsePourLaPhoto(PHOTO, "n'importe quoi"), null);
+});
+
+cas("une réponse donnée s'enregistre pour la photo finale", () => {
+  const c = consentementAEnregistrer({ photo: AUTRE, reponse: "non", ancien: oui(PHOTO), par: "orga" });
+  assert.equal(c?.reponse, "non");
+  assert.equal(c?.photo, AUTRE);
+  assert.equal(c?.par, "orga");
+});
+
+cas("sans nouvelle réponse, l'ancienne reste si la photo n'a pas changé", () => {
+  assert.deepEqual(consentementAEnregistrer({ photo: PHOTO, reponse: null, ancien: oui(), par: "orga" }), oui());
+});
+
+cas("sans nouvelle réponse, une nouvelle photo n'a plus de réponse", () => {
+  assert.equal(consentementAEnregistrer({ photo: AUTRE, reponse: null, ancien: oui(PHOTO), par: "orga" }), null);
+});
+
+cas("sans photo, rien à ranger", () => {
+  assert.equal(consentementAEnregistrer({ photo: null, reponse: "oui", ancien: oui(), par: "orga" }), null);
 });
 
 if (echecs > 0) {

@@ -10,12 +10,15 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { consentementAEnregistrer, reponsePourLaPhoto, type ReponseConsentement } from "@/lib/consentement-image";
 import {
   getCompetition, getCompTeam, listCompMatches,
   addCompPlayer, modifierLigne, removeCompPlayer,
   photoDeLigneAEnregistrer, effacerPhotoRemplacee,
+  poserConsentementsDesLignes,
 } from "@/lib/competition-firestore";
 import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
+import ModalConsentementsEffectif from "@/components/consentement/ModalConsentementsEffectif";
 import ConfirmationImportClub from "@/components/competition/ConfirmationImportClub";
 import type { ApercuImport, Correspondances } from "@/lib/fusion-import";
 import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
@@ -61,6 +64,8 @@ export default function MyTeamPage() {
   // choisir (voir ChampPhotoDuJoueur).
   const [fPhotoUrl, setFPhotoUrl] = useState("");
   const [fPhoto, setFPhoto] = useState<File | null>(null);
+  // Le joueur accepte-t-il cette photo sur les affiches ? Voir lib/consentement-image.
+  const [fConsentement, setFConsentement] = useState<ReponseConsentement | null>(null);
   const [saving, setSaving] = useState(false);
   const [busyClaim, setBusyClaim] = useState<string | null>(null);
 
@@ -252,6 +257,7 @@ export default function MyTeamPage() {
     setFPosition("");
     setFPhotoUrl("");
     setFPhoto(null);
+    setFConsentement(null);
     setAdding(true);
   };
 
@@ -263,6 +269,7 @@ export default function MyTeamPage() {
     setFPosition(normaliserPoste(player.position) ?? "");
     setFPhotoUrl(player.photo_url ?? "");
     setFPhoto(null);
+    setFConsentement(reponsePourLaPhoto(player.photo_url, player.photo_consentement));
   };
 
   const closeEditor = () => {
@@ -276,11 +283,22 @@ export default function MyTeamPage() {
       toast.error("Le nom est requis");
       return;
     }
+    // Une nouvelle photo ne s'enregistre pas sans la réponse de celui qui la pose.
+    if (fPhoto && !fConsentement) {
+      toast.error("Indique si ce joueur accepte que sa photo paraisse sur nos affiches");
+      return;
+    }
     setSaving(true);
     try {
       // La photo d'abord : à l'ajout, la ligne n'existe pas encore.
       const photo_url = await photoDeLigneAEnregistrer(cid, {
         fichier: fPhoto, avant: editing?.photo_url, gardee: fPhotoUrl,
+      });
+      const photo_consentement = consentementAEnregistrer({
+        photo: photo_url !== undefined ? photo_url : editing?.photo_url ?? null,
+        reponse: fConsentement,
+        ancien: editing?.photo_consentement,
+        par: user?.uid ?? "",
       });
       let reecrits = 0;
       if (editing) {
@@ -290,6 +308,7 @@ export default function MyTeamPage() {
           number: fNumber.trim(),
           position: fPosition.trim(),
           ...(photo_url !== undefined ? { photo_url } : {}),
+          photo_consentement,
         });
       } else {
         await addCompPlayer(cid, tid, {
@@ -297,6 +316,7 @@ export default function MyTeamPage() {
           number: fNumber.trim(),
           position: fPosition.trim() || undefined,
           photo_url,
+          photo_consentement,
         });
       }
       await effacerPhotoRemplacee(cid, editing?.photo_url, photo_url);
@@ -414,6 +434,15 @@ export default function MyTeamPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
+      {/* Les photos déjà posées sans réponse au consentement à l'image : une fois. */}
+      <ModalConsentementsEffectif
+        cleEquipe={`comp:${cid}:${tid}`}
+        joueurs={(team?.players ?? []).filter((p) => !p.user_id).map((p) => ({ id: p.id, nom: p.name, photo: p.photo_url ?? null, consentement: p.photo_consentement }))}
+        enregistrer={async (c) => {
+          await poserConsentementsDesLignes(cid, tid, c);
+          await reloadTeam();
+        }}
+      />
       <Link
         href="/mon-equipe"
         className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-emerald-600"
@@ -561,9 +590,11 @@ export default function MyTeamPage() {
                 url={fPhotoUrl}
                 onUrlChange={setFPhotoUrl}
                 file={fPhoto}
-                onFile={setFPhoto}
+                onFile={(f) => { setFPhoto(f); setFConsentement(null); }}
                 visibleSur="sur la page publique de l'équipe et sur les feuilles de match"
                 aUnCompte={!!editing?.user_id}
+                consentement={fConsentement}
+                onConsentement={setFConsentement}
               />
               <div className="grid gap-2 sm:grid-cols-[5rem_1fr_8rem]">
                 <input

@@ -61,6 +61,7 @@ import { lireEmplacement, type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
 import { enBase64 } from "@/lib/images";
 import type { FirestoreLineupEntry } from "@/types";
+import type { ConsentementImage, ReponseConsentement } from "@/lib/consentement-image";
 
 // ============================================
 // Converters
@@ -95,6 +96,7 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     matchesPlayed: d.matches_played ?? 0,
     condition: lireCondition(d.condition),
     photoUrl: d.photo_url || null,
+    photoConsentement: d.photo_consentement ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
   };
@@ -322,6 +324,7 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
     ...(data.consentement_image !== undefined && { consentementImage: data.consentement_image }),
+    ...(data.consentements_effectif_demandes !== undefined && { consentementsEffectifDemandes: data.consentements_effectif_demandes }),
     // Le role Evolution, ce qu'on est sur le terrain, par opposition a
     // `user_type` qui dit ce qu'est le compte. Il manquait ici alors que
     // AuthContext et la projection publique le portent tous les deux : une
@@ -3812,15 +3815,37 @@ async function routePhotoSansCompte(
  * allégé (voir ImageUploadField) : une photo d'effectif s'affiche en
  * vignette, jamais en grand.
  */
-export async function envoyerPhotoSansCompte(teamId: string, ghostId: string, fichier: File): Promise<string> {
+export async function envoyerPhotoSansCompte(
+  teamId: string,
+  ghostId: string,
+  fichier: File,
+  /** La réponse de celui qui la pose (voir lib/consentement-image) ; le serveur la range avec la photo. */
+  consentement: ReponseConsentement | null = null,
+): Promise<string> {
   const { photoUrl } = await routePhotoSansCompte(teamId, ghostId, "POST", {
     image: { data: await enBase64(fichier), contentType: fichier.type },
+    consentement,
   });
   return photoUrl ?? "";
 }
 
 export async function retirerPhotoSansCompte(teamId: string, ghostId: string): Promise<void> {
   await routePhotoSansCompte(teamId, ghostId, "DELETE");
+}
+
+/**
+ * La réponse pour une photo déjà en place, sans la renvoyer : les règles
+ * laissent ceux qui gèrent le club écrire ce champ, jamais `photo_url`.
+ */
+export async function poserConsentementSansCompte(
+  teamId: string,
+  ghostId: string,
+  consentement: ConsentementImage,
+): Promise<void> {
+  await updateDoc(doc(db, "teams", teamId, "ghost_players", ghostId), {
+    photo_consentement: consentement,
+    updated_at: new Date().toISOString(),
+  });
 }
 
 /**

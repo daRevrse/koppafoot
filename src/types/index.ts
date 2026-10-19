@@ -87,6 +87,8 @@ export interface UserProfile {
   dateOfBirth?: string; // ISO date
   /** Voir `FirestoreUser.consentement_image`. */
   consentementImage?: ConsentementImage | null;
+  /** Voir `FirestoreUser.consentements_effectif_demandes`. */
+  consentementsEffectifDemandes?: Record<string, string>;
   // Social
   followersCount?: number;
   followingCount?: number;
@@ -220,6 +222,11 @@ export interface FirestoreUser {
    * titulaire seul.
    */
   consentement_image?: ConsentementImage | null;
+  /**
+   * Les équipes dont on lui a déjà présenté les photos sans réponse
+   * (ModalConsentementsEffectif), une seule fois chacune : clé d'équipe → ISO.
+   */
+  consentements_effectif_demandes?: Record<string, string>;
   // Social
   followers_count?: number;
   following_count?: number;
@@ -1668,6 +1675,8 @@ export interface FirestoreGhostPlayer {
    * et le jour où il fusionne avec son compte : c'est alors à lui de choisir.
    */
   photo_url?: string | null;
+  /** Le consentement à l'image de cette photo (voir lib/consentement-image), posé par le manager. */
+  photo_consentement?: ConsentementImage | null;
   created_at: string;
   updated_at: string;
 }
@@ -1687,6 +1696,8 @@ export interface GhostPlayer {
   condition: ConditionJoueur | null;
   /** Voir `FirestoreGhostPlayer.photo_url`. */
   photoUrl: string | null;
+  /** Voir `FirestoreGhostPlayer.photo_consentement`. */
+  photoConsentement?: ConsentementImage | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2007,6 +2018,12 @@ export interface CompPlayer {
    * le rattachement efface celle-ci (voir /api/competitions/roster-claims).
    */
   photo_url?: string | null;
+  /**
+   * La réponse de l'organisateur ou du manager qui a posé la photo : le joueur
+   * accepte-t-il qu'elle paraisse sur les affiches de KoppaFoot ? Attachée à
+   * la photo pour laquelle elle a été donnée (voir lib/consentement-image).
+   */
+  photo_consentement?: ConsentementImage | null;
   /**
    * La fiche SANS COMPTE du club que cette ligne représente
    * (`teams/{club}/ghost_players/{id}`), quand le manager l'a confirmé à
