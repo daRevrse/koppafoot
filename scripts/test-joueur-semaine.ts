@@ -12,6 +12,7 @@ import {
 } from "@/lib/joueur-semaine";
 import { partenairesDeLAffiche, type FirestorePartenariat } from "@/lib/partenaires";
 import { lireDemande } from "@/lib/joueur-semaine-requete";
+import { DUREE, FPS, etatDuCalque } from "@/lib/video-joueur-semaine";
 import type { CompMatch } from "@/types";
 
 let echecs = 0;
@@ -266,6 +267,45 @@ cas("trois partenaires, c'est un de trop", () => {
 
 cas("un lundi mal écrit est refusé", () => {
   assert.ok("erreur" in lireDemande(demande({ lundi: "12/10/2026" })));
+});
+
+console.log("\nLa vidéo");
+
+const calque = (cle: string, left = 100, top = 800, w = 600, h = 200) => ({ cle, left, top, w, h });
+const CLES = ["fond", "bande", "blocHaut", "semaine", "ecusson-0", "ecusson-1", "blocDroite", "photo", "bandeau", "nom", "label", "ligne-0", "ligne-1", "ligne-2", "pied"];
+
+cas("à la fin, tout est en place, la photo à peine avancée", () => {
+  for (const cle of CLES) {
+    const e = etatDuCalque(calque(cle), DUREE, 1080);
+    assert.equal(e.dx, 0, `${cle}.dx`);
+    assert.equal(e.dy, 0, `${cle}.dy`);
+    assert.equal(e.opacite, 1, `${cle}.opacite`);
+    assert.equal(e.devoile, 1, `${cle}.devoile`);
+    if (cle === "photo") assert.ok(Math.abs(e.zoom - 1.045) < 1e-9, "zoom de la photo");
+    else assert.equal(e.zoom, 1, `${cle}.zoom`);
+  }
+});
+
+cas("au départ, le bandeau est hors champ à gauche et la photo cachée", () => {
+  const b = calque("bandeau", 72, 770, 800, 230);
+  const e = etatDuCalque(b, 0, 1080);
+  assert.ok(b.left + e.dx + b.w <= 0);
+  assert.equal(etatDuCalque(calque("photo"), 0, 1080).devoile, 0);
+});
+
+cas("le second écusson tombe 0,2 s après le premier", () => {
+  assert.equal(etatDuCalque(calque("ecusson-0"), 2.3, 1080).opacite, 1);
+  assert.equal(etatDuCalque(calque("ecusson-1"), 2.3, 1080).opacite, 0);
+  assert.equal(etatDuCalque(calque("ecusson-1"), 2.4, 1080).opacite, 1);
+});
+
+cas("la troisième ligne arrive après les deux autres", () => {
+  assert.equal(etatDuCalque(calque("ligne-2"), 2.9, 1080).opacite, 0);
+  assert.equal(etatDuCalque(calque("ligne-2"), 3.8, 1080).opacite, 1);
+});
+
+cas("trois cents images de 1080×1920", () => {
+  assert.equal(FPS * DUREE, 300);
 });
 
 if (echecs > 0) {
