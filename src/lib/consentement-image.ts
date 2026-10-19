@@ -117,9 +117,14 @@ export function consentementAEnregistrer({ photo, reponse, ancien, par }: {
   par: string;
 }): ConsentementImage | null {
   if (!photo) return null;
-  if (reponse) return consentementPour(photo, reponse, par);
   const c = lireConsentement(ancien);
-  return c && c.photo === photo ? c : null;
+  const encoreValable = c && c.photo === photo ? c : null;
+  // La même réponse, pour la même photo : celle déjà rangée, avec son auteur
+  // et sa date. Les écrans préremplissent la réponse enregistrée ; corriger
+  // le nom d'une ligne ne doit pas la mettre au nom de celui qui enregistre.
+  if (reponse && encoreValable?.reponse === reponse) return encoreValable;
+  if (reponse) return consentementPour(photo, reponse, par);
+  return encoreValable;
 }
 
 /** Faut-il poser la question au joueur ? Une photo, pas mineur, et pas de réponse pour CETTE photo. */

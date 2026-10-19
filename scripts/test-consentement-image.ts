@@ -121,6 +121,12 @@ cas("une réponse donnée s'enregistre pour la photo finale", () => {
   assert.equal(c?.par, "orga");
 });
 
+cas("une réponse inchangée garde son auteur et sa date", () => {
+  // L'écran préremplit la réponse enregistrée : corriger le nom de la ligne ne
+  // doit pas la mettre au nom de celui qui enregistre.
+  assert.deepEqual(consentementAEnregistrer({ photo: PHOTO, reponse: "oui", ancien: oui(), par: "orga2" }), oui());
+});
+
 cas("sans nouvelle réponse, l'ancienne reste si la photo n'a pas changé", () => {
   assert.deepEqual(consentementAEnregistrer({ photo: PHOTO, reponse: null, ancien: oui(), par: "orga" }), oui());
 });
