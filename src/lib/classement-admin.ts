@@ -68,9 +68,12 @@ export async function matchsDeLaPlateforme(): Promise<MatchDeLaPlateforme[]> {
         .collection("comp_matches").where("status", "==", "completed").get();
       const dureeMatchMin = matchDuration(c.format);
       // Un match d'exhibition ne classe personne (voir lib/exhibition).
-      return snap.docs.filter((d) => !estExhibition(d.data() as FirestoreCompMatch)).map((d) => ({
+      const docs = snap.docs.filter((d) => !estExhibition(d.data() as FirestoreCompMatch));
+      const comptesDesLignes = await comptesDesEffectifs(c.id, docs.map((d) => d.data() as FirestoreCompMatch));
+      return docs.map((d) => ({
         ...toCompMatch(d.id, d.data() as FirestoreCompMatch),
         dureeMatchMin,
+        comptesDesLignes,
         lien: `/c/${c.slug}/matches/${d.id}`,
       }));
     }),
@@ -93,6 +96,35 @@ export async function matchsDeLaPlateforme(): Promise<MatchDeLaPlateforme[]> {
   }
 
   return matchs;
+}
+
+/**
+ * Le compte derrière chaque ligne d'effectif d'une compétition (voir
+ * `MatchAClasser.comptesDesLignes`).
+ *
+ * LUS SEULEMENT S'IL LE FAUT : un camp sans feuille, celui d'un résultat saisi
+ * après coup. Les autres matchs portent déjà les comptes sur leur feuille, et
+ * ce serait une lecture des équipes par compétition et par recalcul pour rien.
+ *
+ * Un échec rend un effectif vide : les joueurs nommés sont alors classés à
+ * leur nom, ce qui vaut mieux que de ne pas les classer du tout.
+ */
+async function comptesDesEffectifs(
+  cid: string,
+  matchs: FirestoreCompMatch[],
+): Promise<Record<string, string | null>> {
+  const comptes: Record<string, string | null> = {};
+  const sansFeuille = matchs.some((m) => !m.home_lineup?.length || !m.away_lineup?.length);
+  if (!sansFeuille) return comptes;
+  try {
+    const equipes = await adminDb.collection("competitions").doc(cid).collection("comp_teams").get();
+    for (const e of equipes.docs) {
+      for (const p of (e.data() as FirestoreCompTeam).players ?? []) comptes[p.id] = p.user_id ?? null;
+    }
+  } catch (err) {
+    console.error("comptesDesEffectifs failed:", err);
+  }
+  return comptes;
 }
 
 /** La feuille d'un camp, ou son héritage. Voir `FirestoreMatch.home_lineup`. */

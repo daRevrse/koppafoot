@@ -101,7 +101,30 @@ export interface NoteJoueur {
 }
 
 /**
+ * Le chrono a-t-il tourne sur ce match ?
+ *
+ * C'est ce qui separe un match SUIVI en console d'un resultat SAISI APRES COUP
+ * (voir `setCompMatchResult`). La saisie n'ecrit que le score, les buteurs,
+ * les passeurs et les cartons, et ne lance jamais le chrono ; la console le
+ * lance au coup d'envoi, et il en garde la trace a la fin (`timerOffset`). Un
+ * match suivi puis corrige par la saisie garde la sienne.
+ *
+ * Les evenements ne le disent pas : un match suivi ou il ne s'est rien passe
+ * n'en a aucun, et un resultat saisi apres coup en a autant que de buteurs.
+ */
+export function aEteChronometre(match: Pick<MatchJoue, "liveState">): boolean {
+  const ls = match.liveState;
+  return !!ls && ((ls.timerOffset ?? 0) > 0 || !!ls.timerStartAt);
+}
+
+/**
  * Les notes d'un camp.
+ *
+ * UN MATCH QUE LE CHRONO N'A JAMAIS VU NE NOTE PERSONNE. La note juge ce que la
+ * console a vu (voir l'en-tete) ; une saisie apres coup n'a rien vu. Elle
+ * donnait pourtant 6,0 a tout le camp qui avait une feuille, et a son gardien
+ * 6,0 moins chaque but encaisse — des chiffres qui n'affirmaient rien, sauf
+ * contre le gardien, et qui entraient dans le classement et l'etat de forme.
  *
  * `teamId` sert a distinguer ce que le joueur a fait de ce qu'il a subi : une
  * faute portee par l'equipe d'en face et qui le designe comme victime le
@@ -192,8 +215,9 @@ export function notesDuCamp(
     }
   }
 
+  const vu = aEteChronometre(match);
   for (const n of notes.values()) {
-    if (n.minutes < MINUTES_MINIMUM) {
+    if (!vu || n.minutes < MINUTES_MINIMUM) {
       n.note = null;
       continue;
     }
