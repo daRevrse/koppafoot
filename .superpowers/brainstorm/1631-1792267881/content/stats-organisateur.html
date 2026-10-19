@@ -1,0 +1,75 @@
+<h2>Les statistiques de jeu, dans l'espace organisateur</h2>
+<p class="subtitle">La page Statistiques existante (aujourd'hui l'audience seule) gagne un onglet « Le jeu ». Vraies données de Dékawowo Sportfest.</p>
+
+<style>
+  .kf { font-family: Outfit, system-ui, sans-serif; background: #f9fafb; color: #111827; max-width: 680px; margin: 0 auto; padding: 18px; border: 1px solid #e5e7eb; }
+  .kf-retour { font-size: 13px; color: #6b7280; }
+  .kf-h1 { font-size: 24px; font-weight: 800; margin: 10px 0 2px; }
+  .kf-sous { font-size: 13px; color: #6b7280; }
+  .kf-onglets { display: flex; gap: 0; margin: 14px 0; border-bottom: 1px solid #e5e7eb; }
+  .kf-onglets span { padding: 8px 14px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; }
+  .kf-onglets .on { color: #111827; border-bottom: 2px solid #059669; }
+  .kf-interrupteur { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #e5e7eb; padding: 10px 12px; }
+  .kf-interrupteur .txt { flex: 1; font-size: 13px; color: #374151; }
+  .kf-interrupteur .txt b { color: #111827; display: block; }
+  .kf-interrupteur .txt span { font-size: 11px; color: #9ca3af; }
+  .kf-switch { width: 38px; height: 22px; background: #d1d5db; position: relative; flex-shrink: 0; }
+  .kf-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; }
+  .kf-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .14em; color: #6b7280; margin: 16px 0 8px; }
+  .kf-couverture { font-size: 12px; color: #4b5563; margin-top: 10px; }
+  .kf-couverture b { color: #111827; }
+  .kf-grille { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .kf-tuile { background: #fff; border: 1px solid #e5e7eb; padding: 9px; }
+  .kf-tuile .n { font-family: Anton, Impact, sans-serif; font-size: 28px; line-height: 1; }
+  .kf-tuile .l { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #374151; margin-top: 4px; }
+  .kf-tuile .m { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+  .kf-records { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .kf-record { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e5e7eb; padding: 8px 10px; }
+  .kf-record .n { font-family: Anton, Impact, sans-serif; font-size: 22px; min-width: 32px; text-align: center; color: #059669; }
+  .kf-record .t { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: #6b7280; }
+  .kf-record .match { font-size: 12px; font-weight: 700; }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Espace organisateur · Dékawowo Sportfest · Statistiques</div>
+  <div class="mockup-body">
+    <div class="kf">
+      <div class="kf-retour">← Tableau de bord</div>
+      <div class="kf-h1">Statistiques</div>
+      <div class="kf-sous">Dékawowo Sportfest : qui regarde, et ce qui s'est joué.</div>
+
+      <div class="kf-onglets"><span>Audience</span><span class="on">Le jeu</span></div>
+
+      <div class="kf-interrupteur">
+        <div class="txt"><b>Montrer ces statistiques sur la page publique</b><span>Désactivé : seuls les organisateurs et les modérateurs les voient.</span></div>
+        <div class="kf-switch"></div>
+      </div>
+
+      <p class="kf-couverture"><b>14 matchs joués</b>, dont <b>9 suivis en direct</b> : les buts comptent les 14, le reste les 9.</p>
+
+      <p class="kf-label">Les totaux</p>
+      <div class="kf-grille">
+        <div class="kf-tuile"><div class="n">68</div><div class="l">Buts</div><div class="m">4,9 par match</div></div>
+        <div class="kf-tuile"><div class="n">166</div><div class="l">Tirs</div><div class="m">18,4 par match</div></div>
+        <div class="kf-tuile"><div class="n">117</div><div class="l">Tirs cadrés</div><div class="m">13,0 par match</div></div>
+        <div class="kf-tuile"><div class="n">47</div><div class="l">Arrêts</div><div class="m">5,2 par match</div></div>
+        <div class="kf-tuile"><div class="n">34</div><div class="l">Corners</div><div class="m">3,8 par match</div></div>
+        <div class="kf-tuile"><div class="n">81</div><div class="l">Coups francs</div><div class="m">9,0 par match</div></div>
+        <div class="kf-tuile"><div class="n">125</div><div class="l">Touches</div><div class="m">13,9 par match</div></div>
+        <div class="kf-tuile"><div class="n">55</div><div class="l">Fautes</div><div class="m">6,1 par match</div></div>
+        <div class="kf-tuile"><div class="n">2</div><div class="l">Cartons jaunes</div><div class="m">0,2 par match</div></div>
+        <div class="kf-tuile"><div class="n">1</div><div class="l">Penalty</div><div class="m">obtenu</div></div>
+        <div class="kf-tuile"><div class="n">32</div><div class="l">Changements</div><div class="m">3,6 par match</div></div>
+      </div>
+
+      <p class="kf-label">Les records</p>
+      <div class="kf-records">
+        <div class="kf-record"><div class="n">10</div><div><div class="t">Le plus de buts</div><div class="match">Team France 9–1 Team Europe</div></div></div>
+        <div class="kf-record"><div class="n">31</div><div><div class="t">Le plus de tirs</div><div class="match">NSIA Assurances 5–2 Team France</div></div></div>
+        <div class="kf-record"><div class="n">11</div><div><div class="t">Le plus de fautes</div><div class="match">NSIA Assurances 5–2 Team France</div></div></div>
+        <div class="kf-record"><div class="n">8</div><div><div class="t">Le plus de corners</div><div class="match">Commune du Golfe 3 3–1 Nations Unies Togo</div></div></div>
+        <div class="kf-record"><div class="n">12</div><div><div class="t">Le plus d'arrêts</div><div class="match">Team YAS 5–0 Coopération Allemande</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>

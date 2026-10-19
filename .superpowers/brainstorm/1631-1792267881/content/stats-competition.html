@@ -1,0 +1,80 @@
+<h2>Un onglet « Stats » sur la page de la compétition</h2>
+<p class="subtitle">Vraies données de production. À gauche une compétition dont les matchs ont été tenus à la console, à droite la Miabé CAN, où seuls les buts ont été saisis.</p>
+
+<style>
+  .kf { font-family: Outfit, system-ui, sans-serif; background: #f9fafb; color: #111827; width: 360px; border: 1px solid #e5e7eb; }
+  .kf-tabs { display: flex; gap: 9px; padding: 10px 10px 0; border-bottom: 1px solid #e5e7eb; background: #fff; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; overflow: hidden; white-space: nowrap; }
+  .kf-tabs span { padding-bottom: 8px; }
+  .kf-tabs .on { color: #111827; border-bottom: 2px solid #059669; }
+  .kf-body { padding: 14px; }
+  .kf-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .14em; color: #6b7280; margin: 14px 0 8px; }
+  .kf-label:first-child { margin-top: 0; }
+  .kf-couverture { font-size: 12px; color: #4b5563; background: #fff; border: 1px solid #e5e7eb; padding: 8px 10px; }
+  .kf-couverture b { color: #111827; }
+  .kf-grille { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .kf-tuile { background: #fff; border: 1px solid #e5e7eb; padding: 8px; }
+  .kf-tuile .n { font-family: Anton, Impact, sans-serif; font-size: 26px; line-height: 1; letter-spacing: .01em; }
+  .kf-tuile .l { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #374151; margin-top: 4px; }
+  .kf-tuile .m { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+  .kf-record { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e5e7eb; padding: 8px 10px; margin-bottom: 6px; }
+  .kf-record .n { font-family: Anton, Impact, sans-serif; font-size: 22px; min-width: 34px; text-align: center; color: #059669; }
+  .kf-record .t { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: #6b7280; }
+  .kf-record .match { font-size: 12px; font-weight: 700; color: #111827; }
+  .kf-record .fl { margin-left: auto; color: #d1d5db; font-size: 14px; }
+</style>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Dékawowo Sportfest — 14 matchs joués</div>
+    <div class="mockup-body">
+      <div class="kf">
+        <div class="kf-tabs"><span>Calendrier</span><span>Classement</span><span>Équipes</span><span>Buteurs</span><span class="on">Stats</span></div>
+        <div class="kf-body">
+          <div class="kf-couverture"><b>14 matchs joués</b>, dont <b>9 suivis en direct</b> : les buts comptent les 14, le reste les 9.</div>
+
+          <p class="kf-label">Les totaux</p>
+          <div class="kf-grille">
+            <div class="kf-tuile"><div class="n">68</div><div class="l">Buts</div><div class="m">4,9 par match</div></div>
+            <div class="kf-tuile"><div class="n">166</div><div class="l">Tirs</div><div class="m">18,4 par match</div></div>
+            <div class="kf-tuile"><div class="n">117</div><div class="l">Tirs cadrés</div><div class="m">13,0 par match</div></div>
+            <div class="kf-tuile"><div class="n">47</div><div class="l">Arrêts</div><div class="m">5,2 par match</div></div>
+            <div class="kf-tuile"><div class="n">34</div><div class="l">Corners</div><div class="m">3,8 par match</div></div>
+            <div class="kf-tuile"><div class="n">81</div><div class="l">Coups francs</div><div class="m">9,0 par match</div></div>
+            <div class="kf-tuile"><div class="n">125</div><div class="l">Touches</div><div class="m">13,9 par match</div></div>
+            <div class="kf-tuile"><div class="n">55</div><div class="l">Fautes</div><div class="m">6,1 par match</div></div>
+            <div class="kf-tuile"><div class="n">2</div><div class="l">Cartons jaunes</div><div class="m">0,2 par match</div></div>
+            <div class="kf-tuile"><div class="n">1</div><div class="l">Penalty</div><div class="m">obtenu</div></div>
+            <div class="kf-tuile"><div class="n">32</div><div class="l">Changements</div><div class="m">3,6 par match</div></div>
+          </div>
+
+          <p class="kf-label">Les records</p>
+          <div class="kf-record"><div class="n">10</div><div><div class="t">Le plus de buts</div><div class="match">Team France 9–1 Team Europe</div></div><div class="fl">›</div></div>
+          <div class="kf-record"><div class="n">31</div><div><div class="t">Le plus de tirs</div><div class="match">Team NSIA Assurances 5–2 Team France</div></div><div class="fl">›</div></div>
+          <div class="kf-record"><div class="n">11</div><div><div class="t">Le plus de fautes</div><div class="match">Team NSIA Assurances 5–2 Team France</div></div><div class="fl">›</div></div>
+          <div class="kf-record"><div class="n">8</div><div><div class="t">Le plus de corners</div><div class="match">Commune du Golfe 3 3–1 Nations Unies Togo</div></div><div class="fl">›</div></div>
+          <div class="kf-record"><div class="n">12</div><div><div class="t">Le plus d'arrêts</div><div class="match">Team YAS 5–0 Coopération Allemande</div></div><div class="fl">›</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Miabé CAN 2026 — 45 matchs joués</div>
+    <div class="mockup-body">
+      <div class="kf">
+        <div class="kf-tabs"><span>Calendrier</span><span>Classement</span><span>Phase finale</span><span>Buteurs</span><span class="on">Stats</span></div>
+        <div class="kf-body">
+          <div class="kf-couverture"><b>45 matchs joués</b>, dont <b>31 suivis en direct</b> — seuls les buts y ont été saisis.</div>
+
+          <p class="kf-label">Les totaux</p>
+          <div class="kf-grille">
+            <div class="kf-tuile"><div class="n">153</div><div class="l">Buts</div><div class="m">3,4 par match</div></div>
+          </div>
+
+          <p class="kf-label">Les records</p>
+          <div class="kf-record"><div class="n">10</div><div><div class="t">Le plus de buts</div><div class="match">Cameroun 7–3 Nigeria</div></div><div class="fl">›</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
