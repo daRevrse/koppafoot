@@ -207,7 +207,7 @@ function cleDe(entry: Pick<LineupEntry, "userId" | "name">): string | null {
 type Fait = NonNullable<CompMatch["liveState"]>["events"][number];
 
 /** Ce que le classement lit d'une ligne de feuille. */
-type LigneDuCamp = Pick<LineupEntry, "playerId" | "name" | "userId" | "position">;
+export type LigneDuCamp = Pick<LineupEntry, "playerId" | "name" | "userId" | "position">;
 
 /**
  * La feuille qu'un camp n'a pas : les joueurs que ses evenements nomment.
@@ -223,7 +223,7 @@ type LigneDuCamp = Pick<LineupEntry, "playerId" | "name" | "userId" | "position"
  * Un csc nomme un joueur D'EN FACE, range dans le camp qui en profite : il n'y
  * entre pas.
  */
-function nommesSansFeuille(
+export function nommesSansFeuille(
   faits: Fait[],
   teamId: string | null,
   comptes: Record<string, string | null>,
