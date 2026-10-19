@@ -26,6 +26,7 @@ import { uploadCompPlayerPhoto } from "@/lib/storage";
 import { photoDeLaCompetition } from "@/lib/photos-sans-compte";
 import { creerParLeServeur, envoyerCreation } from "@/lib/offre-client";
 import { ErreurLimiteOffre } from "@/lib/offre";
+import type { ConsentementImage } from "@/lib/consentement-image";
 import type {
   Competition, FirestoreCompetition,
   CompTeam, FirestoreCompTeam,
@@ -642,7 +643,10 @@ export async function modifierLigne(
 export async function addCompPlayer(
   cid: string,
   tid: string,
-  input: { name: string; number?: string; position?: string; photo_url?: string | null },
+  input: {
+    name: string; number?: string; position?: string; photo_url?: string | null;
+    photo_consentement?: ConsentementImage | null;
+  },
 ): Promise<string> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
@@ -652,9 +656,30 @@ export async function addCompPlayer(
     number: input.number ?? "",
     ...(input.position ? { position: input.position } : {}),
     ...(input.photo_url ? { photo_url: input.photo_url } : {}),
+    ...(input.photo_url && input.photo_consentement ? { photo_consentement: input.photo_consentement } : {}),
   };
   await updateCompTeam(cid, tid, { players: [...team.players, player] });
   return player.id;
+}
+
+/**
+ * Le consentement à l'image de plusieurs lignes d'un coup (voir
+ * ModalConsentementsEffectif), en une seule écriture de l'effectif. Une ligne
+ * dont la photo a changé entre-temps garde sa photo et ne prend pas une
+ * réponse donnée pour une autre : la réponse porte sa photo.
+ */
+export async function poserConsentementsDesLignes(
+  cid: string,
+  tid: string,
+  consentements: Record<string, ConsentementImage>,
+): Promise<void> {
+  const team = await getCompTeam(cid, tid);
+  if (!team) throw new Error(`Comp team ${tid} not found`);
+  const players = team.players.map((p) => {
+    const c = consentements[p.id];
+    return c && p.photo_url && c.photo === p.photo_url ? { ...p, photo_consentement: c } : p;
+  });
+  await updateCompTeam(cid, tid, { players });
 }
 
 /** Accent- and case-insensitive key used to match a typed name to a roster line. */
@@ -718,7 +743,10 @@ export async function updateCompPlayer(
   cid: string,
   tid: string,
   playerId: string,
-  patch: { name?: string; number?: string; position?: string; user_id?: string | null; photo_url?: string | null },
+  patch: {
+    name?: string; number?: string; position?: string; user_id?: string | null; photo_url?: string | null;
+    photo_consentement?: ConsentementImage | null;
+  },
 ): Promise<void> {
   const team = await getCompTeam(cid, tid);
   if (!team) throw new Error(`Comp team ${tid} not found`);
@@ -731,6 +759,8 @@ export async function updateCompPlayer(
     // La photo aussi : la ligne était reconstruite champ par champ, et la
     // moindre correction du nom l'aurait effacée.
     const photo = patch.photo_url !== undefined ? patch.photo_url : p.photo_url ?? null;
+    // Le consentement à l'image voyage avec la photo (voir lib/consentement-image).
+    const consentement = patch.photo_consentement !== undefined ? patch.photo_consentement : p.photo_consentement ?? null;
     return {
       id: p.id,
       name: patch.name ?? p.name,
@@ -738,6 +768,7 @@ export async function updateCompPlayer(
       ...(position ? { position } : {}),
       user_id: userId,
       ...(photo ? { photo_url: photo } : {}),
+      ...(photo && consentement ? { photo_consentement: consentement } : {}),
       // La fiche du club derrière la ligne (voir lib/fusion-import) : la
       // perdre à la première correction du nom ferait revenir le doublon à
       // la prochaine synchronisation.

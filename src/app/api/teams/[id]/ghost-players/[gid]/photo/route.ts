@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { uidAppelant } from "@/lib/appelant";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { peutGererEquipeServeur } from "@/lib/team-access-server";
+import { consentementPour } from "@/lib/consentement-image";
 import {
   dossierPhotoSansCompte, effacerVisuels, stockerVisuel, type VisuelEnvoye,
 } from "@/lib/visuel-serveur";
@@ -10,7 +11,7 @@ import {
 /**
  * La photo d'un joueur sans compte.
  *
- * POST   { image: { data, contentType } } , la poser ou la remplacer.
+ * POST   { image: { data, contentType }, consentement?: "oui" | "non" } , la poser ou la remplacer.
  * DELETE                                 , la retirer.
  *
  * IL N'A PAS DE COMPTE POUR LA METTRE LUI-MÊME : ce sont ceux qui gèrent
@@ -33,12 +34,12 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string; gid: string }> };
 
-/** La fiche du joueur, si l'appelant a le droit d'en changer la photo. */
+/** La fiche du joueur et l'appelant, si celui-ci a le droit d'en changer la photo. */
 async function fiche(
   req: Request,
   teamId: string,
   ghostId: string,
-): Promise<FirebaseFirestore.DocumentReference | NextResponse> {
+): Promise<{ ref: FirebaseFirestore.DocumentReference; uid: string } | NextResponse> {
   const uid = await uidAppelant(req);
   if (!uid) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
@@ -59,16 +60,20 @@ async function fiche(
 
   const ref = equipe.ref.collection("ghost_players").doc(ghostId);
   if (!(await ref.get()).exists) return NextResponse.json({ error: "Joueur introuvable" }, { status: 404 });
-  return ref;
+  return { ref, uid };
 }
 
 export async function POST(req: Request, { params }: Params) {
   try {
     const { id, gid } = await params;
-    const ref = await fiche(req, id, gid);
-    if (ref instanceof NextResponse) return ref;
+    const acces = await fiche(req, id, gid);
+    if (acces instanceof NextResponse) return acces;
+    const { ref, uid } = acces;
 
-    const { image } = (await req.json().catch(() => ({}))) as { image?: VisuelEnvoye };
+    const { image, consentement } = (await req.json().catch(() => ({}))) as {
+      image?: VisuelEnvoye;
+      consentement?: unknown;
+    };
     if (!image?.data) return NextResponse.json({ error: "Aucune image reçue." }, { status: 400 });
 
     // Un seul fichier par joueur : l'ancien part avant que le nouveau arrive.
@@ -76,7 +81,14 @@ export async function POST(req: Request, { params }: Params) {
     const url = await stockerVisuel(`${dossier}photo-`, image, dossier);
     if (typeof url !== "string") return NextResponse.json({ error: url.erreur }, { status: 400 });
 
-    await ref.update({ photo_url: url, updated_at: new Date().toISOString() });
+    // LE CONSENTEMENT VOYAGE AVEC LA PHOTO : la réponse de celui qui la pose,
+    // pour CETTE photo ; sans réponse, aucune (voir lib/consentement-image).
+    const reponse = consentement === "oui" || consentement === "non" ? consentement : null;
+    await ref.update({
+      photo_url: url,
+      photo_consentement: reponse ? consentementPour(url, reponse, uid) : null,
+      updated_at: new Date().toISOString(),
+    });
     return NextResponse.json({ ok: true, photoUrl: url });
   } catch (err) {
     console.error("[ghost-players photo POST]", err);
@@ -87,11 +99,11 @@ export async function POST(req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const { id, gid } = await params;
-    const ref = await fiche(req, id, gid);
-    if (ref instanceof NextResponse) return ref;
+    const acces = await fiche(req, id, gid);
+    if (acces instanceof NextResponse) return acces;
 
     await effacerVisuels(dossierPhotoSansCompte(id, gid));
-    await ref.update({ photo_url: null, updated_at: new Date().toISOString() });
+    await acces.ref.update({ photo_url: null, photo_consentement: null, updated_at: new Date().toISOString() });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[ghost-players photo DELETE]", err);

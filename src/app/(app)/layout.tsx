@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import ScoreShell from "@/components/layout/v2/ScoreShell";
 import AuthRequired from "@/components/auth/AuthRequired";
+import ModalConsentementImage from "@/components/consentement/ModalConsentementImage";
 
 // Routes in this group that render for guests. Everything else requires
 // an authenticated profile. The shell (sidebar/header/bottom nav) renders
@@ -102,5 +103,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!user) return null;
   }
 
-  return <ScoreShell>{children}</ScoreShell>;
+  // Le consentement à l'image, demandé une fois au joueur qui a une photo
+  // (voir lib/consentement-image) : rien ne s'affiche sinon.
+  return (
+    <ScoreShell>
+      {children}
+      <ModalConsentementImage />
+    </ScoreShell>
+  );
 }

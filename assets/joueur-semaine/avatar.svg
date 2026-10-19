@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760" viewBox="0 0 700 760">
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="38%" r="60%">
+      <stop offset="0" stop-color="#3a3f3d"/>
+      <stop offset="1" stop-color="#1c1f1e"/>
+    </radialGradient>
+    <linearGradient id="maillot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14c48f"/>
+      <stop offset="1" stop-color="#0b8f62"/>
+    </linearGradient>
+    <linearGradient id="peau" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4f4d"/>
+      <stop offset="1" stop-color="#3a3e3c"/>
+    </linearGradient>
+    <pattern id="rayures" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+      <rect width="22" height="22" fill="none"/>
+      <rect width="9" height="22" fill="#ffffff" opacity="0.035"/>
+    </pattern>
+  </defs>
+  <rect width="700" height="760" fill="url(#halo)"/>
+  <rect width="700" height="760" fill="url(#rayures)"/>
+  <!-- les épaules et le maillot -->
+  <path d="M95 760 C 100 610, 170 545, 270 520 L 430 520 C 530 545, 600 610, 605 760 Z" fill="url(#maillot)"/>
+  <!-- les manches, un ton plus sombre -->
+  <path d="M95 760 C 98 680, 120 630, 165 590 L 200 760 Z" fill="#0a7f57" opacity="0.55"/>
+  <path d="M605 760 C 602 680, 580 630, 535 590 L 500 760 Z" fill="#0a7f57" opacity="0.55"/>
+  <!-- le cou -->
+  <path d="M300 430 L 400 430 L 410 530 Q 350 560 290 530 Z" fill="url(#peau)"/>
+  <!-- le col en V -->
+  <path d="M272 520 L 350 612 L 428 520 L 402 520 L 350 578 L 298 520 Z" fill="#0b0b0b"/>
+  <!-- la tête -->
+  <ellipse cx="350" cy="330" rx="118" ry="142" fill="url(#peau)"/>
+  <!-- les oreilles -->
+  <ellipse cx="232" cy="345" rx="20" ry="34" fill="#3d4240"/>
+  <ellipse cx="468" cy="345" rx="20" ry="34" fill="#3d4240"/>
+  <!-- les cheveux courts -->
+  <path d="M234 300 C 236 210, 290 178, 350 178 C 410 178, 464 210, 466 300 C 450 262, 420 240, 350 238 C 280 240, 250 262, 234 300 Z" fill="#232625"/>
+  <!-- le ballon sur la poitrine, en filigrane -->
+  <circle cx="455" cy="650" r="34" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="5"/>
+  <path d="M455 630 L 474 644 L 467 666 L 443 666 L 436 644 Z" fill="#ffffff" fill-opacity="0.55"/>
+</svg>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { consentementPour, reponsePourLaPhoto, type ReponseConsentement } from "@/lib/consentement-image";
 import {
   getTeamById, updateTeam, deleteTeam, removeTeamMember,
   getUsersByIds, getMatchesByTeamIds,
@@ -22,7 +23,7 @@ import {
   followTeam, unfollowTeam, isFollowingTeam,
   onTrainingsByTeam, createTraining, respondToTraining, deleteTraining,
   onGhostPlayersByTeam, createGhostPlayer, updateGhostPlayer, deleteGhostPlayer,
-  declarerConditionFantome, envoyerPhotoSansCompte, retirerPhotoSansCompte,
+  declarerConditionFantome, envoyerPhotoSansCompte, poserConsentementSansCompte, retirerPhotoSansCompte,
   setTeamStaff,
 } from "@/lib/firestore";
 import { useFormes } from "@/hooks/useFormes";
@@ -38,6 +39,7 @@ import SectionDuClub from "@/components/club/SectionDuClub";
 import CarteDuClub from "@/components/team/CarteDuClub";
 import EffectifParPoste, { type LigneDEffectif } from "@/components/team/EffectifParPoste";
 import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
+import ModalConsentementsEffectif from "@/components/consentement/ModalConsentementsEffectif";
 import MatchsDuClub from "@/components/team/MatchsDuClub";
 import { AnnonceRecrutement } from "@/components/team/AnnonceRecrutement";
 import { cloreAnnonceRecrutement } from "@/lib/tribune-client";
@@ -765,11 +767,20 @@ function GhostPlayerModal({
   // choisir, déjà allégée par le champ.
   const [photoUrl, setPhotoUrl] = useState(ghost?.photoUrl ?? "");
   const [photo, setPhoto] = useState<File | null>(null);
+  // Le joueur accepte-t-il cette photo sur les affiches ? Voir lib/consentement-image.
+  const reponseEnregistree = reponsePourLaPhoto(ghost?.photoUrl, ghost?.photoConsentement);
+  const [consentement, setConsentement] = useState<ReponseConsentement | null>(reponseEnregistree);
   const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) return;
+    // Une nouvelle photo ne s'enregistre pas sans la réponse de celui qui la pose.
+    if (photo && !consentement) {
+      toast.error("Indique si ce joueur accepte que sa photo paraisse sur nos affiches");
+      return;
+    }
     setSubmitting(true);
     let ghostId = ghost?.id ?? null;
     try {
@@ -788,8 +799,12 @@ function GhostPlayerModal({
     // enregistré : on le dit, et la fenêtre se ferme quand même — la rouvrir
     // pour « réessayer » créerait un doublon.
     try {
-      if (photo) await envoyerPhotoSansCompte(teamId, ghostId!, photo);
+      if (photo) await envoyerPhotoSansCompte(teamId, ghostId!, photo, consentement);
       else if (ghost?.photoUrl && !photoUrl) await retirerPhotoSansCompte(teamId, ghost.id);
+      // La photo en place reste, mais la réponse a changé.
+      else if (ghost?.photoUrl && consentement && consentement !== reponseEnregistree) {
+        await poserConsentementSansCompte(teamId, ghost.id, consentementPour(ghost.photoUrl, consentement, user?.uid ?? ""));
+      }
       toast.success(ghost ? "Joueur modifié" : "Joueur ajouté");
     } catch (err) {
       toast.error(`Joueur enregistré, mais pas sa photo : ${err instanceof Error ? err.message : "erreur"}`);
@@ -815,8 +830,10 @@ function GhostPlayerModal({
             url={photoUrl}
             onUrlChange={setPhotoUrl}
             file={photo}
-            onFile={setPhoto}
+            onFile={(f) => { setPhoto(f); setConsentement(null); }}
             visibleSur="sur la fiche publique du club et sur les feuilles de match"
+            consentement={consentement}
+            onConsentement={setConsentement}
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1706,6 +1723,16 @@ export default function TeamDetailPage() {
 
   return (
     <div className="pb-16">
+      {/* Les photos déjà posées sans réponse au consentement à l'image : une fois. */}
+      {isTeamManager && (
+        <ModalConsentementsEffectif
+          cleEquipe={`club:${teamId}`}
+          joueurs={ghostPlayers.map((g) => ({ id: g.id, nom: `${g.firstName} ${g.lastName}`.trim(), photo: g.photoUrl, consentement: g.photoConsentement }))}
+          enregistrer={async (c) => {
+            await Promise.all(Object.entries(c).map(([id, v]) => poserConsentementSansCompte(teamId, id, v)));
+          }}
+        />
+      )}
       {/* LE BANDEAU, le même que celui d'une équipe en compétition (voir
           BandeauEquipe). La ville, le niveau et la devise y reviennent :
           ils disent d'où vient le club, en une ligne. */}

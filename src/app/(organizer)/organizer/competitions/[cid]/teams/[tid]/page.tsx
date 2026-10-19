@@ -8,6 +8,7 @@ import {
   Users, ArrowLeft, Plus, Loader2, Pencil, Trash2, X, Save, Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { consentementAEnregistrer, reponsePourLaPhoto, type ReponseConsentement } from "@/lib/consentement-image";
 import {
   onCompetition,
   onCompTeams,
@@ -16,9 +17,11 @@ import {
   removeCompPlayer,
   photoDeLigneAEnregistrer,
   effacerPhotoRemplacee,
+  poserConsentementsDesLignes,
 } from "@/lib/competition-firestore";
 import RosterClaimsPanel from "@/components/competition/RosterClaimsPanel";
 import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
+import ModalConsentementsEffectif from "@/components/consentement/ModalConsentementsEffectif";
 import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
 import { POSTES, LIBELLE_POSTE, libellePoste, normaliserPoste } from "@/lib/postes";
 import type { Competition, CompTeam, CompPlayer } from "@/types";
@@ -71,6 +74,8 @@ export default function CompetitionRosterPage() {
   // choisir (voir ChampPhotoDuJoueur).
   const [photoUrl, setPhotoUrl] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
+  // Le joueur accepte-t-il cette photo sur les affiches ? Voir lib/consentement-image.
+  const [consentement, setConsentement] = useState<ReponseConsentement | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Delete confirmation state.
@@ -120,6 +125,7 @@ export default function CompetitionRosterPage() {
     setForm(EMPTY_FORM);
     setPhotoUrl("");
     setPhoto(null);
+    setConsentement(null);
     setModalOpen(true);
   };
 
@@ -132,6 +138,7 @@ export default function CompetitionRosterPage() {
     });
     setPhotoUrl(player.photo_url ?? "");
     setPhoto(null);
+    setConsentement(reponsePourLaPhoto(player.photo_url, player.photo_consentement));
     setModalOpen(true);
   };
 
@@ -154,15 +161,27 @@ export default function CompetitionRosterPage() {
       return;
     }
 
+    // Une nouvelle photo ne s'enregistre pas sans la réponse de celui qui la pose.
+    if (photo && !consentement) {
+      toast.error("Indique si ce joueur accepte que sa photo paraisse sur nos affiches");
+      return;
+    }
+
     setSubmitting(true);
     try {
       // La photo d'abord : à l'ajout, la ligne n'existe pas encore.
       const photo_url = await photoDeLigneAEnregistrer(cid, {
         fichier: photo, avant: editing?.photo_url, gardee: photoUrl,
       });
+      const photo_consentement = consentementAEnregistrer({
+        photo: photo_url !== undefined ? photo_url : editing?.photo_url ?? null,
+        reponse: consentement,
+        ancien: editing?.photo_consentement,
+        par: user?.uid ?? "",
+      });
       if (editing) {
         const reecrits = await modifierLigne(cid, tid, editing, {
-          name, number, position, ...(photo_url !== undefined ? { photo_url } : {}),
+          name, number, position, ...(photo_url !== undefined ? { photo_url } : {}), photo_consentement,
         });
         toast.success(
           reecrits > 0
@@ -170,7 +189,7 @@ export default function CompetitionRosterPage() {
             : "Joueur mis à jour",
         );
       } else {
-        await addCompPlayer(cid, tid, { name, number, position: position || undefined, photo_url });
+        await addCompPlayer(cid, tid, { name, number, position: position || undefined, photo_url, photo_consentement });
         toast.success("Joueur ajouté");
       }
       await effacerPhotoRemplacee(cid, editing?.photo_url, photo_url);
@@ -233,6 +252,12 @@ export default function CompetitionRosterPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
+      {/* Les photos déjà posées sans réponse au consentement à l'image : une fois. */}
+      <ModalConsentementsEffectif
+        cleEquipe={`comp:${cid}:${tid}`}
+        joueurs={players.filter((p) => !p.user_id).map((p) => ({ id: p.id, nom: p.name, photo: p.photo_url ?? null, consentement: p.photo_consentement }))}
+        enregistrer={(c) => poserConsentementsDesLignes(cid, tid, c)}
+      />
       {/* Back link */}
       <Link
         href={`/organizer/competitions/${cid}/teams`}
@@ -418,9 +443,11 @@ export default function CompetitionRosterPage() {
                   url={photoUrl}
                   onUrlChange={setPhotoUrl}
                   file={photo}
-                  onFile={setPhoto}
+                  onFile={(f) => { setPhoto(f); setConsentement(null); }}
                   visibleSur="sur la page publique de l'équipe et sur les feuilles de match"
                   aUnCompte={!!editing?.user_id}
+                  consentement={consentement}
+                  onConsentement={setConsentement}
                 />
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Nom</label>

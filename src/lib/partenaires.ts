@@ -39,8 +39,11 @@
 //     publication.
 //   · `actus` : sous la une des Actus.
 //   · `competition`, `match` : la page d'une compétition, la fiche d'un match.
+//   · `affiche_semaine` : le pied de l'affiche et de la vidéo « Joueur de la
+//     semaine », que l'administration publie sur les réseaux (voir
+//     lib/joueur-semaine). Deux places au plus.
 export const EMPLACEMENTS = [
-  "direct", "direct_affiche", "direct_vide", "tribune", "actus", "competition", "match",
+  "direct", "direct_affiche", "direct_vide", "tribune", "actus", "competition", "match", "affiche_semaine",
 ] as const;
 export type EmplacementPartenaire = (typeof EMPLACEMENTS)[number];
 
@@ -53,6 +56,7 @@ export const LIBELLE_EMPLACEMENT: Record<EmplacementPartenaire, string> = {
   actus: "Actus",
   competition: "Page d'une compétition",
   match: "Fiche d'un match",
+  affiche_semaine: "Affiche « Joueur de la semaine »",
 };
 
 /**
@@ -290,6 +294,23 @@ export function melanger<T>(liste: readonly T[], aleatoire: () => number = Math.
 }
 
 /** Un lien de partenaire acceptable : une adresse https complète. */
+/**
+ * Qui peut paraître au pied de l'affiche « Joueur de la semaine », dans
+ * l'ordre où on les propose : ceux qui sont à l'affiche `jour`, généraux
+ * seulement — l'affiche d'un joueur traverse les compétitions —, les
+ * partenaires avant les annonces, puis le partenariat le plus récent.
+ * L'administration en garde deux au plus.
+ */
+export function partenairesDeLAffiche<
+  P extends Pick<FirestorePartenariat, "competition_id" | "type" | "debut" | "actif" | "fin">,
+>(candidats: P[], jour: string): P[] {
+  return candidats
+    .filter((p) => aLAffiche(p, jour) && !p.competition_id)
+    .sort((a, b) =>
+      (typeDe(a) === "partenaire" ? 0 : 1) - (typeDe(b) === "partenaire" ? 0 : 1)
+      || b.debut.localeCompare(a.debut));
+}
+
 export function lienValide(lien: string | null | undefined): string | null {
   const brut = (lien ?? "").trim();
   if (!brut) return null;
