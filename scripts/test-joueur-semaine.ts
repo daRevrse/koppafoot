@@ -11,6 +11,7 @@ import {
   type MatchDeLaSemaine,
 } from "@/lib/joueur-semaine";
 import { partenairesDeLAffiche, type FirestorePartenariat } from "@/lib/partenaires";
+import { lireDemande } from "@/lib/joueur-semaine-requete";
 import type { CompMatch } from "@/types";
 
 let echecs = 0;
@@ -181,6 +182,12 @@ cas("un amical s'écrit « MATCH AMICAL »", () => {
   assert.equal(c.candidats[0].matchs[0].competition, "MATCH AMICAL");
 });
 
+cas("un joueur sans compte d'un amical garde de quoi retrouver sa photo de club", () => {
+  const m = match({ competitionId: "friendly", competitionNom: "MATCH AMICAL", amical: true, comptesDesLignes: undefined, homeLineup: [ligne("ghost7", "Sena")], liveState: { ...enDirect, events: [evt({ teamId: "A", playerId: "ghost7" })] } as CompMatch["liveState"] });
+  const sena = classerLaSemaine([m], S, aucune).candidats[0];
+  assert.deepEqual(sena.ligneSansCompte, { competitionId: "friendly", teamId: "A", playerId: "ghost7" });
+});
+
 cas("les buteurs déclarés d'un amical renseigné vont à l'équipe qui l'a saisi", () => {
   const m = match({
     competitionId: "friendly", competitionNom: "MATCH AMICAL", amical: true, comptesDesLignes: undefined,
@@ -229,6 +236,36 @@ cas("entre deux partenaires, le plus récent d'abord", () => {
     partenariat({ annonceur: "Récent", debut: "2026-10-15" }),
   ], "2026-10-19");
   assert.deepEqual(retenus.map((p) => p.annonceur), ["Récent", "Ancien"]);
+});
+
+console.log("\nLa demande d'affiche");
+
+const demande = (d: Record<string, unknown> = {}) => ({
+  lundi: "2026-10-12", ecartees: [], cle: "uid:u1", nom: "KODJO AMEGAN", partenaires: [], ...d,
+});
+
+cas("une demande complète se lit", () => {
+  const d = lireDemande(demande({ format: "vertical", partenaires: ["p1"] }));
+  assert.ok(!("erreur" in d));
+  assert.equal(d.nom, "KODJO AMEGAN");
+  assert.equal(d.format, "vertical");
+});
+
+cas("une demande sans joueur est refusée", () => {
+  assert.ok("erreur" in lireDemande(demande({ cle: "" })));
+});
+
+cas("un nom vide ou de 41 caractères est refusé", () => {
+  assert.ok("erreur" in lireDemande(demande({ nom: "   " })));
+  assert.ok("erreur" in lireDemande(demande({ nom: "A".repeat(41) })));
+});
+
+cas("trois partenaires, c'est un de trop", () => {
+  assert.ok("erreur" in lireDemande(demande({ partenaires: ["a", "b", "c"] })));
+});
+
+cas("un lundi mal écrit est refusé", () => {
+  assert.ok("erreur" in lireDemande(demande({ lundi: "12/10/2026" })));
 });
 
 if (echecs > 0) {

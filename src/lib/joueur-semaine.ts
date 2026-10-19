@@ -227,7 +227,8 @@ export function classerLaSemaine(
     if (chiffres.note !== null) c.notes.push(chiffres.note);
     if (homme) c.hommeDuMatch += 1;
     if (c.nom === "" && nom) c.nom = nom;
-    if (!uid && !m.amical && (m.date as string) >= c.dateSansCompte) {
+    // Un amical aussi : sa ligne désigne la fiche du club (voir photosSansCompte).
+    if (!uid && (m.date as string) >= c.dateSansCompte) {
       c.dateSansCompte = m.date as string;
       c.ligneSansCompte = { competitionId: m.competitionId, teamId: camp.teamId, playerId: ligne.playerId };
     }
