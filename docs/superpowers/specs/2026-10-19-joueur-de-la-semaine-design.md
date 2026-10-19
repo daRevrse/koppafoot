@@ -59,14 +59,11 @@ master avant que ce chantier commence, ou ce chantier part de leur branche.
   façon. L'enchaînement de l'essai est validé tel quel (voir « La vidéo »).
 - **Les zones partenaires sont configurables**, et l'emplacement se vend comme
   les autres, depuis la page admin Partenaires, avec ses dates.
-- **L'accord du joueur avant toute publication.** L'affiche publie un visage et
-  un nom sur TikTok et YouTube ; beaucoup de joueurs n'ont pas de compte (leur
-  photo a été posée par un organisateur) et certains sont mineurs. Les boutons
-  qui téléchargent l'affiche et génèrent la vidéo restent grisés tant que
-  l'admin n'a pas coché « J'ai l'accord du joueur, ou de ses parents s'il est
-  mineur, pour publier son image ». L'accord se demande hors de l'outil, par
-  l'organisateur ou le manager ; la case n'est pas enregistrée et se recoche à
-  chaque affiche.
+- **Le consentement à l'image, demandé au joueur lui-même** (décidé le
+  2026-10-19, remplace la case à cocher de l'admin d'une première version) :
+  voir « Le consentement à l'image ». Sans un oui pour sa photo, l'affiche
+  montre **un vrai avatar** — une silhouette de footballeur, jamais des
+  initiales.
 
 ## Objectifs, non-objectifs, anti-objectifs
 
@@ -90,6 +87,10 @@ Non-objectifs (pas maintenant) :
 - La musique : la vidéo sort sans son, le son s'ajoute au moment de publier
   sur TikTok ou YouTube, qui gèrent les droits.
 - Le détourage du joueur (photo sans fond).
+- L'accord des parents d'un mineur : un mineur a l'avatar, sans exception.
+- Le consentement pour d'autres usages que les affiches et vidéos de
+  KoppaFoot sur ses réseaux (les pages du site restent régies par leurs
+  propres règles).
 - Les partenaires d'une compétition précise sur l'affiche (voir
   « Partenaires »).
 - Le comptage des vues et des clics d'un partenaire sur l'affiche : une image
@@ -101,7 +102,8 @@ Anti-objectifs (ce qui serait un échec même si ça marche) :
 - **Un cadre vide « PARTENAIRE »** sur une affiche ou une vidéo téléchargée :
   c'est un repère de maquette, jamais un rendu.
 - **Une affiche qui crie la statistique** au lieu d'honorer le joueur.
-- **Une affiche téléchargée sans que l'admin ait confirmé l'accord du joueur.**
+- **Une photo sur une affiche sans un « oui » donné pour cette photo-là**, ou la
+  photo d'un joueur dont la date de naissance dit qu'il est mineur.
 - **Une affiche et une vidéo qui divergent** : la vidéo est l'affiche qui se
   monte, sa dernière image est l'affiche verticale.
 - **Le texte important sous l'interface de TikTok** (voir « Contraintes »).
@@ -173,7 +175,8 @@ passes, sa note moyenne, ses titres d'homme du match, et s'il a une photo.
 chercher les autres (une semaine chargée compte des centaines de joueurs).
 
 **Rien n'est enregistré** : ni les compétitions écartées, ni le joueur choisi,
-ni la photo, ni les partenaires décochés, ni la case d'accord du joueur. La page sert à fabriquer l'affiche ;
+ni les partenaires décochés. La page montre, pour chaque candidat, l'état de
+son consentement : photo autorisée, refusée, ou sans réponse. La page sert à fabriquer l'affiche ;
 la refaire demande de refaire ses choix. (Un historique des élus est un
 non-objectif.)
 *Mon choix :* sous la liste, une ligne signale combien de joueurs au dossard
@@ -221,16 +224,59 @@ validées (`C2-publication.png`, `C2-vertical-3-matchs.png`).
 
 ### La photo
 
-Par ordre de préférence :
+- **Un joueur qui a un compte** : sa photo de profil, s'il a dit oui pour
+  cette photo-là et que sa date de naissance ne dit pas qu'il est mineur.
+- **Un joueur sans compte** : la photo de sa ligne d'effectif ou de sa fiche de
+  club (la logique de `photosSansCompte`, lib/classement-admin), si la personne
+  qui l'a posée a répondu oui pour cette photo-là.
+- **Sinon, l'avatar** : une silhouette de footballeur au maillot vert, sans
+  visage ni carnation, la même pour tous (validée sur maquette le
+  2026-10-19 ; le dessin est dans le scratchpad de la session, à reprendre en
+  `assets/`).
 
-1. **une photo choisie par l'admin** au moment de générer (un fichier de son
-   ordinateur), non conservée : elle ne sert qu'à cette affiche et à sa
-   vidéo. *Mon choix* : les photos d'effectif sont des photos de téléphone
-   d'environ 383×512, floues une fois agrandies ;
-2. la photo du profil, pour un joueur qui a un compte ;
-3. pour un joueur sans compte, celle de sa ligne d'effectif ou de sa fiche de
-   club (la logique de `photosSansCompte`, lib/classement-admin) ;
-4. sinon, ses initiales en Anton sur le rectangle sombre. *Mon choix.*
+*Mon choix* : **l'admin ne peut plus poser une autre photo** au moment de
+générer, comme le prévoyait une première version. Le joueur a consenti pour
+sa photo, pas pour une image choisie par quelqu'un d'autre. Une photo trop
+floue se remplace à la source, par le joueur ou par son équipe, et le
+consentement est redemandé.
+
+## Le consentement à l'image
+
+Décidé avec le propriétaire le 2026-10-19.
+
+- **Le joueur qui a un compte répond lui-même**, dans un modal : « J'autorise
+  KoppaFoot à utiliser ma photo de profil sur ses affiches et vidéos publiées
+  sur ses réseaux sociaux. » Oui ou non.
+- **Quand** : une seule fois, à sa prochaine ouverture de l'appli, s'il a une
+  photo de profil et pas encore de réponse pour elle ; puis **à chaque nouvelle
+  photo de profil**. *Mon choix* : la réponse se modifie à tout moment depuis
+  son profil.
+- **Sans réponse, c'est non** : l'affiche montre l'avatar.
+- **Un mineur n'est jamais demandé, et n'a jamais sa photo** : un compte dont
+  la date de naissance dit moins de 18 ans voit l'avatar sur l'affiche, et le
+  modal ne lui est pas présenté. Une date absente ne dit pas qu'il est mineur.
+- **Un joueur sans compte** : la question est posée à la personne qui pose sa
+  photo, organisateur ou manager, **au moment où elle la pose** (le composant
+  partagé `ChampPhotoDuJoueur`, qui évoque déjà « son accord »). Pour les
+  photos déjà en place, **un modal, une seule fois**, liste ses joueurs avec
+  photo et sans réponse, avec un oui ou un non pour chacun.
+- *Mon choix* : **la réponse est attachée à la photo.** Elle porte l'adresse de
+  la photo pour laquelle elle a été donnée ; une nouvelle photo n'a plus de
+  réponse, ce qui redemande l'accord. Entre l'organisateur et le manager d'un
+  même joueur, la dernière réponse compte.
+
+### Où elle se range
+
+Le même objet partout, *mon choix* :
+`{ reponse: "oui" | "non", le: ISO, par: uid, photo: url }`.
+
+- `users/{uid}.consentement_image` : écrit par le titulaire (les règles le
+  permettent déjà : seul `noProtectedFields` filtre, et ce champ n'y est pas).
+- `competitions/{cid}/comp_teams/{tid}.players[].photo_consentement` : écrit
+  avec la ligne, par ceux qui écrivent déjà sa photo.
+- `teams/{clubId}/ghost_players/{id}.photo_consentement` : écrit par la route
+  serveur qui pose déjà la photo (`/api/teams/[id]/ghost-players/[gid]/photo`),
+  et par le manager du club pour une photo déjà en place.
 
 ## C. La vidéo
 

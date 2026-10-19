@@ -4,7 +4,7 @@
 
 **Goal:** une page admin qui classe les joueurs d'une semaine (lundi–dimanche), puis fabrique l'affiche du joueur choisi (1080×1350 et 1080×1920) et sa vidéo verticale animée (MP4).
 
-**Architecture:** un module pur classe la semaine à partir des matchs déjà lus pour le classement de la plateforme ; un module Satori dessine l'affiche entière ou calque par calque ; le serveur rend les PNG, le navigateur de l'admin anime les calques sur un canvas et encode le MP4 avec WebCodecs (mediabunny). Rien n'est enregistré.
+**Architecture:** un module pur classe la semaine à partir des matchs déjà lus pour le classement de la plateforme ; un module Satori dessine l'affiche entière ou calque par calque ; le serveur rend les PNG, le navigateur de l'admin anime les calques sur un canvas et encode le MP4 avec WebCodecs (mediabunny). La page n'enregistre rien ; le consentement à l'image est demandé au joueur, ou à son équipe, et rangé avec sa photo.
 
 **Tech Stack:** Next 16 (App Router), `next/og` (Satori), sharp (livré avec Next), firebase-admin, mediabunny 1.61.0 (nouvelle dépendance), scripts de test `npx tsx`.
 
@@ -20,7 +20,7 @@
 - Vertical : tout le contenu entre y = 150 et y = 1480.
 - Au plus 4 écussons, 4 lignes de matchs, 2 partenaires.
 - Toute route sous `/api/admin/joueur-semaine` commence par `exigerSuperadmin(req)`.
-- Les boutons de téléchargement et de vidéo sont désactivés tant que la case d'accord du joueur n'est pas cochée.
+- Jamais une photo sur une affiche sans un « oui » pour cette photo-là ; un mineur (date de naissance) a toujours l'avatar ; sans photo autorisée, l'avatar (silhouette), jamais des initiales.
 - Jamais de cadre « PARTENAIRE » vide dans un rendu.
 - Satori : `display: "flex"` sur tout élément à plusieurs enfants, pas de `radial-gradient`, pas de WebP.
 
@@ -28,9 +28,9 @@
 
 1. **Une semaine sans aucun match** (été, trêve) : la page dit « Aucun match cette semaine », sans planter ni proposer d'affiche. → test `semaine vide` (Tâche 2).
 2. **Un nom ou une affiche de match très longs** (« ASSOCIATION SPORTIVE DES JEUNES DE BÈ-KPOTA 3–2 … ») : l'ellipse coupe, rien ne passe à la ligne ni ne déborde. → rendu de contrôle avec noms longs (Tâche 4).
-3. **Un joueur sans photo, une équipe sans logo, une compétition sans partenaire** : initiales, rond vert, pied réduit au logo. → rendu de contrôle « tout manque » (Tâche 4).
-4. **Un navigateur sans encodeur H.264** (Firefox, Safari, volet de l'outil) : message clair, l'affiche reste téléchargeable. → `videoPossible()` testé dans le navigateur (Tâche 7).
-5. **Une photo envoyée trop lourde ou qui n'est pas une image** : refus net (« Image trop lourde » / « Format non pris en charge »), pas d'erreur 500. → test de `lirePhotoEnvoyee` (Tâche 5).
+3. **Un joueur sans photo autorisée, une équipe sans logo, une compétition sans partenaire** : avatar, rond vert, pied réduit au logo. → rendu de contrôle « tout manque » (Tasks 4–5).
+4. **Un navigateur sans encodeur H.264** (Firefox, Safari, volet de l'outil) : message clair, l'affiche reste téléchargeable. → `videoPossible()` testé dans le navigateur (Task 8).
+5. **Une réponse donnée pour une ancienne photo** : la nouvelle photo ne passe pas sur l'affiche tant que personne n'a répondu pour elle. → test « oui pour une autre photo » (Task 5).
 
 ---
 
@@ -175,49 +175,76 @@ Mise en page : celle de `Collage` et `gabarit()` du script de maquettes (positio
 - [ ] **Step 3 : lancer** `npx tsx --tsconfig tsconfig.json scripts/rendu-joueur-semaine.tsx <dossier>` et **regarder chaque PNG** : (a) identique aux maquettes validées hors cadres « PARTENAIRE » ; (b) initiales, ronds verts, pied réduit au logo ; (c) aucune ligne à la ligne ni hors cadre, « + 3 AUTRES MATCHS » ; (d) rien d'important dans les zones roses.
 - [ ] **Step 4 : commit** `feat(joueur-semaine): l'affiche, en publication et en vertical`.
 
-### Task 5: les routes d'API
+### Task 5: le consentement à l'image (module pur) et l'avatar
+
+**Files:**
+- Create: `src/lib/consentement-image.ts`
+- Create: `assets/joueur-semaine/avatar.svg` (le dessin validé, repris du scratchpad de la session)
+- Modify: `src/lib/og-joueur-semaine.tsx` (photo absente → l'avatar, plus d'initiales)
+- Test: `scripts/test-joueur-semaine.ts` ; rendu de contrôle `scripts/rendu-joueur-semaine.tsx`
+
+**Interfaces — Produces:**
+
+```ts
+export type ReponseConsentement = "oui" | "non";
+/** Le même objet sur un compte, une ligne d'effectif et une fiche de club. */
+export interface ConsentementImage { reponse: ReponseConsentement; le: string; par: string; photo: string }
+/** « aucun » : pas de photo, pas de réponse, ou une réponse donnée pour une autre photo. */
+export type EtatConsentement = "oui" | "non" | "aucun" | "mineur";
+export interface SujetImage { photo: string | null; consentement: unknown; dateNaissance?: string | null }
+export function lireConsentement(brut: unknown): ConsentementImage | null;
+export function consentementPour(photo: string, reponse: ReponseConsentement, par: string, le?: string): ConsentementImage;
+export function estMineur(dateNaissance: string | null | undefined, jour: string): boolean;
+export function etatDuConsentement(s: SujetImage, jour: string): EtatConsentement;
+export function photoAutorisee(s: SujetImage, jour: string): string | null;   // la photo si « oui », sinon null
+export function aDemanderAuJoueur(s: SujetImage, jour: string): boolean;      // photo, pas mineur, pas de réponse pour cette photo
+```
+
+- [ ] **Step 1 : tests** : `estMineur("2009-10-20", "2026-10-19")` vrai ; `estMineur("2008-10-19", "2026-10-19")` faux (18 ans pile) ; date absente → faux ; date illisible → faux. Un « oui » pour la photo courante → `etat "oui"`, `photoAutorisee` = la photo ; un « oui » pour une AUTRE photo → `"aucun"`, null ; « non » → `"non"`, null ; un mineur avec « oui » → `"mineur"`, null ; sans photo → `"aucun"`. `aDemanderAuJoueur` : vrai avec photo et sans réponse, faux après une réponse pour cette photo, vrai à nouveau après un changement de photo, faux pour un mineur, faux sans photo. `lireConsentement` rejette `{ reponse: "peut-être" }` et un objet sans `photo`.
+- [ ] **Step 2 : lancer** → échec. **Step 3 : implémenter** le module.
+- [ ] **Step 4 : l'avatar** : copier le dessin validé dans `assets/joueur-semaine/avatar.svg` ; `og-joueur-semaine` le lit une fois (chemin écrit en entier, comme `chargerRessources`), le convertit en PNG par sharp, et le pose en `objectFit: cover` à la place de la photo quand `d.photo` est null. Plus de fonction `initiales`.
+- [ ] **Step 5 : lancer** les tests → `Tout passe.` ; le rendu de contrôle → `vide-*.png` montre l'avatar ; le regarder.
+- [ ] **Step 6 : commit** `feat(joueur-semaine): le consentement à l'image et l'avatar`.
+
+### Task 6: les routes d'API
 
 **Files:**
 - Create: `src/app/api/admin/joueur-semaine/route.ts` (GET)
 - Create: `src/app/api/admin/joueur-semaine/affiche/route.ts` (POST → PNG)
 - Create: `src/app/api/admin/joueur-semaine/calques/route.ts` (POST → JSON)
-- Create: `src/lib/joueur-semaine-requete.ts` (lecture et validation du corps, pure)
+- Create: `src/lib/joueur-semaine-requete.ts` (déjà écrit avant la pause ; retirer `photo` et `lirePhotoEnvoyee`)
+- Modify: `src/lib/joueur-semaine-admin.ts`
 - Test: `scripts/test-joueur-semaine.ts`
 
 **Interfaces:**
-- Consumes: `lireLaSemaine`, `photoDuCandidat`, `partenairesDuJour` (Tâche 3) ; `afficheJoueurSemaine`, `calquesJoueurSemaine`, `preparerPhoto` (Tâche 4).
+- Consumes: `lireLaSemaine`, `partenairesDuJour` (Task 3) ; `afficheJoueurSemaine`, `calquesJoueurSemaine`, `preparerPhoto` (Task 4) ; `etatDuConsentement`, `photoAutorisee`, `lireConsentement` (Task 5).
 - Produces:
 
 ```ts
-// GET ?lundi=AAAA-MM-JJ&ecartees=cid,cid  (lundi absent → semainePrecedente(jourDeLome()))
-// → { classement: ClassementDeLaSemaine (30 premiers candidats + tous pour la recherche : nom, cle, buts, passes, note, hommeDuMatch, equipes, aPhoto),
-//     partenaires: PartenaireDAffiche[] }
-// POST corps commun :
-export interface DemandeAffiche {
-  lundi: string; ecartees: string[]; cle: string;   // le candidat
-  nom: string;                                      // 1–40 caractères après trim
-  photo: string | null;                             // data URL image/jpeg|png, ≤ 2 Mo décodés
-  partenaires: string[];                            // ids retenus, ≤ 2
-  format?: FormatAffiche;                           // affiche seulement
-}
+// joueur-semaine-requete
+export interface DemandeAffiche { lundi: string; ecartees: string[]; cle: string; nom: string; partenaires: string[]; format?: "publication" | "vertical" }
 export function lireDemande(corps: unknown): DemandeAffiche | { erreur: string };
-export function lirePhotoEnvoyee(dataUrl: string): Buffer | { erreur: "Image trop lourde" | "Format non pris en charge" };
-// /affiche → image/png, Content-Disposition attachment ; /calques → { calques: CalqueVideo[] }
+// joueur-semaine-admin
+export interface ImageDuCandidat { etat: EtatConsentement; photo: string | null }   // photo seulement si « oui »
+export async function imagesDesCandidats(candidats: CandidatDeLaSemaine[]): Promise<Map<string, ImageDuCandidat>>;
+export async function donneesDeLAffiche(demande: DemandeAffiche): Promise<DonneesAffiche | null>;  // null : pas candidat
+// GET ?lundi=&ecartees= (lundi absent → semainePrecedente(jourDeLome()))
+// → { classement: { semaine, competitions, dossards, candidats: { cle, nom, equipes: string[], matchs: number, buts, passes, note, hommeDuMatch, image: EtatConsentement }[] },
+//     partenaires: PartenaireDAffiche[] }
+// POST /affiche (DemandeAffiche avec format) → image/png, Content-Disposition attachment
+// POST /calques (DemandeAffiche) → { calques: CalqueVideo[] }
 ```
 
-Le serveur recalcule la semaine et retrouve le candidat par `cle` (404 « Joueur introuvable cette semaine ») : il ne fait confiance au corps que pour le nom affiché, la photo et le choix parmi les partenaires du jour.
+`imagesDesCandidats` lit, pour un compte, `users/{uid}` (`profile_picture_url`, `consentement_image`, `date_of_birth`) ; pour un joueur sans compte, la ligne d'effectif puis la fiche de club, dans l'ordre de `photosSansCompte` (lib/classement-admin), avec leur `photo_url` et leur `photo_consentement`. `donneesDeLAffiche` recalcule la semaine, retrouve le candidat par `cle`, et ne prend sa photo que si `photoAutorisee` la rend ; sinon `photo: null` (l'avatar).
 
-- [ ] **Step 1 : tests de `lireDemande` / `lirePhotoEnvoyee`** : corps sans `cle` → erreur ; nom vide ou de 41 caractères → erreur ; 3 partenaires → erreur ; data URL `image/gif` → « Format non pris en charge » ; 2,5 Mo → « Image trop lourde » ; un petit PNG valide → `Buffer`.
-- [ ] **Step 2 : lancer** → échec.
-- [ ] **Step 3 : implémenter** le module de requête puis les trois routes (`export const dynamic = "force-dynamic"`, `exigerSuperadmin` en tête, `console.error` + 500 « L'affiche n'a pas pu être générée » en cas d'échec, comme `api/admin/audience`).
-- [ ] **Step 4 : lancer** les tests → `Tout passe.` ; `tsc` propre.
-- [ ] **Step 5 : commit** `feat(joueur-semaine): les routes d'administration`.
+- [ ] **Step 1 : tests de `lireDemande`** (ceux d'avant la pause, sans ceux de la photo) : sans `cle`, nom vide ou de 41 caractères, 3 partenaires, lundi mal écrit → erreur ; demande complète → lue.
+- [ ] **Step 2 : lancer** → les tests de photo retirés, le reste passe déjà (module écrit avant la pause) : le noter au registre. **Step 3 : implémenter** `imagesDesCandidats`, `donneesDeLAffiche` et les trois routes (`export const dynamic = "force-dynamic"`, `exigerSuperadmin` en tête, 400 avec l'erreur de `lireDemande`, 404 « Joueur introuvable cette semaine », 500 « L'affiche n'a pas pu être générée » après `console.error`).
+- [ ] **Step 4 : sonde en lecture seule sur la prod** (script jetable, supprimé après) : `donneesDeLAffiche` pour AMEGAN, semaine du 12 octobre, Dékawowo écartée → `photo === null` (personne n'a encore répondu) et une ligne « FC LION 4–0 PRAISE FC ».
+- [ ] **Step 5 : lancer** les tests, `tsc`, `eslint` → propres. **Step 6 : commit** `feat(joueur-semaine): les routes d'administration`.
 
-### Task 6: la timeline de la vidéo (module pur)
+### Task 7: la timeline de la vidéo (module pur)
 
-**Files:**
-- Create: `src/lib/video-joueur-semaine.ts`
-- Test: `scripts/test-joueur-semaine.ts`
+**Files:** Create `src/lib/video-joueur-semaine.ts` ; Test `scripts/test-joueur-semaine.ts`.
 
 **Interfaces — Produces:**
 
@@ -228,13 +255,12 @@ export interface EtatCalque { dx: number; dy: number; opacite: number; devoile: 
 export function etatDuCalque(c: Pick<CalqueVideo, "cle" | "left" | "top" | "w" | "h">, t: number, largeur: number): EtatCalque;
 ```
 
-Valeurs : le tableau « C. La vidéo » de la spec, et les courbes de `etat()` du script de maquettes (cubique, « back » c1 = 1.70158, « bounce » n = 7.5625 / d = 2.75).
+Valeurs : le tableau « C. La vidéo » de la spec et les courbes de `etat()` du script de maquettes (cubique ; « back » c1 = 1.70158 ; « bounce » n = 7.5625, d = 2.75). Les clés sont celles de `clesDesCalques` (Task 4) : `semaine` (et non `semaine42`), `ecusson-i`, `ligne-i`.
 
-- [ ] **Step 1 : tests** : à `t = DUREE` tous les calques sont au repos (`dx = dy = 0`, `opacite = 1`, `devoile = 1`) sauf `photo` dont `zoom ≈ 1.045` ; à `t = 0` le bandeau est entièrement hors champ à gauche (`left + dx + w ≤ 0`) et la photo a `devoile = 0` ; `ecusson-1` commence 0,2 s après `ecusson-0` ; `ligne-2` est invisible à `t = 2.9` et visible à `t = 3.8`.
-- [ ] **Step 2 : lancer** → échec. **Step 3 : implémenter.** **Step 4 : lancer** → `Tout passe.`
-- [ ] **Step 5 : commit** `feat(joueur-semaine): la timeline de la vidéo`.
+- [ ] **Step 1 : tests** : à `t = DUREE` tout est au repos (`dx = dy = 0`, `opacite = 1`, `devoile = 1`) sauf `photo` (`zoom ≈ 1.045`) ; à `t = 0` le bandeau est hors champ à gauche (`left + dx + w ≤ 0`) et la photo a `devoile = 0` ; `ecusson-1` commence 0,2 s après `ecusson-0` ; `ligne-2` invisible à `t = 2.9`, visible à `t = 3.8`.
+- [ ] **Step 2 : lancer** → échec. **Step 3 : implémenter.** **Step 4 : lancer** → `Tout passe.` **Step 5 : commit** `feat(joueur-semaine): la timeline de la vidéo`.
 
-### Task 7: la page admin et l'encodage dans le navigateur
+### Task 8: la page admin et l'encodage dans le navigateur
 
 **Files:**
 - Modify: `package.json` (`"mediabunny": "1.61.0"`, version exacte)
@@ -243,35 +269,53 @@ Valeurs : le tableau « C. La vidéo » de la spec, et les courbes de `etat()` d
 - Modify: `src/components/layout/AdminSidebar.tsx` (groupe « Communication » : `{ href: "/admin/joueur-semaine", label: "Joueur de la semaine", Icone: Award }`)
 
 **Interfaces:**
-- Consumes: routes (Tâche 5), `etatDuCalque`, `FPS`, `DUREE` (Tâche 6).
-- Produces:
+- Consumes: routes (Task 6), `etatDuCalque`, `FPS`, `DUREE` (Task 7).
+- Produces: `videoPossible(): Promise<boolean>` ; `fabriquerLaVideo(calques: CalqueVideo[], onProgres: (part: number) => void): Promise<Blob>` (video/mp4).
 
-```ts
-export async function videoPossible(): Promise<boolean>; // VideoEncoder.isConfigSupported avc 1080×1920
-export async function fabriquerLaVideo(calques: CalqueVideo[], onProgres: (part: number) => void): Promise<Blob>; // video/mp4
-```
+`fabriquerLaVideo` : charge chaque calque en `ImageBitmap` ; pour n de 0 à FPS·DUREE−1, t = n / FPS, dessine sur un `OffscreenCanvas` 1080×1920 (fond, puis chaque calque transformé : décalage, `globalAlpha`, dévoilement par la bande basse, zoom centré de la photo), et l'ajoute à la piste mediabunny (`Output`, `Mp4OutputFormat`, `BufferTarget`, `CanvasSource` codec `avc`) avec l'horodatage t. **Jamais `requestAnimationFrame`.** Lire les `.d.ts` de mediabunny avant d'écrire.
 
-`fabriquerLaVideo` : charge chaque calque en `ImageBitmap`, puis pour n de 0 à FPS·DUREE−1 : t = n / FPS, dessine sur un `OffscreenCanvas` 1080×1920 (fond, puis chaque calque transformé : décalage, `globalAlpha`, dévoilement par `drawImage` de la bande basse, zoom centré pour la photo), puis l'ajoute à la piste mediabunny (`Output` + `Mp4OutputFormat` + `BufferTarget` + `CanvasSource` codec `avc`) avec l'horodatage t. **Jamais `requestAnimationFrame`.** Lire les types de mediabunny dans `node_modules/mediabunny` avant d'écrire.
+La page (kit `components/admin/ui`, appels avec `firebaseUser.getIdToken()` comme /admin/partenaires) : semaine précédente / suivante (« Semaine 42 · 12–18 oct. ») ; compétitions de la semaine en cases à cocher (« Matchs amicaux » groupés) ; les 30 premiers + recherche par nom (nom, équipes, matchs, buts, passes, note, homme du match, et l'état de l'image : « Photo autorisée », « Photo refusée », « Sans réponse », « Mineur ») ; un clic choisit, le premier par défaut ; « N joueurs au dossard écartés » ; nom affiché (prérempli en capitales) ; partenaires du jour (cochés, deux au plus) ; aperçu (PNG vertical) ; « Télécharger la publication », « Télécharger le vertical », « Générer la vidéo » (barre de progression) ; la vidéo désactivée avec un message quand `videoPossible()` est faux. **Plus de case d'accord ni de photo envoyée** : le consentement vient du joueur.
 
-La page (kit `components/admin/ui`, appels avec `firebaseUser.getIdToken()` comme /admin/partenaires) :
-1. sélecteur de semaine (précédente / suivante, « Semaine 42 · 12–18 oct. ») ;
-2. compétitions de la semaine en cases à cocher (« Matchs amicaux » groupés) ;
-3. les 30 premiers (+ recherche par nom) : nom, équipes, matchs, buts, passes, note, homme du match, photo oui/non ; un clic choisit ; le premier est choisi par défaut ;
-4. sous la liste : « N joueurs au dossard écartés » et leurs chiffres ;
-5. réglages de l'affiche : nom (prérempli en capitales), photo (fichier → réduit à 1200 px JPEG dans le navigateur), partenaires du jour (cochés, deux au plus) ;
-6. aperçu (PNG de la route `/affiche`, format vertical) ;
-7. la case « J'ai l'accord du joueur, ou de ses parents s'il est mineur, pour publier son image » ; puis « Télécharger la publication », « Télécharger le vertical », « Générer la vidéo » (barre de progression), tous désactivés sans la case ; la vidéo désactivée avec un message quand `videoPossible()` est faux.
+- [ ] **Step 1 : `npm install mediabunny@1.61.0 --save-exact`**, puis lire ses `.d.ts`.
+- [ ] **Step 2 : implémenter** l'encodeur, la page et l'entrée de la barre latérale.
+- [ ] **Step 3 : `tsc` et `eslint`** sur les fichiers touchés → propres. **Step 4 : commit** `feat(joueur-semaine): la page d'administration et la vidéo`.
 
-- [ ] **Step 1 : `npm install mediabunny@1.61.0 --save-exact`** ; lire ses `.d.ts` (`Output`, `Mp4OutputFormat`, `BufferTarget`, `CanvasSource`).
-- [ ] **Step 2 : implémenter** `video-joueur-semaine-client.ts`, la page et l'entrée de la barre latérale.
-- [ ] **Step 3 : `npx tsc --noEmit -p .` et `npx eslint` sur les fichiers touchés** → propres.
-- [ ] **Step 4 : commit** `feat(joueur-semaine): la page d'administration et la vidéo`.
+### Task 9: le modal du joueur et son réglage
 
-### Task 8: vérification de bout en bout et ménage
+**Files:**
+- Modify: `src/types/index.ts` (`FirestoreUser.consentement_image?`, `UserProfile.consentementImage?`) et `src/lib/firestore.ts` (le mapping)
+- Create: `src/components/consentement/ModalConsentementImage.tsx`
+- Modify: la coquille de l'espace connecté (le layout `(app)`, à repérer) pour y monter le modal
+- Modify: `src/app/(app)/profile/page.tsx` (un réglage « Mon image sur les affiches »)
 
-- [ ] **Step 1 : lancer le serveur de dev** (`preview_start koppafoot-dev`), ouvrir `/admin/joueur-semaine` connecté en superadmin, semaine du 12 octobre : Dékawowo décochée → AMEGAN premier ; aucun « N°… » dans la liste.
-- [ ] **Step 2 : télécharger la publication et le vertical** ; les ouvrir : conformes aux rendus de la Tâche 4.
-- [ ] **Step 3 : générer la vidéo** si le navigateur le permet (sinon vérifier le message), et lire le MP4 obtenu (`ffprobe` : 1080×1920, 30 i/s, 10 s, h264).
-- [ ] **Step 4 : partenaires** : dans /admin/partenaires, l'emplacement « Affiche « Joueur de la semaine » » existe. Ne créer aucun partenariat en prod pour tester : la sélection est couverte par les tests.
-- [ ] **Step 5 : relancer tous les scripts de test**, `tsc`, `eslint` ; supprimer `scripts/maquettes-joueur-semaine.tsx`.
+Le modal s'ouvre quand `aDemanderAuJoueur({ photo: user.profilePictureUrl, consentement: user.consentementImage, dateNaissance: user.dateOfBirth }, jourDeLome())` : texte de la spec (« J'autorise KoppaFoot à utiliser ma photo de profil sur ses affiches et vidéos publiées sur ses réseaux sociaux »), deux boutons « Oui, j'autorise » / « Non », chacun écrit `consentement_image: consentementPour(photo, reponse, uid)` par `updateProfile`. Une nouvelle photo de profil rouvre le modal d'elle-même (la réponse porte l'ancienne photo). Le réglage du profil montre la réponse en cours et la change ; il est absent sans photo ou pour un mineur.
+
+- [ ] **Step 1 : implémenter** (la logique est couverte par les tests de Task 5).
+- [ ] **Step 2 : vérifier dans le navigateur** (serveur de dev, un compte de test avec photo) : le modal paraît, « Non » le ferme et ne revient pas, une nouvelle photo le fait revenir, le réglage du profil change la réponse. Pas d'écriture sur un vrai compte de joueur.
+- [ ] **Step 3 : `tsc`, `eslint`** → propres. **Step 4 : commit** `feat(consentement): le joueur autorise ou non sa photo sur les affiches`.
+
+### Task 10: les joueurs sans compte
+
+**Files:**
+- Modify: `src/components/team/ChampPhotoDuJoueur.tsx` (la question, quand une photo est posée)
+- Modify: `src/app/(organizer)/organizer/competitions/[cid]/teams/[tid]/page.tsx`, `src/app/(app)/mon-equipe/[cid]/[tid]/page.tsx`, `src/app/(app)/teams/[id]/page.tsx` (transmettre la réponse)
+- Modify: `src/app/api/teams/[id]/ghost-players/[gid]/photo/route.ts` (recevoir la réponse avec la photo)
+- Modify: les écritures des lignes d'effectif de compétition (dans `src/lib/competition-firestore.ts` ou là où ces pages enregistrent `players`) : `photo_consentement` voyage avec la ligne
+- Create: `src/components/consentement/ModalConsentementsEffectif.tsx`, monté dans l'espace organisateur et l'espace manager
+- Modify (si besoin) : `firestore.rules` — si une règle filtre les champs d'une ligne de `comp_teams.players`, y ajouter `photo_consentement` ; déployer selon la mémoire « Déployer les règles Firestore » (diff prod contre fichier d'abord, `--project koppafoot`)
+
+`ChampPhotoDuJoueur` : quand une photo est choisie ou présente, la question « Ce joueur — ou ses parents s'il est mineur — accepte-t-il que KoppaFoot utilise cette photo sur ses affiches et vidéos ? » avec Oui / Non ; une NOUVELLE photo exige une réponse avant d'enregistrer. La réponse s'écrit `consentementPour(url, reponse, uidDeCeluiQuiRépond)`. Le modal des photos déjà en place : une seule fois (date `consentements_effectif_demandes_le` sur le compte de celui qui répond), la liste de ses joueurs avec photo sans réponse pour elle, un Oui / Non par ligne.
+
+- [ ] **Step 1 : lire les règles de `comp_teams` et les fonctions qui écrivent `players`** ; noter au registre ce qu'il faut changer.
+- [ ] **Step 2 : implémenter** le champ, les trois pages, la route photo, les écritures, le modal ; les règles si besoin.
+- [ ] **Step 3 : vérifier dans le navigateur** sur une compétition d'entraînement (`isSandbox`) : poser une photo exige une réponse ; la réponse arrive sur la ligne ; le modal liste les photos sans réponse puis ne revient pas.
+- [ ] **Step 4 : `tsc`, `eslint`, tests** → propres. **Step 5 : commit** `feat(consentement): les photos des joueurs sans compte`.
+
+### Task 11: vérification de bout en bout et ménage
+
+- [ ] **Step 1 : serveur de dev**, `/admin/joueur-semaine` en superadmin, semaine du 12 octobre : Dékawowo décochée → AMEGAN premier, image « Sans réponse », aperçu avec l'avatar ; aucun « N°… » dans la liste.
+- [ ] **Step 2 : télécharger la publication et le vertical** ; conformes aux rendus de contrôle.
+- [ ] **Step 3 : générer la vidéo** si le navigateur le permet (sinon vérifier le message) ; `ffprobe` du MP4 : 1080×1920, 30 i/s, 10 s, h264.
+- [ ] **Step 4 :** l'emplacement « Affiche « Joueur de la semaine » » existe dans /admin/partenaires. Aucun partenariat créé en prod pour tester.
+- [ ] **Step 5 : tous les scripts de test, `tsc`, `eslint`** ; supprimer `scripts/maquettes-joueur-semaine.tsx` et `scripts/essai-avatar.tsx`.
 - [ ] **Step 6 : commit** si quelque chose a changé ; ne pas pousser sans demande.
