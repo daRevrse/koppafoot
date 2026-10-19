@@ -20,8 +20,9 @@ import { toCompMatch } from "@/lib/competition-mappers";
 import { matchDuration } from "@/lib/competition-format";
 import { calculerClassements, fusionnerClassements } from "@/lib/classement";
 import type { MatchPourForme } from "@/lib/etat-de-forme";
+import type { MatchDeLaSemaine } from "@/lib/joueur-semaine";
 import type {
-  ClassementsPublies, ContributionDirecte, LigneJoueurPubliee, LigneSansCompte, MatchAClasser,
+  ClassementsPublies, ContributionDirecte, LigneJoueurPubliee, LigneSansCompte,
 } from "@/lib/classement";
 import { normaliserPoste } from "@/lib/postes";
 import { lireButeursRenseignes } from "@/lib/buteurs";
@@ -37,8 +38,11 @@ const VIDE: ClassementsPublies = {
   joueurs: [], matchsRetenus: 0, calculeLe: null,
 };
 
-/** Un match de la plateforme : de quoi le classer, et de quoi en tirer une forme. */
-export type MatchDeLaPlateforme = MatchAClasser & MatchPourForme;
+/**
+ * Un match de la plateforme : de quoi le classer, en tirer une forme, et
+ * l'écrire sur l'affiche du joueur de la semaine (voir lib/joueur-semaine).
+ */
+export type MatchDeLaPlateforme = MatchDeLaSemaine & MatchPourForme;
 
 /**
  * Tous les matchs qui comptent : les compétitions de la plateforme, et les
@@ -72,6 +76,7 @@ export async function matchsDeLaPlateforme(): Promise<MatchDeLaPlateforme[]> {
       const comptesDesLignes = await comptesDesEffectifs(c.id, docs.map((d) => d.data() as FirestoreCompMatch));
       return docs.map((d) => ({
         ...toCompMatch(d.id, d.data() as FirestoreCompMatch),
+        competitionNom: c.name,
         dureeMatchMin,
         comptesDesLignes,
         lien: `/c/${c.slug}/matches/${d.id}`,
@@ -163,11 +168,15 @@ function contributionsDirectes(d: FirestoreMatch): ContributionDirecte[] {
   }));
 }
 
-/** Un amical réduit à ce que le calcul du classement lit. */
-function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
+/**
+ * Un amical réduit à ce que le calcul du classement lit, et à ce que
+ * l'affiche du joueur de la semaine en écrit (nom, logos, homme du match).
+ */
+function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchDeLaSemaine {
   return {
     id,
     competitionId: AMICAL,
+    competitionNom: "MATCH AMICAL",
     status: "completed",
     date: d.date ?? null,
     time: d.time ?? null,
@@ -175,6 +184,14 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
     awayTeamId: d.away_team_id ?? null,
     homeTeamName: d.home_team_name ?? "",
     awayTeamName: d.away_team_name ?? "",
+    homeTeamLogo: d.home_team_logo ?? null,
+    awayTeamLogo: d.away_team_logo ?? null,
+    forfeitByTeamId: d.forfeit_by_team_id ?? null,
+    mvpPlayerId: d.mvp_player_id ?? null,
+    mvpUserId: d.mvp_user_id ?? null,
+    // Les buteurs déclarés d'un amical renseigné sont ceux de l'équipe qui
+    // l'a saisi (voir api/matches/record, `equipeQuiSaisit`).
+    campDesContributions: d.is_home === false ? "away" : "home",
     scoreHome: d.score_home ?? 0,
     scoreAway: d.score_away ?? 0,
     homeLineup: feuille(d, "home"),
@@ -208,7 +225,7 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
         }
       : null,
     contributionsDirectes: contributionsDirectes(d),
-  } as unknown as MatchAClasser;
+  } as unknown as MatchDeLaSemaine;
 }
 
 /**
@@ -223,7 +240,7 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchAClasser {
  * Un échec laisse simplement les initiales : le classement se publie quand
  * même.
  */
-async function photosDesJoueurs(uids: string[]): Promise<Map<string, string>> {
+export async function photosDesJoueurs(uids: string[]): Promise<Map<string, string>> {
   const photos = new Map<string, string>();
   if (uids.length === 0) return photos;
   try {
@@ -255,7 +272,7 @@ async function photosDesJoueurs(uids: string[]): Promise<Map<string, string>> {
  * Même régime que les comptes : relevées au calcul, et un échec laisse les
  * initiales sans empêcher la publication.
  */
-async function photosSansCompte(lignes: [string, LigneSansCompte][]): Promise<Map<string, string>> {
+export async function photosSansCompte(lignes: [string, LigneSansCompte][]): Promise<Map<string, string>> {
   const photos = new Map<string, string>();
   if (lignes.length === 0) return photos;
   try {

@@ -10,6 +10,7 @@ import {
   classerLaSemaine, detailDePerformance, jourCourt, semaineDu, semainePrecedente,
   type MatchDeLaSemaine,
 } from "@/lib/joueur-semaine";
+import { partenairesDeLAffiche, type FirestorePartenariat } from "@/lib/partenaires";
 import type { CompMatch } from "@/types";
 
 let echecs = 0;
@@ -197,6 +198,37 @@ cas("une semaine vide", () => {
   assert.equal(c.candidats.length, 0);
   assert.equal(c.competitions.length, 0);
   assert.equal(c.dossards.length, 0);
+});
+
+console.log("\nLes partenaires de l'affiche");
+
+const partenariat = (p: Partial<FirestorePartenariat> & { annonceur: string }) =>
+  ({ actif: true, debut: "2026-10-01", fin: "2026-10-31", competition_id: null, type: "partenaire", ...p }) as FirestorePartenariat;
+
+cas("écartés : inactif, hors dates, partenaire d'une compétition", () => {
+  const retenus = partenairesDeLAffiche([
+    partenariat({ annonceur: "Éteint", actif: false }),
+    partenariat({ annonceur: "Fini", fin: "2026-10-10" }),
+    partenariat({ annonceur: "De la G2", competition_id: "c1" }),
+    partenariat({ annonceur: "Moov" }),
+  ], "2026-10-19");
+  assert.deepEqual(retenus.map((p) => p.annonceur), ["Moov"]);
+});
+
+cas("un partenaire passe devant une annonce plus récente", () => {
+  const retenus = partenairesDeLAffiche([
+    partenariat({ annonceur: "Annonce", type: "annonce", debut: "2026-10-18" }),
+    partenariat({ annonceur: "Partenaire", debut: "2026-10-02" }),
+  ], "2026-10-19");
+  assert.deepEqual(retenus.map((p) => p.annonceur), ["Partenaire", "Annonce"]);
+});
+
+cas("entre deux partenaires, le plus récent d'abord", () => {
+  const retenus = partenairesDeLAffiche([
+    partenariat({ annonceur: "Ancien", debut: "2026-10-01" }),
+    partenariat({ annonceur: "Récent", debut: "2026-10-15" }),
+  ], "2026-10-19");
+  assert.deepEqual(retenus.map((p) => p.annonceur), ["Récent", "Ancien"]);
 });
 
 if (echecs > 0) {
