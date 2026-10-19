@@ -321,6 +321,7 @@ export function toUserProfile(uid: string, data: FirestoreUser): UserProfile {
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
+    ...(data.consentement_image !== undefined && { consentementImage: data.consentement_image }),
     // Le role Evolution, ce qu'on est sur le terrain, par opposition a
     // `user_type` qui dit ce qu'est le compte. Il manquait ici alors que
     // AuthContext et la projection publique le portent tous les deux : une

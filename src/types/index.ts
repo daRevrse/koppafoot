@@ -2,6 +2,7 @@ import type { PushPrefs } from "@/lib/push-categories";
 import type { Categorie, Genre } from "@/lib/genre";
 import type { Poste } from "@/lib/postes";
 import type { TypeEvenement } from "@/lib/evenements";
+import type { ConsentementImage } from "@/lib/consentement-image";
 import type { Possession, PossessionStockee } from "@/lib/possession";
 import type { Jeu } from "@/lib/etat-du-jeu";
 import type { Seance } from "@/lib/tirs-au-but";
@@ -84,6 +85,8 @@ export interface UserProfile {
   height?: number; // cm
   weight?: number; // kg
   dateOfBirth?: string; // ISO date
+  /** Voir `FirestoreUser.consentement_image`. */
+  consentementImage?: ConsentementImage | null;
   // Social
   followersCount?: number;
   followingCount?: number;
@@ -210,6 +213,13 @@ export interface FirestoreUser {
   height?: number;
   weight?: number;
   date_of_birth?: string;
+  /**
+   * Sa réponse au modal du consentement à l'image : KoppaFoot peut-il mettre
+   * sa photo de profil sur ses affiches et vidéos ? Attachée à la photo pour
+   * laquelle elle a été donnée (voir lib/consentement-image). Écrite par le
+   * titulaire seul.
+   */
+  consentement_image?: ConsentementImage | null;
   // Social
   followers_count?: number;
   following_count?: number;

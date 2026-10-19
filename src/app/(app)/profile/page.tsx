@@ -29,6 +29,7 @@ import ProfileBanner from "@/components/profile/ProfileBanner";
 import MonEtatDeForme from "@/components/forme/MonEtatDeForme";
 import { genreRequis, lireGenre } from "@/lib/genre";
 import { POSTES, nomDuPoste } from "@/lib/postes";
+import ReglageConsentementImage from "@/components/consentement/ReglageConsentementImage";
 
 // ============================================
 // Schema
@@ -524,6 +525,8 @@ export default function ProfilePage() {
                 <InfoRow icon={MapPin} label="Ville" value={user.locationCity} />
               </div>
             </div>
+            {/* Sa photo sur les affiches de KoppaFoot : il y revient quand il veut. */}
+            <ReglageConsentementImage />
             {/* L'état de forme, pour qui joue : c'est d'ici qu'on déclare une
                 blessure, sur la fiche qu'on ouvre pour parler de soi. */}
             {isPlayerRole && (
