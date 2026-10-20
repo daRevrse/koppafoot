@@ -51,3 +51,6 @@ next-env.d.ts
 
 # tutoriels PDF, copiés depuis docs/ à chaque dev et build (scripts/tutoriels.mjs)
 /public/tutoriels/
+
+# brainstorm scratch (visual companion)
+.superpowers/
