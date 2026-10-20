@@ -1,4 +1,5 @@
 import { appeler } from "@/lib/reservations-client";
+import type { Position } from "@/lib/carte";
 
 // ============================================
 // Les gestes du propriétaire sur ses terrains, vus du navigateur.
@@ -36,3 +37,10 @@ export const apercuRetrait = (venueId: string) =>
  */
 export const retirerTerrain = (venueId: string) =>
   appeler<{ closes: number; confirmees: number }>(`/api/venues/${encodeURIComponent(venueId)}`, "DELETE");
+
+/**
+ * Le point d'un lien Google Maps. Le serveur suit les liens courts du bouton
+ * « Partager », qu'un navigateur ne peut pas suivre (voir /api/venues/position).
+ */
+export const positionDuLien = (lien: string) =>
+  appeler<{ position: Position }>("/api/venues/position", "POST", { lien }).then((r) => r.position);

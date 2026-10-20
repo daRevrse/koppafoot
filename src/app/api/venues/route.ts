@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { limiteDeCreation, reponseLimite, uidAppelant } from "@/lib/offre-server";
+import { positionLue } from "@/lib/carte";
 import type { FirestoreVenue, HorairesOuverture } from "@/types";
 
 /**
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
       photo_url: null,
       gallery_urls: [],
       opening_hours: lireHoraires(c.openingHours),
+      position: positionLue(c.position),
       rating: 0,
       review_count: 0,
       created_at: FieldValue.serverTimestamp(),
