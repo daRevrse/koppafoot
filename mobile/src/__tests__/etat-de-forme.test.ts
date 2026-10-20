@@ -12,6 +12,12 @@ type Evenement = NonNullable<MatchPourForme["liveState"]>["events"][number];
 const evenement = (p: Partial<Evenement>): Evenement =>
   ({ id: `${Math.random()}`, period: 1, minute: 10, createdAt: "", teamId: "A", type: "goal", ...p } as Evenement);
 
+/**
+ * Le chrono d'un match suivi en console, à la fin : 90 minutes. Un match que le
+ * chrono n'a jamais vu ne note personne (lib/notes, `aEteChronometre`).
+ */
+const CHRONO_FINI = 90 * 60_000;
+
 /** Alpha (A) bat Beta (B) 1-0 : L1 marque, le gardien sans compte G1 garde sa cage. */
 const match = (i: number, p: Partial<MatchPourForme> = {}): MatchPourForme => ({
   id: `m${i}`,
@@ -26,7 +32,7 @@ const match = (i: number, p: Partial<MatchPourForme> = {}): MatchPourForme => ({
   awayLineup: [{ playerId: "X1", name: "Adversaire", number: "5", role: "starter", userId: "U2" }],
   homeOnPitch: [], awayOnPitch: [],
   liveState: {
-    currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+    currentPeriod: 2, timerStartAt: null, timerOffset: CHRONO_FINI, isTimerRunning: false,
     events: [
       evenement({ type: "goal", teamId: "A", playerId: "L1", minute: 20 }),
       evenement({ type: "yellow_card", teamId: "B", playerId: "X1", minute: 30 }),
