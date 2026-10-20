@@ -112,6 +112,13 @@ export const metadata: Metadata = {
     // shows a launch image only in standalone, which is why the splash never
     // appeared. Kept alongside, not instead of.
     "apple-mobile-web-app-capable": "yes",
+    // LE SITE APPARTIENT AU COMPTE ADSENSE, rien de plus. Google propose aussi
+    // son script à poser sur toutes les pages : il permettrait d'activer les
+    // « annonces automatiques », placées où Google veut, console du direct,
+    // paiement et fiches de joueurs mineurs comprises, ce que la liste fermée
+    // des emplacements interdit (lib/partenaires). Le script viendra dans les
+    // emplacements seulement. Même éditeur que public/ads.txt.
+    "google-adsense-account": "ca-pub-2521940987518161",
   },
   applicationName: "KoppaFoot",
 };
