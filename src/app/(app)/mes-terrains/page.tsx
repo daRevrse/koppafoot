@@ -19,6 +19,8 @@ import type { Venue, Booking, HorairesOuverture } from "@/types";
 import { isVenueOwner } from "@/lib/hats";
 import { apercuRetrait, lireReglageContact, reglerContact, retirerTerrain } from "@/lib/terrains-client";
 import { PaiementTerrain } from "@/components/venue/PaiementTerrain";
+import ChoixEmplacement from "@/components/venue/ChoixEmplacement";
+import type { Position } from "@/lib/carte";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, prixHeure, aUnPrix, aujourdhui,
 } from "@/lib/terrains";
@@ -55,6 +57,8 @@ interface Brouillon {
   name: string;
   address: string;
   city: string;
+  /** L'épingle sur la carte ; `null` : pas encore posée. */
+  position: Position | null;
   fieldSize: string;
   fieldSurface: string;
   prix: string;
@@ -75,7 +79,7 @@ const TELEPHONE = /^\+?[\d\s.-]{6,20}$/;
 const GALERIE_MAX = 6;
 
 const brouillonVide = (city: string): Brouillon => ({
-  name: "", address: "", city, fieldSize: "11v11", fieldSurface: "synthetic",
+  name: "", address: "", city, position: null, fieldSize: "11v11", fieldSurface: "synthetic",
   prix: "", equipements: [], photoUrl: null, galerie: [], available: true, horaires: null,
   contactTelephone: "", emailVisible: true,
 });
@@ -84,6 +88,7 @@ const depuisTerrain = (v: Venue): Brouillon => ({
   name: v.name,
   address: v.address,
   city: v.city,
+  position: v.position,
   fieldSize: v.fieldSize,
   fieldSurface: v.fieldSurface,
   prix: v.pricePerHour > 0 ? String(v.pricePerHour) : "",
@@ -111,6 +116,8 @@ function manques(v: Venue): string[] {
   if (!aUnPrix(v.pricePerHour)) liste.push("un tarif");
   if (!v.amenities?.length) liste.push("les équipements");
   if (!v.address?.trim()) liste.push("l'adresse");
+  // L'adresse dit le quartier ; l'épingle mène jusqu'au portail.
+  if (!v.position) liste.push("l'emplacement sur la carte");
   // Sans eux, une équipe peut demander 6 h du matin et attendre un refus.
   if (!v.openingHours) liste.push("les horaires");
   return liste;
@@ -132,7 +139,7 @@ function Formulaire({
   /** Les coordonnées du compte : ce qui est montré quand la fiche n'en précise pas d'autres. */
   compte: { telephone: string | null; email: string | null };
   brouillon: Brouillon;
-  setBrouillon: (b: Brouillon) => void;
+  setBrouillon: React.Dispatch<React.SetStateAction<Brouillon>>;
   onSubmit: () => void;
   onCancel: () => void;
   occupe: boolean;
@@ -349,6 +356,15 @@ function Formulaire({
           />
         </Champ>
       </div>
+
+      <Champ label="Emplacement sur la carte" htmlFor="v-emplacement" optionnel>
+        <ChoixEmplacement
+          position={brouillon.position}
+          // Par fonction : la position arrive après un aller-retour au serveur
+          // ou au GPS, et le reste du brouillon a pu changer entre-temps.
+          onChange={(position) => setBrouillon((b) => ({ ...b, position }))}
+        />
+      </Champ>
 
       <div>
         <Etiquette className="mb-2">Format</Etiquette>
@@ -683,6 +699,7 @@ export default function MyVenuesPage() {
         name: brouillon.name.trim(),
         address: brouillon.address.trim(),
         city: brouillon.city.trim(),
+        position: brouillon.position,
         fieldSize: brouillon.fieldSize as Venue["fieldSize"],
         fieldSurface: brouillon.fieldSurface as Venue["fieldSurface"],
         fieldType: (brouillon.fieldSurface === "indoor" ? "indoor" : "outdoor") as Venue["fieldType"],

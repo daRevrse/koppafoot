@@ -18,6 +18,7 @@ import {
   collection, query, orderBy, limit as firestoreLimit, getDocs, updateDoc, doc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { positionLue } from "@/lib/carte";
 import { firestoreToProfile } from "@/lib/profil";
 import { toCompetition } from "@/lib/competition-mappers";
 import { horairesLus } from "@/lib/terrains";
@@ -65,6 +66,7 @@ function toVenue(id: string, d: FirestoreVenue): Venue {
     pricePerHour: d.price_per_hour ?? 0, amenities: d.amenities ?? [],
     available: d.available ?? true, photoUrl: d.photo_url ?? null,
     galleryUrls: d.gallery_urls ?? [],
+    position: positionLue(d.position),
     openingHours: horairesLus(d.opening_hours),
     createdAt: d.created_at, updatedAt: d.updated_at,
   };

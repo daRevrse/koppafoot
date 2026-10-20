@@ -1173,6 +1173,8 @@ export interface FirestoreVenue {
   available: boolean;
   photo_url: string | null;
   gallery_urls?: string[];
+  /** L'emplacement exact (lib/carte) ; absent ou `null` : seule l'adresse écrite. */
+  position?: { lat: number; lng: number } | null;
   /** Absent sur les terrains d'avant : aucune contrainte d'horaire. */
   opening_hours?: HorairesOuverture | null;
   /** Ce que le terrain garde après chaque créneau, en minutes : 0, 15 ou 30. */
@@ -1222,6 +1224,11 @@ export interface Venue {
    * loue, n'avait qu'une image.
    */
   galleryUrls?: string[];
+  /**
+   * L'épingle du terrain sur la carte (lib/carte). `null` : le propriétaire
+   * ne l'a pas posée, et l'itinéraire part de l'adresse écrite.
+   */
+  position: { lat: number; lng: number } | null;
   createdAt: string;
   updatedAt: string;
 }

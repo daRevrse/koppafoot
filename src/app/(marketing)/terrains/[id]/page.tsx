@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, ArrowLeft } from "lucide-react";
+import { MapPin, ArrowLeft, Navigation } from "lucide-react";
 import { fedapayConfigure } from "@/lib/fedapay";
 import { adminDb } from "@/lib/firebase-admin";
 import BookingRequest from "@/components/venue/BookingRequest";
@@ -11,6 +11,7 @@ import {
   libelleFormat, libelleSurface, aUnPrix, horairesLus, photosDuTerrain,
 } from "@/lib/terrains";
 import { ListeEquipements, TableHoraires } from "@/components/venue/venue-ui";
+import { lienCarteIntegree, lienItineraire, positionLue, type Position } from "@/lib/carte";
 import type { HorairesOuverture } from "@/types";
 
 // ============================================
@@ -39,6 +40,12 @@ import type { HorairesOuverture } from "@/types";
 // GalerieTerrain). Sur ordinateur, la demande de créneau reste à droite,
 // épinglée, pendant qu'on lit les horaires et les équipements.
 //
+// L'ÉPINGLE, QUAND LE PROPRIÉTAIRE L'A POSÉE (lib/carte). « Derrière la
+// station, Agoè » ne mène pas au portail ; la carte et l'itinéraire, si.
+// Sans épingle, l'itinéraire part de l'adresse écrite, et la carte n'est pas
+// montrée : centrée sur une recherche de quartier, elle montrerait un endroit
+// où le terrain n'est peut-être pas.
+//
 // `revalidate` descend de 300 à 60 : au-dessus, un terrain passé en « fermé »
 // continuait d'accepter des demandes pendant cinq minutes. Le formulaire
 // relit de toute façon la disponibilité en direct (voir BookingRequest), le
@@ -52,6 +59,7 @@ interface VenueView {
   name: string;
   address: string | null;
   city: string | null;
+  position: Position | null;
   fieldSize: string | null;
   fieldSurface: string | null;
   pricePerHour: number;
@@ -79,6 +87,7 @@ async function readVenue(id: string): Promise<VenueView | null> {
     name: s(v.name) ?? "Terrain",
     address: s(v.address),
     city: s(v.city),
+    position: positionLue(v.position),
     fieldSize: s(v.field_size),
     fieldSurface: s(v.field_surface),
     pricePerHour: typeof v.price_per_hour === "number" ? v.price_per_hour : 0,
@@ -119,6 +128,9 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
   const venue = await readVenue(id).catch(() => null);
   if (!venue) notFound();
 
+  const adresse = [venue.address, venue.city].filter(Boolean).join(", ");
+  const itineraire = venue.position ? lienItineraire(venue.position) : adresse ? lienItineraire(adresse) : null;
+
   const faits = [
     { label: "Format", valeur: libelleFormat(venue.fieldSize) },
     { label: "Surface", valeur: libelleSurface(venue.fieldSurface) },
@@ -158,10 +170,20 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               {venue.name}
             </h1>
 
-            {(venue.address || venue.city) && (
-              <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-gray-500 sm:text-base">
+            {adresse && (
+              <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-gray-500 sm:text-base">
                 <MapPin size={16} className="shrink-0 text-gray-400" />
-                {[venue.address, venue.city].filter(Boolean).join(", ")}
+                {adresse}
+                {itineraire && (
+                  <a
+                    href={itineraire}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700 hover:text-emerald-900"
+                  >
+                    Itinéraire
+                  </a>
+                )}
               </p>
             )}
 
@@ -224,6 +246,30 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               <div>
                 <Rubrique>Horaires d&apos;ouverture</Rubrique>
                 <TableHoraires horaires={venue.horaires} />
+              </div>
+            )}
+
+            {venue.position && (
+              <div>
+                <Rubrique>Y aller</Rubrique>
+                <div className="border border-gray-200/70 bg-white">
+                  <iframe
+                    title={`${venue.name} sur la carte`}
+                    src={lienCarteIntegree(venue.position)}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="block h-64 w-full border-0 sm:h-80"
+                  />
+                  <a
+                    href={lienItineraire(venue.position)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 border-t border-gray-200/70 px-4 py-3.5 text-[11px] font-black uppercase tracking-[0.15em] text-gray-900 transition-colors hover:bg-gray-900 hover:text-white"
+                  >
+                    <Navigation size={14} />
+                    Itinéraire avec Google Maps
+                  </a>
+                </div>
               </div>
             )}
 

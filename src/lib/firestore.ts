@@ -27,6 +27,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { creerParLeServeur } from "@/lib/offre-client";
 import { dateLongue, horairesLus, reservationDuMatch } from "@/lib/terrains";
+import { positionLue } from "@/lib/carte";
 import type {
   Team, FirestoreTeam, Achievement,
   Match, FirestoreMatch, MatchStatus,
@@ -418,6 +419,7 @@ function toVenue(id: string, d: FirestoreVenue): Venue {
     pricePerHour: d.price_per_hour ?? 0, amenities: d.amenities ?? [],
     available: d.available ?? true, photoUrl: d.photo_url ?? null,
     galleryUrls: d.gallery_urls ?? [],
+    position: positionLue(d.position),
     openingHours: horairesLus(d.opening_hours),
     battementMin: d.battement_min === 15 || d.battement_min === 30 ? d.battement_min : 0,
     paiementApp: d.paiement_app === true,
@@ -3610,6 +3612,7 @@ export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "update
     amenities: data.amenities,
     available: data.available,
     openingHours: data.openingHours ?? null,
+    position: data.position ?? null,
   });
 }
 
@@ -3629,6 +3632,8 @@ export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id
   if (data.galleryUrls !== undefined) updates.gallery_urls = data.galleryUrls;
   // `null` aussi : c'est ainsi qu'on revient à « horaires non précisés ».
   if (data.openingHours !== undefined) updates.opening_hours = data.openingHours;
+  // `null` retire l'épingle : l'itinéraire repart de l'adresse écrite.
+  if (data.position !== undefined) updates.position = data.position;
 
   updates.updated_at = serverTimestamp();
   await updateDoc(doc(db, "venues", venueId), updates);
