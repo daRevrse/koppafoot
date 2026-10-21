@@ -6,7 +6,7 @@ import { CATEGORIES_PUSH, type PushCategory } from "@/lib/push-categories";
 import { useAuth } from "~/lib/auth";
 import { db } from "~/lib/firebase";
 import { activerPushMobile, desactiverPushMobile, etatPushMobile, type EtatPushMobile } from "~/lib/push";
-import { couleurs, polices } from "~/theme";
+import { couleurs, polices, rayons } from "~/theme";
 
 /**
  * L'interrupteur des notifications de CE téléphone, dans l'onglet Compte.
@@ -70,6 +70,7 @@ export function ReglagePush({ uid }: { uid: string }) {
           disabled={occupe || etat === "refuse"}
           onValueChange={(v) => void basculer(v)}
           trackColor={{ true: couleurs.primaire, false: couleurs.bordure }}
+          thumbColor={couleurs.texte}
         />
       </View>
       {etat === "refuse" ? (
@@ -90,6 +91,7 @@ export function ReglagePush({ uid }: { uid: string }) {
                 disabled={occupe}
                 onValueChange={() => void basculerCategorie(c)}
                 trackColor={{ true: couleurs.primaire, false: couleurs.bordure }}
+                thumbColor={couleurs.texte}
               />
             </View>
           ))}
@@ -101,7 +103,7 @@ export function ReglagePush({ uid }: { uid: string }) {
 }
 
 const styles = StyleSheet.create({
-  bloc: { gap: 6, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: couleurs.bordure },
+  bloc: { gap: 6, padding: 16, borderRadius: rayons.carte, backgroundColor: couleurs.surface },
   ligne: { flexDirection: "row", alignItems: "center", gap: 12 },
   textes: { flex: 1, gap: 2 },
   libelle: { fontFamily: polices.titreMoyen, fontSize: 16, color: couleurs.texte },

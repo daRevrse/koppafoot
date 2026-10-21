@@ -1,10 +1,22 @@
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import type { ReactNode } from "react";
+import { Alert, Animated, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { competitionHref } from "@/lib/direct-shared";
+import type { UserProfile } from "@/types";
 import { Bouton } from "~/components/Bouton";
+import { EnTeteCompetition } from "~/components/direct/EnTeteCompetition";
+import { EtatVide } from "~/components/EtatVide";
 import { ReglagePush } from "~/components/ReglagePush";
+import { useCompetitionsSuivies } from "~/hooks/useCompetitionsSuivies";
+import { useRespiration } from "~/hooks/useRespiration";
+import { useSuivi } from "~/hooks/useSuivi";
 import { useAuth } from "~/lib/auth";
-import { couleurs, polices } from "~/theme";
+import { initiales } from "~/lib/initiales";
+import { ouvrirSurLeSite } from "~/lib/navigateur";
+import { couleurs, polices, rayons } from "~/theme";
 
 export default function EcranCompte() {
   const { utilisateur, profil, deconnexion } = useAuth();
@@ -13,12 +25,15 @@ export default function EcranCompte() {
   if (!utilisateur) {
     return (
       <SafeAreaView style={styles.ecran} edges={["top"]}>
-        <Text style={styles.titre}>Compte</Text>
-        <View style={styles.bloc}>
-          <Text style={styles.texte}>Un compte pour suivre tes compétitions et les retrouver en tête du Direct.</Text>
-          <Bouton titre="Se connecter" onPress={() => router.push("/connexion")} />
-          <Bouton titre="Créer un compte" variante="contour" onPress={() => router.push("/inscription")} />
-        </View>
+        <ScrollView contentContainerStyle={styles.contenu}>
+          <Text style={styles.titre}>Compte</Text>
+          <EtatVide icone="person-circle-outline" texte="Un compte pour suivre tes compétitions et les retrouver en tête du Direct.">
+            <View style={styles.boutons}>
+              <Bouton titre="Se connecter" onPress={() => router.push("/connexion")} />
+              <Bouton titre="Créer un compte" variante="contour" onPress={() => router.push("/inscription")} />
+            </View>
+          </EtatVide>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -32,28 +47,136 @@ export default function EcranCompte() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
-      <Text style={styles.titre}>Compte</Text>
-      <View style={styles.bloc}>
+      <ScrollView contentContainerStyle={styles.contenu}>
+        <Text style={styles.titre}>Compte</Text>
         {profil ? (
           <>
-            <Text style={styles.nom}>{profil.firstName} {profil.lastName}</Text>
-            <Text style={styles.texte}>{profil.email ?? utilisateur.email}</Text>
-            {profil.locationCity ? <Text style={styles.texte}>{profil.locationCity}</Text> : null}
+            <CarteProfil profil={profil} email={profil.email ?? utilisateur.email} />
+            <CompetitionsSuivies suivies={profil.followedCompetitionIds ?? []} />
           </>
         ) : (
           <Text style={styles.texte}>Profil indisponible pour l&apos;instant. Vérifie ta connexion.</Text>
         )}
         <ReglagePush uid={utilisateur.uid} />
         <Bouton titre="Se déconnecter" variante="contour" onPress={seDeconnecter} />
-      </View>
+      </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function CarteProfil({ profil, email }: { profil: UserProfile; email: string | null }) {
+  const nom = `${profil.firstName} ${profil.lastName}`.trim();
+  return (
+    <View style={styles.carte}>
+      {profil.profilePictureUrl?.startsWith("http") ? (
+        <Image
+          source={{ uri: profil.profilePictureUrl }}
+          style={styles.avatar}
+          contentFit="cover"
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarVide]}>
+          <Text style={styles.avatarTexte}>{initiales(nom)}</Text>
+        </View>
+      )}
+      <View style={styles.identite}>
+        <Text style={styles.nom} numberOfLines={1}>{nom}</Text>
+        {email ? <Text style={styles.texte} numberOfLines={1}>{email}</Text> : null}
+        {profil.locationCity ? (
+          <View style={styles.ville}>
+            <Ionicons name="location-outline" size={14} color={couleurs.texteDiscret} />
+            <Text style={styles.texteDiscret}>{profil.locationCity}</Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function CompetitionsSuivies({ suivies }: { suivies: readonly string[] }) {
+  const router = useRouter();
+  const suivi = useSuivi();
+  const { competitions, erreur, garder } = useCompetitionsSuivies(suivies);
+
+  let contenu: ReactNode;
+  if (competitions === null) {
+    contenu = erreur ? (
+      <Text style={styles.texte}>Impossible de charger tes compétitions. Vérifie ta connexion.</Text>
+    ) : (
+      <SqueletteLignes />
+    );
+  } else if (competitions.length === 0) {
+    contenu = (
+      <EtatVide icone="star-outline" texte="Aucune compétition suivie. Touche l'étoile d'une compétition dans le Direct.">
+        <Bouton titre="Aller au Direct" variante="contour" onPress={() => router.navigate("/")} />
+      </EtatVide>
+    );
+  } else {
+    contenu = competitions.map((c) => (
+      <EnTeteCompetition
+        key={c.id}
+        competition={c}
+        suivable
+        suivie={suivi.ids.has(c.id)}
+        onEtoile={() => {
+          if (suivi.ids.has(c.id)) garder(c.id);
+          void suivi.basculer(c.id);
+        }}
+        onPress={() => ouvrirSurLeSite(competitionHref(c))}
+        style={styles.ligne}
+      />
+    ));
+  }
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitre}>Compétitions suivies</Text>
+      {contenu}
+    </View>
+  );
+}
+
+function SqueletteLignes() {
+  const opacite = useRespiration();
+  return (
+    <Animated.View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="Chargement des compétitions"
+      style={[styles.squelette, { opacity: opacite }]}
+    >
+      <View style={styles.ligneSquelette} />
+      <View style={styles.ligneSquelette} />
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
-  titre: { fontFamily: polices.titre, fontSize: 28, color: couleurs.texte, paddingHorizontal: 16, paddingTop: 8 },
-  bloc: { padding: 16, gap: 12 },
+  contenu: { paddingHorizontal: 16, paddingBottom: 32, gap: 20 },
+  titre: { fontFamily: polices.titre, fontSize: 28, color: couleurs.texte, paddingTop: 8 },
+  boutons: { alignSelf: "stretch", gap: 12 },
+  carte: {
+    flexDirection: "row", alignItems: "center", gap: 14, padding: 16,
+    borderRadius: rayons.carte, backgroundColor: couleurs.surface,
+  },
+  avatar: { width: 56, height: 56, borderRadius: 28 },
+  avatarVide: { backgroundColor: couleurs.primaire, alignItems: "center", justifyContent: "center" },
+  avatarTexte: { fontFamily: polices.titreMoyen, fontSize: 20, color: couleurs.surPrimaire },
+  identite: { flex: 1, gap: 2 },
   nom: { fontFamily: polices.titreMoyen, fontSize: 20, color: couleurs.texte },
   texte: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire },
+  ville: { flexDirection: "row", alignItems: "center", gap: 4 },
+  texteDiscret: { fontFamily: polices.texte, fontSize: 13, color: couleurs.texteDiscret },
+  section: { gap: 8 },
+  sectionTitre: {
+    fontFamily: polices.texteGras, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
+    color: couleurs.texteDiscret,
+  },
+  // paddingTop et paddingBottom, pas paddingVertical : en React Native, le
+  // côté précis l'emporte sur le raccourci, quel que soit l'ordre des styles.
+  ligne: { borderRadius: rayons.carte, backgroundColor: couleurs.surface, paddingTop: 12, paddingBottom: 12 },
+  squelette: { gap: 8 },
+  ligneSquelette: { height: 60, borderRadius: rayons.carte, backgroundColor: couleurs.surface },
 });
