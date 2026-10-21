@@ -30,6 +30,8 @@ export const couleurs = {
   /** Le bouton qui engage : bg-gray-900 en sombre. */
   bouton: "#047857",
   surBouton: "#ffffff",
+  /** Le bouton d'un geste qui détruit (supprimer son compte), le rouge du site. */
+  boutonDanger: "#b91c1c",
   /** red-400 : le red-500 du site ne fait que 4,4 sur surfaceHaute. */
   direct: "#f87171",
   directVoile: "rgba(239,68,68,0.12)",

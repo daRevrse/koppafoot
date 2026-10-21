@@ -125,6 +125,10 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="inscription" options={fenetre} />
         <Stack.Screen name="mot-de-passe" options={fenetre} />
       </Stack.Protected>
+      {/* Supprimer son compte : seulement connecté ; le compte parti, la garde referme la fenêtre. */}
+      <Stack.Protected guard={accueil.vu && !profilManquant && !!utilisateur}>
+        <Stack.Screen name="supprimer-compte" options={fenetre} />
+      </Stack.Protected>
     </Stack>
   );
 }

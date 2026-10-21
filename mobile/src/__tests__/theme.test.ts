@@ -41,4 +41,8 @@ describe("la palette", () => {
   it("le libellé d'un bouton plein se lit sur son vert", () => {
     expect(contraste(couleurs.surBouton, couleurs.bouton)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("et celui d'un bouton qui détruit, sur son rouge", () => {
+    expect(contraste(couleurs.surBouton, couleurs.boutonDanger)).toBeGreaterThanOrEqual(4.5);
+  });
 });

@@ -60,6 +60,11 @@ export default function EcranCompte() {
         )}
         <ReglagePush uid={utilisateur.uid} />
         <Bouton titre="Se déconnecter" variante="contour" onPress={seDeconnecter} />
+        {/* La zone sensible du profil, sur le site : loin du reste, et en lien, pas en bouton. */}
+        <View style={styles.zone}>
+          <Text style={styles.sectionTitre}>ZONE SENSIBLE</Text>
+          <Bouton titre="Supprimer mon compte" variante="lien" onPress={() => router.push("/supprimer-compte")} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -181,6 +186,7 @@ const styles = StyleSheet.create({
   ville: { flexDirection: "row", alignItems: "center", gap: 4 },
   texteDiscret: { fontFamily: polices.texteGras, fontSize: 12, color: couleurs.texteDiscret },
   section: { gap: 8 },
+  zone: { marginTop: 24, gap: 4, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
   sectionTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: couleurs.texteDiscret },
   liste: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
   ligne: { backgroundColor: couleurs.surface },
