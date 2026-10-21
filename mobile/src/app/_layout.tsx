@@ -113,6 +113,9 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
       </Stack.Protected>
       <Stack.Protected guard={accueil.vu && !profilManquant}>
         <Stack.Screen name="(tabs)" />
+        {/* Les fiches de match s'empilent sur les onglets, comme une page. */}
+        <Stack.Screen name="match/[cid]/[mid]" />
+        <Stack.Screen name="amical/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={accueil.vu && !profilManquant && !utilisateur}>
         <Stack.Screen name="connexion" options={fenetre} />
