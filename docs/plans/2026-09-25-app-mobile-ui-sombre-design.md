@@ -111,3 +111,41 @@ Chaque écran est vérifié dans Chrome par la version web d'Expo, captures à l
 ## La livraison
 
 Une branche `claude/app-ui-sombre` partie d'`origin/master`, avec un commit par partie (thème et cadre, Direct, Compte, écrans d'authentification) et une seule PR.
+
+## Révision du 2026-10-21 : le noir et la DA du site
+
+Après les premières captures, l'utilisateur a demandé quatre changements. Ils remplacent ce qui précède là où ils le contredisent.
+
+1. **Le fond est noir : le thème sombre du site, tel quel** (`src/styles/dark.css`).
+
+   | Rôle | Couleur | Le site |
+   |---|---|---|
+   | `fond` | `#080d0b` | `--k-bg` |
+   | `surface` | `#101714` | `--k-surface` |
+   | `surfaceHaute` | `#16201c` | `--k-surface-2` |
+   | `bordure` | `#26322e` | `--k-border` |
+   | `bordureForte` | `#3b4a45` | `--k-border-fort` (champ au focus) |
+   | `texte` | `#eef3f0` | `--k-ink-900` |
+   | `texteSecondaire` | `#b7c1bc` | `--k-ink-600` |
+   | `texteDiscret` | `#7f8a85` | `--k-ink-400` |
+   | `primaire` | `#34d399` | `text-emerald-600` en sombre |
+   | `bouton` | `#047857`, libellé blanc | `bg-gray-900` en sombre |
+   | `direct` | `#f87171` | `red-400` ; `red-500` ne fait que 4,4 sur `surfaceHaute` |
+
+   L'écran de lancement passe en `#080d0b`, et `theme.test.ts` vérifie qu'il reste égal au fond. L'icône garde son vert.
+
+2. **La DA du site.**
+   - **Coins carrés.** Seuls les éléments ronds du site le restent dans l'app : pastilles de filtre, écussons, points, petits boutons-icônes.
+   - **Titres :** Outfit Black (900), en capitales, interlignage serré.
+   - **Étiquettes, boutons et liens de pied :** DM Sans Black, 10–11 px, en capitales espacées.
+   - **Matchs :** noms 13 px gras, scores 13 px Black, minute 11 px Black rouge, perdant en `texteDiscret`. Plus de cartes : des lignes séparées par des filets.
+   - **Champs :** filet carré, texte 14 px demi-gras. Au focus, la bordure passe en `bordureForte`, pas en vert.
+   - **Frise :** le jour choisi est souligné en vert, comme les onglets du site.
+
+3. **Les listes du Direct se replient.**
+   - L'en-tête d'une compétition porte l'écusson, le nom en 13 px Black et la ville en 11 px gras avec un repère. Viennent ensuite l'étoile, le nombre de matchs et un chevron.
+   - Tout est ouvert par défaut, comme sur le site.
+   - Replier n'est pas mémorisé d'une ouverture à l'autre de l'app : c'est le comportement du site.
+   - Le repli s'anime (`LayoutAnimation`), sauf quand le téléphone demande moins d'animations.
+
+4. **L'accueil prend l'image de la page de connexion du site** (`public/branding/login_side.jpg` : un ballon sur un terrain en terre). Elle reste fixe en fond, et seuls les textes défilent par-dessus. Les trois photos de stade européen disparaissent : l'app vise d'abord le public africain.

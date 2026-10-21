@@ -1719,3 +1719,17 @@ gh pr create --base master --title "App mobile : identité sombre, frise des jou
 ```
 
 Le corps de la PR se termine par la ligne d'attribution Claude Code. **Ne pas fusionner sans demande explicite** : la fusion déploie en production.
+
+---
+
+## Révision du 2026-10-21 (voir le design, même titre)
+
+Exécutée dans la session, après la Task 11 et avant le build EAS. Chaque tâche finit sur les tests, le lint `--no-cache` et le typecheck. La suite complète doit passer : les 9 échecs de master sont réparés sur `claude/reparer-tests-classement` ; sur cette branche, ils restent tant qu'elle n'est pas fusionnée.
+
+- **R1, palette noire (TDD).** `theme.test.ts` lit le fond de lancement dans `app.json`. Les paires testées sont chaque texte sur `fond`, `surface` et `surfaceHaute`, plus le blanc sur `bouton`. Ensuite : les jetons de la révision, `app.json` (lancement en `#080d0b`), et la suppression de `surPrimaire` au profit de `bouton` / `surBouton` et des voiles `primaireVoile` / `directVoile`.
+- **R2, typo.** Ajouter `DMSans_600SemiBold`, `DMSans_900Black` et `Outfit_900Black` à `useFonts`. Les polices passent à `titre: Outfit_900Black`, avec `texteDemi` et `texteNoir` en plus.
+- **R3, socle carré.** `Bouton` : plein `#047857`, 11 px Black en capitales ; contour en filet ; lien de pied 10 px Black en capitales. `Champ` : étiquette 10 px Black en capitales, focus en `bordureForte`. `EcranAuth` : titre en Outfit Black capitales. `rayons` disparaît.
+- **R4, Direct.** Pour le repli, TDD sur une fonction pure `sectionsDuDirect(groupes, replies)`, qui vide `data` d'une compétition repliée et garde son nombre de matchs. Ensuite : en-tête repliable, lignes au lieu de cartes, frise soulignée, pastilles du site, squelettes carrés.
+- **R5, Compte.** Titre en capitales, carte profil carrée, avatar sur voile vert, titres de section en 10 px Black capitales, réglage push carré.
+- **R6, accueil.** `login_side.jpg` devient `assets/accueil/fond.jpg` et les trois anciennes images sont supprimées. Image fixe, textes défilants, titres en Outfit Black capitales.
+- **R7, vérification** dans le Chrome sans fenêtre (Metro `--clear`), captures, puis connexion de l'utilisateur pour le Compte.
