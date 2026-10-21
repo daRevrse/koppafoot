@@ -2,6 +2,7 @@
 
 import MiniEcusson from "@/components/match/MiniEcusson";
 import type { GroupStanding } from "@/lib/competition-firestore";
+import { pouleDuMatch } from "@/lib/poules";
 import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 import { COLONNES_CLASSEMENT } from "@/i18n/foot";
@@ -27,26 +28,9 @@ const T = textes({ poule: (g: string) => `Poule ${g}` }, { poule: (g: string) =>
 //  - les deux équipes ne partagent aucune poule renseignée.
 // ============================================
 
-/**
- * La poule qui contient les deux équipes, ou `null`.
- *
- * On exige les DEUX : une poule qui ne contiendrait qu'un des deux camps ne
- * répond pas à la question posée depuis cette page.
- */
-export function pouleDuMatch(
-  groups: GroupStanding[],
-  homeTeamId: string | null,
-  awayTeamId: string | null,
-): GroupStanding | null {
-  if (!homeTeamId || !awayTeamId) return null;
-  return (
-    groups.find(
-      (g) =>
-        g.rows.some((r) => r.team.id === homeTeamId) &&
-        g.rows.some((r) => r.team.id === awayTeamId),
-    ) ?? null
-  );
-}
+// pouleDuMatch vit dans lib/poules, partagé avec l'application mobile ;
+// ré-exporté ici pour les pages qui l'importent du composant.
+export { pouleDuMatch };
 
 export default function MatchStandings({
   groupe, homeTeamId, awayTeamId, compact = false,
