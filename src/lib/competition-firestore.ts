@@ -2122,66 +2122,9 @@ export async function setCompMatchResult(
 import { comparerLignes, computeStandings, type StandingRow, type GroupStanding } from "./poules";
 export { computeStandings, type StandingRow, type GroupStanding };
 
-export interface TopScorer {
-  playerName: string;
-  teamId: string;
-  goals: number;
-}
-
-/**
- * Aggregate goal counts per (player, team) across all matches' live events.
- *
- * Dedup key prefers `playerId`: a goal with `playerId` keys on
- * `${teamId}::id:${playerId}`, falling back to `${teamId}::name:${lowercased
- * trimmed name}` for legacy events that only carry a free-text `playerName`.
- * This keeps name-only events working while new player-linked events dedupe
- * correctly per player (even across name spelling/casing). Goals with neither a
- * `playerId` nor a non-empty trimmed `playerName` are anonymous and not ranked,
- * and own goals (`detail === OWN_GOAL_DETAIL`) are excluded entirely.
- * The first-seen original casing of `playerName` is kept for display. Results
- * are ordered by goals desc, then name asc.
- */
-export function computeTopScorers(matches: CompMatch[]): TopScorer[] {
-  const byKey = new Map<string, TopScorer>();
-
-  for (const match of matches) {
-    // Un but de match d'exhibition ne fait pas un buteur du tournoi.
-    if (estExhibition(match)) continue;
-    const events = match.liveState?.events ?? [];
-    for (const event of events) {
-      if (event.type !== "goal") continue;
-      // A goal the VAR took away never happened, for the scoreboard and for
-      // the golden boot alike.
-      if (event.varStatus === "cancelled") continue;
-      // An own goal counts on the scoreboard for `teamId`, but the player who
-      // scored it plays for the other side, crediting them here would rank
-      // them under an opponent's colours. Not a scorer.
-      if (event.detail === OWN_GOAL_DETAIL) continue;
-      // Un dossard que personne n'a nommé n'est personne : « N°9 »
-      // en tête du classement des buteurs ne nommerait aucun joueur (voir
-      // lib/dossards). Ses buts y entrent dès qu'on le nomme.
-      if (estLigneDossard(event.playerId)) continue;
-
-      const name = (event.playerName ?? "").trim();
-      let key: string;
-      if (event.playerId) {
-        key = `${event.teamId}::id:${event.playerId}`;
-      } else if (name !== "") {
-        key = `${event.teamId}::name:${name.toLowerCase()}`;
-      } else {
-        continue; // anonymous goal
-      }
-
-      const existing = byKey.get(key);
-      if (existing) existing.goals += 1;
-      else byKey.set(key, { playerName: name, teamId: event.teamId, goals: 1 });
-    }
-  }
-
-  return Array.from(byKey.values()).sort(
-    (a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName),
-  );
-}
+// Le soulier d'or vit dans lib/performances-competition : pur, l'application
+// le partage. Réexporté ici pour ceux qui l'importaient d'ici.
+export { computeTopScorers, type TopScorer } from "./performances-competition";
 
 export interface PlayerContribution {
   playerName: string;

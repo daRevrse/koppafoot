@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { computeTopScorers } from "@/lib/competition-firestore";
+import {
+  computeForm, computeTopAssisters, computeTopScorers, type ResultatDeForme as Result,
+} from "@/lib/performances-competition";
 import { matchsQuiComptent } from "@/lib/exhibition";
 import type { CompMatch, CompTeam } from "@/types";
 import { useTextes } from "@/i18n";
@@ -22,78 +24,6 @@ import { textes } from "@/i18n/textes";
 // Ne rend rien quand les trois blocs sont vides : une carte blanche sans
 // contenu n'est pas un rail, c'est un trou.
 // ============================================
-
-interface Assister {
-  playerName: string;
-  teamId: string;
-  assists: number;
-}
-
-/**
- * Les passeurs, comptés sur les mêmes événements que les buteurs.
- *
- * Réserve honnête : la passe décisive est une donnée récente de la console.
- * Un but saisi avant qu'elle existe n'en porte pas, ce classement est donc
- * partiel par construction, et le restera pour les compétitions passées.
- */
-function computeTopAssisters(matches: CompMatch[]): Assister[] {
-  const byKey = new Map<string, Assister>();
-
-  for (const match of matches) {
-    for (const event of match.liveState?.events ?? []) {
-      if (event.type !== "goal") continue;
-      // Un but annulé par la vidéo n'a jamais eu lieu, passe comprise.
-      if (event.varStatus === "cancelled") continue;
-      const name = event.assistPlayerName?.trim();
-      if (!name) continue;
-
-      const key = `${name.toLowerCase()}::${event.teamId}`;
-      const row = byKey.get(key);
-      if (row) row.assists += 1;
-      else byKey.set(key, { playerName: name, teamId: event.teamId, assists: 1 });
-    }
-  }
-
-  return [...byKey.values()].sort(
-    (a, b) => b.assists - a.assists || a.playerName.localeCompare(b.playerName),
-  );
-}
-
-type Result = "W" | "D" | "L";
-
-interface Form {
-  team: CompTeam;
-  results: Result[];
-}
-
-/** Les cinq derniers résultats de chaque équipe, le plus récent à droite. */
-function computeForm(matches: CompMatch[], teams: CompTeam[]): Form[] {
-  const played = matches
-    .filter((m) => m.status === "completed" && m.scoreHome !== null && m.scoreAway !== null)
-    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
-
-  const byTeam = new Map<string, Result[]>();
-  for (const m of played) {
-    const hs = m.scoreHome as number;
-    const as = m.scoreAway as number;
-    const push = (id: string | null, own: number, other: number) => {
-      if (!id) return;
-      const list = byTeam.get(id) ?? [];
-      list.push(own > other ? "W" : own < other ? "L" : "D");
-      byTeam.set(id, list);
-    };
-    push(m.homeTeamId, hs, as);
-    push(m.awayTeamId, as, hs);
-  }
-
-  return teams
-    .map((team) => ({ team, results: (byTeam.get(team.id) ?? []).slice(-5) }))
-    .filter((f) => f.results.length > 0)
-    // Le plus en forme d'abord : trois points la victoire, un le nul.
-    .sort((a, b) => score(b.results) - score(a.results) || b.results.length - a.results.length);
-}
-
-const score = (rs: Result[]) => rs.reduce((n, r) => n + (r === "W" ? 3 : r === "D" ? 1 : 0), 0);
 
 const DOT: Record<Result, string> = {
   W: "bg-emerald-600 text-white",
