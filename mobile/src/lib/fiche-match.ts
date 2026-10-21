@@ -25,6 +25,7 @@ import { computeStandings, pouleDuMatch, type GroupStanding } from "@/lib/poules
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { aDesStats, lignesStats, type LigneStat } from "@/lib/stats-match";
 import { etatDeLaSeance, SEANCE_VIDE } from "@/lib/tirs-au-but";
+import type { Categorie } from "@/lib/genre";
 import type { Competition, CompMatch, CompTeam, LineupEntry, Match } from "@/types";
 import { couleurs } from "~/theme";
 
@@ -80,7 +81,11 @@ export interface Fiche {
   date: string | null;
   heure: string | null;
   lieu: { nom: string | null; ville: string | null };
-  competition: { id: string; nom: string; logo: string | null; slug: string | null; sousTitre: string | null } | null;
+  competition: {
+    id: string; nom: string; logo: string | null; slug: string | null; sousTitre: string | null;
+    /** Féminine : ses joueurs sans compte sont des joueuses (lib/genre). */
+    categorie: Categorie | null;
+  } | null;
   liveState: CompMatch["liveState"];
   penaltyHome: number | null;
   penaltyAway: number | null;
@@ -236,6 +241,7 @@ export function ficheDepuisCompetition(
     lieu: { nom: match.venueName, ville: match.venueCity },
     competition: {
       id: competition.id, nom: competition.name, logo: competition.logoUrl, slug: competition.slug ?? null, sousTitre,
+      categorie: competition.category ?? null,
     },
     liveState: match.liveState,
     penaltyHome: match.penaltyHome,

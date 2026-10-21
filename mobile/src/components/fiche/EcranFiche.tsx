@@ -2,12 +2,16 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ClassementDeLaPoule } from "~/components/fiche/ClassementDeLaPoule";
 import { Compos } from "~/components/fiche/Compos";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
+import { FaceAFace } from "~/components/fiche/FaceAFace";
 import { FilDuMatch } from "~/components/fiche/FilDuMatch";
 import { InfosMatch } from "~/components/fiche/InfosMatch";
 import { OngletsFiche } from "~/components/fiche/OngletsFiche";
+import { StatsDuMatch } from "~/components/fiche/StatsDuMatch";
 import { useMaintenant } from "~/hooks/useFiche";
+import { usePhotosDeLaFiche } from "~/hooks/usePhotos";
 import {
   ongletAffiche, ongletParDefaut, ongletsDeLaFiche, type DonneesDesOnglets, type Fiche, type Onglet,
 } from "~/lib/fiche-match";
@@ -27,6 +31,7 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
   const maintenant = useMaintenant(fiche.statut === "live" || fiche.statut === "scheduled");
   const [choix, setChoix] = useState<Onglet | null>(null);
   const [compact, setCompact] = useState(false);
+  const photos = usePhotosDeLaFiche(fiche);
 
   // Le tchat arrive avec la PR C ; le reste, la fiche le sait d'elle-même.
   const donnees: DonneesDesOnglets = { tchatVisible: false };
@@ -38,13 +43,24 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
   let panneau: ReactNode;
   switch (actif) {
     case "feed":
-      panneau = <FilDuMatch fiche={fiche} />;
+      panneau = <FilDuMatch fiche={fiche} photoHomme={photos.homme} genreHomme={photos.genreHomme} />;
       break;
     case "lineups":
-      panneau = <Compos fiche={fiche} />;
+      panneau = <Compos fiche={fiche} photos={photos.parLigne} />;
       break;
     case "infos":
       panneau = <InfosMatch fiche={fiche} />;
+      break;
+    case "stats":
+      panneau = <StatsDuMatch fiche={fiche} />;
+      break;
+    case "standings":
+      panneau = fiche.contexte.poule ? (
+        <ClassementDeLaPoule poule={fiche.contexte.poule} domicile={fiche.domicile.teamId} exterieur={fiche.exterieur.teamId} />
+      ) : null;
+      break;
+    case "h2h":
+      panneau = <FaceAFace fiche={fiche} />;
       break;
     default:
       panneau = <Text style={styles.provisoire}>{actif}</Text>;

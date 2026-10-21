@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { genreDuJoueur, type Genre } from "@/lib/genre";
 import { cleDeLaLigne, photoDeLaLigne } from "@/lib/photos-sans-compte";
 import { API_URL } from "~/lib/config";
 import type { Fiche } from "~/lib/fiche-match";
@@ -9,6 +10,7 @@ import type { Fiche } from "~/lib/fiche-match";
 // se dit pas.
 
 const comptesConnus = new Map<string, string | null>();
+const genresConnus = new Map<string, Genre | null>();
 const lignesConnues = new Map<string, string | null>();
 
 function useLecture(
@@ -26,9 +28,12 @@ function useLecture(
     let vivant = true;
     fetch(`${API_URL}/api/public/photos?${parametre}=${encodeURIComponent(manquants.join(","))}`)
       .then((r) => (r.ok ? r.json() : {}))
-      .then((j: { photos?: Record<string, string>; lignes?: Record<string, string> }) => {
+      .then((j: { photos?: Record<string, string>; genres?: Record<string, Genre>; lignes?: Record<string, string> }) => {
         const lues = parametre === "uids" ? j.photos : j.lignes;
-        for (const c of manquants) connus.set(c, lues?.[c] ?? null);
+        for (const c of manquants) {
+          connus.set(c, lues?.[c] ?? null);
+          if (parametre === "uids") genresConnus.set(c, j.genres?.[c] ?? null);
+        }
         if (vivant) setReponses((n) => n + 1);
       })
       .catch(() => {});
@@ -45,7 +50,12 @@ function useLecture(
  * celui de l'homme du match : le compte, la photo posée sur la ligne
  * d'effectif, sinon celle de sa fiche au club (lib/photos-sans-compte).
  */
-export function usePhotosDeLaFiche(fiche: Fiche): { parLigne: Record<string, string | null>; homme: string | null } {
+export function usePhotosDeLaFiche(fiche: Fiche): {
+  parLigne: Record<string, string | null>;
+  homme: string | null;
+  /** « Homme » ou « joueuse » du match : le compte d'abord, la catégorie de la compétition sinon. */
+  genreHomme: Genre | null;
+} {
   const lignes = Object.values(fiche.lignesPhoto);
   const parCompte = useLecture([...lignes.map((l) => l.user_id), fiche.mvp.userId], comptesConnus, "uids");
   const sansCompte = useLecture(
@@ -58,5 +68,9 @@ export function usePhotosDeLaFiche(fiche: Fiche): { parLigne: Record<string, str
   const homme = fiche.mvp.userId
     ? parCompte[fiche.mvp.userId] ?? null
     : fiche.mvp.playerId ? parLigne[fiche.mvp.playerId] ?? null : null;
-  return { parLigne, homme };
+  const genreHomme = genreDuJoueur(
+    fiche.mvp.userId ? genresConnus.get(fiche.mvp.userId) ?? null : null,
+    fiche.competition?.categorie ?? null,
+  );
+  return { parLigne, homme, genreHomme };
 }

@@ -7,6 +7,7 @@ import { libelleDuJour } from "@/lib/dates";
 import { nomCourt } from "@/lib/terrain";
 import { Ecusson } from "~/components/Ecusson";
 import { PointDirect } from "~/components/direct/PointDirect";
+import { PointsDeForme } from "~/components/fiche/Forme";
 import { urlDuSite } from "~/lib/config";
 import {
   additionnelEnCours, chronoAffiche, formatCompteARebours, libellePeriode, resteAvantCoupDEnvoi, texteDePartage,
@@ -77,6 +78,7 @@ function Camp({ camp }: { camp: CampDeFiche }) {
     <View style={styles.camp}>
       <Ecusson url={camp.logo} nom={camp.nom} taille={48} />
       <Text style={styles.nomCamp} numberOfLines={2}>{camp.nom.toUpperCase()}</Text>
+      <PointsDeForme forme={camp.forme} />
     </View>
   );
 }

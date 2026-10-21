@@ -4,6 +4,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { libelleDuJour } from "@/lib/dates";
 import { dateLongue } from "@/lib/terrains";
 import { Ecusson } from "~/components/Ecusson";
+import { FormeDesEquipes } from "~/components/fiche/Forme";
 import { useSuivi } from "~/hooks/useSuivi";
 import type { Fiche } from "~/lib/fiche-match";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
@@ -99,16 +100,21 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
     );
   }
 
-  if (lignes.length === 0) return null;
   return (
-    <View style={styles.section}>
-      <Text style={styles.titre}>DÉTAILS</Text>
-      <View style={styles.liste}>{lignes}</View>
+    <View style={styles.colonne}>
+      <FormeDesEquipes fiche={fiche} />
+      {lignes.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.titre}>DÉTAILS</Text>
+          <View style={styles.liste}>{lignes}</View>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  colonne: { gap: 16 },
   section: { marginHorizontal: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   titre: {
     paddingHorizontal: 16, paddingTop: 16, fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11),

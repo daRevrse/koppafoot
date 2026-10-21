@@ -4,6 +4,8 @@ import { OWN_GOAL_DETAIL, issuePenalty } from "@/lib/evenements";
 import { composerFil, libelleDuFait, TEXTES_FIL, type EvenementDuFil } from "@/lib/fil-du-match";
 import { libelleMinute } from "@/lib/minute-du-match";
 import { joueursDuRemplacement } from "@/lib/recit-du-match";
+import type { Genre } from "@/lib/genre";
+import { JoueurDuMatch } from "~/components/fiche/JoueurDuMatch";
 import { derouleDeLaFiche, type Fiche } from "~/lib/fiche-match";
 import { couleurs, espacement, polices } from "~/theme";
 
@@ -87,7 +89,21 @@ function Ligne({ e, droite }: { e: EvenementDuFil; droite: boolean }) {
   );
 }
 
-export function FilDuMatch({ fiche }: { fiche: Fiche }) {
+export function FilDuMatch({ fiche, photoHomme, genreHomme }: {
+  fiche: Fiche;
+  photoHomme: string | null;
+  genreHomme: Genre | null;
+}) {
+  return (
+    <View>
+      {/* Le dénouement du récit vit avec le récit (page compétition, `fil`). */}
+      <JoueurDuMatch fiche={fiche} photo={photoHomme} genre={genreHomme} />
+      <Fil fiche={fiche} />
+    </View>
+  );
+}
+
+function Fil({ fiche }: { fiche: Fiche }) {
   const events = fiche.liveState?.events ?? [];
   const vide = fiche.statut === "completed"
     ? "Aucun fait de jeu enregistré sur ce match"

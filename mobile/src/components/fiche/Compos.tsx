@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { marquesDesJoueurs } from "@/lib/recit-du-match";
@@ -9,10 +10,10 @@ import { couleurs, espacement, polices } from "~/theme";
 /**
  * Les compositions du site (components/match/MatchLineups) : une bascule
  * Domicile / Extérieur, le terrain des titulaires, le banc dessous. Les
- * visages des joueurs arrivent avec le joueur du match (PR B) ; d'ici là, la
- * pastille garde son numéro — c'est le cas courant chez les amateurs.
+ * visages viennent des comptes et des effectifs (hooks/usePhotos) ; sans
+ * photo, la pastille garde son numéro — c'est le cas courant chez les amateurs.
  */
-export function Compos({ fiche }: { fiche: Fiche }) {
+export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string, string | null> }) {
   // L'extérieur d'abord si le domicile n'a pas de feuille, comme sur le site.
   const [cote, setCote] = useState<"home" | "away">(
     fiche.domicile.lineup.length === 0 && fiche.exterieur.lineup.length > 0 ? "away" : "home",
@@ -58,7 +59,7 @@ export function Compos({ fiche }: { fiche: Fiche }) {
           </Text>
         </View>
       ) : (
-        <Terrain titulaires={titulaires} formation={camp.formation} marques={marques} homme={fiche.mvp.playerId} />
+        <Terrain titulaires={titulaires} formation={camp.formation} photos={photos} marques={marques} homme={fiche.mvp.playerId} />
       )}
 
       {remplacants.length > 0 ? (
@@ -67,11 +68,16 @@ export function Compos({ fiche }: { fiche: Fiche }) {
           {remplacants.map((r) => {
             const entre = marques[r.playerId]?.entreeA ?? null;
             return (
-              <Text key={r.playerId} style={styles.remplacant}>
-                <Text style={styles.numero}>{`${r.number || "–"} `}</Text>
-                {r.name}
-                {entre !== null ? <Text style={styles.entre}>{`  ↑ ${entre}'`}</Text> : null}
-              </Text>
+              <View key={r.playerId} style={styles.remplacantBloc}>
+                {photos[r.playerId] ? (
+                  <Image source={{ uri: photos[r.playerId] as string }} style={styles.visage} contentFit="cover" />
+                ) : null}
+                <Text style={styles.remplacant}>
+                  <Text style={styles.numero}>{`${r.number || "–"} `}</Text>
+                  {r.name}
+                  {entre !== null ? <Text style={styles.entre}>{`  ↑ ${entre}'`}</Text> : null}
+                </Text>
+              </View>
             );
           })}
         </View>
@@ -95,6 +101,8 @@ const styles = StyleSheet.create({
   videTexte: { fontFamily: polices.texteDemi, fontSize: 12, color: couleurs.texteDiscret, textAlign: "center" },
   banc: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 12, rowGap: 6 },
   bancTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: couleurs.texteDiscret },
+  remplacantBloc: { flexDirection: "row", alignItems: "center", gap: 6 },
+  visage: { width: 20, height: 20, borderRadius: 10 },
   remplacant: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteSecondaire },
   numero: { color: couleurs.texteDiscret },
   entre: { color: couleurs.primaire },
