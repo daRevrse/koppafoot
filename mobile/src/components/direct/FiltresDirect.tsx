@@ -27,7 +27,7 @@ export function FiltresDirect({ filtre, onChange }: { filtre: FiltreDirect; onCh
 }
 
 const styles = StyleSheet.create({
-  defilement: { flexGrow: 0 },
+  defilement: { flexGrow: 0, flexShrink: 0 },
   rangee: { gap: 8, paddingHorizontal: 16, paddingBottom: 8, alignItems: "center" },
   puce: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1,

@@ -49,7 +49,9 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
       showsHorizontalScrollIndicator={false}
       scrollEnabled={actif}
       // flexGrow: 0, comme les filtres : une liste horizontale dans une
-      // colonne prendrait sinon toute la hauteur libre.
+      // colonne prendrait sinon toute la hauteur libre. flexShrink: 0 : sur le
+      // web, la liste des matchs en dessous l'écrasait, et les points
+      // passaient sous les filtres.
       style={[styles.frise, !actif && styles.inactive]}
       contentContainerStyle={styles.rangee}
       getItemLayout={(_, i) => ({ length: LARGEUR + ECART, offset: MARGE + (LARGEUR + ECART) * i, index: i })}
@@ -78,7 +80,7 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
 }
 
 const styles = StyleSheet.create({
-  frise: { flexGrow: 0 },
+  frise: { flexGrow: 0, flexShrink: 0 },
   inactive: { opacity: 0.4 },
   rangee: { paddingHorizontal: MARGE, paddingVertical: 8 },
   case: { width: LARGEUR, marginRight: ECART, paddingVertical: 8, borderRadius: 12, alignItems: "center", gap: 2 },

@@ -12,7 +12,19 @@ import { couleurs, polices } from "~/theme";
 export function Ecusson({ url, nom, taille = 22 }: { url: string | null; nom: string; taille?: number }) {
   const dimensions = { width: taille, height: taille, borderRadius: taille / 2 };
   if (url && url.startsWith("http")) {
-    return <Image source={{ uri: url }} style={dimensions} contentFit="contain" accessibilityIgnoresInvertColors />;
+    // Un disque clair, comme le site pose les blasons sur leur propre fond :
+    // les logos sont dessinés pour un fond blanc, et les noirs s'effacent ici.
+    const interieur = Math.round(taille * 0.78);
+    return (
+      <View style={[styles.disque, dimensions]}>
+        <Image
+          source={{ uri: url }}
+          style={{ width: interieur, height: interieur }}
+          contentFit="contain"
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+    );
   }
   return (
     <View style={[styles.rond, dimensions]}>
@@ -23,5 +35,6 @@ export function Ecusson({ url, nom, taille = 22 }: { url: string | null; nom: st
 
 const styles = StyleSheet.create({
   rond: { backgroundColor: couleurs.surfaceHaute, alignItems: "center", justifyContent: "center" },
+  disque: { backgroundColor: couleurs.fondEcusson, alignItems: "center", justifyContent: "center" },
   initiales: { fontFamily: polices.texteGras, color: couleurs.texteSecondaire },
 });

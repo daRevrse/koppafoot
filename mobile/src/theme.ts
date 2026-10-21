@@ -20,6 +20,8 @@ export const couleurs = {
   direct: "#FC8181",
   accent: "#FBBF24",
   erreur: "#FCA5A5",
+  /** Le disque clair sous un blason : un logo noir (Ligue des champions) disparaît sinon sur le fond. */
+  fondEcusson: "#F2F7F4",
 } as const;
 
 /** Champs et boutons ; cartes. */

@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   lien: { minHeight: 40 },
   inactif: { opacity: 0.5 },
   presse: { opacity: 0.8 },
-  libelle: { fontSize: 15, fontFamily: polices.texteGras },
+  libelle: { fontSize: 15, fontFamily: polices.texteGras, textAlign: "center" },
 });
 
 // Le plein porte le fond de l'écran sur le vert : le blanc n'y faisait que 3,8.
