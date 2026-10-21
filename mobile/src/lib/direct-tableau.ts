@@ -7,6 +7,7 @@
 // comme le Direct du site une fois connecté.
 // ============================================
 
+import { decalerDeJours } from "@/lib/dates";
 import { kickoff, ordreDesCompetitions, type CompetitionFeed, type Entry } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION } from "@/lib/friendlies-shared";
 import type { Competition, CompMatch } from "@/types";
@@ -62,10 +63,30 @@ export function groupesDuTableau(feed: CompetitionFeed[], { jour, filtre, suivie
  * l'emporte sur le dernier joué, comme sur le site.
  */
 export function jourLePlusProche(feed: CompetitionFeed[], jour: string): string | null {
-  const dates = [
-    ...new Set(entreesDuFlux(feed).map((e) => e.match.date).filter((d): d is string => d != null)),
-  ].sort();
+  const dates = [...joursAvecMatchs(feed)].sort();
   return dates.find((d) => d > jour) ?? [...dates].reverse().find((d) => d < jour) ?? null;
+}
+
+/** Les jours qui ont au moins un match : un point sous leur case dans la frise. */
+export function joursAvecMatchs(feed: CompetitionFeed[]): Set<string> {
+  return new Set(entreesDuFlux(feed).map((e) => e.match.date).filter((d): d is string => d != null));
+}
+
+/**
+ * Les cases de la frise : une semaine de part et d'autre d'aujourd'hui,
+ * élargie jusqu'au jour choisi s'il en sort. « Voir mardi 30 » depuis un jour
+ * vide doit tomber sur une case visible.
+ *
+ * Les clés « 2026-09-24 » se comparent comme des chaînes.
+ */
+export function joursDeLaFrise(aujourdhui: string, choisi: string, rayon = 7): string[] {
+  let debut = decalerDeJours(aujourdhui, -rayon);
+  let fin = decalerDeJours(aujourdhui, rayon);
+  if (choisi < debut) debut = choisi;
+  if (choisi > fin) fin = choisi;
+  const jours: string[] = [];
+  for (let j = debut; j <= fin; j = decalerDeJours(j, 1)) jours.push(j);
+  return jours;
 }
 
 export function compterEnDirect(feed: CompetitionFeed[]): number {

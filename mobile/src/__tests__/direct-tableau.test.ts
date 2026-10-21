@@ -2,7 +2,8 @@ import type { CompetitionFeed } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION } from "@/lib/friendlies-shared";
 import type { Competition, CompMatch } from "@/types";
 import {
-  appliquerEcoutes, compterEnDirect, fusionnerAmicaux, groupesDuTableau, jourLePlusProche, remplacerMatchs,
+  appliquerEcoutes, compterEnDirect, fusionnerAmicaux, groupesDuTableau, jourLePlusProche, joursAvecMatchs,
+  joursDeLaFrise, remplacerMatchs,
 } from "~/lib/direct-tableau";
 
 const comp = (id: string): Competition => ({ id, slug: id, name: id } as Competition);
@@ -92,5 +93,32 @@ describe("temps réel", () => {
 
   it("compterEnDirect", () => {
     expect(compterEnDirect(flux)).toBe(1);
+  });
+});
+
+describe("joursDeLaFrise", () => {
+  it("quinze jours autour d'aujourd'hui", () => {
+    const j = joursDeLaFrise("2026-09-24", "2026-09-24");
+    expect(j).toHaveLength(15);
+    expect(j[0]).toBe("2026-09-17");
+    expect(j[14]).toBe("2026-10-01");
+  });
+
+  it("s'étend jusqu'au jour choisi quand il sort de la fenêtre", () => {
+    const apres = joursDeLaFrise("2026-09-24", "2026-10-05");
+    expect(apres[0]).toBe("2026-09-17");
+    expect(apres[apres.length - 1]).toBe("2026-10-05");
+    const avant = joursDeLaFrise("2026-09-24", "2026-09-10");
+    expect(avant[0]).toBe("2026-09-10");
+    expect(avant[avant.length - 1]).toBe("2026-10-01");
+  });
+});
+
+describe("joursAvecMatchs", () => {
+  it("les dates des matchs, sans les dates absentes", () => {
+    const f: CompetitionFeed[] = [
+      { competition: comp("x"), matches: [match("a"), match("b", { date: null }), match("c", { date: "2026-09-27" })] },
+    ];
+    expect([...joursAvecMatchs(f)].sort()).toEqual(["2026-09-24", "2026-09-27"]);
   });
 });
