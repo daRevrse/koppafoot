@@ -3,7 +3,7 @@ import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION } from "@/lib/friendlies-shared"
 import type { Competition, CompMatch } from "@/types";
 import {
   appliquerEcoutes, compterEnDirect, fusionnerAmicaux, groupesDuTableau, jourLePlusProche, joursAvecMatchs,
-  joursDeLaFrise, remplacerMatchs,
+  basculerRepli, joursDeLaFrise, remplacerMatchs, sectionsDuDirect,
 } from "~/lib/direct-tableau";
 
 const comp = (id: string): Competition => ({ id, slug: id, name: id } as Competition);
@@ -120,5 +120,24 @@ describe("joursAvecMatchs", () => {
       { competition: comp("x"), matches: [match("a"), match("b", { date: null }), match("c", { date: "2026-09-27" })] },
     ];
     expect([...joursAvecMatchs(f)].sort()).toEqual(["2026-09-24", "2026-09-27"]);
+  });
+});
+
+describe("le repli d'une compétition", () => {
+  const groupes = groupesDuTableau(flux, { jour: JOUR, filtre: "tous", suivies: new Set() });
+
+  it("une compétition repliée garde son nombre de matchs, sans ses lignes", () => {
+    const sections = sectionsDuDirect(groupes, new Set(["coupe"]));
+    const coupe = sections.find((s) => s.key === "coupe")!;
+    expect(coupe).toMatchObject({ repliee: true, nombre: 2, data: [] });
+    const monde = sections.find((s) => s.key === "__monde__PL")!;
+    expect(monde).toMatchObject({ repliee: false, nombre: 1 });
+    expect(monde.data).toHaveLength(1);
+  });
+
+  it("un toucher replie, le suivant déplie", () => {
+    const une = basculerRepli(new Set(), "coupe");
+    expect([...une]).toEqual(["coupe"]);
+    expect([...basculerRepli(une, "coupe")]).toEqual([]);
   });
 });

@@ -57,6 +57,43 @@ export function groupesDuTableau(feed: CompetitionFeed[], { jour, filtre, suivie
   return [...parCompetition.values()].sort((a, b) => ordreDesCompetitions(a.entries, b.entries));
 }
 
+/** Une compétition du tableau, telle que la liste l'affiche : repliée ou non. */
+export interface SectionDuDirect {
+  key: string;
+  competition: Competition;
+  /** Les matchs affichés : aucun quand la compétition est repliée. */
+  data: Entry[];
+  /** Le nombre de matchs, replié ou non : l'en-tête l'affiche toujours. */
+  nombre: number;
+  repliee: boolean;
+}
+
+/**
+ * Les sections de la liste. UNE COMPÉTITION REPLIÉE GARDE SON EN-TÊTE et son
+ * nombre de matchs, comme sur le site (CompetitionGroup) : on replie ce qu'on
+ * ne suit pas ce jour-là, on ne le perd pas.
+ */
+export function sectionsDuDirect(groupes: GroupeDirect[], replies: ReadonlySet<string>): SectionDuDirect[] {
+  return groupes.map((g) => {
+    const repliee = replies.has(g.competition.id);
+    return {
+      key: g.competition.id,
+      competition: g.competition,
+      data: repliee ? [] : g.entries,
+      nombre: g.entries.length,
+      repliee,
+    };
+  });
+}
+
+/** Le chevron d'un en-tête : replie une compétition ouverte, déplie une repliée. */
+export function basculerRepli(replies: ReadonlySet<string>, cid: string): Set<string> {
+  const suivantes = new Set(replies);
+  if (suivantes.has(cid)) suivantes.delete(cid);
+  else suivantes.add(cid);
+  return suivantes;
+}
+
 /**
  * Le jour joué le plus proche quand celui choisi est vide : un calendrier
  * amateur a des trous, et un tableau blanc a l'air cassé. Le prochain jour

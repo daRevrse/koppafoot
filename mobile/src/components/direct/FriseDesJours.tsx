@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { libelleDuJour } from "@/lib/dates";
-import { couleurs, polices } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
 
 const LARGEUR = 48;
 const ECART = 6;
@@ -21,7 +21,7 @@ interface Props {
 function etiquette(cle: string, aujourdhui: string): { haut: string; bas: string } {
   const d = new Date(`${cle}T00:00:00`);
   return {
-    haut: cle === aujourdhui ? "Auj." : d.toLocaleDateString("fr-FR", { weekday: "short" }),
+    haut: (cle === aujourdhui ? "Auj." : d.toLocaleDateString("fr-FR", { weekday: "short" })).toUpperCase(),
     bas: String(d.getDate()),
   };
 }
@@ -67,11 +67,13 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
             accessibilityState={{ selected: choisi, disabled: !actif }}
             disabled={!actif}
             onPress={() => onChange(item)}
-            style={[styles.case, choisi && styles.caseChoisie]}
+            style={styles.case}
           >
-            <Text style={[styles.haut, choisi && styles.surPrimaire]}>{haut}</Text>
-            <Text style={[styles.bas, choisi && styles.surPrimaire]}>{bas}</Text>
-            <View style={[styles.point, aDesMatchs && (choisi ? styles.pointChoisi : styles.pointPlein)]} />
+            <Text style={[styles.haut, choisi && styles.hautChoisi]}>{haut}</Text>
+            <Text style={[styles.bas, choisi && styles.basChoisi]}>{bas}</Text>
+            <View style={[styles.point, aDesMatchs && styles.pointPlein]} />
+            {/* Le souligné des onglets du site (h-0.5 bg-emerald-500). */}
+            <View style={[styles.souligne, choisi && styles.souligneChoisi]} />
           </Pressable>
         );
       }}
@@ -80,15 +82,16 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
 }
 
 const styles = StyleSheet.create({
-  frise: { flexGrow: 0, flexShrink: 0 },
+  frise: { flexGrow: 0, flexShrink: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure },
   inactive: { opacity: 0.4 },
-  rangee: { paddingHorizontal: MARGE, paddingVertical: 8 },
-  case: { width: LARGEUR, marginRight: ECART, paddingVertical: 8, borderRadius: 12, alignItems: "center", gap: 2 },
-  caseChoisie: { backgroundColor: couleurs.primaire },
-  haut: { fontFamily: polices.texteMoyen, fontSize: 11, color: couleurs.texteDiscret },
-  bas: { fontFamily: polices.titreMoyen, fontSize: 17, color: couleurs.texte },
-  surPrimaire: { color: couleurs.surPrimaire },
-  point: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+  rangee: { paddingHorizontal: MARGE },
+  case: { width: LARGEUR, marginRight: ECART, paddingTop: 8, alignItems: "center", gap: 2 },
+  haut: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.08), color: couleurs.texteDiscret },
+  hautChoisi: { color: couleurs.texte },
+  bas: { fontFamily: polices.texteNoir, fontSize: 16, color: couleurs.texteSecondaire },
+  basChoisi: { color: couleurs.texte },
+  point: { width: 4, height: 4, borderRadius: 2 },
   pointPlein: { backgroundColor: couleurs.primaire },
-  pointChoisi: { backgroundColor: couleurs.surPrimaire },
+  souligne: { alignSelf: "stretch", height: 2, marginTop: 4 },
+  souligneChoisi: { backgroundColor: "#10b981" },
 });

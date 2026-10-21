@@ -1,6 +1,6 @@
 import { Animated, StyleSheet, View } from "react-native";
 import { useRespiration } from "~/hooks/useRespiration";
-import { couleurs, rayons } from "~/theme";
+import { couleurs } from "~/theme";
 
 /** Deux compétitions, la première avec deux matchs, la seconde avec un. */
 const GROUPES = [2, 1];
@@ -31,8 +31,14 @@ export function SqueletteDirect() {
 }
 
 const styles = StyleSheet.create({
-  entete: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  rond: { width: 24, height: 24, borderRadius: 12, backgroundColor: couleurs.surfaceHaute },
-  titre: { width: 140, height: 12, borderRadius: 6, backgroundColor: couleurs.surfaceHaute },
-  carte: { height: 84, marginHorizontal: 12, marginBottom: 8, borderRadius: rayons.carte, backgroundColor: couleurs.surface },
+  entete: {
+    flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: couleurs.surfaceHaute,
+  },
+  rond: { width: 26, height: 26, borderRadius: 13, backgroundColor: couleurs.bordure },
+  titre: { width: 140, height: 10, backgroundColor: couleurs.bordure },
+  carte: {
+    height: 56, backgroundColor: couleurs.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
+  },
 });
