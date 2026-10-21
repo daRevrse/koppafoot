@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, onSnapshot, orderBy, query, type Unsubscribe,
+  collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, where, type Unsubscribe,
 } from "firebase/firestore";
 import { toCompetition, toCompMatch, toCompTeam } from "@/lib/competition-mappers";
 import { toMatch } from "@/lib/match-mappers";
@@ -34,6 +34,22 @@ export function ecouterEquipesCompetition(cid: string, cb: (equipes: CompTeam[])
 export async function lireCompetition(cid: string): Promise<Competition | null> {
   const snap = await getDoc(doc(db, "competitions", cid));
   return snap.exists() ? toCompetition(snap.id, snap.data() as FirestoreCompetition) : null;
+}
+
+const cidsConnus = new Map<string, string | null>();
+
+/**
+ * L'identifiant d'une compétition d'après son slug (la requête de
+ * `getCompetitionBySlug` du site) : les liens des notifications portent le
+ * slug. Gardé le temps de l'application. `null` si aucune ne le porte.
+ */
+export async function cidDuSlug(slug: string): Promise<string | null> {
+  const connu = cidsConnus.get(slug);
+  if (connu !== undefined) return connu;
+  const snap = await getDocs(query(collection(db, "competitions"), where("slug", "==", slug), limit(1)));
+  const cid = snap.empty ? null : snap.docs[0].id;
+  cidsConnus.set(slug, cid);
+  return cid;
 }
 
 /** Un amical, en direct. `null` s'il n'existe pas (ou plus). */

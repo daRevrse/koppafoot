@@ -8,9 +8,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { useNotificationTouchee } from "~/lib/notification-touchee";
-import { lienDeLaNotification, suivreLeJeton } from "~/lib/push";
+import { lienDeLaNotification, ouvrirLaNotification, suivreLeJeton } from "~/lib/push";
 import { couleurs } from "~/theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -86,19 +85,21 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
   const uid = utilisateur?.uid;
   useEffect(() => (uid ? suivreLeJeton(uid) : undefined), [uid]);
 
-  // UN TOUCHER SUR UNE NOTIFICATION ouvre la page qu'elle annonce, dans le
-  // navigateur intégré, comme les fiches du Direct — y compris quand c'est ce
+  // UN TOUCHER SUR UNE NOTIFICATION ouvre ce qu'elle annonce : la fiche du
+  // match, la page de la compétition ou de l'équipe, dans l'application ; le
+  // reste sur le site (voir ouvrirLaNotification) — y compris quand c'est ce
   // toucher qui a lancé l'application. Une réponse n'est ouverte qu'une fois.
   const reponse = useNotificationTouchee();
   const dejaOuverte = useRef<string | null>(null);
+  const ecransOuverts = accueil.vu && !profilManquant;
   useEffect(() => {
     if (!pret || !reponse) return;
     const id = reponse.notification.request.identifier;
     const lien = lienDeLaNotification(reponse);
     if (!lien || dejaOuverte.current === id) return;
     dejaOuverte.current = id;
-    ouvrirSurLeSite(lien);
-  }, [pret, reponse]);
+    void ouvrirLaNotification(lien, ecransOuverts);
+  }, [pret, reponse, ecransOuverts]);
 
   if (!pret) return null;
 
