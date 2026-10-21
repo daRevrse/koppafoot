@@ -104,6 +104,12 @@ export interface Fiche {
   dureeProlongation?: number;
   /** Le chemin de la page web, pour le partage et « Voir sur le site ». */
   lienSite: string;
+  /**
+   * Ceux qui suppriment un message du tchat en plus de son auteur : le staff
+   * de la compétition, ou les managers et modérateurs d'un amical. Le serveur
+   * refait le contrôle (lib/tchat-serveur) ; ceci n'affiche que le bouton.
+   */
+  moderateurs: string[];
 }
 
 type MatchCommun = CompMatch | Match;
@@ -258,6 +264,7 @@ export function ficheDepuisCompetition(
     dureeMiTemps,
     dureeProlongation: competition.format ? extraTimeDuration(competition.format) : undefined,
     lienSite: `/c/${competition.slug}/matches/${match.id}`,
+    moderateurs: [...(competition.organizerIds ?? []), ...(competition.moderatorIds ?? [])],
   };
 }
 
@@ -308,6 +315,7 @@ export function ficheDepuisAmical(match: Match): Fiche {
     ),
     dureeMiTemps: DEFAULT_HALF_DURATION,
     lienSite: `/matches/${match.id}`,
+    moderateurs: [match.managerId, match.awayManagerId, ...(match.moderatorIds ?? [])].filter((u): u is string => !!u),
   };
 }
 

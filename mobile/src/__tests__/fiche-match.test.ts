@@ -193,3 +193,15 @@ describe("le contexte d'une rencontre de compétition", () => {
     expect(ongletsDeLaFiche(a, { tchatVisible: false })).not.toContain("standings");
   });
 });
+
+describe("qui modère le tchat", () => {
+  it("le staff de la compétition", () => {
+    const comp = { ...competition, organizerIds: ["o1"], moderatorIds: ["m1"] } as Competition;
+    expect(ficheDepuisCompetition(rencontre(), comp, []).moderateurs).toEqual(["o1", "m1"]);
+  });
+
+  it("les deux managers et les modérateurs d'un amical", () => {
+    const a = ficheDepuisAmical(amical({ managerId: "g1", awayManagerId: "g2", moderatorIds: ["m1"] } as Partial<Match>));
+    expect(a.moderateurs).toEqual(["g1", "g2", "m1"]);
+  });
+});
