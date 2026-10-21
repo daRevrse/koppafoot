@@ -1,6 +1,5 @@
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
-import { useLastNotificationResponse } from "expo-notifications";
 import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -8,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
+import { useNotificationTouchee } from "~/lib/notification-touchee";
 import { lienDeLaNotification, suivreLeJeton } from "~/lib/push";
 import { couleurs } from "~/theme";
 
@@ -86,7 +86,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
   // UN TOUCHER SUR UNE NOTIFICATION ouvre la page qu'elle annonce, dans le
   // navigateur intégré, comme les fiches du Direct — y compris quand c'est ce
   // toucher qui a lancé l'application. Une réponse n'est ouverte qu'une fois.
-  const reponse = useLastNotificationResponse();
+  const reponse = useNotificationTouchee();
   const dejaOuverte = useRef<string | null>(null);
   useEffect(() => {
     if (!pret || !reponse) return;
