@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Competition, CompMatch, CompTeam, Match } from "@/types";
 import { usePremierPlan } from "~/hooks/usePremierPlan";
+import { ecouterMatchsCompetition } from "~/lib/direct-firestore";
 import { ecouterAmical, ecouterEquipesCompetition, ecouterMatchCompetition, lireCompetition } from "~/lib/fiche-firestore";
 import { ficheDepuisAmical, ficheDepuisCompetition, type Fiche } from "~/lib/fiche-match";
 
@@ -15,7 +16,8 @@ export interface EtatDeLaFiche {
 /**
  * Une rencontre de compétition, en temps réel.
  *
- * La compétition se lit une fois ; le match et les équipes s'écoutent, et les
+ * La compétition se lit une fois ; le match, les équipes et les autres
+ * matchs (forme, poule, face-à-face) s'écoutent, et les
  * écouteurs se coupent en arrière-plan, comme ceux du Direct (voir useDirect).
  */
 export function useFicheCompetition(cid: string, mid: string): EtatDeLaFiche {
@@ -23,6 +25,8 @@ export function useFicheCompetition(cid: string, mid: string): EtatDeLaFiche {
   const [competition, setCompetition] = useState<Competition | null | undefined>(undefined);
   const [match, setMatch] = useState<CompMatch | null | undefined>(undefined);
   const [equipes, setEquipes] = useState<CompTeam[]>([]);
+  // Les autres matchs : la forme, la poule, le face-à-face.
+  const [matchs, setMatchs] = useState<CompMatch[]>([]);
 
   useEffect(() => {
     let vivant = true;
@@ -40,13 +44,17 @@ export function useFicheCompetition(cid: string, mid: string): EtatDeLaFiche {
 
   useEffect(() => {
     if (!actif) return;
-    const arrets = [ecouterMatchCompetition(cid, mid, setMatch), ecouterEquipesCompetition(cid, setEquipes)];
+    const arrets = [
+      ecouterMatchCompetition(cid, mid, setMatch),
+      ecouterEquipesCompetition(cid, setEquipes),
+      ecouterMatchsCompetition(cid, setMatchs),
+    ];
     return () => arrets.forEach((arret) => arret());
   }, [actif, cid, mid]);
 
   const fiche = useMemo(
-    () => (match && competition ? ficheDepuisCompetition(match, competition, equipes) : null),
-    [match, competition, equipes],
+    () => (match && competition ? ficheDepuisCompetition(match, competition, equipes, matchs) : null),
+    [match, competition, equipes, matchs],
   );
   return {
     fiche,
