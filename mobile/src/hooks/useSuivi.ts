@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { useAuth } from "~/lib/auth";
 import { suivreCompetition } from "~/lib/direct-firestore";
+import { retourImpact } from "~/lib/retour";
 import { mettreEnAttente } from "~/lib/suivi-en-attente";
 
 /**
@@ -28,6 +29,7 @@ export function useSuivi() {
 
   const basculer = useCallback(
     async (cid: string) => {
+      retourImpact();
       if (!profil) {
         // Connecté, mais le profil n'a pas pu être lu (réseau) : la connexion
         // lui est fermée par la garde, il n'y a rien à ouvrir.
