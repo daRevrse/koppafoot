@@ -30,7 +30,8 @@ describe("raisonDeNePasSupprimer", () => {
   });
 
   it("refuse un match qui attend des qualifiés", () => {
-    const m = match("m", { stage: "knockout", homeSource: { type: "winner", matchId: "q" } as CompMatch["homeSource"] });
+    // Le premier de la poule A, qu'on ne connaît pas encore.
+    const m = match("m", { stage: "knockout", homeSource: { kind: "group_rank", group: "A", rank: 1 } });
     expect(raisonDeNePasSupprimer(m, [m])).toMatch(/tableau final/);
   });
 
